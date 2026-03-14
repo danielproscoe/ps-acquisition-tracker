@@ -276,7 +276,7 @@ export default function App() {
   const fileRef = useRef();
   const [reviewInputs, setReviewInputs] = useState({});
   const [msgInputs, setMsgInputs] = useState({});
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("city");
   const [highlightedSite, setHighlightedSite] = useState(null);
   const [shareLink, setShareLink] = useState(null);
   const [seeded, setSeeded] = useState(false);
