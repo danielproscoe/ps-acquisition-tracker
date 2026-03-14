@@ -1314,6 +1314,12 @@ export default function App() {
                             <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
                             <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
                             <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Property Listing</a>
+                            <button onClick={() => {
+                              const docs = site.docs ? Object.values(site.docs) : [];
+                              const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
+                              if (vr && vr.url) { window.open(vr.url, "_blank"); }
+                              else { autoGenerateVettingReport(regionKey, site.id, site); setTimeout(() => alert("Vetting report generated! Click again to view."), 1500); }
+                            }} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
                           </div>
                         )}
                       </div>
