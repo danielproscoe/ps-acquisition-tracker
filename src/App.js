@@ -188,6 +188,57 @@ const fetchDemographics = async (coordinates) => {
   }
 };
 
+  // ─── Vetting Report PDF Generator ───
+  const openVettingReportPDF = (site) => {
+    const w = window.open("", "_blank");
+    if (!w) { alert("Please allow popups for this site"); return; }
+    const pop3mi = site.pop3mi || "N/A";
+    const income3mi = site.income3mi || "N/A";
+    const acreage = site.acreage || "N/A";
+    const askingPrice = site.askingPrice || "N/A";
+    const zoning = site.zoning || "Not verified";
+    const phase = site.phase || "Prospect";
+    const priority = site.priority || "\u2014";
+    const sellerBroker = site.sellerBroker || "N/A";
+    const summary = site.summary || "No summary available.";
+    const coords = site.coordinates || "";
+    const mapUrl = coords ? "https://www.google.com/maps?q=" + coords : "";
+    const now = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const popNum = parseInt(String(pop3mi).replace(/[^0-9]/g, "")) || 0;
+    const incNum = parseInt(String(income3mi).replace(/[^0-9]/g, "")) || 0;
+    const popScore = popNum >= 50000 ? "PASS" : popNum >= 20000 ? "MARGINAL" : "BELOW";
+    const incScore = incNum >= 70000 ? "PASS" : incNum >= 55000 ? "MARGINAL" : "BELOW";
+    const acreNum = parseFloat(String(acreage).replace(/[^0-9.]/g, "")) || 0;
+    const sizeScore = acreNum >= 3.5 ? "PASS" : acreNum >= 2.5 ? "MARGINAL" : "BELOW";
+    const badgeColor = (s) => s === "PASS" ? "#2e7d32" : s === "MARGINAL" ? "#e65100" : "#c62828";
+    const badge = (label, val, score) => "<span style=\"display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;background:" + badgeColor(score) + "\">" + label + ": " + val + " (" + score + ")</span>";
+    const html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Vetting Report - " + (site.name || site.city || "Site") + "</title>"
+      + "<style>* { margin:0; padding:0; box-sizing:border-box; } body { font-family:DM Sans,Segoe UI,sans-serif; color:#1a1a2e; background:#f4f6fb; } .page { max-width:850px; margin:0 auto; background:#fff; box-shadow:0 2px 20px rgba(0,0,0,0.08); } .header { background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%); color:#fff; padding:36px 40px 28px; } .header h1 { font-size:22px; font-weight:700; letter-spacing:0.5px; margin-bottom:4px; } .header .subtitle { font-size:13px; opacity:0.8; } .accent-bar { height:4px; background:linear-gradient(90deg,#E65100,#F37C33,#FFB74D); } .content { padding:32px 40px; } .section { margin-bottom:24px; } .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1a1a2e; border-bottom:2px solid #E65100; padding-bottom:6px; margin-bottom:14px; } .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; } .field { display:flex; flex-direction:column; } .field-label { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:#888; font-weight:600; } .field-value { font-size:14px; font-weight:500; margin-top:2px; } .badges { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; } .summary-box { background:#f8f9fc; border-left:3px solid #E65100; padding:14px 18px; font-size:13px; line-height:1.6; border-radius:0 6px 6px 0; } .print-btn { display:block; margin:24px auto; padding:10px 32px; background:#1a1a2e; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; } .footer { text-align:center; padding:16px; font-size:10px; color:#999; border-top:1px solid #eee; } @media print { .print-btn { display:none !important; } body { background:#fff; } .page { box-shadow:none; } }</style></head><body>"
+      + "<div class=\"page\"><div class=\"header\"><h1>VETTING REPORT</h1><div class=\"subtitle\">" + (site.name || site.city || "") + ", " + (site.state || "") + " | " + now + "</div></div><div class=\"accent-bar\"></div><div class=\"content\">"
+      + "<div class=\"section\"><div class=\"section-title\">Property Overview</div><div class=\"grid\">"
+      + "<div class=\"field\"><span class=\"field-label\">Address</span><span class=\"field-value\">" + (site.address || "N/A") + "</span></div>"
+      + "<div class=\"field\"><span class=\"field-label\">City / State</span><span class=\"field-value\">" + (site.city || "") + ", " + (site.state || "") + "</span></div>"
+      + "<div class=\"field\"><span class=\"field-label\">Market</span><span class=\"field-value\">" + (site.market || "N/A") + "</span></div>"
+      + "<div class=\"field\"><span class=\"field-label\">Region</span><span class=\"field-value\">" + (site.region || "N/A") + "</span></div>"
+      + "<div class=\"field\"><span class=\"field-label\">Acreage</span><span class=\"field-value\">" + acreage + "</span></div>"
+      + "<div class=\"field\"><span class=\"field-label\">Asking Price</span><span class=\"field-value\">" + askingPrice + "</span></div>"
+      + "<div class=\"field\"><span class=\"field-label\">Phase</span><span class=\"field-value\">" + phase + "</span></div>"
+      + "<div class=\"field\"><span class=\"field-label\">Priority</span><span class=\"field-value\">" + priority + "</span></div>"
+      + "</div></div>"
+      + "<div class=\"section\"><div class=\"section-title\">Zoning</div><div class=\"field\"><span class=\"field-label\">Current Zoning</span><span class=\"field-value\">" + zoning + "</span></div></div>"
+      + "<div class=\"section\"><div class=\"section-title\">Demographics (3-Mile Radius)</div><div class=\"grid\"><div class=\"field\"><span class=\"field-label\">Population</span><span class=\"field-value\">" + pop3mi + "</span></div><div class=\"field\"><span class=\"field-label\">Median HH Income</span><span class=\"field-value\">" + income3mi + "</span></div></div><div class=\"badges\">" + badge("Population", pop3mi, popScore) + " " + badge("Income", income3mi, incScore) + "</div></div>"
+      + "<div class=\"section\"><div class=\"section-title\">Site Sizing Assessment</div><div class=\"badges\">" + badge("Acreage", acreage, sizeScore) + "</div><p style=\"font-size:13px;color:#555;margin-top:8px\">Target: 3.5\u20135 ac (one-story) or 2.5\u20133.5 ac (multi-story)</p></div>"
+      + "<div class=\"section\"><div class=\"section-title\">Broker / Seller</div><div class=\"field\"><span class=\"field-label\">Seller Broker</span><span class=\"field-value\">" + sellerBroker + "</span></div>" + (mapUrl ? "<div style=\"margin-top:8px\"><a href=\"" + mapUrl + "\" target=\"_blank\" style=\"color:#1565C0;font-size:13px\">View on Google Maps</a></div>" : "") + "</div>"
+      + "<div class=\"section\"><div class=\"section-title\">Red Flags</div><p style=\"font-size:13px;color:#555\">Review access, flood zone, environmental, and shape concerns during full due diligence.</p></div>"
+      + "<div class=\"section\"><div class=\"section-title\">Summary</div><div class=\"summary-box\">" + summary.replace(/\n/g, "<br>") + "</div></div>"
+      + "</div>"
+      + "<button class=\"print-btn\" onclick=\"window.print()\">Save as PDF / Print</button>"
+      + "<div class=\"footer\">Generated by PS Acquisition Tracker | DJR Real Estate LLC</div>"
+      + "</div></body></html>";
+    w.document.write(html);
+    w.document.close();
+  };
+
 // ─── Vetting Report Generator ───
 const generateVettingReport = (site, nearestPSDistance) => {
   const lines = [];
@@ -1496,6 +1547,11 @@ export default function App() {
                         })()}
                       </div>
 
+                      {/* Quick Action Buttons */}
+                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                        <button onClick={(e) => { e.stopPropagation(); openVettingReportPDF(site); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1E3A5F,#1565C0)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 6px rgba(21,101,192,0.25)" }}>Vetting Report</button>
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, background: "linear-gradient(135deg,#E65100,#F37C33)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>Property Listing</a>}
+                      </div>
                       {/* Summary */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, margin: "14px 0", border: "1px solid #E2E8F0" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 6 }}>Recent Summary</div>
