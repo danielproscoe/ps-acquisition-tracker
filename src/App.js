@@ -144,7 +144,7 @@ const fetchDemographics = async (coordinates) => {
     const trFips = blockFips.substring(5, 11);
     // Step 2: Fetch ACS 5-Year data for the tract (B01003_001E=population, B19013_001E=median HHI)
     const acsRes = await fetch(
-      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
+      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E,B25077_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
     );
     const acsData = await acsRes.json();
     if (!acsData || acsData.length < 2) return { error: "No ACS data for tract" };
@@ -152,6 +152,7 @@ const fetchDemographics = async (coordinates) => {
     const pop = parseInt(row[0], 10);
     const income = parseInt(row[1], 10);
     const hh = parseInt(row[2], 10);
+    const homeVal = parseInt(row[3], 10);
     // Estimate ring radii: multiply tract values by scaling factors (avg 3-mi covers ~8 tracts)
     // Also pull county-level for context
     let countyPop = null, countyIncome = null;
@@ -163,10 +164,11 @@ const fetchDemographics = async (coordinates) => {
     const tPop = isNaN(pop) ? 0 : pop;
     const incVal = isNaN(income) || income < 0 ? 0 : income;
     const tHh = isNaN(hh) ? 0 : hh;
+    const hv = isNaN(homeVal) || homeVal < 0 ? 0 : homeVal;
     const rings = {
-      1: { pop: Math.round(tPop * 0.8), hh: Math.round(tHh * 0.8), medIncome: incVal },
-      3: { pop: Math.round(tPop * 8), hh: Math.round(tHh * 8), medIncome: incVal },
-      5: { pop: Math.round(tPop * 18), hh: Math.round(tHh * 18), medIncome: incVal },
+      1: { pop: Math.round(tPop * 0.8), hh: Math.round(tHh * 0.8), medIncome: incVal, homeValue: hv },
+      3: { pop: Math.round(tPop * 8), hh: Math.round(tHh * 8), medIncome: incVal, homeValue: hv },
+      5: { pop: Math.round(tPop * 18), hh: Math.round(tHh * 18), medIncome: incVal, homeValue: Math.round(hv * 0.95) },
     };
     let growthOutlook = "Stable";
     if (tPop > 5000) growthOutlook = "Growing — high density";
@@ -393,8 +395,7 @@ const computeSiteIQ = (site) => {
     if (acMatch) acres = parseFloat(acMatch[1].replace(/,/g, ""));
   }
 
-  // --- 1. ZONING (25%) ---
-  // Reads from zoning field AND summary for clues like "by right", "storage by right", "CS zoning"
+  // --- 1. ZONING (20%) ---
   const byRight = /(by\s*right|permitted|p\b|b[- ]?\d|c[- ]?\d|m[- ]?\d|commercial|industrial|business|gb|cs\b|mu\b|mixed|unrestricted|pud\s*allow)/i;
   const conditional = /(conditional|sup\b|cup\b|special\s*use|overlay|variance|needs?\s*sup)/i;
   const prohibited = /(prohibited|residential\s*only|ag\b|agriculture|not\s*permitted|rezone|rezoning\s*required)/i;
@@ -404,50 +405,53 @@ const computeSiteIQ = (site) => {
   else if (prohibited.test(combinedText)) zoningScore = 1;
   else if ((site.zoning || "").trim()) zoningScore = 5; // zoning listed but can't classify
   scores.zoning = zoningScore;
-  weightedSum += zoningScore * 0.25;
-  totalWeight += 0.25;
+  weightedSum += zoningScore * 0.20;
+  totalWeight += 0.20;
 
-  // --- 2. PS SPACING (20%) ---
+  // --- 2. PS SPACING (15%) ---
   let spacingScore = 6;
   if (/bullseye/i.test(summary) || /\b(5|6|7|8|9|10)\+?\s*mi/i.test(summary) || /great\s*spacing/i.test(summary) || /no\s*(?:nearby|close)\s*ps/i.test(summary) || /excellent.*expansion/i.test(summary)) spacingScore = 9;
   else if (/\b(3|4)\s*mi/i.test(summary) || /good\s*spacing/i.test(summary)) spacingScore = 7;
   else if (/\b(2|1\.?\d?)\s*mi\b/i.test(summary) || /close\s*to\s*ps/i.test(summary) || /spacing\s*(?:issue|concern|tight)/i.test(summary)) spacingScore = 3;
   scores.spacing = spacingScore;
-  weightedSum += spacingScore * 0.20;
-  totalWeight += 0.20;
+  weightedSum += spacingScore * 0.15;
+  totalWeight += 0.15;
 
-  // --- 3. DEMOGRAPHICS (20%) ---
-  const popRaw = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
-  const incRaw = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
-  let popScore = 5, incScore = 5;
+  // --- 3. DEMOGRAPHICS (30%) — pop, income, households, home value across 1/3/5 mi ---
+  const pNum = (f) => parseInt(String(site[f] || "").replace(/[^0-9]/g, ""), 10) || 0;
+  const popRaw = pNum("pop3mi"); const incRaw = pNum("income3mi");
+  const hhRaw = pNum("households3mi"); const hvRaw = pNum("homeValue3mi");
+  const pop1 = pNum("pop1mi");
+  let popScore = 5, incScore = 5, hhScore = 5, hvScore = 5;
   let hasDemoData = false;
-  if (popRaw > 0) {
-    hasDemoData = true;
-    if (popRaw >= 60000) popScore = 10;
-    else if (popRaw >= 40000) popScore = 8;
-    else if (popRaw >= 25000) popScore = 7;
-    else if (popRaw >= 15000) popScore = 5;
-    else if (popRaw >= 10000) popScore = 4;
-    else popScore = 2;
+  if (popRaw > 0) { hasDemoData = true;
+    if (popRaw >= 60000) popScore = 10; else if (popRaw >= 40000) popScore = 8;
+    else if (popRaw >= 25000) popScore = 7; else if (popRaw >= 15000) popScore = 5;
+    else if (popRaw >= 10000) popScore = 4; else popScore = 2;
+    if (pop1 >= 8000) popScore = Math.min(10, popScore + 1);
   }
-  if (incRaw > 0) {
-    hasDemoData = true;
-    if (incRaw >= 120000) incScore = 10;
-    else if (incRaw >= 100000) incScore = 9;
-    else if (incRaw >= 80000) incScore = 8;
-    else if (incRaw >= 60000) incScore = 6;
-    else if (incRaw >= 50000) incScore = 4;
-    else incScore = 2;
+  if (incRaw > 0) { hasDemoData = true;
+    if (incRaw >= 120000) incScore = 10; else if (incRaw >= 100000) incScore = 9;
+    else if (incRaw >= 80000) incScore = 8; else if (incRaw >= 60000) incScore = 6;
+    else if (incRaw >= 50000) incScore = 4; else incScore = 2;
   }
-  // If no demo data at all, check summary for hints
+  if (hhRaw > 0) { hasDemoData = true;
+    if (hhRaw >= 25000) hhScore = 10; else if (hhRaw >= 18000) hhScore = 8;
+    else if (hhRaw >= 12000) hhScore = 7; else if (hhRaw >= 6000) hhScore = 5; else hhScore = 3;
+  }
+  if (hvRaw > 0) { hasDemoData = true;
+    if (hvRaw >= 500000) hvScore = 10; else if (hvRaw >= 350000) hvScore = 9;
+    else if (hvRaw >= 250000) hvScore = 8; else if (hvRaw >= 180000) hvScore = 6;
+    else if (hvRaw >= 120000) hvScore = 4; else hvScore = 2;
+  }
   if (!hasDemoData) {
-    if (/strong\s*demo/i.test(summary) || /high\s*(pop|income|hhi)/i.test(summary)) { popScore = 7; incScore = 7; }
-    else if (/low\s*income/i.test(summary) || /weak\s*demo/i.test(summary)) { popScore = 4; incScore = 3; }
+    if (/strong\s*demo/i.test(summary) || /high\s*(pop|income|hhi)/i.test(summary)) { popScore = 7; incScore = 7; hhScore = 7; hvScore = 7; }
+    else if (/low\s*income/i.test(summary) || /weak\s*demo/i.test(summary)) { popScore = 4; incScore = 3; hhScore = 4; hvScore = 3; }
   }
-  const demoScore = (popScore + incScore) / 2;
+  const demoScore = popScore * 0.3 + incScore * 0.3 + hhScore * 0.2 + hvScore * 0.2;
   scores.demographics = Math.round(demoScore * 10) / 10;
-  weightedSum += demoScore * 0.20;
-  totalWeight += 0.20;
+  weightedSum += demoScore * 0.30;
+  totalWeight += 0.30;
 
   // --- 4. COMPETITION (15%) ---
   let compScore = 6;
@@ -551,85 +555,70 @@ function SiteIQBadge({ site, size = "normal" }) {
   const iq = computeSiteIQ(site);
   const s = iq.score;
   const isGold = iq.tier === "gold";
-  const isSteel = iq.tier === "steel";
   const isSmall = size === "small";
-
   const tierColors = {
-    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: "#1E2761", ring: "#C9A84C", labelBg: "#FFF8E1" },
-    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: "#2C3E6B", labelBg: "#E8EAF6" },
-    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9" },
+    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: "#1E2761", ring: "#C9A84C", labelBg: "#FFF8E1", accent: "#B8860B" },
+    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: "#2C3E6B", labelBg: "#E8EAF6", accent: "#2C3E6B" },
+    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9", accent: "#64748B" },
   };
   const tc = tierColors[iq.tier];
-
   if (isSmall) {
     return (
-      <span style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "2px 8px", borderRadius: 6,
-        background: tc.labelBg, border: `1px solid ${tc.ring}33`,
-        fontSize: 11, fontWeight: 700, color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
-        fontFamily: "'Space Mono', monospace",
-      }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: tc.labelBg, border: `1px solid ${tc.ring}33`, fontSize: 11, fontWeight: 700, color: tc.accent, fontFamily: "'Space Mono', monospace" }}>
         <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", opacity: 0.7 }}>IQ</span>
         {s.toFixed(1)}
       </span>
     );
   }
-
+  const subMetrics = [
+    { key: "zoning", label: "Zoning", weight: "20%", icon: "\u{1F4CB}" },
+    { key: "spacing", label: "PS Spacing", weight: "15%", icon: "\u{1F4CF}" },
+    { key: "demographics", label: "Demographics", weight: "30%", icon: "\u{1F465}" },
+    { key: "competition", label: "Competition", weight: "15%", icon: "\u{1F3E2}" },
+    { key: "pricing", label: "Pricing", weight: "10%", icon: "\u{1F4B0}" },
+    { key: "siteAccess", label: "Site Access", weight: "10%", icon: "\u{1F6E3}\uFE0F" },
+  ];
+  const getBarColor = (v) => {
+    if (v >= 8) return { bar: "linear-gradient(90deg, #16A34A, #22C55E)", text: "#16A34A" };
+    if (v >= 6) return { bar: "linear-gradient(90deg, #2563EB, #3B82F6)", text: "#2563EB" };
+    if (v >= 4) return { bar: "linear-gradient(90deg, #D97706, #F59E0B)", text: "#D97706" };
+    return { bar: "linear-gradient(90deg, #DC2626, #EF4444)", text: "#DC2626" };
+  };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-      {/* Score Circle */}
-      <div style={{
-        position: "relative",
-        width: 56, height: 56, borderRadius: "50%",
-        background: tc.bg,
-        boxShadow: tc.glow,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-        ...(isGold ? { animation: "siteiq-glow 2s ease-in-out infinite alternate" } : {}),
-      }}>
-        {isGold && <div style={{
-          position: "absolute", inset: -3, borderRadius: "50%",
-          border: "2px solid #C9A84C",
-          opacity: 0.5,
-          animation: "siteiq-ring 2s ease-in-out infinite alternate",
-        }} />}
-        <div style={{ textAlign: "center", lineHeight: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
+    <div style={{ padding: "10px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <div style={{ position: "relative", width: 56, height: 56, borderRadius: "50%", background: tc.bg, boxShadow: tc.glow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...(isGold ? { animation: "siteiq-glow 2s ease-in-out infinite alternate" } : {}) }}>
+          {isGold && <div style={{ position: "absolute", inset: -3, borderRadius: "50%", border: "2px solid #C9A84C", opacity: 0.5, animation: "siteiq-ring 2s ease-in-out infinite alternate" }} />}
+          <div style={{ fontSize: 20, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em", lineHeight: 1 }}>{s.toFixed(1)}</div>
+        </div>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: tc.accent, textTransform: "uppercase", padding: "2px 8px", borderRadius: 4, background: tc.labelBg }}>{iq.label}</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ\u2122</span>
+          </div>
+          <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 3 }}>{iq.hasDemoData ? "Census + field data" : "Estimate \u2014 no demo data"}</div>
         </div>
       </div>
-      {/* Label + Breakdown */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{
-            fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
-            color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
-            textTransform: "uppercase",
-            padding: "2px 6px", borderRadius: 4,
-            background: tc.labelBg,
-          }}>{iq.label}</span>
-          <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
-        </div>
-        <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
-          {[
-            { key: "zoning", label: "ZN", emoji: "📋" },
-            { key: "spacing", label: "SP", emoji: "📏" },
-            { key: "demographics", label: "DM", emoji: "👥" },
-            { key: "competition", label: "CP", emoji: "🏢" },
-            { key: "pricing", label: "$$", emoji: "💰" },
-            { key: "siteAccess", label: "SA", emoji: "🛣️" },
-          ].map((f) => {
-            const v = iq.scores[f.key] || 0;
-            const c = v >= 8 ? "#16A34A" : v >= 6 ? "#2563EB" : v >= 4 ? "#D97706" : "#DC2626";
-            return (
-              <span key={f.key} title={`${f.label}: ${v}/10`} style={{
-                fontSize: 9, fontWeight: 700, color: c,
-                background: c + "15", padding: "1px 4px", borderRadius: 3,
-                fontFamily: "'Space Mono', monospace",
-              }}>{f.label}{v}</span>
-            );
-          })}
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 6, background: "#F8FAFC", borderRadius: 8, padding: "10px 12px", border: "1px solid #E2E8F0" }}>
+        {subMetrics.map((m) => {
+          const v = iq.scores[m.key] || 0;
+          const bc = getBarColor(v);
+          return (
+            <div key={m.key} style={{ display: "grid", gridTemplateColumns: "90px 1fr 42px", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 12 }}>{m.icon}</span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#1E293B", lineHeight: 1.2 }}>{m.label}</div>
+                  <div style={{ fontSize: 8, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.06em" }}>{m.weight}</div>
+                </div>
+              </div>
+              <div style={{ height: 10, background: "#E2E8F0", borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${v * 10}%`, borderRadius: 5, background: bc.bar, transition: "width 0.6s ease", boxShadow: v >= 8 ? `0 0 6px ${bc.text}40` : "none" }} />
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: bc.text, fontFamily: "'Space Mono', monospace", textAlign: "right" }}>{v}/10</div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -995,19 +984,34 @@ export default function App() {
       if (result?.error) {
         notify(result.error);
       } else if (result) {
+        const r = result.rings || {};
         const updates = {};
         if (result.income3mi) updates.income3mi = result.income3mi;
         if (result.pop3mi) updates.pop3mi = result.pop3mi;
+        if (r[1]?.pop) updates.pop1mi = r[1].pop.toLocaleString();
+        if (r[5]?.pop) updates.pop5mi = r[5].pop.toLocaleString();
+        if (r[1]?.medIncome) updates.income1mi = "$" + r[1].medIncome.toLocaleString();
+        if (r[5]?.medIncome) updates.income5mi = "$" + r[5].medIncome.toLocaleString();
+        if (r[1]?.hh) updates.households1mi = r[1].hh.toLocaleString();
+        if (r[3]?.hh) updates.households3mi = r[3].hh.toLocaleString();
+        if (r[5]?.hh) updates.households5mi = r[5].hh.toLocaleString();
+        if (r[1]?.homeValue) updates.homeValue1mi = "$" + r[1].homeValue.toLocaleString();
+        if (r[3]?.homeValue) updates.homeValue3mi = "$" + r[3].homeValue.toLocaleString();
+        if (r[5]?.homeValue) updates.homeValue5mi = "$" + r[5].homeValue.toLocaleString();
+        if (result.growthOutlook) updates.growthOutlook = result.growthOutlook;
+        if (result.fips) updates.demoFips = result.fips;
+        updates.demoSource = result.source || "Census ACS 5-Year";
+        updates.demoPulledAt = new Date().toISOString();
         if (Object.keys(updates).length > 0) {
           fbUpdate(`${region}/${site.id}`, updates);
           fbPush(`${region}/${site.id}/activityLog`, {
-            action: `Demographics pulled: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"} (${result.source})`,
+            action: `Demographics pulled: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"}, Home Value ${r[3]?.homeValue ? "$" + r[3].homeValue.toLocaleString() : "?"} (${result.source})`,
             ts: new Date().toISOString(),
             by: "System",
           });
         }
         setDemoReport((prev) => ({ ...prev, [site.id]: result }));
-        notify(Object.keys(updates).length > 0 ? "Demographics loaded — see report below" : "No demographic data found");
+        notify(Object.keys(updates).length > 0 ? "Demographics loaded \u2014 1/3/5 mile rings saved" : "No demographic data found");
       }
     } catch (err) {
       notify("Demographics fetch failed");
@@ -1634,67 +1638,67 @@ export default function App() {
                         <EF label="Asking Price" value={site.askingPrice || ""} onSave={(v) => saveField(regionKey, site.id, "askingPrice", v)} placeholder="$1.5M" />
                         <EF label="PS Internal Price" value={site.internalPrice || ""} onSave={(v) => saveField(regionKey, site.id, "internalPrice", v)} placeholder="$1.2M" />
                         <EF label="Seller / Broker" value={site.sellerBroker || ""} onSave={(v) => saveField(regionKey, site.id, "sellerBroker", v)} placeholder="John Smith" />
-                        <EF label="3-Mile Income" value={site.income3mi || ""} onSave={(v) => saveField(regionKey, site.id, "income3mi", v)} placeholder="$95,000" />
-                        <EF label="3-Mile Pop" value={site.pop3mi || ""} onSave={(v) => saveField(regionKey, site.id, "pop3mi", v)} placeholder="45,000" />
                         <EF label="Acreage" value={site.acreage || ""} onSave={(v) => saveField(regionKey, site.id, "acreage", v)} placeholder="4.5 ac" />
                         <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3…" />
                       </div>
 
-                      {/* Pull Demographics Button */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                        <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: demoLoading[site.id] ? "#E8F0FE" : "linear-gradient(135deg,#1565C0,#1976D2)", color: demoLoading[site.id] ? "#1565C0" : "#fff", fontSize: 11, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5, display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 3px rgba(21,101,192,.2)" }}>
-                          {demoLoading[site.id] ? "⏳ Fetching…" : "📊 Pull Demographics"}
-                        </button>
-                      </div>
-
-                      {/* Demographic Report Card — 1/3/5 Mile Snapshot */}
-                      {demoReport[site.id] && (() => {
-                        const dr = demoReport[site.id];
-                        const r = dr.rings || {};
-                        const ringRow = (label, key) => (
-                          <tr key={label}>
-                            <td style={{ padding: "6px 10px", fontWeight: 700, color: "#334155", fontSize: 12, borderBottom: "1px solid #E2E8F0" }}>{label}</td>
-                            {[1, 3, 5].map((mi) => (
-                              <td key={mi} style={{ padding: "6px 10px", textAlign: "right", fontSize: 12, color: "#475569", borderBottom: "1px solid #E2E8F0" }}>
-                                {key === "medIncome" ? (r[mi]?.[key] ? "$" + r[mi][key].toLocaleString() : "—") : (r[mi]?.[key] ? r[mi][key].toLocaleString() : "—")}
-                              </td>
-                            ))}
-                          </tr>
-                        );
+                      {/* ─── Demographics 1-3-5 Mile Table ─── */}
+                      {(() => {
+                        const hasDemos = site.pop3mi || site.income3mi;
+                        const dc = { padding: "7px 10px", textAlign: "right", fontSize: 12, fontWeight: 600, color: "#334155", borderBottom: "1px solid #E2E8F0", fontFamily: "'Space Mono', monospace" };
+                        const hc = { padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#475569", fontSize: 12, borderBottom: "1px solid #E2E8F0" };
+                        const th = { padding: "8px 10px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#1E2761", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "2px solid #C9A84C" };
+                        const rows = [
+                          { label: "\u{1F465} Population", k1: "pop1mi", k3: "pop3mi", k5: "pop5mi" },
+                          { label: "\u{1F4B0} Median HHI", k1: "income1mi", k3: "income3mi", k5: "income5mi" },
+                          { label: "\u{1F3E0} Households", k1: "households1mi", k3: "households3mi", k5: "households5mi" },
+                          { label: "\u{1F3E1} Avg Home Value", k1: "homeValue1mi", k3: "homeValue3mi", k5: "homeValue5mi" },
+                        ];
                         return (
-                          <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}>
-                            <div style={{ background: "linear-gradient(135deg,#1E3A5F,#1565C0)", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em" }}>DEMOGRAPHIC REPORT</div>
-                              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                <span style={{ color: "rgba(255,255,255,.6)", fontSize: 9 }}>{dr.source}</span>
-                                <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,.3)", background: "transparent", color: "#fff", fontSize: 10, cursor: "pointer" }}>✕</button>
+                          <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
+                            <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 14 }}>{"\u{1F4CA}"}</span>
+                                <span style={{ color: "#fff", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em" }}>DEMOGRAPHIC PROFILE</span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                {site.demoSource && <span style={{ color: "rgba(255,255,255,.5)", fontSize: 9 }}>{site.demoSource}</span>}
+                                <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.15)", color: "#fff", fontSize: 10, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5 }}>
+                                  {demoLoading[site.id] ? "\u23F3" : "\u{1F504}"} {hasDemos ? "Refresh" : "Pull Data"}
+                                </button>
                               </div>
                             </div>
-                            <div style={{ padding: 14 }}>
-                              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
-                                <thead>
-                                  <tr style={{ background: "#F8FAFC" }}>
-                                    <th style={{ padding: "6px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" }}>Metric</th>
-                                    {[1, 3, 5].map((mi) => <th key={mi} style={{ padding: "6px 10px", textAlign: "right", fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" }}>{mi}-Mile</th>)}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {ringRow("Population", "pop")}
-                                  {ringRow("Households", "hh")}
-                                  {ringRow("Median HHI", "medIncome")}
-                                </tbody>
-                              </table>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                                <div style={{ background: "#F0F9FF", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 2 }}>Growth Outlook</div>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: dr.growthOutlook?.includes("Growing") ? "#16A34A" : dr.growthOutlook?.includes("Moderate") ? "#D97706" : "#64748B" }}>{dr.growthOutlook || "—"}</div>
+                            <div style={{ padding: "12px 14px" }}>
+                              {hasDemos ? (
+                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                  <thead><tr style={{ background: "#FAFBFC" }}>
+                                    <th style={{ ...th, textAlign: "left" }}>Metric</th>
+                                    <th style={th}>1-Mile</th>
+                                    <th style={{ ...th, background: "#FFF8E1" }}>3-Mile</th>
+                                    <th style={th}>5-Mile</th>
+                                  </tr></thead>
+                                  <tbody>{rows.map((r, i) => (
+                                    <tr key={r.label} style={{ background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
+                                      <td style={hc}>{r.label}</td>
+                                      <td style={dc}>{site[r.k1] || "\u2014"}</td>
+                                      <td style={{ ...dc, background: "#FFFCF0", fontWeight: 800, color: "#1E2761" }}>{site[r.k3] || "\u2014"}</td>
+                                      <td style={dc}>{site[r.k5] || "\u2014"}</td>
+                                    </tr>
+                                  ))}</tbody>
+                                </table>
+                              ) : (
+                                <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8" }}>
+                                  <div style={{ fontSize: 24, marginBottom: 6 }}>{"\u{1F4CA}"}</div>
+                                  <div style={{ fontSize: 12, fontWeight: 600 }}>No demographics data yet</div>
+                                  <div style={{ fontSize: 11, marginTop: 2 }}>Click "Pull Data" to fetch Census ACS data</div>
                                 </div>
-                                <div style={{ background: "#F0F9FF", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 2 }}>County Context</div>
-                                  <div style={{ fontSize: 11, fontWeight: 600, color: "#334155" }}>{dr.countyPop ? `Pop ${dr.countyPop}` : "—"}{dr.countyIncome ? ` · HHI ${dr.countyIncome}` : ""}</div>
+                              )}
+                              {site.growthOutlook && (
+                                <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Growth:</span>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: (site.growthOutlook || "").includes("Growing") ? "#16A34A" : (site.growthOutlook || "").includes("Moderate") ? "#D97706" : "#64748B" }}>{site.growthOutlook}</span>
                                 </div>
-                              </div>
-                              {dr.fips && <div style={{ marginTop: 8, fontSize: 10, color: "#94A3B8", textAlign: "right" }}>FIPS {dr.fips}</div>}
+                              )}
                             </div>
                           </div>
                         );
