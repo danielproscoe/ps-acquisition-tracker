@@ -112,17 +112,16 @@ const fetchDemographics = async (coordinates) => {
   const [lat, lng] = parts.map(Number);
   if (isNaN(lat) || isNaN(lng)) return null;
   try {
-    // Step 1: Reverse geocode to get FIPS (state + county) via Census geocoder
+    // Step 1: Reverse geocode to get FIPS via FCC API (CORS-friendly)
     const geoRes = await fetch(
-      `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`
+      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json&showall=false`
     );
     const geoData = await geoRes.json();
-    const geographies = geoData?.result?.geographies;
-    const tract = geographies?.["Census Tracts"]?.[0] || geographies?.["2020 Census Blocks"]?.[0];
-    if (!tract) return { error: "Could not determine census tract" };
-    const stFips = tract.STATE;
-    const coFips = tract.COUNTY;
-    const trFips = tract.TRACT;
+    if (geoData.status !== "OK" || !geoData.Block?.FIPS) return { error: "Could not determine census tract" };
+    const blockFips = geoData.Block.FIPS; // e.g. "481210203144035"
+    const stFips = geoData.State?.FIPS || blockFips.substring(0, 2);
+    const coFips = blockFips.substring(2, 5);
+    const trFips = blockFips.substring(5, 11);
     // Step 2: Fetch ACS 5-Year data for the tract (B01003_001E=population, B19013_001E=median HHI)
     const acsRes = await fetch(
       `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
