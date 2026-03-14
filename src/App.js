@@ -301,6 +301,31 @@ const fetchDemographics = async (coordinates) => {
 };
 
   // ─── Vetting Report PDF Generator (Executive Edition) ───
+  
+  const getListingUrl = (site) => {
+    if (site.listingUrl && site.listingUrl.trim()) {
+      return site.listingUrl.startsWith("http") ? site.listingUrl : "https://" + site.listingUrl;
+    }
+    const q = encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || "")).trim();
+    return "https://www.crexi.com/properties?query=" + q;
+  };
+
+  const validateSite = (site) => {
+    const warnings = [];
+    if (!site.name) warnings.push("Missing site name");
+    if (!site.address) warnings.push("Missing address");
+    if (!site.city) warnings.push("Missing city");
+    if (!site.state) warnings.push("Missing state");
+    if (!site.coordinates) warnings.push("Missing coordinates");
+    if (!site.zoning) warnings.push("Missing zoning");
+    if (!site.askingPrice) warnings.push("Missing asking price");
+    if (!site.acreage) warnings.push("Missing acreage");
+    if (!site.sellerBroker) warnings.push("Missing seller/broker");
+    if (!site.pop3mi) warnings.push("Missing 3-mi population");
+    if (!site.income3mi) warnings.push("Missing 3-mi median income");
+    return warnings;
+  };
+
   const openVettingReportPDF = (site) => {
     const w = window.open("", "_blank");
     if (!w) { alert("Please allow popups for this site"); return; }
@@ -1292,6 +1317,11 @@ export default function App() {
       notify("Fill name, address, city, state.");
       return;
     }
+    const qcWarnings = validateSite(form);
+    if (qcWarnings.length > 0 && submitMode === "direct") {
+      const proceed = window.confirm("QC Warnings:\n- " + qcWarnings.join("\n- ") + "\n\nProceed anyway?");
+      if (!proceed) return;
+    }
     const now = new Date().toISOString();
     const id = uid();
     const site = {
@@ -1504,7 +1534,8 @@ export default function App() {
       else if (n.includes("summary") || n.includes("note")) m.summary = val;
       else if (n.includes("coord")) m.coordinates = val;
       else if (n.includes("phase")) m.phase = val;
-      else if (n.includes("region")) {
+      else if (n.includes("listing") || n.includes("url") || n.includes("link")) m.listingUrl = val;
+    else if (n.includes("region")) {
         m.region = val.toLowerCase().includes("sw") || val.toLowerCase().includes("dan") ? "southwest" : "east";
       }
     });
@@ -1541,7 +1572,7 @@ export default function App() {
         sellerBroker: m.sellerBroker || "",
         summary: m.summary || "",
         coordinates: m.coordinates || "",
-        listingUrl: "",
+        listingUrl: m.listingUrl || "",
         dateOnMarket: "",
         market: "",
         priority: "⚪ None",
@@ -1723,7 +1754,7 @@ export default function App() {
                         {docs.length > 0 && <span style={{ color: "#64748B" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
                         {msgs.length > 0 && <span style={{ color: "#F37C33" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
+                        <a href={getListingUrl(site)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: site.listingUrl ? "#E65100" : "#78909C", textDecoration: "none", fontWeight: 600 }}>{site.listingUrl ? "🔗 Listing" : "🔍 Search Crexi"}</a>
                       </div>
                     </div>
                     <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
@@ -1771,9 +1802,17 @@ export default function App() {
                       {/* Quick Action Buttons */}
                       <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                         <button onClick={(e) => { e.stopPropagation(); openVettingReportPDF(site); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1E3A5F,#1565C0)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 6px rgba(21,101,192,0.25)" }}>Vetting Report</button>
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, background: "linear-gradient(135deg,#E65100,#F37C33)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>Property Listing</a>}
+                        <a href={getListingUrl(site)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, background: site.listingUrl ? "linear-gradient(135deg,#E65100,#F37C33)" : "linear-gradient(135deg,#546E7A,#78909C)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>{site.listingUrl ? "Property Listing" : "Search Crexi"}</a>
                       </div>
-                      {/* Summary */}
+                      
+                  {/* QC Warnings */}
+                  {(() => { const w = validateSite(site); return w.length > 0 ? (
+                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "rgba(255,152,0,0.1)", border: "1px solid rgba(255,152,0,0.3)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#FF9800", marginBottom: 4 }}>QC: {w.length} missing field{w.length > 1 ? "s" : ""}</div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>{w.join(" \u2022 ")}</div>
+                    </div>
+                  ) : null; })()}
+{/* Summary */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, margin: "14px 0", border: "1px solid #E2E8F0" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 6 }}>Recent Summary</div>
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
