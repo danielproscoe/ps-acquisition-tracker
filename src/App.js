@@ -865,14 +865,17 @@ export default function App() {
                       {/* Site Photo */}
                       <div style={{ margin: "14px 0 10px" }}>
                         {site.photoUrl ? (
-                          <div style={{ position: "relative" }}>
-                            <img src={site.photoUrl} alt={site.name} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10, border: "1px solid #E2E8F0" }} onError={(e) => { e.target.style.display = "none"; }} />
-                            <button onClick={() => updateSiteField(regionKey, site.id, "photoUrl", "")} style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 6, border: "none", background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                          <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.10)", border: "1px solid #E2E8F0" }}>
+                            <img src={site.photoUrl} alt={site.name} style={{ width: "100%", maxHeight: 340, objectFit: "cover", display: "block" }} onError={(e) => { e.target.style.display = "none"; }} />
+                            <button onClick={() => updateSiteField(regionKey, site.id, "photoUrl", "")} style={{ position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 8, border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>✕</button>
                           </div>
                         ) : null}
-                        <div style={{ marginTop: site.photoUrl ? 6 : 0 }}>
-                          <EF label={site.photoUrl ? "Photo URL" : "📷 Site Photo URL"} value={site.photoUrl || ""} onSave={(v) => updateSiteField(regionKey, site.id, "photoUrl", v)} placeholder="Paste image URL" />
-                        </div>
+                        <details style={{ marginTop: site.photoUrl ? 8 : 0 }}>
+                          <summary style={{ fontSize: 10, color: "#94A3B8", cursor: "pointer", fontWeight: 600, userSelect: "none" }}>{site.photoUrl ? "Change photo" : "📷 Add Site Photo"}</summary>
+                          <div style={{ marginTop: 4 }}>
+                            <EF label="Photo URL" value={site.photoUrl || ""} onSave={(v) => updateSiteField(regionKey, site.id, "photoUrl", v)} placeholder="Paste image URL or base64 data" />
+                          </div>
+                        </details>
                       </div>
 
                       {/* Summary */}
