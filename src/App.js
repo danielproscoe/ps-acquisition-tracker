@@ -1116,46 +1116,96 @@ export default function App() {
 
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
-          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
-          const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
-          const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
+          const allSites = [...sw, ...east];
+          const phaseColors = { "Prospect": "#94A3B8", "LOI Sent": "#3B82F6", "LOI Signed": "#F59E0B", "Under Contract": "#22C55E" };
+          const phaseBg = { "Prospect": "#F8FAFC", "LOI Sent": "#EFF6FF", "LOI Signed": "#FFFBEB", "Under Contract": "#F0FDF4" };
+
+          /* ── KPI helpers ── */
+          const parsePrice = (p) => { if (!p) return 0; const m = p.match(/\$([0-9,.]+)\s*M/i); if (m) return parseFloat(m[1].replace(/,/g, "")) * 1e6; const k = p.match(/\$([0-9,.]+)\s*K/i); if (k) return parseFloat(k[1].replace(/,/g, "")) * 1e3; const raw = p.match(/\$([0-9,.]+)/); if (raw) { const v = parseFloat(raw[1].replace(/,/g, "")); return v < 1000 ? v * 1e6 : v; } return 0; };
+          const parseAcres = (a) => { if (!a) return 0; const m = String(a).match(/([0-9.]+)/); return m ? parseFloat(m[1]) : 0; };
+          const totalAsk = allSites.reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+          const totalAcres = allSites.reduce((sum, s) => sum + parseAcres(s.acreage), 0);
+          const underContract = allSites.filter(s => s.phase === "Under Contract").length;
+          const loisOut = allSites.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length;
+          const avgPop = allSites.filter(s => s.pop3mi).length > 0 ? Math.round(allSites.reduce((sum, s) => sum + (parseInt(String(s.pop3mi).replace(/,/g, "")) || 0), 0) / allSites.filter(s => s.pop3mi).length) : 0;
+          const avgInc = allSites.filter(s => s.income3mi).length > 0 ? Math.round(allSites.reduce((sum, s) => { const v = String(s.income3mi || "").replace(/[$,]/g, ""); return sum + (parseInt(v) || 0); }, 0) / allSites.filter(s => s.income3mi).length) : 0;
+
+          /* ── Phase funnel ── */
+          const phaseCounts = PHASES.map(p => ({ phase: p, count: allSites.filter(s => s.phase === p).length, value: allSites.filter(s => s.phase === p).reduce((sum, s) => sum + parsePrice(s.askingPrice), 0) }));
+
+          /* ── Geo breakdown ── */
+          const stateMap = {};
+          allSites.forEach(s => { const st = s.state || "?"; stateMap[st] = (stateMap[st] || 0) + 1; });
+          const stateEntries = Object.entries(stateMap).sort((a, b) => b[1] - a[1]);
+
+          /* ── Summary table column sort ── */
+          const sumCols = [
+            { key: "name", label: "Name", sortFn: (a, b) => (a.name || "").localeCompare(b.name || "") },
+            { key: "city", label: "City", sortFn: (a, b) => (a.city || "").localeCompare(b.city || "") },
+            { key: "state", label: "ST", sortFn: (a, b) => (a.state || "").localeCompare(b.state || "") },
+            { key: "phase", label: "Phase", sortFn: (a, b) => (phaseOrder[a.phase] ?? 9) - (phaseOrder[b.phase] ?? 9) },
+            { key: "acreage", label: "Acres", sortFn: (a, b) => parseAcres(b.acreage) - parseAcres(a.acreage) },
+            { key: "askingPrice", label: "Ask", sortFn: (a, b) => parsePrice(b.askingPrice) - parsePrice(a.askingPrice) },
+            { key: "internalPrice", label: "PS Price", sortFn: (a, b) => parsePrice(b.internalPrice) - parsePrice(a.internalPrice) },
+            { key: "income3mi", label: "3mi Inc", sortFn: (a, b) => { const va = parseInt(String(a.income3mi || "0").replace(/[$,]/g, "")) || 0; const vb = parseInt(String(b.income3mi || "0").replace(/[$,]/g, "")) || 0; return vb - va; } },
+            { key: "pop3mi", label: "3mi Pop", sortFn: (a, b) => (parseInt(String(b.pop3mi || "0").replace(/,/g, "")) || 0) - (parseInt(String(a.pop3mi || "0").replace(/,/g, "")) || 0) },
+            { key: "broker", label: "Broker", sortFn: (a, b) => (a.sellerBroker || "").localeCompare(b.sellerBroker || "") },
+            { key: "summary", label: "Summary", sortFn: null },
+          ];
+
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
-            const d = sortData(rk === "east" ? east : sw);
+            const raw = rk === "east" ? east : sw;
+            const d = sortBy === "name" || sortBy === "city" || sortBy === "recent" || sortBy === "dom" || sortBy === "priority" || sortBy === "phase" ? sortData(raw) : [...raw].sort((a, b) => { const col = sumCols.find(c => c.key === sortBy); return col && col.sortFn ? col.sortFn(a, b) : (a.name || "").localeCompare(b.name || ""); });
+
+            const thBase = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1, cursor: "pointer", userSelect: "none", transition: "color 0.15s" };
+            const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
+            const tdW = { ...td, whiteSpace: "normal", maxWidth: 220, minWidth: 120 };
+
             return (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: r.accent }} />
                   <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: r.color }}>{r.label}</h3>
-                  <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length})</span>
+                  <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length} sites)</span>
                 </div>
                 {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
-                  <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 420 }}>
+                  <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 480 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
                       <thead>
-                        <tr>{["Name", "Address", "City", "ST", "Priority", "Ask", "PS Price", "3mi Inc", "3mi Pop", "Broker", "DOM", "Summary", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                        <tr>{sumCols.map((col) => (
+                          <th key={col.key} style={{ ...thBase, color: sortBy === col.key ? "#E65100" : "#64748B" }}
+                            onClick={() => col.sortFn && setSortBy(sortBy === col.key ? "name" : col.key)}
+                            onMouseEnter={(e) => { if (col.sortFn) e.currentTarget.style.color = "#F37C33"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = sortBy === col.key ? "#E65100" : "#64748B"; }}
+                          >{col.label}{sortBy === col.key ? " ▾" : ""}</th>
+                        ))}</tr>
                       </thead>
                       <tbody>
-                        {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: i % 2 ? "#FAFBFC" : "#fff", cursor: "pointer", transition: "background 0.15s" }}
+                        {d.map((s, i) => {
+                          const pc = phaseColors[s.phase] || "#94A3B8";
+                          const pb = phaseBg[s.phase] || (i % 2 ? "#FAFBFC" : "#fff");
+                          const rowBg = s.phase === "Under Contract" || s.phase === "LOI Signed" ? pb : (i % 2 ? "#FAFBFC" : "#fff");
+                          return (
+                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }}
+                            style={{ background: rowBg, cursor: "pointer", transition: "background 0.15s", borderLeft: `3px solid ${pc}` }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? "#FAFBFC" : "#fff")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = rowBg)}
                           >
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
-                            <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={td}><PriorityBadge priority={s.priority} /></td>
+                            <td style={td}><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: `${pc}18`, color: pc, border: `1px solid ${pc}33` }}>{s.phase || "—"}</span></td>
+                            <td style={{ ...td, textAlign: "right" }}>{s.acreage || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.askingPrice || "—"}</td>
                             <td style={{ ...td, color: "#F37C33", fontWeight: 600 }}>{s.internalPrice || "—"}</td>
                             <td style={td}>{s.income3mi || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
                             <td style={td}>{s.sellerBroker || "—"}</td>
-                            <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
-                            <td style={tdW}>{s.summary ? (s.summary.length > 70 ? s.summary.slice(0, 70) + "…" : s.summary) : "—"}</td>
-                            <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "—"}</td>
+                            <td style={tdW}>{s.summary ? (s.summary.length > 80 ? s.summary.slice(0, 80) + "…" : s.summary) : "—"}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1163,11 +1213,56 @@ export default function App() {
               </div>
             );
           };
+
           return (
             <div style={{ animation: "fadeIn .3s ease-out" }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>📊 Summary</h2>
-              <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
-              <SortBar />
+              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>Pipeline Summary</h2>
+              <p style={{ margin: "0 0 16px", fontSize: 13, color: "#94A3B8" }}>All tracked sites across both regions. Click any column header to sort. Click any row to open.</p>
+
+              {/* ── KPI CARDS ── */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
+                {[
+                  { label: "Pipeline Value", value: totalAsk >= 1e6 ? `$${(totalAsk / 1e6).toFixed(1)}M` : `$${(totalAsk / 1e3).toFixed(0)}K`, sub: "Total asking prices", color: "#2C2C2C", accent: "#F37C33" },
+                  { label: "Total Sites", value: allSites.length, sub: `${sw.length} DW + ${east.length} MT`, color: "#2C2C2C", accent: "#3B82F6" },
+                  { label: "Under Contract", value: underContract, sub: "Signed PSA/REIC", color: "#22C55E", accent: "#22C55E" },
+                  { label: "LOIs Active", value: loisOut, sub: "Sent + Signed", color: "#F59E0B", accent: "#F59E0B" },
+                  { label: "Total Acreage", value: totalAcres > 0 ? `${totalAcres.toFixed(1)} ac` : "—", sub: "In pipeline", color: "#2C2C2C", accent: "#8B5CF6" },
+                  { label: "Avg 3-Mi Pop", value: avgPop > 0 ? fmtN(avgPop) : "—", sub: `Avg HHI $${avgInc > 0 ? (avgInc / 1000).toFixed(0) + "K" : "—"}`, color: "#2C2C2C", accent: "#06B6D4" },
+                ].map((kpi, ki) => (
+                  <div key={ki} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${kpi.accent}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" }}>{kpi.label}</div>
+                    <div style={{ fontSize: 26, fontWeight: 700, color: kpi.color, marginTop: 4, fontFamily: "'DM Sans'" }}>{kpi.value}</div>
+                    <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>{kpi.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── PHASE FUNNEL ── */}
+              <div style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", marginBottom: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", marginBottom: 10 }}>Deal Stage Funnel</div>
+                <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
+                  {phaseCounts.map((p, pi) => {
+                    const pct = allSites.length > 0 ? Math.max(15, (p.count / allSites.length) * 100) : 25;
+                    const pc = phaseColors[p.phase] || "#94A3B8";
+                    return (
+                      <div key={p.phase} style={{ flex: `${pct} 0 0`, textAlign: "center", padding: "12px 6px", background: `${pc}12`, borderLeft: pi > 0 ? `2px solid ${pc}33` : "none", borderRadius: pi === 0 ? "8px 0 0 8px" : pi === phaseCounts.length - 1 ? "0 8px 8px 0" : 0, transition: "all 0.2s" }}>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: pc }}>{p.count}</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: "#64748B", textTransform: "uppercase", marginTop: 2 }}>{p.phase}</div>
+                        {p.value > 0 && <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>${(p.value / 1e6).toFixed(1)}M</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── GEOGRAPHIC BREAKDOWN ── */}
+              <div style={{ background: "#fff", borderRadius: 12, padding: "12px 20px", marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>By State:</span>
+                {stateEntries.map(([st, ct]) => (
+                  <span key={st} style={{ fontSize: 12, color: "#475569" }}><strong>{st}</strong> <span style={{ color: "#94A3B8" }}>({ct})</span></span>
+                ))}
+              </div>
+
               <SumTable rk="southwest" />
               <SumTable rk="east" />
             </div>
