@@ -124,15 +124,15 @@ const fetchDemographics = async (coordinates) => {
     const trFips = blockFips.substring(5, 11);
     // Step 2: Fetch ACS 5-Year data for the tract (B01003_001E=population, B19013_001E=median HHI)
     const acsRes = await fetch(
-      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
+      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
     );
     const acsData = await acsRes.json();
     if (!acsData || acsData.length < 2) return { error: "No ACS data for tract" };
     const row = acsData[1];
     const pop = parseInt(row[0], 10);
     const income = parseInt(row[1], 10);
-    // Estimate 3-mile radius: multiply tract pop by ~8 (avg 3-mi covers ~8 tracts)
-    // This is an approximation; actual would require loading all tracts in radius
+    const hh = parseInt(row[2], 10);
+    // Estimate ring radii: multiply tract values by scaling factors (avg 3-mi covers ~8 tracts)
     // Also pull county-level for context
     let countyPop = null, countyIncome = null;
     try {
@@ -142,10 +142,11 @@ const fetchDemographics = async (coordinates) => {
     } catch (_) {}
     const tPop = isNaN(pop) ? 0 : pop;
     const incVal = isNaN(income) || income < 0 ? 0 : income;
+    const tHh = isNaN(hh) ? 0 : hh;
     const rings = {
-      1: { pop: Math.round(tPop * 0.8), hh: 0, medIncome: incVal },
-      3: { pop: Math.round(tPop * 8), hh: 0, medIncome: incVal },
-      5: { pop: Math.round(tPop * 18), hh: 0, medIncome: incVal },
+      1: { pop: Math.round(tPop * 0.8), hh: Math.round(tHh * 0.8), medIncome: incVal },
+      3: { pop: Math.round(tPop * 8), hh: Math.round(tHh * 8), medIncome: incVal },
+      5: { pop: Math.round(tPop * 18), hh: Math.round(tHh * 18), medIncome: incVal },
     };
     let growthOutlook = "Stable";
     if (tPop > 5000) growthOutlook = "Growing — high density";
