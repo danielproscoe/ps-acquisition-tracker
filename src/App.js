@@ -188,10 +188,11 @@ const fetchDemographics = async (coordinates) => {
   }
 };
 
-  // ─── Vetting Report PDF Generator ───
+  // ─── Vetting Report PDF Generator (Executive Edition) ───
   const openVettingReportPDF = (site) => {
     const w = window.open("", "_blank");
     if (!w) { alert("Please allow popups for this site"); return; }
+    const v = (f) => f || "\u2014";
     const pop3mi = site.pop3mi || "N/A";
     const income3mi = site.income3mi || "N/A";
     const acreage = site.acreage || "N/A";
@@ -206,34 +207,87 @@ const fetchDemographics = async (coordinates) => {
     const now = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     const popNum = parseInt(String(pop3mi).replace(/[^0-9]/g, "")) || 0;
     const incNum = parseInt(String(income3mi).replace(/[^0-9]/g, "")) || 0;
+    const acreNum = parseFloat(String(acreage).replace(/[^0-9.]/g, "")) || 0;
     const popScore = popNum >= 50000 ? "PASS" : popNum >= 20000 ? "MARGINAL" : "BELOW";
     const incScore = incNum >= 70000 ? "PASS" : incNum >= 55000 ? "MARGINAL" : "BELOW";
-    const acreNum = parseFloat(String(acreage).replace(/[^0-9.]/g, "")) || 0;
     const sizeScore = acreNum >= 3.5 ? "PASS" : acreNum >= 2.5 ? "MARGINAL" : "BELOW";
-    const badgeColor = (s) => s === "PASS" ? "#2e7d32" : s === "MARGINAL" ? "#e65100" : "#c62828";
-    const badge = (label, val, score) => "<span style=\"display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;background:" + badgeColor(score) + "\">" + label + ": " + val + " (" + score + ")</span>";
+    const bc = (s) => s === "PASS" ? "#16a34a" : s === "MARGINAL" ? "#ea580c" : "#dc2626";
+    const pill = (l, val, s) => "<span style=\"display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;color:#fff;background:" + bc(s) + ";letter-spacing:0.3px\">" + l + ": " + val + "</span>";
     const html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Vetting Report - " + (site.name || site.city || "Site") + "</title>"
-      + "<style>* { margin:0; padding:0; box-sizing:border-box; } body { font-family:DM Sans,Segoe UI,sans-serif; color:#1a1a2e; background:#f4f6fb; } .page { max-width:850px; margin:0 auto; background:#fff; box-shadow:0 2px 20px rgba(0,0,0,0.08); } .header { background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%); color:#fff; padding:36px 40px 28px; } .header h1 { font-size:22px; font-weight:700; letter-spacing:0.5px; margin-bottom:4px; } .header .subtitle { font-size:13px; opacity:0.8; } .accent-bar { height:4px; background:linear-gradient(90deg,#E65100,#F37C33,#FFB74D); } .content { padding:32px 40px; } .section { margin-bottom:24px; } .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1a1a2e; border-bottom:2px solid #E65100; padding-bottom:6px; margin-bottom:14px; } .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; } .field { display:flex; flex-direction:column; } .field-label { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:#888; font-weight:600; } .field-value { font-size:14px; font-weight:500; margin-top:2px; } .badges { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; } .summary-box { background:#f8f9fc; border-left:3px solid #E65100; padding:14px 18px; font-size:13px; line-height:1.6; border-radius:0 6px 6px 0; } .print-btn { display:block; margin:24px auto; padding:10px 32px; background:#1a1a2e; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; } .footer { text-align:center; padding:16px; font-size:10px; color:#999; border-top:1px solid #eee; } @media print { .print-btn { display:none !important; } body { background:#fff; } .page { box-shadow:none; } }</style></head><body>"
-      + "<div class=\"page\"><div class=\"header\"><h1>VETTING REPORT</h1><div class=\"subtitle\">" + (site.name || site.city || "") + ", " + (site.state || "") + " | " + now + "</div></div><div class=\"accent-bar\"></div><div class=\"content\">"
-      + "<div class=\"section\"><div class=\"section-title\">Property Overview</div><div class=\"grid\">"
-      + "<div class=\"field\"><span class=\"field-label\">Address</span><span class=\"field-value\">" + (site.address || "N/A") + "</span></div>"
-      + "<div class=\"field\"><span class=\"field-label\">City / State</span><span class=\"field-value\">" + (site.city || "") + ", " + (site.state || "") + "</span></div>"
-      + "<div class=\"field\"><span class=\"field-label\">Market</span><span class=\"field-value\">" + (site.market || "N/A") + "</span></div>"
-      + "<div class=\"field\"><span class=\"field-label\">Region</span><span class=\"field-value\">" + (site.region || "N/A") + "</span></div>"
-      + "<div class=\"field\"><span class=\"field-label\">Acreage</span><span class=\"field-value\">" + acreage + "</span></div>"
-      + "<div class=\"field\"><span class=\"field-label\">Asking Price</span><span class=\"field-value\">" + askingPrice + "</span></div>"
-      + "<div class=\"field\"><span class=\"field-label\">Phase</span><span class=\"field-value\">" + phase + "</span></div>"
-      + "<div class=\"field\"><span class=\"field-label\">Priority</span><span class=\"field-value\">" + priority + "</span></div>"
-      + "</div></div>"
-      + "<div class=\"section\"><div class=\"section-title\">Zoning</div><div class=\"field\"><span class=\"field-label\">Current Zoning</span><span class=\"field-value\">" + zoning + "</span></div></div>"
-      + "<div class=\"section\"><div class=\"section-title\">Demographics (3-Mile Radius)</div><div class=\"grid\"><div class=\"field\"><span class=\"field-label\">Population</span><span class=\"field-value\">" + pop3mi + "</span></div><div class=\"field\"><span class=\"field-label\">Median HH Income</span><span class=\"field-value\">" + income3mi + "</span></div></div><div class=\"badges\">" + badge("Population", pop3mi, popScore) + " " + badge("Income", income3mi, incScore) + "</div></div>"
-      + "<div class=\"section\"><div class=\"section-title\">Site Sizing Assessment</div><div class=\"badges\">" + badge("Acreage", acreage, sizeScore) + "</div><p style=\"font-size:13px;color:#555;margin-top:8px\">Target: 3.5\u20135 ac (one-story) or 2.5\u20133.5 ac (multi-story)</p></div>"
-      + "<div class=\"section\"><div class=\"section-title\">Broker / Seller</div><div class=\"field\"><span class=\"field-label\">Seller Broker</span><span class=\"field-value\">" + sellerBroker + "</span></div>" + (mapUrl ? "<div style=\"margin-top:8px\"><a href=\"" + mapUrl + "\" target=\"_blank\" style=\"color:#1565C0;font-size:13px\">View on Google Maps</a></div>" : "") + "</div>"
-      + "<div class=\"section\"><div class=\"section-title\">Red Flags</div><p style=\"font-size:13px;color:#555\">Review access, flood zone, environmental, and shape concerns during full due diligence.</p></div>"
-      + "<div class=\"section\"><div class=\"section-title\">Summary</div><div class=\"summary-box\">" + summary.replace(/\n/g, "<br>") + "</div></div>"
+      + "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap\" rel=\"stylesheet\">"
+      + "<style>"
+      + "* { margin:0; padding:0; box-sizing:border-box; }"
+      + "body { font-family:Inter,system-ui,sans-serif; background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%); min-height:100vh; padding:40px 20px; color:#e2e8f0; }"
+      + ".page { max-width:800px; margin:0 auto; }"
+      + ".hero { background:linear-gradient(135deg,#1e293b 0%,#334155 100%); border-radius:20px; padding:48px; margin-bottom:24px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 25px 50px rgba(0,0,0,0.4); position:relative; overflow:hidden; }"
+      + ".hero::before { content:\"\" ; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,#f97316,#fb923c,#fdba74,#fb923c,#f97316); }"
+      + ".hero-label { font-size:10px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#f97316; margin-bottom:8px; }"
+      + ".hero-title { font-size:32px; font-weight:700; color:#fff; letter-spacing:-0.5px; line-height:1.2; }"
+      + ".hero-sub { font-size:14px; color:#94a3b8; margin-top:8px; font-weight:400; }"
+      + ".hero-date { font-size:12px; color:#64748b; margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.06); }"
+      + ".grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }"
+      + ".card { background:rgba(30,41,59,0.8); backdrop-filter:blur(12px); border-radius:16px; padding:28px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 4px 20px rgba(0,0,0,0.2); }"
+      + ".card-full { grid-column:1/-1; }"
+      + ".card-title { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:#f97316; margin-bottom:20px; display:flex; align-items:center; gap:8px; }"
+      + ".card-title::after { content:\"\" ; flex:1; height:1px; background:linear-gradient(90deg,rgba(249,115,22,0.3),transparent); }"
+      + ".metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }"
+      + ".metric-label { font-size:10px; font-weight:500; letter-spacing:1px; text-transform:uppercase; color:#64748b; margin-bottom:4px; }"
+      + ".metric-value { font-size:16px; font-weight:600; color:#f1f5f9; }"
+      + ".pills { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }"
+      + ".summary-text { color:#cbd5e1; font-size:14px; line-height:1.7; padding:16px 20px; background:rgba(249,115,22,0.06); border-left:3px solid #f97316; border-radius:0 12px 12px 0; }"
+      + ".print-btn { display:block; margin:32px auto 0; padding:12px 40px; background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; border:none; border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(249,115,22,0.3); }"
+      + ".footer { text-align:center; margin-top:24px; font-size:11px; color:#475569; }"
+      + "@media print { body { background:#fff; padding:20px; } .hero,.card { background:#f8fafc; border-color:#e2e8f0; box-shadow:none; color:#0f172a; } .hero-title,.metric-value { color:#0f172a; } .hero-sub,.metric-label,.hero-date,.hero-label { color:#475569; } .card-title { color:#ea580c; } .summary-text { color:#334155; background:#fff7ed; } .print-btn { display:none !important; } .footer { color:#94a3b8; } }"
+      + "</style></head><body>"
+      + "<div class=\"page\">"
+      + "<div class=\"hero\">"
+      + "<div class=\"hero-label\">Site Vetting Report</div>"
+      + "<div class=\"hero-title\">" + (site.name || site.address || "Site") + "</div>"
+      + "<div class=\"hero-sub\">" + (site.address || "") + " \u2022 " + (site.city || "") + ", " + (site.state || "") + "</div>"
+      + "<div class=\"hero-date\">Generated " + now + " \u2022 Phase: " + phase + " \u2022 Priority: " + priority + "</div>"
       + "</div>"
-      + "<button class=\"print-btn\" onclick=\"window.print()\">Save as PDF / Print</button>"
-      + "<div class=\"footer\">Generated by PS Acquisition Tracker | DJR Real Estate LLC</div>"
+      + "<div class=\"grid-2\">"
+      + "<div class=\"card\">"
+      + "<div class=\"card-title\">Property Overview</div>"
+      + "<div class=\"metric-grid\">"
+      + "<div><div class=\"metric-label\">Acreage</div><div class=\"metric-value\">" + acreage + "</div></div>"
+      + "<div><div class=\"metric-label\">Asking Price</div><div class=\"metric-value\">" + askingPrice + "</div></div>"
+      + "<div><div class=\"metric-label\">Market</div><div class=\"metric-value\">" + v(site.market) + "</div></div>"
+      + "<div><div class=\"metric-label\">Region</div><div class=\"metric-value\">" + v(site.region) + "</div></div>"
+      + "</div></div>"
+      + "<div class=\"card\">"
+      + "<div class=\"card-title\">Zoning</div>"
+      + "<div><div class=\"metric-label\">Current Designation</div><div class=\"metric-value\">" + zoning + "</div></div>"
+      + "<div style=\"margin-top:16px\"><div class=\"metric-label\">Seller / Broker</div><div class=\"metric-value\">" + sellerBroker + "</div></div>"
+      + (mapUrl ? "<a href=\"" + mapUrl + "\" target=\"_blank\" style=\"display:inline-block;margin-top:12px;color:#f97316;font-size:12px;font-weight:500;text-decoration:none\">View on Google Maps \u2192</a>" : "")
+      + "</div>"
+      + "</div>"
+      + "<div class=\"grid-2\">"
+      + "<div class=\"card\">"
+      + "<div class=\"card-title\">Demographics (3-Mi Radius)</div>"
+      + "<div class=\"metric-grid\">"
+      + "<div><div class=\"metric-label\">Population</div><div class=\"metric-value\">" + pop3mi + "</div></div>"
+      + "<div><div class=\"metric-label\">Median HH Income</div><div class=\"metric-value\">" + income3mi + "</div></div>"
+      + "</div>"
+      + "<div class=\"pills\">" + pill("Pop", pop3mi, popScore) + pill("Income", income3mi, incScore) + "</div>"
+      + "</div>"
+      + "<div class=\"card\">"
+      + "<div class=\"card-title\">Site Sizing</div>"
+      + "<div><div class=\"metric-label\">Acreage</div><div class=\"metric-value\">" + acreage + "</div></div>"
+      + "<div class=\"pills\">" + pill("Size", acreage, sizeScore) + "</div>"
+      + "<div style=\"margin-top:12px;font-size:12px;color:#64748b\">Target: 3.5\u20135 ac (one-story) or 2.5\u20133.5 ac (multi-story)</div>"
+      + "</div>"
+      + "</div>"
+      + "<div class=\"card card-full\" style=\"margin-bottom:0\">"
+      + "<div class=\"card-title\">Summary & Notes</div>"
+      + "<div class=\"summary-text\">" + summary.replace(/\n/g, "<br>") + "</div>"
+      + "<div style=\"margin-top:20px\">"
+      + "<div class=\"card-title\">Red Flags</div>"
+      + "<div style=\"font-size:13px;color:#94a3b8\">Review access, flood zone, environmental, and shape concerns during full due diligence.</div>"
+      + "</div>"
+      + "</div>"
+      + "<button class=\"print-btn\" onclick=\"window.print()\">Save as PDF</button>"
+      + "<div class=\"footer\">PS Acquisition Tracker \u2022 DJR Real Estate LLC \u2022 Confidential</div>"
       + "</div></body></html>";
     w.document.write(html);
     w.document.close();
