@@ -1226,8 +1226,6 @@ export default function App() {
                   { label: "Total Sites", value: allSites.length, sub: `${sw.length} DW + ${east.length} MT`, color: "#2C2C2C", accent: "#3B82F6" },
                   { label: "Under Contract", value: underContract, sub: "Signed PSA/REIC", color: "#22C55E", accent: "#22C55E" },
                   { label: "LOIs Active", value: loisOut, sub: "Sent + Signed", color: "#F59E0B", accent: "#F59E0B" },
-                  { label: "Total Acreage", value: totalAcres > 0 ? `${totalAcres.toFixed(1)} ac` : "—", sub: "In pipeline", color: "#2C2C2C", accent: "#8B5CF6" },
-                  { label: "Avg 3-Mi Pop", value: avgPop > 0 ? fmtN(avgPop) : "—", sub: `Avg HHI $${avgInc > 0 ? (avgInc / 1000).toFixed(0) + "K" : "—"}`, color: "#2C2C2C", accent: "#06B6D4" },
                 ].map((kpi, ki) => (
                   <div key={ki} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${kpi.accent}` }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" }}>{kpi.label}</div>
