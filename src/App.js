@@ -3,7 +3,7 @@
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, storage } from "./firebase";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import {
@@ -101,6 +101,26 @@ const mapsLink = (c) =>
   c ? `https://www.google.com/maps?q=${encodeURIComponent(c)}` : "";
 const earthLink = (c) =>
   c ? `https://earth.google.com/web/search/${encodeURIComponent(c)}` : "";
+
+// ─── Shared Style Constants ───
+const STYLES = {
+  cardBase: { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" },
+  kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(135deg, #fff 0%, #FAFBFC 100%)", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", borderLeft: `4px solid ${borderColor}`, transition: "all 0.25s ease" }),
+  labelMicro: { fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 },
+  btnPrimary: { padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 6px rgba(243,124,51,0.25)", transition: "all 0.2s" },
+  btnGhost: { padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" },
+  frostedHeader: { background: "rgba(44,44,44,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(0,0,0,0.2)" },
+};
+
+// ─── Debounce Helper ───
+const debounce = (fn, ms) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+};
+
 
 // ─── Geocode Demographics Helper ───
 // Uses US Census Bureau ACS 5-Year via data.census.gov API
@@ -582,8 +602,9 @@ function EF({ label, value, onSave, placeholder, multi }) {
     boxSizing: "border-box",
     resize: multi ? "vertical" : "none",
   };
+  const debouncedSave = useCallback(debounce((v) => onSave(v), 400), [onSave]);
   const handleBlur = () => {
-    if (local !== (value || "")) onSave(local);
+    if (local !== (value || "")) debouncedSave(local);
   };
   return (
     <div>
@@ -1346,7 +1367,11 @@ export default function App() {
   const sortData = (arr) => {
     const sorted = [...arr];
     switch (sortBy) {
-      case "siteiq": return sorted.sort((a, b) => computeSiteIQ(b).score - computeSiteIQ(a).score);
+      case "siteiq": {
+        const cache = new Map();
+        const getIQ = (s) => { if (!cache.has(s.id)) cache.set(s.id, computeSiteIQ(s).score); return cache.get(s.id); };
+        return sorted.sort((a, b) => getIQ(b) - getIQ(a));
+      }
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
       case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
       case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
@@ -1406,7 +1431,7 @@ export default function App() {
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", borderLeft: `4px solid ${PRIORITY_COLORS[site.priority] || region.accent}`, overflow: "hidden" }}>
+                <div key={site.id} id={`site-${site.id}`} className="site-card" style={{ ...STYLES.cardBase, borderLeft: `4px solid ${PRIORITY_COLORS[site.priority] || region.accent}` }}>
                   {/* Collapsed header */}
                   <div onClick={() => setExpandedSite(isOpen ? null : site.id)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
@@ -1434,7 +1459,7 @@ export default function App() {
 
                   {/* Expanded */}
                   {isOpen && (
-                    <div style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
+                    <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
                       {/* SiteIQ™ Score — Primary Metric */}
                       <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
                         <SiteIQBadge site={site} />
@@ -1688,13 +1713,32 @@ export default function App() {
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 25px rgba(201,168,76,0.6), 0 0 50px rgba(201,168,76,0.25); } }
         @keyframes siteiq-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.05); } }
+        @keyframes toastSlide { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(243,124,51,0.4); } 70% { box-shadow: 0 0 0 10px rgba(243,124,51,0); } 100% { box-shadow: 0 0 0 0 rgba(243,124,51,0); } }
+        @keyframes countUp { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
         * { box-sizing: border-box; }
         input, select, textarea, button { font-family: 'DM Sans', sans-serif; }
+        /* Cosmetic: Card hover glow */
+        .site-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .site-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important; }
+        /* Cosmetic: Smooth expand */
+        .card-expand { animation: slideDown 0.3s ease-out; overflow: hidden; }
+        /* Cosmetic: Nav button underline */
+        .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 60%; height: 2px; background: #F37C33; border-radius: 2px; }
+        /* Cosmetic: Sort pill active glow */
+        .sort-active { box-shadow: 0 0 0 2px rgba(243,124,51,0.2); }
+        /* Code: Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+        /* Cosmetic: KPI card number animation */
+        .kpi-number { animation: countUp 0.5s ease-out; }
       `}</style>
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: "fixed", top: 20, right: 20, background: "#2C2C2C", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", animation: "fadeIn 0.2s ease-out" }}>{toast}</div>
+        <div style={{ position: "fixed", top: 20, right: 20, background: "linear-gradient(135deg, #2C2C2C, #1a1a2e)", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 24px rgba(0,0,0,0.25), 0 0 0 1px rgba(243,124,51,0.15)", animation: "toastSlide 0.3s ease-out", borderLeft: "3px solid #F37C33" }}>{toast}</div>
       )}
 
       {/* New site alert */}
@@ -1709,7 +1753,7 @@ export default function App() {
       )}
 
       {/* Header */}
-      <div style={{ background: "#2C2C2C", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+      <div style={STYLES.frostedHeader}>
         {/* PS Banner */}
         <div style={{ padding: "10px 0 6px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -1755,33 +1799,37 @@ export default function App() {
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-              <div onClick={() => setTab("summary")} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: "4px solid #F37C33", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{sw.length + east.length}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>View summary →</div>
-              </div>
-              <div onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: "4px solid #F59E0B", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pending</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{pendingN}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Review queue →</div>
-              </div>
-              <div onClick={() => { setTab("southwest"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${REGIONS.southwest.accent}`, transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Daniel Wollent</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{sw.length}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Open tracker →</div>
-              </div>
-              <div onClick={() => { setTab("east"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${REGIONS.east.accent}`, transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Matthew Toussaint</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{east.length}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Open tracker →</div>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+              {[
+                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
+                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => { setTab("review"); setShowNewAlert(false); }, sub: "Review queue →" },
+                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => { setTab("southwest"); setExpandedSite(null); }, sub: "Open tracker →" },
+                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => { setTab("east"); setExpandedSite(null); }, sub: "Open tracker →" },
+              ].map((kpi) => (
+                <div key={kpi.label} onClick={kpi.action} style={STYLES.kpiCard(kpi.color)}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = `0 6px 20px ${kpi.color}22`; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)"; }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+                    <span style={{ fontSize: 16, opacity: 0.6 }}>{kpi.icon}</span>
+                  </div>
+                  <div className="kpi-number" style={{ fontSize: 34, fontWeight: 800, color: "#2C2C2C", marginTop: 6, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{kpi.value}</div>
+                  <div style={{ fontSize: 10, color: kpi.color, marginTop: 4, fontWeight: 600 }}>{kpi.sub}</div>
+                </div>
+              ))}
             </div>
 
             {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, tabKey: "east" }].map((r) => (
-              <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
+              <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} className="site-card" style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
                 <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {/* Visual pipeline bar */}
+                  <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 10, background: "#F1F5F9" }}>
+                    {PHASES.map((p, idx) => {
+                      const c = r.data.filter((s) => s.phase === p).length;
+                      return c > 0 ? <div key={p} title={`${p}: ${c}`} style={{ width: `${(c / total) * 100}%`, background: phaseColors[idx] || r.accent, transition: "width 0.5s ease" }} /> : null;
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {PHASES.map((p) => { const c = r.data.filter((s) => s.phase === p).length; return <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${r.color}11` : "#F8FAFC", border: c > 0 ? `1px solid ${r.color}33` : "1px solid #E2E8F0" }}><div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? r.color : "#CBD5E1" }}>{c}</div><div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div></div>; })}
                 </div>
               </div>
@@ -1812,9 +1860,9 @@ export default function App() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: i % 2 ? "#FAFBFC" : "#fff", cursor: "pointer", transition: "background 0.15s" }}
+                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? "#FAFBFC" : "#fff")}
+                            onMouseLeave={(e) => { const t = computeSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
                           >
                             <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
