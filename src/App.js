@@ -1,4 +1,4 @@
-// src/App.js — Public Storage Acquisition Tracker
+// src/App.js — Public Storage 4.0 Acquisition Tracker
 // © 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
@@ -127,6 +127,7 @@ function Badge({ status }) {
           height: 7,
           borderRadius: "50%",
           background: s.dot,
+          animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         }}
       />
       {status}
@@ -269,7 +270,7 @@ export default function App() {
   const [expandedSite, setExpandedSite] = useState(null);
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
-  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", flyer: null, survey: null };
+  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest" };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("direct");
   const [bulkRows, setBulkRows] = useState(null);
@@ -444,16 +445,15 @@ export default function App() {
   };
 
   // ─── SUBMIT ───
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!form.name || !form.address || !form.city || !form.state) {
       notify("Fill name, address, city, state.");
       return;
     }
     const now = new Date().toISOString();
     const id = uid();
-    const { flyer, survey, ...formData } = form;
     const site = {
-      ...formData,
+      ...form,
       id,
       submittedAt: now,
       phase: "Prospect",
@@ -474,27 +474,18 @@ export default function App() {
       docs: {},
       activityLog: { [uid()]: { action: "Site submitted", ts: now, by: "User" } },
     };
-    const region = form.region;
     if (submitMode === "direct") {
       const t = { ...site, status: "tracking", approvedAt: now };
-      fbSet(`${region}/${id}`, t);
+      fbSet(`${form.region}/${id}`, t);
       fbSet(`submissions/${id}`, { ...site, status: "approved" });
-      notify(`Added → ${REGIONS[region].label}`);
+      notify(`Added → ${REGIONS[form.region].label}`);
       setShareLink(null);
-      // Upload attached files to the tracker site
-      if (flyer) handleDocUpload(region, id, flyer, "Flyer");
-      if (survey) handleDocUpload(region, id, survey, "Survey");
     } else {
       fbSet(`submissions/${id}`, { ...site, status: "pending" });
       notify("Submitted for review!");
       setShareLink(id);
-      // Upload attached files to submission
-      if (flyer) { const dId = uid(); const p = `docs/${id}/${dId}_${flyer.name}`; try { const sR = storageRef(storage, p); await uploadBytes(sR, flyer); const url = await getDownloadURL(sR); fbPush(`submissions/${id}/docs`, { id: dId, name: flyer.name, type: "Flyer", url, path: p, uploadedAt: now }); } catch(e) { console.error(e); } }
-      if (survey) { const dId = uid(); const p = `docs/${id}/${dId}_${survey.name}`; try { const sR = storageRef(storage, p); await uploadBytes(sR, survey); const url = await getDownloadURL(sR); fbPush(`submissions/${id}/docs`, { id: dId, name: survey.name, type: "Survey", url, path: p, uploadedAt: now }); } catch(e) { console.error(e); } }
     }
     setForm(emptyForm);
-    // Clear file inputs
-    document.querySelectorAll('input[data-submit-file]').forEach(el => { el.value = ''; });
   };
 
   // ─── REVIEW ───
@@ -736,77 +727,97 @@ export default function App() {
       );
       const ws = XLSX.utils.aoa_to_sheet([cols.map((c) => c.header), ...rows]);
       ws["!cols"] = cols.map((c) => ({ wch: c.width }));
-      ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: cols.length - 1 } }) };
       return ws;
     };
     const wb = XLSX.utils.book_new();
-    const allSorted = [
-      ...sw.map((s) => ({ ...s, _region: "Daniel Wollent" })),
-      ...east.map((s) => ({ ...s, _region: "Matthew Toussaint" })),
-    ].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    const summCols = [{ key: "_region", header: "Region", width: 18 }, ...cols];
-    const summRows = allSorted.map((s) =>
-      summCols.map((c) => {
-        if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
-        if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
-        return s[c.key] || "";
-      })
-    );
-    const summWs = XLSX.utils.aoa_to_sheet([summCols.map((c) => c.header), ...summRows]);
-    summWs["!cols"] = summCols.map((c) => ({ wch: c.width }));
-    XLSX.utils.book_append_sheet(wb, summWs, "Full Pipeline");
+    XLSX.utils.book_append_sheet(wb, makeSheet([...sw, ...east]), "All Sites");
     XLSX.utils.book_append_sheet(wb, makeSheet(sw), "Daniel Wollent");
     XLSX.utils.book_append_sheet(wb, makeSheet(east), "Matthew Toussaint");
-    XLSX.writeFile(wb, `PS_Acquisition_Pipeline_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    notify("Exported!");
+    XLSX.writeFile(wb, `PS_Pipeline_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   // ─── SORT ───
-  const SORT_OPTIONS = [
-    { key: "name", label: "Name (A→Z)" },
-    { key: "city", label: "City (A→Z)" },
-    { key: "recent", label: "Recently Added" },
-    { key: "dom", label: "Days on Market" },
-    { key: "priority", label: "Priority" },
-    { key: "phase", label: "Phase" },
-  ];
-  const priorityOrder = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
-  const phaseOrder = Object.fromEntries(PHASES.map((p, i) => [p, i]));
-  const sortData = (arr) => {
-    const sorted = [...arr];
-    switch (sortBy) {
-      case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
-      case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
-      case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
-      case "priority": return sorted.sort((a, b) => (priorityOrder[a.priority] ?? 9) - (priorityOrder[b.priority] ?? 9));
-      case "phase": return sorted.sort((a, b) => (phaseOrder[a.phase] ?? 9) - (phaseOrder[b.phase] ?? 9));
-      default: return sorted.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    }
-  };
+  const sortData = useCallback(
+    (data) =>
+      [...data].sort((a, b) => {
+        if (sortBy === "city") return (a.city || "").localeCompare(b.city || "");
+        if (sortBy === "market") return (a.market || "").localeCompare(b.market || "");
+        if (sortBy === "phase") {
+          const aIdx = PHASES.indexOf(a.phase || "Prospect");
+          const bIdx = PHASES.indexOf(b.phase || "Prospect");
+          return aIdx - bIdx;
+        }
+        return 0;
+      }),
+    [sortBy]
+  );
+
+  const pendingN = subs.filter((s) => s.status === "pending").length;
 
   const SortBar = () => (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Sort:</span>
-      {SORT_OPTIONS.map((o) => (
-        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #F37C33" : "1px solid #E2E8F0", background: sortBy === o.key ? "#FFF3E0" : "#fff", color: sortBy === o.key ? "#E65100" : "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.15s" }}>{o.label}</button>
+    <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <label style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Sort by:</label>
+      {["city", "market", "phase"].map((k) => (
+        <button
+          key={k}
+          onClick={() => setSortBy(k)}
+          style={{
+            padding: "4px 10px",
+            borderRadius: 6,
+            border: sortBy === k ? "1px solid #F37C33" : "1px solid #E2E8F0",
+            background: sortBy === k ? "#FFF3E0" : "#fff",
+            color: sortBy === k ? "#F37C33" : "#64748B",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          {k.charAt(0).toUpperCase() + k.slice(1)}
+        </button>
       ))}
     </div>
   );
 
-  // ─── STYLES ───
-  const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2C2C2C", outline: "none", boxSizing: "border-box" };
-  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "#2C2C2C" : "transparent", color: tab === key ? "#F37C33" : "#64748B", whiteSpace: "nowrap" });
-  const pendingN = subs.filter((s) => s.status === "pending").length;
+  const navBtn = (key) => ({
+    padding: "8px 14px",
+    borderRadius: 8,
+    border: "none",
+    background: tab === key ? "transparent" : "transparent",
+    color: tab === key ? "#F37C33" : "#64748B",
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "'DM Sans'",
+    whiteSpace: "nowrap",
+    borderBottom: tab === key ? "2px solid #F37C33" : "2px solid transparent",
+    transition: "all 0.15s",
+  });
 
-  if (!loaded) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans'" }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <div style={{ color: "#64748B", fontSize: 14 }}>Loading…</div>
+  const inp = {
+    width: "100%",
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #E2E8F0",
+    fontSize: 13,
+    fontFamily: "'DM Sans'",
+    background: "#FAFBFC",
+    outline: "none",
+    boxSizing: "border-box",
+    marginTop: 4,
+  };
+
+  // ═══ RENDER ═══
+  if (!loaded)
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#FAFAF7", fontFamily: "'DM Sans'" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 50, height: 50, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+          <div style={{ color: "#64748B", fontSize: 14 }}>Loading…</div>
+        </div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}`}</style>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+    );
 
   // ═══ TRACKER CARDS ═══
   const TrackerCards = ({ regionKey }) => {
@@ -834,7 +845,7 @@ export default function App() {
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", borderLeft: `4px solid ${PRIORITY_COLORS[site.priority] || region.accent}`, overflow: "hidden" }}>
+                <div key={site.id} id={`site-${site.id}`} style={{ background: "#fff", borderRadius: 16, boxShadow: "0 2px 6px rgba(0,0,0,0.08)", borderLeft: `5px solid ${PRIORITY_COLORS[site.priority] || region.accent}`, borderTop: `2px solid #F37C33`, overflow: "hidden", transition: "all 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)")} onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 2px 6px rgba(0,0,0,0.08)")}>
                   {/* Collapsed header */}
                   <div onClick={() => setExpandedSite(isOpen ? null : site.id)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
@@ -865,17 +876,14 @@ export default function App() {
                       {/* Site Photo */}
                       <div style={{ margin: "14px 0 10px" }}>
                         {site.photoUrl ? (
-                          <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.10)", border: "1px solid #E2E8F0" }}>
-                            <img src={site.photoUrl} alt={site.name} style={{ width: "100%", maxHeight: 340, objectFit: "cover", display: "block" }} onError={(e) => { e.target.style.display = "none"; }} />
-                            <button onClick={() => updateSiteField(regionKey, site.id, "photoUrl", "")} style={{ position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 8, border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>✕</button>
+                          <div style={{ position: "relative" }}>
+                            <img src={site.photoUrl} alt={site.name} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10, border: "1px solid #E2E8F0" }} onError={(e) => { e.target.style.display = "none"; }} />
+                            <button onClick={() => updateSiteField(regionKey, site.id, "photoUrl", "")} style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 6, border: "none", background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
                           </div>
                         ) : null}
-                        <details style={{ marginTop: site.photoUrl ? 8 : 0 }}>
-                          <summary style={{ fontSize: 10, color: "#94A3B8", cursor: "pointer", fontWeight: 600, userSelect: "none" }}>{site.photoUrl ? "Change photo" : "📷 Add Site Photo"}</summary>
-                          <div style={{ marginTop: 4 }}>
-                            <EF label="Photo URL" value={site.photoUrl || ""} onSave={(v) => updateSiteField(regionKey, site.id, "photoUrl", v)} placeholder="Paste image URL or base64 data" />
-                          </div>
-                        </details>
+                        <div style={{ marginTop: site.photoUrl ? 6 : 0 }}>
+                          <EF label={site.photoUrl ? "Photo URL" : "📷 Site Photo URL"} value={site.photoUrl || ""} onSave={(v) => updateSiteField(regionKey, site.id, "photoUrl", v)} placeholder="Paste image URL" />
+                        </div>
                       </div>
 
                       {/* Summary */}
@@ -916,99 +924,137 @@ export default function App() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Date on Market</div>
-                          <input type="date" value={site.dateOnMarket || ""} onChange={(e) => updateSiteField(regionKey, site.id, "dateOnMarket", e.target.value)} style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, fontFamily: "'DM Sans'", background: "#FAFBFC", color: "#2C2C2C", outline: "none", boxSizing: "border-box" }} />
+                          <input
+                            type="date"
+                            value={site.dateOnMarket || ""}
+                            onChange={(e) => saveField(regionKey, site.id, "dateOnMarket", e.target.value)}
+                            style={inp}
+                          />
                         </div>
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Days on Market</div>
-                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", color: dom !== null ? "#2C2C2C" : "#CBD5E1", fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "—"}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Listing URL</div>
+                          <input
+                            style={inp}
+                            value={site.listingUrl || ""}
+                            onChange={(e) => saveField(regionKey, site.id, "listingUrl", e.target.value)}
+                            placeholder="costar.com/…"
+                          />
                         </div>
                       </div>
 
-                      {/* Coordinates */}
-                      <div style={{ marginBottom: 12 }}>
-                        <EF label="Coordinates (lat, lng)" value={site.coordinates || ""} onSave={(v) => saveField(regionKey, site.id, "coordinates", v)} placeholder="39.123, -84.456" />
-                        {(site.coordinates || site.listingUrl) && (
-                          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                            {site.coordinates && <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>}
-                            {site.coordinates && <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>}
-                            {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Listing</a>}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Listing URL */}
+                      {/* Maps + Coordinates */}
                       <div style={{ marginBottom: 14 }}>
-                        <EF label="Listing URL (Crexi / LoopNet)" value={site.listingUrl || ""} onSave={(v) => saveField(regionKey, site.id, "listingUrl", v)} placeholder="https://www.crexi.com/…" />
-                      </div>
-
-                      {/* Documents */}
-                      <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, marginBottom: 14, border: "1px solid #E2E8F0" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 10 }}>📁 Documents</div>
-                        {docs.length > 0 && (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                            {docs.map(([docKey, doc]) => (
-                              <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
-                                <span style={{ fontWeight: 600, color: "#475569" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
-                                <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
-                                <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer" }}>
-                            {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
-                          </select>
-                          <label style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                            + Upload
-                            <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
-                          </label>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Coordinates</div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+                          <input
+                            style={{ ...inp, marginTop: 0 }}
+                            value={site.coordinates || ""}
+                            onChange={(e) => saveField(regionKey, site.id, "coordinates", e.target.value)}
+                            placeholder="lat, lng"
+                          />
+                          {site.coordinates && (
+                            <>
+                              <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 12px", borderRadius: 8, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center" }}>📍 Maps</a>
+                              <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 12px", borderRadius: 8, background: "#2C3E50", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center" }}>🌍 Earth</a>
+                            </>
+                          )}
                         </div>
                       </div>
 
                       {/* Messages */}
-                      <div style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>💬 Thread</div>
-                        {msgs.length > 0 && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxHeight: 200, overflowY: "auto" }}>
-                            {[...msgs].sort((a, b) => new Date(a.ts) - new Date(b.ts)).map((m, i) => {
-                              const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: "#475569" };
-                              return (
-                                <div key={i} style={{ background: mc.bg, border: `1px solid ${mc.border}`, borderRadius: 8, padding: "8px 10px" }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from} · {m.ts ? new Date(m.ts).toLocaleDateString() : ""}</div>
-                                  <div style={{ fontSize: 13, color: "#2C2C2C" }}>{m.text}</div>
+                      <div style={{ marginBottom: 14, paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Messages & Notes</div>
+                        {msgs.map((m, idx) => {
+                          const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: "#64748B" };
+                          return (
+                            <div key={idx} style={{ background: mc.bg, borderLeft: `3px solid ${mc.border}`, borderRadius: 8, padding: "8px 12px", marginBottom: 8, fontSize: 11 }}>
+                              <div style={{ fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from}</div>
+                              <div style={{ color: "#475569", whiteSpace: "pre-wrap" }}>{m.text}</div>
+                              <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>{new Date(m.ts).toLocaleString()}</div>
+                            </div>
+                          );
+                        })}
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                          <select
+                            value={mi.from}
+                            onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, from: e.target.value } })}
+                            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", fontFamily: "'DM Sans'" }}
+                          >
+                            {["Dan R", "Daniel Wollent", "Matthew Toussaint"].map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                          <input
+                            style={{ ...inp, marginTop: 0, flex: 1, minWidth: 150 }}
+                            value={mi.text}
+                            onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })}
+                            placeholder="Add note or message…"
+                            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMsg(regionKey, site.id); } }}
+                          />
+                          <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
+                        </div>
+                      </div>
+
+                      {/* Documents */}
+                      <div style={{ marginBottom: 14, paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Documents</div>
+                        {docs.length === 0 ? (
+                          <div style={{ fontSize: 11, color: "#94A3B8", padding: "8px 0" }}>No documents.</div>
+                        ) : (
+                          <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
+                            {docs.map(([k, d]) => (
+                              <div key={k} style={{ background: "#F8FAFC", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ fontSize: 11 }}>
+                                  <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F37C33", fontWeight: 700, textDecoration: "none" }}>📄 {d.name}</a>
+                                  <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }}>{d.type || "File"} — {new Date(d.uploadedAt).toLocaleDateString()}</div>
                                 </div>
-                              );
-                            })}
+                                <button onClick={() => handleDocDelete(regionKey, site.id, k, d)} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#FFE2E2", color: "#B71C1C", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>✕</button>
+                              </div>
+                            ))}
                           </div>
                         )}
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <select value={mi.from} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, from: e.target.value } })} style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", minWidth: 130 }}>
-                            <option>Dan R</option>
-                            <option>Daniel Wollent</option>
-                            <option>Matthew Toussaint</option>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <select
+                            onChange={(e) => {
+                              const input = document.createElement("input");
+                              input.type = "file";
+                              input.onchange = (ev) => {
+                                const file = ev.target.files?.[0];
+                                if (file) handleDocUpload(regionKey, site.id, file, e.target.value);
+                              };
+                              input.click();
+                            }}
+                            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", fontFamily: "'DM Sans'" }}
+                          >
+                            <option value="">Upload doc…</option>
+                            {DOC_TYPES.map((t) => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
                           </select>
-                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") handleSendMsg(regionKey, site.id); }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
-                          <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
                         </div>
                       </div>
 
                       {/* Activity Log */}
-                      {logs.length > 0 && (
-                        <details style={{ marginBottom: 10 }}>
-                          <summary style={{ fontSize: 11, color: "#94A3B8", cursor: "pointer", fontWeight: 600 }}>Activity Log ({logs.length})</summary>
-                          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-                            {[...logs].sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 20).map((l, i) => (
-                              <div key={i} style={{ fontSize: 11, color: "#94A3B8" }}>
-                                <span style={{ color: "#64748B" }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> — {l.action}
+                      <div style={{ paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Activity Log</div>
+                        {logs.length === 0 ? (
+                          <div style={{ fontSize: 11, color: "#94A3B8", padding: "8px 0" }}>No activity yet.</div>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {logs.slice().reverse().map((log, idx) => (
+                              <div key={idx} style={{ fontSize: 10, display: "flex", gap: 8, color: "#64748B" }}>
+                                <span style={{ fontWeight: 600, color: "#94A3B8" }}>{new Date(log.ts).toLocaleString()}</span>
+                                <span>{log.action} by {log.by}</span>
                               </div>
                             ))}
                           </div>
-                        </details>
-                      )}
+                        )}
+                      </div>
 
-                      {/* Remove */}
-                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>🗑 Remove Site</button>
+                      {/* Delete */}
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
+                        <button onClick={() => handleRemove(regionKey, site.id)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FFB6B6", background: "#FEF2F2", color: "#B71C1C", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🗑 Remove</button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1020,26 +1066,12 @@ export default function App() {
     );
   };
 
-  // ═══ RENDER ═══
   return (
-    <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        * { box-sizing: border-box; }
-        input, select, textarea, button { font-family: 'DM Sans', sans-serif; }
-      `}</style>
-
-      {/* Toast */}
-      {toast && (
-        <div style={{ position: "fixed", top: 20, right: 20, background: "#2C2C2C", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", animation: "fadeIn 0.2s ease-out" }}>{toast}</div>
-      )}
-
-      {/* New site alert */}
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#FAFAF7" }}>
+      {/* Alert Banner */}
       {showNewAlert && (
-        <div style={{ background: "#FFF3E0", borderBottom: "1px solid #F37C33", padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <span style={{ fontSize: 13, color: "#E65100", fontWeight: 600 }}>🔔 {newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
+        <div style={{ background: "linear-gradient(90deg, #FFF3E0, #FFFBF0)", borderBottom: "2px solid #F37C33", padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#E65100" }}>🆕 {newSiteCount} new site{newSiteCount !== 1 ? "s" : ""} waiting for review</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
             <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
@@ -1048,25 +1080,28 @@ export default function App() {
       )}
 
       {/* Header */}
-      <div style={{ background: "#2C2C2C", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+      <div style={{ background: "linear-gradient(135deg, #1A1A1A 0%, #111111 100%)", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 12px rgba(0,0,0,0.2)", borderTop: "3px solid #F37C33" }}>
         {/* PS Banner */}
-        <div style={{ padding: "10px 0 6px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: "#F37C33", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'" }}>PS</span>
+        <div style={{ padding: "14px 0 10px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 10, background: "linear-gradient(135deg, #F37C33, #E8650A)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }}>
+                <span style={{ fontSize: 22, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'" }}>PS</span>
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.02em", background: "linear-gradient(90deg, #fff 0%, #F37C33 40%, #fff 60%, #fff 100%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite" }}>PUBLIC STORAGE</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline · 2026</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", letterSpacing: "0.05em", textTransform: "uppercase" }}>PUBLIC STORAGE 4.0</div>
+                <div style={{ fontSize: 11, color: "#94A3B8", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 2 }}>Acquisition Pipeline 2026</div>
               </div>
             </div>
-            <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em", textTransform: "uppercase" }}>DJR Real Estate</span>
+              <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(243, 124, 51, 0.4)", background: "rgba(243, 124, 51, 0.1)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export</button>
+            </div>
           </div>
         </div>
 
         {/* Nav */}
-        <div style={{ display: "flex", gap: 2, overflowX: "auto", padding: "4px 0", scrollbarWidth: "none" }}>
+        <div style={{ display: "flex", gap: 2, overflowX: "auto", padding: "8px 0", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
             { key: "summary", label: "Summary" },
@@ -1081,46 +1116,80 @@ export default function App() {
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; } }}
             >
               {n.label}
-              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: "#F37C33" }} />}
+              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: "#F37C33", animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: "fixed", bottom: 20, right: 20, background: "#F37C33", color: "#fff", padding: "12px 20px", borderRadius: 8, fontSize: 12, fontWeight: 600, boxShadow: "0 4px 12px rgba(243, 124, 51, 0.4)", animation: "fadeIn 0.3s ease-out", zIndex: 1000 }}>
+          {toast}
+        </div>
+      )}
+
       {/* Main content */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px", flex: 1, width: "100%" }}>
 
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-              <div onClick={() => setTab("summary")} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: "4px solid #F37C33", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{sw.length + east.length}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>View summary →</div>
+            <h1 style={{ margin: "0 0 24px", fontSize: 24, fontWeight: 800, color: "#1A1A1A" }}>Pipeline Overview</h1>
+
+            {/* Stat Cards */}
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 28 }}>
+              <div onClick={() => setTab("summary")} style={{ cursor: "pointer", background: "linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(0,0,0,0.12)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)"; }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total Pipeline</div>
+                <div style={{ fontSize: 40, fontWeight: 800, color: "#F37C33", marginTop: 6, fontFamily: "'Space Mono'" }}>{sw.length + east.length}</div>
+                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>View summary →</div>
               </div>
-              <div onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: "4px solid #F59E0B", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pending</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{pendingN}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Review queue →</div>
+              <div onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ cursor: "pointer", background: "linear-gradient(135deg, #fff9f0 0%, #fffbf5 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(243, 124, 51, 0.1)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(243, 124, 51, 0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(243, 124, 51, 0.1)"; }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Pending Review</div>
+                <div style={{ fontSize: 40, fontWeight: 800, color: "#F37C33", marginTop: 6, fontFamily: "'Space Mono'" }}>{pendingN}</div>
+                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Review queue →</div>
               </div>
-              <div onClick={() => { setTab("southwest"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${REGIONS.southwest.accent}`, transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Daniel Wollent</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{sw.length}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Open tracker →</div>
+              <div onClick={() => { setTab("southwest"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "linear-gradient(135deg, #EFF6FF 0%, #F0F9FF 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(21, 101, 192, 0.1)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(21, 101, 192, 0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(21, 101, 192, 0.1)"; }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Daniel Wollent</div>
+                <div style={{ fontSize: 40, fontWeight: 800, color: "#1565C0", marginTop: 6, fontFamily: "'Space Mono'" }}>{sw.length}</div>
+                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Open tracker →</div>
               </div>
-              <div onClick={() => { setTab("east"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${REGIONS.east.accent}`, transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Matthew Toussaint</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{east.length}</div>
-                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Open tracker →</div>
+              <div onClick={() => { setTab("east"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "linear-gradient(135deg, #F0FDF4 0%, #F7FFED 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(45, 95, 45, 0.1)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(45, 95, 45, 0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(45, 95, 45, 0.1)"; }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Matthew Toussaint</div>
+                <div style={{ fontSize: 40, fontWeight: 800, color: "#2D5F2D", marginTop: 6, fontFamily: "'Space Mono'" }}>{east.length}</div>
+                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Open tracker →</div>
               </div>
             </div>
 
+            {/* Phase Pipeline */}
+            <div style={{ background: "#fff", borderRadius: 16, padding: "28px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", marginBottom: 28, borderTop: "2px solid #F37C33" }}>
+              <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#2C2C2C" }}>Acquisition Pipeline by Phase</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+                {PHASES.map((p) => {
+                  const count = [...sw, ...east].filter((s) => s.phase === p).length;
+                  const total = sw.length + east.length;
+                  const width = total > 0 ? (count / total) * 100 : 0;
+                  return (
+                    <div key={p} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C" }}>{p}</span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: "#F37C33", fontFamily: "'Space Mono'" }}>{count}</span>
+                      </div>
+                      <div style={{ height: 8, background: "#EFEFEF", borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ height: "100%", background: "linear-gradient(90deg, #F37C33, #E8650A)", width: `${width}%`, transition: "width 0.3s ease-out" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick Access Cards */}
             {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, tabKey: "east" }].map((r) => (
-              <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {PHASES.map((p) => { const c = r.data.filter((s) => s.phase === p).length; return <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${r.color}11` : "#F8FAFC", border: c > 0 ? `1px solid ${r.color}33` : "1px solid #E2E8F0" }}><div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? r.color : "#CBD5E1" }}>{c}</div><div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div></div>; })}
+              <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} style={{ background: "#fff", borderRadius: 16, padding: 20, marginBottom: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", cursor: "pointer", transition: "all 0.2s", borderTop: "2px solid #F37C33" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}>
+                <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {PHASES.map((p) => { const c = r.data.filter((s) => s.phase === p).length; return <div key={p} style={{ flex: "1 1 100px", textAlign: "center", padding: "12px 8px", borderRadius: 12, background: c > 0 ? `${r.color}15` : "#F8FAFC", border: c > 0 ? `1px solid ${r.color}40` : "1px solid #E2E8F0" }}><div style={{ fontSize: 24, fontWeight: 800, color: c > 0 ? r.color : "#CBD5E1", fontFamily: "'Space Mono'" }}>{c}</div><div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginTop: 3 }}>{p}</div></div>; })}
                 </div>
               </div>
             ))}
@@ -1129,96 +1198,46 @@ export default function App() {
 
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
-          const allSites = [...sw, ...east];
-          const phaseColors = { "Prospect": "#94A3B8", "LOI Sent": "#3B82F6", "LOI Signed": "#F59E0B", "Under Contract": "#22C55E" };
-          const phaseBg = { "Prospect": "#F8FAFC", "LOI Sent": "#EFF6FF", "LOI Signed": "#FFFBEB", "Under Contract": "#F0FDF4" };
-
-          /* ── KPI helpers ── */
-          const parsePrice = (p) => { if (!p) return 0; const m = p.match(/\$([0-9,.]+)\s*M/i); if (m) return parseFloat(m[1].replace(/,/g, "")) * 1e6; const k = p.match(/\$([0-9,.]+)\s*K/i); if (k) return parseFloat(k[1].replace(/,/g, "")) * 1e3; const raw = p.match(/\$([0-9,.]+)/); if (raw) { const v = parseFloat(raw[1].replace(/,/g, "")); return v < 1000 ? v * 1e6 : v; } return 0; };
-          const parseAcres = (a) => { if (!a) return 0; const m = String(a).match(/([0-9.]+)/); return m ? parseFloat(m[1]) : 0; };
-          const totalAsk = allSites.reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-          const totalAcres = allSites.reduce((sum, s) => sum + parseAcres(s.acreage), 0);
-          const underContract = allSites.filter(s => s.phase === "Under Contract").length;
-          const loisOut = allSites.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length;
-          const avgPop = allSites.filter(s => s.pop3mi).length > 0 ? Math.round(allSites.reduce((sum, s) => sum + (parseInt(String(s.pop3mi).replace(/,/g, "")) || 0), 0) / allSites.filter(s => s.pop3mi).length) : 0;
-          const avgInc = allSites.filter(s => s.income3mi).length > 0 ? Math.round(allSites.reduce((sum, s) => { const v = String(s.income3mi || "").replace(/[$,]/g, ""); return sum + (parseInt(v) || 0); }, 0) / allSites.filter(s => s.income3mi).length) : 0;
-
-          /* ── Phase funnel ── */
-          const phaseCounts = PHASES.map(p => ({ phase: p, count: allSites.filter(s => s.phase === p).length, value: allSites.filter(s => s.phase === p).reduce((sum, s) => sum + parsePrice(s.askingPrice), 0) }));
-
-          /* ── Geo breakdown ── */
-          const stateMap = {};
-          allSites.forEach(s => { const st = s.state || "?"; stateMap[st] = (stateMap[st] || 0) + 1; });
-          const stateEntries = Object.entries(stateMap).sort((a, b) => b[1] - a[1]);
-
-          /* ── Summary table column sort ── */
-          const sumCols = [
-            { key: "name", label: "Name", sortFn: (a, b) => (a.name || "").localeCompare(b.name || "") },
-            { key: "city", label: "City", sortFn: (a, b) => (a.city || "").localeCompare(b.city || "") },
-            { key: "state", label: "ST", sortFn: (a, b) => (a.state || "").localeCompare(b.state || "") },
-            { key: "phase", label: "Phase", sortFn: (a, b) => (phaseOrder[a.phase] ?? 9) - (phaseOrder[b.phase] ?? 9) },
-            { key: "acreage", label: "Acres", sortFn: (a, b) => parseAcres(b.acreage) - parseAcres(a.acreage) },
-            { key: "askingPrice", label: "Ask", sortFn: (a, b) => parsePrice(b.askingPrice) - parsePrice(a.askingPrice) },
-            { key: "internalPrice", label: "PS Price", sortFn: (a, b) => parsePrice(b.internalPrice) - parsePrice(a.internalPrice) },
-            { key: "income3mi", label: "3mi Inc", sortFn: (a, b) => { const va = parseInt(String(a.income3mi || "0").replace(/[$,]/g, "")) || 0; const vb = parseInt(String(b.income3mi || "0").replace(/[$,]/g, "")) || 0; return vb - va; } },
-            { key: "pop3mi", label: "3mi Pop", sortFn: (a, b) => (parseInt(String(b.pop3mi || "0").replace(/,/g, "")) || 0) - (parseInt(String(a.pop3mi || "0").replace(/,/g, "")) || 0) },
-            { key: "broker", label: "Broker", sortFn: (a, b) => (a.sellerBroker || "").localeCompare(b.sellerBroker || "") },
-            { key: "summary", label: "Summary", sortFn: null },
-          ];
-
+          const th = { padding: "12px 14px", textAlign: "left", fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase", borderBottom: "none", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#1A1A1A", zIndex: 1 };
+          const td = { padding: "12px 14px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
+          const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
-            const raw = rk === "east" ? east : sw;
-            const d = sortBy === "name" || sortBy === "city" || sortBy === "recent" || sortBy === "dom" || sortBy === "priority" || sortBy === "phase" ? sortData(raw) : [...raw].sort((a, b) => { const col = sumCols.find(c => c.key === sortBy); return col && col.sortFn ? col.sortFn(a, b) : (a.name || "").localeCompare(b.name || ""); });
-
-            const thBase = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1, cursor: "pointer", userSelect: "none", transition: "color 0.15s" };
-            const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
-            const tdW = { ...td, whiteSpace: "normal", maxWidth: 220, minWidth: 120 };
-
+            const d = sortData(rk === "east" ? east : sw);
             return (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: r.accent }} />
-                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: r.color }}>{r.label}</h3>
-                  <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length} sites)</span>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: r.color }}>{r.label}</h3>
+                  <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length})</span>
                 </div>
-                {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
-                  <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 480 }}>
+                {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 12, padding: 24, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
+                  <div style={{ overflow: "auto", borderRadius: 12, border: "1px solid #E2E8F0", maxHeight: 520 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
                       <thead>
-                        <tr>{sumCols.map((col) => (
-                          <th key={col.key} style={{ ...thBase, color: sortBy === col.key ? "#E65100" : "#64748B" }}
-                            onClick={() => col.sortFn && setSortBy(sortBy === col.key ? "name" : col.key)}
-                            onMouseEnter={(e) => { if (col.sortFn) e.currentTarget.style.color = "#F37C33"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = sortBy === col.key ? "#E65100" : "#64748B"; }}
-                          >{col.label}{sortBy === col.key ? " ▾" : ""}</th>
-                        ))}</tr>
+                        <tr style={{ background: "#1A1A1A" }}>{["Name", "Address", "City", "ST", "Priority", "Ask", "PS Price", "3mi Inc", "3mi Pop", "Broker", "DOM", "Summary", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
-                        {d.map((s, i) => {
-                          const pc = phaseColors[s.phase] || "#94A3B8";
-                          const pb = phaseBg[s.phase] || (i % 2 ? "#FAFBFC" : "#fff");
-                          const rowBg = s.phase === "Under Contract" || s.phase === "LOI Signed" ? pb : (i % 2 ? "#FAFBFC" : "#fff");
-                          return (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }}
-                            style={{ background: rowBg, cursor: "pointer", transition: "background 0.15s", borderLeft: `3px solid ${pc}` }}
+                        {d.map((s, i) => (
+                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: i % 2 ? "#FAFAF7" : "#fff", cursor: "pointer", transition: "background 0.15s" }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = rowBg)}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? "#FAFAF7" : "#fff")}
                           >
-                            <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
+                            <td style={{ ...td, fontWeight: 700, color: "#2C2C2C" }}>{s.name}</td>
+                            <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={td}><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: `${pc}18`, color: pc, border: `1px solid ${pc}33` }}>{s.phase || "—"}</span></td>
-                            <td style={{ ...td, textAlign: "right" }}>{s.acreage || "—"}</td>
+                            <td style={td}><PriorityBadge priority={s.priority} /></td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.askingPrice || "—"}</td>
-                            <td style={{ ...td, color: "#F37C33", fontWeight: 600 }}>{s.internalPrice || "—"}</td>
+                            <td style={{ ...td, color: "#F37C33", fontWeight: 700 }}>{s.internalPrice || "—"}</td>
                             <td style={td}>{s.income3mi || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
                             <td style={td}>{s.sellerBroker || "—"}</td>
-                            <td style={tdW}>{s.summary ? (s.summary.length > 80 ? s.summary.slice(0, 80) + "…" : s.summary) : "—"}</td>
+                            <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
+                            <td style={tdW}>{s.summary ? (s.summary.length > 70 ? s.summary.slice(0, 70) + "…" : s.summary) : "—"}</td>
+                            <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "—"}</td>
                           </tr>
-                          );
-                        })}
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -1226,54 +1245,11 @@ export default function App() {
               </div>
             );
           };
-
           return (
             <div style={{ animation: "fadeIn .3s ease-out" }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>Pipeline Summary</h2>
-              <p style={{ margin: "0 0 16px", fontSize: 13, color: "#94A3B8" }}>All tracked sites across both regions. Click any column header to sort. Click any row to open.</p>
-
-              {/* ── KPI CARDS ── */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
-                {[
-                  { label: "Pipeline Value", value: totalAsk >= 1e6 ? `$${(totalAsk / 1e6).toFixed(1)}M` : `$${(totalAsk / 1e3).toFixed(0)}K`, sub: "Total asking prices", color: "#2C2C2C", accent: "#F37C33" },
-                  { label: "Total Sites", value: allSites.length, sub: `${sw.length} DW + ${east.length} MT`, color: "#2C2C2C", accent: "#3B82F6" },
-                  { label: "Under Contract", value: underContract, sub: "Signed PSA/REIC", color: "#22C55E", accent: "#22C55E" },
-                  { label: "LOIs Active", value: loisOut, sub: "Sent + Signed", color: "#F59E0B", accent: "#F59E0B" },
-                ].map((kpi, ki) => (
-                  <div key={ki} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${kpi.accent}` }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" }}>{kpi.label}</div>
-                    <div style={{ fontSize: 26, fontWeight: 700, color: kpi.color, marginTop: 4, fontFamily: "'DM Sans'" }}>{kpi.value}</div>
-                    <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>{kpi.sub}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* ── PHASE FUNNEL ── */}
-              <div style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", marginBottom: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", marginBottom: 10 }}>Deal Stage Funnel</div>
-                <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                  {phaseCounts.map((p, pi) => {
-                    const pct = allSites.length > 0 ? Math.max(15, (p.count / allSites.length) * 100) : 25;
-                    const pc = phaseColors[p.phase] || "#94A3B8";
-                    return (
-                      <div key={p.phase} style={{ flex: `${pct} 0 0`, textAlign: "center", padding: "12px 6px", background: `${pc}12`, borderLeft: pi > 0 ? `2px solid ${pc}33` : "none", borderRadius: pi === 0 ? "8px 0 0 8px" : pi === phaseCounts.length - 1 ? "0 8px 8px 0" : 0, transition: "all 0.2s" }}>
-                        <div style={{ fontSize: 24, fontWeight: 700, color: pc }}>{p.count}</div>
-                        <div style={{ fontSize: 9, fontWeight: 600, color: "#64748B", textTransform: "uppercase", marginTop: 2 }}>{p.phase}</div>
-                        {p.value > 0 && <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>${(p.value / 1e6).toFixed(1)}M</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* ── GEOGRAPHIC BREAKDOWN ── */}
-              <div style={{ background: "#fff", borderRadius: 12, padding: "12px 20px", marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>By State:</span>
-                {stateEntries.map(([st, ct]) => (
-                  <span key={st} style={{ fontSize: 12, color: "#475569" }}><strong>{st}</strong> <span style={{ color: "#94A3B8" }}>({ct})</span></span>
-                ))}
-              </div>
-
+              <h1 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800, color: "#1A1A1A" }}>Summary</h1>
+              <p style={{ margin: "0 0 16px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
+              <SortBar />
               <SumTable rk="southwest" />
               <SumTable rk="east" />
             </div>
@@ -1283,52 +1259,37 @@ export default function App() {
         {/* ═══ SUBMIT ═══ */}
         {tab === "submit" && (
           <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
-            <div style={{ background: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
-              <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Submit Site</h2>
-              <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F1F5F9", borderRadius: 10, padding: 3 }}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: "2px solid #F37C33" }}>
+              <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800, color: "#1A1A1A" }}>Submit Site</h2>
+              <div style={{ display: "flex", gap: 8, marginBottom: 20, background: "#FAFAF7", borderRadius: 10, padding: 4 }}>
                 {[["direct", "⚡ Direct to Tracker"], ["review", "📋 Send to Review"]].map(([k, l]) => (
-                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#2C2C2C" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
+                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#F37C33" : "#94A3B8", boxShadow: submitMode === k ? "0 2px 6px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>{l}</button>
                 ))}
               </div>
-              <div style={{ display: "grid", gap: 12 }}>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility name" /></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
+              <div style={{ display: "grid", gap: 14 }}>
+                <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility name" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
                 </div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Flyer</label>
-                    <div style={{ position: "relative", border: "1px dashed #CBD5E1", borderRadius: 10, padding: "10px 12px", background: form.flyer ? "#F0FDF4" : "#F8FAFC", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", transition: "all 0.2s" }} onClick={() => document.getElementById("submit-flyer").click()}>
-                      <span style={{ fontSize: 18 }}>{form.flyer ? "✅" : "📄"}</span>
-                      <span style={{ fontSize: 11, color: form.flyer ? "#16A34A" : "#94A3B8", fontWeight: form.flyer ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.flyer ? form.flyer.name : "Attach flyer"}</span>
-                      {form.flyer && <span onClick={(e) => { e.stopPropagation(); setForm({ ...form, flyer: null }); document.getElementById("submit-flyer").value = ""; }} style={{ marginLeft: "auto", fontSize: 12, color: "#EF4444", cursor: "pointer", fontWeight: 700 }}>✕</span>}
-                    </div>
-                    <input id="submit-flyer" data-submit-file="true" type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: "none" }} onChange={(e) => setForm({ ...form, flyer: e.target.files[0] || null })} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Survey</label>
-                    <div style={{ position: "relative", border: "1px dashed #CBD5E1", borderRadius: 10, padding: "10px 12px", background: form.survey ? "#F0FDF4" : "#F8FAFC", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", transition: "all 0.2s" }} onClick={() => document.getElementById("submit-survey").click()}>
-                      <span style={{ fontSize: 18 }}>{form.survey ? "✅" : "📐"}</span>
-                      <span style={{ fontSize: 11, color: form.survey ? "#16A34A" : "#94A3B8", fontWeight: form.survey ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.survey ? form.survey.name : "Attach survey"}</span>
-                      {form.survey && <span onClick={(e) => { e.stopPropagation(); setForm({ ...form, survey: null }); document.getElementById("submit-survey").value = ""; }} style={{ marginLeft: "auto", fontSize: 12, color: "#EF4444", cursor: "pointer", fontWeight: 700 }}>✕</span>}
-                    </div>
-                    <input id="submit-survey" data-submit-file="true" type="file" accept=".pdf,.jpg,.jpeg,.png,.dwg" style={{ display: "none" }} onChange={(e) => setForm({ ...form, survey: e.target.files[0] || null })} />
-                  </div>
-                </div>
-                <button onClick={handleSubmit} style={{ padding: "12px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg,#F37C33,#E8650A)" : "linear-gradient(135deg,#2C2C2C,#3D3D3D)", color: "#fff", fontSize: 14, fontWeight: 700 }}>
+                <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
+                <button onClick={handleSubmit} style={{ padding: "14px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg, #F37C33, #E8650A)" : "linear-gradient(135deg, #1A1A1A, #2A2A2A)", color: "#fff", fontSize: 14, fontWeight: 800, transition: "all 0.2s", boxShadow: submitMode === "direct" ? "0 4px 12px rgba(243, 124, 51, 0.3)" : "0 4px 12px rgba(0,0,0,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
                   {submitMode === "direct" ? "⚡ Add Now" : "📋 Submit for Review"}
                 </button>
               </div>
-              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>Additional documents can be added after submission.</div>
+              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 12 }}>Documents and details can be added after.</div>
               {shareLink && (
-                <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
+                <div style={{ marginTop: 16, padding: 12, background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#16A34A", textTransform: "uppercase", marginBottom: 4 }}>Review Link</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`}
+                      style={{ ...inp, marginTop: 0, fontSize: 11 }}
+                      onClick={(e) => { e.target.select(); navigator.clipboard.writeText(e.target.value); notify("Copied!"); }}
+                    />
                   </div>
                 </div>
               )}
@@ -1338,104 +1299,134 @@ export default function App() {
 
         {/* ═══ IMPORT ═══ */}
         {tab === "import" && (
-          <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 800 }}>
-            <div style={{ background: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
-              <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Bulk Import</h2>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Default Region</label><select style={{ ...inp, width: "auto" }} value={bulkRegion} onChange={(e) => setBulkRegion(e.target.value)}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Default Phase</label><select style={{ ...inp, width: "auto" }} value={bulkPhase} onChange={(e) => setBulkPhase(e.target.value)}>{PHASES.map((p) => <option key={p}>{p}</option>)}</select></div>
-              </div>
-              <div style={{ border: "2px dashed #E2E8F0", borderRadius: 10, padding: 20, textAlign: "center", background: "#F8FAFC", marginBottom: 14 }}>
-                <div style={{ fontSize: 24, marginBottom: 4 }}>📊</div>
-                <input ref={fileRef} type="file" accept=".csv,.tsv,.xlsx,.xls" onChange={handleBulkFile} style={{ fontSize: 12 }} />
-              </div>
-              {bulkRows && (
+          <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: "2px solid #F37C33" }}>
+              <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800, color: "#1A1A1A" }}>Bulk Import</h2>
+              <div style={{ display: "grid", gap: 14 }}>
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{bulkRows.length} rows found</span>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => { setBulkRows(null); if (fileRef.current) fileRef.current.value = ""; }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, cursor: "pointer" }}>Cancel</button>
-                      <button onClick={handleBulkImport} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>⚡ Import All</button>
-                    </div>
-                  </div>
-                  <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid #E2E8F0", maxHeight: 300 }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                      <thead><tr style={{ background: "#F8FAFC" }}>{Object.keys(bulkRows[0] || {}).map((k) => <th key={k} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700, color: "#64748B", borderBottom: "1px solid #E2E8F0" }}>{k}</th>)}</tr></thead>
-                      <tbody>{bulkRows.slice(0, 15).map((r, i) => <tr key={i}>{Object.values(r).map((v, j) => <td key={j} style={{ padding: "5px 8px", color: "#475569", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(v)}</td>)}</tr>)}</tbody>
-                    </table>
-                  </div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>File (CSV or Excel)</label>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".csv,.tsv,.xlsx,.xls,.xlsm"
+                    onChange={handleBulkFile}
+                    style={{ ...inp, cursor: "pointer" }}
+                  />
                 </div>
-              )}
+                {bulkRows && (
+                  <>
+                    <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, border: "1px solid #E2E8F0" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Preview: {bulkRows.length} rows</div>
+                      <div style={{ maxHeight: 200, overflowY: "auto", fontSize: 11, color: "#475569" }}>
+                        {bulkRows.slice(0, 5).map((r, i) => (
+                          <div key={i} style={{ padding: 4, borderBottom: i < 4 ? "1px solid #E2E8F0" : "none" }}>
+                            {r.name || r.facility || "—"} / {r.city || "—"}, {r.state || "—"}
+                          </div>
+                        ))}
+                        {bulkRows.length > 5 && <div style={{ padding: 4, color: "#94A3B8" }}>… and {bulkRows.length - 5} more</div>}
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Default Region</label>
+                        <select style={{ ...inp, cursor: "pointer" }} value={bulkRegion} onChange={(e) => setBulkRegion(e.target.value)}>
+                          <option value="southwest">Daniel Wollent</option>
+                          <option value="east">Matthew Toussaint</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Default Phase</label>
+                        <select style={{ ...inp, cursor: "pointer" }} value={bulkPhase} onChange={(e) => setBulkPhase(e.target.value)}>
+                          {PHASES.map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button onClick={handleBulkImport} style={{ padding: "14px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg, #F37C33, #E8650A)", color: "#fff", fontSize: 14, fontWeight: 800, transition: "all 0.2s", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+                      ✓ Import {bulkRows.length}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
 
         {/* ═══ REVIEW ═══ */}
-        {tab === "review" && (
-          <div style={{ animation: "fadeIn .3s ease-out" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
-              <div style={{ display: "flex", gap: 6 }}>
-                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
-                {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
+        {tab === "review" && (() => {
+          return (
+            <div style={{ animation: "fadeIn .3s ease-out" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#1A1A1A" }}>Review Queue</h2>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 800, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>✓ Approve All ({pendingN})</button>}
+                  {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Clear Declined</button>}
+                </div>
               </div>
-            </div>
-            <SortBar />
-            {subs.length === 0 ? (
-              <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#94A3B8" }}>No submissions.</div>
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {sortData(subs).map((site) => {
-                  const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
-                  const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
-                  const isHL = highlightedSite === site.id;
-                  return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 15, fontWeight: 700 }}>{site.name}</span>
-                        <Badge status={site.status} />
-                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+              <SortBar />
+              {subs.length === 0 ? (
+                <div style={{ background: "#fff", borderRadius: 16, padding: 40, textAlign: "center", color: "#94A3B8", borderTop: "2px solid #F37C33" }}>No submissions.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {sortData(subs).map((site) => {
+                    const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
+                    const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
+                    const isHL = highlightedSite === site.id;
+                    return (
+                      <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 14, padding: 18, boxShadow: isHL ? "0 0 0 3px #F37C33" : "0 2px 6px rgba(0,0,0,0.08)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, borderTop: "2px solid #F37C33", transition: "all 0.3s" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: "#2C2C2C" }}>{site.name}</span>
+                          <Badge status={site.status} />
+                          {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔗 Copy Link</button>}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748B", marginBottom: 10 }}>{site.address}, {site.city}, {site.state} → {REGIONS[site.region]?.label}</div>
+                        {site.status === "pending" ? (
+                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #F1F5F9" }}>
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                              <select value={ri.reviewer} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 140, fontFamily: "'DM Sans'" }}>
+                                <option value="">Reviewer…</option>
+                                <option>Daniel Wollent</option>
+                                <option>Matthew Toussaint</option>
+                                <option>Dan R</option>
+                              </select>
+                              <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 180, padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none", fontFamily: "'DM Sans'" }} />
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button onClick={() => { if (!ri.reviewer) { notify("Select reviewer"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 800, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>✓ Approve</button>
+                              <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
+                            </div>
+                          </div>
+                        ) : (site.reviewedBy || site.reviewNote) && (
+                          <div style={{ marginTop: 10, fontSize: 11, color: "#94A3B8" }}>
+                            {site.reviewedBy && <span>By: <strong style={{ color: "#2C2C2C" }}>{site.reviewedBy}</strong></span>}
+                            {site.reviewNote && <span style={{ marginLeft: 10, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
+                          </div>
+                        )}
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}, {site.city}, {site.state} → {REGIONS[site.region]?.label}</div>
-                      {site.status === "pending" ? (
-                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                            <select value={ri.reviewer} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 120 }}>
-                              <option value="">Reviewer…</option>
-                              <option>Daniel Wollent</option>
-                              <option>Matthew Toussaint</option>
-                              <option>Dan R</option>
-                            </select>
-                            <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
-                          </div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => { if (!ri.reviewer) { notify("Select reviewer"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve</button>
-                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
-                          </div>
-                        </div>
-                      ) : (site.reviewedBy || site.reviewNote) && (
-                        <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>
-                          {site.reviewedBy && <span>By: <strong>{site.reviewedBy}</strong></span>}
-                          {site.reviewNote && <span style={{ marginLeft: 8, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ═══ TRACKERS ═══ */}
         {tab === "southwest" && <TrackerCards regionKey="southwest" />}
         {tab === "east" && <TrackerCards regionKey="east" />}
       </div>
 
-      {/* ═══ COPYRIGHT FOOTER ═══ */}
-      <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
+      {/* Footer */}
+      <div style={{ textAlign: "center", padding: "20px 16px", borderTop: "1px solid #E2E8F0", marginTop: 32, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3, background: "#fff" }}>
         © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
       </div>
+
+      <style>{`
+        @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+      `}</style>
     </div>
   );
 }
