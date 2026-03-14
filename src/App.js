@@ -249,6 +249,253 @@ const generateVettingReport = (site, nearestPSDistance) => {
   return lines.join("\n");
 };
 
+// ─── SiteIQ™ — Holistic PS Site Scoring Engine ───
+// Composite score 0-10 weighting: Zoning (25%), PS Spacing (20%), Demographics (20%),
+// Competition (15%), Pricing (10%), Site Access/Size (10%)
+const computeSiteIQ = (site) => {
+  const scores = {};
+  let totalWeight = 0;
+  let weightedSum = 0;
+
+  // --- 1. ZONING (25%) ---
+  // Permitted/by-right = 10, Conditional/SUP/CUP = 6, Unknown = 3, Prohibited/rezone = 1
+  const zoning = (site.zoning || "").toLowerCase();
+  let zoningScore = 3; // default unknown
+  if (zoning) {
+    const byRight = /(by\s*right|permitted|p\b|b[- ]?\d|c[- ]?\d|m[- ]?\d|commercial|industrial|business|gb|cs|mu|mixed|unrestricted)/i;
+    const conditional = /(conditional|sup|cup|special\s*use|overlay|variance)/i;
+    const prohibited = /(prohibited|residential|ag\b|agriculture|not\s*permitted|rezone)/i;
+    if (byRight.test(zoning)) zoningScore = 10;
+    else if (conditional.test(zoning)) zoningScore = 6;
+    else if (prohibited.test(zoning)) zoningScore = 1;
+    else zoningScore = 5; // zoning listed but can't classify
+  }
+  scores.zoning = zoningScore;
+  weightedSum += zoningScore * 0.25;
+  totalWeight += 0.25;
+
+  // --- 2. PS SPACING (20%) ---
+  // We don't have live proximity data in the site object, so score based on summary/notes hints
+  // and known spacing. Default to neutral (6) if no data.
+  let spacingScore = 6;
+  const summary = (site.summary || "").toLowerCase();
+  const name = (site.name || "").toLowerCase();
+  // Check for spacing clues in summary
+  if (/\b(5|6|7|8|9|10)\+?\s*mi/i.test(summary) || /great\s*spacing/i.test(summary) || /no\s*(?:nearby|close)\s*ps/i.test(summary)) spacingScore = 9;
+  else if (/\b(3|4)\s*mi/i.test(summary) || /good\s*spacing/i.test(summary)) spacingScore = 7;
+  else if (/\b(2|1\.?\d?)\s*mi/i.test(summary) || /close\s*to\s*ps/i.test(summary) || /spacing\s*(?:issue|concern|tight)/i.test(summary)) spacingScore = 3;
+  else if (/bullseye/i.test(summary)) spacingScore = 9;
+  scores.spacing = spacingScore;
+  weightedSum += spacingScore * 0.20;
+  totalWeight += 0.20;
+
+  // --- 3. DEMOGRAPHICS (20%) ---
+  // Population: 60K+ = 10, 40K+ = 8, 20K+ = 6, 10K+ = 4, <10K = 2
+  // Income: $100K+ = 10, $80K+ = 8, $60K+ = 6, $50K+ = 4, <$50K = 2
+  // Average of pop score and income score
+  const popRaw = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
+  const incRaw = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
+  let popScore = 5, incScore = 5; // defaults if no data
+  let hasDemoData = false;
+  if (popRaw > 0) {
+    hasDemoData = true;
+    if (popRaw >= 60000) popScore = 10;
+    else if (popRaw >= 40000) popScore = 8;
+    else if (popRaw >= 25000) popScore = 7;
+    else if (popRaw >= 15000) popScore = 5;
+    else if (popRaw >= 10000) popScore = 4;
+    else popScore = 2;
+  }
+  if (incRaw > 0) {
+    hasDemoData = true;
+    if (incRaw >= 120000) incScore = 10;
+    else if (incRaw >= 100000) incScore = 9;
+    else if (incRaw >= 80000) incScore = 8;
+    else if (incRaw >= 60000) incScore = 6;
+    else if (incRaw >= 50000) incScore = 4;
+    else incScore = 2;
+  }
+  const demoScore = (popScore + incScore) / 2;
+  scores.demographics = Math.round(demoScore * 10) / 10;
+  weightedSum += demoScore * 0.20;
+  totalWeight += 0.20;
+
+  // --- 4. COMPETITION (15%) ---
+  // Infer from summary — "storage next door" = bad, "no competition" = great
+  let compScore = 6; // neutral default
+  if (/no\s*(?:nearby|existing)\s*(?:storage|competition|competitor)/i.test(summary) || /low\s*competition/i.test(summary)) compScore = 9;
+  else if (/storage\s*(?:next\s*door|adjacent|nearby)/i.test(summary) || /high\s*competition/i.test(summary) || /saturated/i.test(summary)) compScore = 3;
+  else if (/competitor/i.test(summary)) compScore = 5;
+  scores.competition = compScore;
+  weightedSum += compScore * 0.15;
+  totalWeight += 0.15;
+
+  // --- 5. PRICING (10%) ---
+  // Parse asking price, compare to reasonable range for acreage
+  const priceStr = site.askingPrice || "";
+  const acreStr = site.acreage || "";
+  let priceScore = 5; // neutral
+  const acres = parseFloat(String(acreStr).replace(/[^0-9.]/g, ""));
+  // Try to extract a numeric price
+  let priceVal = 0;
+  const pMatch = priceStr.match(/\$?\s*([\d,.]+)\s*(?:M|million)/i);
+  if (pMatch) priceVal = parseFloat(pMatch[1].replace(/,/g, "")) * 1000000;
+  else {
+    const pMatch2 = priceStr.match(/\$?\s*([\d,]+)/);
+    if (pMatch2) {
+      const v = parseFloat(pMatch2[1].replace(/,/g, ""));
+      if (v > 1000) priceVal = v; // likely a real price
+    }
+  }
+  // Per-acre pricing analysis
+  if (priceVal > 0 && acres > 0) {
+    const ppa = priceVal / acres;
+    // For PS sites, good pricing is under $300K/ac, great under $200K
+    if (ppa <= 150000) priceScore = 10;
+    else if (ppa <= 250000) priceScore = 8;
+    else if (ppa <= 400000) priceScore = 6;
+    else if (ppa <= 600000) priceScore = 4;
+    else priceScore = 2;
+  } else if (/cheap|great\s*price|below\s*market|aggressive/i.test(summary)) {
+    priceScore = 8;
+  } else if (/expensive|overpriced|above\s*market|high\s*ask/i.test(summary)) {
+    priceScore = 3;
+  }
+  // Internal price agreement bumps score
+  if (site.internalPrice && /agreed|signed|accepted/i.test(summary)) priceScore = Math.min(10, priceScore + 2);
+  scores.pricing = priceScore;
+  weightedSum += priceScore * 0.10;
+  totalWeight += 0.10;
+
+  // --- 6. SITE ACCESS & SIZE (10%) ---
+  let sizeScore = 5;
+  if (!isNaN(acres)) {
+    if (acres >= 3.5 && acres <= 5) sizeScore = 10; // primary sweet spot
+    else if (acres >= 2.5 && acres < 3.5) sizeScore = 7; // secondary (multi-story)
+    else if (acres > 5 && acres <= 7) sizeScore = 7; // good, subdivisible
+    else if (acres > 7) sizeScore = 5; // large, needs subdivision
+    else if (acres >= 2) sizeScore = 4; // tight
+    else sizeScore = 2; // too small
+  }
+  // Access clues from summary
+  if (/frontage|front\b.*\d+'/i.test(summary)) sizeScore = Math.min(10, sizeScore + 1);
+  if (/landlocked|no\s*access|easement/i.test(summary)) sizeScore = Math.max(1, sizeScore - 3);
+  if (/flood/i.test(summary)) sizeScore = Math.max(1, sizeScore - 2);
+  scores.siteAccess = Math.min(10, Math.max(1, sizeScore));
+  weightedSum += scores.siteAccess * 0.10;
+  totalWeight += 0.10;
+
+  // --- COMPOSITE ---
+  const raw = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  const composite = Math.round(raw * 10) / 10;
+
+  // --- PHASE BONUS / PENALTY ---
+  // Sites under contract or LOI signed get a small reliability bump
+  let adjusted = composite;
+  const phase = (site.phase || "").toLowerCase();
+  if (phase.includes("under contract") || phase.includes("closed")) adjusted = Math.min(10, adjusted + 0.3);
+  else if (phase.includes("loi signed")) adjusted = Math.min(10, adjusted + 0.2);
+
+  const final = Math.round(adjusted * 10) / 10;
+
+  return {
+    score: final,
+    scores,
+    hasDemoData,
+    tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
+    label: final >= 9 ? "ELITE" : final >= 8 ? "PRIME" : final >= 7 ? "STRONG" : final >= 6 ? "VIABLE" : final >= 4 ? "MARGINAL" : "WEAK",
+  };
+};
+
+// ─── SiteIQ Badge Component ───
+function SiteIQBadge({ site, size = "normal" }) {
+  const iq = computeSiteIQ(site);
+  const s = iq.score;
+  const isGold = iq.tier === "gold";
+  const isSteel = iq.tier === "steel";
+  const isSmall = size === "small";
+
+  const tierColors = {
+    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: "#1E2761", ring: "#C9A84C", labelBg: "#FFF8E1" },
+    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: "#2C3E6B", labelBg: "#E8EAF6" },
+    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9" },
+  };
+  const tc = tierColors[iq.tier];
+
+  if (isSmall) {
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        padding: "2px 8px", borderRadius: 6,
+        background: tc.labelBg, border: `1px solid ${tc.ring}33`,
+        fontSize: 11, fontWeight: 700, color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
+        fontFamily: "'Space Mono', monospace",
+      }}>
+        <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", opacity: 0.7 }}>IQ</span>
+        {s.toFixed(1)}
+      </span>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+      {/* Score Circle */}
+      <div style={{
+        position: "relative",
+        width: 56, height: 56, borderRadius: "50%",
+        background: tc.bg,
+        boxShadow: tc.glow,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+        ...(isGold ? { animation: "siteiq-glow 2s ease-in-out infinite alternate" } : {}),
+      }}>
+        {isGold && <div style={{
+          position: "absolute", inset: -3, borderRadius: "50%",
+          border: "2px solid #C9A84C",
+          opacity: 0.5,
+          animation: "siteiq-ring 2s ease-in-out infinite alternate",
+        }} />}
+        <div style={{ textAlign: "center", lineHeight: 1 }}>
+          <div style={{ fontSize: 20, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
+        </div>
+      </div>
+      {/* Label + Breakdown */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
+            color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
+            textTransform: "uppercase",
+            padding: "2px 6px", borderRadius: 4,
+            background: tc.labelBg,
+          }}>{iq.label}</span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
+        </div>
+        <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+          {[
+            { key: "zoning", label: "ZN", emoji: "📋" },
+            { key: "spacing", label: "SP", emoji: "📏" },
+            { key: "demographics", label: "DM", emoji: "👥" },
+            { key: "competition", label: "CP", emoji: "🏢" },
+            { key: "pricing", label: "$$", emoji: "💰" },
+            { key: "siteAccess", label: "SA", emoji: "🛣️" },
+          ].map((f) => {
+            const v = iq.scores[f.key] || 0;
+            const c = v >= 8 ? "#16A34A" : v >= 6 ? "#2563EB" : v >= 4 ? "#D97706" : "#DC2626";
+            return (
+              <span key={f.key} title={`${f.label}: ${v}/10`} style={{
+                fontSize: 9, fontWeight: 700, color: c,
+                background: c + "15", padding: "1px 4px", borderRadius: 3,
+                fontFamily: "'Space Mono', monospace",
+              }}>{f.label}{v}</span>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Components ───
 function Badge({ status }) {
   const s = STATUS_COLORS[status] || STATUS_COLORS.pending;
@@ -1011,6 +1258,7 @@ export default function App() {
   // ─── EXPORT ───
   const handleExport = () => {
     const cols = [
+      { key: "siteiq", header: "SiteIQ™", width: 10 },
       { key: "name", header: "Facility Name", width: 28 },
       { key: "address", header: "Address", width: 30 },
       { key: "city", header: "City", width: 16 },
@@ -1035,6 +1283,7 @@ export default function App() {
       const sorted = [...sites].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       const rows = sorted.map((s) =>
         cols.map((c) => {
+          if (c.key === "siteiq") return computeSiteIQ(s).score;
           if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
           if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
           return s[c.key] || "";
@@ -1053,6 +1302,7 @@ export default function App() {
     const summCols = [{ key: "_region", header: "Region", width: 18 }, ...cols];
     const summRows = allSorted.map((s) =>
       summCols.map((c) => {
+        if (c.key === "siteiq") return computeSiteIQ(s).score;
         if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
         if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
         return s[c.key] || "";
@@ -1069,6 +1319,7 @@ export default function App() {
 
   // ─── SORT ───
   const SORT_OPTIONS = [
+    { key: "siteiq", label: "SiteIQ™ (Best)" },
     { key: "name", label: "Name (A→Z)" },
     { key: "city", label: "City (A→Z)" },
     { key: "recent", label: "Recently Added" },
@@ -1081,6 +1332,7 @@ export default function App() {
   const sortData = (arr) => {
     const sorted = [...arr];
     switch (sortBy) {
+      case "siteiq": return sorted.sort((a, b) => computeSiteIQ(b).score - computeSiteIQ(a).score);
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
       case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
       case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
@@ -1146,6 +1398,7 @@ export default function App() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
+                        <SiteIQBadge site={site} size="small" />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1168,6 +1421,10 @@ export default function App() {
                   {/* Expanded */}
                   {isOpen && (
                     <div style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
+                      {/* SiteIQ™ Score — Primary Metric */}
+                      <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
+                        <SiteIQBadge site={site} />
+                      </div>
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
                         {site.coordinates ? (
@@ -1415,6 +1672,8 @@ export default function App() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+        @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 25px rgba(201,168,76,0.6), 0 0 50px rgba(201,168,76,0.25); } }
+        @keyframes siteiq-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.05); } }
         * { box-sizing: border-box; }
         input, select, textarea, button { font-family: 'DM Sans', sans-serif; }
       `}</style>
@@ -1535,7 +1794,7 @@ export default function App() {
                   <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 420 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
                       <thead>
-                        <tr>{["Name", "Address", "City", "ST", "Priority", "Ask", "PS Price", "3mi Inc", "3mi Pop", "Broker", "DOM", "Summary", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                        <tr>{["SiteIQ", "Name", "Address", "City", "ST", "Priority", "Ask", "PS Price", "3mi Inc", "3mi Pop", "Broker", "DOM", "Summary", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
@@ -1543,6 +1802,7 @@ export default function App() {
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
                             onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? "#FAFBFC" : "#fff")}
                           >
+                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
                             <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
