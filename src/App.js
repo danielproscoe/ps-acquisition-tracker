@@ -380,7 +380,7 @@ const generateVettingReport = (site, nearestPSDistance) => {
 // Composite score 0-10 weighting: Zoning (25%), PS Spacing (20%), Demographics (20%),
 // Competition (15%), Pricing (10%), Site Access/Size (10%)
 // v2: Reads zoning & phase clues from summary field, handles $K pricing, parses acreage from askingPrice
-const computeSiteIQ = (site) => {
+const computeSiteIQ = (site, targetMarkets = []) => {
   const scores = {};
   let totalWeight = 0;
   let weightedSum = 0;
@@ -539,20 +539,43 @@ const computeSiteIQ = (site) => {
   else if (/loi\s*signed|fully\s*signed\s*loi/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.2);
   else if (/loi\s*(?:at|sent|submitted)/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.1);
 
-  const final = Math.round(adjusted * 10) / 10;
+  // --- TARGET MARKET TIER BONUS ---
+  // Tier 1: +1.0, Tier 2: +0.6, Tier 3: +0.3, Tier 4: +0.1
+  if (targetMarkets && targetMarkets.length > 0) {
+    const siteMarket = (site.market || "").toLowerCase().trim();
+    const siteCity = (site.city || "").toLowerCase().trim();
+    const siteState = (site.state || "").toUpperCase().trim();
+    let bestBonus = 0;
+    for (const tm of targetMarkets) {
+      if (!tm.active) continue;
+      const tmName = (tm.name || "").toLowerCase().trim();
+      const tmStates = (tm.states || "").toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
+      // Match by market name OR city OR state
+      const nameMatch = tmName && (siteMarket.includes(tmName) || tmName.includes(siteMarket) || siteCity.includes(tmName) || tmName.includes(siteCity));
+      const stateMatch = tmStates.length > 0 && tmStates.includes(siteState);
+      if (nameMatch || stateMatch) {
+        const tierBonus = tm.tier === 1 ? 1.0 : tm.tier === 2 ? 0.6 : tm.tier === 3 ? 0.3 : 0.1;
+        bestBonus = Math.max(bestBonus, tierBonus);
+      }
+    }
+    if (bestBonus > 0) adjusted = Math.min(10, adjusted + bestBonus);
+  }
+
+    const final = Math.round(adjusted * 10) / 10;
 
   return {
     score: final,
     scores,
     hasDemoData,
+    marketBonus: (() => { if (!targetMarkets || !targetMarkets.length) return null; const sm = (site.market || "").toLowerCase(); const sc = (site.city || "").toLowerCase(); const ss = (site.state || "").toUpperCase(); for (const tm of targetMarkets) { if (!tm.active) continue; const tn = (tm.name || "").toLowerCase(); const ts = (tm.states || "").toUpperCase().split(",").map(s=>s.trim()); if ((tn && (sm.includes(tn) || tn.includes(sm) || sc.includes(tn) || tn.includes(sc))) || (ts.length && ts.includes(ss))) return { name: tm.name, tier: tm.tier, bonus: tm.tier===1?1.0:tm.tier===2?0.6:tm.tier===3?0.3:0.1 }; } return null; })(),
     tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
     label: final >= 9 ? "ELITE" : final >= 8 ? "PRIME" : final >= 7 ? "STRONG" : final >= 6 ? "VIABLE" : final >= 4 ? "MARGINAL" : "WEAK",
   };
 };
 
 // ─── SiteIQ Badge Component ───
-function SiteIQBadge({ site, size = "normal" }) {
-  const iq = computeSiteIQ(site);
+function SiteIQBadge({ site, size = "normal", targetMarkets = [] }) {
+  const iq = computeSiteIQ(site, targetMarkets);
   const s = iq.score;
   const isGold = iq.tier === "gold";
   const isSmall = size === "small";
@@ -594,10 +617,11 @@ function SiteIQBadge({ site, size = "normal" }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: tc.accent, textTransform: "uppercase", padding: "2px 8px", borderRadius: 4, background: tc.labelBg }}>{iq.label}</span>
-            <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ\u2122</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
           </div>
           <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 3 }}>{iq.hasDemoData ? "Census + field data" : "Estimate \u2014 no demo data"}</div>
         </div>
+            {iq.marketBonus && <div style={{ fontSize: 10, color: "#C9A84C", marginTop: 2, fontWeight: 700 }}>{String.fromCharCode(11088)} {iq.marketBonus.name} {String.fromCharCode(8212)} Tier {iq.marketBonus.tier} (+{iq.marketBonus.bonus.toFixed(1)})</div>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 6, background: "#F8FAFC", borderRadius: 8, padding: "10px 12px", border: "1px solid #E2E8F0" }}>
         {subMetrics.map((m) => {
@@ -792,6 +816,9 @@ export default function App() {
   const [expandedSite, setExpandedSite] = useState(null);
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
+  const [targetMarkets, setTargetMarkets] = useState([]);
+  const [showAddMarket, setShowAddMarket] = useState(false);
+  const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("direct");
@@ -829,6 +856,7 @@ export default function App() {
     const eastRef = ref(db, "east");
     const swRef = ref(db, "southwest");
     const metaRef = ref(db, "meta/seeded");
+    const marketsRef = ref(db, "targetMarkets");
 
     const unsubSeed = onValue(metaRef, (snap) => {
       setSeeded(!!snap.val());
@@ -850,14 +878,40 @@ export default function App() {
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
       setSw(arr);
     });
+    const unsubMarkets = onValue(marketsRef, (snap) => {
+      const val = snap.val();
+      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
+      setTargetMarkets(arr);
+    });
 
     return () => {
       unsubSubs();
       unsubEast();
       unsubSw();
       unsubSeed();
+      unsubMarkets();
     };
   }, []);
+
+  // ─── TARGET MARKET HANDLERS ───
+  const handleAddMarket = () => {
+    if (!newMarketForm.name.trim()) return;
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const mkt = { ...newMarketForm, name: newMarketForm.name.trim(), states: newMarketForm.states.trim(), tier: Number(newMarketForm.tier) || 1, createdAt: new Date().toISOString() };
+    set(ref(db, "targetMarkets/" + id), mkt);
+    setNewMarketForm({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
+    setShowAddMarket(false);
+    setToast("Market added: " + mkt.name);
+    setTimeout(() => setToast(null), 3000);
+  };
+  const handleRemoveMarket = (id) => {
+    remove(ref(db, "targetMarkets/" + id));
+    setToast("Market removed");
+    setTimeout(() => setToast(null), 3000);
+  };
+  const handleToggleMarket = (id, currentActive) => {
+    update(ref(db, "targetMarkets/" + id), { active: !currentActive });
+  };
 
   // ─── SEED ON FIRST LOAD ───
   useEffect(() => {
@@ -1427,7 +1481,7 @@ export default function App() {
       const sorted = [...sites].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       const rows = sorted.map((s) =>
         cols.map((c) => {
-          if (c.key === "siteiq") return computeSiteIQ(s).score;
+          if (c.key === "siteiq") return computeSiteIQ(s, targetMarkets).score;
           if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
           if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
           return s[c.key] || "";
@@ -1446,7 +1500,7 @@ export default function App() {
     const summCols = [{ key: "_region", header: "Region", width: 18 }, ...cols];
     const summRows = allSorted.map((s) =>
       summCols.map((c) => {
-        if (c.key === "siteiq") return computeSiteIQ(s).score;
+        if (c.key === "siteiq") return computeSiteIQ(s, targetMarkets).score;
         if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
         if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
         return s[c.key] || "";
@@ -1478,7 +1532,7 @@ export default function App() {
     switch (sortBy) {
       case "siteiq": {
         const cache = new Map();
-        const getIQ = (s) => { if (!cache.has(s.id)) cache.set(s.id, computeSiteIQ(s).score); return cache.get(s.id); };
+        const getIQ = (s) => { if (!cache.has(s.id)) cache.set(s.id, computeSiteIQ(s, targetMarkets).score); return cache.get(s.id); };
         return sorted.sort((a, b) => getIQ(b) - getIQ(a));
       }
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
@@ -1546,7 +1600,7 @@ export default function App() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
-                        <SiteIQBadge site={site} size="small" />
+                        <SiteIQBadge site={site} size="small"  targetMarkets={targetMarkets}/>
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1571,7 +1625,7 @@ export default function App() {
                     <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
                       {/* SiteIQ™ Score — Primary Metric */}
                       <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
-                        <SiteIQBadge site={site} />
+                        <SiteIQBadge site={site}  targetMarkets={targetMarkets}/>
                       </div>
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
@@ -1913,6 +1967,65 @@ export default function App() {
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+            {/* ─── TARGET MARKETS BANNER ─── */}
+            <div style={{ background: "linear-gradient(135deg, #1E2761 0%, #2C3E6B 100%)", borderRadius: 14, padding: "16px 20px", marginBottom: 16, boxShadow: "0 2px 12px rgba(30,39,97,0.18)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: targetMarkets.length > 0 ? 12 : 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>{String.fromCharCode(11088)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Target Markets</span>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>{targetMarkets.filter(m => m.active).length} active</span>
+                </div>
+                <button onClick={() => setShowAddMarket(!showAddMarket)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.4)", background: showAddMarket ? "rgba(201,168,76,0.2)" : "transparent", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>{showAddMarket ? "Cancel" : "+ Add Market"}</button>
+              </div>
+              {showAddMarket && (
+                <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: 14, marginBottom: 12, border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 90px auto", gap: 8, alignItems: "end" }}>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>Market Name</div>
+                      <input value={newMarketForm.name} onChange={e => setNewMarketForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Cincinnati" style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>Tier</div>
+                      <select value={newMarketForm.tier} onChange={e => setNewMarketForm(f => ({ ...f, tier: Number(e.target.value) }))} style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none" }}>
+                        <option value={1}>Tier 1</option><option value={2}>Tier 2</option><option value={3}>Tier 3</option><option value={4}>Tier 4</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>States</div>
+                      <input value={newMarketForm.states} onChange={e => setNewMarketForm(f => ({ ...f, states: e.target.value }))} placeholder="OH, KY" style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>Assigned</div>
+                      <select value={newMarketForm.assignedTo} onChange={e => setNewMarketForm(f => ({ ...f, assignedTo: e.target.value }))} style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none" }}>
+                        <option value="MT">MT</option><option value="DW">DW</option><option value="Both">Both</option>
+                      </select>
+                    </div>
+                    <button onClick={handleAddMarket} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #C9A84C, #E8C84A)", color: "#1E2761", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Add</button>
+                  </div>
+                </div>
+              )}
+              {targetMarkets.length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {targetMarkets.sort((a, b) => (a.tier || 4) - (b.tier || 4)).map(m => (
+                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: m.active ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.02)", border: "1px solid " + (m.active ? (m.tier === 1 ? "rgba(201,168,76,0.5)" : m.tier === 2 ? "rgba(59,130,246,0.4)" : m.tier === 3 ? "rgba(34,197,94,0.4)" : "rgba(148,163,184,0.3)") : "rgba(255,255,255,0.06)"), opacity: m.active ? 1 : 0.5, transition: "all 0.2s" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: m.tier === 1 ? "#C9A84C" : m.tier === 2 ? "#3B82F6" : m.tier === 3 ? "#22C55E" : "#94A3B8" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{m.name}</span>
+                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>T{m.tier}</span>
+                      {m.states && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>{m.states}</span>}
+                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>{m.assignedTo || "MT"}</span>
+                      <button onClick={(e) => { e.stopPropagation(); handleToggleMarket(m.id, m.active); }} style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: m.active ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)", color: m.active ? "#22C55E" : "#EF4444", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>{m.active ? "ON" : "OFF"}</button>
+                      <button onClick={(e) => { e.stopPropagation(); handleRemoveMarket(m.id); }} style={{ padding: "1px 4px", borderRadius: 4, border: "none", background: "rgba(239,68,68,0.1)", color: "#EF4444", fontSize: 10, cursor: "pointer", lineHeight: 1 }}>{String.fromCharCode(215)}</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {targetMarkets.length === 0 && !showAddMarket && (
+                <div style={{ textAlign: "center", padding: "8px 0" }}>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>No target markets configured. Add markets to boost SiteIQ scores for priority areas.</span>
+                </div>
+              )}
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
                 { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
@@ -1978,11 +2091,11 @@ export default function App() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = computeSiteIQ(s, targetMarkets).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = computeSiteIQ(s, targetMarkets).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => { const t = computeSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
+                            onMouseLeave={(e) => { const t = computeSiteIQ(s, targetMarkets).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
                           >
-                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" /></td>
+                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small"  targetMarkets={targetMarkets}/></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
                             <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
