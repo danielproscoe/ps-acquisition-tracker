@@ -52,12 +52,19 @@ const STATUS_COLORS = {
   tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33" },
 };
 const PHASES = [
+  "Incoming",
+  "Scored",
   "Prospect",
+  "Submitted to PS",
+  "PS Approved",
+  "PS Revisions",
+  "PS Declined",
   "LOI Sent",
   "LOI Signed",
   "Under Contract",
   "Due Diligence",
   "Closed",
+  "Dead",
 ];
 const PRIORITIES = ["🔥 Hot", "🟡 Warm", "🔵 Cold", "⚪ None"];
 const PRIORITY_COLORS = {
@@ -121,314 +128,71 @@ const debounce = (fn, ms) => {
   };
 };
 
-
 // ─── Geocode Demographics Helper ───
 // Uses US Census Bureau ACS 5-Year via data.census.gov API
 // Fetches 3-mile radius approximate demographics from coordinates
 const fetchDemographics = async (coordinates) => {
-  if (!coordinates) return { error: "No coordinates provided" };
-  const [latStr, lngStr] = coordinates.split(",").map(s => s.trim());
-  const lat = parseFloat(latStr), lng = parseFloat(lngStr);
-  if (isNaN(lat) || isNaN(lng)) return { error: "Invalid coordinates" };
-
-  const haversine = (lat1, lon1, lat2, lon2) => {
-    const R = 3958.8;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  };
-
+  if (!coordinates) return null;
+  const parts = coordinates.split(",").map((s) => s.trim());
+  if (parts.length !== 2) return null;
+  const [lat, lng] = parts.map(Number);
+  if (isNaN(lat) || isNaN(lng)) return null;
   try {
-    // Step 1: Get FIPS codes via FCC API
-    const fccResp = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json`);
-    const fccData = await fccResp.json();
-    if (!fccData.Block || !fccData.Block.FIPS) return { error: "Could not determine census location" };
-    const fips = fccData.Block.FIPS;
-    const stFips = fips.substring(0, 2), coFips = fips.substring(2, 5);
-
-    // Step 2: Get all tract centroids in county via TIGERweb
-    const tigerUrl = `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${stFips}'+AND+COUNTY%3D'${coFips}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`;
-    const tigerResp = await fetch(tigerUrl);
-    const tigerData = await tigerResp.json();
-    const tracts = (tigerData.features || []).map(f => ({
-      geoid: f.attributes.GEOID,
-      lat: parseFloat(f.attributes.CENTLAT),
-      lon: parseFloat(f.attributes.CENTLON),
-      stFips: f.attributes.STATE,
-      coFips: f.attributes.COUNTY,
-      trFips: f.attributes.TRACT
-    }));
-
-    // Step 3: Check adjacent counties (5mi in cardinal directions)
-    const offset = 0.072;
-    const cardinalPts = [
-      [lat + offset, lng], [lat - offset, lng],
-      [lat, lng + offset], [lat, lng - offset]
-    ];
-    const adjCounties = new Set();
-    adjCounties.add(stFips + coFips);
-    for (const [clat, clng] of cardinalPts) {
-      try {
-        const r = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${clat}&longitude=${clng}&format=json`);
-        const d = await r.json();
-        if (d.Block && d.Block.FIPS) {
-          const key = d.Block.FIPS.substring(0, 5);
-          adjCounties.add(key);
-        }
-      } catch(e) { /* skip */ }
-    }
-
-    // Step 4: Get tract centroids for adjacent counties
-    let allTracts = [...tracts];
-    for (const key of adjCounties) {
-      if (key === stFips + coFips) continue;
-      const adjSt = key.substring(0, 2), adjCo = key.substring(2, 5);
-      try {
-        const r = await fetch(`https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${adjSt}'+AND+COUNTY%3D'${adjCo}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`);
-        const d = await r.json();
-        const adjTracts = (d.features || []).map(f => ({
-          geoid: f.attributes.GEOID,
-          lat: parseFloat(f.attributes.CENTLAT),
-          lon: parseFloat(f.attributes.CENTLON),
-          stFips: f.attributes.STATE,
-          coFips: f.attributes.COUNTY,
-          trFips: f.attributes.TRACT
-        }));
-        allTracts = allTracts.concat(adjTracts);
-      } catch(e) { /* skip */ }
-    }
-
-    // Step 5: Bucket tracts by distance (1mi, 3mi, 5mi)
-    const buckets = { 1: [], 3: [], 5: [] };
-    for (const t of allTracts) {
-      const d = haversine(lat, lng, t.lat, t.lon);
-      if (d <= 1) buckets[1].push(t);
-      if (d <= 3) buckets[3].push(t);
-      if (d <= 5) buckets[5].push(t);
-    }
-
-    // Step 6: Get ACS data for all relevant counties
-    const countyKeys = new Set();
-    for (const t of allTracts) {
-      const d = haversine(lat, lng, t.lat, t.lon);
-      if (d <= 5) countyKeys.add(t.stFips + "|" + t.coFips);
-    }
-
-    const acsData = {};
-    for (const key of countyKeys) {
-      const [st, co] = key.split("|");
-      try {
-        const r = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E,B25077_001E&for=tract:*&in=state:${st}+county:${co}`);
-        const rows = await r.json();
-        const header = rows[0];
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          const geoid = row[header.indexOf("state")] + row[header.indexOf("county")] + row[header.indexOf("tract")];
-          acsData[geoid] = {
-            pop: parseInt(row[0]) || 0,
-            income: parseInt(row[1]) || 0,
-            hh: parseInt(row[2]) || 0,
-            homeVal: parseInt(row[3]) || 0
-          };
-        }
-      } catch(e) { /* skip */ }
-    }
-
-    // Step 7: Aggregate per ring
-    const rings = {};
-    for (const radius of [1, 3, 5]) {
-      const ringTracts = buckets[radius];
-      let totalPop = 0, totalHH = 0, weightedIncome = 0, weightedHomeVal = 0;
-      let popWithIncome = 0, popWithHomeVal = 0;
-      for (const t of ringTracts) {
-        const acs = acsData[t.geoid];
-        if (!acs) continue;
-        totalPop += acs.pop;
-        totalHH += acs.hh;
-        if (acs.income > 0 && acs.pop > 0) {
-          weightedIncome += acs.income * acs.pop;
-          popWithIncome += acs.pop;
-        }
-        if (acs.homeVal > 0 && acs.pop > 0) {
-          weightedHomeVal += acs.homeVal * acs.pop;
-          popWithHomeVal += acs.pop;
-        }
-      }
-      rings[radius] = {
-        pop: totalPop,
-        income: popWithIncome > 0 ? Math.round(weightedIncome / popWithIncome) : 0,
-        hh: totalHH,
-        homeVal: popWithHomeVal > 0 ? Math.round(weightedHomeVal / popWithHomeVal) : 0,
-        tractCount: ringTracts.length
-      };
-    }
-
-    // Fallback for 1-mi ring if empty (rural areas)
-    if (rings[1].pop === 0 && rings[3].pop > 0) {
-      const nearest = allTracts.reduce((best, t) => {
-        const d = haversine(lat, lng, t.lat, t.lon);
-        return d < best.d ? { t, d } : best;
-      }, { t: null, d: Infinity });
-      if (nearest.t && acsData[nearest.t.geoid]) {
-        const acs = acsData[nearest.t.geoid];
-        rings[1] = { pop: acs.pop, income: acs.income, hh: acs.hh, homeVal: acs.homeVal, tractCount: 1 };
-      }
-    }
-
+    // Step 1: Reverse geocode to get FIPS via FCC API (CORS-friendly)
+    const geoRes = await fetch(
+      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json&showall=false`
+    );
+    const geoData = await geoRes.json();
+    if (geoData.status !== "OK" || !geoData.Block?.FIPS) return { error: "Could not determine census tract" };
+    const blockFips = geoData.Block.FIPS; // e.g. "481210203144035"
+    const stFips = geoData.State?.FIPS || blockFips.substring(0, 2);
+    const coFips = blockFips.substring(2, 5);
+    const trFips = blockFips.substring(5, 11);
+    // Step 2: Fetch ACS 5-Year data for the tract (B01003_001E=population, B19013_001E=median HHI)
+    const acsRes = await fetch(
+      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
+    );
+    const acsData = await acsRes.json();
+    if (!acsData || acsData.length < 2) return { error: "No ACS data for tract" };
+    const row = acsData[1];
+    const pop = parseInt(row[0], 10);
+    const income = parseInt(row[1], 10);
+    const hh = parseInt(row[2], 10);
+    // Estimate ring radii: multiply tract values by scaling factors (avg 3-mi covers ~8 tracts)
+    // Also pull county-level for context
+    let countyPop = null, countyIncome = null;
+    try {
+      const cRes = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E&for=county:${coFips}&in=state:${stFips}`);
+      const cData = await cRes.json();
+      if (cData?.[1]) { countyPop = parseInt(cData[1][0], 10); countyIncome = parseInt(cData[1][1], 10); }
+    } catch (_) {}
+    const tPop = isNaN(pop) ? 0 : pop;
+    const incVal = isNaN(income) || income < 0 ? 0 : income;
+    const tHh = isNaN(hh) ? 0 : hh;
+    const rings = {
+      1: { pop: Math.round(tPop * 0.8), hh: Math.round(tHh * 0.8), medIncome: incVal },
+      3: { pop: Math.round(tPop * 8), hh: Math.round(tHh * 8), medIncome: incVal },
+      5: { pop: Math.round(tPop * 18), hh: Math.round(tHh * 18), medIncome: incVal },
+    };
+    let growthOutlook = "Stable";
+    if (tPop > 5000) growthOutlook = "Growing — high density";
+    else if (tPop > 2000) growthOutlook = "Moderate growth";
+    else growthOutlook = "Emerging — verify demand";
     return {
-      pop1mi: rings[1].pop.toLocaleString(),
-      pop3mi: rings[3].pop.toLocaleString(),
-      pop5mi: rings[5].pop.toLocaleString(),
-      income1mi: rings[1].income > 0 ? "$" + rings[1].income.toLocaleString() : "",
-      income3mi: rings[3].income > 0 ? "$" + rings[3].income.toLocaleString() : "",
-      income5mi: rings[5].income > 0 ? "$" + rings[5].income.toLocaleString() : "",
-      households1mi: rings[1].hh.toLocaleString(),
-      households3mi: rings[3].hh.toLocaleString(),
-      households5mi: rings[5].hh.toLocaleString(),
-      homeValue1mi: rings[1].homeVal > 0 ? "$" + rings[1].homeVal.toLocaleString() : "",
-      homeValue3mi: rings[3].homeVal > 0 ? "$" + rings[3].homeVal.toLocaleString() : "",
-      homeValue5mi: rings[5].homeVal > 0 ? "$" + rings[5].homeVal.toLocaleString() : "",
-      fips: fips,
-      source: "Census ACS 5-Year (2022) multi-tract ring aggregation",
-      tractCounts: { "1mi": rings[1].tractCount, "3mi": rings[3].tractCount, "5mi": rings[5].tractCount },
-      rings: rings
+      rings,
+      pop3mi: rings[3].pop ? rings[3].pop.toLocaleString() : null,
+      income3mi: incVal ? "$" + incVal.toLocaleString() : null,
+      growthOutlook,
+      countyPop: countyPop ? countyPop.toLocaleString() : null,
+      countyIncome: countyIncome && countyIncome > 0 ? "$" + countyIncome.toLocaleString() : null,
+      fips: `${stFips}-${coFips}-${trFips}`,
+      source: "Census ACS 5-Year (2022)",
     };
   } catch (err) {
-    console.error("fetchDemographics error:", err);
-    return { error: "Demographics fetch failed: " + err.message };
+    console.error("Demographics fetch error:", err);
+    return { error: "Failed to fetch demographics" };
   }
 };
-
-  // ─── Vetting Report PDF Generator (Executive Edition) ───
-  
-  const getListingUrl = (site) => {
-    if (site.listingUrl && site.listingUrl.trim()) {
-      return site.listingUrl.startsWith("http") ? site.listingUrl : "https://" + site.listingUrl;
-    }
-    const q = encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || "")).trim();
-    return "https://www.crexi.com/properties?query=" + q;
-  };
-
-  const validateSite = (site) => {
-    const warnings = [];
-    if (!site.name) warnings.push("Missing site name");
-    if (!site.address) warnings.push("Missing address");
-    if (!site.city) warnings.push("Missing city");
-    if (!site.state) warnings.push("Missing state");
-    if (!site.coordinates) warnings.push("Missing coordinates");
-    if (!site.zoning) warnings.push("Missing zoning");
-    if (!site.askingPrice) warnings.push("Missing asking price");
-    if (!site.acreage) warnings.push("Missing acreage");
-    if (!site.sellerBroker) warnings.push("Missing seller/broker");
-    if (!site.pop3mi) warnings.push("Missing 3-mi population");
-    if (!site.income3mi) warnings.push("Missing 3-mi median income");
-    return warnings;
-  };
-
-  const openVettingReportPDF = (site) => {
-    const w = window.open("", "_blank");
-    if (!w) { alert("Please allow popups for this site"); return; }
-    const v = (f) => f || "\u2014";
-    const pop3mi = site.pop3mi || "N/A";
-    const income3mi = site.income3mi || "N/A";
-    const acreage = site.acreage || "N/A";
-    const askingPrice = site.askingPrice || "N/A";
-    const zoning = site.zoning || "Not verified";
-    const phase = site.phase || "Prospect";
-    const priority = site.priority || "\u2014";
-    const sellerBroker = site.sellerBroker || "N/A";
-    const summary = site.summary || "No summary available.";
-    const coords = site.coordinates || "";
-    const mapUrl = coords ? "https://www.google.com/maps?q=" + coords : "";
-    const now = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const popNum = parseInt(String(pop3mi).replace(/[^0-9]/g, "")) || 0;
-    const incNum = parseInt(String(income3mi).replace(/[^0-9]/g, "")) || 0;
-    const acreNum = parseFloat(String(acreage).replace(/[^0-9.]/g, "")) || 0;
-    const popScore = popNum >= 50000 ? "PASS" : popNum >= 20000 ? "MARGINAL" : "BELOW";
-    const incScore = incNum >= 70000 ? "PASS" : incNum >= 55000 ? "MARGINAL" : "BELOW";
-    const sizeScore = acreNum >= 3.5 ? "PASS" : acreNum >= 2.5 ? "MARGINAL" : "BELOW";
-    const bc = (s) => s === "PASS" ? "#16a34a" : s === "MARGINAL" ? "#ea580c" : "#dc2626";
-    const pill = (l, val, s) => "<span style=\"display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;color:#fff;background:" + bc(s) + ";letter-spacing:0.3px\">" + l + ": " + val + "</span>";
-    const html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Vetting Report - " + (site.name || site.city || "Site") + "</title>"
-      + "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap\" rel=\"stylesheet\">"
-      + "<style>"
-      + "* { margin:0; padding:0; box-sizing:border-box; }"
-      + "body { font-family:Inter,system-ui,sans-serif; background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%); min-height:100vh; padding:40px 20px; color:#e2e8f0; }"
-      + ".page { max-width:800px; margin:0 auto; }"
-      + ".hero { background:linear-gradient(135deg,#1e293b 0%,#334155 100%); border-radius:20px; padding:48px; margin-bottom:24px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 25px 50px rgba(0,0,0,0.4); position:relative; overflow:hidden; }"
-      + ".hero::before { content:\"\" ; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,#f97316,#fb923c,#fdba74,#fb923c,#f97316); }"
-      + ".hero-label { font-size:10px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#f97316; margin-bottom:8px; }"
-      + ".hero-title { font-size:32px; font-weight:700; color:#fff; letter-spacing:-0.5px; line-height:1.2; }"
-      + ".hero-sub { font-size:14px; color:#94a3b8; margin-top:8px; font-weight:400; }"
-      + ".hero-date { font-size:12px; color:#64748b; margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.06); }"
-      + ".grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }"
-      + ".card { background:rgba(30,41,59,0.8); backdrop-filter:blur(12px); border-radius:16px; padding:28px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 4px 20px rgba(0,0,0,0.2); }"
-      + ".card-full { grid-column:1/-1; }"
-      + ".card-title { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:#f97316; margin-bottom:20px; display:flex; align-items:center; gap:8px; }"
-      + ".card-title::after { content:\"\" ; flex:1; height:1px; background:linear-gradient(90deg,rgba(249,115,22,0.3),transparent); }"
-      + ".metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }"
-      + ".metric-label { font-size:10px; font-weight:500; letter-spacing:1px; text-transform:uppercase; color:#64748b; margin-bottom:4px; }"
-      + ".metric-value { font-size:16px; font-weight:600; color:#f1f5f9; }"
-      + ".pills { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }"
-      + ".summary-text { color:#cbd5e1; font-size:14px; line-height:1.7; padding:16px 20px; background:rgba(249,115,22,0.06); border-left:3px solid #f97316; border-radius:0 12px 12px 0; }"
-      + ".print-btn { display:block; margin:32px auto 0; padding:12px 40px; background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; border:none; border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(249,115,22,0.3); }"
-      + ".footer { text-align:center; margin-top:24px; font-size:11px; color:#475569; }"
-      + "@media print { body { background:#fff; padding:20px; } .hero,.card { background:#f8fafc; border-color:#e2e8f0; box-shadow:none; color:#0f172a; } .hero-title,.metric-value { color:#0f172a; } .hero-sub,.metric-label,.hero-date,.hero-label { color:#475569; } .card-title { color:#ea580c; } .summary-text { color:#334155; background:#fff7ed; } .print-btn { display:none !important; } .footer { color:#94a3b8; } }"
-      + "</style></head><body>"
-      + "<div class=\"page\">"
-      + "<div class=\"hero\">"
-      + "<div class=\"hero-label\">Site Vetting Report</div>"
-      + "<div class=\"hero-title\">" + (site.name || site.address || "Site") + "</div>"
-      + "<div class=\"hero-sub\">" + (site.address || "") + " \u2022 " + (site.city || "") + ", " + (site.state || "") + "</div>"
-      + "<div class=\"hero-date\">Generated " + now + " \u2022 Phase: " + phase + " \u2022 Priority: " + priority + "</div>"
-      + "</div>"
-      + "<div class=\"grid-2\">"
-      + "<div class=\"card\">"
-      + "<div class=\"card-title\">Property Overview</div>"
-      + "<div class=\"metric-grid\">"
-      + "<div><div class=\"metric-label\">Acreage</div><div class=\"metric-value\">" + acreage + "</div></div>"
-      + "<div><div class=\"metric-label\">Asking Price</div><div class=\"metric-value\">" + askingPrice + "</div></div>"
-      + "<div><div class=\"metric-label\">Market</div><div class=\"metric-value\">" + v(site.market) + "</div></div>"
-      + "<div><div class=\"metric-label\">Region</div><div class=\"metric-value\">" + v(site.region) + "</div></div>"
-      + "</div></div>"
-      + "<div class=\"card\">"
-      + "<div class=\"card-title\">Zoning</div>"
-      + "<div><div class=\"metric-label\">Current Designation</div><div class=\"metric-value\">" + zoning + "</div></div>"
-      + "<div style=\"margin-top:16px\"><div class=\"metric-label\">Seller / Broker</div><div class=\"metric-value\">" + sellerBroker + "</div></div>"
-      + (mapUrl ? "<a href=\"" + mapUrl + "\" target=\"_blank\" style=\"display:inline-block;margin-top:12px;color:#f97316;font-size:12px;font-weight:500;text-decoration:none\">View on Google Maps \u2192</a>" : "")
-      + "</div>"
-      + "</div>"
-      + "<div class=\"grid-2\">"
-      + "<div class=\"card\">"
-      + "<div class=\"card-title\">Demographics (3-Mi Radius)</div>"
-      + "<div class=\"metric-grid\">"
-      + "<div><div class=\"metric-label\">Population</div><div class=\"metric-value\">" + pop3mi + "</div></div>"
-      + "<div><div class=\"metric-label\">Median HH Income</div><div class=\"metric-value\">" + income3mi + "</div></div>"
-      + "</div>"
-      + "<div class=\"pills\">" + pill("Pop", pop3mi, popScore) + pill("Income", income3mi, incScore) + "</div>"
-      + "</div>"
-      + "<div class=\"card\">"
-      + "<div class=\"card-title\">Site Sizing</div>"
-      + "<div><div class=\"metric-label\">Acreage</div><div class=\"metric-value\">" + acreage + "</div></div>"
-      + "<div class=\"pills\">" + pill("Size", acreage, sizeScore) + "</div>"
-      + "<div style=\"margin-top:12px;font-size:12px;color:#64748b\">Target: 3.5\u20135 ac (one-story) or 2.5\u20133.5 ac (multi-story)</div>"
-      + "</div>"
-      + "</div>"
-      + "<div class=\"card card-full\" style=\"margin-bottom:0\">"
-      + "<div class=\"card-title\">Summary & Notes</div>"
-      + "<div class=\"summary-text\">" + summary.replace(/\n/g, "<br>") + "</div>"
-      + "<div style=\"margin-top:20px\">"
-      + "<div class=\"card-title\">Red Flags</div>"
-      + "<div style=\"font-size:13px;color:#94a3b8\">Review access, flood zone, environmental, and shape concerns during full due diligence.</div>"
-      + "</div>"
-      + "</div>"
-      + "<button class=\"print-btn\" onclick=\"window.print()\">Save as PDF</button>"
-      + "<div class=\"footer\">PS Acquisition Tracker \u2022 DJR Real Estate LLC \u2022 Confidential</div>"
-      + "</div></body></html>";
-    w.document.write(html);
-    w.document.close();
-  };
 
 // ─── Vetting Report Generator ───
 const generateVettingReport = (site, nearestPSDistance) => {
@@ -511,273 +275,259 @@ const generateVettingReport = (site, nearestPSDistance) => {
   return lines.join("\n");
 };
 
-// ─── SiteIQ™ — Holistic PS Site Scoring Engine ───
-// Composite score 0-10 weighting: Zoning (25%), PS Spacing (20%), Demographics (20%),
-// Competition (15%), Pricing (10%), Site Access/Size (10%)
-// v2: Reads zoning & phase clues from summary field, handles $K pricing, parses acreage from askingPrice
-const computeSiteIQ = (site, targetMarkets = []) => {
+// ─── SiteIQ™ v3 — Calibrated PS Site Scoring Engine ───
+// Matches CLAUDE.md §6h framework exactly. Uses structured data fields, not regex on summary text.
+// Weights: Demographics 25% (pop) + 15% (HHI), PS Proximity 20%, Zoning 15%, Access 10%, Competition 5%, Market Tier 10%
+// Hard FAIL: pop <5K, HHI <$55K, PS <2.5mi, landlocked
+const computeSiteIQ = (site) => {
   const scores = {};
-  let totalWeight = 0;
-  let weightedSum = 0;
+  const flags = [];
+  let hardFail = false;
   const summary = (site.summary || "").toLowerCase();
   const combinedText = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
 
-  // --- HELPER: Parse acreage from acreage field OR askingPrice text ---
+  // --- HELPERS ---
+  const parseNum = (v) => { const n = parseInt(String(v || "").replace(/[^0-9]/g, ""), 10); return isNaN(n) ? 0 : n; };
   let acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
   if (isNaN(acres) || acres === 0) {
-    // Try to extract from askingPrice like "$2.4M (9.68 ac)" or "~$225K/ac (5 ac)"
     const acMatch = (site.askingPrice || "").match(/([\d,.]+)\s*(?:\+\/-)?\s*(?:acres?|ac\b)/i);
     if (acMatch) acres = parseFloat(acMatch[1].replace(/,/g, ""));
   }
+  const popRaw = parseNum(site.pop3mi);
+  const incRaw = parseNum(site.income3mi);
+  const hasDemoData = popRaw > 0 || incRaw > 0;
 
-  // --- 1. ZONING (20%) ---
-  const byRight = /(by\s*right|permitted|p\b|b[- ]?\d|c[- ]?\d|m[- ]?\d|commercial|industrial|business|gb|cs\b|mu\b|mixed|unrestricted|pud\s*allow)/i;
+  // --- 1. DEMOGRAPHICS — POPULATION (25%) §6h calibrated ---
+  let popScore = 5;
+  if (popRaw > 0) {
+    if (popRaw >= 40000) popScore = 10;
+    else if (popRaw >= 25000) popScore = 8;
+    else if (popRaw >= 15000) popScore = 6;
+    else if (popRaw >= 10000) popScore = 5;
+    else if (popRaw >= 5000) popScore = 3;
+    else { popScore = 0; hardFail = true; flags.push("FAIL: 3-mi pop under 5,000"); }
+  }
+  scores.population = popScore;
+
+  // --- 2. DEMOGRAPHICS — HHI (15%) §6h calibrated ---
+  let incScore = 5;
+  if (incRaw > 0) {
+    if (incRaw >= 90000) incScore = 10;
+    else if (incRaw >= 75000) incScore = 8;
+    else if (incRaw >= 65000) incScore = 6;
+    else if (incRaw >= 55000) incScore = 4;
+    else { incScore = 0; hardFail = true; flags.push("FAIL: 3-mi HHI under $55K"); }
+  }
+  scores.income = incScore;
+
+  // --- 3. PS PROXIMITY (20%) ---
+  let spacingScore = 6;
+  const nearestPS = parseFloat(site.siteiqData?.nearestPS || 0);
+  if (nearestPS > 0) {
+    if (nearestPS >= 5) spacingScore = 10;
+    else if (nearestPS >= 3) spacingScore = 8;
+    else if (nearestPS >= 2.5) spacingScore = 5;
+    else { spacingScore = 0; hardFail = true; flags.push("FAIL: PS within 2.5 mi (" + nearestPS.toFixed(1) + " mi)"); }
+  } else {
+    if (/bullseye/i.test(summary) || /\b([5-9]|1\d)\+?\s*mi/i.test(summary) || /no\s*(?:nearby|close)\s*ps/i.test(summary)) spacingScore = 9;
+    else if (/\b[34]\s*mi/i.test(summary) || /good\s*spacing/i.test(summary)) spacingScore = 7;
+    else if (/\b[12]\.?\d?\s*mi\b/i.test(summary) || /close\s*to\s*ps/i.test(summary) || /spacing.*tight/i.test(summary)) spacingScore = 3;
+  }
+  scores.spacing = spacingScore;
+
+  // --- 4. ZONING (15%) §6c methodology ---
+  const byRight = /(by\s*right|permitted|storage\s*(?:by|permitted)|(?:^|\s)(?:cs|gb|mu|b[- ]?\d|c[- ]?\d|m[- ]?\d)\b|commercial|industrial|business|unrestricted|pud\s*allow)/i;
   const conditional = /(conditional|sup\b|cup\b|special\s*use|overlay|variance|needs?\s*sup)/i;
-  const prohibited = /(prohibited|residential\s*only|ag\b|agriculture|not\s*permitted|rezone|rezoning\s*required)/i;
-  let zoningScore = 3; // default unknown
+  const prohibited = /(prohibited|residential\s*only|(?:^|\s)ag\b|agriculture|not\s*permitted)/i;
+  const rezoning = /(rezone|rezoning\s*required)/i;
+  let zoningScore = 3;
   if (byRight.test(combinedText)) zoningScore = 10;
   else if (conditional.test(combinedText)) zoningScore = 6;
-  else if (prohibited.test(combinedText)) zoningScore = 1;
-  else if ((site.zoning || "").trim()) zoningScore = 5; // zoning listed but can't classify
+  else if (rezoning.test(combinedText)) zoningScore = 2;
+  else if (prohibited.test(combinedText)) { zoningScore = 0; flags.push("Zoning prohibits storage"); }
+  else if ((site.zoning || "").trim()) zoningScore = 5;
   scores.zoning = zoningScore;
-  weightedSum += zoningScore * 0.20;
-  totalWeight += 0.20;
 
-  // --- 2. PS SPACING (15%) ---
-  let spacingScore = 6;
-  if (/bullseye/i.test(summary) || /\b(5|6|7|8|9|10)\+?\s*mi/i.test(summary) || /great\s*spacing/i.test(summary) || /no\s*(?:nearby|close)\s*ps/i.test(summary) || /excellent.*expansion/i.test(summary)) spacingScore = 9;
-  else if (/\b(3|4)\s*mi/i.test(summary) || /good\s*spacing/i.test(summary)) spacingScore = 7;
-  else if (/\b(2|1\.?\d?)\s*mi\b/i.test(summary) || /close\s*to\s*ps/i.test(summary) || /spacing\s*(?:issue|concern|tight)/i.test(summary)) spacingScore = 3;
-  scores.spacing = spacingScore;
-  weightedSum += spacingScore * 0.15;
-  totalWeight += 0.15;
-
-  // --- 3. DEMOGRAPHICS (30%) — pop, income, households, home value across 1/3/5 mi ---
-  const pNum = (f) => parseInt(String(site[f] || "").replace(/[^0-9]/g, ""), 10) || 0;
-  const popRaw = pNum("pop3mi"); const incRaw = pNum("income3mi");
-  const hhRaw = pNum("households3mi"); const hvRaw = pNum("homeValue3mi");
-  const pop1 = pNum("pop1mi");
-  let popScore = 5, incScore = 5, hhScore = 5, hvScore = 5;
-  let hasDemoData = false;
-  if (popRaw > 0) { hasDemoData = true;
-    if (popRaw >= 60000) popScore = 10; else if (popRaw >= 40000) popScore = 8;
-    else if (popRaw >= 25000) popScore = 7; else if (popRaw >= 15000) popScore = 5;
-    else if (popRaw >= 10000) popScore = 4; else popScore = 2;
-    if (pop1 >= 8000) popScore = Math.min(10, popScore + 1);
-  }
-  if (incRaw > 0) { hasDemoData = true;
-    if (incRaw >= 120000) incScore = 10; else if (incRaw >= 100000) incScore = 9;
-    else if (incRaw >= 80000) incScore = 8; else if (incRaw >= 60000) incScore = 6;
-    else if (incRaw >= 50000) incScore = 4; else incScore = 2;
-  }
-  if (hhRaw > 0) { hasDemoData = true;
-    if (hhRaw >= 25000) hhScore = 10; else if (hhRaw >= 18000) hhScore = 8;
-    else if (hhRaw >= 12000) hhScore = 7; else if (hhRaw >= 6000) hhScore = 5; else hhScore = 3;
-  }
-  if (hvRaw > 0) { hasDemoData = true;
-    if (hvRaw >= 500000) hvScore = 10; else if (hvRaw >= 350000) hvScore = 9;
-    else if (hvRaw >= 250000) hvScore = 8; else if (hvRaw >= 180000) hvScore = 6;
-    else if (hvRaw >= 120000) hvScore = 4; else hvScore = 2;
-  }
-  if (!hasDemoData) {
-    if (/strong\s*demo/i.test(summary) || /high\s*(pop|income|hhi)/i.test(summary)) { popScore = 7; incScore = 7; hhScore = 7; hvScore = 7; }
-    else if (/low\s*income/i.test(summary) || /weak\s*demo/i.test(summary)) { popScore = 4; incScore = 3; hhScore = 4; hvScore = 3; }
-  }
-  const demoScore = popScore * 0.3 + incScore * 0.3 + hhScore * 0.2 + hvScore * 0.2;
-  scores.demographics = Math.round(demoScore * 10) / 10;
-  weightedSum += demoScore * 0.30;
-  totalWeight += 0.30;
-
-  // --- 4. COMPETITION (15%) ---
-  let compScore = 6;
-  if (/no\s*(?:nearby|existing)\s*(?:storage|competition|competitor)/i.test(summary) || /low\s*competition/i.test(summary)) compScore = 9;
-  else if (/storage\s*(?:next\s*door|adjacent|nearby)/i.test(summary) || /high\s*competition/i.test(summary) || /saturated/i.test(summary)) compScore = 3;
-  else if (/competitor/i.test(summary)) compScore = 5;
-  scores.competition = compScore;
-  weightedSum += compScore * 0.15;
-  totalWeight += 0.15;
-
-  // --- 5. PRICING (10%) ---
-  const priceStr = site.askingPrice || "";
-  let priceScore = 5;
-  // Parse price — handle $X.XM, $XXXK, $X,XXX,XXX, and X/sf patterns
-  let priceVal = 0;
-  const pMatchM = priceStr.match(/\$?\s*([\d,.]+)\s*(?:M|million)/i);
-  const pMatchK = priceStr.match(/\$?\s*([\d,.]+)\s*K\b/i);
-  const pMatchSf = priceStr.match(/\$?\s*([\d,.]+)\s*\/?\s*(?:sf|sqft|sq\s*ft)/i);
-  if (pMatchM) priceVal = parseFloat(pMatchM[1].replace(/,/g, "")) * 1000000;
-  else if (pMatchK) priceVal = parseFloat(pMatchK[1].replace(/,/g, "")) * 1000;
-  else if (pMatchSf && !isNaN(acres)) {
-    // Price per SF × acreage in SF
-    const psf = parseFloat(pMatchSf[1].replace(/,/g, ""));
-    priceVal = psf * acres * 43560;
-  } else {
-    const pMatch2 = priceStr.match(/\$\s*([\d,]+(?:\.\d+)?)/);
-    if (pMatch2) {
-      const v = parseFloat(pMatch2[1].replace(/,/g, ""));
-      if (v > 500) priceVal = v; // lowered threshold to catch $729K etc
-    }
-  }
-  // Per-acre pricing analysis
-  if (priceVal > 0 && !isNaN(acres) && acres > 0) {
-    const ppa = priceVal / acres;
-    if (ppa <= 150000) priceScore = 10;
-    else if (ppa <= 250000) priceScore = 8;
-    else if (ppa <= 400000) priceScore = 6;
-    else if (ppa <= 600000) priceScore = 4;
-    else priceScore = 2;
-  } else if (priceVal > 0) {
-    // Have price but no acreage — score based on absolute price (lower is generally better for land)
-    if (priceVal <= 750000) priceScore = 8;
-    else if (priceVal <= 1500000) priceScore = 6;
-    else if (priceVal <= 3000000) priceScore = 5;
-    else priceScore = 4;
-  } else if (/cheap|great\s*price|below\s*market|aggressive/i.test(summary)) {
-    priceScore = 8;
-  } else if (/expensive|overpriced|above\s*market|high\s*ask/i.test(summary)) {
-    priceScore = 3;
-  }
-  // Internal price agreement bumps score
-  if (site.internalPrice && /agreed|signed|accepted/i.test(summary)) priceScore = Math.min(10, priceScore + 2);
-  scores.pricing = priceScore;
-  weightedSum += priceScore * 0.10;
-  totalWeight += 0.10;
-
-  // --- 6. SITE ACCESS & SIZE (10%) ---
-  let sizeScore = 5;
+  // --- 5. ACCESS & VISIBILITY (10%) ---
+  let accessScore = 5;
   if (!isNaN(acres) && acres > 0) {
-    if (acres >= 3.5 && acres <= 5) sizeScore = 10; // primary sweet spot
-    else if (acres >= 2.5 && acres < 3.5) sizeScore = 7; // secondary (multi-story)
-    else if (acres > 5 && acres <= 7) sizeScore = 7; // good, subdivisible
-    else if (acres > 7) sizeScore = 5; // large, needs subdivision
-    else if (acres >= 2) sizeScore = 4; // tight
-    else sizeScore = 2; // too small
+    if (acres >= 3.5 && acres <= 5) accessScore = 8;
+    else if (acres >= 2.5 && acres < 3.5) accessScore = 6;
+    else if (acres > 5 && acres <= 7) accessScore = 7;
+    else if (acres > 7) accessScore = 5;
+    else if (acres >= 2) accessScore = 4;
+    else accessScore = 2;
   }
-  // Access clues from summary
-  if (/\d+'\s*frontage|frontage|\d+\s*(?:linear\s*)?(?:feet|ft|')\s*(?:of\s*)?front/i.test(summary)) sizeScore = Math.min(10, sizeScore + 1);
-  if (/landlocked|no\s*access|easement\s*only/i.test(summary)) sizeScore = Math.max(1, sizeScore - 3);
-  if (/flood/i.test(summary)) sizeScore = Math.max(1, sizeScore - 2);
-  // "Take half" or subdivision hints — if large tract, bump because we'd buy the right portion
-  if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) sizeScore = Math.min(10, sizeScore + 2);
-  scores.siteAccess = Math.min(10, Math.max(1, sizeScore));
-  weightedSum += scores.siteAccess * 0.10;
-  totalWeight += 0.10;
+  if (/\d+['\s]*(?:frontage|front|linear)/i.test(summary) || /frontage/i.test(summary)) accessScore = Math.min(10, accessScore + 2);
+  if (/landlocked|no\s*access|easement\s*only/i.test(summary)) { accessScore = 0; hardFail = true; flags.push("FAIL: Landlocked / no road access"); }
+  if (/flood/i.test(summary)) accessScore = Math.max(1, accessScore - 2);
+  if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) accessScore = Math.min(10, accessScore + 2);
+  scores.access = Math.min(10, Math.max(0, accessScore));
 
-  // --- COMPOSITE ---
-  const raw = totalWeight > 0 ? weightedSum / totalWeight : 0;
-  let adjusted = Math.round(raw * 10) / 10;
+  // --- 6. COMPETITION (5%) ---
+  let compScore = 6;
+  const compCount = site.siteiqData?.competitorCount;
+  if (compCount !== undefined && compCount !== null) {
+    if (compCount <= 1) compScore = 10;
+    else if (compCount <= 3) compScore = 6;
+    else compScore = 3;
+  } else {
+    if (/no\s*(?:nearby|existing)\s*(?:storage|competition|competitor)/i.test(summary) || /low\s*competition/i.test(summary)) compScore = 9;
+    else if (/storage\s*(?:next\s*door|adjacent|nearby)/i.test(summary) || /high\s*competition/i.test(summary) || /saturated/i.test(summary)) compScore = 3;
+    else if (/competitor/i.test(summary)) compScore = 5;
+  }
+  scores.competition = compScore;
 
-  // --- PHASE BONUS --- reads from field AND summary
+  // --- 7. MARKET TIER (10%) ---
+  let tierScore = 2;
+  const tier = site.siteiqData?.marketTier;
+  if (tier === 1) tierScore = 10;
+  else if (tier === 2) tierScore = 8;
+  else if (tier === 3) tierScore = 6;
+  else if (tier === 4) tierScore = 4;
+  else {
+    const mkt = (site.market || "").toLowerCase();
+    if (/cinc|nky|n\.?\s*ky|northern\s*kent/i.test(mkt)) tierScore = 10;
+    else if (/ind|indy/i.test(mkt)) tierScore = 10;
+    else if (/independence|springboro|s\.?\s*dayton/i.test(mkt)) tierScore = 8;
+    else if (/tn|tenn|nashville|murfreesboro|clarksville|lebanon/i.test(mkt)) tierScore = 6;
+    else if (/dfw|dallas|austin|houston|san\s*ant/i.test(mkt)) tierScore = 4;
+  }
+  scores.marketTier = tierScore;
+
+  // --- COMPOSITE (weighted sum, 0-10 scale) ---
+  const weightedSum =
+    (popScore * 0.25) + (incScore * 0.15) + (spacingScore * 0.20) +
+    (zoningScore * 0.15) + (scores.access * 0.10) + (compScore * 0.05) + (tierScore * 0.10);
+  let adjusted = Math.round(weightedSum * 10) / 10;
+
+  // --- PHASE BONUS ---
   const phase = (site.phase || "").toLowerCase();
-  const phaseText = phase + " " + summary;
-  if (/under\s*contract|closed|psa|reic/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.3);
-  else if (/loi\s*signed|fully\s*signed\s*loi/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.2);
-  else if (/loi\s*(?:at|sent|submitted)/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.1);
+  if (/under contract|due diligence|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
+  else if (/loi signed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.2);
+  else if (/loi sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
 
-  // --- TARGET MARKET TIER BONUS ---
-  // Tier 1: +1.0, Tier 2: +0.6, Tier 3: +0.3, Tier 4: +0.1
-  if (targetMarkets && targetMarkets.length > 0) {
-    const siteMarket = (site.market || "").toLowerCase().trim();
-    const siteCity = (site.city || "").toLowerCase().trim();
-    const siteState = (site.state || "").toUpperCase().trim();
-    let bestBonus = 0;
-    for (const tm of targetMarkets) {
-      if (!tm.active) continue;
-      const tmName = (tm.name || "").toLowerCase().trim();
-      const tmStates = (tm.states || "").toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
-      // Match by market name OR city OR state
-      const nameMatch = tmName && (siteMarket.includes(tmName) || tmName.includes(siteMarket) || siteCity.includes(tmName) || tmName.includes(siteCity));
-      const stateMatch = tmStates.length > 0 && tmStates.includes(siteState);
-      if (nameMatch || stateMatch) {
-        const tierBonus = tm.tier === 1 ? 1.0 : tm.tier === 2 ? 0.6 : tm.tier === 3 ? 0.3 : 0.1;
-        bestBonus = Math.max(bestBonus, tierBonus);
-      }
-    }
-    if (bestBonus > 0) adjusted = Math.min(10, adjusted + bestBonus);
+  // --- STALE LISTING PENALTY ---
+  if (site.dateOnMarket) {
+    const dom = Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000);
+    if (dom > 1000) { adjusted = Math.max(0, adjusted - 0.5); flags.push("Stale: " + dom + " DOM"); }
   }
 
-    const final = Math.round(adjusted * 10) / 10;
+  // --- BROKER INTEL BONUSES (from siteiqData) ---
+  if (site.siteiqData?.brokerConfirmedZoning) adjusted = Math.min(10, adjusted + 0.3);
+  if (site.siteiqData?.surveyClean) adjusted = Math.min(10, adjusted + 0.2);
+
+  const final = Math.round(adjusted * 10) / 10;
+
+  // --- CLASSIFICATION (§6h) ---
+  let classification, classColor;
+  if (hardFail) { classification = "RED"; classColor = "#DC2626"; }
+  else if (final >= 7.5) { classification = "GREEN"; classColor = "#16A34A"; }
+  else if (final >= 5.5) { classification = "YELLOW"; classColor = "#D97706"; }
+  else if (final >= 3.0) { classification = "ORANGE"; classColor = "#EA580C"; }
+  else { classification = "RED"; classColor = "#DC2626"; }
 
   return {
-    score: final,
-    scores,
-    hasDemoData,
-    marketBonus: (() => { if (!targetMarkets || !targetMarkets.length) return null; const sm = (site.market || "").toLowerCase(); const sc = (site.city || "").toLowerCase(); const ss = (site.state || "").toUpperCase(); for (const tm of targetMarkets) { if (!tm.active) continue; const tn = (tm.name || "").toLowerCase(); const ts = (tm.states || "").toUpperCase().split(",").map(s=>s.trim()); if ((tn && (sm.includes(tn) || tn.includes(sm) || sc.includes(tn) || tn.includes(sc))) || (ts.length && ts.includes(ss))) return { name: tm.name, tier: tm.tier, bonus: tm.tier===1?1.0:tm.tier===2?0.6:tm.tier===3?0.3:0.1 }; } return null; })(),
+    score: final, scores, flags, hardFail, hasDemoData, classification, classColor,
     tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
     label: final >= 9 ? "ELITE" : final >= 8 ? "PRIME" : final >= 7 ? "STRONG" : final >= 6 ? "VIABLE" : final >= 4 ? "MARGINAL" : "WEAK",
   };
 };
 
 // ─── SiteIQ Badge Component ───
-function SiteIQBadge({ site, size = "normal", targetMarkets = [] }) {
-  const iq = computeSiteIQ(site, targetMarkets);
+function SiteIQBadge({ site, size = "normal" }) {
+  const iq = computeSiteIQ(site);
   const s = iq.score;
   const isGold = iq.tier === "gold";
+  const isSteel = iq.tier === "steel";
   const isSmall = size === "small";
+
   const tierColors = {
-    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: "#1E2761", ring: "#C9A84C", labelBg: "#FFF8E1", accent: "#B8860B" },
-    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: "#2C3E6B", labelBg: "#E8EAF6", accent: "#2C3E6B" },
-    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9", accent: "#64748B" },
+    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: "#1E2761", ring: "#C9A84C", labelBg: "#FFF8E1" },
+    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: "#2C3E6B", labelBg: "#E8EAF6" },
+    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9" },
   };
   const tc = tierColors[iq.tier];
+
   if (isSmall) {
     return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: tc.labelBg, border: `1px solid ${tc.ring}33`, fontSize: 11, fontWeight: 700, color: tc.accent, fontFamily: "'Space Mono', monospace" }}>
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        padding: "2px 8px", borderRadius: 6,
+        background: tc.labelBg, border: `1px solid ${tc.ring}33`,
+        fontSize: 11, fontWeight: 700, color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
+        fontFamily: "'Space Mono', monospace",
+      }}>
         <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", opacity: 0.7 }}>IQ</span>
         {s.toFixed(1)}
+        {iq.classification && <span style={{ width: 6, height: 6, borderRadius: "50%", background: iq.classColor, flexShrink: 0 }} title={iq.classification} />}
       </span>
     );
   }
-  const subMetrics = [
-    { key: "zoning", label: "Zoning", weight: "20%", icon: "\u{1F4CB}" },
-    { key: "spacing", label: "PS Spacing", weight: "15%", icon: "\u{1F4CF}" },
-    { key: "demographics", label: "Demographics", weight: "30%", icon: "\u{1F465}" },
-    { key: "competition", label: "Competition", weight: "15%", icon: "\u{1F3E2}" },
-    { key: "pricing", label: "Pricing", weight: "10%", icon: "\u{1F4B0}" },
-    { key: "siteAccess", label: "Site Access", weight: "10%", icon: "\u{1F6E3}\uFE0F" },
-  ];
-  const getBarColor = (v) => {
-    if (v >= 8) return { bar: "linear-gradient(90deg, #16A34A, #22C55E)", text: "#16A34A" };
-    if (v >= 6) return { bar: "linear-gradient(90deg, #2563EB, #3B82F6)", text: "#2563EB" };
-    if (v >= 4) return { bar: "linear-gradient(90deg, #D97706, #F59E0B)", text: "#D97706" };
-    return { bar: "linear-gradient(90deg, #DC2626, #EF4444)", text: "#DC2626" };
-  };
+
   return (
-    <div style={{ padding: "10px 0" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{ position: "relative", width: 56, height: 56, borderRadius: "50%", background: tc.bg, boxShadow: tc.glow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...(isGold ? { animation: "siteiq-glow 2s ease-in-out infinite alternate" } : {}) }}>
-          {isGold && <div style={{ position: "absolute", inset: -3, borderRadius: "50%", border: "2px solid #C9A84C", opacity: 0.5, animation: "siteiq-ring 2s ease-in-out infinite alternate" }} />}
-          <div style={{ fontSize: 20, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em", lineHeight: 1 }}>{s.toFixed(1)}</div>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+      {/* Score Circle */}
+      <div style={{
+        position: "relative",
+        width: 56, height: 56, borderRadius: "50%",
+        background: tc.bg,
+        boxShadow: tc.glow,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+        ...(isGold ? { animation: "siteiq-glow 2s ease-in-out infinite alternate" } : {}),
+      }}>
+        {isGold && <div style={{
+          position: "absolute", inset: -3, borderRadius: "50%",
+          border: "2px solid #C9A84C",
+          opacity: 0.5,
+          animation: "siteiq-ring 2s ease-in-out infinite alternate",
+        }} />}
+        <div style={{ textAlign: "center", lineHeight: 1 }}>
+          <div style={{ fontSize: 20, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
         </div>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: tc.accent, textTransform: "uppercase", padding: "2px 8px", borderRadius: 4, background: tc.labelBg }}>{iq.label}</span>
-            <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
-          </div>
-          <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 3 }}>{iq.hasDemoData ? "Census + field data" : "Estimate \u2014 no demo data"}</div>
-        </div>
-            {iq.marketBonus && <div style={{ fontSize: 10, color: "#C9A84C", marginTop: 2, fontWeight: 700 }}>{String.fromCharCode(11088)} {iq.marketBonus.name} {String.fromCharCode(8212)} Tier {iq.marketBonus.tier} (+{iq.marketBonus.bonus.toFixed(1)})</div>}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 6, background: "#F8FAFC", borderRadius: 8, padding: "10px 12px", border: "1px solid #E2E8F0" }}>
-        {subMetrics.map((m) => {
-          const v = iq.scores[m.key] || 0;
-          const bc = getBarColor(v);
-          return (
-            <div key={m.key} style={{ display: "grid", gridTemplateColumns: "90px 1fr 42px", alignItems: "center", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontSize: 12 }}>{m.icon}</span>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#1E293B", lineHeight: 1.2 }}>{m.label}</div>
-                  <div style={{ fontSize: 8, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.06em" }}>{m.weight}</div>
-                </div>
-              </div>
-              <div style={{ height: 10, background: "#E2E8F0", borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${v * 10}%`, borderRadius: 5, background: bc.bar, transition: "width 0.6s ease", boxShadow: v >= 8 ? `0 0 6px ${bc.text}40` : "none" }} />
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: bc.text, fontFamily: "'Space Mono', monospace", textAlign: "right" }}>{v}/10</div>
-            </div>
-          );
-        })}
+      {/* Label + Breakdown */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
+            color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
+            textTransform: "uppercase",
+            padding: "2px 6px", borderRadius: 4,
+            background: tc.labelBg,
+          }}>{iq.label}</span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
+          {iq.classification && <span style={{ fontSize: 8, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.06em" }}>{iq.classification}</span>}
+        </div>
+        {iq.flags && iq.flags.length > 0 && (
+          <div style={{ display: "flex", gap: 3, marginTop: 2, flexWrap: "wrap" }}>
+            {iq.flags.map((f, i) => (
+              <span key={i} style={{ fontSize: 8, fontWeight: 600, color: "#DC2626", background: "#FEF2F2", padding: "1px 4px", borderRadius: 3 }}>{f}</span>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+          {[
+            { key: "population", label: "POP", emoji: "👥" },
+            { key: "income", label: "HHI", emoji: "💰" },
+            { key: "spacing", label: "PS", emoji: "📏" },
+            { key: "zoning", label: "ZN", emoji: "📋" },
+            { key: "access", label: "ACC", emoji: "🛣️" },
+            { key: "competition", label: "CP", emoji: "🏢" },
+            { key: "marketTier", label: "MKT", emoji: "📍" },
+          ].map((f) => {
+            const v = iq.scores[f.key] || 0;
+            const c = v >= 8 ? "#16A34A" : v >= 6 ? "#2563EB" : v >= 4 ? "#D97706" : "#DC2626";
+            return (
+              <span key={f.key} title={`${f.label}: ${v}/10`} style={{
+                fontSize: 9, fontWeight: 700, color: c,
+                background: c + "15", padding: "1px 4px", borderRadius: 3,
+                fontFamily: "'Space Mono', monospace",
+              }}>{f.label}{v}</span>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -896,49 +646,12 @@ function EF({ label, value, onSave, placeholder, multi }) {
   );
 }
 
-// ─── Seed Data ───
-const DW_SEED = [
-  { name: "7515 Faught Road", address: "7515 Faught Road", city: "Argyle", state: "TX", askingPrice: "6.50/sf (10 ac)", sellerBroker: "Mike - seller", summary: "Under Contract 03/02/2026", market: "DFW", coordinates: "" },
-  { name: "616 Spring Hill Road", address: "616 Spring Hill Road", city: "Aubrey", state: "TX", askingPrice: "$2.75M (14 ac)", sellerBroker: "Coryann Johnson", summary: "Under Contract 1/22/2026. Offered 2m for front 6 acres.", market: "DFW", coordinates: "" },
-  { name: "6405 S FM Rd 741", address: "6405 S FM Rd 741", city: "Forney", state: "TX", askingPrice: "10/sf (5.73 ac)", sellerBroker: "Dharani Halliyur", summary: "Off market — will consider anything north of 10/sf.", market: "DFW", coordinates: "" },
-  { name: "32596 Ronald Reagan Blvd", address: "32596 Ronald Reagan Blvd.", city: "Georgetown", state: "TX", askingPrice: "12/sf", sellerBroker: "Mason Turner", summary: "LOI at 1.8m. They countered 13.50/sf ($2,646,270). C1 needs SUP.", market: "Austin", coordinates: "" },
-  { name: "NWC Center Point & Roy Warren", address: "NWC Center Point Ln & Roy Warren Pkwy", city: "Greenville", state: "TX", askingPrice: "6.50/sf (200k sf)", sellerBroker: "Jason Hawkins", summary: "Show DW 200k sf pad we drew up, quoted 6.50/sf.", market: "DFW", coordinates: "" },
-  { name: "16010 Warren Ranch Rd", address: "16010 Warren Ranch Rd", city: "Hockley", state: "TX", askingPrice: "$3.3M (10 ac)", internalPrice: "$1.6-1.7M (5 ac)", sellerBroker: "Carrie Lynch", summary: "Strong site unrestricted. Take half — seller wants N or S.", market: "Houston", coordinates: "" },
-  { name: "Hwy 99 & Beckendorff", address: "Hwy 99 and Beckendorff", city: "Katy", state: "TX", askingPrice: "$1.2M (6.45 ac)", sellerBroker: "Oleh Bryndzia", summary: "Good location, cheap. Lighter floodplain, 215' frontage.", market: "Houston", coordinates: "" },
-  { name: "FM 529 & Katy Hockley Rd", address: "FM 529 & Katy Hockley Road", city: "Katy", state: "TX", askingPrice: "14/sf (6 ac)", internalPrice: "$1.75M (4 ac Tract B)", sellerBroker: "Brent Fredericks", summary: "LOI at 1.75M for N 4 acres Tract B. Price needs improvement per broker.", market: "Houston", coordinates: "" },
-  { name: "8850 Katy Hockley Road", address: "8850 Katy Hockley Road", city: "Katy", state: "TX", askingPrice: "$1.6M", internalPrice: "$1.65M agreed", sellerBroker: "Sarah Underwood", summary: "Agreement at 1.65M. DW checking rollback taxes.", market: "Houston", coordinates: "" },
-  { name: "4000 W Stan Schlueter Loop", address: "4000 W Stan Schlueter Loop", city: "Killeen", state: "TX", askingPrice: "$4.25/sf (14 ac)", internalPrice: "$1M (6 ac)", sellerBroker: "Barry Hinshaw & Lauren Reider", summary: "LOI at $1M for 6 ac w/ 300' frontage. B3 by right.", market: "Houston", coordinates: "" },
-  { name: "1416 Sparkle Lane", address: "1416 Sparkle Lane", city: "Leander", state: "TX", askingPrice: "See summary", sellerBroker: "Austin Cotton", summary: "Indian Reservation owner. Can take 2.9-ac 'Ivy Hotel' pad or portion of 7.5-ac parcel.", market: "Austin", coordinates: "" },
-  { name: "FM 1488 Magnolia", address: "FM 1488", city: "Magnolia", state: "TX", askingPrice: "$2.4M (9.68 ac)", internalPrice: "$1.4-1.5M (half)", sellerBroker: "Bob Lewis", summary: "Excellent Houston expansion — 470' frontage. Take half. On market 9 days.", market: "Houston", coordinates: "" },
-  { name: "5400 E Howard Lane", address: "5400 E Howard Lane", city: "Manor", state: "TX", askingPrice: "$2.15M (4.54 ac)", internalPrice: "$1.85M counter", sellerBroker: "Chris Anderson", summary: "LOI at 1.7m, countered 2m, we countered 1.85m. On market 600 days.", market: "Austin", coordinates: "" },
-  { name: "6159 FM543", address: "6159 FM543", city: "McKinney", state: "TX", askingPrice: "$3.6M (13 ac)", sellerBroker: "Ray Eckenrode", summary: "Strong site 6.4mi from Wilmeth. Can we offer and leave the house?", market: "DFW", coordinates: "" },
-  { name: "622 S Kowald Lane", address: "622 S Kowald Lane", city: "New Braunfels", state: "TX", askingPrice: "$1.65M (11.12 ac)", internalPrice: "$1.2M", sellerBroker: "Adam Schneider", summary: "LOI at 1.2M. Signed at 90 days w/ phased EMD 3/4. MU-B by right. 865 days on market.", market: "San Antonio", coordinates: "" },
-  { name: "US 59 New Caney", address: "US 59", city: "New Caney", state: "TX", askingPrice: "$2.5M ($11/sf, 5.29 ac)", sellerBroker: "Anne Vickery", summary: "Awaiting PSA/REIC — fully signed LOI. 286' frontage.", market: "Houston", coordinates: "" },
-  { name: "FM 664 Ovilla", address: "FM 664", city: "Ovilla", state: "TX", askingPrice: "18/sf front, 10/sf back (9.5 ac)", sellerBroker: "Ty Underwood", summary: "Awaiting PSA/REIC — fully signed LOI. Take half.", market: "DFW", coordinates: "" },
-  { name: "Hwy 35 & English Drive", address: "Hwy 35 & English Drive", city: "Pearland", state: "TX", askingPrice: "$2.338M (5.239 ac)", internalPrice: "$1.82M signed", sellerBroker: "Faye Ausmus", summary: "Signed LOI 3/3 at 1.82m. Setback issue discovered.", market: "Houston", coordinates: "" },
-  { name: "991 FM1377", address: "991 FM1377", city: "Princeton", state: "TX", askingPrice: "$2.7M (4.86 ac)", sellerBroker: "Jim Landsaw", summary: "Keep on list but on east side. House owner.", market: "DFW", coordinates: "" },
-  { name: "6007 FM 2218 Road", address: "6007 FM 2218 Road", city: "Richmond", state: "TX", askingPrice: "$1.14M (8 ac)", sellerBroker: "Landon Coker", summary: "Great Houston expansion — 5mi from nearest PS. Unrestricted.", market: "Houston", coordinates: "" },
-  { name: "2287 S FM 549", address: "2287 S Farm to Market 549", city: "Rockwall", state: "TX", askingPrice: "$1.6M (7.914 ac)", sellerBroker: "James Hauglid", summary: "Like Pullen St but keep on list.", market: "DFW", coordinates: "" },
-  { name: "900 Pullen Street", address: "900 Pullen Street", city: "Royse City", state: "TX", askingPrice: "$1.74M (3.33 ac)", internalPrice: "$1.75M (~4.5 ac)", sellerBroker: "Fellowship Church — Shane Hendrix", summary: "Church awaiting site plan for LOI response. Needs SUP + Zoning Overlay.", market: "DFW", coordinates: "" },
-  { name: "4607 205 Loop", address: "4607 205 Loop", city: "Temple", state: "TX", askingPrice: "$729K (5+ ac)", sellerBroker: "Scott Motsinger", summary: "Fully signed LOIs. Storage by right.", market: "Austin", coordinates: "" },
-  { name: "13009 FM 121", address: "13009 FM 121", city: "Van Alstyne", state: "TX", askingPrice: "$7/sf (29 ac tract)", sellerBroker: "Tom Dosch", summary: "Backup to existing REIC site. Offer on 5-6 ac.", market: "DFW", coordinates: "" },
-  { name: "20502 Binford Road", address: "20502 Binford Road", city: "Waller", state: "TX", askingPrice: "$4.50-5.00/sf (6.86 ac)", sellerBroker: "Derek Graber", summary: "Hockley backup. On market 200+ days.", market: "Houston", coordinates: "" },
-];
-
-const MT_SEED = [
-  { name: "Mason Montgomery Rd", address: "7899 Mason Montgomery Rd", city: "Mason", state: "OH", askingPrice: "TBD", pop3mi: "65000", income3mi: "$120,000", sellerBroker: "TBD", summary: "Seller engaged, asking which pad. Strong demos. Ready to move.", market: "Cincy", coordinates: "39.324314, -84.312880" },
-  { name: "Erlanger Turfway", address: "3600 Turfway Rd", city: "Erlanger", state: "KY", askingPrice: "$1.945M (6.48 ac)", pop3mi: "45000", income3mi: "$92,000", sellerBroker: "TBD", summary: "Keep on list. By right — city confirmed. Dead-flat, entitled.", market: "Cincy", coordinates: "39.035142, -84.634118" },
-  { name: "Fishers I-69 & 106th", address: "SEQ I-69 and 106th St", city: "Fishers", state: "IN", askingPrice: "$350K/ac (10.87 ac)", pop3mi: "60000", income3mi: "$120,000", sellerBroker: "TBD", summary: "#1 Pad 7.08 ac — prob take entire pad. PUD allows storage.", market: "Indy", coordinates: "39.938513, -86.015306" },
-  { name: "Cobblegate Drive", address: "Cobblegate Drive", city: "Moraine", state: "OH", askingPrice: "$735K (4.43 ac)", pop3mi: "56000", income3mi: "$85,000", sellerBroker: "TBD", summary: "Working rate — just ok. Strong zoning. Great price.", market: "Cincy", coordinates: "39.678414, -84.219034" },
-  { name: "South Lebanon I-71", address: "I-71 & SR 48", city: "South Lebanon", state: "OH", askingPrice: "TBD (23.62 or 5.29 ac)", pop3mi: "27000", income3mi: "$150,000", sellerBroker: "TBD", summary: "Go after 4.98-ac south pad. Highest income $150K. Village supportive.", market: "Cincy", coordinates: "39.375031, -84.224701" },
-  { name: "Shanghai Rd", address: "6465-6525 Shanghai", city: "Indianapolis", state: "IN", askingPrice: "~$225K/ac (5 ac)", pop3mi: "46000", income3mi: "$120,000", sellerBroker: "TBD", summary: "BULLSEYE. By right CS zoning. Strong demos. Michigan Rd triangulation.", market: "Indy", coordinates: "39.873903, -86.278346" },
-  { name: "Greenfield New Rd", address: "743 W New Road", city: "Greenfield", state: "IN", askingPrice: "$2M (10.7 ac)", pop3mi: "22000", income3mi: "$85,000", sellerBroker: "TBD", summary: "See if they subdivide. IM zoning confirming. 215 days.", market: "Indy", coordinates: "39.812601, -85.779501" },
-  { name: "Indy 46th St", address: "9240 E 46th Street", city: "Indianapolis", state: "IN", askingPrice: "$1.8M (7.68 ac)", pop3mi: "90000", income3mi: "$60,000", sellerBroker: "TBD", summary: "Matt likes but low incomes. Highest 3-mi pop 90K.", market: "Indy", coordinates: "39.841270, -86.006679" },
-  { name: "West Chester Tylersville", address: "SEC Tylersville Rd & Cox Rd", city: "West Chester", state: "OH", askingPrice: "~$2.1M (4.3 ac)", pop3mi: "62000", income3mi: "$130,000", sellerBroker: "TBD", summary: "MATT LIKES. $130K income, 62K pop. Next to Kroger.", market: "Cincy", coordinates: "39.348787, -84.365076" },
-  { name: "Spring Hill TN", address: "5090 N Main Street", city: "Spring Hill", state: "TN", askingPrice: "$700K (5 ac rear)", pop3mi: "73000", income3mi: "$114,000", sellerBroker: "TBD", summary: "YES! Great spacing and price. C4 by right.", market: "TN", coordinates: "35.764060, -86.919728" },
-  { name: "Miami Twp Lyons", address: "SEC Lyons Rd & Newmark Dr", city: "Miami Township", state: "OH", askingPrice: "$1.595M (15.96 ac, ~3.87 usable)", pop3mi: "62000", income3mi: "$105,000", sellerBroker: "TBD", summary: "YES — find 4 usable acres. Flat, dual access. Storage next door.", market: "Cincy", coordinates: "39.626438, -84.211683" },
-  { name: "Whitestown Albert", address: "6864 Albert South", city: "Whitestown", state: "IN", askingPrice: "TBD", pop3mi: "18000", income3mi: "$140,000", sellerBroker: "TBD — pending", summary: "Want to make offer — get broker. $140K income. GB by right.", market: "Indy", coordinates: "39.983239, -86.338702" },
-];
+// ─── Seed Data REMOVED (v3) ───
+// All 47 sites (33 DW + 14 MT) are in Firebase with verified data.
+// Seed data was stale (missing coordinates, demographics, acreage) and risked overwriting live data.
+// New sites are added via Submit Site form, Bulk Import, or Claude's §6h broker response pipeline.
+const DW_SEED = [];
+const MT_SEED = [];
 
 // ═══ MAIN APP ═══
 export default function App() {
@@ -951,9 +664,6 @@ export default function App() {
   const [expandedSite, setExpandedSite] = useState(null);
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
-  const [targetMarkets, setTargetMarkets] = useState([]);
-  const [showAddMarket, setShowAddMarket] = useState(false);
-  const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("direct");
@@ -991,7 +701,6 @@ export default function App() {
     const eastRef = ref(db, "east");
     const swRef = ref(db, "southwest");
     const metaRef = ref(db, "meta/seeded");
-    const marketsRef = ref(db, "targetMarkets");
 
     const unsubSeed = onValue(metaRef, (snap) => {
       setSeeded(!!snap.val());
@@ -1013,40 +722,14 @@ export default function App() {
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
       setSw(arr);
     });
-    const unsubMarkets = onValue(marketsRef, (snap) => {
-      const val = snap.val();
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setTargetMarkets(arr);
-    });
 
     return () => {
       unsubSubs();
       unsubEast();
       unsubSw();
       unsubSeed();
-      unsubMarkets();
     };
   }, []);
-
-  // ─── TARGET MARKET HANDLERS ───
-  const handleAddMarket = () => {
-    if (!newMarketForm.name.trim()) return;
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const mkt = { ...newMarketForm, name: newMarketForm.name.trim(), states: newMarketForm.states.trim(), tier: Number(newMarketForm.tier) || 1, createdAt: new Date().toISOString() };
-    set(ref(db, "targetMarkets/" + id), mkt);
-    setNewMarketForm({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
-    setShowAddMarket(false);
-    setToast("Market added: " + mkt.name);
-    setTimeout(() => setToast(null), 3000);
-  };
-  const handleRemoveMarket = (id) => {
-    remove(ref(db, "targetMarkets/" + id));
-    setToast("Market removed");
-    setTimeout(() => setToast(null), 3000);
-  };
-  const handleToggleMarket = (id, currentActive) => {
-    update(ref(db, "targetMarkets/" + id), { active: !currentActive });
-  };
 
   // ─── SEED ON FIRST LOAD ───
   useEffect(() => {
@@ -1166,46 +849,43 @@ export default function App() {
 
   // ─── GEOCODE & DEMOGRAPHICS ───
   const handleFetchDemos = async (region, site) => {
-    if (!site.coordinates) return;
-    setDemoLoading(prev => ({ ...prev, [site.id]: true }));
+    if (!site.coordinates) { notify("Add coordinates first"); return; }
+    setDemoLoading((prev) => ({ ...prev, [site.id]: true }));
     try {
       const result = await fetchDemographics(site.coordinates);
-      if (result.error) {
+      if (result?.error) {
         notify(result.error);
       } else if (result) {
         const updates = {};
-        if (result.pop1mi) updates.pop1mi = result.pop1mi;
-        if (result.pop3mi) updates.pop3mi = result.pop3mi;
-        if (result.pop5mi) updates.pop5mi = result.pop5mi;
-        if (result.income1mi) updates.income1mi = result.income1mi;
-        if (result.income3mi) updates.income3mi = result.income3mi;
-        if (result.income5mi) updates.income5mi = result.income5mi;
-        if (result.households1mi) updates.households1mi = result.households1mi;
-        if (result.households3mi) updates.households3mi = result.households3mi;
-        if (result.households5mi) updates.households5mi = result.households5mi;
-        if (result.homeValue1mi) updates.homeValue1mi = result.homeValue1mi;
-        if (result.homeValue3mi) updates.homeValue3mi = result.homeValue3mi;
-        if (result.homeValue5mi) updates.homeValue5mi = result.homeValue5mi;
-        if (result.source) updates.demoSource = result.source;
-        if (result.fips) updates.demoFips = result.fips;
-        updates.demoPulledAt = new Date().toISOString();
-        if (result.tractCounts) updates.demoTractCounts = JSON.stringify(result.tractCounts);
+        // Only overwrite if field is currently empty — protect manually verified data
+        if (result.income3mi && !site.income3mi) updates.income3mi = result.income3mi;
+        if (result.pop3mi && !site.pop3mi) updates.pop3mi = result.pop3mi;
+        const skipped = [];
+        if (result.income3mi && site.income3mi) skipped.push("HHI (kept existing: " + site.income3mi + ")");
+        if (result.pop3mi && site.pop3mi) skipped.push("Pop (kept existing: " + site.pop3mi + ")");
         if (Object.keys(updates).length > 0) {
-          fbUpdate(region, site.id, updates);
-          fbPush(region, site.id, "activityLog", {
-            action: "Demographics pulled \u2014 Pop " + (result.pop3mi || "N/A") + " | HHI " + (result.income3mi || "N/A") + " | Home Value " + (result.homeValue3mi || "N/A") + " | " + (result.source || ""),
-            date: new Date().toISOString(),
-            by: "System"
+          fbUpdate(`${region}/${site.id}`, updates);
+          fbPush(`${region}/${site.id}/activityLog`, {
+            action: `Demographics pulled: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"} (${result.source})${skipped.length ? " — Skipped overwrite: " + skipped.join(", ") : ""}`,
+            ts: new Date().toISOString(),
+            by: "System",
+          });
+        } else if (skipped.length > 0) {
+          // All fields already populated — log but don't overwrite
+          fbPush(`${region}/${site.id}/activityLog`, {
+            action: `Demographics fetch skipped — existing data preserved: ${skipped.join(", ")}. Census returned: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"}`,
+            ts: new Date().toISOString(),
+            by: "System",
           });
         }
-        setDemoReport(prev => ({ ...prev, [site.id]: result }));
-        notify(Object.keys(updates).length + " Demographics loaded \u2014 1/3/5 mile rings saved with " + (result.tractCounts ? JSON.stringify(result.tractCounts) : "") + " tracts");
+        setDemoReport((prev) => ({ ...prev, [site.id]: result }));
+        notify(Object.keys(updates).length > 0 ? "Demographics loaded — see report below" : "No demographic data found");
       }
     } catch (err) {
       notify("Demographics fetch failed");
       console.error(err);
     }
-    setDemoLoading(prev => ({ ...prev, [site.id]: false }));
+    setDemoLoading((prev) => ({ ...prev, [site.id]: false }));
   };
 
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
@@ -1316,11 +996,6 @@ export default function App() {
     if (!form.name || !form.address || !form.city || !form.state) {
       notify("Fill name, address, city, state.");
       return;
-    }
-    const qcWarnings = validateSite(form);
-    if (qcWarnings.length > 0 && submitMode === "direct") {
-      const proceed = window.confirm("QC Warnings:\n- " + qcWarnings.join("\n- ") + "\n\nProceed anyway?");
-      if (!proceed) return;
     }
     const now = new Date().toISOString();
     const id = uid();
@@ -1534,8 +1209,7 @@ export default function App() {
       else if (n.includes("summary") || n.includes("note")) m.summary = val;
       else if (n.includes("coord")) m.coordinates = val;
       else if (n.includes("phase")) m.phase = val;
-      else if (n.includes("listing") || n.includes("url") || n.includes("link")) m.listingUrl = val;
-    else if (n.includes("region")) {
+      else if (n.includes("region")) {
         m.region = val.toLowerCase().includes("sw") || val.toLowerCase().includes("dan") ? "southwest" : "east";
       }
     });
@@ -1572,7 +1246,7 @@ export default function App() {
         sellerBroker: m.sellerBroker || "",
         summary: m.summary || "",
         coordinates: m.coordinates || "",
-        listingUrl: m.listingUrl || "",
+        listingUrl: "",
         dateOnMarket: "",
         market: "",
         priority: "⚪ None",
@@ -1621,7 +1295,7 @@ export default function App() {
       const sorted = [...sites].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       const rows = sorted.map((s) =>
         cols.map((c) => {
-          if (c.key === "siteiq") return computeSiteIQ(s, targetMarkets).score;
+          if (c.key === "siteiq") return computeSiteIQ(s).score;
           if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
           if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
           return s[c.key] || "";
@@ -1640,7 +1314,7 @@ export default function App() {
     const summCols = [{ key: "_region", header: "Region", width: 18 }, ...cols];
     const summRows = allSorted.map((s) =>
       summCols.map((c) => {
-        if (c.key === "siteiq") return computeSiteIQ(s, targetMarkets).score;
+        if (c.key === "siteiq") return computeSiteIQ(s).score;
         if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
         if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
         return s[c.key] || "";
@@ -1666,13 +1340,14 @@ export default function App() {
     { key: "phase", label: "Phase" },
   ];
   const priorityOrder = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
+  // Phase sort: pipeline flow order (Incoming → ... → Closed, Dead last)
   const phaseOrder = Object.fromEntries(PHASES.map((p, i) => [p, i]));
   const sortData = (arr) => {
     const sorted = [...arr];
     switch (sortBy) {
       case "siteiq": {
         const cache = new Map();
-        const getIQ = (s) => { if (!cache.has(s.id)) cache.set(s.id, computeSiteIQ(s, targetMarkets).score); return cache.get(s.id); };
+        const getIQ = (s) => { if (!cache.has(s.id)) cache.set(s.id, computeSiteIQ(s).score); return cache.get(s.id); };
         return sorted.sort((a, b) => getIQ(b) - getIQ(a));
       }
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
@@ -1740,7 +1415,7 @@ export default function App() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
-                        <SiteIQBadge site={site} size="small"  targetMarkets={targetMarkets}/>
+                        <SiteIQBadge site={site} size="small" />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1754,7 +1429,7 @@ export default function App() {
                         {docs.length > 0 && <span style={{ color: "#64748B" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
                         {msgs.length > 0 && <span style={{ color: "#F37C33" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
-                        <a href={getListingUrl(site)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: site.listingUrl ? "#E65100" : "#78909C", textDecoration: "none", fontWeight: 600 }}>{site.listingUrl ? "🔗 Listing" : "🔍 Search Crexi"}</a>
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
                       </div>
                     </div>
                     <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
@@ -1765,7 +1440,7 @@ export default function App() {
                     <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
                       {/* SiteIQ™ Score — Primary Metric */}
                       <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
-                        <SiteIQBadge site={site}  targetMarkets={targetMarkets}/>
+                        <SiteIQBadge site={site} />
                       </div>
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
@@ -1799,20 +1474,7 @@ export default function App() {
                         })()}
                       </div>
 
-                      {/* Quick Action Buttons */}
-                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                        <button onClick={(e) => { e.stopPropagation(); openVettingReportPDF(site); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1E3A5F,#1565C0)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 6px rgba(21,101,192,0.25)" }}>Vetting Report</button>
-                        <a href={getListingUrl(site)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, background: site.listingUrl ? "linear-gradient(135deg,#E65100,#F37C33)" : "linear-gradient(135deg,#546E7A,#78909C)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>{site.listingUrl ? "Property Listing" : "Search Crexi"}</a>
-                      </div>
-                      
-                  {/* QC Warnings */}
-                  {(() => { const w = validateSite(site); return w.length > 0 ? (
-                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "rgba(255,152,0,0.1)", border: "1px solid rgba(255,152,0,0.3)" }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "#FF9800", marginBottom: 4 }}>QC: {w.length} missing field{w.length > 1 ? "s" : ""}</div>
-                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>{w.join(" \u2022 ")}</div>
-                    </div>
-                  ) : null; })()}
-{/* Summary */}
+                      {/* Summary */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, margin: "14px 0", border: "1px solid #E2E8F0" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 6 }}>Recent Summary</div>
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
@@ -1840,67 +1502,67 @@ export default function App() {
                         <EF label="Asking Price" value={site.askingPrice || ""} onSave={(v) => saveField(regionKey, site.id, "askingPrice", v)} placeholder="$1.5M" />
                         <EF label="PS Internal Price" value={site.internalPrice || ""} onSave={(v) => saveField(regionKey, site.id, "internalPrice", v)} placeholder="$1.2M" />
                         <EF label="Seller / Broker" value={site.sellerBroker || ""} onSave={(v) => saveField(regionKey, site.id, "sellerBroker", v)} placeholder="John Smith" />
+                        <EF label="3-Mile Income" value={site.income3mi || ""} onSave={(v) => saveField(regionKey, site.id, "income3mi", v)} placeholder="$95,000" />
+                        <EF label="3-Mile Pop" value={site.pop3mi || ""} onSave={(v) => saveField(regionKey, site.id, "pop3mi", v)} placeholder="45,000" />
                         <EF label="Acreage" value={site.acreage || ""} onSave={(v) => saveField(regionKey, site.id, "acreage", v)} placeholder="4.5 ac" />
                         <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3…" />
                       </div>
 
-                      {/* ─── Demographics 1-3-5 Mile Table ─── */}
-                      {(() => {
-                        const hasDemos = site.pop3mi || site.income3mi;
-                        const dc = { padding: "7px 10px", textAlign: "right", fontSize: 12, fontWeight: 600, color: "#334155", borderBottom: "1px solid #E2E8F0", fontFamily: "'Space Mono', monospace" };
-                        const hc = { padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#475569", fontSize: 12, borderBottom: "1px solid #E2E8F0" };
-                        const th = { padding: "8px 10px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#1E2761", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "2px solid #C9A84C" };
-                        const rows = [
-                          { label: "\u{1F465} Population", k1: "pop1mi", k3: "pop3mi", k5: "pop5mi" },
-                          { label: "\u{1F4B0} Median HHI", k1: "income1mi", k3: "income3mi", k5: "income5mi" },
-                          { label: "\u{1F3E0} Households", k1: "households1mi", k3: "households3mi", k5: "households5mi" },
-                          { label: "\u{1F3E1} Avg Home Value", k1: "homeValue1mi", k3: "homeValue3mi", k5: "homeValue5mi" },
-                        ];
+                      {/* Pull Demographics Button */}
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                        <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: demoLoading[site.id] ? "#E8F0FE" : "linear-gradient(135deg,#1565C0,#1976D2)", color: demoLoading[site.id] ? "#1565C0" : "#fff", fontSize: 11, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5, display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 3px rgba(21,101,192,.2)" }}>
+                          {demoLoading[site.id] ? "⏳ Fetching…" : "📊 Pull Demographics"}
+                        </button>
+                      </div>
+
+                      {/* Demographic Report Card — 1/3/5 Mile Snapshot */}
+                      {demoReport[site.id] && (() => {
+                        const dr = demoReport[site.id];
+                        const r = dr.rings || {};
+                        const ringRow = (label, key) => (
+                          <tr key={label}>
+                            <td style={{ padding: "6px 10px", fontWeight: 700, color: "#334155", fontSize: 12, borderBottom: "1px solid #E2E8F0" }}>{label}</td>
+                            {[1, 3, 5].map((mi) => (
+                              <td key={mi} style={{ padding: "6px 10px", textAlign: "right", fontSize: 12, color: "#475569", borderBottom: "1px solid #E2E8F0" }}>
+                                {key === "medIncome" ? (r[mi]?.[key] ? "$" + r[mi][key].toLocaleString() : "—") : (r[mi]?.[key] ? r[mi][key].toLocaleString() : "—")}
+                              </td>
+                            ))}
+                          </tr>
+                        );
                         return (
-                          <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 14, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
-                            <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 14 }}>{"\u{1F4CA}"}</span>
-                                <span style={{ color: "#fff", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em" }}>DEMOGRAPHIC PROFILE</span>
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                {site.demoSource && <span style={{ color: "rgba(255,255,255,.5)", fontSize: 9 }}>{site.demoSource}</span>}
-                                <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.15)", color: "#fff", fontSize: 10, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5 }}>
-                                  {demoLoading[site.id] ? "\u23F3" : "\u{1F504}"} {hasDemos ? "Refresh" : "Pull Data"}
-                                </button>
+                          <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}>
+                            <div style={{ background: "linear-gradient(135deg,#1E3A5F,#1565C0)", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em" }}>DEMOGRAPHIC REPORT</div>
+                              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                <span style={{ color: "rgba(255,255,255,.6)", fontSize: 9 }}>{dr.source}</span>
+                                <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,.3)", background: "transparent", color: "#fff", fontSize: 10, cursor: "pointer" }}>✕</button>
                               </div>
                             </div>
-                            <div style={{ padding: "12px 14px" }}>
-                              {hasDemos ? (
-                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                  <thead><tr style={{ background: "#FAFBFC" }}>
-                                    <th style={{ ...th, textAlign: "left" }}>Metric</th>
-                                    <th style={th}>1-Mile</th>
-                                    <th style={{ ...th, background: "#FFF8E1" }}>3-Mile</th>
-                                    <th style={th}>5-Mile</th>
-                                  </tr></thead>
-                                  <tbody>{rows.map((r, i) => (
-                                    <tr key={r.label} style={{ background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
-                                      <td style={hc}>{r.label}</td>
-                                      <td style={dc}>{site[r.k1] || "\u2014"}</td>
-                                      <td style={{ ...dc, background: "#FFFCF0", fontWeight: 800, color: "#1E2761" }}>{site[r.k3] || "\u2014"}</td>
-                                      <td style={dc}>{site[r.k5] || "\u2014"}</td>
-                                    </tr>
-                                  ))}</tbody>
-                                </table>
-                              ) : (
-                                <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8" }}>
-                                  <div style={{ fontSize: 24, marginBottom: 6 }}>{"\u{1F4CA}"}</div>
-                                  <div style={{ fontSize: 12, fontWeight: 600 }}>No demographics data yet</div>
-                                  <div style={{ fontSize: 11, marginTop: 2 }}>Click "Pull Data" to fetch Census ACS data</div>
+                            <div style={{ padding: 14 }}>
+                              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
+                                <thead>
+                                  <tr style={{ background: "#F8FAFC" }}>
+                                    <th style={{ padding: "6px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" }}>Metric</th>
+                                    {[1, 3, 5].map((mi) => <th key={mi} style={{ padding: "6px 10px", textAlign: "right", fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" }}>{mi}-Mile</th>)}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {ringRow("Population", "pop")}
+                                  {ringRow("Households", "hh")}
+                                  {ringRow("Median HHI", "medIncome")}
+                                </tbody>
+                              </table>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                <div style={{ background: "#F0F9FF", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 2 }}>Growth Outlook</div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: dr.growthOutlook?.includes("Growing") ? "#16A34A" : dr.growthOutlook?.includes("Moderate") ? "#D97706" : "#64748B" }}>{dr.growthOutlook || "—"}</div>
                                 </div>
-                              )}
-                              {site.growthOutlook && (
-                                <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
-                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Growth:</span>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: (site.growthOutlook || "").includes("Growing") ? "#16A34A" : (site.growthOutlook || "").includes("Moderate") ? "#D97706" : "#64748B" }}>{site.growthOutlook}</span>
+                                <div style={{ background: "#F0F9FF", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 2 }}>County Context</div>
+                                  <div style={{ fontSize: 11, fontWeight: 600, color: "#334155" }}>{dr.countyPop ? `Pop ${dr.countyPop}` : "—"}{dr.countyIncome ? ` · HHI ${dr.countyIncome}` : ""}</div>
                                 </div>
-                              )}
+                              </div>
+                              {dr.fips && <div style={{ marginTop: 8, fontSize: 10, color: "#94A3B8", textAlign: "right" }}>FIPS {dr.fips}</div>}
                             </div>
                           </div>
                         );
@@ -2026,6 +1688,7 @@ export default function App() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideDown { from { max-height: 0; opacity: 0; } to { max-height: 2000px; opacity: 1; } }
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 25px rgba(201,168,76,0.6), 0 0 50px rgba(201,168,76,0.25); } }
         @keyframes siteiq-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.05); } }
@@ -2115,65 +1778,6 @@ export default function App() {
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            {/* ─── TARGET MARKETS BANNER ─── */}
-            <div style={{ background: "linear-gradient(135deg, #1E2761 0%, #2C3E6B 100%)", borderRadius: 14, padding: "16px 20px", marginBottom: 16, boxShadow: "0 2px 12px rgba(30,39,97,0.18)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: targetMarkets.length > 0 ? 12 : 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>{String.fromCharCode(11088)}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Target Markets</span>
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>{targetMarkets.filter(m => m.active).length} active</span>
-                </div>
-                <button onClick={() => setShowAddMarket(!showAddMarket)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.4)", background: showAddMarket ? "rgba(201,168,76,0.2)" : "transparent", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>{showAddMarket ? "Cancel" : "+ Add Market"}</button>
-              </div>
-              {showAddMarket && (
-                <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: 14, marginBottom: 12, border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 90px auto", gap: 8, alignItems: "end" }}>
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>Market Name</div>
-                      <input value={newMarketForm.name} onChange={e => setNewMarketForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Cincinnati" style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>Tier</div>
-                      <select value={newMarketForm.tier} onChange={e => setNewMarketForm(f => ({ ...f, tier: Number(e.target.value) }))} style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none" }}>
-                        <option value={1}>Tier 1</option><option value={2}>Tier 2</option><option value={3}>Tier 3</option><option value={4}>Tier 4</option>
-                      </select>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>States</div>
-                      <input value={newMarketForm.states} onChange={e => setNewMarketForm(f => ({ ...f, states: e.target.value }))} placeholder="OH, KY" style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", marginBottom: 3 }}>Assigned</div>
-                      <select value={newMarketForm.assignedTo} onChange={e => setNewMarketForm(f => ({ ...f, assignedTo: e.target.value }))} style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 12, outline: "none" }}>
-                        <option value="MT">MT</option><option value="DW">DW</option><option value="Both">Both</option>
-                      </select>
-                    </div>
-                    <button onClick={handleAddMarket} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #C9A84C, #E8C84A)", color: "#1E2761", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Add</button>
-                  </div>
-                </div>
-              )}
-              {targetMarkets.length > 0 && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {targetMarkets.sort((a, b) => (a.tier || 4) - (b.tier || 4)).map(m => (
-                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: m.active ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.02)", border: "1px solid " + (m.active ? (m.tier === 1 ? "rgba(201,168,76,0.5)" : m.tier === 2 ? "rgba(59,130,246,0.4)" : m.tier === 3 ? "rgba(34,197,94,0.4)" : "rgba(148,163,184,0.3)") : "rgba(255,255,255,0.06)"), opacity: m.active ? 1 : 0.5, transition: "all 0.2s" }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: m.tier === 1 ? "#C9A84C" : m.tier === 2 ? "#3B82F6" : m.tier === 3 ? "#22C55E" : "#94A3B8" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{m.name}</span>
-                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>T{m.tier}</span>
-                      {m.states && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>{m.states}</span>}
-                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>{m.assignedTo || "MT"}</span>
-                      <button onClick={(e) => { e.stopPropagation(); handleToggleMarket(m.id, m.active); }} style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: m.active ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)", color: m.active ? "#22C55E" : "#EF4444", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>{m.active ? "ON" : "OFF"}</button>
-                      <button onClick={(e) => { e.stopPropagation(); handleRemoveMarket(m.id); }} style={{ padding: "1px 4px", borderRadius: 4, border: "none", background: "rgba(239,68,68,0.1)", color: "#EF4444", fontSize: 10, cursor: "pointer", lineHeight: 1 }}>{String.fromCharCode(215)}</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {targetMarkets.length === 0 && !showAddMarket && (
-                <div style={{ textAlign: "center", padding: "8px 0" }}>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>No target markets configured. Add markets to boost SiteIQ scores for priority areas.</span>
-                </div>
-              )}
-            </div>
-
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
                 { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
@@ -2194,13 +1798,16 @@ export default function App() {
               ))}
             </div>
 
-            {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, tabKey: "east" }].map((r) => {
+            {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, accent: REGIONS.southwest.accent, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, accent: REGIONS.east.accent, tabKey: "east" }].map((r) => {
               const total = r.data.length || 1;
-              const phaseColors = ["#94A3B8", "#3B82F6", "#8B5CF6", "#F59E0B", "#F37C33", "#16A34A"];
+              const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
               return (
-                <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} className="site-card" style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
-                <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
-                {/* Visual pipeline bar */}
+                <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} className="site-card" style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
+                    <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{r.data.length} sites</span>
+                  </div>
+                  {/* Visual pipeline bar */}
                   <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 10, background: "#F1F5F9" }}>
                     {PHASES.map((p, idx) => {
                       const c = r.data.filter((s) => s.phase === p).length;
@@ -2208,9 +1815,14 @@ export default function App() {
                     })}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {PHASES.map((p) => { const c = r.data.filter((s) => s.phase === p).length; return <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${r.color}11` : "#F8FAFC", border: c > 0 ? `1px solid ${r.color}33` : "1px solid #E2E8F0" }}><div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? r.color : "#CBD5E1" }}>{c}</div><div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div></div>; })}
+                    {PHASES.map((p, idx) => { const c = r.data.filter((s) => s.phase === p).length; return (
+                      <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${phaseColors[idx]}11` : "#F8FAFC", border: c > 0 ? `1px solid ${phaseColors[idx]}33` : "1px solid #E2E8F0", transition: "all 0.2s" }}>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? phaseColors[idx] : "#CBD5E1" }}>{c}</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div>
+                      </div>
+                    ); })}
+                  </div>
                 </div>
-              </div>
               );
             })}
           </div>
@@ -2239,11 +1851,11 @@ export default function App() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = computeSiteIQ(s, targetMarkets).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = computeSiteIQ(s, targetMarkets).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => { const t = computeSiteIQ(s, targetMarkets).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
+                            onMouseLeave={(e) => { const t = computeSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
                           >
-                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small"  targetMarkets={targetMarkets}/></td>
+                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
                             <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
