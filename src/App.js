@@ -126,67 +126,177 @@ const debounce = (fn, ms) => {
 // Uses US Census Bureau ACS 5-Year via data.census.gov API
 // Fetches 3-mile radius approximate demographics from coordinates
 const fetchDemographics = async (coordinates) => {
-  if (!coordinates) return null;
-  const parts = coordinates.split(",").map((s) => s.trim());
-  if (parts.length !== 2) return null;
-  const [lat, lng] = parts.map(Number);
-  if (isNaN(lat) || isNaN(lng)) return null;
+  if (!coordinates) return { error: "No coordinates provided" };
+  const [latStr, lngStr] = coordinates.split(",").map(s => s.trim());
+  const lat = parseFloat(latStr), lng = parseFloat(lngStr);
+  if (isNaN(lat) || isNaN(lng)) return { error: "Invalid coordinates" };
+
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const R = 3958.8;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
+
   try {
-    // Step 1: Reverse geocode to get FIPS via FCC API (CORS-friendly)
-    const geoRes = await fetch(
-      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json&showall=false`
-    );
-    const geoData = await geoRes.json();
-    if (geoData.status !== "OK" || !geoData.Block?.FIPS) return { error: "Could not determine census tract" };
-    const blockFips = geoData.Block.FIPS; // e.g. "481210203144035"
-    const stFips = geoData.State?.FIPS || blockFips.substring(0, 2);
-    const coFips = blockFips.substring(2, 5);
-    const trFips = blockFips.substring(5, 11);
-    // Step 2: Fetch ACS 5-Year data for the tract (B01003_001E=population, B19013_001E=median HHI)
-    const acsRes = await fetch(
-      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E,B25077_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
-    );
-    const acsData = await acsRes.json();
-    if (!acsData || acsData.length < 2) return { error: "No ACS data for tract" };
-    const row = acsData[1];
-    const pop = parseInt(row[0], 10);
-    const income = parseInt(row[1], 10);
-    const hh = parseInt(row[2], 10);
-    const homeVal = parseInt(row[3], 10);
-    // Estimate ring radii: multiply tract values by scaling factors (avg 3-mi covers ~8 tracts)
-    // Also pull county-level for context
-    let countyPop = null, countyIncome = null;
-    try {
-      const cRes = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E&for=county:${coFips}&in=state:${stFips}`);
-      const cData = await cRes.json();
-      if (cData?.[1]) { countyPop = parseInt(cData[1][0], 10); countyIncome = parseInt(cData[1][1], 10); }
-    } catch (_) {}
-    const tPop = isNaN(pop) ? 0 : pop;
-    const incVal = isNaN(income) || income < 0 ? 0 : income;
-    const tHh = isNaN(hh) ? 0 : hh;
-    const hv = isNaN(homeVal) || homeVal < 0 ? 0 : homeVal;
-    const rings = {
-      1: { pop: Math.round(tPop * 0.8), hh: Math.round(tHh * 0.8), medIncome: incVal, homeValue: hv },
-      3: { pop: Math.round(tPop * 8), hh: Math.round(tHh * 8), medIncome: incVal, homeValue: hv },
-      5: { pop: Math.round(tPop * 18), hh: Math.round(tHh * 18), medIncome: incVal, homeValue: Math.round(hv * 0.95) },
-    };
-    let growthOutlook = "Stable";
-    if (tPop > 5000) growthOutlook = "Growing — high density";
-    else if (tPop > 2000) growthOutlook = "Moderate growth";
-    else growthOutlook = "Emerging — verify demand";
+    // Step 1: Get FIPS codes via FCC API
+    const fccResp = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json`);
+    const fccData = await fccResp.json();
+    if (!fccData.Block || !fccData.Block.FIPS) return { error: "Could not determine census location" };
+    const fips = fccData.Block.FIPS;
+    const stFips = fips.substring(0, 2), coFips = fips.substring(2, 5);
+
+    // Step 2: Get all tract centroids in county via TIGERweb
+    const tigerUrl = `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${stFips}'+AND+COUNTY%3D'${coFips}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`;
+    const tigerResp = await fetch(tigerUrl);
+    const tigerData = await tigerResp.json();
+    const tracts = (tigerData.features || []).map(f => ({
+      geoid: f.attributes.GEOID,
+      lat: parseFloat(f.attributes.CENTLAT),
+      lon: parseFloat(f.attributes.CENTLON),
+      stFips: f.attributes.STATE,
+      coFips: f.attributes.COUNTY,
+      trFips: f.attributes.TRACT
+    }));
+
+    // Step 3: Check adjacent counties (5mi in cardinal directions)
+    const offset = 0.072;
+    const cardinalPts = [
+      [lat + offset, lng], [lat - offset, lng],
+      [lat, lng + offset], [lat, lng - offset]
+    ];
+    const adjCounties = new Set();
+    adjCounties.add(stFips + coFips);
+    for (const [clat, clng] of cardinalPts) {
+      try {
+        const r = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${clat}&longitude=${clng}&format=json`);
+        const d = await r.json();
+        if (d.Block && d.Block.FIPS) {
+          const key = d.Block.FIPS.substring(0, 5);
+          adjCounties.add(key);
+        }
+      } catch(e) { /* skip */ }
+    }
+
+    // Step 4: Get tract centroids for adjacent counties
+    let allTracts = [...tracts];
+    for (const key of adjCounties) {
+      if (key === stFips + coFips) continue;
+      const adjSt = key.substring(0, 2), adjCo = key.substring(2, 5);
+      try {
+        const r = await fetch(`https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${adjSt}'+AND+COUNTY%3D'${adjCo}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`);
+        const d = await r.json();
+        const adjTracts = (d.features || []).map(f => ({
+          geoid: f.attributes.GEOID,
+          lat: parseFloat(f.attributes.CENTLAT),
+          lon: parseFloat(f.attributes.CENTLON),
+          stFips: f.attributes.STATE,
+          coFips: f.attributes.COUNTY,
+          trFips: f.attributes.TRACT
+        }));
+        allTracts = allTracts.concat(adjTracts);
+      } catch(e) { /* skip */ }
+    }
+
+    // Step 5: Bucket tracts by distance (1mi, 3mi, 5mi)
+    const buckets = { 1: [], 3: [], 5: [] };
+    for (const t of allTracts) {
+      const d = haversine(lat, lng, t.lat, t.lon);
+      if (d <= 1) buckets[1].push(t);
+      if (d <= 3) buckets[3].push(t);
+      if (d <= 5) buckets[5].push(t);
+    }
+
+    // Step 6: Get ACS data for all relevant counties
+    const countyKeys = new Set();
+    for (const t of allTracts) {
+      const d = haversine(lat, lng, t.lat, t.lon);
+      if (d <= 5) countyKeys.add(t.stFips + "|" + t.coFips);
+    }
+
+    const acsData = {};
+    for (const key of countyKeys) {
+      const [st, co] = key.split("|");
+      try {
+        const r = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E,B25077_001E&for=tract:*&in=state:${st}+county:${co}`);
+        const rows = await r.json();
+        const header = rows[0];
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const geoid = row[header.indexOf("state")] + row[header.indexOf("county")] + row[header.indexOf("tract")];
+          acsData[geoid] = {
+            pop: parseInt(row[0]) || 0,
+            income: parseInt(row[1]) || 0,
+            hh: parseInt(row[2]) || 0,
+            homeVal: parseInt(row[3]) || 0
+          };
+        }
+      } catch(e) { /* skip */ }
+    }
+
+    // Step 7: Aggregate per ring
+    const rings = {};
+    for (const radius of [1, 3, 5]) {
+      const ringTracts = buckets[radius];
+      let totalPop = 0, totalHH = 0, weightedIncome = 0, weightedHomeVal = 0;
+      let popWithIncome = 0, popWithHomeVal = 0;
+      for (const t of ringTracts) {
+        const acs = acsData[t.geoid];
+        if (!acs) continue;
+        totalPop += acs.pop;
+        totalHH += acs.hh;
+        if (acs.income > 0 && acs.pop > 0) {
+          weightedIncome += acs.income * acs.pop;
+          popWithIncome += acs.pop;
+        }
+        if (acs.homeVal > 0 && acs.pop > 0) {
+          weightedHomeVal += acs.homeVal * acs.pop;
+          popWithHomeVal += acs.pop;
+        }
+      }
+      rings[radius] = {
+        pop: totalPop,
+        income: popWithIncome > 0 ? Math.round(weightedIncome / popWithIncome) : 0,
+        hh: totalHH,
+        homeVal: popWithHomeVal > 0 ? Math.round(weightedHomeVal / popWithHomeVal) : 0,
+        tractCount: ringTracts.length
+      };
+    }
+
+    // Fallback for 1-mi ring if empty (rural areas)
+    if (rings[1].pop === 0 && rings[3].pop > 0) {
+      const nearest = allTracts.reduce((best, t) => {
+        const d = haversine(lat, lng, t.lat, t.lon);
+        return d < best.d ? { t, d } : best;
+      }, { t: null, d: Infinity });
+      if (nearest.t && acsData[nearest.t.geoid]) {
+        const acs = acsData[nearest.t.geoid];
+        rings[1] = { pop: acs.pop, income: acs.income, hh: acs.hh, homeVal: acs.homeVal, tractCount: 1 };
+      }
+    }
+
     return {
-      rings,
-      pop3mi: rings[3].pop ? rings[3].pop.toLocaleString() : null,
-      income3mi: incVal ? "$" + incVal.toLocaleString() : null,
-      growthOutlook,
-      countyPop: countyPop ? countyPop.toLocaleString() : null,
-      countyIncome: countyIncome && countyIncome > 0 ? "$" + countyIncome.toLocaleString() : null,
-      fips: `${stFips}-${coFips}-${trFips}`,
-      source: "Census ACS 5-Year (2022)",
+      pop1mi: rings[1].pop.toLocaleString(),
+      pop3mi: rings[3].pop.toLocaleString(),
+      pop5mi: rings[5].pop.toLocaleString(),
+      income1mi: rings[1].income > 0 ? "$" + rings[1].income.toLocaleString() : "",
+      income3mi: rings[3].income > 0 ? "$" + rings[3].income.toLocaleString() : "",
+      income5mi: rings[5].income > 0 ? "$" + rings[5].income.toLocaleString() : "",
+      households1mi: rings[1].hh.toLocaleString(),
+      households3mi: rings[3].hh.toLocaleString(),
+      households5mi: rings[5].hh.toLocaleString(),
+      homeValue1mi: rings[1].homeVal > 0 ? "$" + rings[1].homeVal.toLocaleString() : "",
+      homeValue3mi: rings[3].homeVal > 0 ? "$" + rings[3].homeVal.toLocaleString() : "",
+      homeValue5mi: rings[5].homeVal > 0 ? "$" + rings[5].homeVal.toLocaleString() : "",
+      fips: fips,
+      source: "Census ACS 5-Year (2022) multi-tract ring aggregation",
+      tractCounts: { "1mi": rings[1].tractCount, "3mi": rings[3].tractCount, "5mi": rings[5].tractCount },
+      rings: rings
     };
   } catch (err) {
-    console.error("Demographics fetch error:", err);
-    return { error: "Failed to fetch demographics" };
+    console.error("fetchDemographics error:", err);
+    return { error: "Demographics fetch failed: " + err.message };
   }
 };
 
@@ -1031,47 +1141,46 @@ export default function App() {
 
   // ─── GEOCODE & DEMOGRAPHICS ───
   const handleFetchDemos = async (region, site) => {
-    if (!site.coordinates) { notify("Add coordinates first"); return; }
-    setDemoLoading((prev) => ({ ...prev, [site.id]: true }));
+    if (!site.coordinates) return;
+    setDemoLoading(prev => ({ ...prev, [site.id]: true }));
     try {
       const result = await fetchDemographics(site.coordinates);
-      if (result?.error) {
+      if (result.error) {
         notify(result.error);
       } else if (result) {
-        const r = result.rings || {};
         const updates = {};
-        if (result.income3mi) updates.income3mi = result.income3mi;
+        if (result.pop1mi) updates.pop1mi = result.pop1mi;
         if (result.pop3mi) updates.pop3mi = result.pop3mi;
-        if (r[1]?.pop) updates.pop1mi = r[1].pop.toLocaleString();
-        if (r[5]?.pop) updates.pop5mi = r[5].pop.toLocaleString();
-        if (r[1]?.medIncome) updates.income1mi = "$" + r[1].medIncome.toLocaleString();
-        if (r[5]?.medIncome) updates.income5mi = "$" + r[5].medIncome.toLocaleString();
-        if (r[1]?.hh) updates.households1mi = r[1].hh.toLocaleString();
-        if (r[3]?.hh) updates.households3mi = r[3].hh.toLocaleString();
-        if (r[5]?.hh) updates.households5mi = r[5].hh.toLocaleString();
-        if (r[1]?.homeValue) updates.homeValue1mi = "$" + r[1].homeValue.toLocaleString();
-        if (r[3]?.homeValue) updates.homeValue3mi = "$" + r[3].homeValue.toLocaleString();
-        if (r[5]?.homeValue) updates.homeValue5mi = "$" + r[5].homeValue.toLocaleString();
-        if (result.growthOutlook) updates.growthOutlook = result.growthOutlook;
+        if (result.pop5mi) updates.pop5mi = result.pop5mi;
+        if (result.income1mi) updates.income1mi = result.income1mi;
+        if (result.income3mi) updates.income3mi = result.income3mi;
+        if (result.income5mi) updates.income5mi = result.income5mi;
+        if (result.households1mi) updates.households1mi = result.households1mi;
+        if (result.households3mi) updates.households3mi = result.households3mi;
+        if (result.households5mi) updates.households5mi = result.households5mi;
+        if (result.homeValue1mi) updates.homeValue1mi = result.homeValue1mi;
+        if (result.homeValue3mi) updates.homeValue3mi = result.homeValue3mi;
+        if (result.homeValue5mi) updates.homeValue5mi = result.homeValue5mi;
+        if (result.source) updates.demoSource = result.source;
         if (result.fips) updates.demoFips = result.fips;
-        updates.demoSource = result.source || "Census ACS 5-Year";
         updates.demoPulledAt = new Date().toISOString();
+        if (result.tractCounts) updates.demoTractCounts = JSON.stringify(result.tractCounts);
         if (Object.keys(updates).length > 0) {
-          fbUpdate(`${region}/${site.id}`, updates);
-          fbPush(`${region}/${site.id}/activityLog`, {
-            action: `Demographics pulled: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"}, Home Value ${r[3]?.homeValue ? "$" + r[3].homeValue.toLocaleString() : "?"} (${result.source})`,
-            ts: new Date().toISOString(),
-            by: "System",
+          fbUpdate(region, site.id, updates);
+          fbPush(region, site.id, "activityLog", {
+            action: "Demographics pulled \u2014 Pop " + (result.pop3mi || "N/A") + " | HHI " + (result.income3mi || "N/A") + " | Home Value " + (result.homeValue3mi || "N/A") + " | " + (result.source || ""),
+            date: new Date().toISOString(),
+            by: "System"
           });
         }
-        setDemoReport((prev) => ({ ...prev, [site.id]: result }));
-        notify(Object.keys(updates).length > 0 ? "Demographics loaded \u2014 1/3/5 mile rings saved" : "No demographic data found");
+        setDemoReport(prev => ({ ...prev, [site.id]: result }));
+        notify(Object.keys(updates).length + " Demographics loaded \u2014 1/3/5 mile rings saved with " + (result.tractCounts ? JSON.stringify(result.tractCounts) : "") + " tracts");
       }
     } catch (err) {
       notify("Demographics fetch failed");
       console.error(err);
     }
-    setDemoLoading((prev) => ({ ...prev, [site.id]: false }));
+    setDemoLoading(prev => ({ ...prev, [site.id]: false }));
   };
 
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
