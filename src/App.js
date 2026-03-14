@@ -252,50 +252,49 @@ const generateVettingReport = (site, nearestPSDistance) => {
 // ─── SiteIQ™ — Holistic PS Site Scoring Engine ───
 // Composite score 0-10 weighting: Zoning (25%), PS Spacing (20%), Demographics (20%),
 // Competition (15%), Pricing (10%), Site Access/Size (10%)
+// v2: Reads zoning & phase clues from summary field, handles $K pricing, parses acreage from askingPrice
 const computeSiteIQ = (site) => {
   const scores = {};
   let totalWeight = 0;
   let weightedSum = 0;
+  const summary = (site.summary || "").toLowerCase();
+  const combinedText = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
+
+  // --- HELPER: Parse acreage from acreage field OR askingPrice text ---
+  let acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+  if (isNaN(acres) || acres === 0) {
+    // Try to extract from askingPrice like "$2.4M (9.68 ac)" or "~$225K/ac (5 ac)"
+    const acMatch = (site.askingPrice || "").match(/([\d,.]+)\s*(?:\+\/-)?\s*(?:acres?|ac\b)/i);
+    if (acMatch) acres = parseFloat(acMatch[1].replace(/,/g, ""));
+  }
 
   // --- 1. ZONING (25%) ---
-  // Permitted/by-right = 10, Conditional/SUP/CUP = 6, Unknown = 3, Prohibited/rezone = 1
-  const zoning = (site.zoning || "").toLowerCase();
+  // Reads from zoning field AND summary for clues like "by right", "storage by right", "CS zoning"
+  const byRight = /(by\s*right|permitted|p\b|b[- ]?\d|c[- ]?\d|m[- ]?\d|commercial|industrial|business|gb|cs\b|mu\b|mixed|unrestricted|pud\s*allow)/i;
+  const conditional = /(conditional|sup\b|cup\b|special\s*use|overlay|variance|needs?\s*sup)/i;
+  const prohibited = /(prohibited|residential\s*only|ag\b|agriculture|not\s*permitted|rezone|rezoning\s*required)/i;
   let zoningScore = 3; // default unknown
-  if (zoning) {
-    const byRight = /(by\s*right|permitted|p\b|b[- ]?\d|c[- ]?\d|m[- ]?\d|commercial|industrial|business|gb|cs|mu|mixed|unrestricted)/i;
-    const conditional = /(conditional|sup|cup|special\s*use|overlay|variance)/i;
-    const prohibited = /(prohibited|residential|ag\b|agriculture|not\s*permitted|rezone)/i;
-    if (byRight.test(zoning)) zoningScore = 10;
-    else if (conditional.test(zoning)) zoningScore = 6;
-    else if (prohibited.test(zoning)) zoningScore = 1;
-    else zoningScore = 5; // zoning listed but can't classify
-  }
+  if (byRight.test(combinedText)) zoningScore = 10;
+  else if (conditional.test(combinedText)) zoningScore = 6;
+  else if (prohibited.test(combinedText)) zoningScore = 1;
+  else if ((site.zoning || "").trim()) zoningScore = 5; // zoning listed but can't classify
   scores.zoning = zoningScore;
   weightedSum += zoningScore * 0.25;
   totalWeight += 0.25;
 
   // --- 2. PS SPACING (20%) ---
-  // We don't have live proximity data in the site object, so score based on summary/notes hints
-  // and known spacing. Default to neutral (6) if no data.
   let spacingScore = 6;
-  const summary = (site.summary || "").toLowerCase();
-  const name = (site.name || "").toLowerCase();
-  // Check for spacing clues in summary
-  if (/\b(5|6|7|8|9|10)\+?\s*mi/i.test(summary) || /great\s*spacing/i.test(summary) || /no\s*(?:nearby|close)\s*ps/i.test(summary)) spacingScore = 9;
+  if (/bullseye/i.test(summary) || /\b(5|6|7|8|9|10)\+?\s*mi/i.test(summary) || /great\s*spacing/i.test(summary) || /no\s*(?:nearby|close)\s*ps/i.test(summary) || /excellent.*expansion/i.test(summary)) spacingScore = 9;
   else if (/\b(3|4)\s*mi/i.test(summary) || /good\s*spacing/i.test(summary)) spacingScore = 7;
-  else if (/\b(2|1\.?\d?)\s*mi/i.test(summary) || /close\s*to\s*ps/i.test(summary) || /spacing\s*(?:issue|concern|tight)/i.test(summary)) spacingScore = 3;
-  else if (/bullseye/i.test(summary)) spacingScore = 9;
+  else if (/\b(2|1\.?\d?)\s*mi\b/i.test(summary) || /close\s*to\s*ps/i.test(summary) || /spacing\s*(?:issue|concern|tight)/i.test(summary)) spacingScore = 3;
   scores.spacing = spacingScore;
   weightedSum += spacingScore * 0.20;
   totalWeight += 0.20;
 
   // --- 3. DEMOGRAPHICS (20%) ---
-  // Population: 60K+ = 10, 40K+ = 8, 20K+ = 6, 10K+ = 4, <10K = 2
-  // Income: $100K+ = 10, $80K+ = 8, $60K+ = 6, $50K+ = 4, <$50K = 2
-  // Average of pop score and income score
   const popRaw = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
   const incRaw = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
-  let popScore = 5, incScore = 5; // defaults if no data
+  let popScore = 5, incScore = 5;
   let hasDemoData = false;
   if (popRaw > 0) {
     hasDemoData = true;
@@ -315,14 +314,18 @@ const computeSiteIQ = (site) => {
     else if (incRaw >= 50000) incScore = 4;
     else incScore = 2;
   }
+  // If no demo data at all, check summary for hints
+  if (!hasDemoData) {
+    if (/strong\s*demo/i.test(summary) || /high\s*(pop|income|hhi)/i.test(summary)) { popScore = 7; incScore = 7; }
+    else if (/low\s*income/i.test(summary) || /weak\s*demo/i.test(summary)) { popScore = 4; incScore = 3; }
+  }
   const demoScore = (popScore + incScore) / 2;
   scores.demographics = Math.round(demoScore * 10) / 10;
   weightedSum += demoScore * 0.20;
   totalWeight += 0.20;
 
   // --- 4. COMPETITION (15%) ---
-  // Infer from summary — "storage next door" = bad, "no competition" = great
-  let compScore = 6; // neutral default
+  let compScore = 6;
   if (/no\s*(?:nearby|existing)\s*(?:storage|competition|competitor)/i.test(summary) || /low\s*competition/i.test(summary)) compScore = 9;
   else if (/storage\s*(?:next\s*door|adjacent|nearby)/i.test(summary) || /high\s*competition/i.test(summary) || /saturated/i.test(summary)) compScore = 3;
   else if (/competitor/i.test(summary)) compScore = 5;
@@ -331,31 +334,40 @@ const computeSiteIQ = (site) => {
   totalWeight += 0.15;
 
   // --- 5. PRICING (10%) ---
-  // Parse asking price, compare to reasonable range for acreage
   const priceStr = site.askingPrice || "";
-  const acreStr = site.acreage || "";
-  let priceScore = 5; // neutral
-  const acres = parseFloat(String(acreStr).replace(/[^0-9.]/g, ""));
-  // Try to extract a numeric price
+  let priceScore = 5;
+  // Parse price — handle $X.XM, $XXXK, $X,XXX,XXX, and X/sf patterns
   let priceVal = 0;
-  const pMatch = priceStr.match(/\$?\s*([\d,.]+)\s*(?:M|million)/i);
-  if (pMatch) priceVal = parseFloat(pMatch[1].replace(/,/g, "")) * 1000000;
-  else {
-    const pMatch2 = priceStr.match(/\$?\s*([\d,]+)/);
+  const pMatchM = priceStr.match(/\$?\s*([\d,.]+)\s*(?:M|million)/i);
+  const pMatchK = priceStr.match(/\$?\s*([\d,.]+)\s*K\b/i);
+  const pMatchSf = priceStr.match(/\$?\s*([\d,.]+)\s*\/?\s*(?:sf|sqft|sq\s*ft)/i);
+  if (pMatchM) priceVal = parseFloat(pMatchM[1].replace(/,/g, "")) * 1000000;
+  else if (pMatchK) priceVal = parseFloat(pMatchK[1].replace(/,/g, "")) * 1000;
+  else if (pMatchSf && !isNaN(acres)) {
+    // Price per SF × acreage in SF
+    const psf = parseFloat(pMatchSf[1].replace(/,/g, ""));
+    priceVal = psf * acres * 43560;
+  } else {
+    const pMatch2 = priceStr.match(/\$\s*([\d,]+(?:\.\d+)?)/);
     if (pMatch2) {
       const v = parseFloat(pMatch2[1].replace(/,/g, ""));
-      if (v > 1000) priceVal = v; // likely a real price
+      if (v > 500) priceVal = v; // lowered threshold to catch $729K etc
     }
   }
   // Per-acre pricing analysis
-  if (priceVal > 0 && acres > 0) {
+  if (priceVal > 0 && !isNaN(acres) && acres > 0) {
     const ppa = priceVal / acres;
-    // For PS sites, good pricing is under $300K/ac, great under $200K
     if (ppa <= 150000) priceScore = 10;
     else if (ppa <= 250000) priceScore = 8;
     else if (ppa <= 400000) priceScore = 6;
     else if (ppa <= 600000) priceScore = 4;
     else priceScore = 2;
+  } else if (priceVal > 0) {
+    // Have price but no acreage — score based on absolute price (lower is generally better for land)
+    if (priceVal <= 750000) priceScore = 8;
+    else if (priceVal <= 1500000) priceScore = 6;
+    else if (priceVal <= 3000000) priceScore = 5;
+    else priceScore = 4;
   } else if (/cheap|great\s*price|below\s*market|aggressive/i.test(summary)) {
     priceScore = 8;
   } else if (/expensive|overpriced|above\s*market|high\s*ask/i.test(summary)) {
@@ -369,7 +381,7 @@ const computeSiteIQ = (site) => {
 
   // --- 6. SITE ACCESS & SIZE (10%) ---
   let sizeScore = 5;
-  if (!isNaN(acres)) {
+  if (!isNaN(acres) && acres > 0) {
     if (acres >= 3.5 && acres <= 5) sizeScore = 10; // primary sweet spot
     else if (acres >= 2.5 && acres < 3.5) sizeScore = 7; // secondary (multi-story)
     else if (acres > 5 && acres <= 7) sizeScore = 7; // good, subdivisible
@@ -378,23 +390,25 @@ const computeSiteIQ = (site) => {
     else sizeScore = 2; // too small
   }
   // Access clues from summary
-  if (/frontage|front\b.*\d+'/i.test(summary)) sizeScore = Math.min(10, sizeScore + 1);
-  if (/landlocked|no\s*access|easement/i.test(summary)) sizeScore = Math.max(1, sizeScore - 3);
+  if (/\d+'\s*frontage|frontage|\d+\s*(?:linear\s*)?(?:feet|ft|')\s*(?:of\s*)?front/i.test(summary)) sizeScore = Math.min(10, sizeScore + 1);
+  if (/landlocked|no\s*access|easement\s*only/i.test(summary)) sizeScore = Math.max(1, sizeScore - 3);
   if (/flood/i.test(summary)) sizeScore = Math.max(1, sizeScore - 2);
+  // "Take half" or subdivision hints — if large tract, bump because we'd buy the right portion
+  if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) sizeScore = Math.min(10, sizeScore + 2);
   scores.siteAccess = Math.min(10, Math.max(1, sizeScore));
   weightedSum += scores.siteAccess * 0.10;
   totalWeight += 0.10;
 
   // --- COMPOSITE ---
   const raw = totalWeight > 0 ? weightedSum / totalWeight : 0;
-  const composite = Math.round(raw * 10) / 10;
+  let adjusted = Math.round(raw * 10) / 10;
 
-  // --- PHASE BONUS / PENALTY ---
-  // Sites under contract or LOI signed get a small reliability bump
-  let adjusted = composite;
+  // --- PHASE BONUS --- reads from field AND summary
   const phase = (site.phase || "").toLowerCase();
-  if (phase.includes("under contract") || phase.includes("closed")) adjusted = Math.min(10, adjusted + 0.3);
-  else if (phase.includes("loi signed")) adjusted = Math.min(10, adjusted + 0.2);
+  const phaseText = phase + " " + summary;
+  if (/under\s*contract|closed|psa|reic/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.3);
+  else if (/loi\s*signed|fully\s*signed\s*loi/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.2);
+  else if (/loi\s*(?:at|sent|submitted)/i.test(phaseText)) adjusted = Math.min(10, adjusted + 0.1);
 
   const final = Math.round(adjusted * 10) / 10;
 
