@@ -1,4 +1,6 @@
 // src/App.js — Public Storage Acquisition Tracker
+// © 2026 DJR Real Estate LLC. All rights reserved.
+// Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -1305,6 +1307,11 @@ export default function App() {
         {tab === "southwest" && <TrackerCards regionKey="southwest" />}
         {tab === "east" && <TrackerCards regionKey="east" />}
       </div>
+
+            {/* ═══ COPYRIGHT FOOTER ═══ */}
+                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
+                          © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
+                                </div>
     </div>
   );
 }
