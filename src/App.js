@@ -269,7 +269,7 @@ export default function App() {
   const [expandedSite, setExpandedSite] = useState(null);
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
-  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest" };
+  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", flyer: null, survey: null };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("direct");
   const [bulkRows, setBulkRows] = useState(null);
@@ -444,15 +444,16 @@ export default function App() {
   };
 
   // ─── SUBMIT ───
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || !form.address || !form.city || !form.state) {
       notify("Fill name, address, city, state.");
       return;
     }
     const now = new Date().toISOString();
     const id = uid();
+    const { flyer, survey, ...formData } = form;
     const site = {
-      ...form,
+      ...formData,
       id,
       submittedAt: now,
       phase: "Prospect",
@@ -473,18 +474,27 @@ export default function App() {
       docs: {},
       activityLog: { [uid()]: { action: "Site submitted", ts: now, by: "User" } },
     };
+    const region = form.region;
     if (submitMode === "direct") {
       const t = { ...site, status: "tracking", approvedAt: now };
-      fbSet(`${form.region}/${id}`, t);
+      fbSet(`${region}/${id}`, t);
       fbSet(`submissions/${id}`, { ...site, status: "approved" });
-      notify(`Added → ${REGIONS[form.region].label}`);
+      notify(`Added → ${REGIONS[region].label}`);
       setShareLink(null);
+      // Upload attached files to the tracker site
+      if (flyer) handleDocUpload(region, id, flyer, "Flyer");
+      if (survey) handleDocUpload(region, id, survey, "Survey");
     } else {
       fbSet(`submissions/${id}`, { ...site, status: "pending" });
       notify("Submitted for review!");
       setShareLink(id);
+      // Upload attached files to submission
+      if (flyer) { const dId = uid(); const p = `docs/${id}/${dId}_${flyer.name}`; try { const sR = storageRef(storage, p); await uploadBytes(sR, flyer); const url = await getDownloadURL(sR); fbPush(`submissions/${id}/docs`, { id: dId, name: flyer.name, type: "Flyer", url, path: p, uploadedAt: now }); } catch(e) { console.error(e); } }
+      if (survey) { const dId = uid(); const p = `docs/${id}/${dId}_${survey.name}`; try { const sR = storageRef(storage, p); await uploadBytes(sR, survey); const url = await getDownloadURL(sR); fbPush(`submissions/${id}/docs`, { id: dId, name: survey.name, type: "Survey", url, path: p, uploadedAt: now }); } catch(e) { console.error(e); } }
     }
     setForm(emptyForm);
+    // Clear file inputs
+    document.querySelectorAll('input[data-submit-file]').forEach(el => { el.value = ''; });
   };
 
   // ─── REVIEW ───
@@ -1285,11 +1295,31 @@ export default function App() {
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
                 </div>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Flyer</label>
+                    <div style={{ position: "relative", border: "1px dashed #CBD5E1", borderRadius: 10, padding: "10px 12px", background: form.flyer ? "#F0FDF4" : "#F8FAFC", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", transition: "all 0.2s" }} onClick={() => document.getElementById("submit-flyer").click()}>
+                      <span style={{ fontSize: 18 }}>{form.flyer ? "✅" : "📄"}</span>
+                      <span style={{ fontSize: 11, color: form.flyer ? "#16A34A" : "#94A3B8", fontWeight: form.flyer ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.flyer ? form.flyer.name : "Attach flyer"}</span>
+                      {form.flyer && <span onClick={(e) => { e.stopPropagation(); setForm({ ...form, flyer: null }); document.getElementById("submit-flyer").value = ""; }} style={{ marginLeft: "auto", fontSize: 12, color: "#EF4444", cursor: "pointer", fontWeight: 700 }}>✕</span>}
+                    </div>
+                    <input id="submit-flyer" data-submit-file="true" type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: "none" }} onChange={(e) => setForm({ ...form, flyer: e.target.files[0] || null })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Survey</label>
+                    <div style={{ position: "relative", border: "1px dashed #CBD5E1", borderRadius: 10, padding: "10px 12px", background: form.survey ? "#F0FDF4" : "#F8FAFC", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", transition: "all 0.2s" }} onClick={() => document.getElementById("submit-survey").click()}>
+                      <span style={{ fontSize: 18 }}>{form.survey ? "✅" : "📐"}</span>
+                      <span style={{ fontSize: 11, color: form.survey ? "#16A34A" : "#94A3B8", fontWeight: form.survey ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.survey ? form.survey.name : "Attach survey"}</span>
+                      {form.survey && <span onClick={(e) => { e.stopPropagation(); setForm({ ...form, survey: null }); document.getElementById("submit-survey").value = ""; }} style={{ marginLeft: "auto", fontSize: 12, color: "#EF4444", cursor: "pointer", fontWeight: 700 }}>✕</span>}
+                    </div>
+                    <input id="submit-survey" data-submit-file="true" type="file" accept=".pdf,.jpg,.jpeg,.png,.dwg" style={{ display: "none" }} onChange={(e) => setForm({ ...form, survey: e.target.files[0] || null })} />
+                  </div>
+                </div>
                 <button onClick={handleSubmit} style={{ padding: "12px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg,#F37C33,#E8650A)" : "linear-gradient(135deg,#2C2C2C,#3D3D3D)", color: "#fff", fontSize: 14, fontWeight: 700 }}>
                   {submitMode === "direct" ? "⚡ Add Now" : "📋 Submit for Review"}
                 </button>
               </div>
-              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>Documents and details can be added after.</div>
+              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>Additional documents can be added after submission.</div>
               {shareLink && (
                 <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
