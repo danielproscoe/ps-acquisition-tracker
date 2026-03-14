@@ -1,4 +1,4 @@
-// src/App.js — Public Storage 4.0 Acquisition Tracker
+// src/App.js — Public Storage Acquisition Tracker
 // © 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
@@ -102,6 +102,133 @@ const mapsLink = (c) =>
 const earthLink = (c) =>
   c ? `https://earth.google.com/web/search/${encodeURIComponent(c)}` : "";
 
+// ─── Geocode Demographics Helper ───
+// Uses US Census Bureau ACS 5-Year via data.census.gov API
+// Fetches 3-mile radius approximate demographics from coordinates
+const fetchDemographics = async (coordinates) => {
+  if (!coordinates) return null;
+  const parts = coordinates.split(",").map((s) => s.trim());
+  if (parts.length !== 2) return null;
+  const [lat, lng] = parts.map(Number);
+  if (isNaN(lat) || isNaN(lng)) return null;
+  try {
+    // Step 1: Reverse geocode to get FIPS (state + county) via Census geocoder
+    const geoRes = await fetch(
+      `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`
+    );
+    const geoData = await geoRes.json();
+    const geographies = geoData?.result?.geographies;
+    const tract = geographies?.["Census Tracts"]?.[0] || geographies?.["2020 Census Blocks"]?.[0];
+    if (!tract) return { error: "Could not determine census tract" };
+    const stFips = tract.STATE;
+    const coFips = tract.COUNTY;
+    const trFips = tract.TRACT;
+    // Step 2: Fetch ACS 5-Year data for the tract (B01003_001E=population, B19013_001E=median HHI)
+    const acsRes = await fetch(
+      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
+    );
+    const acsData = await acsRes.json();
+    if (!acsData || acsData.length < 2) return { error: "No ACS data for tract" };
+    const row = acsData[1];
+    const pop = parseInt(row[0], 10);
+    const income = parseInt(row[1], 10);
+    // Estimate 3-mile radius: multiply tract pop by ~8 (avg 3-mi covers ~8 tracts)
+    // This is an approximation; actual would require loading all tracts in radius
+    return {
+      tractPop: isNaN(pop) ? null : pop,
+      tractIncome: isNaN(income) || income < 0 ? null : income,
+      pop3mi: isNaN(pop) ? null : Math.round(pop * 8).toLocaleString(),
+      income3mi: isNaN(income) || income < 0 ? null : "$" + income.toLocaleString(),
+      fips: `${stFips}-${coFips}-${trFips}`,
+      source: "Census ACS 5-Year (2022) — tract-level, 3-mi est.",
+    };
+  } catch (err) {
+    console.error("Demographics fetch error:", err);
+    return { error: "Failed to fetch demographics" };
+  }
+};
+
+// ─── Vetting Report Generator ───
+const generateVettingReport = (site, nearestPSDistance) => {
+  const lines = [];
+  lines.push("═════════════════════════════════════════════════");
+  lines.push(`SITE VETTING REPORT — ${site.name || "Unnamed"}`);
+  lines.push(`Generated: ${new Date().toLocaleDateString()} by PS Acquisition Pipeline`);
+  lines.push("═════════════════════════════════════════════════");
+  lines.push("");
+  lines.push("1. PROPERTY OVERVIEW");
+  lines.push("─────────────────────");
+  lines.push(`   Name:           ${site.name || "—"}`);
+  lines.push(`   Address:        ${site.address || "—"}`);
+  lines.push(`   City / State:   ${site.city || "—"}, ${site.state || "—"}`);
+  lines.push(`   Market:         ${site.market || "—"}`);
+  lines.push(`   Acreage:        ${site.acreage || "—"}`);
+  lines.push(`   Asking Price:   ${site.askingPrice || "—"}`);
+  lines.push(`   PS Int. Price:  ${site.internalPrice || "—"}`);
+  lines.push(`   Coordinates:    ${site.coordinates || "—"}`);
+  lines.push(`   Listing URL:    ${site.listingUrl || "—"}`);
+  lines.push("");
+  lines.push("2. ZONING & ENTITLEMENTS");
+  lines.push("─────────────────────");
+  lines.push(`   Current Zoning: ${site.zoning || "Not confirmed"}`);
+  lines.push(`   Storage Use:    ${site.zoning ? "Verify with local jurisdiction" : "UNKNOWN — research required"}`);
+  lines.push("");
+  lines.push("3. DEMOGRAPHICS (3-Mile Radius)");
+  lines.push("─────────────────────");
+  lines.push(`   Population:     ${site.pop3mi ? fmtN(site.pop3mi) : "Not available"}`);
+  lines.push(`   Median HHI:     ${site.income3mi || "Not available"}`);
+  const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
+  const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
+  if (popN && incN) {
+    lines.push(`   Demo Score:     ${popN >= 40000 && incN >= 60000 ? "✅ PASS" : popN >= 20000 && incN >= 50000 ? "⚠️ MARGINAL" : "❌ BELOW THRESHOLD"}`);
+  }
+  lines.push("");
+  lines.push("4. SITE SIZING ASSESSMENT");
+  lines.push("─────────────────────");
+  const acres = parseFloat(String(site.acreage).replace(/[^0-9.]/g, ""));
+  if (!isNaN(acres)) {
+    if (acres >= 3.5 && acres <= 5) lines.push(`   ${acres} ac → PRIMARY (one-story climate-controlled) ✅`);
+    else if (acres >= 2.5 && acres < 3.5) lines.push(`   ${acres} ac → SECONDARY (multi-story 3-4 story) ✅`);
+    else if (acres < 2.5) lines.push(`   ${acres} ac → ❌ BELOW MINIMUM — generally too small`);
+    else if (acres > 5 && acres <= 7) lines.push(`   ${acres} ac → VIABLE if subdivisible ⚠️`);
+    else lines.push(`   ${acres} ac → LARGE TRACT — subdivision potential ⚠️`);
+  } else {
+    lines.push("   Acreage not confirmed — sizing TBD");
+  }
+  lines.push("");
+  lines.push("5. PS PROXIMITY CHECK");
+  lines.push("─────────────────────");
+  lines.push(`   Nearest PS:     ${nearestPSDistance || "Run proximity check with PS_Locations_ALL.csv"}`);
+  lines.push("");
+  lines.push("6. BROKER / SELLER");
+  lines.push("─────────────────────");
+  lines.push(`   Contact:        ${site.sellerBroker || "Not listed"}`);
+  lines.push(`   Date on Market: ${site.dateOnMarket || "Unknown"}`);
+  lines.push(`   Phase:          ${site.phase || "Prospect"}`);
+  lines.push(`   Priority:       ${site.priority || "None"}`);
+  lines.push("");
+  lines.push("7. RED FLAGS / NOTES");
+  lines.push("─────────────────────");
+  const flags = [];
+  if (!site.zoning) flags.push("   ⚠ Zoning not confirmed");
+  if (!site.coordinates) flags.push("   ⚠ No coordinates — cannot verify location");
+  if (acres < 2.5) flags.push("   ⚠ Below minimum acreage threshold");
+  if (popN && popN < 10000) flags.push("   ⚠ 3-mi population below 10,000 minimum");
+  if (incN && incN < 60000) flags.push("   ⚠ 3-mi median HHI below $60,000 target");
+  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("   ⚠ No confirmed asking price");
+  if (flags.length === 0) flags.push("   None identified at this time");
+  lines.push(flags.join("\n"));
+  lines.push("");
+  lines.push("8. SUMMARY / DEAL NOTES");
+  lines.push("─────────────────────");
+  lines.push(`   ${site.summary || "No notes"}`);
+  lines.push("");
+  lines.push("═════════════════════════════════════════════════");
+  lines.push("Report generated by PS Acquisition Pipeline · Powered by DJR Real Estate LLC");
+  lines.push("═════════════════════════════════════════════════");
+  return lines.join("\n");
+};
+
 // ─── Components ───
 function Badge({ status }) {
   const s = STATUS_COLORS[status] || STATUS_COLORS.pending;
@@ -127,7 +254,6 @@ function Badge({ status }) {
           height: 7,
           borderRadius: "50%",
           background: s.dot,
-          animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         }}
       />
       {status}
@@ -270,9 +396,15 @@ export default function App() {
   const [expandedSite, setExpandedSite] = useState(null);
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
-  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest" };
+  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("direct");
+  const [flyerFile, setFlyerFile] = useState(null);
+  const [flyerParsing, setFlyerParsing] = useState(false);
+  const [flyerPreview, setFlyerPreview] = useState(null);
+  const flyerRef = useRef();
+  const [attachments, setAttachments] = useState([]); // [{file, type, id}]
+  const attachRef = useRef();
   const [bulkRows, setBulkRows] = useState(null);
   const [bulkRegion, setBulkRegion] = useState("east");
   const [bulkPhase, setBulkPhase] = useState("Prospect");
@@ -283,6 +415,8 @@ export default function App() {
   const [highlightedSite, setHighlightedSite] = useState(null);
   const [shareLink, setShareLink] = useState(null);
   const [seeded, setSeeded] = useState(false);
+  const [demoLoading, setDemoLoading] = useState({});  // {siteId: true/false}
+  const [vettingReport, setVettingReport] = useState(null); // {siteId, text}
 
   // ─── FONT LOADER ───
   useEffect(() => {
@@ -444,8 +578,144 @@ export default function App() {
     setExpandedSite(null);
   };
 
+  // ─── GEOCODE & DEMOGRAPHICS ───
+  const handleFetchDemos = async (region, site) => {
+    if (!site.coordinates) { notify("Add coordinates first"); return; }
+    setDemoLoading((prev) => ({ ...prev, [site.id]: true }));
+    try {
+      const result = await fetchDemographics(site.coordinates);
+      if (result?.error) {
+        notify(result.error);
+      } else if (result) {
+        const updates = {};
+        if (result.income3mi) updates.income3mi = result.income3mi;
+        if (result.pop3mi) updates.pop3mi = result.pop3mi;
+        if (Object.keys(updates).length > 0) {
+          fbUpdate(`${region}/${site.id}`, updates);
+          fbPush(`${region}/${site.id}/activityLog`, {
+            action: `Demographics auto-pulled: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"}  (${result.source})`,
+            ts: new Date().toISOString(),
+            by: "System",
+          });
+          notify(`Demographics updated — Pop: ${result.pop3mi}, HHI: ${result.income3mi}`);
+        } else {
+          notify("No demographic data found for this location");
+        }
+      }
+    } catch (err) {
+      notify("Demographics fetch failed");
+      console.error(err);
+    }
+    setDemoLoading((prev) => ({ ...prev, [site.id]: false }));
+  };
+
+  // ─── VETTING REPORT ───
+  const handleVettingReport = (site) => {
+    const report = generateVettingReport(site);
+    setVettingReport({ siteId: site.id, text: report });
+    // Also save as a doc entry in Firebase
+    const docId = uid();
+    const now = new Date().toISOString();
+    const blob = new Blob([report], { type: "text/plain" });
+    const file = new File([blob], `Vetting_Report_${site.city || "Site"}_${site.state || ""}_${now.slice(0, 10)}.txt`, { type: "text/plain" });
+    const path = `docs/${site.id}/${docId}_${file.name}`;
+    const sRef = storageRef(storage, path);
+    uploadBytes(sRef, file).then(() => getDownloadURL(sRef)).then((url) => {
+      const region = site.region || "southwest";
+      fbPush(`${region}/${site.id}/docs`, { id: docId, name: file.name, type: "Other", url, path, uploadedAt: now });
+      fbPush(`${region}/${site.id}/activityLog`, { action: "Vetting report generated & saved", ts: now, by: "System" });
+      notify("Vetting report saved to documents");
+    }).catch((err) => {
+      console.error("Vetting report save error:", err);
+      notify("Report generated but save failed — copy from viewer");
+    });
+  };
+
+  // ─── FLYER PARSING ───
+  const parseFlyer = async (file) => {
+    setFlyerParsing(true);
+    setFlyerFile(file);
+    // Preview
+    if (file.type.startsWith("image/")) {
+      setFlyerPreview(URL.createObjectURL(file));
+    } else {
+      setFlyerPreview(null);
+    }
+    try {
+      let text = "";
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        // Load pdf.js from CDN
+        if (!window.pdfjsLib) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        }
+        const buf = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+        for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) {
+          const page = await pdf.getPage(i);
+          const tc = await page.getTextContent();
+          text += tc.items.map((item) => item.str).join(" ") + "\n";
+        }
+      }
+      // Parse extracted text into form fields
+      if (text.trim()) {
+        const parsed = {};
+        // Acreage patterns
+        const acreMatch = text.match(/([\d,.]+)\s*(?:\\+\/-)?\s*(?:acres?|ac\b|AC\b)/i) || text.match(/(?:acres?|acreage|ac)[:\s]*([\d,.]+)/i);
+        if (acreMatch) parsed.acreage = acreMatch[1].replace(/,/g, "");
+        // Price patterns
+        const priceMatch = text.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(?:million|M\b)/i);
+        if (priceMatch) {
+          const v = parseFloat(priceMatch[1].replace(/,/g, ""));
+          parsed.askingPrice = "$" + (v * (priceMatch[0].toLowerCase().includes("million") || priceMatch[0].includes("M") ? 1000000 : 1)).toLocaleString();
+        } else {
+          const pMatch = text.match(/(?:price|asking|list(?:ed)?)[:\s]*\$\s*([\d,]+)/i) || text.match(/\$\s*([\d,]{5,})/);
+          if (pMatch) parsed.askingPrice = "$" + pMatch[1];
+        }
+        // Zoning
+        const zoneMatch = text.match(/(?:zon(?:ing|ed?)|district)[:\s]*([A-Z0-9][\w\s-]{0,20})/i);
+        if (zoneMatch) parsed.zoning = zoneMatch[1].trim();
+        // Broker / contact
+        const brokerMatch = text.match(/(?:broker|agent|contact|listed by|exclusive)[:\s]*([A-Z][a-z]+ [A-Z][a-z]+)/i);
+        if (brokerMatch) parsed.sellerBroker = brokerMatch[1];
+        // Address patterns
+        const addrMatch = text.match(/(\d{1,6}\s+(?:[NSEW]\.?\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Highway|Way|Ct|Court|Pkwy|Parkway|Pl|Place|Cir|Circle)\.?)/i);
+        if (addrMatch && !form.address) parsed.address = addrMatch[1];
+        // City, State pattern
+        const csMatch = text.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),?\s+([A-Z]{2})\s+\d{5}/);
+        if (csMatch) {
+          if (!form.city) parsed.city = csMatch[1];
+          if (!form.state) parsed.state = csMatch[2];
+        }
+        // Apply parsed values
+        setForm((prev) => {
+          const updated = { ...prev };
+          Object.entries(parsed).forEach(([k, v]) => {
+            if (!updated[k]) updated[k] = v;
+          });
+          return updated;
+        });
+        notify(`Extracted ${Object.keys(parsed).length} field(s) from flyer`);
+      } else if (file.type.startsWith("image/")) {
+        notify("Flyer attached — image files can't be auto-parsed (fill fields manually)");
+      } else {
+        notify("Flyer attached — no text found to extract");
+      }
+    } catch (err) {
+      console.error("Flyer parse error:", err);
+      notify("Flyer attached — couldn't extract text");
+    }
+    setFlyerParsing(false);
+  };
+
   // ─── SUBMIT ───
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || !form.address || !form.city || !form.state) {
       notify("Fill name, address, city, state.");
       return;
@@ -457,23 +727,43 @@ export default function App() {
       id,
       submittedAt: now,
       phase: "Prospect",
-      askingPrice: "",
+      askingPrice: form.askingPrice || "",
       internalPrice: "",
       income3mi: "",
       pop3mi: "",
-      sellerBroker: "",
-      summary: "",
-      coordinates: "",
-      listingUrl: "",
+      sellerBroker: form.sellerBroker || "",
+      summary: form.notes || "",
+      coordinates: form.coordinates || "",
+      listingUrl: form.listingUrl || "",
       dateOnMarket: "",
-      acreage: "",
-      zoning: "",
+      acreage: form.acreage || "",
+      zoning: form.zoning || "",
       market: "",
       priority: "⚪ None",
       messages: {},
       docs: {},
       activityLog: { [uid()]: { action: "Site submitted", ts: now, by: "User" } },
     };
+    // Upload all attached files to Firebase Storage
+    const allFiles = [];
+    if (flyerFile) allFiles.push({ file: flyerFile, type: "Flyer" });
+    attachments.forEach((a) => allFiles.push({ file: a.file, type: a.type }));
+    if (allFiles.length > 0) {
+      const docsObj = {};
+      for (const { file, type } of allFiles) {
+        try {
+          const docId = uid();
+          const path = `docs/${id}/${docId}_${file.name}`;
+          const sRef = storageRef(storage, path);
+          await uploadBytes(sRef, file);
+          const url = await getDownloadURL(sRef);
+          docsObj[docId] = { id: docId, name: file.name, type, url, path, uploadedAt: now };
+        } catch (e) {
+          console.error(`Upload error (${type}):`, e);
+        }
+      }
+      site.docs = docsObj;
+    }
     if (submitMode === "direct") {
       const t = { ...site, status: "tracking", approvedAt: now };
       fbSet(`${form.region}/${id}`, t);
@@ -486,6 +776,11 @@ export default function App() {
       setShareLink(id);
     }
     setForm(emptyForm);
+    setFlyerFile(null);
+    setFlyerPreview(null);
+    setAttachments([]);
+    if (flyerRef.current) flyerRef.current.value = "";
+    if (attachRef.current) attachRef.current.value = "";
   };
 
   // ─── REVIEW ───
@@ -501,16 +796,16 @@ export default function App() {
       reviewedBy: ri.reviewer || "Unknown",
       reviewNote: ri.note || "",
       askingPrice: site.askingPrice || "",
-      internalPrice: "",
-      income3mi: "",
-      pop3mi: "",
-      sellerBroker: "",
-      summary: "",
-      coordinates: "",
-      listingUrl: "",
-      dateOnMarket: "",
-      acreage: "",
-      zoning: "",
+      internalPrice: site.internalPrice || "",
+      income3mi: site.income3mi || "",
+      pop3mi: site.pop3mi || "",
+      sellerBroker: site.sellerBroker || "",
+      summary: site.summary || "",
+      coordinates: site.coordinates || "",
+      listingUrl: site.listingUrl || "",
+      dateOnMarket: site.dateOnMarket || "",
+      acreage: site.acreage || "",
+      zoning: site.zoning || "",
       market: "",
       priority: "⚪ None",
       messages: {},
@@ -727,97 +1022,77 @@ export default function App() {
       );
       const ws = XLSX.utils.aoa_to_sheet([cols.map((c) => c.header), ...rows]);
       ws["!cols"] = cols.map((c) => ({ wch: c.width }));
+      ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: cols.length - 1 } }) };
       return ws;
     };
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, makeSheet([...sw, ...east]), "All Sites");
+    const allSorted = [
+      ...sw.map((s) => ({ ...s, _region: "Daniel Wollent" })),
+      ...east.map((s) => ({ ...s, _region: "Matthew Toussaint" })),
+    ].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    const summCols = [{ key: "_region", header: "Region", width: 18 }, ...cols];
+    const summRows = allSorted.map((s) =>
+      summCols.map((c) => {
+        if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
+        if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
+        return s[c.key] || "";
+      })
+    );
+    const summWs = XLSX.utils.aoa_to_sheet([summCols.map((c) => c.header), ...summRows]);
+    summWs["!cols"] = summCols.map((c) => ({ wch: c.width }));
+    XLSX.utils.book_append_sheet(wb, summWs, "Full Pipeline");
     XLSX.utils.book_append_sheet(wb, makeSheet(sw), "Daniel Wollent");
     XLSX.utils.book_append_sheet(wb, makeSheet(east), "Matthew Toussaint");
-    XLSX.writeFile(wb, `PS_Pipeline_${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(wb, `PS_Acquisition_Pipeline_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    notify("Exported!");
   };
 
   // ─── SORT ───
-  const sortData = useCallback(
-    (data) =>
-      [...data].sort((a, b) => {
-        if (sortBy === "city") return (a.city || "").localeCompare(b.city || "");
-        if (sortBy === "market") return (a.market || "").localeCompare(b.market || "");
-        if (sortBy === "phase") {
-          const aIdx = PHASES.indexOf(a.phase || "Prospect");
-          const bIdx = PHASES.indexOf(b.phase || "Prospect");
-          return aIdx - bIdx;
-        }
-        return 0;
-      }),
-    [sortBy]
-  );
-
-  const pendingN = subs.filter((s) => s.status === "pending").length;
+  const SORT_OPTIONS = [
+    { key: "name", label: "Name (A→Z)" },
+    { key: "city", label: "City (A→Z)" },
+    { key: "recent", label: "Recently Added" },
+    { key: "dom", label: "Days on Market" },
+    { key: "priority", label: "Priority" },
+    { key: "phase", label: "Phase" },
+  ];
+  const priorityOrder = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
+  const phaseOrder = Object.fromEntries(PHASES.map((p, i) => [p, i]));
+  const sortData = (arr) => {
+    const sorted = [...arr];
+    switch (sortBy) {
+      case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
+      case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
+      case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
+      case "priority": return sorted.sort((a, b) => (priorityOrder[a.priority] ?? 9) - (priorityOrder[b.priority] ?? 9));
+      case "phase": return sorted.sort((a, b) => (phaseOrder[a.phase] ?? 9) - (phaseOrder[b.phase] ?? 9));
+      default: return sorted.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    }
+  };
 
   const SortBar = () => (
-    <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
-      <label style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Sort by:</label>
-      {["city", "market", "phase"].map((k) => (
-        <button
-          key={k}
-          onClick={() => setSortBy(k)}
-          style={{
-            padding: "4px 10px",
-            borderRadius: 6,
-            border: sortBy === k ? "1px solid #F37C33" : "1px solid #E2E8F0",
-            background: sortBy === k ? "#FFF3E0" : "#fff",
-            color: sortBy === k ? "#F37C33" : "#64748B",
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-        >
-          {k.charAt(0).toUpperCase() + k.slice(1)}
-        </button>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Sort:</span>
+      {SORT_OPTIONS.map((o) => (
+        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #F37C33" : "1px solid #E2E8F0", background: sortBy === o.key ? "#FFF3E0" : "#fff", color: sortBy === o.key ? "#E65100" : "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.15s" }}>{o.label}</button>
       ))}
     </div>
   );
 
-  const navBtn = (key) => ({
-    padding: "8px 14px",
-    borderRadius: 8,
-    border: "none",
-    background: tab === key ? "transparent" : "transparent",
-    color: tab === key ? "#F37C33" : "#64748B",
-    fontSize: 11,
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "'DM Sans'",
-    whiteSpace: "nowrap",
-    borderBottom: tab === key ? "2px solid #F37C33" : "2px solid transparent",
-    transition: "all 0.15s",
-  });
+  // ─── STYLES ───
+  const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2C2C2C", outline: "none", boxSizing: "border-box" };
+  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "#2C2C2C" : "transparent", color: tab === key ? "#F37C33" : "#64748B", whiteSpace: "nowrap" });
+  const pendingN = subs.filter((s) => s.status === "pending").length;
 
-  const inp = {
-    width: "100%",
-    padding: "8px 12px",
-    borderRadius: 8,
-    border: "1px solid #E2E8F0",
-    fontSize: 13,
-    fontFamily: "'DM Sans'",
-    background: "#FAFBFC",
-    outline: "none",
-    boxSizing: "border-box",
-    marginTop: 4,
-  };
-
-  // ═══ RENDER ═══
-  if (!loaded)
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#FAFAF7", fontFamily: "'DM Sans'" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ width: 50, height: 50, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-          <div style={{ color: "#64748B", fontSize: 14 }}>Loading…</div>
-        </div>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+  if (!loaded) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans'" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+        <div style={{ color: "#64748B", fontSize: 14 }}>Loading…</div>
       </div>
-    );
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
   // ═══ TRACKER CARDS ═══
   const TrackerCards = ({ regionKey }) => {
@@ -845,7 +1120,7 @@ export default function App() {
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} style={{ background: "#fff", borderRadius: 16, boxShadow: "0 2px 6px rgba(0,0,0,0.08)", borderLeft: `5px solid ${PRIORITY_COLORS[site.priority] || region.accent}`, borderTop: `2px solid #F37C33`, overflow: "hidden", transition: "all 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)")} onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 2px 6px rgba(0,0,0,0.08)")}>
+                <div key={site.id} id={`site-${site.id}`} style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", borderLeft: `4px solid ${PRIORITY_COLORS[site.priority] || region.accent}`, overflow: "hidden" }}>
                   {/* Collapsed header */}
                   <div onClick={() => setExpandedSite(isOpen ? null : site.id)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
@@ -873,17 +1148,36 @@ export default function App() {
                   {/* Expanded */}
                   {isOpen && (
                     <div style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
-                      {/* Site Photo */}
+                      {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
-                        {site.photoUrl ? (
-                          <div style={{ position: "relative" }}>
-                            <img src={site.photoUrl} alt={site.name} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10, border: "1px solid #E2E8F0" }} onError={(e) => { e.target.style.display = "none"; }} />
-                            <button onClick={() => updateSiteField(regionKey, site.id, "photoUrl", "")} style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 6, border: "none", background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                        {site.coordinates ? (
+                          <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid #E2E8F0" }}>
+                            <iframe
+                              title={`Aerial — ${site.name}`}
+                              src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`}
+                              style={{ width: "100%", height: 220, border: "none" }}
+                              loading="lazy"
+                              allowFullScreen
+                            />
+                            <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em" }}>AERIAL VIEW</div>
                           </div>
-                        ) : null}
-                        <div style={{ marginTop: site.photoUrl ? 6 : 0 }}>
-                          <EF label={site.photoUrl ? "Photo URL" : "📷 Site Photo URL"} value={site.photoUrl || ""} onSave={(v) => updateSiteField(regionKey, site.id, "photoUrl", v)} placeholder="Paste image URL" />
-                        </div>
+                        ) : (
+                          <div style={{ background: "#F1F5F9", borderRadius: 10, padding: "24px 14px", textAlign: "center", border: "1px dashed #CBD5E1" }}>
+                            <div style={{ fontSize: 18, marginBottom: 4 }}>🛰️</div>
+                            <div style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Add coordinates to generate aerial view</div>
+                          </div>
+                        )}
+                        {/* Flyer Quick Link */}
+                        {(() => {
+                          const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
+                          return flyerDoc ? (
+                            <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>📄 View Flyer — {flyerDoc[1].name?.length > 30 ? flyerDoc[1].name.slice(0, 30) + "…" : flyerDoc[1].name}</a>
+                          ) : (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: "#FFF3E0", border: "1px dashed #F37C33", fontSize: 11, color: "#E65100", fontWeight: 600 }}>
+                              📎 No flyer uploaded — add one below
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Summary */}
@@ -920,141 +1214,134 @@ export default function App() {
                         <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3…" />
                       </div>
 
+                      {/* Geocode Demographics + Vetting Report Actions */}
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                        <button
+                          onClick={() => handleFetchDemos(regionKey, site)}
+                          disabled={demoLoading[site.id] || !site.coordinates}
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #1565C0", background: demoLoading[site.id] ? "#E8F0FE" : "#fff", color: "#1565C0", fontSize: 11, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5, display: "flex", alignItems: "center", gap: 5 }}
+                        >
+                          {demoLoading[site.id] ? "⏳ Fetching…" : "📊 Pull Demographics"}
+                        </button>
+                        <button
+                          onClick={() => handleVettingReport(site)}
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #2E7D32", background: "#fff", color: "#2E7D32", fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
+                        >
+                          📋 Generate Vetting Report
+                        </button>
+                      </div>
+
+                      {/* Vetting Report Viewer */}
+                      {vettingReport && vettingReport.siteId === site.id && (
+                        <div style={{ background: "#F0FDF4", border: "1px solid #4CAF50", borderRadius: 10, padding: 14, marginBottom: 12, position: "relative" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#2E7D32", textTransform: "uppercase" }}>Vetting Report</div>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button onClick={() => { navigator.clipboard.writeText(vettingReport.text); notify("Report copied!"); }} style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #4CAF50", background: "#fff", color: "#2E7D32", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>📋 Copy</button>
+                              <button onClick={() => setVettingReport(null)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 10, cursor: "pointer" }}>✕</button>
+                            </div>
+                          </div>
+                          <pre style={{ fontSize: 11, color: "#2C2C2C", whiteSpace: "pre-wrap", fontFamily: "'Space Mono', monospace", margin: 0, maxHeight: 300, overflowY: "auto", lineHeight: 1.5 }}>{vettingReport.text}</pre>
+                        </div>
+                      )}
+
                       {/* Date on Market */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Date on Market</div>
-                          <input
-                            type="date"
-                            value={site.dateOnMarket || ""}
-                            onChange={(e) => saveField(regionKey, site.id, "dateOnMarket", e.target.value)}
-                            style={inp}
-                          />
+                          <input type="date" value={site.dateOnMarket || ""} onChange={(e) => updateSiteField(regionKey, site.id, "dateOnMarket", e.target.value)} style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, fontFamily: "'DM Sans'", background: "#FAFBFC", color: "#2C2C2C", outline: "none", boxSizing: "border-box" }} />
                         </div>
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Listing URL</div>
-                          <input
-                            style={inp}
-                            value={site.listingUrl || ""}
-                            onChange={(e) => saveField(regionKey, site.id, "listingUrl", e.target.value)}
-                            placeholder="costar.com/…"
-                          />
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Days on Market</div>
+                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", color: dom !== null ? "#2C2C2C" : "#CBD5E1", fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "—"}</div>
                         </div>
                       </div>
 
-                      {/* Maps + Coordinates */}
+                      {/* Coordinates */}
+                      <div style={{ marginBottom: 12 }}>
+                        <EF label="Coordinates (lat, lng)" value={site.coordinates || ""} onSave={(v) => saveField(regionKey, site.id, "coordinates", v)} placeholder="39.123, -84.456" />
+                        {(site.coordinates || site.listingUrl) && (
+                          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                            {site.coordinates && <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>}
+                            {site.coordinates && <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>}
+                                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Listing</a>}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Listing URL */}
                       <div style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Coordinates</div>
-                        <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
-                          <input
-                            style={{ ...inp, marginTop: 0 }}
-                            value={site.coordinates || ""}
-                            onChange={(e) => saveField(regionKey, site.id, "coordinates", e.target.value)}
-                            placeholder="lat, lng"
-                          />
-                          {site.coordinates && (
-                            <>
-                              <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 12px", borderRadius: 8, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center" }}>📍 Maps</a>
-                              <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 12px", borderRadius: 8, background: "#2C3E50", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center" }}>🌍 Earth</a>
-                            </>
-                          )}
+                        <EF label="Listing URL (Crexi / LoopNet)" value={site.listingUrl || ""} onSave={(v) => saveField(regionKey, site.id, "listingUrl", v)} placeholder="https://www.crexi.com/…" />
+                      </div>
+
+                      {/* Documents */}
+                      <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, marginBottom: 14, border: "1px solid #E2E8F0" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 10 }}>📁 Documents</div>
+                        {docs.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                            {docs.map(([docKey, doc]) => (
+                              <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
+                                <span style={{ fontWeight: 600, color: "#475569" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
+                                <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
+                                <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer" }}>
+                            {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
+                          </select>
+                          <label style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                            + Upload
+                            <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
+                          </label>
                         </div>
                       </div>
 
                       {/* Messages */}
-                      <div style={{ marginBottom: 14, paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Messages & Notes</div>
-                        {msgs.map((m, idx) => {
-                          const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: "#64748B" };
-                          return (
-                            <div key={idx} style={{ background: mc.bg, borderLeft: `3px solid ${mc.border}`, borderRadius: 8, padding: "8px 12px", marginBottom: 8, fontSize: 11 }}>
-                              <div style={{ fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from}</div>
-                              <div style={{ color: "#475569", whiteSpace: "pre-wrap" }}>{m.text}</div>
-                              <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>{new Date(m.ts).toLocaleString()}</div>
-                            </div>
-                          );
-                        })}
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                          <select
-                            value={mi.from}
-                            onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, from: e.target.value } })}
-                            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", fontFamily: "'DM Sans'" }}
-                          >
-                            {["Dan R", "Daniel Wollent", "Matthew Toussaint"].map((n) => (
-                              <option key={n} value={n}>{n}</option>
-                            ))}
-                          </select>
-                          <input
-                            style={{ ...inp, marginTop: 0, flex: 1, minWidth: 150 }}
-                            value={mi.text}
-                            onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })}
-                            placeholder="Add note or message…"
-                            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMsg(regionKey, site.id); } }}
-                          />
-                          <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
-                        </div>
-                      </div>
-
-                      {/* Documents */}
-                      <div style={{ marginBottom: 14, paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Documents</div>
-                        {docs.length === 0 ? (
-                          <div style={{ fontSize: 11, color: "#94A3B8", padding: "8px 0" }}>No documents.</div>
-                        ) : (
-                          <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
-                            {docs.map(([k, d]) => (
-                              <div key={k} style={{ background: "#F8FAFC", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div style={{ fontSize: 11 }}>
-                                  <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F37C33", fontWeight: 700, textDecoration: "none" }}>📄 {d.name}</a>
-                                  <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }}>{d.type || "File"} — {new Date(d.uploadedAt).toLocaleDateString()}</div>
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>💬 Thread</div>
+                        {msgs.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxHeight: 200, overflowY: "auto" }}>
+                            {[...msgs].sort((a, b) => new Date(a.ts) - new Date(b.ts)).map((m, i) => {
+                              const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: "#475569" };
+                              return (
+                                <div key={i} style={{ background: mc.bg, border: `1px solid ${mc.border}`, borderRadius: 8, padding: "8px 10px" }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from} · {m.ts ? new Date(m.ts).toLocaleDateString() : ""}</div>
+                                  <div style={{ fontSize: 13, color: "#2C2C2C" }}>{m.text}</div>
                                 </div>
-                                <button onClick={() => handleDocDelete(regionKey, site.id, k, d)} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#FFE2E2", color: "#B71C1C", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>✕</button>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                          <select
-                            onChange={(e) => {
-                              const input = document.createElement("input");
-                              input.type = "file";
-                              input.onchange = (ev) => {
-                                const file = ev.target.files?.[0];
-                                if (file) handleDocUpload(regionKey, site.id, file, e.target.value);
-                              };
-                              input.click();
-                            }}
-                            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", fontFamily: "'DM Sans'" }}
-                          >
-                            <option value="">Upload doc…</option>
-                            {DOC_TYPES.map((t) => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <select value={mi.from} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, from: e.target.value } })} style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", minWidth: 130 }}>
+                            <option>Dan R</option>
+                            <option>Daniel Wollent</option>
+                            <option>Matthew Toussaint</option>
                           </select>
+                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") handleSendMsg(regionKey, site.id); }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
+                          <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
                         </div>
                       </div>
 
                       {/* Activity Log */}
-                      <div style={{ paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Activity Log</div>
-                        {logs.length === 0 ? (
-                          <div style={{ fontSize: 11, color: "#94A3B8", padding: "8px 0" }}>No activity yet.</div>
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {logs.slice().reverse().map((log, idx) => (
-                              <div key={idx} style={{ fontSize: 10, display: "flex", gap: 8, color: "#64748B" }}>
-                                <span style={{ fontWeight: 600, color: "#94A3B8" }}>{new Date(log.ts).toLocaleString()}</span>
-                                <span>{log.action} by {log.by}</span>
+                      {logs.length > 0 && (
+                        <details style={{ marginBottom: 10 }}>
+                          <summary style={{ fontSize: 11, color: "#94A3B8", cursor: "pointer", fontWeight: 600 }}>Activity Log ({logs.length})</summary>
+                          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+                            {[...logs].sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 20).map((l, i) => (
+                              <div key={i} style={{ fontSize: 11, color: "#94A3B8" }}>
+                                <span style={{ color: "#64748B" }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> — {l.action}
                               </div>
                             ))}
                           </div>
-                        )}
-                      </div>
+                        </details>
+                      )}
 
-                      {/* Delete */}
-                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
-                        <button onClick={() => handleRemove(regionKey, site.id)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FFB6B6", background: "#FEF2F2", color: "#B71C1C", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🗑 Remove</button>
-                      </div>
+                      {/* Remove */}
+                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>🗑 Remove Site</button>
                     </div>
                   )}
                 </div>
@@ -1066,12 +1353,26 @@ export default function App() {
     );
   };
 
+  // ═══ RENDER ═══
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#FAFAF7" }}>
-      {/* Alert Banner */}
+    <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+        * { box-sizing: border-box; }
+        input, select, textarea, button { font-family: 'DM Sans', sans-serif; }
+      `}</style>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: "fixed", top: 20, right: 20, background: "#2C2C2C", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", animation: "fadeIn 0.2s ease-out" }}>{toast}</div>
+      )}
+
+      {/* New site alert */}
       {showNewAlert && (
-        <div style={{ background: "linear-gradient(90deg, #FFF3E0, #FFFBF0)", borderBottom: "2px solid #F37C33", padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#E65100" }}>🆕 {newSiteCount} new site{newSiteCount !== 1 ? "s" : ""} waiting for review</div>
+        <div style={{ background: "#FFF3E0", borderBottom: "1px solid #F37C33", padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ fontSize: 13, color: "#E65100", fontWeight: 600 }}>🔔 {newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
             <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
@@ -1080,28 +1381,26 @@ export default function App() {
       )}
 
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #1A1A1A 0%, #111111 100%)", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 12px rgba(0,0,0,0.2)", borderTop: "3px solid #F37C33" }}>
+      <div style={{ background: "#2C2C2C", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         {/* PS Banner */}
-        <div style={{ padding: "14px 0 10px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 10, background: "linear-gradient(135deg, #F37C33, #E8650A)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }}>
-                <span style={{ fontSize: 22, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'" }}>PS</span>
+        <div style={{ padding: "10px 0 6px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: "#F37C33", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'" }}>PS</span>
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", letterSpacing: "0.05em", textTransform: "uppercase" }}>PUBLIC STORAGE 4.0</div>
-                <div style={{ fontSize: 11, color: "#94A3B8", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 2 }}>Acquisition Pipeline 2026</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.02em", background: "linear-gradient(90deg, #fff 0%, #F37C33 40%, #fff 60%, #fff 100%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite" }}>PUBLIC STORAGE</div>
+                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline · 2026</div>
+                <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 1, opacity: 0.7 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em", textTransform: "uppercase" }}>DJR Real Estate</span>
-              <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(243, 124, 51, 0.4)", background: "rgba(243, 124, 51, 0.1)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export</button>
-            </div>
+            <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
           </div>
         </div>
 
         {/* Nav */}
-        <div style={{ display: "flex", gap: 2, overflowX: "auto", padding: "8px 0", scrollbarWidth: "none" }}>
+        <div style={{ display: "flex", gap: 2, overflowX: "auto", padding: "4px 0", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
             { key: "summary", label: "Summary" },
@@ -1116,80 +1415,46 @@ export default function App() {
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; } }}
             >
               {n.label}
-              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: "#F37C33", animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />}
+              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: "#F37C33" }} />}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div style={{ position: "fixed", bottom: 20, right: 20, background: "#F37C33", color: "#fff", padding: "12px 20px", borderRadius: 8, fontSize: 12, fontWeight: 600, boxShadow: "0 4px 12px rgba(243, 124, 51, 0.4)", animation: "fadeIn 0.3s ease-out", zIndex: 1000 }}>
-          {toast}
-        </div>
-      )}
-
       {/* Main content */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px", flex: 1, width: "100%" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
 
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            <h1 style={{ margin: "0 0 24px", fontSize: 24, fontWeight: 800, color: "#1A1A1A" }}>Pipeline Overview</h1>
-
-            {/* Stat Cards */}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 28 }}>
-              <div onClick={() => setTab("summary")} style={{ cursor: "pointer", background: "linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(0,0,0,0.12)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)"; }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total Pipeline</div>
-                <div style={{ fontSize: 40, fontWeight: 800, color: "#F37C33", marginTop: 6, fontFamily: "'Space Mono'" }}>{sw.length + east.length}</div>
-                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>View summary →</div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+              <div onClick={() => setTab("summary")} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: "4px solid #F37C33", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{sw.length + east.length}</div>
+                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>View summary →</div>
               </div>
-              <div onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ cursor: "pointer", background: "linear-gradient(135deg, #fff9f0 0%, #fffbf5 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(243, 124, 51, 0.1)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(243, 124, 51, 0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(243, 124, 51, 0.1)"; }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Pending Review</div>
-                <div style={{ fontSize: 40, fontWeight: 800, color: "#F37C33", marginTop: 6, fontFamily: "'Space Mono'" }}>{pendingN}</div>
-                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Review queue →</div>
+              <div onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: "4px solid #F59E0B", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pending</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{pendingN}</div>
+                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Review queue →</div>
               </div>
-              <div onClick={() => { setTab("southwest"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "linear-gradient(135deg, #EFF6FF 0%, #F0F9FF 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(21, 101, 192, 0.1)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(21, 101, 192, 0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(21, 101, 192, 0.1)"; }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Daniel Wollent</div>
-                <div style={{ fontSize: 40, fontWeight: 800, color: "#1565C0", marginTop: 6, fontFamily: "'Space Mono'" }}>{sw.length}</div>
-                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Open tracker →</div>
+              <div onClick={() => { setTab("southwest"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${REGIONS.southwest.accent}`, transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Daniel Wollent</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{sw.length}</div>
+                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Open tracker →</div>
               </div>
-              <div onClick={() => { setTab("east"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "linear-gradient(135deg, #F0FDF4 0%, #F7FFED 100%)", borderRadius: 16, padding: "24px 28px", minWidth: 140, boxShadow: "0 4px 12px rgba(45, 95, 45, 0.1)", borderTop: "2px solid #F37C33", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(45, 95, 45, 0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(45, 95, 45, 0.1)"; }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Matthew Toussaint</div>
-                <div style={{ fontSize: 40, fontWeight: 800, color: "#2D5F2D", marginTop: 6, fontFamily: "'Space Mono'" }}>{east.length}</div>
-                <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Open tracker →</div>
+              <div onClick={() => { setTab("east"); setExpandedSite(null); }} style={{ cursor: "pointer", background: "#fff", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", borderLeft: `4px solid ${REGIONS.east.accent}`, transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Matthew Toussaint</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: "#2C2C2C", marginTop: 4, fontFamily: "'DM Sans'" }}>{east.length}</div>
+                <div style={{ fontSize: 10, color: "#CBD5E1", marginTop: 2 }}>Open tracker →</div>
               </div>
             </div>
 
-            {/* Phase Pipeline */}
-            <div style={{ background: "#fff", borderRadius: 16, padding: "28px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", marginBottom: 28, borderTop: "2px solid #F37C33" }}>
-              <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#2C2C2C" }}>Acquisition Pipeline by Phase</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-                {PHASES.map((p) => {
-                  const count = [...sw, ...east].filter((s) => s.phase === p).length;
-                  const total = sw.length + east.length;
-                  const width = total > 0 ? (count / total) * 100 : 0;
-                  return (
-                    <div key={p} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C" }}>{p}</span>
-                        <span style={{ fontSize: 14, fontWeight: 800, color: "#F37C33", fontFamily: "'Space Mono'" }}>{count}</span>
-                      </div>
-                      <div style={{ height: 8, background: "#EFEFEF", borderRadius: 4, overflow: "hidden" }}>
-                        <div style={{ height: "100%", background: "linear-gradient(90deg, #F37C33, #E8650A)", width: `${width}%`, transition: "width 0.3s ease-out" }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quick Access Cards */}
             {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, tabKey: "east" }].map((r) => (
-              <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} style={{ background: "#fff", borderRadius: 16, padding: 20, marginBottom: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", cursor: "pointer", transition: "all 0.2s", borderTop: "2px solid #F37C33" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}>
-                <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {PHASES.map((p) => { const c = r.data.filter((s) => s.phase === p).length; return <div key={p} style={{ flex: "1 1 100px", textAlign: "center", padding: "12px 8px", borderRadius: 12, background: c > 0 ? `${r.color}15` : "#F8FAFC", border: c > 0 ? `1px solid ${r.color}40` : "1px solid #E2E8F0" }}><div style={{ fontSize: 24, fontWeight: 800, color: c > 0 ? r.color : "#CBD5E1", fontFamily: "'Space Mono'" }}>{c}</div><div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginTop: 3 }}>{p}</div></div>; })}
+              <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer", transition: "transform 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {PHASES.map((p) => { const c = r.data.filter((s) => s.phase === p).length; return <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${r.color}11` : "#F8FAFC", border: c > 0 ? `1px solid ${r.color}33` : "1px solid #E2E8F0" }}><div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? r.color : "#CBD5E1" }}>{c}</div><div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div></div>; })}
                 </div>
               </div>
             ))}
@@ -1198,38 +1463,38 @@ export default function App() {
 
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
-          const th = { padding: "12px 14px", textAlign: "left", fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase", borderBottom: "none", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#1A1A1A", zIndex: 1 };
-          const td = { padding: "12px 14px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
+          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
+          const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
           const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
             const d = sortData(rk === "east" ? east : sw);
             return (
-              <div style={{ marginBottom: 28 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: r.accent }} />
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: r.color }}>{r.label}</h3>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: r.color }}>{r.label}</h3>
                   <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length})</span>
                 </div>
-                {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 12, padding: 24, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
-                  <div style={{ overflow: "auto", borderRadius: 12, border: "1px solid #E2E8F0", maxHeight: 520 }}>
+                {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
+                  <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 420 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
                       <thead>
-                        <tr style={{ background: "#1A1A1A" }}>{["Name", "Address", "City", "ST", "Priority", "Ask", "PS Price", "3mi Inc", "3mi Pop", "Broker", "DOM", "Summary", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                        <tr>{["Name", "Address", "City", "ST", "Priority", "Ask", "PS Price", "3mi Inc", "3mi Pop", "Broker", "DOM", "Summary", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: i % 2 ? "#FAFAF7" : "#fff", cursor: "pointer", transition: "background 0.15s" }}
+                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: i % 2 ? "#FAFBFC" : "#fff", cursor: "pointer", transition: "background 0.15s" }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? "#FAFAF7" : "#fff")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? "#FAFBFC" : "#fff")}
                           >
-                            <td style={{ ...td, fontWeight: 700, color: "#2C2C2C" }}>{s.name}</td>
+                            <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
                             <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
                             <td style={td}><PriorityBadge priority={s.priority} /></td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.askingPrice || "—"}</td>
-                            <td style={{ ...td, color: "#F37C33", fontWeight: 700 }}>{s.internalPrice || "—"}</td>
+                            <td style={{ ...td, color: "#F37C33", fontWeight: 600 }}>{s.internalPrice || "—"}</td>
                             <td style={td}>{s.income3mi || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
                             <td style={td}>{s.sellerBroker || "—"}</td>
@@ -1247,8 +1512,8 @@ export default function App() {
           };
           return (
             <div style={{ animation: "fadeIn .3s ease-out" }}>
-              <h1 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800, color: "#1A1A1A" }}>Summary</h1>
-              <p style={{ margin: "0 0 16px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
+              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>📊 Summary</h2>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
               <SortBar />
               <SumTable rk="southwest" />
               <SumTable rk="east" />
@@ -1259,37 +1524,88 @@ export default function App() {
         {/* ═══ SUBMIT ═══ */}
         {tab === "submit" && (
           <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
-            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: "2px solid #F37C33" }}>
-              <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800, color: "#1A1A1A" }}>Submit Site</h2>
-              <div style={{ display: "flex", gap: 8, marginBottom: 20, background: "#FAFAF7", borderRadius: 10, padding: 4 }}>
+            <div style={{ background: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
+              <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Submit Site</h2>
+              <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F1F5F9", borderRadius: 10, padding: 3 }}>
                 {[["direct", "⚡ Direct to Tracker"], ["review", "📋 Send to Review"]].map(([k, l]) => (
-                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#F37C33" : "#94A3B8", boxShadow: submitMode === k ? "0 2px 6px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>{l}</button>
+                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#2C2C2C" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
                 ))}
               </div>
-              <div style={{ display: "grid", gap: 14 }}>
-                <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility name" /></div>
-                <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
+              {/* ── Flyer Upload Zone ── */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>📄 Flyer <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— auto-extracts acreage, price, zoning & broker</span></div>
+              <div style={{ border: flyerFile ? "2px solid #F37C33" : "2px dashed #E2E8F0", borderRadius: 12, padding: flyerFile ? 14 : 20, textAlign: "center", background: flyerFile ? "#FFF8F3" : "#F8FAFC", marginBottom: 16, cursor: "pointer", transition: "all .2s" }} onClick={() => !flyerParsing && flyerRef.current?.click()} onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#F37C33"; }} onDragLeave={(e) => { e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; }} onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; const f = e.dataTransfer.files?.[0]; if (f) parseFlyer(f); }}>
+                <input ref={flyerRef} type="file" accept=".pdf,image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFlyer(f); }} />
+                {flyerParsing ? (
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div><div style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Extracting info from flyer…</div></div>
+                ) : flyerFile ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {flyerPreview && <img src={flyerPreview} alt="Flyer preview" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #E2E8F0" }} />}
+                    {!flyerPreview && <div style={{ width: 48, height: 48, borderRadius: 6, background: "#FFF3E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>}
+                    <div style={{ textAlign: "left", flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#2C2C2C" }}>{flyerFile.name}</div>
+                      <div style={{ fontSize: 11, color: "#64748B" }}>{(flyerFile.size / 1024).toFixed(0)} KB — fields auto-populated</div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
+                  </div>
+                ) : (
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
+                )}
+              </div>              {/* ── Additional Attachments ── */}
+              <div style={{ marginBottom: 16, background: "#F8FAFC", borderRadius: 10, padding: 14, border: "1px solid #E2E8F0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— survey, PSA, environmental, etc.</span></div>
+                  <button onClick={() => attachRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#2C2C2C", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Add File</button>
+                  <input ref={attachRef} type="file" accept=".pdf,image/*,.doc,.docx,.xlsx,.xls,.csv" multiple style={{ display: "none" }} onChange={(e) => { const files = Array.from(e.target.files || []); const newA = files.map((f) => ({ file: f, type: "Other", id: uid() })); setAttachments((prev) => [...prev, ...newA]); e.target.value = ""; }} />
                 </div>
-                <div><label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
-                <button onClick={handleSubmit} style={{ padding: "14px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg, #F37C33, #E8650A)" : "linear-gradient(135deg, #1A1A1A, #2A2A2A)", color: "#fff", fontSize: 14, fontWeight: 800, transition: "all 0.2s", boxShadow: submitMode === "direct" ? "0 4px 12px rgba(243, 124, 51, 0.3)" : "0 4px 12px rgba(0,0,0,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+                {attachments.length > 0 && (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {attachments.map((a) => (
+                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#FAFAFA" }}>
+                        <div style={{ fontSize: 16 }}>{a.file.name.match(/\.pdf$/i) ? "📄" : a.file.type?.startsWith("image/") ? "🖼️" : "📎"}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#2C2C2C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
+                          <div style={{ fontSize: 10, color: "#94A3B8" }}>{(a.file.size / 1024).toFixed(0)} KB</div>
+                        </div>
+                        <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", color: "#475569" }}>
+                          {DOC_TYPES.filter((t) => t !== "Flyer").map((t) => <option key={t}>{t}</option>)}
+                        </select>
+                        <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {attachments.length === 0 && <div style={{ fontSize: 11, color: "#CBD5E1" }}>Survey, demographics, PSA, environmental, etc.</div>}
+              </div>              {/* ── Form Fields ── */}
+              <div style={{ display: "grid", gap: 12 }}>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address" /></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Acreage</label><input style={inp} value={form.acreage} onChange={(e) => setForm({ ...form, acreage: e.target.value })} placeholder="e.g. 3.5" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Asking Price</label><input style={inp} value={form.askingPrice} onChange={(e) => setForm({ ...form, askingPrice: e.target.value })} placeholder="e.g. $1,200,000" /></div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Zoning</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Seller / Broker</label><input style={inp} value={form.sellerBroker} onChange={(e) => setForm({ ...form, sellerBroker: e.target.value })} placeholder="Broker name" /></div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Coordinates</label><input style={inp} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="lat, lng" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
+                </div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
+                <button onClick={handleSubmit} style={{ padding: "12px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg,#F37C33,#E8650A)" : "linear-gradient(135deg,#2C2C2C,#3D3D3D)", color: "#fff", fontSize: 14, fontWeight: 700 }}>
                   {submitMode === "direct" ? "⚡ Add Now" : "📋 Submit for Review"}
                 </button>
-              </div>
-              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 12 }}>Documents and details can be added after.</div>
-              {shareLink && (
-                <div style={{ marginTop: 16, padding: 12, background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#16A34A", textTransform: "uppercase", marginBottom: 4 }}>Review Link</div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`}
-                      style={{ ...inp, marginTop: 0, fontSize: 11 }}
-                      onClick={(e) => { e.target.select(); navigator.clipboard.writeText(e.target.value); notify("Copied!"); }}
-                    />
+              </div>              {shareLink && (
+                <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
                   </div>
                 </div>
               )}
@@ -1299,134 +1615,104 @@ export default function App() {
 
         {/* ═══ IMPORT ═══ */}
         {tab === "import" && (
-          <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
-            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderTop: "2px solid #F37C33" }}>
-              <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800, color: "#1A1A1A" }}>Bulk Import</h2>
-              <div style={{ display: "grid", gap: 14 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>File (CSV or Excel)</label>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".csv,.tsv,.xlsx,.xls,.xlsm"
-                    onChange={handleBulkFile}
-                    style={{ ...inp, cursor: "pointer" }}
-                  />
-                </div>
-                {bulkRows && (
-                  <>
-                    <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, border: "1px solid #E2E8F0" }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>Preview: {bulkRows.length} rows</div>
-                      <div style={{ maxHeight: 200, overflowY: "auto", fontSize: 11, color: "#475569" }}>
-                        {bulkRows.slice(0, 5).map((r, i) => (
-                          <div key={i} style={{ padding: 4, borderBottom: i < 4 ? "1px solid #E2E8F0" : "none" }}>
-                            {r.name || r.facility || "—"} / {r.city || "—"}, {r.state || "—"}
-                          </div>
-                        ))}
-                        {bulkRows.length > 5 && <div style={{ padding: 4, color: "#94A3B8" }}>… and {bulkRows.length - 5} more</div>}
-                      </div>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                      <div>
-                        <label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Default Region</label>
-                        <select style={{ ...inp, cursor: "pointer" }} value={bulkRegion} onChange={(e) => setBulkRegion(e.target.value)}>
-                          <option value="southwest">Daniel Wollent</option>
-                          <option value="east">Matthew Toussaint</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Default Phase</label>
-                        <select style={{ ...inp, cursor: "pointer" }} value={bulkPhase} onChange={(e) => setBulkPhase(e.target.value)}>
-                          {PHASES.map((p) => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <button onClick={handleBulkImport} style={{ padding: "14px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg, #F37C33, #E8650A)", color: "#fff", fontSize: 14, fontWeight: 800, transition: "all 0.2s", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
-                      ✓ Import {bulkRows.length}
-                    </button>
-                  </>
-                )}
+          <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 800 }}>
+            <div style={{ background: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
+              <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Bulk Import</h2>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Default Region</label><select style={{ ...inp, width: "auto" }} value={bulkRegion} onChange={(e) => setBulkRegion(e.target.value)}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Default Phase</label><select style={{ ...inp, width: "auto" }} value={bulkPhase} onChange={(e) => setBulkPhase(e.target.value)}>{PHASES.map((p) => <option key={p}>{p}</option>)}</select></div>
               </div>
+              <div style={{ border: "2px dashed #E2E8F0", borderRadius: 10, padding: 20, textAlign: "center", background: "#F8FAFC", marginBottom: 14 }}>
+                <div style={{ fontSize: 24, marginBottom: 4 }}>📊</div>
+                <input ref={fileRef} type="file" accept=".csv,.tsv,.xlsx,.xls" onChange={handleBulkFile} style={{ fontSize: 12 }} />
+              </div>
+              {bulkRows && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>{bulkRows.length} rows found</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => { setBulkRows(null); if (fileRef.current) fileRef.current.value = ""; }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, cursor: "pointer" }}>Cancel</button>
+                      <button onClick={handleBulkImport} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>⚡ Import All</button>
+                    </div>
+                  </div>
+                  <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid #E2E8F0", maxHeight: 300 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                      <thead><tr style={{ background: "#F8FAFC" }}>{Object.keys(bulkRows[0] || {}).map((k) => <th key={k} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700, color: "#64748B", borderBottom: "1px solid #E2E8F0" }}>{k}</th>)}</tr></thead>
+                      <tbody>{bulkRows.slice(0, 15).map((r, i) => <tr key={i}>{Object.values(r).map((v, j) => <td key={j} style={{ padding: "5px 8px", color: "#475569", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(v)}</td>)}</tr>)}</tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* ═══ REVIEW ═══ */}
-        {tab === "review" && (() => {
-          return (
-            <div style={{ animation: "fadeIn .3s ease-out" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#1A1A1A" }}>Review Queue</h2>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 800, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>✓ Approve All ({pendingN})</button>}
-                  {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Clear Declined</button>}
-                </div>
+        {tab === "review" && (
+          <div style={{ animation: "fadeIn .3s ease-out" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
+              <div style={{ display: "flex", gap: 6 }}>
+                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
+                {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
               </div>
-              <SortBar />
-              {subs.length === 0 ? (
-                <div style={{ background: "#fff", borderRadius: 16, padding: 40, textAlign: "center", color: "#94A3B8", borderTop: "2px solid #F37C33" }}>No submissions.</div>
-              ) : (
-                <div style={{ display: "grid", gap: 12 }}>
-                  {sortData(subs).map((site) => {
-                    const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
-                    const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
-                    const isHL = highlightedSite === site.id;
-                    return (
-                      <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 14, padding: 18, boxShadow: isHL ? "0 0 0 3px #F37C33" : "0 2px 6px rgba(0,0,0,0.08)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, borderTop: "2px solid #F37C33", transition: "all 0.3s" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 15, fontWeight: 800, color: "#2C2C2C" }}>{site.name}</span>
-                          <Badge status={site.status} />
-                          {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔗 Copy Link</button>}
-                        </div>
-                        <div style={{ fontSize: 12, color: "#64748B", marginBottom: 10 }}>{site.address}, {site.city}, {site.state} → {REGIONS[site.region]?.label}</div>
-                        {site.status === "pending" ? (
-                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #F1F5F9" }}>
-                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-                              <select value={ri.reviewer} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 140, fontFamily: "'DM Sans'" }}>
-                                <option value="">Reviewer…</option>
-                                <option>Daniel Wollent</option>
-                                <option>Matthew Toussaint</option>
-                                <option>Dan R</option>
-                              </select>
-                              <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 180, padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none", fontFamily: "'DM Sans'" }} />
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              <button onClick={() => { if (!ri.reviewer) { notify("Select reviewer"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 800, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 4px 12px rgba(243, 124, 51, 0.3)" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>✓ Approve</button>
-                              <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
-                            </div>
-                          </div>
-                        ) : (site.reviewedBy || site.reviewNote) && (
-                          <div style={{ marginTop: 10, fontSize: 11, color: "#94A3B8" }}>
-                            {site.reviewedBy && <span>By: <strong style={{ color: "#2C2C2C" }}>{site.reviewedBy}</strong></span>}
-                            {site.reviewNote && <span style={{ marginLeft: 10, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
-          );
-        })()}
+            <SortBar />
+            {subs.length === 0 ? (
+              <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#94A3B8" }}>No submissions.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {sortData(subs).map((site) => {
+                  const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
+                  const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
+                  const isHL = highlightedSite === site.id;
+                  return (
+                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 15, fontWeight: 700 }}>{site.name}</span>
+                        <Badge status={site.status} />
+                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}, {site.city}, {site.state} → {REGIONS[site.region]?.label}</div>
+                      {site.status === "pending" ? (
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                            <select value={ri.reviewer} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 120 }}>
+                              <option value="">Reviewer…</option>
+                              <option>Daniel Wollent</option>
+                              <option>Matthew Toussaint</option>
+                              <option>Dan R</option>
+                            </select>
+                            <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => { if (!ri.reviewer) { notify("Select reviewer"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve</button>
+                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
+                          </div>
+                        </div>
+                      ) : (site.reviewedBy || site.reviewNote) && (
+                        <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>
+                          {site.reviewedBy && <span>By: <strong>{site.reviewedBy}</strong></span>}
+                          {site.reviewNote && <span style={{ marginLeft: 8, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ═══ TRACKERS ═══ */}
         {tab === "southwest" && <TrackerCards regionKey="southwest" />}
         {tab === "east" && <TrackerCards regionKey="east" />}
       </div>
 
-      {/* Footer */}
-      <div style={{ textAlign: "center", padding: "20px 16px", borderTop: "1px solid #E2E8F0", marginTop: 32, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3, background: "#fff" }}>
-        © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
-      </div>
-
-      <style>{`
-        @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-      `}</style>
+            {/* ═══ COPYRIGHT FOOTER ═══ */}
+                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
+                          © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
+                                </div>
     </div>
   );
 }
