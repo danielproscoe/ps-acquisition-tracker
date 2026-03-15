@@ -769,7 +769,7 @@ export default function App() {
     });
 
     const marketsRef = ref(db, "targetMarkets");
-    const unsubMarkets = onValue(marketsRef, (snap) => {
+    unsubMarkets = onValue(marketsRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
       setTargetMarkets(arr);
