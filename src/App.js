@@ -3,7 +3,7 @@
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, storage, auth } from "./firebase";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
@@ -675,7 +675,38 @@ const DW_SEED = [];
 const MT_SEED = [];
 
 // ═══ MAIN APP ═══
-export default function App() {
+// --- Error Boundary (UX-04) ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary]', error, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return React.createElement('div', {
+        style: { padding: 40, textAlign: 'center', fontFamily: 'system-ui' }
+      },
+        React.createElement('h2', { style: { color: '#dc2626' } }, 'Something went wrong'),
+        React.createElement('p', { style: { color: '#666', marginTop: 8 } },
+          this.state.error ? this.state.error.message : 'Unknown error'),
+        React.createElement('button', {
+          onClick: () => window.location.reload(),
+          style: { marginTop: 16, padding: '8px 24px', cursor: 'pointer',
+            background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6 }
+        }, 'Reload Page')
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function App() {
   // AUTH GATE (Finding 2.3)
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -2179,3 +2210,8 @@ const handleFetchDemos = async (region, site) => {
     </div>
   );
 }
+
+export default function AppWithErrorBoundary() {
+  return React.createElement(ErrorBoundary, null, React.createElement(App));
+}
+
