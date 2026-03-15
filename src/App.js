@@ -764,14 +764,15 @@ export default function App() {
     });
     const unsubSw = onValue(swRef, (snap) => {
       const val = snap.val();
+      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
+      setSw(arr);
+    });
+
     const marketsRef = ref(db, "targetMarkets");
-    unsubMarkets = onValue(marketsRef, (snap) => {
+    const unsubMarkets = onValue(marketsRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
       setTargetMarkets(arr);
-    });
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setSw(arr);
     });
 
     return () => {
@@ -918,34 +919,34 @@ export default function App() {
     update(ref(db, "targetMarkets/" + id), { active: !currentActive });
   };
 
-const handleFetchDemos = async (region, site) => {
-    if (!site.coordinates) return;
-    setDemoLoading(prev => ({ ...prev, [site.id]: true }));
-    try {
-      const result = await fetchDemographics(site.coordinates);
-      if (result.error) {
-        notify(result.error);
-      } else if (result) {
-        const updates = {};
-        const demoFields = ["pop1mi","pop3mi","pop5mi","income1mi","income3mi","income5mi","households1mi","households3mi","households5mi","homeValue1mi","homeValue3mi","homeValue5mi","popGrowth1mi","popGrowth3mi","popGrowth5mi","renterPct1mi","renterPct3mi","renterPct5mi"];
-        for (const f of demoFields) { if (result[f] !== undefined && result[f] !== null) updates[f] = result[f]; }
-        if (result.source) updates.demoSource = result.source;
-        if (result.fips) updates.demoFips = result.fips;
-        updates.demoPulledAt = new Date().toISOString();
-        if (result.tractCounts) updates.demoTractCounts = JSON.stringify(result.tractCounts);
-        if (Object.keys(updates).length > 0) {
-          fbUpdate(region, site.id, updates);
-          fbPush(region, site.id, "activityLog", {
-            action: "Demographics pulled \u2014 Pop " + (result.pop3mi || "N/A") + " | HHI " + (result.income3mi || "N/A") + " | Growth " + (result.popGrowth3mi !== null ? result.popGrowth3mi + "%" : "N/A") + " | Renters " + (result.renterPct3mi !== null ? result.renterPct3mi + "%" : "N/A"),
-            date: new Date().toISOString(), by: "System"
-          });
+  const handleFetchDemos = async (region, site) => {
+      if (!site.coordinates) return;
+      setDemoLoading(prev => ({ ...prev, [site.id]: true }));
+      try {
+        const result = await fetchDemographics(site.coordinates);
+        if (result.error) {
+          notify(result.error);
+        } else if (result) {
+          const updates = {};
+          const demoFields = ["pop1mi","pop3mi","pop5mi","income1mi","income3mi","income5mi","households1mi","households3mi","households5mi","homeValue1mi","homeValue3mi","homeValue5mi","popGrowth1mi","popGrowth3mi","popGrowth5mi","renterPct1mi","renterPct3mi","renterPct5mi"];
+          for (const f of demoFields) { if (result[f] !== undefined && result[f] !== null) updates[f] = result[f]; }
+          if (result.source) updates.demoSource = result.source;
+          if (result.fips) updates.demoFips = result.fips;
+          updates.demoPulledAt = new Date().toISOString();
+          if (result.tractCounts) updates.demoTractCounts = JSON.stringify(result.tractCounts);
+          if (Object.keys(updates).length > 0) {
+            fbUpdate(region, site.id, updates);
+            fbPush(region, site.id, "activityLog", {
+              action: "Demographics pulled \u2014 Pop " + (result.pop3mi || "N/A") + " | HHI " + (result.income3mi || "N/A") + " | Growth " + (result.popGrowth3mi !== null ? result.popGrowth3mi + "%" : "N/A") + " | Renters " + (result.renterPct3mi !== null ? result.renterPct3mi + "%" : "N/A"),
+              date: new Date().toISOString(), by: "System"
+            });
+          }
+          setDemoReport(prev => ({ ...prev, [site.id]: result }));
+          notify(Object.keys(updates).length + " demographic fields saved \u2014 1/3/5 mile rings with growth + renter data");
         }
-        setDemoReport(prev => ({ ...prev, [site.id]: result }));
-        notify(Object.keys(updates).length + " demographic fields saved \u2014 1/3/5 mile rings with growth + renter data");
-      }
-    } catch (err) { notify("Demographics fetch failed"); console.error(err); }
-    setDemoLoading(prev => ({ ...prev, [site.id]: false }));
-  };
+      } catch (err) { notify("Demographics fetch failed"); console.error(err); }
+      setDemoLoading(prev => ({ ...prev, [site.id]: false }));
+    };
 
   // âââ AUTO VETTING REPORT â runs on site add, saves to Firebase Storage âââ
   const autoGenerateVettingReport = (region, siteId, site) => {
