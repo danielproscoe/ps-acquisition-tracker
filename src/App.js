@@ -693,6 +693,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   else { classification = "RED"; classColor = "#DC2626"; }
 
   return {
+    _iq: { zoning: zoningScore, spacing: spacingScore, demographics: (popScore + incScore) / 2, competition: compScore, pricing: accessScore * 0.5, access: accessScore },
       marketBonus: (() => { if (!targetMarkets || !targetMarkets.length) return null; const sm = (site.market || "").toLowerCase(); const sc = (site.city || "").toLowerCase(); const ss = (site.state || "").toUpperCase(); for (const tm of targetMarkets) { if (!tm.active) continue; const tn = (tm.name || "").toLowerCase(); const ts = (tm.states || "").toUpperCase().split(",").map(s=>s.trim()); if ((tn && (sm.includes(tn) || tn.includes(sm) || sc.includes(tn) || tn.includes(sc))) || (ts.length && ts.includes(ss))) return { name: tm.name, tier: tm.tier, bonus: tm.tier===1?1.0:tm.tier===2?0.6:tm.tier===3?0.3:0.1 }; } return null; })(),
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor,
     tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
@@ -744,12 +745,12 @@ function SiteIQBadge({ site, size = "normal" }) {
   const arcTrack = isGold ? "rgba(201,168,76,0.15)" : isSteel ? "rgba(44,62,107,0.12)" : "rgba(148,163,184,0.15)";
 
 const metrics = [
-            { key: 'zoning', label: 'Zoning', weight: 25, icon: '⚖️', score: s._iq?.zoning ?? 0, tip: 'By-right, conditional, or prohibited zoning classification. Scores by-right highest. Source: zoning field + summary keywords.' },
-            { key: 'spacing', label: 'PS Spacing', weight: 20, icon: '📡', score: s._iq?.spacing ?? 0, tip: 'Distance to nearest Public Storage facility. Farther = higher score. Source: summary field regex (e.g. bullseye, no nearby PS).' },
-            { key: 'demographics', label: 'Demographics', weight: 20, icon: '👥', score: s._iq?.demographics ?? 0, tip: 'Combined 3-mi population density + median household income score. Source: Census ACS 5-Year / MT spreadsheet.' },
-            { key: 'competition', label: 'Competition', weight: 15, icon: '🏢', score: s._iq?.competition ?? 0, tip: 'Storage competitor density within trade area. Fewer competitors = higher score. Source: summary field keywords.' },
-            { key: 'pricing', label: 'Pricing', weight: 10, icon: '💲', score: s._iq?.pricing ?? 0, tip: 'Per-acre price analysis vs market benchmarks. Includes internal price agreement bonus. Source: askingPrice field.' },
-            { key: 'access', label: 'Site Access', weight: 10, icon: '🛣️', score: s._iq?.access ?? 0, tip: 'Acreage sweet-spot (2–5 ac ideal) + road frontage, flood, and access factors. Source: acreage + summary fields.' },
+            { key: 'zoning', label: 'Zoning', weight: 25, icon: '⚖️', score: iq._iq?.zoning ?? 0, tip: 'By-right, conditional, or prohibited zoning classification. Scores by-right highest. Source: zoning field + summary keywords.' },
+            { key: 'spacing', label: 'PS Spacing', weight: 20, icon: '📡', score: iq._iq?.spacing ?? 0, tip: 'Distance to nearest Public Storage facility. Farther = higher score. Source: summary field regex (e.g. bullseye, no nearby PS).' },
+            { key: 'demographics', label: 'Demographics', weight: 20, icon: '👥', score: iq._iq?.demographics ?? 0, tip: 'Combined 3-mi population density + median household income score. Source: Census ACS 5-Year / MT spreadsheet.' },
+            { key: 'competition', label: 'Competition', weight: 15, icon: '🏢', score: iq._iq?.competition ?? 0, tip: 'Storage competitor density within trade area. Fewer competitors = higher score. Source: summary field keywords.' },
+            { key: 'pricing', label: 'Pricing', weight: 10, icon: '💲', score: iq._iq?.pricing ?? 0, tip: 'Per-acre price analysis vs market benchmarks. Includes internal price agreement bonus. Source: askingPrice field.' },
+            { key: 'access', label: 'Site Access', weight: 10, icon: '🛣️', score: iq._iq?.access ?? 0, tip: 'Acreage sweet-spot (2–5 ac ideal) + road frontage, flood, and access factors. Source: acreage + summary fields.' },
           ];
   return (
     <div style={{
