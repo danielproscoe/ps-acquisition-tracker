@@ -702,6 +702,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
 
 // ─── SiteIQ Badge Component ───
 function SiteIQBadge({ site, size = "normal" }) {
+  const [hoveredMetric, setHoveredMetric] = useState(null);
   const iq = computeSiteIQ(site);
   const s = iq.score;
   const isGold = iq.tier === "gold";
@@ -742,15 +743,14 @@ function SiteIQBadge({ site, size = "normal" }) {
   const arcColor = isGold ? "#C9A84C" : isSteel ? "#4A6FA5" : "#94A3B8";
   const arcTrack = isGold ? "rgba(201,168,76,0.15)" : isSteel ? "rgba(44,62,107,0.12)" : "rgba(148,163,184,0.15)";
 
-  const metrics = [
-    { key: "zoning", label: "Zoning", weight: "25%", icon: "⚖️" },
-    { key: "spacing", label: "PS Spacing", weight: "20%", icon: "📡" },
-    { key: "demographics", label: "Demographics", weight: "20%", icon: "👥" },
-    { key: "competition", label: "Competition", weight: "15%", icon: "🏢" },
-    { key: "pricing", label: "Pricing", weight: "10%", icon: "💲" },
-    { key: "siteAccess", label: "Site Access", weight: "10%", icon: "🛣️" },
-  ];
-
+const metrics = [
+            { key: 'zoning', label: 'Zoning', weight: 25, icon: '⚖️', score: s._iq?.zoning ?? 0, tip: 'By-right, conditional, or prohibited zoning classification. Scores by-right highest. Source: zoning field + summary keywords.' },
+            { key: 'spacing', label: 'PS Spacing', weight: 20, icon: '📡', score: s._iq?.spacing ?? 0, tip: 'Distance to nearest Public Storage facility. Farther = higher score. Source: summary field regex (e.g. bullseye, no nearby PS).' },
+            { key: 'demographics', label: 'Demographics', weight: 20, icon: '👥', score: s._iq?.demographics ?? 0, tip: 'Combined 3-mi population density + median household income score. Source: Census ACS 5-Year / MT spreadsheet.' },
+            { key: 'competition', label: 'Competition', weight: 15, icon: '🏢', score: s._iq?.competition ?? 0, tip: 'Storage competitor density within trade area. Fewer competitors = higher score. Source: summary field keywords.' },
+            { key: 'pricing', label: 'Pricing', weight: 10, icon: '💲', score: s._iq?.pricing ?? 0, tip: 'Per-acre price analysis vs market benchmarks. Includes internal price agreement bonus. Source: askingPrice field.' },
+            { key: 'access', label: 'Site Access', weight: 10, icon: '🛣️', score: s._iq?.access ?? 0, tip: 'Acreage sweet-spot (2–5 ac ideal) + road frontage, flood, and access factors. Source: acreage + summary fields.' },
+          ];
   return (
     <div style={{
       background: isGold ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%)" : isSteel ? "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" : "linear-gradient(135deg, #1e293b 0%, #334155 50%, #1e293b 100%)",
@@ -794,26 +794,52 @@ function SiteIQBadge({ site, size = "normal" }) {
             {iq.hasDemoData && <span style={{ fontSize: 7, color: "#64748B", letterSpacing: "0.06em" }}>Census + field data</span>}
           </div>
           {/* Metric bars */}
-          <div style={{ display: "grid", gap: 6 }}>
-            {metrics.map((m) => {
-              const v = iq.scores[m.key] || 0;
-              const pct = (v / 10) * 100;
-              const barColor = v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 7, position: 'relative' }}>
+            {metrics.map((m, i) => {
+              const pct = Math.min(Math.max((m.score / 10) * 100, 0), 100);
+              const isHigh = m.score >= 7;
+              const isMed = m.score >= 4 && m.score < 7;
+              const barGrad = isHigh
+                ? 'linear-gradient(90deg, #10B981 0%, #34D399 40%, #6EE7B7 100%)'
+                : isMed
+                  ? 'linear-gradient(90deg, #F59E0B 0%, #FBBF24 60%, #FDE68A 100%)'
+                  : 'linear-gradient(90deg, #EF4444 0%, #F87171 60%, #FCA5A5 100%)';
+              const glowColor = isHigh ? 'rgba(16,185,129,0.45)' : isMed ? 'rgba(245,158,11,0.35)' : 'rgba(239,68,68,0.35)';
               return (
-                <div key={m.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 10, width: 14, textAlign: "center", opacity: 0.7 }}>{m.icon}</span>
-                  <div style={{ width: 72, fontSize: 10, fontWeight: 600, color: "#94A3B8", display: "flex", justifyContent: "space-between" }}>
-                    <span>{m.label}</span>
-                    <span style={{ fontSize: 8, opacity: 0.5 }}>{m.weight}</span>
+                <div key={m.key} style={{ position: 'relative' }}
+                  onMouseEnter={() => setHoveredMetric(m.key)}
+                  onMouseLeave={() => setHoveredMetric(null)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <span style={{ fontSize: 13, minWidth: 18, textAlign: 'center' }}>{m.icon}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#CBD5E1', flex: 1, letterSpacing: '0.02em', textTransform: 'uppercase' }}>{m.label}</span>
+                    <span style={{ fontSize: 10, color: '#64748B', fontWeight: 500 }}>{m.weight}%</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: isHigh ? '#34D399' : isMed ? '#FBBF24' : '#F87171', minWidth: 28, textAlign: 'right' }}>{m.score.toFixed(1)}</span>
                   </div>
-                  <div style={{ flex: 1, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
-                    <div style={{ width: pct + "%", height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${barColor}CC, ${barColor})`, transition: "width 0.8s ease-out", boxShadow: `0 0 6px ${barColor}40` }} />
+                  <div style={{ height: 10, borderRadius: 5, background: 'rgba(30,41,59,0.8)', overflow: 'hidden', border: '1px solid rgba(71,85,105,0.3)' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 5, width: pct + '%',
+                      background: barGrad,
+                      boxShadow: isHigh ? '0 0 8px ' + glowColor + ', inset 0 1px 0 rgba(255,255,255,0.2)' : 'inset 0 1px 0 rgba(255,255,255,0.15)',
+                      transition: 'width 0.6s cubic-bezier(0.22,1,0.36,1)'
+                    }} />
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: barColor, fontFamily: "'Space Mono', monospace", width: 24, textAlign: "right" }}>{v}</span>
+                  {hoveredMetric === m.key && (
+                    <div style={{
+                      position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6,
+                      background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(12px)',
+                      border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8,
+                      padding: '8px 12px', maxWidth: 260, minWidth: 180,
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.4), 0 0 15px rgba(99,102,241,0.15)',
+                      zIndex: 50, pointerEvents: 'none'
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#E2E8F0', marginBottom: 3, letterSpacing: '0.03em' }}>{m.icon} {m.label} — {m.weight}% weight</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1.45 }}>{m.tip}</div>
+                      <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 8, height: 8, background: 'rgba(15,23,42,0.95)', borderRight: '1px solid rgba(99,102,241,0.3)', borderBottom: '1px solid rgba(99,102,241,0.3)' }} />
+                    </div>
+                  )}
                 </div>
               );
-            })}
-          </div>
+            })}          </div>
         </div>
       </div>
     </div>
