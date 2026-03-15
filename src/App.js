@@ -717,7 +717,7 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp, targetMarkets = [] }) 
     <div style={{display: "flex", alignItems: "center", gap: 14, marginBottom: 12}}>
       <div style={{width: 56, height: 56, borderRadius: "50%", background: tier === "gold" ? "linear-gradient(135deg, #C9A84C, #E8D48B)" : tier === "steel" ? "linear-gradient(135deg, #2C3E6B, #4A5F9B)" : "#9CA3AF", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: 900, fontFamily: "monospace"}}>{score}</div>
       <div>
-        <div style={{fontWeight: 800, fontSize: 15, color: "#1E2761"}}>{label} <span style={{fontWeight: 400, fontSize: 11, color: "#999"}}>SiteIQ\u2122</span></div>
+        <div style={{fontWeight: 800, fontSize: 15, color: "#1E2761"}}>{label} <span style={{fontWeight: 400, fontSize: 11, color: "#999"}}>SiteIQ™</span></div>
         <div style={{fontSize: 11, color: "#999"}}>Census + field data</div>
         {marketBonus && <div style={{fontSize: 10, color: "#C9A84C", marginTop: 2, fontWeight: 700}}>{String.fromCharCode(11088)} {marketBonus.name} {String.fromCharCode(8212)} Tier {marketBonus.tier} (+{marketBonus.bonus.toFixed(1)})</div>}
       </div>
