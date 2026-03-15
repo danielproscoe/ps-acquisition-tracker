@@ -1,7 +1,7 @@
-// src/App.js — Public Storage Acquisition Tracker
-// © 2026 DJR Real Estate LLC. All rights reserved.
+// src/App.js â Public Storage Acquisition Tracker
+// Â© 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
-// Firebase Realtime Database — live shared data across all 3 users
+// Firebase Realtime Database â live shared data across all 3 users
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, storage, auth } from "./firebase";
@@ -14,9 +14,9 @@ import {
   deleteObject,
 } from "firebase/storage";
 // xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
-// import * as XLSX from "xlsx";  ← moved to dynamic import()
+// import * as XLSX from "xlsx";  â moved to dynamic import()
 
-// ─── CSV Parser ───
+// âââ CSV Parser âââ
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
@@ -42,7 +42,7 @@ function parseCSV(text) {
   });
 }
 
-// ─── Constants ───
+// âââ Constants âââ
 const REGIONS = {
   southwest: { label: "Daniel Wollent", color: "#1565C0", accent: "#42A5F5" },
   east: { label: "Matthew Toussaint", color: "#2D5F2D", accent: "#4CAF50" },
@@ -68,12 +68,12 @@ const PHASES = [
   "Closed",
   "Dead",
 ];
-const PRIORITIES = ["🔥 Hot", "🟡 Warm", "🔵 Cold", "⚪ None"];
+const PRIORITIES = ["ð¥ Hot", "ð¡ Warm", "ðµ Cold", "âª None"];
 const PRIORITY_COLORS = {
-  "🔥 Hot": "#EF4444",
-  "🟡 Warm": "#F59E0B",
-  "🔵 Cold": "#3B82F6",
-  "⚪ None": "#CBD5E1",
+  "ð¥ Hot": "#EF4444",
+  "ð¡ Warm": "#F59E0B",
+  "ðµ Cold": "#3B82F6",
+  "âª None": "#CBD5E1",
 };
 const MSG_COLORS = {
   "Dan R": { bg: "#FFF3E0", border: "#F37C33", text: "#E65100" },
@@ -93,7 +93,7 @@ const DOC_TYPES = [
   "Other",
 ];
 
-// ─── Helpers ───
+// âââ Helpers âââ
 const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const fmt$ = (v) => {
@@ -107,8 +107,8 @@ const fmtN = (v) => {
   return isNaN(n) ? v : n.toLocaleString();
 };
 const fmtPrice = (v) => {
-  if (!v || v === "TBD" || v === "—") return v || "—";
-  // Already has $X.XXM format with parenthetical — extract just the leading price
+  if (!v || v === "TBD" || v === "â") return v || "â";
+  // Already has $X.XXM format with parenthetical â extract just the leading price
   const mMatch = String(v).match(/^\$?([\d,.]+)\s*[Mm]/);
   if (mMatch) return "$" + parseFloat(mMatch[1].replace(/,/g, "")).toFixed(2).replace(/\.?0+$/, "") + "M";
   // Raw number like $1,300,000 or 1300000
@@ -123,7 +123,7 @@ const mapsLink = (c) =>
 const earthLink = (c) =>
   c ? `https://earth.google.com/web/search/${encodeURIComponent(c)}` : "";
 
-// ─── Shared Style Constants ───
+// âââ Shared Style Constants âââ
 const STYLES = {
   cardBase: { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" },
   kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(135deg, #fff 0%, #FAFBFC 100%)", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", borderLeft: `4px solid ${borderColor}`, transition: "all 0.25s ease" }),
@@ -133,7 +133,7 @@ const STYLES = {
   frostedHeader: { background: "rgba(44,44,44,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(0,0,0,0.2)" },
 };
 
-// ─── Debounce Helper ───
+// âââ Debounce Helper âââ
 const debounce = (fn, ms) => {
   let timer;
   return (...args) => {
@@ -142,7 +142,7 @@ const debounce = (fn, ms) => {
   };
 };
 
-// ─── Geocode Demographics Helper ───
+// âââ Geocode Demographics Helper âââ
 // Uses US Census Bureau ACS 5-Year via data.census.gov API
 // Fetches 3-mile radius approximate demographics from coordinates
 const fetchDemographics = async (coordinates) => {
@@ -250,89 +250,89 @@ const fetchDemographics = async (coordinates) => {
   } catch (err) { console.error("fetchDemographics error:", err); return { error: "Demographics fetch failed: " + err.message }; }
 };
 
-// ─── Vetting Report Generator ───
+// âââ Vetting Report Generator âââ
 const generateVettingReport = (site, nearestPSDistance) => {
   const lines = [];
-  lines.push("═══════════════════════════════════════════════════");
-  lines.push(`SITE VETTING REPORT — ${site.name || "Unnamed"}`);
+  lines.push("âââââââââââââââââââââââââââââââââââââââââââââââââââ");
+  lines.push(`SITE VETTING REPORT â ${site.name || "Unnamed"}`);
   lines.push(`Generated: ${new Date().toLocaleDateString()} by PS Acquisition Pipeline`);
-  lines.push("═══════════════════════════════════════════════════");
+  lines.push("âââââââââââââââââââââââââââââââââââââââââââââââââââ");
   lines.push("");
   lines.push("1. PROPERTY OVERVIEW");
-  lines.push("─────────────────────");
-  lines.push(`   Name:           ${site.name || "—"}`);
-  lines.push(`   Address:        ${site.address || "—"}`);
-  lines.push(`   City / State:   ${site.city || "—"}, ${site.state || "—"}`);
-  lines.push(`   Market:         ${site.market || "—"}`);
-  lines.push(`   Acreage:        ${site.acreage || "—"}`);
-  lines.push(`   Asking Price:   ${site.askingPrice || "—"}`);
-  lines.push(`   PS Int. Price:  ${site.internalPrice || "—"}`);
-  lines.push(`   Coordinates:    ${site.coordinates || "—"}`);
-  lines.push(`   Listing URL:    ${site.listingUrl || "—"}`);
+  lines.push("âââââââââââââââââââââ");
+  lines.push(`   Name:           ${site.name || "â"}`);
+  lines.push(`   Address:        ${site.address || "â"}`);
+  lines.push(`   City / State:   ${site.city || "â"}, ${site.state || "â"}`);
+  lines.push(`   Market:         ${site.market || "â"}`);
+  lines.push(`   Acreage:        ${site.acreage || "â"}`);
+  lines.push(`   Asking Price:   ${site.askingPrice || "â"}`);
+  lines.push(`   PS Int. Price:  ${site.internalPrice || "â"}`);
+  lines.push(`   Coordinates:    ${site.coordinates || "â"}`);
+  lines.push(`   Listing URL:    ${site.listingUrl || "â"}`);
   lines.push("");
   lines.push("2. ZONING & ENTITLEMENTS");
-  lines.push("─────────────────────");
+  lines.push("âââââââââââââââââââââ");
   lines.push(`   Current Zoning: ${site.zoning || "Not confirmed"}`);
-  lines.push(`   Storage Use:    ${site.zoning ? "Verify with local jurisdiction" : "UNKNOWN — research required"}`);
+  lines.push(`   Storage Use:    ${site.zoning ? "Verify with local jurisdiction" : "UNKNOWN â research required"}`);
   lines.push("");
   lines.push("3. DEMOGRAPHICS (3-Mile Radius)");
-  lines.push("─────────────────────");
+  lines.push("âââââââââââââââââââââ");
   lines.push(`   Population:     ${site.pop3mi ? fmtN(site.pop3mi) : "Not available"}`);
   lines.push(`   Median HHI:     ${site.income3mi || "Not available"}`);
   const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
   const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
   if (popN && incN) {
-    lines.push(`   Demo Score:     ${popN >= 40000 && incN >= 60000 ? "✅ PASS" : popN >= 20000 && incN >= 50000 ? "⚠️ MARGINAL" : "❌ BELOW THRESHOLD"}`);
+    lines.push(`   Demo Score:     ${popN >= 40000 && incN >= 60000 ? "â PASS" : popN >= 20000 && incN >= 50000 ? "â ï¸ MARGINAL" : "â BELOW THRESHOLD"}`);
   }
   lines.push("");
   lines.push("4. SITE SIZING ASSESSMENT");
-  lines.push("─────────────────────");
+  lines.push("âââââââââââââââââââââ");
   const acres = parseFloat(String(site.acreage).replace(/[^0-9.]/g, ""));
   if (!isNaN(acres)) {
-    if (acres >= 3.5 && acres <= 5) lines.push(`   ${acres} ac → PRIMARY (one-story climate-controlled) ✅`);
-    else if (acres >= 2.5 && acres < 3.5) lines.push(`   ${acres} ac → SECONDARY (multi-story 3-4 story) ✅`);
-    else if (acres < 2.5) lines.push(`   ${acres} ac → ❌ BELOW MINIMUM — generally too small`);
-    else if (acres > 5 && acres <= 7) lines.push(`   ${acres} ac → VIABLE if subdivisible ⚠️`);
-    else lines.push(`   ${acres} ac → LARGE TRACT — subdivision potential ⚠️`);
+    if (acres >= 3.5 && acres <= 5) lines.push(`   ${acres} ac â PRIMARY (one-story climate-controlled) â`);
+    else if (acres >= 2.5 && acres < 3.5) lines.push(`   ${acres} ac â SECONDARY (multi-story 3-4 story) â`);
+    else if (acres < 2.5) lines.push(`   ${acres} ac â â BELOW MINIMUM â generally too small`);
+    else if (acres > 5 && acres <= 7) lines.push(`   ${acres} ac â VIABLE if subdivisible â ï¸`);
+    else lines.push(`   ${acres} ac â LARGE TRACT â subdivision potential â ï¸`);
   } else {
-    lines.push("   Acreage not confirmed — sizing TBD");
+    lines.push("   Acreage not confirmed â sizing TBD");
   }
   lines.push("");
   lines.push("5. PS PROXIMITY CHECK");
-  lines.push("─────────────────────");
+  lines.push("âââââââââââââââââââââ");
   lines.push(`   Nearest PS:     ${nearestPSDistance || "Run proximity check with PS_Locations_ALL.csv"}`);
   lines.push("");
   lines.push("6. BROKER / SELLER");
-  lines.push("─────────────────────");
+  lines.push("âââââââââââââââââââââ");
   lines.push(`   Contact:        ${site.sellerBroker || "Not listed"}`);
   lines.push(`   Date on Market: ${site.dateOnMarket || "Unknown"}`);
   lines.push(`   Phase:          ${site.phase || "Prospect"}`);
   lines.push(`   Priority:       ${site.priority || "None"}`);
   lines.push("");
   lines.push("7. RED FLAGS / NOTES");
-  lines.push("─────────────────────");
+  lines.push("âââââââââââââââââââââ");
   const flags = [];
-  if (!site.zoning) flags.push("   ⚠ Zoning not confirmed");
-  if (!site.coordinates) flags.push("   ⚠ No coordinates — cannot verify location");
-  if (acres < 2.5) flags.push("   ⚠ Below minimum acreage threshold");
-  if (popN && popN < 10000) flags.push("   ⚠ 3-mi population below 10,000 minimum");
-  if (incN && incN < 60000) flags.push("   ⚠ 3-mi median HHI below $60,000 target");
-  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("   ⚠ No confirmed asking price");
+  if (!site.zoning) flags.push("   â  Zoning not confirmed");
+  if (!site.coordinates) flags.push("   â  No coordinates â cannot verify location");
+  if (acres < 2.5) flags.push("   â  Below minimum acreage threshold");
+  if (popN && popN < 10000) flags.push("   â  3-mi population below 10,000 minimum");
+  if (incN && incN < 60000) flags.push("   â  3-mi median HHI below $60,000 target");
+  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("   â  No confirmed asking price");
   if (flags.length === 0) flags.push("   None identified at this time");
   lines.push(flags.join("\n"));
   lines.push("");
   lines.push("8. SUMMARY / DEAL NOTES");
-  lines.push("─────────────────────");
+  lines.push("âââââââââââââââââââââ");
   lines.push(`   ${site.summary || "No notes"}`);
   lines.push("");
-  lines.push("═══════════════════════════════════════════════════");
-  lines.push("Report generated by PS Acquisition Pipeline · Powered by DJR Real Estate LLC");
-  lines.push("═══════════════════════════════════════════════════");
+  lines.push("âââââââââââââââââââââââââââââââââââââââââââââââââââ");
+  lines.push("Report generated by PS Acquisition Pipeline Â· Powered by DJR Real Estate LLC");
+  lines.push("âââââââââââââââââââââââââââââââââââââââââââââââââââ");
   return lines.join("\n");
 };
 
-// ─── SiteIQ™ v3 — Calibrated PS Site Scoring Engine ───
-// Matches CLAUDE.md §6h framework exactly. Uses structured data fields, not regex on summary text.
+// âââ SiteIQâ¢ v3 â Calibrated PS Site Scoring Engine âââ
+// Matches CLAUDE.md Â§6h framework exactly. Uses structured data fields, not regex on summary text.
 // Weights: Demographics 25% (pop) + 15% (HHI), PS Proximity 20%, Zoning 15%, Access 10%, Competition 5%, Market Tier 10%
 // Hard FAIL: pop <5K, HHI <$55K, PS <2.5mi, landlocked
 const computeSiteIQ = (site, targetMarkets = []) => {
@@ -353,7 +353,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   const incRaw = parseNum(site.income3mi);
   const hasDemoData = popRaw > 0 || incRaw > 0;
 
-  // --- 1. DEMOGRAPHICS — POPULATION (25%) §6h calibrated ---
+  // --- 1. DEMOGRAPHICS â POPULATION (25%) Â§6h calibrated ---
   let popScore = 5;
   if (popRaw > 0) {
     if (popRaw >= 40000) popScore = 10;
@@ -365,7 +365,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   }
   scores.population = popScore;
 
-  // --- 2. DEMOGRAPHICS — HHI (15%) §6h calibrated ---
+  // --- 2. DEMOGRAPHICS â HHI (15%) Â§6h calibrated ---
   let incScore = 5;
   if (incRaw > 0) {
     if (incRaw >= 90000) incScore = 10;
@@ -391,7 +391,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   }
   scores.spacing = spacingScore;
 
-  // --- 4. ZONING (15%) §6c methodology ---
+  // --- 4. ZONING (15%) Â§6c methodology ---
   const byRight = /(by\s*right|permitted|storage\s*(?:by|permitted)|(?:^|\s)(?:cs|gb|mu|b[- ]?\d|c[- ]?\d|m[- ]?\d)\b|commercial|industrial|business|unrestricted|pud\s*allow)/i;
   const conditional = /(conditional|sup\b|cup\b|special\s*use|overlay|variance|needs?\s*sup)/i;
   const prohibited = /(prohibited|residential\s*only|(?:^|\s)ag\b|agriculture|not\s*permitted)/i;
@@ -495,7 +495,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
 
   const final = Math.round(adjusted * 10) / 10;
 
-  // --- CLASSIFICATION (§6h) ---
+  // --- CLASSIFICATION (Â§6h) ---
   let classification, classColor;
   if (hardFail) { classification = "RED"; classColor = "#DC2626"; }
   else if (final >= 7.5) { classification = "GREEN"; classColor = "#16A34A"; }
@@ -511,7 +511,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   };
 };
 
-// ─── SiteIQ Badge Component ───
+// âââ SiteIQ Badge Component âââ
 function SiteIQBadge({ site, size = "normal", iq: iqProp, targetMarkets = [] }) {
   const iq = iqProp || computeSiteIQ(site, targetMarkets);
   if (!iq) return null;
@@ -588,7 +588,7 @@ function Badge({ status }) {
 
 function PriorityBadge({ priority }) {
   const c = PRIORITY_COLORS[priority] || "#CBD5E1";
-  return priority && priority !== "⚪ None" ? (
+  return priority && priority !== "âª None" ? (
     <span
       style={{
         fontSize: 11,
@@ -606,9 +606,6 @@ function PriorityBadge({ priority }) {
 
 function EF({ label, value, onSave, placeholder, multi }) {
   const [local, setLocal] = useState(value || "");
-  const [targetMarkets, setTargetMarkets] = useState([]);
-  const [showAddMarket, setShowAddMarket] = useState(false);
-  const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
   const prevValue = useRef(value);
   useEffect(() => {
     if (value !== prevValue.current) {
@@ -670,14 +667,14 @@ function EF({ label, value, onSave, placeholder, multi }) {
   );
 }
 
-// ─── Seed Data REMOVED (v3) ───
+// âââ Seed Data REMOVED (v3) âââ
 // All 47 sites (33 DW + 14 MT) are in Firebase with verified data.
 // Seed data was stale (missing coordinates, demographics, acreage) and risked overwriting live data.
-// New sites are added via Submit Site form, Bulk Import, or Claude's §6h broker response pipeline.
+// New sites are added via Submit Site form, Bulk Import, or Claude's Â§6h broker response pipeline.
 const DW_SEED = [];
 const MT_SEED = [];
 
-// ═══ MAIN APP ═══
+// âââ MAIN APP âââ
 export default function App() {
   // AUTH GATE (Finding 2.3)
   const [user, setUser] = useState(null);
@@ -729,9 +726,12 @@ export default function App() {
   const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
-  // vettingReport removed — auto-generates on site add
+  const [targetMarkets, setTargetMarkets] = useState([]);
+  const [showAddMarket, setShowAddMarket] = useState(false);
+  const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
+  // vettingReport removed â auto-generates on site add
 
-  // ─── FONT LOADER ───
+  // âââ FONT LOADER âââ
   useEffect(() => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
@@ -739,7 +739,7 @@ export default function App() {
     document.head.appendChild(link);
   }, []);
 
-  // ─── FIREBASE REAL-TIME LISTENERS ───
+  // âââ FIREBASE REAL-TIME LISTENERS âââ
   useEffect(() => {
     const subsRef = ref(db, "submissions");
     const eastRef = ref(db, "east");
@@ -782,7 +782,7 @@ export default function App() {
     };
   }, []);
 
-  // ─── SEED ON FIRST LOAD ───
+  // âââ SEED ON FIRST LOAD âââ
   useEffect(() => {
     if (!loaded || seeded) return;
     const now = new Date().toISOString();
@@ -804,7 +804,7 @@ export default function App() {
       summary: d.summary || "",
       coordinates: d.coordinates || "",
       market: d.market || "",
-      priority: "⚪ None",
+      priority: "âª None",
       messages: {},
       activityLog: {},
       docs: {},
@@ -824,7 +824,7 @@ export default function App() {
     });
   }, [loaded, seeded]);
 
-  // ─── ALERT for pending sites ───
+  // âââ ALERT for pending sites âââ
   useEffect(() => {
     if (!loaded) return;
     const pending = subs.filter((s) => s.status === "pending");
@@ -859,7 +859,7 @@ export default function App() {
     setTimeout(() => setToast(null), 2800);
   };
 
-  // ─── FIREBASE WRITE HELPERS ───
+  // âââ FIREBASE WRITE HELPERS âââ
   const fbSet = (path, value) => set(ref(db, path), value);
   const fbUpdate = (path, value) => update(ref(db, path), value);
   const fbPush = (path, value) => push(ref(db, path), value);
@@ -898,7 +898,7 @@ export default function App() {
     setExpandedSite(null);
   };
 
-  // ─── GEOCODE & DEMOGRAPHICS ───
+  // âââ GEOCODE & DEMOGRAPHICS âââ
   
   const handleAddMarket = () => {
     if (!newMarketForm.name.trim()) return;
@@ -946,7 +946,7 @@ const handleFetchDemos = async (region, site) => {
     setDemoLoading(prev => ({ ...prev, [site.id]: false }));
   };
 
-  // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
+  // âââ AUTO VETTING REPORT â runs on site add, saves to Firebase Storage âââ
   const autoGenerateVettingReport = (region, siteId, site) => {
     try {
       const report = generateVettingReport(site);
@@ -966,7 +966,7 @@ const handleFetchDemos = async (region, site) => {
     }
   };
 
-  // ─── FLYER PARSING ───
+  // âââ FLYER PARSING âââ
   const parseFlyer = async (file) => {
     setFlyerParsing(true);
     setFlyerFile(file);
@@ -1019,7 +1019,7 @@ const handleFetchDemos = async (region, site) => {
         // Broker / contact
         const brokerMatch = text.match(/(?:broker|agent|contact|listed by|exclusive)[:\s]*([A-Z][a-z]+ [A-Z][a-z]+)/i);
         if (brokerMatch) parsed.sellerBroker = brokerMatch[1];
-        // Address patterns — look for street number + street name
+        // Address patterns â look for street number + street name
         const addrMatch = text.match(/(\d{1,6}\s+(?:[NSEW]\.?\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Hwy|Highway|Way|Ct|Court|Pkwy|Parkway|Pl|Place|Cir|Circle)\.?)/i);
         if (addrMatch && !form.address) parsed.address = addrMatch[1];
         // City, State pattern
@@ -1028,7 +1028,7 @@ const handleFetchDemos = async (region, site) => {
           if (!form.city) parsed.city = csMatch[1];
           if (!form.state) parsed.state = csMatch[2];
         }
-        // Apply parsed values — only fill empty fields
+        // Apply parsed values â only fill empty fields
         setForm((prev) => {
           const updated = { ...prev };
           Object.entries(parsed).forEach(([k, v]) => {
@@ -1038,18 +1038,18 @@ const handleFetchDemos = async (region, site) => {
         });
         notify(`Extracted ${Object.keys(parsed).length} field(s) from flyer`);
       } else if (file.type.startsWith("image/")) {
-        notify("Flyer attached — image files can't be auto-parsed (fill fields manually)");
+        notify("Flyer attached â image files can't be auto-parsed (fill fields manually)");
       } else {
-        notify("Flyer attached — no text found to extract");
+        notify("Flyer attached â no text found to extract");
       }
     } catch (err) {
       console.error("Flyer parse error:", err);
-      notify("Flyer attached — couldn't extract text");
+      notify("Flyer attached â couldn't extract text");
     }
     setFlyerParsing(false);
   };
 
-  // ─── SUBMIT ───
+  // âââ SUBMIT âââ
   const handleSubmit = async () => {
     if (!form.name || !form.address || !form.city || !form.state) {
       notify("Fill name, address, city, state.");
@@ -1074,7 +1074,7 @@ const handleFetchDemos = async (region, site) => {
       acreage: form.acreage || "",
       zoning: form.zoning || "",
       market: "",
-      priority: "⚪ None",
+      priority: "âª None",
       messages: {},
       docs: {},
       activityLog: { [uid()]: { action: "Site submitted", ts: now, by: "User" } },
@@ -1103,7 +1103,7 @@ const handleFetchDemos = async (region, site) => {
       const t = { ...site, status: "tracking", approvedAt: now };
       fbSet(`${form.region}/${id}`, t);
       fbSet(`submissions/${id}`, { ...site, status: "approved" });
-      notify(`Added → ${REGIONS[form.region].label}`);
+      notify(`Added â ${REGIONS[form.region].label}`);
       setShareLink(null);
       autoGenerateVettingReport(form.region, id, site);
     } else {
@@ -1119,7 +1119,7 @@ const handleFetchDemos = async (region, site) => {
     if (attachRef.current) attachRef.current.value = "";
   };
 
-  // ─── REVIEW ───
+  // âââ REVIEW âââ
   const handleApprove = (id) => {
     const site = subs.find((s) => s.id === id);
     if (!site) return;
@@ -1146,14 +1146,14 @@ const handleFetchDemos = async (region, site) => {
       acreage: site.acreage || "",
       zoning: site.zoning || "",
       market: site.market || "",
-      priority: "⚪ None",
+      priority: "âª None",
       messages: {},
       docs: {},
-      activityLog: { [uid()]: { action: `Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "Dan R" } },
+      activityLog: { [uid()]: { action: `Approved â routed to ${routeLabel}`, ts: now, by: ri.reviewer || "Dan R" } },
     };
     fbSet(`${routeTo}/${id}`, t);
     fbUpdate(`submissions/${id}`, { status: "approved", reviewedBy: ri.reviewer, reviewNote: ri.note, routedTo: routeTo });
-    notify(`Approved → ${routeLabel}`);
+    notify(`Approved â ${routeLabel}`);
     autoGenerateVettingReport(routeTo, id, t);
   };
 
@@ -1171,10 +1171,10 @@ const handleFetchDemos = async (region, site) => {
         status: "tracking",
         approvedAt: now,
         reviewedBy: ri.reviewer || "Dan R",
-        priority: "⚪ None",
+        priority: "âª None",
         messages: {},
         docs: {},
-        activityLog: { [uid()]: { action: `Bulk approved → ${REGIONS[routeTo]?.label || routeTo}`, ts: now, by: "Dan R" } },
+        activityLog: { [uid()]: { action: `Bulk approved â ${REGIONS[routeTo]?.label || routeTo}`, ts: now, by: "Dan R" } },
       };
       updates[`${routeTo}/${s.id}`] = t;
       updates[`submissions/${s.id}/status`] = "approved";
@@ -1196,14 +1196,14 @@ const handleFetchDemos = async (region, site) => {
     subs.filter((s) => s.status === "declined").forEach((s) => fbRemove(`submissions/${s.id}`));
   };
 
-  // ─── DOCUMENT UPLOAD (Firebase Storage) ───
+  // âââ DOCUMENT UPLOAD (Firebase Storage) âââ
   const handleDocUpload = async (region, siteId, file, docType) => {
     if (!file) return;
     if (file.size > 20e6) { notify("Max 20MB per file"); return; }
     const docId = uid();
     const path = `docs/${siteId}/${docId}_${file.name}`;
     try {
-      notify("Uploading…");
+      notify("Uploadingâ¦");
       const sRef = storageRef(storage, path);
       await uploadBytes(sRef, file);
       const url = await getDownloadURL(sRef);
@@ -1212,7 +1212,7 @@ const handleFetchDemos = async (region, site) => {
       notify(`${docType} uploaded!`);
     } catch (e) {
       console.error(e);
-      notify("Upload failed — check Firebase Storage rules");
+      notify("Upload failed â check Firebase Storage rules");
     }
   };
 
@@ -1229,11 +1229,11 @@ const handleFetchDemos = async (region, site) => {
     }
   };
 
-  // ─── EXPORT ───
+  // âââ EXPORT âââ
   const handleExport = async () => {
     const XLSX = await import("xlsx");
     const cols = [
-      { key: "siteiq", header: "SiteIQ™", width: 10 },
+      { key: "siteiq", header: "SiteIQâ¢", width: 10 },
       { key: "name", header: "Facility Name", width: 28 },
       { key: "address", header: "Address", width: 30 },
       { key: "city", header: "City", width: 16 },
@@ -1292,18 +1292,18 @@ const handleFetchDemos = async (region, site) => {
     notify("Exported!");
   };
 
-  // ─── SORT ───
+  // âââ SORT âââ
   const SORT_OPTIONS = [
-    { key: "siteiq", label: "SiteIQ™ (Best)" },
-    { key: "name", label: "Name (A→Z)" },
-    { key: "city", label: "City (A→Z)" },
+    { key: "siteiq", label: "SiteIQâ¢ (Best)" },
+    { key: "name", label: "Name (AâZ)" },
+    { key: "city", label: "City (AâZ)" },
     { key: "recent", label: "Recently Added" },
     { key: "dom", label: "Days on Market" },
     { key: "priority", label: "Priority" },
     { key: "phase", label: "Phase" },
   ];
-  const priorityOrder = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
-  // Phase sort: pipeline flow order (Incoming → ... → Closed, Dead last)
+  const priorityOrder = { "ð¥ Hot": 0, "ð¡ Warm": 1, "ðµ Cold": 2, "âª None": 3 };
+  // Phase sort: pipeline flow order (Incoming â ... â Closed, Dead last)
   const phaseOrder = Object.fromEntries(PHASES.map((p, i) => [p, i]));
   const sortData = (arr) => {
     const sorted = [...arr];
@@ -1318,7 +1318,7 @@ const handleFetchDemos = async (region, site) => {
     }
   };
 
-  // ─── MEMOIZED SiteIQ CACHE ───
+  // âââ MEMOIZED SiteIQ CACHE âââ
   // Computes SiteIQ once per site when data changes. Eliminates ~188 redundant calls per render.
   const siteIQCache = useMemo(() => {
     const cache = new Map();
@@ -1341,7 +1341,7 @@ const handleFetchDemos = async (region, site) => {
       <div style={{ background: "#fff", borderRadius: 16, padding: "40px 36px", width: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 28, fontWeight: 800, color: "#F37C33", letterSpacing: "-0.02em" }}>PS Tracker</div>
-          <div style={{ fontSize: 13, color: "#94A3B8", marginTop: 4 }}>DJR Real Estate — Acquisition Pipeline</div>
+          <div style={{ fontSize: 13, color: "#94A3B8", marginTop: 4 }}>DJR Real Estate â Acquisition Pipeline</div>
         </div>
         {loginError && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#DC2626" }}>{loginError}</div>}
         <input value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="Email" type="email" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, marginBottom: 10, boxSizing: "border-box", fontFamily: "\'DM Sans\'" }} onKeyDown={e => e.key === "Enter" && handleLogin()} />
@@ -1362,7 +1362,7 @@ const handleFetchDemos = async (region, site) => {
     </div>
   );
 
-  // ─── STYLES ───
+  // âââ STYLES âââ
   const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2C2C2C", outline: "none", boxSizing: "border-box" };
   const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "#2C2C2C" : "transparent", color: tab === key ? "#F37C33" : "#64748B", whiteSpace: "nowrap" });
   const pendingN = subs.filter((s) => s.status === "pending").length;
@@ -1371,13 +1371,13 @@ const handleFetchDemos = async (region, site) => {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans'" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <div style={{ color: "#64748B", fontSize: 14 }}>Loading…</div>
+        <div style={{ color: "#64748B", fontSize: 14 }}>Loadingâ¦</div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
-  // ═══ TRACKER CARDS ═══
+  // âââ TRACKER CARDS âââ
   const TrackerCards = ({ regionKey }) => {
     const region = REGIONS[regionKey];
     const data = sortData(regionKey === "east" ? east : sw);
@@ -1386,7 +1386,7 @@ const handleFetchDemos = async (region, site) => {
       <div style={{ animation: "fadeIn 0.3s ease-out" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <span style={{ width: 14, height: 14, borderRadius: "50%", background: region.accent }} />
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: region.color }}>{region.label} — Master Tracker</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: region.color }}>{region.label} â Master Tracker</h2>
           <span style={{ fontSize: 13, color: "#94A3B8" }}>({data.length})</span>
         </div>
         <SortBar />
@@ -1420,19 +1420,19 @@ const handleFetchDemos = async (region, site) => {
                         {site.askingPrice && <span>Ask: <strong style={{ color: "#2C2C2C" }}>{site.askingPrice}</strong></span>}
                         {site.internalPrice && <span>PS: <strong style={{ color: "#F37C33" }}>{site.internalPrice}</strong></span>}
                         {site.sellerBroker && <span>Broker: <strong style={{ color: "#475569" }}>{site.sellerBroker}</strong></span>}
-                        {docs.length > 0 && <span style={{ color: "#64748B" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
-                        {msgs.length > 0 && <span style={{ color: "#F37C33" }}>💬 {msgs.length}</span>}
-                        {site.coordinates && <span>📍</span>}
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
+                        {docs.length > 0 && <span style={{ color: "#64748B" }}>ð {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
+                        {msgs.length > 0 && <span style={{ color: "#F37C33" }}>ð¬ {msgs.length}</span>}
+                        {site.coordinates && <span>ð</span>}
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>ð Listing</a>}
                       </div>
                     </div>
-                    <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
+                    <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>â¼</div>
                   </div>
 
                   {/* Expanded */}
                   {isOpen && (
                     <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
-                      {/* SiteIQ™ Score — Primary Metric */}
+                      {/* SiteIQâ¢ Score â Primary Metric */}
                       <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
                         <SiteIQBadge site={site} iq={getSiteIQ(site)} targetMarkets={targetMarkets} />
                       </div>
@@ -1441,7 +1441,7 @@ const handleFetchDemos = async (region, site) => {
                         {site.coordinates ? (
                           <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid #E2E8F0" }}>
                             <iframe
-                              title={`Aerial — ${site.name}`}
+                              title={`Aerial â ${site.name}`}
                               src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`}
                               style={{ width: "100%", height: 220, border: "none" }}
                               loading="lazy"
@@ -1451,7 +1451,7 @@ const handleFetchDemos = async (region, site) => {
                           </div>
                         ) : (
                           <div style={{ background: "#F1F5F9", borderRadius: 10, padding: "24px 14px", textAlign: "center", border: "1px dashed #CBD5E1" }}>
-                            <div style={{ fontSize: 18, marginBottom: 4 }}>🛰️</div>
+                            <div style={{ fontSize: 18, marginBottom: 4 }}>ð°ï¸</div>
                             <div style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Add coordinates to generate aerial view</div>
                           </div>
                         )}
@@ -1459,10 +1459,10 @@ const handleFetchDemos = async (region, site) => {
                         {(() => {
                           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
                           return flyerDoc ? (
-                            <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>📄 View Flyer — {flyerDoc[1].name?.length > 30 ? flyerDoc[1].name.slice(0, 30) + "…" : flyerDoc[1].name}</a>
+                            <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>ð View Flyer â {flyerDoc[1].name?.length > 30 ? flyerDoc[1].name.slice(0, 30) + "â¦" : flyerDoc[1].name}</a>
                           ) : (
                             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: "#FFF3E0", border: "1px dashed #F37C33", fontSize: 11, color: "#E65100", fontWeight: 600 }}>
-                              📎 No flyer uploaded — add one below
+                              ð No flyer uploaded â add one below
                             </div>
                           );
                         })()}
@@ -1471,14 +1471,14 @@ const handleFetchDemos = async (region, site) => {
                       {/* Summary */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, margin: "14px 0", border: "1px solid #E2E8F0" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 6 }}>Recent Summary</div>
-                        <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
+                        <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updatesâ¦" />
                       </div>
 
                       {/* Priority + Phase */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Priority</div>
-                          <select value={site.priority || "⚪ None"} onChange={(e) => updateSiteField(regionKey, site.id, "priority", e.target.value)} style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `2px solid ${PRIORITY_COLORS[site.priority] || "#E2E8F0"}`, fontSize: 13, fontFamily: "'DM Sans'", background: "#fff", cursor: "pointer", fontWeight: 600, color: PRIORITY_COLORS[site.priority] || "#64748B" }}>
+                          <select value={site.priority || "âª None"} onChange={(e) => updateSiteField(regionKey, site.id, "priority", e.target.value)} style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `2px solid ${PRIORITY_COLORS[site.priority] || "#E2E8F0"}`, fontSize: 13, fontFamily: "'DM Sans'", background: "#fff", cursor: "pointer", fontWeight: 600, color: PRIORITY_COLORS[site.priority] || "#64748B" }}>
                             {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                           </select>
                         </div>
@@ -1498,23 +1498,23 @@ const handleFetchDemos = async (region, site) => {
                         const daysAgo = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : null;
                         return lastDate ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, fontSize: 11, color: daysAgo > 30 ? "#EF4444" : daysAgo > 14 ? "#F59E0B" : "#22C55E" }}>
-                            <span style={{ fontSize: 9 }}>●</span>
+                            <span style={{ fontSize: 9 }}>â</span>
                             <span style={{ fontWeight: 600 }}>Last updated {daysAgo === 0 ? "today" : daysAgo === 1 ? "yesterday" : daysAgo + "d ago"}</span>
-                            {lastLog?.action && <span style={{ color: "#94A3B8", fontWeight: 400 }}>— {lastLog.action.length > 40 ? lastLog.action.slice(0, 40) + "…" : lastLog.action}</span>}
+                            {lastLog?.action && <span style={{ color: "#94A3B8", fontWeight: 400 }}>â {lastLog.action.length > 40 ? lastLog.action.slice(0, 40) + "â¦" : lastLog.action}</span>}
                           </div>
                         ) : null;
                       })()}
 
                       {/* Fields grid */}
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, marginBottom: 12 }}>
-                        <EF label="Market" value={site.market || ""} onSave={(v) => saveField(regionKey, site.id, "market", v)} placeholder="DFW, Houston…" />
+                        <EF label="Market" value={site.market || ""} onSave={(v) => saveField(regionKey, site.id, "market", v)} placeholder="DFW, Houstonâ¦" />
                         <EF label="Asking Price" value={site.askingPrice || ""} onSave={(v) => saveField(regionKey, site.id, "askingPrice", v)} placeholder="$1.5M" />
                         <EF label="PS Internal Price" value={site.internalPrice || ""} onSave={(v) => saveField(regionKey, site.id, "internalPrice", v)} placeholder="$1.2M" />
                         <EF label="Seller / Broker" value={site.sellerBroker || ""} onSave={(v) => saveField(regionKey, site.id, "sellerBroker", v)} placeholder="John Smith" />
                         <EF label="3-Mile Income" value={site.income3mi || ""} onSave={(v) => saveField(regionKey, site.id, "income3mi", v)} placeholder="$95,000" />
                         <EF label="3-Mile Pop" value={site.pop3mi || ""} onSave={(v) => saveField(regionKey, site.id, "pop3mi", v)} placeholder="45,000" />
                         <EF label="Acreage" value={site.acreage || ""} onSave={(v) => saveField(regionKey, site.id, "acreage", v)} placeholder="4.5 ac" />
-                        <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3…" />
+                        <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3â¦" />
                       </div>
 
                       {/* DEMOGRAPHIC PROFILE TABLE */}
@@ -1562,7 +1562,7 @@ const handleFetchDemos = async (region, site) => {
                         </div>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Days on Market</div>
-                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", color: dom !== null ? "#2C2C2C" : "#CBD5E1", fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "—"}</div>
+                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", color: dom !== null ? "#2C2C2C" : "#CBD5E1", fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "â"}</div>
                         </div>
                       </div>
 
@@ -1571,34 +1571,34 @@ const handleFetchDemos = async (region, site) => {
                         <EF label="Coordinates (lat, lng)" value={site.coordinates || ""} onSave={(v) => saveField(regionKey, site.id, "coordinates", v)} placeholder="39.123, -84.456" />
                         {site.coordinates && (
                           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                            <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
-                            <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
-                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Property Listing</a>
+                            <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>ðº Google Maps</a>
+                            <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>ð Google Earth</a>
+                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>ð Property Listing</a>
                             <button onClick={() => {
                               const docs = site.docs ? Object.values(site.docs) : [];
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
                               if (vr && vr.url) { window.open(vr.url, "_blank"); }
                               else { autoGenerateVettingReport(regionKey, site.id, site); setTimeout(() => alert("Vetting report generated! Click again to view."), 1500); }
-                            }} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
+                            }} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>ð Vetting Report</button>
                           </div>
                         )}
                       </div>
 
                       {/* Listing URL */}
                       <div style={{ marginBottom: 14 }}>
-                        <EF label="Listing URL (Crexi / LoopNet)" value={site.listingUrl || ""} onSave={(v) => saveField(regionKey, site.id, "listingUrl", v)} placeholder="https://www.crexi.com/…" />
+                        <EF label="Listing URL (Crexi / LoopNet)" value={site.listingUrl || ""} onSave={(v) => saveField(regionKey, site.id, "listingUrl", v)} placeholder="https://www.crexi.com/â¦" />
                       </div>
 
                       {/* Documents */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, marginBottom: 14, border: "1px solid #E2E8F0" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 10 }}>📁 Documents</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 10 }}>ð Documents</div>
                         {docs.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                             {docs.map(([docKey, doc]) => (
                               <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
-                                <span style={{ fontWeight: 600, color: "#475569" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
-                                <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
-                                <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
+                                <span style={{ fontWeight: 600, color: "#475569" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "â¦" : doc.name}</span>
+                                <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>â View</a>
+                                <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>â</button>
                               </div>
                             ))}
                           </div>
@@ -1616,14 +1616,14 @@ const handleFetchDemos = async (region, site) => {
 
                       {/* Messages */}
                       <div style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>💬 Thread</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>ð¬ Thread</div>
                         {msgs.length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxHeight: 200, overflowY: "auto" }}>
                             {[...msgs].sort((a, b) => new Date(a.ts) - new Date(b.ts)).map((m, i) => {
                               const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: "#475569" };
                               return (
                                 <div key={i} style={{ background: mc.bg, border: `1px solid ${mc.border}`, borderRadius: 8, padding: "8px 10px" }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from} · {m.ts ? new Date(m.ts).toLocaleDateString() : ""}</div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from} Â· {m.ts ? new Date(m.ts).toLocaleDateString() : ""}</div>
                                   <div style={{ fontSize: 13, color: "#2C2C2C" }}>{m.text}</div>
                                 </div>
                               );
@@ -1636,7 +1636,7 @@ const handleFetchDemos = async (region, site) => {
                             <option>Daniel Wollent</option>
                             <option>Matthew Toussaint</option>
                           </select>
-                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") handleSendMsg(regionKey, site.id); }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
+                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") handleSendMsg(regionKey, site.id); }} placeholder="Add messageâ¦" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
                           <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
                         </div>
                       </div>
@@ -1648,7 +1648,7 @@ const handleFetchDemos = async (region, site) => {
                           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
                             {[...logs].sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 20).map((l, i) => (
                               <div key={i} style={{ fontSize: 11, color: "#94A3B8" }}>
-                                <span style={{ color: "#64748B" }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> — {l.action}
+                                <span style={{ color: "#64748B" }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> â {l.action}
                               </div>
                             ))}
                           </div>
@@ -1656,7 +1656,7 @@ const handleFetchDemos = async (region, site) => {
                       )}
 
                       {/* Remove */}
-                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>🗑 Remove Site</button>
+                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>ð Remove Site</button>
                     </div>
                   )}
                 </div>
@@ -1668,7 +1668,7 @@ const handleFetchDemos = async (region, site) => {
     );
   };
 
-  // ═══ RENDER ═══
+  // âââ RENDER âââ
   return (
     <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
@@ -1709,10 +1709,10 @@ const handleFetchDemos = async (region, site) => {
       {/* New site alert */}
       {showNewAlert && (
         <div style={{ background: "#FFF3E0", borderBottom: "1px solid #F37C33", padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <span style={{ fontSize: 13, color: "#E65100", fontWeight: 600 }}>🔔 {newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
+          <span style={{ fontSize: 13, color: "#E65100", fontWeight: 600 }}>ð {newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
-            <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
+            <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>â</button>
           </div>
         </div>
       )}
@@ -1728,11 +1728,11 @@ const handleFetchDemos = async (region, site) => {
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.02em", background: "linear-gradient(90deg, #fff 0%, #F37C33 40%, #fff 60%, #fff 100%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite" }}>PUBLIC STORAGE</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline · 2026</div>
+                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline Â· 2026</div>
                 <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 1, opacity: 0.7 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
-            <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
+            <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>â¬ Export Excel</button>
             <button onClick={() => signOut(auth)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }} title={user?.email}>Sign Out</button>
           </div>
         </div>
@@ -1761,7 +1761,7 @@ const handleFetchDemos = async (region, site) => {
       {/* Main content */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
 
-        {/* ═══ DASHBOARD ═══ */}
+        {/* âââ DASHBOARD âââ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
 
@@ -1798,10 +1798,10 @@ const handleFetchDemos = async (region, site) => {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
-                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
-                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => { setTab("review"); setShowNewAlert(false); }, sub: "Review queue →" },
-                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => { setTab("southwest"); setExpandedSite(null); }, sub: "Open tracker →" },
-                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => { setTab("east"); setExpandedSite(null); }, sub: "Open tracker →" },
+                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "ð", action: () => setTab("summary"), sub: "View summary â" },
+                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "â³", action: () => { setTab("review"); setShowNewAlert(false); }, sub: "Review queue â" },
+                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "ð·", action: () => { setTab("southwest"); setExpandedSite(null); }, sub: "Open tracker â" },
+                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "ð¢", action: () => { setTab("east"); setExpandedSite(null); }, sub: "Open tracker â" },
               ].map((kpi) => (
                 <div key={kpi.label} onClick={kpi.action} style={STYLES.kpiCard(kpi.color)}
                   onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = `0 6px 20px ${kpi.color}22`; }}
@@ -1848,18 +1848,18 @@ const handleFetchDemos = async (region, site) => {
               );
             })()}
 
-            {/* ═══ PIPELINE FUNNEL ═══ */}
+            {/* âââ PIPELINE FUNNEL âââ */}
             {(() => {
               const all = [...sw, ...east];
               const pending = subs.filter(s => s.status === "pending").length;
               const funnelStages = [
-                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳" },
-                { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "🔍" },
-                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS" || s.phase === "PS Revisions").length, color: "#6366F1", icon: "📤" },
-                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅" },
-                { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝" },
-                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝" },
-                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆" },
+                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "â³" },
+                { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "ð" },
+                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS" || s.phase === "PS Revisions").length, color: "#6366F1", icon: "ð¤" },
+                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "â" },
+                { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "ð" },
+                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "ð¤" },
+                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "ð" },
               ];
               const maxCount = Math.max(...funnelStages.map(s => s.count), 1);
               const declined = all.filter(s => s.phase === "PS Declined" || s.phase === "Dead").length;
@@ -1900,7 +1900,7 @@ const handleFetchDemos = async (region, site) => {
                     })}
                   </div>
                   <div style={{ marginTop: 10, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
-                    Sites flow: Review Queue → Prospect → PS Submission → LOI → Under Contract → Closed
+                    Sites flow: Review Queue â Prospect â PS Submission â LOI â Under Contract â Closed
                   </div>
                 </div>
               );
@@ -1912,7 +1912,7 @@ const handleFetchDemos = async (region, site) => {
               return (
                 <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} className="site-card" style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
+                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} â 2026 Pipeline</h3>
                     <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{r.data.length} sites</span>
                   </div>
                   {/* Visual pipeline bar */}
@@ -1936,7 +1936,7 @@ const handleFetchDemos = async (region, site) => {
           </div>
         )}
 
-        {/* ═══ SUMMARY ═══ */}
+        {/* âââ SUMMARY âââ */}
         {tab === "summary" && (() => {
           const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
           const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
@@ -1967,15 +1967,15 @@ const handleFetchDemos = async (region, site) => {
                           >
                             <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} targetMarkets={targetMarkets} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
-                            <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
-                            <td style={td}>{s.state || "—"}</td>
-                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "#F1F5F9", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
+                            <td style={{ ...td, fontWeight: 600 }}>{s.city || "â"}</td>
+                            <td style={td}>{s.state || "â"}</td>
+                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "#F1F5F9", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "â"}</span></td>
                             <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
-                            <td style={td}>{s.acreage || "—"}</td>
-                            <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
-                            <td style={td}>{s.sellerBroker || "—"}</td>
-                            <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
-                            <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "—"}</td>
+                            <td style={td}>{s.acreage || "â"}</td>
+                            <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "â"}</td>
+                            <td style={td}>{s.sellerBroker || "â"}</td>
+                            <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "â"}</td>
+                            <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "â"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1987,7 +1987,7 @@ const handleFetchDemos = async (region, site) => {
           };
           return (
             <div style={{ animation: "fadeIn .3s ease-out" }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>📊 Summary</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>ð Summary</h2>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
               <SortBar />
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
@@ -2000,7 +2000,7 @@ const handleFetchDemos = async (region, site) => {
                     <option value="all">All Phases</option>
                     {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  {(filterState !== "all" || filterPhase !== "all") && <button onClick={() => { setFilterState("all"); setFilterPhase("all"); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", cursor: "pointer" }}>✕ Clear</button>}
+                  {(filterState !== "all" || filterPhase !== "all") && <button onClick={() => { setFilterState("all"); setFilterPhase("all"); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", cursor: "pointer" }}>â Clear</button>}
               </div>
               <SumTable rk="southwest" />
               <SumTable rk="east" />
@@ -2008,40 +2008,40 @@ const handleFetchDemos = async (region, site) => {
           );
         })()}
 
-        {/* ═══ SUBMIT ═══ */}
+        {/* âââ SUBMIT âââ */}
         {tab === "submit" && (
           <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
             <div style={{ background: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
               <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Submit Site</h2>
               <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F1F5F9", borderRadius: 10, padding: 3 }}>
-                {[["direct", "⚡ Direct to Tracker"], ["review", "📋 Send to Review"]].map(([k, l]) => (
+                {[["direct", "â¡ Direct to Tracker"], ["review", "ð Send to Review"]].map(([k, l]) => (
                   <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#2C2C2C" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
                 ))}
               </div>
-              {/* ── Flyer Upload Zone ── */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>📄 Flyer <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— auto-extracts acreage, price, zoning & broker</span></div>
+              {/* ââ Flyer Upload Zone ââ */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>ð Flyer <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>â auto-extracts acreage, price, zoning & broker</span></div>
               <div style={{ border: flyerFile ? "2px solid #F37C33" : "2px dashed #E2E8F0", borderRadius: 12, padding: flyerFile ? 14 : 20, textAlign: "center", background: flyerFile ? "#FFF8F3" : "#F8FAFC", marginBottom: 16, cursor: "pointer", transition: "all .2s" }} onClick={() => !flyerParsing && flyerRef.current?.click()} onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#F37C33"; }} onDragLeave={(e) => { e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; }} onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; const f = e.dataTransfer.files?.[0]; if (f) parseFlyer(f); }}>
                 <input ref={flyerRef} type="file" accept=".pdf,image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFlyer(f); }} />
                 {flyerParsing ? (
-                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div><div style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Extracting info from flyer…</div></div>
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>â³</div><div style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Extracting info from flyerâ¦</div></div>
                 ) : flyerFile ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     {flyerPreview && <img src={flyerPreview} alt="Flyer preview" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #E2E8F0" }} />}
-                    {!flyerPreview && <div style={{ width: 48, height: 48, borderRadius: 6, background: "#FFF3E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>}
+                    {!flyerPreview && <div style={{ width: 48, height: 48, borderRadius: 6, background: "#FFF3E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>ð</div>}
                     <div style={{ textAlign: "left", flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#2C2C2C" }}>{flyerFile.name}</div>
-                      <div style={{ fontSize: 11, color: "#64748B" }}>{(flyerFile.size / 1024).toFixed(0)} KB — fields auto-populated</div>
+                      <div style={{ fontSize: 11, color: "#64748B" }}>{(flyerFile.size / 1024).toFixed(0)} KB â fields auto-populated</div>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
+                    <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>â</button>
                   </div>
                 ) : (
-                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>ð</div><div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image â we'll extract acreage, price, zoning, broker & more</div></div>
                 )}
               </div>
-              {/* ── Additional Attachments ── */}
+              {/* ââ Additional Attachments ââ */}
               <div style={{ marginBottom: 16, background: "#F8FAFC", borderRadius: 10, padding: 14, border: "1px solid #E2E8F0" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— survey, PSA, environmental, etc.</span></div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", display: "flex", alignItems: "center", gap: 6 }}>ð More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>â survey, PSA, environmental, etc.</span></div>
                   <button onClick={() => attachRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#2C2C2C", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Add File</button>
                   <input ref={attachRef} type="file" accept=".pdf,image/*,.doc,.docx,.xlsx,.xls,.csv" multiple style={{ display: "none" }} onChange={(e) => { const files = Array.from(e.target.files || []); const newA = files.map((f) => ({ file: f, type: "Other", id: uid() })); setAttachments((prev) => [...prev, ...newA]); e.target.value = ""; }} />
                 </div>
@@ -2049,7 +2049,7 @@ const handleFetchDemos = async (region, site) => {
                   <div style={{ display: "grid", gap: 6 }}>
                     {attachments.map((a) => (
                       <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#FAFAFA" }}>
-                        <div style={{ fontSize: 16 }}>{a.file.name.match(/\.pdf$/i) ? "📄" : a.file.type?.startsWith("image/") ? "🖼️" : "📎"}</div>
+                        <div style={{ fontSize: 16 }}>{a.file.name.match(/\.pdf$/i) ? "ð" : a.file.type?.startsWith("image/") ? "ð¼ï¸" : "ð"}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: "#2C2C2C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
                           <div style={{ fontSize: 10, color: "#94A3B8" }}>{(a.file.size / 1024).toFixed(0)} KB</div>
@@ -2057,14 +2057,14 @@ const handleFetchDemos = async (region, site) => {
                         <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", color: "#475569" }}>
                           {DOC_TYPES.filter((t) => t !== "Flyer").map((t) => <option key={t}>{t}</option>)}
                         </select>
-                        <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                        <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>â</button>
                       </div>
                     ))}
                   </div>
                 )}
                 {attachments.length === 0 && <div style={{ fontSize: 11, color: "#CBD5E1" }}>Survey, demographics, PSA, environmental, etc.</div>}
               </div>
-              {/* ── Form Fields ── */}
+              {/* ââ Form Fields ââ */}
               <div style={{ display: "grid", gap: 12 }}>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address" /></div>
@@ -2085,17 +2085,17 @@ const handleFetchDemos = async (region, site) => {
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
                 </div>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notesâ¦" /></div>
                 <button onClick={handleSubmit} style={{ padding: "12px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg,#F37C33,#E8650A)" : "linear-gradient(135deg,#2C2C2C,#3D3D3D)", color: "#fff", fontSize: 14, fontWeight: 700 }}>
-                  {submitMode === "direct" ? "⚡ Add Now" : "📋 Submit for Review"}
+                  {submitMode === "direct" ? "â¡ Add Now" : "ð Submit for Review"}
                 </button>
               </div>
               {shareLink && (
                 <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>â Submitted! Share this review link:</div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>ð Copy</button>
                   </div>
                 </div>
               )}
@@ -2103,22 +2103,22 @@ const handleFetchDemos = async (region, site) => {
           </div>
         )}
 
-        {/* ═══ REVIEW ═══ */}
+        {/* âââ REVIEW âââ */}
         {tab === "review" && (
           <div style={{ animation: "fadeIn .3s ease-out" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
               <div style={{ display: "flex", gap: 6 }}>
-                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
+                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>â Approve All ({pendingN})</button>}
                 {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
               </div>
             </div>
             <SortBar />
             {subs.length === 0 ? (
               <div style={{ background: "#fff", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>ð</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#475569", marginBottom: 6 }}>Review Queue Empty</div>
-                <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via the "Submit Site" tab appear here for review and approval before being added to a tracker. Use <strong>Submit Site → Send to Review</strong> to queue a new site.</div>
+                <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via the "Submit Site" tab appear here for review and approval before being added to a tracker. Use <strong>Submit Site â Send to Review</strong> to queue a new site.</div>
               </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
@@ -2131,25 +2131,25 @@ const handleFetchDemos = async (region, site) => {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700 }}>{site.name}</span>
                         <Badge status={site.status} />
-                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>ð Copy Link</button>}
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748B", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
-                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
-                      {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>📍 Pin Drop</a></div>}
+                      <div style={{ fontSize: 12, color: "#64748B", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `â¢ ${site.acreage} ac` : ""} {site.askingPrice ? `â¢ ${site.askingPrice}` : ""}</div>
+                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "â¦" : ""}</div>}
+                      {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>ð Pin Drop</a></div>}
                       {site.status === "pending" ? (
                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                             <select value={ri.reviewer} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 120 }}>
-                              <option value="">Reviewer…</option>
+                              <option value="">Reviewerâ¦</option>
                               <option>Daniel Wollent</option>
                               <option>Matthew Toussaint</option>
                               <option>Dan R</option>
                             </select>
-                            <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
+                            <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review noteâ¦" style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
                           </div>
                           <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve & Route</button>
-                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
+                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>â Approve & Route</button>
+                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>â Decline</button>
                           </div>
                         </div>
                       ) : (site.reviewedBy || site.reviewNote) && (
@@ -2166,14 +2166,14 @@ const handleFetchDemos = async (region, site) => {
           </div>
         )}
 
-        {/* ═══ TRACKERS ═══ */}
+        {/* âââ TRACKERS âââ */}
         {tab === "southwest" && <TrackerCards regionKey="southwest" />}
         {tab === "east" && <TrackerCards regionKey="east" />}
       </div>
 
-            {/* ═══ COPYRIGHT FOOTER ═══ */}
+            {/* âââ COPYRIGHT FOOTER âââ */}
                   <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
-                          © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
+                          Â© {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software â unauthorized reproduction prohibited.
                                 </div>
     </div>
   );
