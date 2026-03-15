@@ -23,15 +23,40 @@ import "./responsive.css";
 // or by editing this default config directly. Weights auto-normalize to 1.0.
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const SITE_IQ_DEFAULTS = [
-  { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.15, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
-  { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "spacing", label: "PS Spacing", icon: "📏", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
-  { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
-  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
+  { key: "population", label: "Population", icon: "\u{1F465}", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "\u{1F4C8}", weight: 0.15, tip: "Pop growth CAGR \u2014 5yr projected trend", source: "ESRI 2025\u21922030 projections", group: "demographics" },
+  { key: "income", label: "Med. Income", icon: "\u{1F4B0}", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "spacing", label: "PS Spacing", icon: "\u{1F4CF}", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
+  { key: "zoning", label: "Zoning", icon: "\u{1F4CB}", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "access", label: "Site Access", icon: "\u{1F6E3}\uFE0F", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
+  { key: "competition", label: "Competition", icon: "\u{1F3E2}", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+  { key: "marketTier", label: "Market Tier", icon: "\u{1F4CD}", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
 ];
+
+// Active config â starts from defaults, overridden by Firebase config/siteiq path
+let SITE_IQ_CONFIG = JSON.parse(JSON.stringify(SITE_IQ_DEFAULTS));
+
+// Normalize weights to sum to 1.0 (safety guard)
+function normalizeSiteIQWeights(config) {
+  const dims = config.dimensions;
+  const total = dims.reduce((sum, d) => sum + d.weight, 0);
+  if (total <= 0) return config;
+  dims.forEach(d => { d._normalizedWeight = d.weight / total; });
+  return config;
+}
+SITE_IQ_CONFIG = normalizeSiteIQWeights(SITE_IQ_CONFIG);
+
+// Helper: get weight by dimension key
+function getIQWeight(key) {
+  const dim = SITE_IQ_CONFIG.dimensions.find(d => d.key === key);
+  return dim ? dim._normalizedWeight : 0;
+}
+
+
+// âââ CSV Parser âââ
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
   const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
   return lines.slice(1).map((line) => {
     const vals = [];
@@ -574,19 +599,19 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   }
   scores.income = incScore;
 
-  // --- 2b. GROWTH (15%) — ESRI 5-year population CAGR ---
-  let growthScore = 5; // default when no ESRI data
-  const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
-  if (growthRaw !== null && !isNaN(growthRaw)) {
-    if (growthRaw >= 2.0) growthScore = 10;       // booming — Sun Belt corridors
-    else if (growthRaw >= 1.5) growthScore = 9;    // strong growth
-    else if (growthRaw >= 1.0) growthScore = 8;    // healthy above-national
-    else if (growthRaw >= 0.5) growthScore = 6;    // moderate positive
-    else if (growthRaw >= 0.0) growthScore = 4;    // flat — no tailwind
-    else if (growthRaw >= -0.5) growthScore = 2;   // declining — headwind
-    else { growthScore = 0; flags.push("WARN: 3-mi pop declining > -0.5%/yr"); }
-  }
-  scores.growth = growthScore;
+    // --- 2b. GROWTH (15%) \u2014 ESRI 5-year population CAGR ---
+    let growthScore = 5; // default when no ESRI data
+    const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
+    if (growthRaw !== null && !isNaN(growthRaw)) {
+      if (growthRaw >= 2.0) growthScore = 10;       // booming \u2014 Sun Belt corridors
+      else if (growthRaw >= 1.5) growthScore = 9;    // strong growth
+      else if (growthRaw >= 1.0) growthScore = 8;    // healthy above-national
+      else if (growthRaw >= 0.5) growthScore = 6;    // moderate positive
+      else if (growthRaw >= 0.0) growthScore = 4;    // flat \u2014 no tailwind
+      else if (growthRaw >= -0.5) growthScore = 2;   // declining \u2014 headwind
+      else { growthScore = 0; flags.push("WARN: 3-mi pop declining > -0.5%/yr"); }
+    }
+    scores.growth = growthScore;
 
   // --- 3. PS PROXIMITY (20%) ---
   let spacingScore = 4;
@@ -667,10 +692,10 @@ const computeSiteIQ = (site, targetMarkets = []) => {
 
   // --- COMPOSITE (weighted sum, 0-10 scale) ---
     const weightedSum =
-    (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
-    (incScore * getIQWeight("income")) + (spacingScore * getIQWeight("spacing")) +
-    (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
-    (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
+      (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
+      (incScore * getIQWeight("income")) + (spacingScore * getIQWeight("spacing")) +
+      (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
+      (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
   let adjusted = Math.round(weightedSum * 10) / 10;
 
     // --- TARGET MARKET TIER BONUS (additive) ---
