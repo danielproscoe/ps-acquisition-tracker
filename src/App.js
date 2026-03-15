@@ -378,7 +378,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   scores.income = incScore;
 
   // --- 3. PS PROXIMITY (20%) ---
-  let spacingScore = 6;
+  let spacingScore = 4;
   const nearestPS = parseFloat(site.siteiqData?.nearestPS || 0);
   if (nearestPS > 0) {
     if (nearestPS >= 5) spacingScore = 10;
@@ -422,7 +422,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   scores.access = Math.min(10, Math.max(0, accessScore));
 
   // --- 6. COMPETITION (5%) ---
-  let compScore = 6;
+  let compScore = 4;
   const compCount = site.siteiqData?.competitorCount;
   if (compCount !== undefined && compCount !== null) {
     if (compCount <= 1) compScore = 10;
@@ -449,6 +449,8 @@ const computeSiteIQ = (site, targetMarkets = []) => {
     else if (/independence|springboro|s\.?\s*dayton/i.test(mkt)) tierScore = 8;
     else if (/tn|tenn|nashville|murfreesboro|clarksville|lebanon/i.test(mkt)) tierScore = 6;
     else if (/dfw|dallas|austin|houston|san\s*ant/i.test(mkt)) tierScore = 4;
+    else if (/boston|mass|worcester|springfield|new\s*jersey|nj|conn|hartford|stamford/i.test(mkt)) tierScore = 4;
+    else if (/michigan|detroit|grand\s*rapids|ann\s*arbor|lansing/i.test(mkt)) tierScore = 4;
   }
   scores.marketTier = tierScore;
 
@@ -471,7 +473,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
         const nameMatch = tmName && (siteMarket.includes(tmName) || tmName.includes(siteMarket) || siteCity.includes(tmName) || tmName.includes(siteCity));
         const stateMatch = tmStates.length > 0 && tmStates.includes(siteState);
         if (nameMatch || stateMatch) {
-          const tierBonus = tm.tier === 1 ? 1.0 : tm.tier === 2 ? 0.6 : tm.tier === 3 ? 0.3 : 0.1;
+          const tierBonus = Number(tm.tier) === 1 ? 1.0 : Number(tm.tier) === 2 ? 0.6 : Number(tm.tier) === 3 ? 0.3 : 0.1;
           bestBonus = Math.max(bestBonus, tierBonus);
         }
       }
