@@ -1077,12 +1077,15 @@ export default function App() {
     const site = subs.find((s) => s.id === id);
     if (!site) return;
     const ri = reviewInputs[id] || {};
+    const routeTo = ri.routeTo || site.region || "southwest";
+    const routeLabel = REGIONS[routeTo]?.label || routeTo;
     const now = new Date().toISOString();
     const t = {
       ...site,
+      region: routeTo,
       status: "tracking",
       approvedAt: now,
-      reviewedBy: ri.reviewer || "Unknown",
+      reviewedBy: ri.reviewer || "Dan R",
       reviewNote: ri.note || "",
       askingPrice: site.askingPrice || "",
       internalPrice: site.internalPrice || "",
@@ -1095,16 +1098,16 @@ export default function App() {
       dateOnMarket: site.dateOnMarket || "",
       acreage: site.acreage || "",
       zoning: site.zoning || "",
-      market: "",
+      market: site.market || "",
       priority: "⚪ None",
       messages: {},
       docs: {},
-      activityLog: { [uid()]: { action: `Approved by ${ri.reviewer || "Unknown"}`, ts: now, by: ri.reviewer || "Unknown" } },
+      activityLog: { [uid()]: { action: `Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "Dan R" } },
     };
-    fbSet(`${site.region}/${id}`, t);
-    fbUpdate(`submissions/${id}`, { status: "approved", reviewedBy: ri.reviewer, reviewNote: ri.note });
-    notify(`Approved by ${ri.reviewer || "Unknown"}`);
-    autoGenerateVettingReport(site.region, id, t);
+    fbSet(`${routeTo}/${id}`, t);
+    fbUpdate(`submissions/${id}`, { status: "approved", reviewedBy: ri.reviewer, reviewNote: ri.note, routedTo: routeTo });
+    notify(`Approved → ${routeLabel}`);
+    autoGenerateVettingReport(routeTo, id, t);
   };
 
   const handleApproveAll = () => {
@@ -1113,17 +1116,22 @@ export default function App() {
     const now = new Date().toISOString();
     const updates = {};
     p.forEach((s) => {
+      const ri = reviewInputs[s.id] || {};
+      const routeTo = ri.routeTo || s.region || "southwest";
       const t = {
         ...s,
+        region: routeTo,
         status: "tracking",
         approvedAt: now,
+        reviewedBy: ri.reviewer || "Dan R",
         priority: "⚪ None",
         messages: {},
         docs: {},
-        activityLog: { [uid()]: { action: "Bulk approved", ts: now, by: "Dan R" } },
+        activityLog: { [uid()]: { action: `Bulk approved → ${REGIONS[routeTo]?.label || routeTo}`, ts: now, by: "Dan R" } },
       };
-      updates[`${s.region}/${s.id}`] = t;
+      updates[`${routeTo}/${s.id}`] = t;
       updates[`submissions/${s.id}/status`] = "approved";
+      updates[`submissions/${s.id}/routedTo`] = routeTo;
     });
     import("firebase/database").then(({ ref: fbRef, update: fbUpd }) => {
       fbUpd(ref(db, "/"), updates);
@@ -1787,6 +1795,64 @@ export default function App() {
           </div>
         )}
 
+        {/* ═══ PIPELINE FUNNEL ═══ */}
+        {(() => {
+          const all = [...sw, ...east];
+          const pending = subs.filter(s => s.status === "pending").length;
+          const funnelStages = [
+            { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳" },
+            { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "🔍" },
+            { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS" || s.phase === "PS Revisions").length, color: "#6366F1", icon: "📤" },
+            { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅" },
+            { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝" },
+            { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝" },
+            { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆" },
+          ];
+          const maxCount = Math.max(...funnelStages.map(s => s.count), 1);
+          const declined = all.filter(s => s.phase === "PS Declined" || s.phase === "Dead").length;
+          return (
+            <div style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#2C2C2C" }}>Pipeline Funnel</h3>
+                {declined > 0 && <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 600 }}>{declined} declined/dead</span>}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
+                {funnelStages.map((stage, idx) => {
+                  const widthPct = stage.count > 0 ? Math.max(25, 30 + (1 - idx / (funnelStages.length - 1)) * 70) : 25;
+                  return (
+                    <div key={stage.label} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#64748B", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
+                      <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+                        <div style={{
+                          width: `${widthPct}%`,
+                          background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "#F1F5F9",
+                          borderRadius: idx === 0 ? "10px 10px 6px 6px" : idx === funnelStages.length - 1 ? "6px 6px 10px 10px" : 6,
+                          padding: "8px 12px",
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          transition: "all 0.4s ease",
+                          minHeight: 28,
+                        }}>
+                          <span style={{ fontSize: stage.count > 0 ? 16 : 12, fontWeight: 800, color: stage.count > 0 ? "#fff" : "#CBD5E1" }}>
+                            {stage.count}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ width: 50, fontSize: 10, color: "#94A3B8", flexShrink: 0 }}>
+                        {idx > 0 && funnelStages[idx - 1].count > 0 ? `${Math.round((stage.count / funnelStages[idx - 1].count) * 100) || 0}%` : ""}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
+                Sites flow: Review Queue → Prospect → PS Submission → LOI → Under Contract → Closed
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
           const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
@@ -1981,23 +2047,31 @@ export default function App() {
                     <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700 }}>{site.name}</span>
+                        <SiteIQBadge site={site} size="small" />
                         <Badge status={site.status} />
                         {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}, {site.city}, {site.state} → {REGIONS[site.region]?.label}</div>
+                      <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
+                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
+                      {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>📍 Pin Drop</a></div>}
                       {site.status === "pending" ? (
                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                            <select value={ri.reviewer} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 120 }}>
+                            <select value={ri.routeTo || site.region || ""} onChange={(e) => setRI("routeTo", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "2px solid #F37C33", fontSize: 12, background: "#FFF8F0", cursor: "pointer", minWidth: 160, fontWeight: 700, color: "#E65100" }}>
+                              <option value="">Route to…</option>
+                              <option value="southwest">→ Daniel Wollent (DW)</option>
+                              <option value="east">→ Matthew Toussaint (MT)</option>
+                            </select>
+                            <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 100 }}>
                               <option value="">Reviewer…</option>
+                              <option>Dan R</option>
                               <option>Daniel Wollent</option>
                               <option>Matthew Toussaint</option>
-                              <option>Dan R</option>
                             </select>
-                            <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
+                            <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }}
                           </div>
                           <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => { if (!ri.reviewer) { notify("Select reviewer"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve</button>
+                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve & Route</button>
                             <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
                           </div>
                         </div>
