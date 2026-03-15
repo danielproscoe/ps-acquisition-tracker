@@ -4,7 +4,8 @@
 // Firebase Realtime Database — live shared data across all 3 users
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { db, storage } from "./firebase";
+import { db, storage, auth } from "./firebase";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import {
   ref as storageRef,
@@ -678,6 +679,52 @@ const MT_SEED = [];
 
 // ═══ MAIN APP ═══
 export default function App() {
+  // AUTH GATE (Finding 2.3)
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); });
+    return unsub;
+  }, []);
+
+  const handleLogin = async () => {
+    setLoginError("");
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail, loginPass);
+    } catch (e) {
+      setLoginError(e.code === "auth/wrong-password" || e.code === "auth/invalid-credential" ? "Invalid email or password." : e.code === "auth/user-not-found" ? "No account found." : "Login failed: " + e.message);
+    }
+  };
+
+  if (authLoading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F1F5F9", fontFamily: "\'DM Sans\'" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+        <div style={{ color: "#64748B", fontSize: 14 }}>Authenticating...</div>
+      </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if (!user) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(135deg, #0F172A, #1E293B)", fontFamily: "\'DM Sans\', sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: "40px 36px", width: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#F37C33", letterSpacing: "-0.02em" }}>PS Tracker</div>
+          <div style={{ fontSize: 13, color: "#94A3B8", marginTop: 4 }}>DJR Real Estate — Acquisition Pipeline</div>
+        </div>
+        {loginError && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#DC2626" }}>{loginError}</div>}
+        <input value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="Email" type="email" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, marginBottom: 10, boxSizing: "border-box", fontFamily: "\'DM Sans\'" }} onKeyDown={e => e.key === "Enter" && handleLogin()} />
+        <input value={loginPass} onChange={e => setLoginPass(e.target.value)} placeholder="Password" type="password" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, marginBottom: 16, boxSizing: "border-box", fontFamily: "\'DM Sans\'" }} onKeyDown={e => e.key === "Enter" && handleLogin()} />
+        <button onClick={handleLogin} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #F37C33, #E8650A)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "\'DM Sans\'" }}>Sign In</button>
+      </div>
+    </div>
+  );
+
   const [loaded, setLoaded] = useState(false);
   const [subs, setSubs] = useState([]);
   const [east, setEast] = useState([]);
@@ -1684,6 +1731,7 @@ const handleFetchDemos = async (region, site) => {
               </div>
             </div>
             <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
+            <button onClick={() => signOut(auth)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }} title={user?.email}>Sign Out</button>
           </div>
         </div>
 
