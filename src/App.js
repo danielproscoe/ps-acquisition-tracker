@@ -17,6 +17,136 @@ import "./responsive.css";
 // xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
 // import * as XLSX from "xlsx";  ← moved to dynamic import()
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SITE IQ CONFIGURATION — Single source of truth for scoring weights & display
+// Executives can adjust weights via the in-app Settings panel (writes to Firebase)
+// or by editing this default config directly. Weights auto-normalize to 1.0.
+// ═══════════════════════════════════════════════════════════════════════════════
+const SITE_IQ_DEFAULTS = {
+  dimensions: [
+    {
+      key: 'population',
+      label: 'Population',
+      shortLabel: 'Pop',
+      icon: '\u{1F465}',
+      weight: 28,
+      scoreVar: 'popScore',
+      tip: 'Census ACS 3-mile population density score. Higher population = larger customer base for storage demand.',
+      source: 'US Census Bureau ACS 5-Year (DW) / MT Spreadsheet (MT)',
+      group: 'demographics'
+    },
+    {
+      key: 'income',
+      label: 'Med. Income',
+      shortLabel: 'Inc',
+      icon: '\u{1F4B0}',
+      weight: 17,
+      scoreVar: 'incScore',
+      tip: 'Median household income within 3 miles. Higher income correlates with greater willingness to pay premium storage rates.',
+      source: 'US Census Bureau ACS 5-Year (DW) / MT Spreadsheet (MT)',
+      group: 'demographics'
+    },
+    {
+      key: 'spacing',
+      label: 'PS Spacing',
+      shortLabel: 'Spc',
+      icon: '\u{1F4E1}',
+      weight: 15,
+      scoreVar: 'spacingScore',
+      tip: 'Distance to nearest Public Storage facility. Ideal spacing avoids cannibalization while maintaining brand presence.',
+      source: 'Google Maps radius analysis / Broker intel',
+      group: 'market'
+    },
+    {
+      key: 'zoning',
+      label: 'Zoning',
+      shortLabel: 'Zon',
+      icon: '\u{2696}\u{FE0F}',
+      weight: 15,
+      scoreVar: 'zoningScore',
+      tip: 'By-right, conditional use, or prohibited zoning classification. By-right zoning dramatically reduces entitlement risk and timeline.',
+      source: 'Municipal zoning maps / Broker confirmation',
+      group: 'entitlement'
+    },
+    {
+      key: 'competition',
+      label: 'Competition',
+      shortLabel: 'Comp',
+      icon: '\u{1F3E2}',
+      weight: 10,
+      scoreVar: 'compScore',
+      tip: 'Storage competitor density within trade area. Fewer competitors = stronger pricing power and absorption rates.',
+      source: 'Radius search + broker market reports',
+      group: 'market'
+    },
+    {
+      key: 'access',
+      label: 'Site Access',
+      shortLabel: 'Acc',
+      icon: '\u{1F6E3}\u{FE0F}',
+      weight: 5,
+      scoreVar: 'accessScore',
+      tip: 'Acreage sweet-spot (2\u20135 ac ideal), road frontage quality, flood zone risk, and ingress/egress factors.',
+      source: 'Site surveys / LOIs / Flyers',
+      group: 'physical'
+    },
+    {
+      key: 'pricing',
+      label: 'Pricing',
+      shortLabel: 'Price',
+      icon: '\u{1F4B2}',
+      weight: 10,
+      scoreVar: 'tierScore',
+      tip: 'Per-acre price analysis vs market benchmarks. Includes internal price agreement bonus when applicable.',
+      source: 'Asking price / Internal underwriting',
+      group: 'financial'
+    }
+  ],
+  tiers: {
+    gold: { min: 8.0, colors: ['#FFD700', '#FFA500'], glow: '0 0 12px rgba(255,215,0,0.5)' },
+    steel: { min: 6.0, colors: ['#B0C4DE', '#708090'], glow: '0 0 8px rgba(176,196,222,0.3)' },
+    gray: { min: 0, colors: ['#9CA3AF', '#6B7280'], glow: 'none' }
+  },
+  labels: [
+    { min: 9, label: 'ELITE' },
+    { min: 8, label: 'PRIME' },
+    { min: 7, label: 'STRONG' },
+    { min: 6, label: 'VIABLE' },
+    { min: 4, label: 'MARGINAL' },
+    { min: 0, label: 'WEAK' }
+  ],
+  bonuses: {
+    phaseUC: 0.3,
+    phaseLOISigned: 0.2,
+    phaseLOISent: 0.1,
+    stalePenalty: -0.5,
+    staleDaysThreshold: 1000,
+    brokerZoning: 0.3,
+    brokerSurvey: 0.2
+  },
+  version: '2.0'
+};
+
+// Active config — starts from defaults, overridden by Firebase config/siteiq path
+let SITE_IQ_CONFIG = JSON.parse(JSON.stringify(SITE_IQ_DEFAULTS));
+
+// Normalize weights to sum to 1.0 (safety guard)
+function normalizeSiteIQWeights(config) {
+  const dims = config.dimensions;
+  const total = dims.reduce((sum, d) => sum + d.weight, 0);
+  if (total <= 0) return config;
+  dims.forEach(d => { d._normalizedWeight = d.weight / total; });
+  return config;
+}
+SITE_IQ_CONFIG = normalizeSiteIQWeights(SITE_IQ_CONFIG);
+
+// Helper: get weight by dimension key
+function getIQWeight(key) {
+  const dim = SITE_IQ_CONFIG.dimensions.find(d => d.key === key);
+  return dim ? dim._normalizedWeight : 0;
+}
+
+
 // ─── CSV Parser ───
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
@@ -641,9 +771,9 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   scores.marketTier = tierScore;
 
   // --- COMPOSITE (weighted sum, 0-10 scale) ---
-  const weightedSum =
-    (popScore * 0.25) + (incScore * 0.15) + (spacingScore * 0.20) +
-    (zoningScore * 0.15) + (scores.access * 0.10) + (compScore * 0.05) + (tierScore * 0.10);
+    const weightedSum =
+      (popScore * getIQWeight('population')) + (incScore * getIQWeight('income')) + (spacingScore * getIQWeight('spacing')) +
+      (zoningScore * getIQWeight('zoning')) + (scores.access * getIQWeight('access')) + (compScore * getIQWeight('competition')) + (tierScore * getIQWeight('pricing'));
   let adjusted = Math.round(weightedSum * 10) / 10;
 
     // --- TARGET MARKET TIER BONUS (additive) ---
@@ -744,14 +874,16 @@ function SiteIQBadge({ site, size = "normal" }) {
   const arcColor = isGold ? "#C9A84C" : isSteel ? "#4A6FA5" : "#94A3B8";
   const arcTrack = isGold ? "rgba(201,168,76,0.15)" : isSteel ? "rgba(44,62,107,0.12)" : "rgba(148,163,184,0.15)";
 
-const metrics = [
-            { key: 'zoning', label: 'Zoning', weight: 25, icon: '⚖️', score: iq._iq?.zoning ?? 0, tip: 'By-right, conditional, or prohibited zoning classification. Scores by-right highest. Source: zoning field + summary keywords.' },
-            { key: 'spacing', label: 'PS Spacing', weight: 20, icon: '📡', score: iq._iq?.spacing ?? 0, tip: 'Distance to nearest Public Storage facility. Farther = higher score. Source: summary field regex (e.g. bullseye, no nearby PS).' },
-            { key: 'demographics', label: 'Demographics', weight: 20, icon: '👥', score: iq._iq?.demographics ?? 0, tip: 'Combined 3-mi population density + median household income score. Source: Census ACS 5-Year / MT spreadsheet.' },
-            { key: 'competition', label: 'Competition', weight: 15, icon: '🏢', score: iq._iq?.competition ?? 0, tip: 'Storage competitor density within trade area. Fewer competitors = higher score. Source: summary field keywords.' },
-            { key: 'pricing', label: 'Pricing', weight: 10, icon: '💲', score: iq._iq?.pricing ?? 0, tip: 'Per-acre price analysis vs market benchmarks. Includes internal price agreement bonus. Source: askingPrice field.' },
-            { key: 'access', label: 'Site Access', weight: 10, icon: '🛣️', score: iq._iq?.access ?? 0, tip: 'Acreage sweet-spot (2–5 ac ideal) + road frontage, flood, and access factors. Source: acreage + summary fields.' },
-          ];
+    // Metrics driven by SITE_IQ_CONFIG — auto-updates when weights change
+    const demoWeight = (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0);
+    const metrics = [
+      { key: 'zoning', label: 'Zoning', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.weight || 15, icon: '\u2696\uFE0F', score: iq._iq?.zoning ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.source || '' },
+      { key: 'spacing', label: 'PS Spacing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.weight || 15, icon: '\u{1F4E1}', score: iq._iq?.spacing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.source || '' },
+      { key: 'demographics', label: 'Demographics', weight: demoWeight, icon: '\u{1F465}', score: iq._iq?.demographics ?? 0, tip: 'Combined 3-mi population (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + '%) + median income (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0) + '%). ' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.tip || ''), source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.source || '' },
+      { key: 'competition', label: 'Competition', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.weight || 10, icon: '\u{1F3E2}', score: iq._iq?.competition ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.source || '' },
+      { key: 'pricing', label: 'Pricing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.weight || 10, icon: '\u{1F4B2}', score: iq._iq?.pricing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.source || '' },
+      { key: 'access', label: 'Site Access', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.weight || 5, icon: '\u{1F6E3}\uFE0F', score: iq._iq?.access ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.source || '' },
+    ];
   return (
     <div style={{
       background: isGold ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%)" : isSteel ? "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" : "linear-gradient(135deg, #1e293b 0%, #334155 50%, #1e293b 100%)",
@@ -1004,6 +1136,29 @@ function App() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [weightEditorOpen, setWeightEditorOpen] = useState(false);
+  const [editWeights, setEditWeights] = useState(() => SITE_IQ_CONFIG.dimensions.map(d => ({ key: d.key, label: d.label, weight: d.weight })));
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  // Load SiteIQ weights from Firebase (allows exec overrides without code changes)
+  useEffect(() => {
+    const configRef = ref(db, 'config/siteiq_weights');
+    const unsub = onValue(configRef, (snap) => {
+      const saved = snap.val();
+      if (saved && saved.dimensions) {
+        // Merge saved weights into config
+        saved.dimensions.forEach(sd => {
+          const dim = SITE_IQ_CONFIG.dimensions.find(d => d.key === sd.key);
+          if (dim) dim.weight = sd.weight;
+        });
+        SITE_IQ_CONFIG = normalizeSiteIQWeights(SITE_IQ_CONFIG);
+        setEditWeights(SITE_IQ_CONFIG.dimensions.map(d => ({ key: d.key, label: d.label, weight: d.weight })));
+      }
+      setConfigLoaded(true);
+    });
+    return () => unsub();
+  }, []);
+
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); });
@@ -2219,6 +2374,7 @@ const handleFetchDemos = async (region, site) => {
                 <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 1, opacity: 0.7 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
+              <button onClick={() => setWeightEditorOpen(true)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }} title="SiteIQ Weight Configuration">\u2699\uFE0F SiteIQ Config</button>
             <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
             <button onClick={() => signOut(auth)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }} title={user?.email}>Sign Out</button>
           </div>
@@ -2669,6 +2825,75 @@ const handleFetchDemos = async (region, site) => {
                   <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
                           © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
                                 </div>
+
+      {/* ═══ SiteIQ Weight Configuration Modal ═══ */}
+      {weightEditorOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setWeightEditorOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)', borderRadius: 16, border: '1px solid rgba(99,102,241,0.3)', padding: 32, width: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 50px rgba(0,0,0,0.5), 0 0 40px rgba(99,102,241,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div>
+                <h2 style={{ margin: 0, color: '#e0e7ff', fontSize: 20, fontWeight: 700 }}>\u2699\uFE0F SiteIQ Weight Configuration</h2>
+                <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 12 }}>Adjust dimension weights. Changes apply to all site scores in real-time.</p>
+              </div>
+              <button onClick={() => setWeightEditorOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 22, cursor: 'pointer', padding: 4 }}>\u2715</button>
+            </div>
+
+            {/* Weight Total Indicator */}
+            <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 10, padding: '10px 16px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <span style={{ color: '#a5b4fc', fontSize: 13, fontWeight: 600 }}>Total Weight</span>
+              <span style={{ color: editWeights.reduce((s, w) => s + w.weight, 0) === 100 ? '#4ade80' : '#f87171', fontSize: 18, fontWeight: 700 }}>{editWeights.reduce((s, w) => s + w.weight, 0)}%</span>
+            </div>
+
+            {/* Dimension Sliders */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {editWeights.map((dim, idx) => {
+                const cfgDim = SITE_IQ_CONFIG.dimensions.find(d => d.key === dim.key);
+                const icon = cfgDim ? String.fromCodePoint(...[...cfgDim.icon].map(c => c.codePointAt(0))) : '';
+                return (
+                  <div key={dim.key} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ color: '#e0e7ff', fontSize: 14, fontWeight: 600 }}>{icon} {dim.label || dim.key}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button onClick={() => { const nw = [...editWeights]; nw[idx] = { ...nw[idx], weight: Math.max(0, nw[idx].weight - 1) }; setEditWeights(nw); }} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#a5b4fc', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+                        <input type="number" value={dim.weight} min={0} max={100} onChange={e => { const nw = [...editWeights]; nw[idx] = { ...nw[idx], weight: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) }; setEditWeights(nw); }} style={{ width: 48, textAlign: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 6, color: '#e0e7ff', fontSize: 15, fontWeight: 700, padding: '2px 4px' }} />
+                        <span style={{ color: '#64748b', fontSize: 13 }}>%</span>
+                        <button onClick={() => { const nw = [...editWeights]; nw[idx] = { ...nw[idx], weight: Math.min(100, nw[idx].weight + 1) }; setEditWeights(nw); }} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#a5b4fc', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      </div>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 3, width: dim.weight + '%', background: dim.weight > 20 ? 'linear-gradient(90deg, #6366f1, #818cf8)' : dim.weight > 10 ? 'linear-gradient(90deg, #3b82f6, #60a5fa)' : 'linear-gradient(90deg, #64748b, #94a3b8)', transition: 'width 0.3s ease' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setEditWeights(SITE_IQ_DEFAULTS.dimensions.map(d => ({ key: d.key, label: d.label, weight: d.weight }))); }} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', cursor: 'pointer', fontSize: 13 }}>Reset Defaults</button>
+              <button onClick={() => {
+                const total = editWeights.reduce((s, w) => s + w.weight, 0);
+                if (total <= 0) return;
+                // Update live config
+                editWeights.forEach(ew => {
+                  const dim = SITE_IQ_CONFIG.dimensions.find(d => d.key === ew.key);
+                  if (dim) dim.weight = ew.weight;
+                });
+                SITE_IQ_CONFIG = normalizeSiteIQWeights(SITE_IQ_CONFIG);
+                // Save to Firebase
+                set(ref(db, 'config/siteiq_weights'), {
+                  dimensions: editWeights.map(w => ({ key: w.key, weight: w.weight })),
+                  updatedAt: new Date().toISOString(),
+                  version: SITE_IQ_CONFIG.version
+                });
+                setWeightEditorOpen(false);
+              }} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: editWeights.reduce((s, w) => s + w.weight, 0) === 100 ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#991b1b', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>{editWeights.reduce((s, w) => s + w.weight, 0) === 100 ? 'Apply & Save' : 'Weights must = 100%'}</button>
+            </div>
+
+            <p style={{ margin: '16px 0 0', color: '#475569', fontSize: 11, textAlign: 'center' }}>Weights auto-normalize internally. Saved to Firebase for all users. v{SITE_IQ_CONFIG.version}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
