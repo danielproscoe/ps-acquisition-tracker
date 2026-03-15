@@ -1192,12 +1192,12 @@ const handleFetchDemos = async (region, site) => {
         if (Object.keys(updates).length > 0) {
           fbUpdate(region, site.id, updates);
           fbPush(region, site.id, "activityLog", {
-            action: "Demographics pulled \u2014 Pop " + (result.pop3mi || "N/A") + " | HHI " + (result.income3mi || "N/A") + " | Growth " + (result.popGrowth3mi !== null ? result.popGrowth3mi + "%" : "N/A") + " | Renters " + (result.renterPct3mi !== null ? result.renterPct3mi + "%" : "N/A"),
+            action: "Demographics pulled — Pop " + (result.pop3mi || "N/A") + " | HHI " + (result.income3mi || "N/A") + " | Growth " + (result.popGrowth3mi !== null ? result.popGrowth3mi + "%" : "N/A") + " | Renters " + (result.renterPct3mi !== null ? result.renterPct3mi + "%" : "N/A"),
             date: new Date().toISOString(), by: "System"
           });
         }
         setDemoReport(prev => ({ ...prev, [site.id]: result }));
-        notify(Object.keys(updates).length + " demographic fields saved \u2014 1/3/5 mile rings with growth + renter data");
+        notify(Object.keys(updates).length + " demographic fields saved — 1/3/5 mile rings with growth + renter data");
       }
     }
     } catch (err) { notify("Demographics fetch failed"); console.error(err); }
@@ -1700,11 +1700,11 @@ const handleFetchDemos = async (region, site) => {
                         const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? "#CBD5E1" : "#475569", fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
                         return (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px", borderBottom: "1px solid #F1F5F9", marginBottom: 10 }}>
-                            <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>{"\u25B2 Prev"}</button>
+                            <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>{"▲ Prev"}</button>
                             <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.02em" }}>
-                              <span style={{ fontWeight: 700, color: "#475569" }}>{curIdx + 1}</span> of {ids.length} \u00B7 <span style={{ color: "#CBD5E1" }}>\u2191\u2193 keys \u00B7 Esc close</span>
+                              <span style={{ fontWeight: 700, color: "#475569" }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: "#CBD5E1" }}>↑↓ keys · Esc close</span>
                             </div>
-                            <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>{"Next \u25BC"}</button>
+                            <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>{"Next ▼"}</button>
                           </div>
                         );
                       })()}
@@ -1788,7 +1788,7 @@ const handleFetchDemos = async (region, site) => {
                       {demoReport[site.id] && (() => {
                         const dr = demoReport[site.id];
                         const r = dr.rings || {};
-                        const fmtV = (v, prefix) => v != null ? (prefix || "") + v.toLocaleString() : "\u2014";
+                        const fmtV = (v, prefix) => v != null ? (prefix || "") + v.toLocaleString() : "—";
                         const growthColor = (s) => !s ? "#64748B" : s.includes("+") ? "#16A34A" : s.includes("-") ? "#EF4444" : "#64748B";
                         const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: "0.06em" };
                         const metricCell = { padding: "7px 12px", fontWeight: 700, color: "#E2E8F0", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
@@ -1799,13 +1799,13 @@ const handleFetchDemos = async (region, site) => {
                           <div style={{ borderRadius: 14, marginBottom: 14, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,.15)" }}>
                             <div style={{ background: "linear-gradient(135deg,#0F172A 0%,#1E3A5F 50%,#1565C0 100%)", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 16 }}>\ud83d\udcca</span>
+                                <span style={{ fontSize: 16 }}>📊</span>
                                 <div>
                                   <div style={{ color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>DEMOGRAPHIC INTELLIGENCE <span style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)", color: "#0F172A", fontSize: 11, fontWeight: 900, padding: "2px 8px", borderRadius: 5, letterSpacing: "0.06em" }}>2025</span></div>
-                                  <div style={{ color: "#94A3B8", fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", marginTop: 2 }}>ESRI ArcGIS GeoEnrichment \u2014 <span style={{ color: "#22D3EE" }}>Live Geocoded</span> \u2014 Current Year + 2030 Projections</div>
+                                  <div style={{ color: "#94A3B8", fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", marginTop: 2 }}>ESRI ArcGIS GeoEnrichment — <span style={{ color: "#22D3EE" }}>Live Geocoded</span> — Current Year + 2030 Projections</div>
                                 </div>
                               </div>
-                              <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.05)", color: "#94A3B8", fontSize: 11, cursor: "pointer", transition: "all .2s" }}>\u2715</button>
+                              <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.05)", color: "#94A3B8", fontSize: 11, cursor: "pointer", transition: "all .2s" }}>✕</button>
                             </div>
                             {/* Ring Radius Table */}
                             <div style={{ background: "linear-gradient(180deg,#1E293B,#0F172A)", padding: "2px 16px 10px" }}>
@@ -1845,15 +1845,15 @@ const handleFetchDemos = async (region, site) => {
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Renter %</td>
-                                    <td style={whiteVal}>{r[1]?.renterPct || "\u2014"}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{r[3]?.renterPct || "\u2014"}</td>
-                                    <td style={whiteVal}>{r[5]?.renterPct || "\u2014"}</td>
+                                    <td style={whiteVal}>{r[1]?.renterPct || "—"}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{r[3]?.renterPct || "—"}</td>
+                                    <td style={whiteVal}>{r[5]?.renterPct || "—"}</td>
                                   </tr>
                                   <tr>
                                     <td style={{ ...metricCell, borderBottom: "none" }}>Pop Growth (CAGR)</td>
-                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[1]?.popGrowth) }}>{r[1]?.popGrowth || "\u2014"}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{r[3]?.popGrowth || "\u2014"}</td>
-                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[5]?.popGrowth) }}>{r[5]?.popGrowth || "\u2014"}</td>
+                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[1]?.popGrowth) }}>{r[1]?.popGrowth || "—"}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{r[3]?.popGrowth || "—"}</td>
+                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[5]?.popGrowth) }}>{r[5]?.popGrowth || "—"}</td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -1872,10 +1872,10 @@ const handleFetchDemos = async (region, site) => {
                                     <div key={idx} style={{ background: "rgba(255,255,255,.04)", borderRadius: 8, padding: "6px 8px", textAlign: "center", border: "1px solid rgba(255,255,255,.06)" }}>
                                       <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{item.label}</div>
                                       {item.isOutlook ? (
-                                        <div style={{ fontSize: 11, fontWeight: 800, color: item.val?.includes("High") || item.val?.includes("Growing") ? "#22C55E" : item.val?.includes("Declining") ? "#EF4444" : "#FBBF24" }}>{item.val || "\u2014"}</div>
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: item.val?.includes("High") || item.val?.includes("Growing") ? "#22C55E" : item.val?.includes("Declining") ? "#EF4444" : "#FBBF24" }}>{item.val || "—"}</div>
                                       ) : (
                                         <>
-                                          <div style={{ fontSize: 12, fontWeight: 700, color: "#F1F5F9", fontFamily: "'DM Sans', monospace" }}>{item.val || "\u2014"}</div>
+                                          <div style={{ fontSize: 12, fontWeight: 700, color: "#F1F5F9", fontFamily: "'DM Sans', monospace" }}>{item.val || "—"}</div>
                                           {item.growth && <div style={{ fontSize: 9, fontWeight: 700, color: growthColor(item.growth), marginTop: 1 }}>{item.growth} /yr</div>}
                                         </>
                                       )}
