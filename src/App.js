@@ -1328,7 +1328,7 @@ function App() {
   const updateSiteField = (region, id, field, value) => {
     fbUpdate(`${region}/${id}`, { [field]: value });
     if (field === "phase") {
-      const site = [...sw, ...east, ...submissions].find(s => s.id === id);
+      const site = [...sw, ...east, ...subs].find(s => s.id === id);
       const oldPhase = site?.phase || "Unknown";
       if (oldPhase !== value) {
         fbPush(`${region}/${id}/phaseHistory`, { from: oldPhase, to: value, changedAt: new Date().toISOString(), by: "User" });
