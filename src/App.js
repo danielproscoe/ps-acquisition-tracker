@@ -823,7 +823,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   else { classification = "RED"; classColor = "#DC2626"; }
 
   return {
-    _iq: { zoning: zoningScore, spacing: spacingScore, demographics: (popScore + incScore) / 2, competition: compScore, pricing: accessScore * 0.5, access: accessScore },
+    _iq: { zoning: zoningScore, spacing: spacingScore, demographics: (popScore + incScore) / 2, competition: compScore, pricing: tierScore, access: accessScore },
       marketBonus: (() => { if (!targetMarkets || !targetMarkets.length) return null; const sm = (site.market || "").toLowerCase(); const sc = (site.city || "").toLowerCase(); const ss = (site.state || "").toUpperCase(); for (const tm of targetMarkets) { if (!tm.active) continue; const tn = (tm.name || "").toLowerCase(); const ts = (tm.states || "").toUpperCase().split(",").map(s=>s.trim()); if ((tn && (sm.includes(tn) || tn.includes(sm) || sc.includes(tn) || tn.includes(sc))) || (ts.length && ts.includes(ss))) return { name: tm.name, tier: tm.tier, bonus: tm.tier===1?1.0:tm.tier===2?0.6:tm.tier===3?0.3:0.1 }; } return null; })(),
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor,
     tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
@@ -881,7 +881,7 @@ function SiteIQBadge({ site, size = "normal" }) {
   const demoWeight = (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0);
   const metrics = [
     { key: 'zoning', label: 'Zoning', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.weight || 15, icon: '⚖️', score: iq._iq?.zoning ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.source || '' },
-    { key: 'demographics', label: 'Demographics', weight: demoWeight, icon: '👥', score: Math.round(((iq._iq?.population ?? 0) * (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 28) + (iq._iq?.income ?? 0) * (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 17)) / Math.max(demoWeight, 1)), tip: 'Combined population density + median household income within 3-mile radius', source: 'Census ACS / ESRI' },
+    { key: 'demographics', label: 'Demographics', weight: demoWeight, icon: '👥', score: iq._iq?.demographics ?? 0, tip: 'Combined population density + median household income within 3-mile radius', source: 'Census ACS / ESRI' },
     { key: 'spacing', label: 'PS Spacing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.weight || 15, icon: '📡', score: iq._iq?.spacing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.source || '' },
     { key: 'competition', label: 'Competition', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.weight || 10, icon: '🏢', score: iq._iq?.competition ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.source || '' },
     { key: 'access', label: 'Site Access', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.weight || 5, icon: '🛣️', score: iq._iq?.access ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.source || '' },
