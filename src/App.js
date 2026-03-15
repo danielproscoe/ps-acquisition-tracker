@@ -847,133 +847,116 @@ function SiteIQBadge({ site, size = "normal" }) {
   };
   const tc = tierColors[iq.tier];
 
-  if (isSmall) {
+  // Small badge style variables
     const smallColor = isGold ? "#C9A84C" : isSteel ? "#2C3E6B" : "#64748B";
     const smallBg = isGold ? "linear-gradient(135deg, #1a1a2e, #16213e)" : isSteel ? "linear-gradient(135deg, #0f172a, #1e293b)" : tc.labelBg;
     const smallTextColor = isGold ? "#C9A84C" : isSteel ? "#8BACD4" : "#64748B";
+  // Small inline badge (collapsed card header)
+  if (isSmall) {
     return (
       <span style={{
         display: "inline-flex", alignItems: "center", gap: 3,
-        padding: "3px 8px 3px 6px", borderRadius: 8,
-        background: smallBg, border: `1px solid ${smallColor}33`,
-        fontSize: 11, fontWeight: 800, color: smallTextColor,
+        padding: "2px 8px 2px 6px", borderRadius: 6,
+        background: tierColors[iq.tier]?.bg || tierColors.gray.bg,
+        border: "1px solid " + (tierColors[iq.tier]?.border || tierColors.gray.border),
+        fontSize: 12, fontWeight: 700, color: tierColors[iq.tier]?.text || tierColors.gray.text,
         fontFamily: "'Space Mono', monospace",
-        boxShadow: isGold ? "0 1px 6px rgba(201,168,76,0.2)" : "none",
+        boxShadow: isGold ? "0 0 8px rgba(201,168,76,0.3)" : "none"
       }}>
-        <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", opacity: 0.5, textTransform: "uppercase" }}>IQ</span>
+        <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 0.5, opacity: 0.7 }}>IQ</span>
         {s.toFixed(1)}
       </span>
     );
   }
 
-  // SVG arc for score ring
-  const radius = 38;
-  const stroke = 5;
-  const circumference = 2 * Math.PI * radius;
-  const progress = (s / 10) * circumference;
-  const arcColor = isGold ? "#C9A84C" : isSteel ? "#4A6FA5" : "#94A3B8";
-  const arcTrack = isGold ? "rgba(201,168,76,0.15)" : isSteel ? "rgba(44,62,107,0.12)" : "rgba(148,163,184,0.15)";
+  // Full-width executive badge (expanded property view)
+  const radius = 52;
+  const stroke = 6;
+  const circ = 2 * Math.PI * radius;
+  const pctFill = Math.min(s / 10, 1);
+  const ringColor = isGold ? '#c9a84c' : isSteel ? '#7b9bb5' : '#6b7280';
+  const glowColor = isGold ? 'rgba(201,168,76,0.4)' : isSteel ? 'rgba(123,155,181,0.3)' : 'none';
 
-    // Metrics driven by SITE_IQ_CONFIG — auto-updates when weights change
-    const demoWeight = (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0);
-    const metrics = [
-      { key: 'zoning', label: 'Zoning', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.weight || 15, icon: '⚖️', score: iq._iq?.zoning ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.source || '' },
-      { key: 'spacing', label: 'PS Spacing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.weight || 15, icon: '📡', score: iq._iq?.spacing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.source || '' },
-      { key: 'demographics', label: 'Demographics', weight: demoWeight, icon: '👥', score: iq._iq?.demographics ?? 0, tip: 'Combined 3-mi population (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + '%) + median income (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0) + '%). ' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.tip || ''), source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.source || '' },
-      { key: 'competition', label: 'Competition', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.weight || 10, icon: '🏢', score: iq._iq?.competition ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.source || '' },
-      { key: 'pricing', label: 'Pricing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.weight || 10, icon: '💲', score: iq._iq?.pricing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.source || '' },
-      { key: 'access', label: 'Site Access', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.weight || 5, icon: '🛣️', score: iq._iq?.access ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.source || '' },
-    ];
   return (
-    <div style={{
-      background: isGold ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%)" : isSteel ? "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" : "linear-gradient(135deg, #1e293b 0%, #334155 50%, #1e293b 100%)",
-      borderRadius: 16, padding: "20px 24px",
-      border: isGold ? "1px solid rgba(201,168,76,0.3)" : isSteel ? "1px solid rgba(74,111,165,0.25)" : "1px solid rgba(148,163,184,0.15)",
-      boxShadow: isGold ? "0 4px 24px rgba(201,168,76,0.15), inset 0 1px 0 rgba(201,168,76,0.1)" : "0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.03)",
-      position: "relative", overflow: "hidden",
-    }}>
-      {/* Subtle background shimmer for gold */}
-      {isGold && <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "linear-gradient(110deg, transparent 30%, rgba(201,168,76,0.03) 50%, transparent 70%)", backgroundSize: "200% 100%", animation: "shimmer 4s ease-in-out infinite", pointerEvents: "none" }} />}
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", position: "relative", zIndex: 1 }}>
+    <div style={{ width: '100%' }}>
+      {/* Top row: Score ring + tier label + data source */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20 }}>
         {/* Score Ring */}
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <svg width={radius * 2 + stroke * 2} height={radius * 2 + stroke * 2} style={{ transform: "rotate(-90deg)", filter: isGold ? "drop-shadow(0 0 12px rgba(201,168,76,0.4))" : "none" }}>
-            <circle cx={radius + stroke} cy={radius + stroke} r={radius} fill="none" stroke={arcTrack} strokeWidth={stroke} />
-            <circle cx={radius + stroke} cy={radius + stroke} r={radius} fill="none" stroke={arcColor} strokeWidth={stroke} strokeDasharray={circumference} strokeDashoffset={circumference - progress} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease-out" }} />
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <svg width={radius * 2 + stroke * 2} height={radius * 2 + stroke * 2} style={{ filter: glowColor !== 'none' ? 'drop-shadow(0 0 6px ' + glowColor + ')' : 'none' }}>
+            <circle cx={radius + stroke} cy={radius + stroke} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+            <circle cx={radius + stroke} cy={radius + stroke} r={radius} fill="none" stroke={ringColor} strokeWidth={stroke}
+              strokeDasharray={circ} strokeDashoffset={circ * (1 - pctFill)} strokeLinecap="round"
+              style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 0.8s ease' }} />
           </svg>
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontSize: 28, fontWeight: 900, color: isGold ? "#C9A84C" : isSteel ? "#8BACD4" : "#CBD5E1", fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1 }}>
-              {Math.floor(s)}
-              <span style={{ fontSize: 14, opacity: 0.6 }}>.{((s % 1) * 10).toFixed(0)}</span>
-            </div>
-            <div style={{ fontSize: 7, fontWeight: 700, color: isGold ? "#C9A84C" : isSteel ? "#6B8DBF" : "#94A3B8", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 2 }}>SITE IQ</div>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 32, fontWeight: 800, color: '#e0e7ff', lineHeight: 1 }}>{Math.floor(s)}<span style={{ fontSize: 18, fontWeight: 600 }}>.{((s % 1) * 10).toFixed(0)}</span></span>
+            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.5, color: '#64748b', marginTop: 2 }}>SITE IQ</span>
           </div>
         </div>
-        {/* Right side — tier + metrics */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Tier badge */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span style={{
-              fontSize: 12, fontWeight: 900, letterSpacing: "0.14em",
-              color: isGold ? "#C9A84C" : isSteel ? "#8BACD4" : "#94A3B8",
-              textTransform: "uppercase",
-            }}>{iq.label}</span>
-            <span style={{
-              fontSize: 8, fontWeight: 600, color: isGold ? "#C9A84C" : isSteel ? "#6B8DBF" : "#64748B",
-              letterSpacing: "0.1em", opacity: 0.6,
-              padding: "2px 6px", borderRadius: 4,
-              border: `1px solid ${isGold ? "rgba(201,168,76,0.2)" : isSteel ? "rgba(74,111,165,0.2)" : "rgba(148,163,184,0.15)"}`,
-            }}>SiteIQ™</span>
-            {iq.hasDemoData && <span style={{ fontSize: 7, color: "#64748B", letterSpacing: "0.06em" }}>Census + field data</span>}
+
+        {/* Tier + Label */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 2, color: isGold ? '#c9a84c' : isSteel ? '#7b9bb5' : '#9ca3af', fontStyle: 'italic' }}>{iq.label}</span>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', letterSpacing: 0.5 }}>SiteIQ™</span>
           </div>
-          {/* Metric bars */}
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 7, position: 'relative' }}>
-            {metrics.map((m, i) => {
-              const pct = Math.min(Math.max((m.score / 10) * 100, 0), 100);
-              const isHigh = m.score >= 7;
-              const isMed = m.score >= 4 && m.score < 7;
-              const barGrad = isHigh
-                ? 'linear-gradient(90deg, #10B981 0%, #34D399 40%, #6EE7B7 100%)'
-                : isMed
-                  ? 'linear-gradient(90deg, #F59E0B 0%, #FBBF24 60%, #FDE68A 100%)'
-                  : 'linear-gradient(90deg, #EF4444 0%, #F87171 60%, #FCA5A5 100%)';
-              const glowColor = isHigh ? 'rgba(16,185,129,0.45)' : isMed ? 'rgba(245,158,11,0.35)' : 'rgba(239,68,68,0.35)';
-              return (
-                <div key={m.key} style={{ position: 'relative' }}
-                  onMouseEnter={() => setHoveredMetric(m.key)}
-                  onMouseLeave={() => setHoveredMetric(null)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <span style={{ fontSize: 13, minWidth: 18, textAlign: 'center' }}>{m.icon}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#CBD5E1', flex: 1, letterSpacing: '0.02em', textTransform: 'uppercase' }}>{m.label}</span>
-                    <span style={{ fontSize: 10, color: '#64748B', fontWeight: 500 }}>{m.weight}%</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: isHigh ? '#34D399' : isMed ? '#FBBF24' : '#F87171', minWidth: 28, textAlign: 'right' }}>{m.score.toFixed(1)}</span>
-                  </div>
-                  <div style={{ height: 10, borderRadius: 5, background: 'rgba(30,41,59,0.8)', overflow: 'hidden', border: '1px solid rgba(71,85,105,0.3)' }}>
-                    <div style={{
-                      height: '100%', borderRadius: 5, width: pct + '%',
-                      background: barGrad,
-                      boxShadow: isHigh ? '0 0 8px ' + glowColor + ', inset 0 1px 0 rgba(255,255,255,0.2)' : 'inset 0 1px 0 rgba(255,255,255,0.15)',
-                      transition: 'width 0.6s cubic-bezier(0.22,1,0.36,1)'
-                    }} />
-                  </div>
-                  {hoveredMetric === m.key && (
-                    <div style={{
-                      position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6,
-                      background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(12px)',
-                      border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8,
-                      padding: '8px 12px', maxWidth: 260, minWidth: 180,
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.4), 0 0 15px rgba(99,102,241,0.15)',
-                      zIndex: 50, pointerEvents: 'none'
-                    }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#E2E8F0', marginBottom: 3, letterSpacing: '0.03em' }}>{m.icon} {m.label} — {m.weight}% weight</div>
-                      <div style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1.45 }}>{m.tip}</div>
-                      <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 8, height: 8, background: 'rgba(15,23,42,0.95)', borderRight: '1px solid rgba(99,102,241,0.3)', borderBottom: '1px solid rgba(99,102,241,0.3)' }} />
-                    </div>
-                  )}
+          <span style={{ fontSize: 11, color: '#64748b' }}>Census + field data</span>
+        </div>
+      </div>
+
+      {/* Full-width metric bars */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {metrics.map((m, i) => {
+          const pct = Math.min(Math.max(m.score / 10, 0), 1);
+          const isHigh = m.score >= 7;
+          const isMed = m.score >= 4 && m.score < 7;
+          const barGrad = isHigh ? 'linear-gradient(90deg, #059669, #34d399)' : isMed ? 'linear-gradient(90deg, #d97706, #fbbf24)' : 'linear-gradient(90deg, #dc2626, #f87171)';
+          const scoreColor = isHigh ? '#34d399' : isMed ? '#fbbf24' : '#f87171';
+
+          return (
+            <div key={m.key}
+              onMouseEnter={() => setHoveredMetric(m.key)}
+              onMouseLeave={() => setHoveredMetric(null)}
+              style={{ position: 'relative', cursor: 'pointer' }}>
+              {/* Label row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14 }}>{m.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: '#cbd5e1', textTransform: 'uppercase' }}>{m.label}</span>
+                  <span style={{ fontSize: 10, color: '#475569', fontWeight: 500 }}>{m.weight}%</span>
                 </div>
-              );
-            })}          </div>
-        </div>
+                <span style={{ fontSize: 16, fontWeight: 800, color: scoreColor, fontFamily: "'Space Mono', monospace" }}>{m.score.toFixed(1)}</span>
+              </div>
+              {/* Bar track — FULL WIDTH */}
+              <div style={{ height: 10, borderRadius: 5, background: 'rgba(255,255,255,0.04)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 5,
+                  width: (pct * 100) + '%',
+                  background: barGrad,
+                  boxShadow: isHigh ? '0 0 8px rgba(52,211,153,0.3)' : 'none',
+                  transition: 'width 0.6s ease'
+                }} />
+              </div>
+
+              {/* Hover tooltip */}
+              {hoveredMetric === m.key && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                  marginTop: 8, padding: '10px 14px', borderRadius: 10, zIndex: 50,
+                  background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(99,102,241,0.3)',
+                  backdropFilter: 'blur(12px)', maxWidth: 320, minWidth: 200,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)'
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#e0e7ff', marginBottom: 4 }}>{m.icon} {m.label} ({m.weight}%)</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>{m.tip}</div>
+                  {m.source && <div style={{ fontSize: 10, color: '#475569', marginTop: 6, fontStyle: 'italic' }}>Source: {m.source}</div>}
+                  <div style={{ position: 'absolute', top: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 10, height: 10, background: 'rgba(15,23,42,0.95)', borderTop: '1px solid rgba(99,102,241,0.3)', borderLeft: '1px solid rgba(99,102,241,0.3)' }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1182,6 +1165,7 @@ function App() {
   const [tab, setTab] = useState("dashboard");
   const [toast, setToast] = useState(null);
   const [expandedSite, setExpandedSite] = useState(null);
+  const [detailTab, setDetailTab] = useState('overview');
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
