@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { db, storage, auth } from "./firebase";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
-import {
+import {h
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
@@ -395,7 +395,7 @@ const generateVettingReport = (site, nearestPSDistance) => {
   lines.push(`   Contact:        ${site.sellerBroker || "Not listed"}`);
   lines.push(`   Date on Market: ${site.dateOnMarket || "Unknown"}`);
   lines.push(`   Phase:          ${site.phase || "Prospect"}`);
-  lines.push(`   Priority:       ${site.priority || "None"}`);
+  lines.push(`   Priority:       ${(site.priority || "None").replace(/^[^\w]*/, "").trim()}`);
   lines.push("");
   lines.push("7. RED FLAGS / NOTES");
   lines.push("─────────────────────");
@@ -1455,7 +1455,7 @@ const handleFetchDemos = async (region, site) => {
     try {
       let text = "";
       if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-        // Load pdf.js from CDN
+        // Load pdf.js from CDNh
         if (!window.pdfjsLib) {
           await new Promise((resolve, reject) => {
             const s = document.createElement("script");
