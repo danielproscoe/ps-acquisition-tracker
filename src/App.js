@@ -2218,6 +2218,11 @@ const handleFetchDemos = async (region, site) => {
         </div>
       </div>
 
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
+
+        {/* ═══ DASHBOARD ═══ */}
+        {tab === "dashboard" && (
+          <div style={{ animation: "fadeIn 0.3s ease-out" }}>
 {/* Target Markets — Collapsible Strip */}
       <div style={{ maxWidth: 1100, margin: "0 auto 12px", background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)", borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.15)" }}>
         <div onClick={() => setMarketsOpen(!marketsOpen)} style={{ display: "flex", alignItems: "center", padding: "10px 18px", cursor: "pointer", userSelect: "none" }}>
