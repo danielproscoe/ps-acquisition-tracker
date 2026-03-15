@@ -28,7 +28,7 @@ const SITE_IQ_DEFAULTS = {
       key: 'population',
       label: 'Population',
       shortLabel: 'Pop',
-      icon: '\u{1F465}',
+      icon: '👥',
       weight: 28,
       scoreVar: 'popScore',
       tip: 'Census ACS 3-mile population density score. Higher population = larger customer base for storage demand.',
@@ -39,7 +39,7 @@ const SITE_IQ_DEFAULTS = {
       key: 'income',
       label: 'Med. Income',
       shortLabel: 'Inc',
-      icon: '\u{1F4B0}',
+      icon: '💰',
       weight: 17,
       scoreVar: 'incScore',
       tip: 'Median household income within 3 miles. Higher income correlates with greater willingness to pay premium storage rates.',
@@ -50,7 +50,7 @@ const SITE_IQ_DEFAULTS = {
       key: 'spacing',
       label: 'PS Spacing',
       shortLabel: 'Spc',
-      icon: '\u{1F4E1}',
+      icon: '📡',
       weight: 15,
       scoreVar: 'spacingScore',
       tip: 'Distance to nearest Public Storage facility. Ideal spacing avoids cannibalization while maintaining brand presence.',
@@ -72,7 +72,7 @@ const SITE_IQ_DEFAULTS = {
       key: 'competition',
       label: 'Competition',
       shortLabel: 'Comp',
-      icon: '\u{1F3E2}',
+      icon: '🏢',
       weight: 10,
       scoreVar: 'compScore',
       tip: 'Storage competitor density within trade area. Fewer competitors = stronger pricing power and absorption rates.',
@@ -83,10 +83,10 @@ const SITE_IQ_DEFAULTS = {
       key: 'access',
       label: 'Site Access',
       shortLabel: 'Acc',
-      icon: '\u{1F6E3}\u{FE0F}',
+      icon: '🛣\u{FE0F}',
       weight: 5,
       scoreVar: 'accessScore',
-      tip: 'Acreage sweet-spot (2\u20135 ac ideal), road frontage quality, flood zone risk, and ingress/egress factors.',
+      tip: 'Acreage sweet-spot (2–5 ac ideal), road frontage quality, flood zone risk, and ingress/egress factors.',
       source: 'Site surveys / LOIs / Flyers',
       group: 'physical'
     },
@@ -94,7 +94,7 @@ const SITE_IQ_DEFAULTS = {
       key: 'pricing',
       label: 'Pricing',
       shortLabel: 'Price',
-      icon: '\u{1F4B2}',
+      icon: '💲',
       weight: 10,
       scoreVar: 'tierScore',
       tip: 'Per-acre price analysis vs market benchmarks. Includes internal price agreement bonus when applicable.',
@@ -877,12 +877,12 @@ function SiteIQBadge({ site, size = "normal" }) {
     // Metrics driven by SITE_IQ_CONFIG — auto-updates when weights change
     const demoWeight = (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0);
     const metrics = [
-      { key: 'zoning', label: 'Zoning', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.weight || 15, icon: '\u2696\uFE0F', score: iq._iq?.zoning ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.source || '' },
-      { key: 'spacing', label: 'PS Spacing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.weight || 15, icon: '\u{1F4E1}', score: iq._iq?.spacing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.source || '' },
-      { key: 'demographics', label: 'Demographics', weight: demoWeight, icon: '\u{1F465}', score: iq._iq?.demographics ?? 0, tip: 'Combined 3-mi population (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + '%) + median income (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0) + '%). ' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.tip || ''), source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.source || '' },
-      { key: 'competition', label: 'Competition', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.weight || 10, icon: '\u{1F3E2}', score: iq._iq?.competition ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.source || '' },
-      { key: 'pricing', label: 'Pricing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.weight || 10, icon: '\u{1F4B2}', score: iq._iq?.pricing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.source || '' },
-      { key: 'access', label: 'Site Access', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.weight || 5, icon: '\u{1F6E3}\uFE0F', score: iq._iq?.access ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.source || '' },
+      { key: 'zoning', label: 'Zoning', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.weight || 15, icon: '⚖️', score: iq._iq?.zoning ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.source || '' },
+      { key: 'spacing', label: 'PS Spacing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.weight || 15, icon: '📡', score: iq._iq?.spacing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.source || '' },
+      { key: 'demographics', label: 'Demographics', weight: demoWeight, icon: '👥', score: iq._iq?.demographics ?? 0, tip: 'Combined 3-mi population (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + '%) + median income (' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0) + '%). ' + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.tip || ''), source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.source || '' },
+      { key: 'competition', label: 'Competition', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.weight || 10, icon: '🏢', score: iq._iq?.competition ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.source || '' },
+      { key: 'pricing', label: 'Pricing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.weight || 10, icon: '💲', score: iq._iq?.pricing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.source || '' },
+      { key: 'access', label: 'Site Access', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.weight || 5, icon: '🛣️', score: iq._iq?.access ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.source || '' },
     ];
   return (
     <div style={{
@@ -2374,7 +2374,7 @@ const handleFetchDemos = async (region, site) => {
                 <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 1, opacity: 0.7 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
-              <button onClick={() => setWeightEditorOpen(true)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }} title="SiteIQ Weight Configuration">\u2699\uFE0F SiteIQ Config</button>
+              <button onClick={() => setWeightEditorOpen(true)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }} title="SiteIQ Weight Configuration">⚙️ SiteIQ Config</button>
             <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
             <button onClick={() => signOut(auth)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }} title={user?.email}>Sign Out</button>
           </div>
@@ -2832,10 +2832,10 @@ const handleFetchDemos = async (region, site) => {
           <div onClick={e => e.stopPropagation()} style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)', borderRadius: 16, border: '1px solid rgba(99,102,241,0.3)', padding: 32, width: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 50px rgba(0,0,0,0.5), 0 0 40px rgba(99,102,241,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div>
-                <h2 style={{ margin: 0, color: '#e0e7ff', fontSize: 20, fontWeight: 700 }}>\u2699\uFE0F SiteIQ Weight Configuration</h2>
+                <h2 style={{ margin: 0, color: '#e0e7ff', fontSize: 20, fontWeight: 700 }}>⚙️ SiteIQ Weight Configuration</h2>
                 <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 12 }}>Adjust dimension weights. Changes apply to all site scores in real-time.</p>
               </div>
-              <button onClick={() => setWeightEditorOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 22, cursor: 'pointer', padding: 4 }}>\u2715</button>
+              <button onClick={() => setWeightEditorOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
             </div>
 
             {/* Weight Total Indicator */}
