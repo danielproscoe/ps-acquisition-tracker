@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { db, storage, auth } from "./firebase";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
-import {h
+import {
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
@@ -1455,13 +1455,13 @@ const handleFetchDemos = async (region, site) => {
     try {
       let text = "";
       if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-        // Load pdf.js from CDNh
+        // Load pdf.js from CDN
         if (!window.pdfjsLib) {
           await new Promise((resolve, reject) => {
             const s = document.createElement("script");
             s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
             s.onload = resolve;
-            s.onerror = reject;
+            s.onerror = reject;h
             document.head.appendChild(s);
           });
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
