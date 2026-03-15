@@ -677,6 +677,8 @@ export default function App() {
   const [reviewInputs, setReviewInputs] = useState({});
   const [msgInputs, setMsgInputs] = useState({});
   const [sortBy, setSortBy] = useState("city");
+  const [filterState, setFilterState] = useState("all");
+  const [filterPhase, setFilterPhase] = useState("all");
   const [highlightedSite, setHighlightedSite] = useState(null);
   const [shareLink, setShareLink] = useState(null);
   const [seeded, setSeeded] = useState(false);
@@ -1696,6 +1698,38 @@ export default function App() {
               ))}
             </div>
 
+            {/* Velocity Stats + Last Updated */}
+            {(() => {
+              const all = [...sw, ...east];
+              const now = Date.now();
+              const week = 7 * 86400000;
+              const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < week).length;
+              const ucCount = all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length;
+              const loiCount = all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length;
+              const greenCount = all.filter(s => getSiteIQ(s).score >= 7.5).length;
+              return (
+                <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 10, flex: 1, flexWrap: "wrap" }}>
+                    {[
+                      { label: "Added this week", value: addedThisWeek, color: "#3B82F6" },
+                      { label: "Under Contract", value: ucCount, color: "#16A34A" },
+                      { label: "LOI Active", value: loiCount, color: "#F59E0B" },
+                      { label: "GREEN Sites", value: greenCount, color: "#22C55E" },
+                    ].map(v => (
+                      <div key={v.label} style={{ flex: "1 1 100px", background: "#fff", borderRadius: 10, padding: "8px 12px", border: `1px solid ${v.color}22`, textAlign: "center" }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: v.color, fontFamily: "'Space Mono', monospace" }}>{v.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{v.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#94A3B8", textAlign: "right", whiteSpace: "nowrap" }}>
+                    Data as of {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}<br />
+                    <span style={{ fontWeight: 600 }}>{all.length} active sites</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, accent: REGIONS.southwest.accent, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, accent: REGIONS.east.accent, tabKey: "east" }].map((r) => {
               const total = r.data.length || 1;
               const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
@@ -1731,21 +1765,23 @@ export default function App() {
           const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
           const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
           const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
+          const allStates = [...new Set([...sw, ...east].map(s => s.state).filter(Boolean))].sort();
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
-            const d = sortData(rk === "east" ? east : sw);
+            const raw = sortData(rk === "east" ? east : sw);
+            const d = raw.filter(s => (filterState === "all" || s.state === filterState) && (filterPhase === "all" || s.phase === filterPhase));
             return (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: r.accent }} />
                   <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: r.color }}>{r.label}</h3>
-                  <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length})</span>
+                  <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length}{d.length !== raw.length ? ` of ${raw.length}` : ""})</span>
                 </div>
                 {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
                   <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 420 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
                       <thead>
-                        <tr>{["SiteIQ", "Name", "Address", "City", "ST", "Priority", "Ask", "PS Price", "3mi Inc", "3mi Pop", "Broker", "DOM", "Summary", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                        <tr>{["SiteIQ", "Name", "City", "ST", "Phase", "Ask", "Acres", "3mi Pop", "Broker", "DOM", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
@@ -1755,17 +1791,14 @@ export default function App() {
                           >
                             <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
-                            <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={td}><PriorityBadge priority={s.priority} /></td>
+                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "#F1F5F9", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.askingPrice || "—"}</td>
-                            <td style={{ ...td, color: "#F37C33", fontWeight: 600 }}>{s.internalPrice || "—"}</td>
-                            <td style={td}>{s.income3mi || "—"}</td>
+                            <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
                             <td style={td}>{s.sellerBroker || "—"}</td>
                             <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
-                            <td style={tdW}>{s.summary ? (s.summary.length > 70 ? s.summary.slice(0, 70) + "…" : s.summary) : "—"}</td>
                             <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "—"}</td>
                           </tr>
                         ))}
@@ -1781,6 +1814,18 @@ export default function App() {
               <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>📊 Summary</h2>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
               <SortBar />
+              <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Filter:</span>
+                  <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: "#475569", background: filterState !== "all" ? "#FFF7ED" : "#fff" }}>
+                    <option value="all">All States</option>
+                    {allStates.map(st => <option key={st} value={st}>{st}</option>)}
+                  </select>
+                  <select value={filterPhase} onChange={(e) => setFilterPhase(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: "#475569", background: filterPhase !== "all" ? "#FFF7ED" : "#fff" }}>
+                    <option value="all">All Phases</option>
+                    {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  {(filterState !== "all" || filterPhase !== "all") && <button onClick={() => { setFilterState("all"); setFilterPhase("all"); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", cursor: "pointer" }}>✕ Clear</button>}
+              </div>
               <SumTable rk="southwest" />
               <SumTable rk="east" />
             </div>
