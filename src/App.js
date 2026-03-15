@@ -1,4 +1,293 @@
-|0, totalTenure: parseInt(row[5])||0 };
+// src/App.js — Public Storage Acquisition Tracker
+// © 2026 DJR Real Estate LLC. All rights reserved.
+// Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
+// Firebase Realtime Database — live shared data across all 3 users
+
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { db, storage, auth } from "./firebase";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { ref, onValue, set, push, remove, update } from "firebase/database";
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
+import "./responsive.css";
+// xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
+// import * as XLSX from "xlsx";  ← moved to dynamic import()
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SITE IQ CONFIGURATION — Single source of truth for scoring weights & display
+// Executives can adjust weights via the in-app Settings panel (writes to Firebase)
+// or by editing this default config directly. Weights auto-normalize to 1.0.
+// ═══════════════════════════════════════════════════════════════════════════════
+const SITE_IQ_DEFAULTS = {
+  dimensions: [
+    { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+    { key: "growth", label: "Growth", icon: "📈", weight: 0.15, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+    { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+    { key: "spacing", label: "PS Spacing", icon: "📏", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
+    { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+    { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
+    { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+    { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
+  ],
+  tiers: {
+    gold: { min: 8.0, colors: ['#FFD700', '#FFA500'], glow: '0 0 12px rgba(255,215,0,0.5)' },
+    steel: { min: 6.0, colors: ['#B0C4DE', '#708090'], glow: '0 0 8px rgba(176,196,222,0.3)' },
+    gray: { min: 0, colors: ['#9CA3AF', '#6B7280'], glow: 'none' }
+  },
+  labels: [
+    { min: 9, label: 'ELITE' },
+    { min: 8, label: 'PRIME' },
+    { min: 7, label: 'STRONG' },
+    { min: 6, label: 'VIABLE' },
+    { min: 4, label: 'MARGINAL' },
+    { min: 0, label: 'WEAK' }
+  ],
+  bonuses: {
+    phaseUC: 0.3,
+    phaseLOISigned: 0.2,
+    phaseLOISent: 0.1,
+    stalePenalty: -0.5,
+    staleDaysThreshold: 1000,
+    brokerZoning: 0.3,
+    brokerSurvey: 0.2
+  },
+  version: '2.0'
+};
+
+// Active config — starts from defaults, overridden by Firebase config/siteiq path
+let SITE_IQ_CONFIG = JSON.parse(JSON.stringify(SITE_IQ_DEFAULTS));
+
+// Normalize weights to sum to 1.0 (safety guard)
+function normalizeSiteIQWeights(config) {
+  const dims = config.dimensions;
+  const total = dims.reduce((sum, d) => sum + d.weight, 0);
+  if (total <= 0) return config;
+  dims.forEach(d => { d._normalizedWeight = d.weight / total; });
+  return config;
+}
+SITE_IQ_CONFIG = normalizeSiteIQWeights(SITE_IQ_CONFIG);
+
+// Helper: get weight by dimension key
+function getIQWeight(key) {
+  const dim = SITE_IQ_CONFIG.dimensions.find(d => d.key === key);
+  return dim ? dim._normalizedWeight : 0;
+}
+
+
+// ─── CSV Parser ───
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+  return lines.slice(1).map((line) => {
+    const vals = [];
+    let cur = "",
+      inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') inQ = !inQ;
+      else if (c === "," && !inQ) {
+        vals.push(cur.trim());
+        cur = "";
+      } else cur += c;
+    }
+    vals.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h] = vals[idx] || "";
+    });
+    return obj;
+  });
+}
+
+// ─── Constants ───
+const REGIONS = {
+  southwest: { label: "Daniel Wollent", color: "#1565C0", accent: "#42A5F5" },
+  east: { label: "Matthew Toussaint", color: "#2D5F2D", accent: "#4CAF50" },
+};
+const STATUS_COLORS = {
+  pending: { bg: "#FFF3E0", text: "#E65100", dot: "#F37C33" },
+  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50" },
+  declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350" },
+  tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33" },
+};
+const PHASES = [
+  "Incoming",
+  "Scored",
+  "Prospect",
+  "Submitted to PS",
+  "PS Approved",
+  "PS Revisions",
+  "PS Declined",
+  "LOI Sent",
+  "LOI Signed",
+  "Under Contract",
+  "Due Diligence",
+  "Closed",
+  "Dead",
+];
+const PRIORITIES = ["🔥 Hot", "🟡 Warm", "🔵 Cold", "⚪ None"];
+const PRIORITY_COLORS = {
+  "🔥 Hot": "#EF4444",
+  "🟡 Warm": "#F59E0B",
+  "🔵 Cold": "#3B82F6",
+  "⚪ None": "#CBD5E1",
+};
+const MSG_COLORS = {
+  "Dan R": { bg: "#FFF3E0", border: "#F37C33", text: "#E65100" },
+  "Daniel Wollent": { bg: "#EFF6FF", border: "#42A5F5", text: "#1565C0" },
+  "Matthew Toussaint": { bg: "#F0FDF4", border: "#4CAF50", text: "#2D5F2D" },
+};
+const DOC_TYPES = [
+  "Flyer",
+  "Survey",
+  "Geotech",
+  "PSA",
+  "LOI",
+  "Appraisal",
+  "Environmental",
+  "Title",
+  "Plat",
+  "Other",
+];
+
+// ─── Helpers ───
+const uid = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+const fmt$ = (v) => {
+  if (!v) return "";
+  const n = Number(String(v).replace(/[^0-9.]/g, ""));
+  return isNaN(n) ? v : "$" + n.toLocaleString();
+};
+const fmtN = (v) => {
+  if (!v) return "";
+  const n = Number(String(v).replace(/[^0-9.]/g, ""));
+  return isNaN(n) ? v : n.toLocaleString();
+};
+const fmtPrice = (v) => {
+  if (!v || v === "TBD" || v === "—") return v || "—";
+  // Already has $X.XXM format with parenthetical — extract just the leading price
+  const mMatch = String(v).match(/^\$?([\d,.]+)\s*[Mm]/);
+  if (mMatch) return "$" + parseFloat(mMatch[1].replace(/,/g, "")).toFixed(2).replace(/\.?0+$/, "") + "M";
+  // Raw number like $1,300,000 or 1300000
+  const n = Number(String(v).replace(/[^0-9.]/g, ""));
+  if (isNaN(n) || n === 0) return v;
+  if (n >= 1000000) return "$" + (n / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
+  if (n >= 1000) return "$" + Math.round(n / 1000) + "K";
+  return "$" + n.toLocaleString();
+};
+const mapsLink = (c) =>
+  c ? `https://www.google.com/maps?q=${encodeURIComponent(c)}` : "";
+const earthLink = (c) =>
+  c ? `https://earth.google.com/web/search/${encodeURIComponent(c)}` : "";
+
+// ─── Shared Style Constants ───
+const STYLES = {
+  cardBase: { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" },
+  kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(135deg, #fff 0%, #FAFBFC 100%)", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", borderLeft: `4px solid ${borderColor}`, transition: "all 0.25s ease" }),
+  labelMicro: { fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 },
+  btnPrimary: { padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 6px rgba(243,124,51,0.25)", transition: "all 0.2s" },
+  btnGhost: { padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" },
+  frostedHeader: { background: "rgba(44,44,44,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(0,0,0,0.2)" },
+};
+
+// ─── Debounce Helper ───
+const debounce = (fn, ms) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+};
+
+// ─── Demographics Helper — reads ESRI GeoEnrichment data from Firebase ───
+// Data: 2025 current-year estimates + 2030 five-year projections (ESRI paid)
+// Radii: 1-mile, 3-mile, 5-mile (written by refresh-demos-esri.mjs scheduled task)
+const buildDemoReport = (site) => {
+  if (!site) return null;
+  const parseNum = (v) => { if (!v) return null; const n = parseInt(String(v).replace(/[\$,]/g, ""), 10); return isNaN(n) ? null : n; };
+  const rings = {
+    1: { pop: parseNum(site.pop1mi), hh: parseNum(site.households1mi), medIncome: parseNum(site.income1mi), homeValue: parseNum(site.homeValue1mi), renterPct: site.renterPct1mi, popGrowth: site.popGrowth1mi },
+    3: { pop: parseNum(site.pop3mi), hh: parseNum(site.households3mi), medIncome: parseNum(site.income3mi), homeValue: parseNum(site.homeValue3mi), renterPct: site.renterPct3mi, popGrowth: site.popGrowth3mi },
+    5: { pop: parseNum(site.pop5mi), hh: parseNum(site.households5mi), medIncome: parseNum(site.income5mi), homeValue: parseNum(site.homeValue5mi), renterPct: site.renterPct5mi, popGrowth: site.popGrowth5mi },
+  };
+  const pop3mi_fy = parseNum(site.pop3mi_fy);
+  const income3mi_fy = parseNum(site.income3mi_fy);
+  const households3mi_fy = parseNum(site.households3mi_fy);
+  const hhGrowth3mi = site.hhGrowth3mi;
+  const incomeGrowth3mi = site.incomeGrowth3mi;
+  const pg = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : 0;
+  let growthOutlook = "Stable";
+  if (pg > 1.5) growthOutlook = "High Growth";
+  else if (pg > 0.5) growthOutlook = "Growing";
+  else if (pg > 0) growthOutlook = "Stable Growth";
+  else if (pg < -0.5) growthOutlook = "Declining";
+  else growthOutlook = "Flat";
+  const hasDemoData = rings[3].pop || rings[3].medIncome;
+  return hasDemoData ? { rings, pop3mi: site.pop3mi || null, income3mi: site.income3mi || null, growthOutlook, pop3mi_fy: site.pop3mi_fy || null, income3mi_fy: site.income3mi_fy || null, households3mi_fy: site.households3mi_fy || null, hhGrowth3mi, incomeGrowth3mi, popGrowth3mi: site.popGrowth3mi || null, source: site.demoSource || "ESRI ArcGIS GeoEnrichment 2025", pulledAt: site.demoPulledAt || null } : null;
+};
+// Legacy Census fallback (only used if ESRI data not yet available)
+const fetchDemographics = async (coordinates) => {
+  if (!coordinates) return { error: "No coordinates provided" };
+  const [latStr, lngStr] = coordinates.split(",").map(s => s.trim());
+  const lat = parseFloat(latStr), lng = parseFloat(lngStr);
+  if (isNaN(lat) || isNaN(lng)) return { error: "Invalid coordinates" };
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const R = 3958.8, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
+  try {
+    const fccResp = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json`);
+    const fccData = await fccResp.json();
+    if (!fccData.Block || !fccData.Block.FIPS) return { error: "Could not determine census location" };
+    const fips = fccData.Block.FIPS;
+    const stFips = fips.substring(0, 2), coFips = fips.substring(2, 5);
+    // Get tract centroids via TIGERweb
+    const tigerUrl = `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${stFips}'+AND+COUNTY%3D'${coFips}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`;
+    const tigerResp = await fetch(tigerUrl);
+    const tigerData = await tigerResp.json();
+    const tracts = (tigerData.features || []).map(f => ({
+      geoid: f.attributes.GEOID, lat: parseFloat(f.attributes.CENTLAT), lon: parseFloat(f.attributes.CENTLON),
+      stFips: f.attributes.STATE, coFips: f.attributes.COUNTY, trFips: f.attributes.TRACT
+    }));
+    // Check adjacent counties
+    const offset = 0.072;
+    const cardinals = [[lat+offset,lng],[lat-offset,lng],[lat,lng+offset],[lat,lng-offset]];
+    const adjCounties = new Set([stFips + coFips]);
+    for (const [cl, cn] of cardinals) {
+      try { const r = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${cl}&longitude=${cn}&format=json`); const dd = await r.json();
+        if (dd.Block && dd.Block.FIPS) adjCounties.add(dd.Block.FIPS.substring(0,5));
+      } catch(e) {}
+    }
+    let allTracts = [...tracts];
+    for (const key of adjCounties) {
+      if (key === stFips + coFips) continue;
+      try { const r = await fetch(`https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${key.substring(0,2)}'+AND+COUNTY%3D'${key.substring(2,5)}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`);
+        const dd = await r.json();
+        allTracts = allTracts.concat((dd.features||[]).map(f => ({ geoid: f.attributes.GEOID, lat: parseFloat(f.attributes.CENTLAT), lon: parseFloat(f.attributes.CENTLON), stFips: f.attributes.STATE, coFips: f.attributes.COUNTY, trFips: f.attributes.TRACT })));
+      } catch(e) {}
+    }
+    // Bucket tracts by ring distance
+    const buckets = { 1: [], 3: [], 5: [] };
+    for (const t of allTracts) { const dd = haversine(lat, lng, t.lat, t.lon); if (dd <= 1) buckets[1].push(t); if (dd <= 3) buckets[3].push(t); if (dd <= 5) buckets[5].push(t); }
+    // Get ACS data for all relevant counties
+    const countyKeys = new Set();
+    for (const t of allTracts) { if (haversine(lat, lng, t.lat, t.lon) <= 5) countyKeys.add(t.stFips + "|" + t.coFips); }
+    const acsData = {};
+    for (const key of countyKeys) {
+      const [st, co] = key.split("|");
+      try { const r = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E,B25077_001E,B25003_002E,B25003_001E&for=tract:*&in=state:${st}+county:${co}`);
+        const rows = await r.json(); const hdr = rows[0];
+        for (let i = 1; i < rows.length; i++) { const row = rows[i];
+          const geoid = row[hdr.indexOf("state")] + row[hdr.indexOf("county")] + row[hdr.indexOf("tract")];
+          acsData[geoid] = { pop: parseInt(row[0])||0, income: parseInt(row[1])||0, hh: parseInt(row[2])||0, homeVal: parseInt(row[3])||0, renters: parseInt(row[4])||0, totalTenure: parseInt(row[5])||0 };
         }
       } catch(e) {}
     }
