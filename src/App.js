@@ -1698,6 +1698,7 @@ export default function App() {
           ))}
         </div>
       </div>
+
       {/* Main content */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
 
