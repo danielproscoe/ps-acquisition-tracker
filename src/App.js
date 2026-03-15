@@ -143,9 +143,33 @@ const debounce = (fn, ms) => {
   };
 };
 
-// ─── Geocode Demographics Helper ───
-// Uses US Census Bureau ACS 5-Year via data.census.gov API
-// Fetches 3-mile radius approximate demographics from coordinates
+// ─── Demographics Helper — reads ESRI GeoEnrichment data from Firebase ───
+// Data: 2025 current-year estimates + 2030 five-year projections (ESRI paid)
+// Radii: 1-mile, 3-mile, 5-mile (written by refresh-demos-esri.mjs scheduled task)
+const buildDemoReport = (site) => {
+  if (!site) return null;
+  const parseNum = (v) => { if (!v) return null; const n = parseInt(String(v).replace(/[\$,]/g, ""), 10); return isNaN(n) ? null : n; };
+  const rings = {
+    1: { pop: parseNum(site.pop1mi), hh: parseNum(site.households1mi), medIncome: parseNum(site.income1mi), homeValue: parseNum(site.homeValue1mi), renterPct: site.renterPct1mi, popGrowth: site.popGrowth1mi },
+    3: { pop: parseNum(site.pop3mi), hh: parseNum(site.households3mi), medIncome: parseNum(site.income3mi), homeValue: parseNum(site.homeValue3mi), renterPct: site.renterPct3mi, popGrowth: site.popGrowth3mi },
+    5: { pop: parseNum(site.pop5mi), hh: parseNum(site.households5mi), medIncome: parseNum(site.income5mi), homeValue: parseNum(site.homeValue5mi), renterPct: site.renterPct5mi, popGrowth: site.popGrowth5mi },
+  };
+  const pop3mi_fy = parseNum(site.pop3mi_fy);
+  const income3mi_fy = parseNum(site.income3mi_fy);
+  const households3mi_fy = parseNum(site.households3mi_fy);
+  const hhGrowth3mi = site.hhGrowth3mi;
+  const incomeGrowth3mi = site.incomeGrowth3mi;
+  const pg = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : 0;
+  let growthOutlook = "Stable";
+  if (pg > 1.5) growthOutlook = "High Growth";
+  else if (pg > 0.5) growthOutlook = "Growing";
+  else if (pg > 0) growthOutlook = "Stable Growth";
+  else if (pg < -0.5) growthOutlook = "Declining";
+  else growthOutlook = "Flat";
+  const hasDemoData = rings[3].pop || rings[3].medIncome;
+  return hasDemoData ? { rings, pop3mi: site.pop3mi || null, income3mi: site.income3mi || null, growthOutlook, pop3mi_fy: site.pop3mi_fy || null, income3mi_fy: site.income3mi_fy || null, households3mi_fy: site.households3mi_fy || null, hhGrowth3mi, incomeGrowth3mi, popGrowth3mi: site.popGrowth3mi || null, source: site.demoSource || "ESRI ArcGIS GeoEnrichment 2025", pulledAt: site.demoPulledAt || null } : null;
+};
+// Legacy Census fallback (only used if ESRI data not yet available)
 const fetchDemographics = async (coordinates) => {
   if (!coordinates) return { error: "No coordinates provided" };
   const [latStr, lngStr] = coordinates.split(",").map(s => s.trim());
@@ -925,6 +949,37 @@ function App() {
   const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
   // vettingReport removed — auto-generates on site add
 
+  // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
+  useEffect(() => {
+    const handleKeyNav = (e) => {
+      if (tab !== "southwest" && tab !== "east") return;
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Escape") return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      const sites = sortData(tab === "east" ? east : sw);
+      if (!sites.length) return;
+      const ids = sites.map(s => s.id);
+      if (e.key === "Escape") { setExpandedSite(null); return; }
+      const curIdx = expandedSite ? ids.indexOf(expandedSite) : -1;
+      let nextIdx;
+      if (e.key === "ArrowDown") {
+        nextIdx = curIdx < ids.length - 1 ? curIdx + 1 : 0;
+      } else {
+        nextIdx = curIdx > 0 ? curIdx - 1 : ids.length - 1;
+      }
+      const nextId = ids[nextIdx];
+      setExpandedSite(nextId);
+      setTimeout(() => {
+        const el = document.getElementById(`site-${nextId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    };
+    window.addEventListener("keydown", handleKeyNav);
+    return () => window.removeEventListener("keydown", handleKeyNav);
+  }, [tab, expandedSite, sw, east, sortBy]);
+
+
   // ─── FONT LOADER ───
   useEffect(() => {
     const link = document.createElement("link");
@@ -1116,7 +1171,14 @@ const handleFetchDemos = async (region, site) => {
     if (!site.coordinates) return;
     setDemoLoading(prev => ({ ...prev, [site.id]: true }));
     try {
-      const result = await fetchDemographics(site.coordinates);
+      // Try ESRI data already in Firebase first
+      const esriReport = buildDemoReport(site);
+      if (esriReport) {
+        setDemoReport((prev) => ({ ...prev, [site.id]: esriReport }));
+        notify("ESRI 2025 demographics loaded");
+      } else {
+        // Fallback to Census API if ESRI data not yet available
+        const result = await fetchDemographics(site.coordinates);
       if (result.error) {
         notify(result.error);
       } else if (result) {
@@ -1137,6 +1199,7 @@ const handleFetchDemos = async (region, site) => {
         setDemoReport(prev => ({ ...prev, [site.id]: result }));
         notify(Object.keys(updates).length + " demographic fields saved \u2014 1/3/5 mile rings with growth + renter data");
       }
+    }
     } catch (err) { notify("Demographics fetch failed"); console.error(err); }
     setDemoLoading(prev => ({ ...prev, [site.id]: false }));
   };
@@ -1598,9 +1661,9 @@ const handleFetchDemos = async (region, site) => {
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} className="site-card" style={{ ...STYLES.cardBase, borderLeft: `4px solid ${PRIORITY_COLORS[site.priority] || region.accent}` }}>
+                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#F37C33" : (PRIORITY_COLORS[site.priority] || region.accent)}`, ...(isOpen ? { boxShadow: "0 8px 32px rgba(243,124,51,0.15), 0 0 0 2px rgba(243,124,51,0.2)", transform: "scale(1.005)", background: "#FFFCFA" } : {}) }}>
                   {/* Collapsed header */}
-                  <div onClick={() => setExpandedSite(isOpen ? null : site.id)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <div onClick={() => { const next = isOpen ? null : site.id; setExpandedSite(next); if (next) setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
@@ -1626,10 +1689,50 @@ const handleFetchDemos = async (region, site) => {
 
                   {/* Expanded */}
                   {isOpen && (
-                    <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
-                      {/* SiteIQ™ Score — Primary Metric */}
-                      <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
-                        <SiteIQBadge site={site} iq={getSiteIQ(site)} targetMarkets={targetMarkets} />
+                    <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "2px solid #F37C33" }}>
+                      {/* Nav Strip */}
+                      {(() => {
+                        const sites = sortData(regionKey === "east" ? east : sw);
+                        const ids = sites.map(s => s.id);
+                        const curIdx = ids.indexOf(site.id);
+                        const prevId = curIdx > 0 ? ids[curIdx - 1] : null;
+                        const nextId = curIdx < ids.length - 1 ? ids[curIdx + 1] : null;
+                        const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? "#CBD5E1" : "#475569", fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
+                        return (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px", borderBottom: "1px solid #F1F5F9", marginBottom: 10 }}>
+                            <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>{"\u25B2 Prev"}</button>
+                            <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.02em" }}>
+                              <span style={{ fontWeight: 700, color: "#475569" }}>{curIdx + 1}</span> of {ids.length} \u00B7 <span style={{ color: "#CBD5E1" }}>\u2191\u2193 keys \u00B7 Esc close</span>
+                            </div>
+                            <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>{"Next \u25BC"}</button>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Executive Property Header */}
+                      <div style={{ background: "linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #1E3A5F 100%)", borderRadius: 12, padding: "14px 18px", margin: "0 0 12px", overflow: "hidden" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ flex: 1, minWidth: 200 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                              <SiteIQBadge site={site} iq={getSiteIQ(site)} targetMarkets={targetMarkets} />
+                              {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 6 }}>
+                              {[
+                                { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#F1F5F9" },
+                                { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#F1F5F9") : "#94A3B8" },
+                                { label: "ACREAGE", val: site.acreage ? site.acreage + " ac" : "—", color: "#F1F5F9" },
+                                { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#F1F5F9" },
+                                { label: "3MI HHI", val: site.income3mi || "—", color: "#F1F5F9" },
+                              ].map((m, idx) => (
+                                <div key={idx} style={{ background: "rgba(255,255,255,.06)", borderRadius: 8, padding: "6px 8px", border: "1px solid rgba(255,255,255,.08)" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", letterSpacing: "0.08em", marginBottom: 2 }}>{m.label}</div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: m.color, fontFamily: "'DM Sans', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
@@ -1669,37 +1772,6 @@ const handleFetchDemos = async (region, site) => {
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
                       </div>
 
-                      {/* Priority + Phase */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Priority</div>
-                          <select value={site.priority || "⚪ None"} onChange={(e) => updateSiteField(regionKey, site.id, "priority", e.target.value)} style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `2px solid ${PRIORITY_COLORS[site.priority] || "#E2E8F0"}`, fontSize: 13, fontFamily: "'DM Sans'", background: "#fff", cursor: "pointer", fontWeight: 600, color: PRIORITY_COLORS[site.priority] || "#64748B" }}>
-                            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Phase</div>
-                          <select value={site.phase || "Prospect"} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, fontFamily: "'DM Sans'", background: "#fff", cursor: "pointer" }}>
-                            {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Last Updated Indicator */}
-                      {(() => {
-                        const logs = Object.values(site.activityLog || {});
-                        const lastLog = logs.length > 0 ? logs.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0] : null;
-                        const lastDate = lastLog?.date || site.approvedAt;
-                        const daysAgo = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : null;
-                        return lastDate ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, fontSize: 11, color: daysAgo > 30 ? "#EF4444" : daysAgo > 14 ? "#F59E0B" : "#22C55E" }}>
-                            <span style={{ fontSize: 9 }}>●</span>
-                            <span style={{ fontWeight: 600 }}>Last updated {daysAgo === 0 ? "today" : daysAgo === 1 ? "yesterday" : daysAgo + "d ago"}</span>
-                            {lastLog?.action && <span style={{ color: "#94A3B8", fontWeight: 400 }}>— {lastLog.action.length > 40 ? lastLog.action.slice(0, 40) + "…" : lastLog.action}</span>}
-                          </div>
-                        ) : null;
-                      })()}
-
                       {/* Fields grid */}
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, marginBottom: 12 }}>
                         <EF label="Market" value={site.market || ""} onSave={(v) => saveField(regionKey, site.id, "market", v)} placeholder="DFW, Houston…" />
@@ -1712,43 +1784,115 @@ const handleFetchDemos = async (region, site) => {
                         <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3…" />
                       </div>
 
-                      {/* DEMOGRAPHIC PROFILE TABLE */}
-<div style={{background: "linear-gradient(135deg, #1E2761 0%, #2C3E6B 100%)", borderRadius: 12, padding: "16px 20px", marginBottom: 16}}>
-  <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12}}>
-    <div style={{display: "flex", alignItems: "center", gap: 8}}>
-      <span style={{fontSize: 16}}>{String.fromCharCode(128202)}</span>
-      <span style={{color: "#fff", fontWeight: 800, fontSize: 14, letterSpacing: 1.5}}>DEMOGRAPHIC PROFILE</span>
-    </div>
-    <div style={{display: "flex", alignItems: "center", gap: 10}}>
-      <span style={{color: "rgba(255,255,255,0.5)", fontSize: 10}}>{site.demoSource || "Census ACS 5-Year (2022) multi-tract ring aggregation"}</span>
-      <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{background: "#C9A84C", color: "#1E2761", border: "none", borderRadius: 4, padding: "4px 12px", cursor: "pointer", fontWeight: 700, fontSize: 11, opacity: (demoLoading[site.id] || !site.coordinates) ? 0.5 : 1}}>{demoLoading[site.id] ? "Pulling..." : String.fromCharCode(8635) + " Refresh"}</button>
-    </div>
-  </div>
-  <table style={{width: "100%", borderCollapse: "collapse", fontSize: 13}}>
-    <thead><tr style={{borderBottom: "1px solid rgba(255,255,255,0.15)"}}>
-      <th style={{textAlign: "left", padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 11, letterSpacing: 1}}>METRIC</th>
-      <th style={{textAlign: "right", padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 11}}>1-MILE</th>
-      <th style={{textAlign: "right", padding: "8px 12px", color: "#C9A84C", fontWeight: 700, fontSize: 11, background: "rgba(201,168,76,0.08)"}}>3-MILE</th>
-      <th style={{textAlign: "right", padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 11}}>5-MILE</th>
-    </tr></thead>
-    <tbody>
-      {[
-        {label: String.fromCharCode(128101) + " Population", k1: "pop1mi", k3: "pop3mi", k5: "pop5mi"},
-        {label: String.fromCharCode(128176) + " Median HHI", k1: "income1mi", k3: "income3mi", k5: "income5mi"},
-        {label: String.fromCharCode(127968) + " Households", k1: "households1mi", k3: "households3mi", k5: "households5mi"},
-        {label: String.fromCharCode(127969) + " Avg Home Value", k1: "homeValue1mi", k3: "homeValue3mi", k5: "homeValue5mi"},
-        {label: String.fromCharCode(128200) + " Pop Growth", k1: "popGrowth1mi", k3: "popGrowth3mi", k5: "popGrowth5mi", pct: true},
-        {label: String.fromCharCode(127970) + " Renter %", k1: "renterPct1mi", k3: "renterPct3mi", k5: "renterPct5mi", pct: true}
-      ].map((row, idx) => <tr key={idx} style={{borderBottom: "1px solid rgba(255,255,255,0.06)"}}>
-        <td style={{padding: "8px 12px", color: "#fff", fontWeight: 500}}>{row.label}</td>
-        <td style={{padding: "8px 12px", textAlign: "right", color: "rgba(255,255,255,0.8)", fontFamily: "monospace"}}>{site[row.k1] ? (row.pct ? site[row.k1] + "%" : site[row.k1]) : String.fromCharCode(8212)}</td>
-        <td style={{padding: "8px 12px", textAlign: "right", color: "#C9A84C", fontWeight: 700, fontFamily: "monospace", background: "rgba(201,168,76,0.05)"}}>{site[row.k3] ? (row.pct ? site[row.k3] + "%" : site[row.k3]) : String.fromCharCode(8212)}</td>
-        <td style={{padding: "8px 12px", textAlign: "right", color: "rgba(255,255,255,0.8)", fontFamily: "monospace"}}>{site[row.k5] ? (row.pct ? site[row.k5] + "%" : site[row.k5]) : String.fromCharCode(8212)}</td>
-      </tr>)}
-    </tbody>
-  </table>
-  {site.demoPulledAt && <div style={{marginTop: 8, fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "right"}}>Last updated: {new Date(site.demoPulledAt).toLocaleDateString()}</div>}
-</div>
+                      {/* ESRI Demographic Report */}
+                      {demoReport[site.id] && (() => {
+                        const dr = demoReport[site.id];
+                        const r = dr.rings || {};
+                        const fmtV = (v, prefix) => v != null ? (prefix || "") + v.toLocaleString() : "\u2014";
+                        const growthColor = (s) => !s ? "#64748B" : s.includes("+") ? "#16A34A" : s.includes("-") ? "#EF4444" : "#64748B";
+                        const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: "0.06em" };
+                        const metricCell = { padding: "7px 12px", fontWeight: 700, color: "#E2E8F0", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
+                        const valCell = { padding: "7px 12px", textAlign: "right", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', monospace", borderBottom: "1px solid rgba(255,255,255,.08)" };
+                        const goldVal = { ...valCell, color: "#FBBF24" };
+                        const whiteVal = { ...valCell, color: "#F1F5F9" };
+                        return (
+                          <div style={{ borderRadius: 14, marginBottom: 14, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,.15)" }}>
+                            <div style={{ background: "linear-gradient(135deg,#0F172A 0%,#1E3A5F 50%,#1565C0 100%)", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 16 }}>\ud83d\udcca</span>
+                                <div>
+                                  <div style={{ color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>DEMOGRAPHIC INTELLIGENCE <span style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)", color: "#0F172A", fontSize: 11, fontWeight: 900, padding: "2px 8px", borderRadius: 5, letterSpacing: "0.06em" }}>2025</span></div>
+                                  <div style={{ color: "#94A3B8", fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", marginTop: 2 }}>ESRI ArcGIS GeoEnrichment \u2014 <span style={{ color: "#22D3EE" }}>Live Geocoded</span> \u2014 Current Year + 2030 Projections</div>
+                                </div>
+                              </div>
+                              <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.05)", color: "#94A3B8", fontSize: 11, cursor: "pointer", transition: "all .2s" }}>\u2715</button>
+                            </div>
+                            {/* Ring Radius Table */}
+                            <div style={{ background: "linear-gradient(180deg,#1E293B,#0F172A)", padding: "2px 16px 10px" }}>
+                              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                <thead>
+                                  <tr>
+                                    <th style={{ ...hdrCell, textAlign: "left", width: "30%" }}></th>
+                                    <th style={hdrCell}>1-MILE</th>
+                                    <th style={{ ...hdrCell, background: "rgba(251,191,36,.08)", borderRadius: "8px 8px 0 0" }}>3-MILE</th>
+                                    <th style={hdrCell}>5-MILE</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr>
+                                    <td style={metricCell}>Population</td>
+                                    <td style={whiteVal}>{fmtV(r[1]?.pop)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.pop)}</td>
+                                    <td style={whiteVal}>{fmtV(r[5]?.pop)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={metricCell}>Median HHI</td>
+                                    <td style={whiteVal}>{fmtV(r[1]?.medIncome, "$")}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.medIncome, "$")}</td>
+                                    <td style={whiteVal}>{fmtV(r[5]?.medIncome, "$")}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={metricCell}>Households</td>
+                                    <td style={whiteVal}>{fmtV(r[1]?.hh)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.hh)}</td>
+                                    <td style={whiteVal}>{fmtV(r[5]?.hh)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={metricCell}>Median Home Value</td>
+                                    <td style={whiteVal}>{fmtV(r[1]?.homeValue, "$")}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.homeValue, "$")}</td>
+                                    <td style={whiteVal}>{fmtV(r[5]?.homeValue, "$")}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={metricCell}>Renter %</td>
+                                    <td style={whiteVal}>{r[1]?.renterPct || "\u2014"}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{r[3]?.renterPct || "\u2014"}</td>
+                                    <td style={whiteVal}>{r[5]?.renterPct || "\u2014"}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={{ ...metricCell, borderBottom: "none" }}>Pop Growth (CAGR)</td>
+                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[1]?.popGrowth) }}>{r[1]?.popGrowth || "\u2014"}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{r[3]?.popGrowth || "\u2014"}</td>
+                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[5]?.popGrowth) }}>{r[5]?.popGrowth || "\u2014"}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                            {/* 2030 Projections Strip */}
+                            {(dr.pop3mi_fy || dr.income3mi_fy) && (
+                              <div style={{ background: "linear-gradient(135deg,#0F172A,#1a1a2e)", padding: "10px 16px", borderTop: "1px solid rgba(251,191,36,.15)" }}>
+                                <div style={{ fontSize: 9, fontWeight: 800, color: "#FBBF24", letterSpacing: "0.1em", marginBottom: 6 }}>2030 FIVE-YEAR PROJECTIONS (3-MILE)</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                                  {[
+                                    { label: "Population", val: dr.pop3mi_fy, growth: dr.popGrowth3mi },
+                                    { label: "Median HHI", val: dr.income3mi_fy, growth: dr.incomeGrowth3mi },
+                                    { label: "Households", val: dr.households3mi_fy, growth: dr.hhGrowth3mi },
+                                    { label: "Outlook", val: dr.growthOutlook, isOutlook: true },
+                                  ].map((item, idx) => (
+                                    <div key={idx} style={{ background: "rgba(255,255,255,.04)", borderRadius: 8, padding: "6px 8px", textAlign: "center", border: "1px solid rgba(255,255,255,.06)" }}>
+                                      <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{item.label}</div>
+                                      {item.isOutlook ? (
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: item.val?.includes("High") || item.val?.includes("Growing") ? "#22C55E" : item.val?.includes("Declining") ? "#EF4444" : "#FBBF24" }}>{item.val || "\u2014"}</div>
+                                      ) : (
+                                        <>
+                                          <div style={{ fontSize: 12, fontWeight: 700, color: "#F1F5F9", fontFamily: "'DM Sans', monospace" }}>{item.val || "\u2014"}</div>
+                                          {item.growth && <div style={{ fontSize: 9, fontWeight: 700, color: growthColor(item.growth), marginTop: 1 }}>{item.growth} /yr</div>}
+                                        </>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {/* Footer */}
+                            <div style={{ background: "#0F172A", padding: "6px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: 8, color: "#475569", letterSpacing: "0.04em" }}>ESRI ArcGIS GeoEnrichment (paid)</span>
+                              <span style={{ fontSize: 8, color: "#475569" }}>{dr.pulledAt ? `Updated ${new Date(dr.pulledAt).toLocaleDateString()}` : ""}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
 {/* Date on Market */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
@@ -1876,6 +2020,8 @@ const handleFetchDemos = async (region, site) => {
         /* Cosmetic: Card hover glow */
         .site-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .site-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important; }
+        .site-card-open { transform: none !important; }
+        .site-card-open:hover { transform: none !important; }
         /* Cosmetic: Smooth expand */
         .card-expand { animation: slideDown 0.3s ease-out; overflow: hidden; }
         /* Cosmetic: Nav button underline */
