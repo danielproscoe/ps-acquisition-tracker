@@ -13,6 +13,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
+import "./responsive.css";
 // xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
 // import * as XLSX from "xlsx";  ← moved to dynamic import()
 
