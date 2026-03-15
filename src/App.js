@@ -741,6 +741,7 @@ export default function App() {
 
   // âââ FIREBASE REAL-TIME LISTENERS âââ
   useEffect(() => {
+    let unsubMarkets;
     const subsRef = ref(db, "submissions");
     const eastRef = ref(db, "east");
     const swRef = ref(db, "southwest");
@@ -764,7 +765,7 @@ export default function App() {
     const unsubSw = onValue(swRef, (snap) => {
       const val = snap.val();
     const marketsRef = ref(db, "targetMarkets");
-    const unsubMarkets = onValue(marketsRef, (snap) => {
+    unsubMarkets = onValue(marketsRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
       setTargetMarkets(arr);
