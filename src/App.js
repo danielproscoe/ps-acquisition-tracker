@@ -96,7 +96,9 @@ const DOC_TYPES = [
 
 // ─── Helpers ───
 const uid = () =>
-  Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 const fmt$ = (v) => {
   if (!v) return "";
   const n = Number(String(v).replace(/[^0-9.]/g, ""));
@@ -1714,13 +1716,57 @@ const handleFetchDemos = async (region, site) => {
   const TrackerCards = ({ regionKey }) => {
     const region = REGIONS[regionKey];
     const data = sortData(regionKey === "east" ? east : sw);
+    const [focusedIdx, setFocusedIdx] = useState(-1);
+    const listRef = useRef(null);
+
+    // Keyboard navigation: arrows move between cards, Enter/Space toggle expand
+    useEffect(() => {
+      const container = listRef.current;
+      if (!container || data.length === 0) return;
+      const handleKey = (e) => {
+        if (!container.contains(document.activeElement) && document.activeElement !== container) return;
+        const idx = focusedIdx;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          const next = Math.min(idx + 1, data.length - 1);
+          setFocusedIdx(next);
+          const el = document.getElementById("site-" + data[next].id);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          const prev = Math.max(idx - 1, 0);
+          setFocusedIdx(prev);
+          const el = document.getElementById("site-" + data[prev].id);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        } else if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (idx >= 0 && idx < data.length) {
+            const siteId = data[idx].id;
+            setExpandedSite(expandedSite === siteId ? null : siteId);
+          }
+        } else if (e.key === "ArrowRight") {
+          const expandedCard = container.querySelector(".card-expand");
+          if (expandedCard) { expandedCard.scrollLeft += 120; e.preventDefault(); }
+        } else if (e.key === "ArrowLeft") {
+          const expandedCard = container.querySelector(".card-expand");
+          if (expandedCard) { expandedCard.scrollLeft -= 120; e.preventDefault(); }
+        }
+      };
+      window.addEventListener("keydown", handleKey);
+      return () => window.removeEventListener("keydown", handleKey);
+    }, [focusedIdx, data, expandedSite]);
+
+    useEffect(() => { setFocusedIdx(-1); }, [sortBy]);
+
 
     return (
-      <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+      <div ref={listRef} tabIndex={0} style={{ animation: "fadeIn 0.3s ease-out", outline: "none" }}
+           onFocus={() => { if (focusedIdx < 0 && data.length > 0) setFocusedIdx(0); }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <span style={{ width: 14, height: 14, borderRadius: "50%", background: region.accent }} />
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: region.color }}>{region.label} — Master Tracker</h2>
           <span style={{ fontSize: 13, color: "#94A3B8" }}>({data.length})</span>
+            <span style={{ fontSize: 10, color: "#CBD5E1", marginLeft: "auto" }}>⌨ ↑↓ navigate · Enter toggle · ←→ scroll</span>
         </div>
         <SortBar />
         {data.length === 0 ? (
@@ -1734,11 +1780,13 @@ const handleFetchDemos = async (region, site) => {
               const logs = site.activityLog ? Object.values(site.activityLog) : [];
               const mi = msgInputs[site.id] || { from: "Dan R", text: "" };
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+              const siteIdx = data.indexOf(site);
+              const isFocused = siteIdx === focusedIdx;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#F37C33" : (PRIORITY_COLORS[site.priority] || region.accent)}`, ...(isOpen ? { boxShadow: "0 8px 32px rgba(243,124,51,0.15), 0 0 0 2px rgba(243,124,51,0.2)", transform: "scale(1.005)", background: "#FFFCFA" } : {}) }}>
+                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#F37C33" : (PRIORITY_COLORS[site.priority] || region.accent)}`, ...(isOpen ? { boxShadow: "0 8px 32px rgba(243,124,51,0.15), 0 0 0 2px rgba(243,124,51,0.2)", transform: "scale(1.005)", background: "#FFFCFA" } : {}) , outline: isFocused ? "2px solid #F37C33" : "none", outlineOffset: isFocused ? "1px" : 0, transition: "outline 0.15s ease"}}>
                   {/* Collapsed header */}
-                  <div onClick={() => { const next = isOpen ? null : site.id; setExpandedSite(next); if (next) setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <div onClick={() => { setFocusedIdx(siteIdx); const next = isOpen ? null : site.id; setExpandedSite(next); if (next) setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
@@ -1764,7 +1812,7 @@ const handleFetchDemos = async (region, site) => {
 
                   {/* Expanded */}
                   {isOpen && (
-                    <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "2px solid #F37C33" }}>
+                    <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "2px solid #F37C33" , overflowX: "auto", scrollBehavior: "smooth"}}>
                       {/* Nav Strip */}
                       {(() => {
                         const sites = sortData(regionKey === "east" ? east : sw);
