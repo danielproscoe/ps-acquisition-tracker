@@ -1024,6 +1024,7 @@ function App() {
   const [targetMarkets, setTargetMarkets] = useState([]);
   const [showAddMarket, setShowAddMarket] = useState(false);
   const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
+  const [marketsOpen, setMarketsOpen] = useState(false);
   // vettingReport removed — auto-generates on site add
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
@@ -2217,43 +2218,45 @@ const handleFetchDemos = async (region, site) => {
         </div>
       </div>
 
-      {/* Main content */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
-
-        {/* ═══ DASHBOARD ═══ */}
-        {tab === "dashboard" && (
-          <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-
-{/* TARGET MARKETS BANNER */}
-<div style={{background: "linear-gradient(135deg, #1E2761, #2C3E6B)", borderRadius: 12, padding: "16px 24px", marginBottom: 24, color: "#fff"}}>
-  <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: targetMarkets.length > 0 ? 12 : 0}}>
-    <div style={{display: "flex", alignItems: "center", gap: 10}}>
-      <span style={{fontSize: 20}}>{String.fromCharCode(11088)}</span>
-      <span style={{fontWeight: 800, fontSize: 16, letterSpacing: 2}}>TARGET MARKETS</span>
-      <span style={{fontSize: 12, opacity: 0.7}}>{targetMarkets.filter(m => m.active).length} active</span>
-    </div>
-    <button onClick={() => setShowAddMarket(!showAddMarket)} style={{background: "transparent", border: "1px solid #C9A84C", color: "#C9A84C", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12}}>+ Add Market</button>
-  </div>
-  {showAddMarket && <div style={{display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center"}}>
-    <input value={newMarketForm.name} onChange={e => setNewMarketForm(p => ({...p, name: e.target.value}))} placeholder="Market Name" style={{padding: "6px 10px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff", width: 160}} />
-    <select value={newMarketForm.tier} onChange={e => setNewMarketForm(p => ({...p, tier: Number(e.target.value)}))} style={{padding: "6px 8px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff"}}><option value={1}>Tier 1</option><option value={2}>Tier 2</option><option value={3}>Tier 3</option><option value={4}>Tier 4</option></select>
-    <input value={newMarketForm.states} onChange={e => setNewMarketForm(p => ({...p, states: e.target.value}))} placeholder="States (TX,OH)" style={{padding: "6px 10px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff", width: 110}} />
-    <select value={newMarketForm.assignedTo} onChange={e => setNewMarketForm(p => ({...p, assignedTo: e.target.value}))} style={{padding: "6px 8px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff"}}><option value="MT">MT</option><option value="DW">DW</option><option value="Both">Both</option></select>
-    <button onClick={handleAddMarket} style={{background: "#C9A84C", color: "#1E2761", border: "none", borderRadius: 4, padding: "6px 14px", cursor: "pointer", fontWeight: 700}}>Add</button>
-  </div>}
-  <div style={{display: "flex", flexWrap: "wrap", gap: 8}}>
-    {targetMarkets.map(m => <div key={m.id} style={{display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.08)", borderRadius: 6, padding: "5px 12px", fontSize: 12}}>
-      <span style={{width: 8, height: 8, borderRadius: "50%", background: m.tier === 1 ? "#C9A84C" : m.tier === 2 ? "#4CAF50" : m.tier === 3 ? "#2196F3" : "#999"}}></span>
-      <strong>{m.name}</strong>
-      <span style={{opacity: 0.6}}>T{m.tier}</span>
-      <span style={{opacity: 0.5}}>{m.states}</span>
-      <span style={{opacity: 0.5}}>{m.assignedTo}</span>
-      <span onClick={() => handleToggleMarket(m.id, m.active)} style={{cursor: "pointer", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: m.active ? "#16A34A" : "#666", color: "#fff"}}>{m.active ? "ON" : "OFF"}</span>
-      <span onClick={() => handleRemoveMarket(m.id)} style={{cursor: "pointer", opacity: 0.5, fontSize: 14}}>{String.fromCharCode(215)}</span>
-    </div>)}
-    {targetMarkets.length === 0 && <span style={{opacity: 0.5, fontSize: 12}}>No target markets configured. Add markets to boost SiteIQ scores for priority areas.</span>}
-  </div>
-</div>
+{/* Target Markets — Collapsible Strip */}
+      <div style={{ maxWidth: 1100, margin: "0 auto 12px", background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)", borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.15)" }}>
+        <div onClick={() => setMarketsOpen(!marketsOpen)} style={{ display: "flex", alignItems: "center", padding: "10px 18px", cursor: "pointer", userSelect: "none" }}>
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.5, color: "#F37C33", textTransform: "uppercase" }}>Target Markets</span>
+          <span style={{ fontSize: 11, color: "#64748B", marginLeft: 10 }}>{targetMarkets.length} active</span>
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {!marketsOpen && targetMarkets.slice(0, 5).map((m, i) => (
+              <span key={i} style={{ fontSize: 10, color: "#94A3B8", background: "rgba(255,255,255,.06)", padding: "2px 8px", borderRadius: 20 }}>{m.name || m.city || "Market"}</span>
+            ))}
+            {!marketsOpen && targetMarkets.length > 5 && <span style={{ fontSize: 10, color: "#64748B" }}>+{targetMarkets.length - 5}</span>}
+            <span style={{ color: "#64748B", fontSize: 14, transition: "transform 0.2s", transform: marketsOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+          </span>
+        </div>
+        {marketsOpen && (
+          <div style={{ padding: "0 18px 14px", animation: "fadeIn 0.2s ease-out" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {targetMarkets.map((m, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, padding: "6px 12px" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name || m.city || "Unnamed"}</span>
+                  {m.state && <span style={{ fontSize: 10, color: "#64748B" }}>{m.state}</span>}
+                  {m.radius && <span style={{ fontSize: 9, color: "#475569", background: "rgba(255,255,255,.06)", padding: "1px 6px", borderRadius: 10 }}>{m.radius}mi</span>}
+                  <button onClick={() => setTargetMarkets(targetMarkets.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>×</button>
+                </div>
+              ))}
+            </div>
+            {showAddMarket ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <input value={newMarketForm.name || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, name: e.target.value })} placeholder="Market name" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 11, width: 130, outline: "none" }} />
+                <input value={newMarketForm.state || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, state: e.target.value })} placeholder="State" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 11, width: 50, outline: "none" }} />
+                <input value={newMarketForm.radius || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, radius: e.target.value })} placeholder="Radius" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 11, width: 55, outline: "none" }} />
+                <button onClick={() => { if (newMarketForm.name) { setTargetMarkets([...targetMarkets, { ...newMarketForm }]); setNewMarketForm({}); setShowAddMarket(false); } }} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>✓ Add</button>
+                <button onClick={() => { setShowAddMarket(false); setNewMarketForm({}); }} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "#64748B", fontSize: 10, cursor: "pointer" }}>Cancel</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowAddMarket(true)} style={{ padding: "4px 12px", borderRadius: 6, border: "1px dashed rgba(255,255,255,.15)", background: "transparent", color: "#64748B", fontSize: 10, cursor: "pointer" }}>+ Add Market</button>
+            )}
+          </div>
+        )}
+      </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
