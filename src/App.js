@@ -1964,7 +1964,7 @@ const handleFetchDemos = async (region, site) => {
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#F37C33" : (PRIORITY_COLORS[site.priority] || region.accent)}`, ...(isOpen ? { boxShadow: "0 8px 32px rgba(243,124,51,0.15), 0 0 0 2px rgba(243,124,51,0.2)", transform: "scale(1.005)", background: "#FFFCFA" } : {}) , outline: isFocused ? "2px solid #F37C33" : "none", outlineOffset: isFocused ? "1px" : 0, transition: "outline 0.15s ease"}}>
                   {/* Collapsed header */}
-                  <div onClick={() => { setFocusedIdx(siteIdx); const next = isOpen ? null : site.id; setExpandedSite(next); if (next) setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <div onClick={() => { setFocusedIdx(siteIdx); const next = isOpen ? null : site.id; setExpandedSite(next); setDetailTab('overview'); if (next) setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
@@ -2001,11 +2001,11 @@ const handleFetchDemos = async (region, site) => {
                         const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? "#CBD5E1" : "#475569", fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
                         return (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px", borderBottom: "1px solid #F1F5F9", marginBottom: 10 }}>
-                            <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>{"▲ Prev"}</button>
+                            <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setDetailTab('overview'); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>{"▲ Prev"}</button>
                             <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.02em" }}>
                               <span style={{ fontWeight: 700, color: "#475569" }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: "#CBD5E1" }}>↑↓ keys · Esc close</span>
                             </div>
-                            <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>{"Next ▼"}</button>
+                            <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setDetailTab('overview'); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>{"Next ▼"}</button>
                           </div>
                         );
                       })()}
@@ -2035,6 +2035,22 @@ const handleFetchDemos = async (region, site) => {
                           </div>
                         </div>
                       </div>
+                {/* Property Detail Tabs */}
+                <div style={{ display: 'flex', gap: 0, margin: '16px 0 8px', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
+                  {['overview', 'details', 'documents', 'activity'].map(tab => (
+                    <button key={tab} onClick={(e) => { e.stopPropagation(); setDetailTab(tab); }}
+                      style={{ padding: '10px 24px', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, border: 'none', cursor: 'pointer', borderRadius: '8px 8px 0 0', transition: 'all 0.2s',
+                        background: detailTab === tab ? 'linear-gradient(135deg, #1E293B, #334155)' : 'transparent',
+                        color: detailTab === tab ? '#F97316' : '#94A3B8',
+                        borderBottom: detailTab === tab ? '2px solid #F97316' : '2px solid transparent',
+                        marginBottom: '-2px'
+                      }}>
+                      {tab === 'overview' ? '📊 Overview' : tab === 'details' ? '🔧 Details' : tab === 'documents' ? '📁 Documents' : '💬 Activity'}
+                    </button>
+                  ))}
+                </div>
+
+                {detailTab === 'overview' && (<>
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
                         {site.coordinates ? (
@@ -2073,6 +2089,8 @@ const handleFetchDemos = async (region, site) => {
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
                       </div>
 
+                </>)}
+                {detailTab === 'details' && (<>
                       {/* Fields grid */}
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, marginBottom: 12 }}>
                         <EF label="Market" value={site.market || ""} onSave={(v) => saveField(regionKey, site.id, "market", v)} placeholder="DFW, Houston…" />
@@ -2219,6 +2237,8 @@ const handleFetchDemos = async (region, site) => {
                         )}
                       </div>
 
+                </>)}
+                {detailTab === 'documents' && (<>
                       {/* Listing URL */}
                 <div style={{ marginBottom: 14 }}>
                   <EF label="Listing URL" value={site.listingUrl || ""} onSave={(v) => saveField(regionKey, site.id, "listingUrl", v)} placeholder="Paste listing URL here" />
@@ -2249,6 +2269,8 @@ const handleFetchDemos = async (region, site) => {
                         </div>
                       </div>
 
+                </>)}
+                {detailTab === 'activity' && (<>
                       {/* Messages */}
                       <div style={{ marginBottom: 14 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>💬 Thread</div>
@@ -2290,6 +2312,7 @@ const handleFetchDemos = async (region, site) => {
                         </details>
                       )}
 
+                </>)}
                       {/* Remove */}
                       <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>🗑 Remove Site</button>
                     </div>
