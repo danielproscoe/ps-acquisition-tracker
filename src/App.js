@@ -22,135 +22,16 @@ import "./responsive.css";
 // Executives can adjust weights via the in-app Settings panel (writes to Firebase)
 // or by editing this default config directly. Weights auto-normalize to 1.0.
 // ═══════════════════════════════════════════════════════════════════════════════
-const SITE_IQ_DEFAULTS = {
-  dimensions: [
-    {
-      key: 'population',
-      label: 'Population',
-      shortLabel: 'Pop',
-      icon: '👥',
-      weight: 28,
-      scoreVar: 'popScore',
-      tip: 'Census ACS 3-mile population density score. Higher population = larger customer base for storage demand.',
-      source: 'US Census Bureau ACS 5-Year (DW) / MT Spreadsheet (MT)',
-      group: 'demographics'
-    },
-    {
-      key: 'income',
-      label: 'Med. Income',
-      shortLabel: 'Inc',
-      icon: '💰',
-      weight: 17,
-      scoreVar: 'incScore',
-      tip: 'Median household income within 3 miles. Higher income correlates with greater willingness to pay premium storage rates.',
-      source: 'US Census Bureau ACS 5-Year (DW) / MT Spreadsheet (MT)',
-      group: 'demographics'
-    },
-    {
-      key: 'spacing',
-      label: 'PS Spacing',
-      shortLabel: 'Spc',
-      icon: '📡',
-      weight: 15,
-      scoreVar: 'spacingScore',
-      tip: 'Distance to nearest Public Storage facility. Ideal spacing avoids cannibalization while maintaining brand presence.',
-      source: 'Google Maps radius analysis / Broker intel',
-      group: 'market'
-    },
-    {
-      key: 'zoning',
-      label: 'Zoning',
-      shortLabel: 'Zon',
-      icon: '\u{2696}\u{FE0F}',
-      weight: 15,
-      scoreVar: 'zoningScore',
-      tip: 'By-right, conditional use, or prohibited zoning classification. By-right zoning dramatically reduces entitlement risk and timeline.',
-      source: 'Municipal zoning maps / Broker confirmation',
-      group: 'entitlement'
-    },
-    {
-      key: 'competition',
-      label: 'Competition',
-      shortLabel: 'Comp',
-      icon: '🏢',
-      weight: 10,
-      scoreVar: 'compScore',
-      tip: 'Storage competitor density within trade area. Fewer competitors = stronger pricing power and absorption rates.',
-      source: 'Radius search + broker market reports',
-      group: 'market'
-    },
-    {
-      key: 'access',
-      label: 'Site Access',
-      shortLabel: 'Acc',
-      icon: '🛣\u{FE0F}',
-      weight: 5,
-      scoreVar: 'accessScore',
-      tip: 'Acreage sweet-spot (2–5 ac ideal), road frontage quality, flood zone risk, and ingress/egress factors.',
-      source: 'Site surveys / LOIs / Flyers',
-      group: 'physical'
-    },
-    {
-      key: 'pricing',
-      label: 'Pricing',
-      shortLabel: 'Price',
-      icon: '💲',
-      weight: 10,
-      scoreVar: 'tierScore',
-      tip: 'Per-acre price analysis vs market benchmarks. Includes internal price agreement bonus when applicable.',
-      source: 'Asking price / Internal underwriting',
-      group: 'financial'
-    }
-  ],
-  tiers: {
-    gold: { min: 8.0, colors: ['#FFD700', '#FFA500'], glow: '0 0 12px rgba(255,215,0,0.5)' },
-    steel: { min: 6.0, colors: ['#B0C4DE', '#708090'], glow: '0 0 8px rgba(176,196,222,0.3)' },
-    gray: { min: 0, colors: ['#9CA3AF', '#6B7280'], glow: 'none' }
-  },
-  labels: [
-    { min: 9, label: 'ELITE' },
-    { min: 8, label: 'PRIME' },
-    { min: 7, label: 'STRONG' },
-    { min: 6, label: 'VIABLE' },
-    { min: 4, label: 'MARGINAL' },
-    { min: 0, label: 'WEAK' }
-  ],
-  bonuses: {
-    phaseUC: 0.3,
-    phaseLOISigned: 0.2,
-    phaseLOISent: 0.1,
-    stalePenalty: -0.5,
-    staleDaysThreshold: 1000,
-    brokerZoning: 0.3,
-    brokerSurvey: 0.2
-  },
-  version: '2.0'
-};
-
-// Active config — starts from defaults, overridden by Firebase config/siteiq path
-let SITE_IQ_CONFIG = JSON.parse(JSON.stringify(SITE_IQ_DEFAULTS));
-
-// Normalize weights to sum to 1.0 (safety guard)
-function normalizeSiteIQWeights(config) {
-  const dims = config.dimensions;
-  const total = dims.reduce((sum, d) => sum + d.weight, 0);
-  if (total <= 0) return config;
-  dims.forEach(d => { d._normalizedWeight = d.weight / total; });
-  return config;
-}
-SITE_IQ_CONFIG = normalizeSiteIQWeights(SITE_IQ_CONFIG);
-
-// Helper: get weight by dimension key
-function getIQWeight(key) {
-  const dim = SITE_IQ_CONFIG.dimensions.find(d => d.key === key);
-  return dim ? dim._normalizedWeight : 0;
-}
-
-
-// ─── CSV Parser ───
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
+const SITE_IQ_DEFAULTS = [
+  { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "📈", weight: 0.15, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+  { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "spacing", label: "PS Spacing", icon: "📏", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
+  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
+  { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
+];
   const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
   return lines.slice(1).map((line) => {
     const vals = [];
@@ -693,6 +574,21 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   }
   scores.income = incScore;
 
+  // --- 2b. GROWTH (15%) — ESRI 5-year population CAGR ---
+  let growthScore = 5; // default when no ESRI data
+  const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
+  if (growthRaw !== null && !isNaN(growthRaw)) {
+    if (growthRaw >= 2.0) growthScore = 10;       // booming
+    else if (growthRaw >= 1.5) growthScore = 9;    // strong growth
+    else if (growthRaw >= 1.0) growthScore = 8;    // healthy above-national
+    else if (growthRaw >= 0.5) growthScore = 6;    // moderate positive
+    else if (growthRaw >= 0.0) growthScore = 4;    // flat
+    else if (growthRaw >= -0.5) growthScore = 2;   // declining
+    else { growthScore = 0; flags.push("WARN: 3-mi pop declining > -0.5%/yr"); }
+  }
+  scores.growth = growthScore;
+
+  
   // --- 3. PS PROXIMITY (20%) ---
   let spacingScore = 4;
   const nearestPS = parseFloat(site.siteiqData?.nearestPS || 0);
@@ -772,8 +668,10 @@ const computeSiteIQ = (site, targetMarkets = []) => {
 
   // --- COMPOSITE (weighted sum, 0-10 scale) ---
     const weightedSum =
-      (popScore * getIQWeight('population')) + (incScore * getIQWeight('income')) + (spacingScore * getIQWeight('spacing')) +
-      (zoningScore * getIQWeight('zoning')) + (scores.access * getIQWeight('access')) + (compScore * getIQWeight('competition')) + (tierScore * getIQWeight('pricing'));
+    (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
+    (incScore * getIQWeight("income")) + (spacingScore * getIQWeight("spacing")) +
+    (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
+    (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
   let adjusted = Math.round(weightedSum * 10) / 10;
 
     // --- TARGET MARKET TIER BONUS (additive) ---
