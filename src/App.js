@@ -22,16 +22,41 @@ import "./responsive.css";
 // Executives can adjust weights via the in-app Settings panel (writes to Firebase)
 // or by editing this default config directly. Weights auto-normalize to 1.0.
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-const SITE_IQ_DEFAULTS = [
-  { key: "population", label: "Population", icon: "\u{1F465}", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "\u{1F4C8}", weight: 0.15, tip: "Pop growth CAGR \u2014 5yr projected trend", source: "ESRI 2025\u21922030 projections", group: "demographics" },
-  { key: "income", label: "Med. Income", icon: "\u{1F4B0}", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "spacing", label: "PS Spacing", icon: "\u{1F4CF}", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
-  { key: "zoning", label: "Zoning", icon: "\u{1F4CB}", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
-  { key: "access", label: "Site Access", icon: "\u{1F6E3}\uFE0F", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "competition", label: "Competition", icon: "\u{1F3E2}", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
-  { key: "marketTier", label: "Market Tier", icon: "\u{1F4CD}", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
-];
+const SITE_IQ_DEFAULTS = {
+  dimensions: [
+    { key: "population", label: "Population", icon: "\u{1F465}", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+    { key: "growth", label: "Growth", icon: "\u{1F4C8}", weight: 0.15, tip: "Pop growth CAGR \u2014 5yr projected trend", source: "ESRI 2025\u21922030 projections", group: "demographics" },
+    { key: "income", label: "Med. Income", icon: "\u{1F4B0}", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+    { key: "spacing", label: "PS Spacing", icon: "\u{1F4CF}", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
+    { key: "zoning", label: "Zoning", icon: "\u{1F4CB}", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+    { key: "access", label: "Site Access", icon: "\u{1F6E3}\uFE0F", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
+    { key: "competition", label: "Competition", icon: "\u{1F3E2}", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+    { key: "marketTier", label: "Market Tier", icon: "\u{1F4CD}", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
+  ],
+  tiers: {
+    gold: { min: 8.0, colors: ['#FFD700', '#FFA500'], glow: '0 0 12px rgba(255,215,0,0.5)' },
+    steel: { min: 6.0, colors: ['#B0C4DE', '#708090'], glow: '0 0 8px rgba(176,196,222,0.3)' },
+    gray: { min: 0, colors: ['#9CA3AF', '#6B7280'], glow: 'none' }
+  },
+  labels: [
+    { min: 9, label: 'ELITE' },
+    { min: 8, label: 'PRIME' },
+    { min: 7, label: 'STRONG' },
+    { min: 6, label: 'VIABLE' },
+    { min: 4, label: 'MARGINAL' },
+    { min: 0, label: 'WEAK' }
+  ],
+  bonuses: {
+    phaseUC: 0.3,
+    phaseLOISigned: 0.2,
+    phaseLOISent: 0.1,
+    stalePenalty: -0.5,
+    staleDaysThreshold: 1000,
+    brokerZoning: 0.3,
+    brokerSurvey: 0.2
+  },
+  version: '2.0'
+};
 
 // Active config â starts from defaults, overridden by Firebase config/siteiq path
 let SITE_IQ_CONFIG = JSON.parse(JSON.stringify(SITE_IQ_DEFAULTS));
@@ -600,15 +625,15 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   scores.income = incScore;
 
     // --- 2b. GROWTH (15%) \u2014 ESRI 5-year population CAGR ---
-    let growthScore = 5; // default when no ESRI data
-    const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
+    let growthScore = 5;
+    const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\\-+]/g, "")) : null;
     if (growthRaw !== null && !isNaN(growthRaw)) {
-      if (growthRaw >= 2.0) growthScore = 10;       // booming \u2014 Sun Belt corridors
-      else if (growthRaw >= 1.5) growthScore = 9;    // strong growth
-      else if (growthRaw >= 1.0) growthScore = 8;    // healthy above-national
-      else if (growthRaw >= 0.5) growthScore = 6;    // moderate positive
-      else if (growthRaw >= 0.0) growthScore = 4;    // flat \u2014 no tailwind
-      else if (growthRaw >= -0.5) growthScore = 2;   // declining \u2014 headwind
+      if (growthRaw >= 2.0) growthScore = 10;
+      else if (growthRaw >= 1.5) growthScore = 9;
+      else if (growthRaw >= 1.0) growthScore = 8;
+      else if (growthRaw >= 0.5) growthScore = 6;
+      else if (growthRaw >= 0.0) growthScore = 4;
+      else if (growthRaw >= -0.5) growthScore = 2;
       else { growthScore = 0; flags.push("WARN: 3-mi pop declining > -0.5%/yr"); }
     }
     scores.growth = growthScore;
