@@ -12,7 +12,8 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import * as XLSX from "xlsx";
+// xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
+// import * as XLSX from "xlsx";  ← moved to dynamic import()
 
 // ─── CSV Parser ───
 function parseCSV(text) {
@@ -435,8 +436,8 @@ const computeSiteIQ = (site) => {
 };
 
 // ─── SiteIQ Badge Component ───
-function SiteIQBadge({ site, size = "normal" }) {
-  const iq = computeSiteIQ(site);
+function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
+  const iq = iqProp || computeSiteIQ(site);
   const s = iq.score;
   const isGold = iq.tier === "gold";
   const isSteel = iq.tier === "steel";
@@ -673,10 +674,6 @@ export default function App() {
   const flyerRef = useRef();
   const [attachments, setAttachments] = useState([]); // [{file, type, id}]
   const attachRef = useRef();
-  const [bulkRows, setBulkRows] = useState(null);
-  const [bulkRegion, setBulkRegion] = useState("east");
-  const [bulkPhase, setBulkPhase] = useState("Prospect");
-  const fileRef = useRef();
   const [reviewInputs, setReviewInputs] = useState({});
   const [msgInputs, setMsgInputs] = useState({});
   const [sortBy, setSortBy] = useState("city");
@@ -1163,112 +1160,9 @@ export default function App() {
     }
   };
 
-  // ─── BULK IMPORT ───
-  const handleBulkFile = async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const ext = f.name.split(".").pop().toLowerCase();
-    if (ext === "csv" || ext === "tsv") {
-      const r = new FileReader();
-      r.onload = (ev) => {
-        try {
-          const rows = parseCSV(ev.target.result);
-          if (rows.length) setBulkRows(rows);
-        } catch { notify("CSV error"); }
-      };
-      r.readAsText(f);
-    } else if (["xlsx", "xls", "xlsm"].includes(ext)) {
-      const r = new FileReader();
-      r.onload = (ev) => {
-        try {
-          const wb = XLSX.read(ev.target.result, { type: "array" });
-          setBulkRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" }));
-        } catch { notify("Excel error"); }
-      };
-      r.readAsArrayBuffer(f);
-    }
-  };
-
-  const normKey = (k) => k.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const mapRow = (row) => {
-    const m = {};
-    Object.entries(row).forEach(([k, v]) => {
-      const n = normKey(k);
-      const val = String(v).trim();
-      if (n.includes("name") || n.includes("facility")) m.name = val;
-      else if (n.includes("address") || n.includes("street")) m.address = val;
-      else if (n.includes("city")) m.city = val;
-      else if (n.includes("state") || n === "st") m.state = val;
-      else if (n.includes("acreage") || n.includes("acres")) m.acreage = val;
-      else if (n.includes("zoning") || n.includes("zone")) m.zoning = val;
-      else if (n.includes("asking")) m.askingPrice = val;
-      else if (n.includes("internal") || n.includes("psprice")) m.internalPrice = val;
-      else if (n.includes("income")) m.income3mi = val;
-      else if (n.includes("pop")) m.pop3mi = val;
-      else if (n.includes("broker") || n.includes("seller")) m.sellerBroker = val;
-      else if (n.includes("summary") || n.includes("note")) m.summary = val;
-      else if (n.includes("coord")) m.coordinates = val;
-      else if (n.includes("phase")) m.phase = val;
-      else if (n.includes("region")) {
-        m.region = val.toLowerCase().includes("sw") || val.toLowerCase().includes("dan") ? "southwest" : "east";
-      }
-    });
-    return m;
-  };
-
-  const handleBulkImport = () => {
-    if (!bulkRows?.length) return;
-    const now = new Date().toISOString();
-    let c = 0;
-    const updates = {};
-    bulkRows.forEach((row) => {
-      const m = mapRow(row);
-      if (!m.name && !m.address) return;
-      const id = uid();
-      const site = {
-        name: m.name || "Unnamed",
-        address: m.address || "",
-        city: m.city || "",
-        state: m.state || "",
-        acreage: m.acreage || "",
-        zoning: m.zoning || "",
-        notes: "",
-        region: m.region || bulkRegion,
-        phase: m.phase && PHASES.includes(m.phase) ? m.phase : bulkPhase,
-        id,
-        status: "tracking",
-        submittedAt: now,
-        approvedAt: now,
-        askingPrice: m.askingPrice || "",
-        internalPrice: m.internalPrice || "",
-        income3mi: m.income3mi || "",
-        pop3mi: m.pop3mi || "",
-        sellerBroker: m.sellerBroker || "",
-        summary: m.summary || "",
-        coordinates: m.coordinates || "",
-        listingUrl: "",
-        dateOnMarket: "",
-        market: "",
-        priority: "⚪ None",
-        messages: {},
-        docs: {},
-        activityLog: { [uid()]: { action: "Bulk imported", ts: now, by: "System" } },
-      };
-      const region = site.region;
-      updates[`${region}/${id}`] = site;
-      updates[`submissions/${id}`] = { ...site, status: "approved" };
-      c++;
-    });
-    import("firebase/database").then(({ ref: fbRef, update: fbUpd }) => {
-      fbUpd(ref(db, "/"), updates);
-    });
-    setBulkRows(null);
-    if (fileRef.current) fileRef.current.value = "";
-    notify(`Imported ${c}!`);
-  };
-
   // ─── EXPORT ───
-  const handleExport = () => {
+  const handleExport = async () => {
+    const XLSX = await import("xlsx");
     const cols = [
       { key: "siteiq", header: "SiteIQ™", width: 10 },
       { key: "name", header: "Facility Name", width: 28 },
@@ -1295,7 +1189,7 @@ export default function App() {
       const sorted = [...sites].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       const rows = sorted.map((s) =>
         cols.map((c) => {
-          if (c.key === "siteiq") return computeSiteIQ(s).score;
+          if (c.key === "siteiq") return getSiteIQ(s).score;
           if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
           if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
           return s[c.key] || "";
@@ -1314,7 +1208,7 @@ export default function App() {
     const summCols = [{ key: "_region", header: "Region", width: 18 }, ...cols];
     const summRows = allSorted.map((s) =>
       summCols.map((c) => {
-        if (c.key === "siteiq") return computeSiteIQ(s).score;
+        if (c.key === "siteiq") return getSiteIQ(s).score;
         if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
         if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
         return s[c.key] || "";
@@ -1345,11 +1239,7 @@ export default function App() {
   const sortData = (arr) => {
     const sorted = [...arr];
     switch (sortBy) {
-      case "siteiq": {
-        const cache = new Map();
-        const getIQ = (s) => { if (!cache.has(s.id)) cache.set(s.id, computeSiteIQ(s).score); return cache.get(s.id); };
-        return sorted.sort((a, b) => getIQ(b) - getIQ(a));
-      }
+      case "siteiq": return sorted.sort((a, b) => getSiteIQ(b).score - getSiteIQ(a).score);
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
       case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
       case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
@@ -1358,6 +1248,15 @@ export default function App() {
       default: return sorted.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }
   };
+
+  // ─── MEMOIZED SiteIQ CACHE ───
+  // Computes SiteIQ once per site when data changes. Eliminates ~188 redundant calls per render.
+  const siteIQCache = useMemo(() => {
+    const cache = new Map();
+    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteIQ(s)); });
+    return cache;
+  }, [sw, east]);
+  const getSiteIQ = (site) => siteIQCache.get(site.id) || computeSiteIQ(site);
 
   const SortBar = () => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -1415,7 +1314,7 @@ export default function App() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
-                        <SiteIQBadge site={site} size="small" />
+                        <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1440,7 +1339,7 @@ export default function App() {
                     <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
                       {/* SiteIQ™ Score — Primary Metric */}
                       <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
-                        <SiteIQBadge site={site} />
+                        <SiteIQBadge site={site} iq={getSiteIQ(site)} />
                       </div>
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
@@ -1758,7 +1657,6 @@ export default function App() {
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
             { key: "submit", label: "Submit Site" },
-            { key: "import", label: "Bulk Import" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
           ].map((n) => (
             <button key={n.key} onClick={() => { setTab(n.key); if (n.key !== "review") setShowNewAlert(false); }} style={{ ...navBtn(n.key), position: "relative" }}
@@ -1851,11 +1749,11 @@ export default function App() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = computeSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => { const t = computeSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
+                            onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
                           >
-                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" /></td>
+                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
                             <td style={td}>{s.address || "—"}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
@@ -1977,40 +1875,6 @@ export default function App() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
                     <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══ IMPORT ═══ */}
-        {tab === "import" && (
-          <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 800 }}>
-            <div style={{ background: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
-              <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Bulk Import</h2>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Default Region</label><select style={{ ...inp, width: "auto" }} value={bulkRegion} onChange={(e) => setBulkRegion(e.target.value)}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Default Phase</label><select style={{ ...inp, width: "auto" }} value={bulkPhase} onChange={(e) => setBulkPhase(e.target.value)}>{PHASES.map((p) => <option key={p}>{p}</option>)}</select></div>
-              </div>
-              <div style={{ border: "2px dashed #E2E8F0", borderRadius: 10, padding: 20, textAlign: "center", background: "#F8FAFC", marginBottom: 14 }}>
-                <div style={{ fontSize: 24, marginBottom: 4 }}>📊</div>
-                <input ref={fileRef} type="file" accept=".csv,.tsv,.xlsx,.xls" onChange={handleBulkFile} style={{ fontSize: 12 }} />
-              </div>
-              {bulkRows && (
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{bulkRows.length} rows found</span>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => { setBulkRows(null); if (fileRef.current) fileRef.current.value = ""; }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, cursor: "pointer" }}>Cancel</button>
-                      <button onClick={handleBulkImport} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>⚡ Import All</button>
-                    </div>
-                  </div>
-                  <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid #E2E8F0", maxHeight: 300 }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                      <thead><tr style={{ background: "#F8FAFC" }}>{Object.keys(bulkRows[0] || {}).map((k) => <th key={k} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700, color: "#64748B", borderBottom: "1px solid #E2E8F0" }}>{k}</th>)}</tr></thead>
-                      <tbody>{bulkRows.slice(0, 15).map((r, i) => <tr key={i}>{Object.values(r).map((v, j) => <td key={j} style={{ padding: "5px 8px", color: "#475569", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(v)}</td>)}</tr>)}</tbody>
-                    </table>
                   </div>
                 </div>
               )}
