@@ -877,6 +877,17 @@ function SiteIQBadge({ site, size = "normal" }) {
   const ringColor = isGold ? '#c9a84c' : isSteel ? '#7b9bb5' : '#6b7280';
   const glowColor = isGold ? 'rgba(201,168,76,0.4)' : isSteel ? 'rgba(123,155,181,0.3)' : 'none';
 
+
+  const demoWeight = (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 0) + (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 0);
+  const metrics = [
+    { key: 'zoning', label: 'Zoning', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.weight || 15, icon: '⚖️', score: iq._iq?.zoning ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'zoning')?.source || '' },
+    { key: 'demographics', label: 'Demographics', weight: demoWeight, icon: '👥', score: Math.round(((iq._iq?.population ?? 0) * (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'population')?.weight || 28) + (iq._iq?.income ?? 0) * (SITE_IQ_CONFIG.dimensions.find(d => d.key === 'income')?.weight || 17)) / Math.max(demoWeight, 1)), tip: 'Combined population density + median household income within 3-mile radius', source: 'Census ACS / ESRI' },
+    { key: 'spacing', label: 'PS Spacing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.weight || 15, icon: '📡', score: iq._iq?.spacing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.source || '' },
+    { key: 'competition', label: 'Competition', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.weight || 10, icon: '🏢', score: iq._iq?.competition ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.source || '' },
+    { key: 'access', label: 'Site Access', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.weight || 5, icon: '🛣️', score: iq._iq?.access ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.source || '' },
+    { key: 'pricing', label: 'Pricing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.weight || 10, icon: '💲', score: iq._iq?.pricing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.source || '' }
+  ];
+
   return (
     <div style={{ width: '100%' }}>
       {/* Top row: Score ring + tier label + data source */}
