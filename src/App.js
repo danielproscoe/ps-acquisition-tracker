@@ -332,6 +332,166 @@ const generateVettingReport = (site, nearestPSDistance) => {
   return lines.join("\n");
 };
 
+  // ─── PDF Vetting Report Download ──────────────────
+  const downloadVettingPDF = (site) => {
+    const loadJsPDF = () => {
+      return new Promise((resolve, reject) => {
+        if (window.jspdf) return resolve(window.jspdf);
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+        s.onload = () => resolve(window.jspdf);
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    };
+    loadJsPDF().then(({ jsPDF }) => {
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+      const W = pdf.internal.pageSize.getWidth();
+      const H = pdf.internal.pageSize.getHeight();
+      const margin = 50;
+      let y = margin;
+      const addPage = () => { pdf.addPage(); y = margin; };
+      const checkPage = (need) => { if (y + need > H - margin) addPage(); };
+      // Header bar
+      pdf.setFillColor(17, 24, 39);
+      pdf.rect(0, 0, W, 70, "F");
+      pdf.setFontSize(22);
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("SITE VETTING REPORT", margin, 44);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(180, 190, 210);
+      pdf.text("PS Acquisition Pipeline  |  DJR Real Estate LLC  |  " + new Date().toLocaleDateString(), margin, 60);
+      y = 90;
+      // Site title
+      pdf.setFontSize(16);
+      pdf.setTextColor(17, 24, 39);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(site.name || "Unnamed Site", margin, y);
+      y += 6;
+      pdf.setDrawColor(59, 130, 246);
+      pdf.setLineWidth(2);
+      pdf.line(margin, y, W - margin, y);
+      y += 18;
+      pdf.setFontSize(10);
+      pdf.setTextColor(100, 116, 139);
+      pdf.setFont("helvetica", "normal");
+      pdf.text((site.address || "") + "  |  " + (site.city || "") + ", " + (site.state || "") + "  |  " + (site.market || ""), margin, y);
+      y += 24;
+      // Helper: section header
+      const section = (title) => {
+        checkPage(30);
+        pdf.setFillColor(241, 245, 249);
+        pdf.roundedRect(margin, y - 2, W - margin * 2, 20, 3, 3, "F");
+        pdf.setFontSize(10);
+        pdf.setTextColor(30, 41, 59);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(title, margin + 8, y + 12);
+        y += 26;
+      };
+      // Helper: key-value row
+      const row = (label, val) => {
+        checkPage(16);
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(label, margin + 8, y);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(String(val || "—"), margin + 140, y);
+        y += 15;
+      };
+      const fN = (n) => { const v = parseInt(String(n).replace(/[^0-9]/g, ""), 10); return isNaN(v) ? "—" : v.toLocaleString(); };
+      // 1. Property Overview
+      section("1. PROPERTY OVERVIEW");
+      row("Name:", site.name);
+      row("Address:", site.address);
+      row("City / State:", (site.city || "") + ", " + (site.state || ""));
+      row("Market:", site.market);
+      row("Acreage:", site.acreage);
+      row("Asking Price:", site.askingPrice);
+      row("PS Internal Price:", site.internalPrice);
+      row("Coordinates:", site.coordinates);
+      row("Phase:", site.phase);
+      row("Priority:", site.priority);
+      y += 6;
+      // 2. Zoning
+      section("2. ZONING & ENTITLEMENTS");
+      row("Current Zoning:", site.zoning || "Not confirmed");
+      row("Storage Use:", site.zoning ? "Verify with local jurisdiction" : "UNKNOWN");
+      y += 6;
+      // 3. Demographics
+      section("3. DEMOGRAPHICS (3-Mile Radius)");
+      row("Population:", fN(site.pop3mi));
+      row("Median HHI:", site.income3mi || "—");
+      const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
+      const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
+      if (popN && incN) {
+        const demoScore = popN >= 40000 && incN >= 60000 ? "PASS" : popN >= 20000 && incN >= 50000 ? "MARGINAL" : "BELOW THRESHOLD";
+        row("Demo Score:", demoScore);
+      }
+      y += 6;
+      // 4. Site Sizing
+      section("4. SITE SIZING ASSESSMENT");
+      const acres = parseFloat(String(site.acreage).replace(/[^0-9.]/g, ""));
+      if (!isNaN(acres)) {
+        let sizing = "";
+        if (acres >= 3.5 && acres <= 5) sizing = acres + " ac — PRIMARY (one-story climate-controlled)";
+        else if (acres >= 2.5 && acres < 3.5) sizing = acres + " ac — SECONDARY (multi-story 3-4 story)";
+        else if (acres < 2.5) sizing = acres + " ac — BELOW MINIMUM";
+        else if (acres <= 7) sizing = acres + " ac — VIABLE if subdivisible";
+        else sizing = acres + " ac — LARGE TRACT — subdivision potential";
+        row("Assessment:", sizing);
+      } else { row("Assessment:", "Acreage not confirmed"); }
+      y += 6;
+      // 5. PS Proximity
+      section("5. PS PROXIMITY CHECK");
+      row("Nearest PS:", "Run proximity check with PS_Locations_ALL.csv");
+      y += 6;
+      // 6. Broker / Seller
+      section("6. BROKER / SELLER INFO");
+      row("Contact:", site.sellerBroker);
+      row("Date on Market:", site.dateOnMarket);
+      row("Phase:", site.phase);
+      row("Priority:", site.priority);
+      y += 6;
+      // 7. Red Flags
+      section("7. RED FLAGS / NOTES");
+      const flags = [];
+      if (!site.zoning) flags.push("Zoning not confirmed");
+      if (!site.coordinates) flags.push("No coordinates");
+      if (acres < 2.5) flags.push("Below minimum acreage");
+      if (popN && popN < 10000) flags.push("3-mi pop below 10,000");
+      if (incN && incN < 60000) flags.push("3-mi HHI below $60,000");
+      if (flags.length === 0) flags.push("None identified");
+      flags.forEach(f => { checkPage(15); row("", f); });
+      y += 6;
+      // 8. Summary
+      section("8. SUMMARY / DEAL NOTES");
+      checkPage(30);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(30, 41, 59);
+      const summaryLines = pdf.splitTextToSize(site.summary || "No notes", W - margin * 2 - 16);
+      summaryLines.forEach(sl => { checkPage(14); pdf.text(sl, margin + 8, y); y += 13; });
+      // Footer
+      y += 16;
+      checkPage(20);
+      pdf.setDrawColor(203, 213, 225);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, y, W - margin, y);
+      y += 14;
+      pdf.setFontSize(7);
+      pdf.setTextColor(148, 163, 184);
+      pdf.text("PS Acquisition Pipeline  |  DJR Real Estate LLC  |  Confidential  |  Generated " + new Date().toLocaleString(), margin, y);
+      // Save
+      const safeName = (site.city || "Site").replace(/[^a-zA-Z0-9]/g, "_");
+      pdf.save("PS_Vetting_Report_" + safeName + "_" + (site.state || "") + ".pdf");
+    }).catch(err => { console.error("PDF generation failed:", err); alert("PDF generation failed. Check console."); });
+  };
+
+
 // ─── SiteIQ™ v3 — Calibrated PS Site Scoring Engine ───
 // Matches CLAUDE.md §6h framework exactly. Uses structured data fields, not regex on summary text.
 // Weights: Demographics 25% (pop) + 15% (HHI), PS Proximity 20%, Zoning 15%, Access 10%, Competition 5%, Market Tier 10%
@@ -1608,21 +1768,16 @@ const handleFetchDemos = async (region, site) => {
                           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                             <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
                             <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
-                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Property Listing</a>
-                            <button onClick={() => {
-                              const docs = site.docs ? Object.values(site.docs) : [];
-                              const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
-                              if (vr && vr.url) { window.open(vr.url, "_blank"); }
-                              else { autoGenerateVettingReport(regionKey, site.id, site); setTimeout(() => alert("Vetting report generated! Click again to view."), 1500); }
-                            }} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
+                    {site.listingUrl ? <a href={site.listingUrl.startsWith("http") ? site.listingUrl : "https://" + site.listingUrl} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Property Listing</a> : <span style={{ padding: "4px 10px", borderRadius: 6, background: "#F1F5F9", color: "#94A3B8", fontSize: 11, fontWeight: 600 }}>🔗 No Listing URL</span>}
+                    <button onClick={() => downloadVettingPDF(site)} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
                           </div>
                         )}
                       </div>
 
                       {/* Listing URL */}
-                      <div style={{ marginBottom: 14 }}>
-                        <EF label="Listing URL (Crexi / LoopNet)" value={site.listingUrl || ""} onSave={(v) => saveField(regionKey, site.id, "listingUrl", v)} placeholder="https://www.crexi.com/…" />
-                      </div>
+                <div style={{ marginBottom: 14 }}>
+                  <EF label="Listing URL" value={site.listingUrl || ""} onSave={(v) => saveField(regionKey, site.id, "listingUrl", v)} placeholder="Paste listing URL here" />
+                </div>
 
                       {/* Documents */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, marginBottom: 14, border: "1px solid #E2E8F0" }}>
