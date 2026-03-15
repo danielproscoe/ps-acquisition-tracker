@@ -105,6 +105,18 @@ const fmtN = (v) => {
   const n = Number(String(v).replace(/[^0-9.]/g, ""));
   return isNaN(n) ? v : n.toLocaleString();
 };
+const fmtPrice = (v) => {
+  if (!v || v === "TBD" || v === "—") return v || "—";
+  // Already has $X.XXM format with parenthetical — extract just the leading price
+  const mMatch = String(v).match(/^\$?([\d,.]+)\s*[Mm]/);
+  if (mMatch) return "$" + parseFloat(mMatch[1].replace(/,/g, "")).toFixed(2).replace(/\.?0+$/, "") + "M";
+  // Raw number like $1,300,000 or 1300000
+  const n = Number(String(v).replace(/[^0-9.]/g, ""));
+  if (isNaN(n) || n === 0) return v;
+  if (n >= 1000000) return "$" + (n / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
+  if (n >= 1000) return "$" + Math.round(n / 1000) + "K";
+  return "$" + n.toLocaleString();
+};
 const mapsLink = (c) =>
   c ? `https://www.google.com/maps?q=${encodeURIComponent(c)}` : "";
 const earthLink = (c) =>
@@ -1397,6 +1409,21 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* Last Updated Indicator */}
+                      {(() => {
+                        const logs = Object.values(site.activityLog || {});
+                        const lastLog = logs.length > 0 ? logs.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0] : null;
+                        const lastDate = lastLog?.date || site.approvedAt;
+                        const daysAgo = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : null;
+                        return lastDate ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, fontSize: 11, color: daysAgo > 30 ? "#EF4444" : daysAgo > 14 ? "#F59E0B" : "#22C55E" }}>
+                            <span style={{ fontSize: 9 }}>●</span>
+                            <span style={{ fontWeight: 600 }}>Last updated {daysAgo === 0 ? "today" : daysAgo === 1 ? "yesterday" : daysAgo + "d ago"}</span>
+                            {lastLog?.action && <span style={{ color: "#94A3B8", fontWeight: 400 }}>— {lastLog.action.length > 40 ? lastLog.action.slice(0, 40) + "…" : lastLog.action}</span>}
+                          </div>
+                        ) : null;
+                      })()}
+
                       {/* Fields grid */}
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, marginBottom: 12 }}>
                         <EF label="Market" value={site.market || ""} onSave={(v) => saveField(regionKey, site.id, "market", v)} placeholder="DFW, Houston…" />
@@ -1794,7 +1821,7 @@ export default function App() {
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
                             <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "#F1F5F9", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
-                            <td style={{ ...td, fontWeight: 600 }}>{s.askingPrice || "—"}</td>
+                            <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
                             <td style={td}>{s.sellerBroker || "—"}</td>
@@ -1939,7 +1966,11 @@ export default function App() {
             </div>
             <SortBar />
             {subs.length === 0 ? (
-              <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#94A3B8" }}>No submissions.</div>
+              <div style={{ background: "#fff", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#475569", marginBottom: 6 }}>Review Queue Empty</div>
+                <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via the "Submit Site" tab appear here for review and approval before being added to a tracker. Use <strong>Submit Site → Send to Review</strong> to queue a new site.</div>
+              </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {sortData(subs).map((site) => {
