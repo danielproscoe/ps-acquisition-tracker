@@ -145,66 +145,108 @@ const debounce = (fn, ms) => {
 // Uses US Census Bureau ACS 5-Year via data.census.gov API
 // Fetches 3-mile radius approximate demographics from coordinates
 const fetchDemographics = async (coordinates) => {
-  if (!coordinates) return null;
-  const parts = coordinates.split(",").map((s) => s.trim());
-  if (parts.length !== 2) return null;
-  const [lat, lng] = parts.map(Number);
-  if (isNaN(lat) || isNaN(lng)) return null;
+  if (!coordinates) return { error: "No coordinates provided" };
+  const [latStr, lngStr] = coordinates.split(",").map(s => s.trim());
+  const lat = parseFloat(latStr), lng = parseFloat(lngStr);
+  if (isNaN(lat) || isNaN(lng)) return { error: "Invalid coordinates" };
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const R = 3958.8, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
   try {
-    // Step 1: Reverse geocode to get FIPS via FCC API (CORS-friendly)
-    const geoRes = await fetch(
-      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json&showall=false`
-    );
-    const geoData = await geoRes.json();
-    if (geoData.status !== "OK" || !geoData.Block?.FIPS) return { error: "Could not determine census tract" };
-    const blockFips = geoData.Block.FIPS; // e.g. "481210203144035"
-    const stFips = geoData.State?.FIPS || blockFips.substring(0, 2);
-    const coFips = blockFips.substring(2, 5);
-    const trFips = blockFips.substring(5, 11);
-    // Step 2: Fetch ACS 5-Year data for the tract (B01003_001E=population, B19013_001E=median HHI)
-    const acsRes = await fetch(
-      `https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`
-    );
-    const acsData = await acsRes.json();
-    if (!acsData || acsData.length < 2) return { error: "No ACS data for tract" };
-    const row = acsData[1];
-    const pop = parseInt(row[0], 10);
-    const income = parseInt(row[1], 10);
-    const hh = parseInt(row[2], 10);
-    // Estimate ring radii: multiply tract values by scaling factors (avg 3-mi covers ~8 tracts)
-    // Also pull county-level for context
-    let countyPop = null, countyIncome = null;
-    try {
-      const cRes = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E&for=county:${coFips}&in=state:${stFips}`);
-      const cData = await cRes.json();
-      if (cData?.[1]) { countyPop = parseInt(cData[1][0], 10); countyIncome = parseInt(cData[1][1], 10); }
-    } catch (_) {}
-    const tPop = isNaN(pop) ? 0 : pop;
-    const incVal = isNaN(income) || income < 0 ? 0 : income;
-    const tHh = isNaN(hh) ? 0 : hh;
-    const rings = {
-      1: { pop: Math.round(tPop * 0.8), hh: Math.round(tHh * 0.8), medIncome: incVal },
-      3: { pop: Math.round(tPop * 8), hh: Math.round(tHh * 8), medIncome: incVal },
-      5: { pop: Math.round(tPop * 18), hh: Math.round(tHh * 18), medIncome: incVal },
-    };
-    let growthOutlook = "Stable";
-    if (tPop > 5000) growthOutlook = "Growing — high density";
-    else if (tPop > 2000) growthOutlook = "Moderate growth";
-    else growthOutlook = "Emerging — verify demand";
+    const fccResp = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json`);
+    const fccData = await fccResp.json();
+    if (!fccData.Block || !fccData.Block.FIPS) return { error: "Could not determine census location" };
+    const fips = fccData.Block.FIPS;
+    const stFips = fips.substring(0, 2), coFips = fips.substring(2, 5);
+    // Get tract centroids via TIGERweb
+    const tigerUrl = `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${stFips}'+AND+COUNTY%3D'${coFips}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`;
+    const tigerResp = await fetch(tigerUrl);
+    const tigerData = await tigerResp.json();
+    const tracts = (tigerData.features || []).map(f => ({
+      geoid: f.attributes.GEOID, lat: parseFloat(f.attributes.CENTLAT), lon: parseFloat(f.attributes.CENTLON),
+      stFips: f.attributes.STATE, coFips: f.attributes.COUNTY, trFips: f.attributes.TRACT
+    }));
+    // Check adjacent counties
+    const offset = 0.072;
+    const cardinals = [[lat+offset,lng],[lat-offset,lng],[lat,lng+offset],[lat,lng-offset]];
+    const adjCounties = new Set([stFips + coFips]);
+    for (const [cl, cn] of cardinals) {
+      try { const r = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${cl}&longitude=${cn}&format=json`); const dd = await r.json();
+        if (dd.Block && dd.Block.FIPS) adjCounties.add(dd.Block.FIPS.substring(0,5));
+      } catch(e) {}
+    }
+    let allTracts = [...tracts];
+    for (const key of adjCounties) {
+      if (key === stFips + coFips) continue;
+      try { const r = await fetch(`https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query?where=STATE%3D'${key.substring(0,2)}'+AND+COUNTY%3D'${key.substring(2,5)}'&outFields=GEOID,CENTLAT,CENTLON,STATE,COUNTY,TRACT&f=json&resultRecordCount=9999`);
+        const dd = await r.json();
+        allTracts = allTracts.concat((dd.features||[]).map(f => ({ geoid: f.attributes.GEOID, lat: parseFloat(f.attributes.CENTLAT), lon: parseFloat(f.attributes.CENTLON), stFips: f.attributes.STATE, coFips: f.attributes.COUNTY, trFips: f.attributes.TRACT })));
+      } catch(e) {}
+    }
+    // Bucket tracts by ring distance
+    const buckets = { 1: [], 3: [], 5: [] };
+    for (const t of allTracts) { const dd = haversine(lat, lng, t.lat, t.lon); if (dd <= 1) buckets[1].push(t); if (dd <= 3) buckets[3].push(t); if (dd <= 5) buckets[5].push(t); }
+    // Get ACS data for all relevant counties
+    const countyKeys = new Set();
+    for (const t of allTracts) { if (haversine(lat, lng, t.lat, t.lon) <= 5) countyKeys.add(t.stFips + "|" + t.coFips); }
+    const acsData = {};
+    for (const key of countyKeys) {
+      const [st, co] = key.split("|");
+      try { const r = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E,B25077_001E,B25003_002E,B25003_001E&for=tract:*&in=state:${st}+county:${co}`);
+        const rows = await r.json(); const hdr = rows[0];
+        for (let i = 1; i < rows.length; i++) { const row = rows[i];
+          const geoid = row[hdr.indexOf("state")] + row[hdr.indexOf("county")] + row[hdr.indexOf("tract")];
+          acsData[geoid] = { pop: parseInt(row[0])||0, income: parseInt(row[1])||0, hh: parseInt(row[2])||0, homeVal: parseInt(row[3])||0, renters: parseInt(row[4])||0, totalTenure: parseInt(row[5])||0 };
+        }
+      } catch(e) {}
+    }
+    // Also fetch 2020 Decennial for pop growth calculation
+    const decennialData = {};
+    for (const key of countyKeys) {
+      const [st, co] = key.split("|");
+      try { const r = await fetch(`https://api.census.gov/data/2020/dec/pl?get=P1_001N&for=tract:*&in=state:${st}+county:${co}`);
+        const rows = await r.json(); const hdr = rows[0];
+        for (let i = 1; i < rows.length; i++) { const row = rows[i];
+          const geoid = row[hdr.indexOf("state")] + row[hdr.indexOf("county")] + row[hdr.indexOf("tract")];
+          decennialData[geoid] = { pop2020: parseInt(row[0])||0 };
+        }
+      } catch(e) {}
+    }
+    // Aggregate per ring
+    const rings = {};
+    for (const radius of [1, 3, 5]) {
+      const rt = buckets[radius]; let totalPop = 0, totalHH = 0, wInc = 0, wHV = 0, pInc = 0, pHV = 0, totalRenters = 0, totalTenure = 0, pop2020 = 0;
+      for (const t of rt) { const a = acsData[t.geoid]; if (!a) continue;
+        totalPop += a.pop; totalHH += a.hh; totalRenters += a.renters; totalTenure += a.totalTenure;
+        if (a.income > 0 && a.pop > 0) { wInc += a.income * a.pop; pInc += a.pop; }
+        if (a.homeVal > 0 && a.pop > 0) { wHV += a.homeVal * a.pop; pHV += a.pop; }
+        const dec = decennialData[t.geoid]; if (dec) pop2020 += dec.pop2020;
+      }
+      const popGrowthPct = pop2020 > 0 ? ((totalPop - pop2020) / pop2020 * 100) : null;
+      const renterPct = totalTenure > 0 ? (totalRenters / totalTenure * 100) : null;
+      rings[radius] = { pop: totalPop, income: pInc > 0 ? Math.round(wInc/pInc) : 0, hh: totalHH,
+        homeVal: pHV > 0 ? Math.round(wHV/pHV) : 0, tractCount: rt.length,
+        popGrowthPct: popGrowthPct !== null ? Math.round(popGrowthPct * 10) / 10 : null,
+        renterPct: renterPct !== null ? Math.round(renterPct * 10) / 10 : null, pop2020: pop2020 };
+    }
+    if (rings[1].pop === 0 && rings[3].pop > 0) {
+      const nearest = allTracts.reduce((b, t) => { const dd = haversine(lat, lng, t.lat, t.lon); return dd < b.d ? { t, d: dd } : b; }, { t: null, d: Infinity });
+      if (nearest.t && acsData[nearest.t.geoid]) { const a = acsData[nearest.t.geoid]; rings[1] = { pop: a.pop, income: a.income, hh: a.hh, homeVal: a.homeVal, tractCount: 1, popGrowthPct: null, renterPct: a.totalTenure > 0 ? Math.round(a.renters/a.totalTenure*1000)/10 : null, pop2020: 0 }; }
+    }
     return {
-      rings,
-      pop3mi: rings[3].pop ? rings[3].pop.toLocaleString() : null,
-      income3mi: incVal ? "$" + incVal.toLocaleString() : null,
-      growthOutlook,
-      countyPop: countyPop ? countyPop.toLocaleString() : null,
-      countyIncome: countyIncome && countyIncome > 0 ? "$" + countyIncome.toLocaleString() : null,
-      fips: `${stFips}-${coFips}-${trFips}`,
-      source: "Census ACS 5-Year (2022)",
+      pop1mi: rings[1].pop.toLocaleString(), pop3mi: rings[3].pop.toLocaleString(), pop5mi: rings[5].pop.toLocaleString(),
+      income1mi: rings[1].income > 0 ? "$" + rings[1].income.toLocaleString() : "", income3mi: rings[3].income > 0 ? "$" + rings[3].income.toLocaleString() : "", income5mi: rings[5].income > 0 ? "$" + rings[5].income.toLocaleString() : "",
+      households1mi: rings[1].hh.toLocaleString(), households3mi: rings[3].hh.toLocaleString(), households5mi: rings[5].hh.toLocaleString(),
+      homeValue1mi: rings[1].homeVal > 0 ? "$" + rings[1].homeVal.toLocaleString() : "", homeValue3mi: rings[3].homeVal > 0 ? "$" + rings[3].homeVal.toLocaleString() : "", homeValue5mi: rings[5].homeVal > 0 ? "$" + rings[5].homeVal.toLocaleString() : "",
+      popGrowth3mi: rings[3].popGrowthPct, renterPct3mi: rings[3].renterPct,
+      popGrowth1mi: rings[1].popGrowthPct, popGrowth5mi: rings[5].popGrowthPct,
+      renterPct1mi: rings[1].renterPct, renterPct5mi: rings[5].renterPct,
+      fips: fips, source: "Census ACS 5-Year (2022) multi-tract ring aggregation",
+      tractCounts: { "1mi": rings[1].tractCount, "3mi": rings[3].tractCount, "5mi": rings[5].tractCount }, rings: rings
     };
-  } catch (err) {
-    console.error("Demographics fetch error:", err);
-    return { error: "Failed to fetch demographics" };
-  }
+  } catch (err) { console.error("fetchDemographics error:", err); return { error: "Demographics fetch failed: " + err.message }; }
 };
 
 // ─── Vetting Report Generator ───
@@ -292,7 +334,7 @@ const generateVettingReport = (site, nearestPSDistance) => {
 // Matches CLAUDE.md §6h framework exactly. Uses structured data fields, not regex on summary text.
 // Weights: Demographics 25% (pop) + 15% (HHI), PS Proximity 20%, Zoning 15%, Access 10%, Competition 5%, Market Tier 10%
 // Hard FAIL: pop <5K, HHI <$55K, PS <2.5mi, landlocked
-const computeSiteIQ = (site) => {
+const computeSiteIQ = (site, targetMarkets = []) => {
   const scores = {};
   const flags = [];
   let hardFail = false;
@@ -414,6 +456,26 @@ const computeSiteIQ = (site) => {
     (zoningScore * 0.15) + (scores.access * 0.10) + (compScore * 0.05) + (tierScore * 0.10);
   let adjusted = Math.round(weightedSum * 10) / 10;
 
+    // --- TARGET MARKET TIER BONUS (additive) ---
+    if (targetMarkets && targetMarkets.length > 0) {
+      const siteMarket = (site.market || "").toLowerCase().trim();
+      const siteCity = (site.city || "").toLowerCase().trim();
+      const siteState = (site.state || "").toUpperCase().trim();
+      let bestBonus = 0;
+      for (const tm of targetMarkets) {
+        if (!tm.active) continue;
+        const tmName = (tm.name || "").toLowerCase().trim();
+        const tmStates = (tm.states || "").toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
+        const nameMatch = tmName && (siteMarket.includes(tmName) || tmName.includes(siteMarket) || siteCity.includes(tmName) || tmName.includes(siteCity));
+        const stateMatch = tmStates.length > 0 && tmStates.includes(siteState);
+        if (nameMatch || stateMatch) {
+          const tierBonus = tm.tier === 1 ? 1.0 : tm.tier === 2 ? 0.6 : tm.tier === 3 ? 0.3 : 0.1;
+          bestBonus = Math.max(bestBonus, tierBonus);
+        }
+      }
+      if (bestBonus > 0) adjusted = Math.min(10, adjusted + bestBonus);
+    }
+
   // --- PHASE BONUS ---
   const phase = (site.phase || "").toLowerCase();
   if (/under contract|due diligence|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
@@ -441,6 +503,7 @@ const computeSiteIQ = (site) => {
   else { classification = "RED"; classColor = "#DC2626"; }
 
   return {
+      marketBonus: (() => { if (!targetMarkets || !targetMarkets.length) return null; const sm = (site.market || "").toLowerCase(); const sc = (site.city || "").toLowerCase(); const ss = (site.state || "").toUpperCase(); for (const tm of targetMarkets) { if (!tm.active) continue; const tn = (tm.name || "").toLowerCase(); const ts = (tm.states || "").toUpperCase().split(",").map(s=>s.trim()); if ((tn && (sm.includes(tn) || tn.includes(sm) || sc.includes(tn) || tn.includes(sc))) || (ts.length && ts.includes(ss))) return { name: tm.name, tier: tm.tier, bonus: tm.tier===1?1.0:tm.tier===2?0.6:tm.tier===3?0.3:0.1 }; } return null; })(),
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor,
     tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
     label: final >= 9 ? "ELITE" : final >= 8 ? "PRIME" : final >= 7 ? "STRONG" : final >= 6 ? "VIABLE" : final >= 4 ? "MARGINAL" : "WEAK",
@@ -448,105 +511,49 @@ const computeSiteIQ = (site) => {
 };
 
 // ─── SiteIQ Badge Component ───
-function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
-  const iq = iqProp || computeSiteIQ(site);
-  const s = iq.score;
-  const isGold = iq.tier === "gold";
-  const isSteel = iq.tier === "steel";
+function SiteIQBadge({ site, size = "normal", iq: iqProp, targetMarkets = [] }) {
+  const iq = iqProp || computeSiteIQ(site, targetMarkets);
+  if (!iq) return null;
+  const { score, tier, label, scores, marketBonus } = iq;
   const isSmall = size === "small";
-
-  const tierColors = {
-    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: "#1E2761", ring: "#C9A84C", labelBg: "#FFF8E1" },
-    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: "#2C3E6B", labelBg: "#E8EAF6" },
-    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9" },
-  };
-  const tc = tierColors[iq.tier];
-
-  if (isSmall) {
-    return (
-      <span style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "2px 8px", borderRadius: 6,
-        background: tc.labelBg, border: `1px solid ${tc.ring}33`,
-        fontSize: 11, fontWeight: 700, color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
-        fontFamily: "'Space Mono', monospace",
-      }}>
-        <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", opacity: 0.7 }}>IQ</span>
-        {s.toFixed(1)}
-        {iq.classification && <span style={{ width: 6, height: 6, borderRadius: "50%", background: iq.classColor, flexShrink: 0 }} title={iq.classification} />}
-      </span>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-      {/* Score Circle */}
-      <div style={{
-        position: "relative",
-        width: 56, height: 56, borderRadius: "50%",
-        background: tc.bg,
-        boxShadow: tc.glow,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-        ...(isGold ? { animation: "siteiq-glow 2s ease-in-out infinite alternate" } : {}),
-      }}>
-        {isGold && <div style={{
-          position: "absolute", inset: -3, borderRadius: "50%",
-          border: "2px solid #C9A84C",
-          opacity: 0.5,
-          animation: "siteiq-ring 2s ease-in-out infinite alternate",
-        }} />}
-        <div style={{ textAlign: "center", lineHeight: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
-        </div>
-      </div>
-      {/* Label + Breakdown */}
+  if (isSmall) return <span style={{display: "inline-flex", alignItems: "center", gap: 4, background: tier === "gold" ? "#C9A84C" : tier === "steel" ? "#2C3E6B" : "#6B7280", color: "#fff", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 700}}>IQ {score}</span>;
+  const subMetrics = [
+    { key: "zoning", label: "Zoning", weight: "15%", icon: String.fromCharCode(127960) },
+    { key: "spacing", label: "PS Spacing", weight: "20%", icon: String.fromCharCode(128752) },
+    { key: "population", label: "Demographics", weight: "30%", icon: String.fromCharCode(128101), merged: true },
+    { key: "competition", label: "Competition", weight: "5%", icon: String.fromCharCode(127970) },
+    { key: "access", label: "Site Access", weight: "10%", icon: String.fromCharCode(127959) }
+  ];
+  const demoScore = scores ? Math.round(((scores.population || 5) * 0.625 + (scores.income || 5) * 0.375) * 10) / 10 : 5;
+  return <div style={{background: "#fff", borderRadius: 10, padding: 16, border: "1px solid #e5e7eb", marginBottom: 12}}>
+    <div style={{display: "flex", alignItems: "center", gap: 14, marginBottom: 12}}>
+      <div style={{width: 56, height: 56, borderRadius: "50%", background: tier === "gold" ? "linear-gradient(135deg, #C9A84C, #E8D48B)" : tier === "steel" ? "linear-gradient(135deg, #2C3E6B, #4A5F9B)" : "#9CA3AF", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: 900, fontFamily: "monospace"}}>{score}</div>
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{
-            fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
-            color: iq.tier === "gold" ? "#B8860B" : iq.tier === "steel" ? "#2C3E6B" : "#64748B",
-            textTransform: "uppercase",
-            padding: "2px 6px", borderRadius: 4,
-            background: tc.labelBg,
-          }}>{iq.label}</span>
-          <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
-          {iq.classification && <span style={{ fontSize: 8, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.06em" }}>{iq.classification}</span>}
-        </div>
-        {iq.flags && iq.flags.length > 0 && (
-          <div style={{ display: "flex", gap: 3, marginTop: 2, flexWrap: "wrap" }}>
-            {iq.flags.map((f, i) => (
-              <span key={i} style={{ fontSize: 8, fontWeight: 600, color: "#DC2626", background: "#FEF2F2", padding: "1px 4px", borderRadius: 3 }}>{f}</span>
-            ))}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
-          {[
-            { key: "population", label: "POP", emoji: "👥" },
-            { key: "income", label: "HHI", emoji: "💰" },
-            { key: "spacing", label: "PS", emoji: "📏" },
-            { key: "zoning", label: "ZN", emoji: "📋" },
-            { key: "access", label: "ACC", emoji: "🛣️" },
-            { key: "competition", label: "CP", emoji: "🏢" },
-            { key: "marketTier", label: "MKT", emoji: "📍" },
-          ].map((f) => {
-            const v = iq.scores[f.key] || 0;
-            const c = v >= 8 ? "#16A34A" : v >= 6 ? "#2563EB" : v >= 4 ? "#D97706" : "#DC2626";
-            return (
-              <span key={f.key} title={`${f.label}: ${v}/10`} style={{
-                fontSize: 9, fontWeight: 700, color: c,
-                background: c + "15", padding: "1px 4px", borderRadius: 3,
-                fontFamily: "'Space Mono', monospace",
-              }}>{f.label}{v}</span>
-            );
-          })}
-        </div>
+        <div style={{fontWeight: 800, fontSize: 15, color: "#1E2761"}}>{label} <span style={{fontWeight: 400, fontSize: 11, color: "#999"}}>SiteIQ\u2122</span></div>
+        <div style={{fontSize: 11, color: "#999"}}>Census + field data</div>
+        {marketBonus && <div style={{fontSize: 10, color: "#C9A84C", marginTop: 2, fontWeight: 700}}>{String.fromCharCode(11088)} {marketBonus.name} {String.fromCharCode(8212)} Tier {marketBonus.tier} (+{marketBonus.bonus.toFixed(1)})</div>}
       </div>
     </div>
-  );
+    <div style={{display: "flex", flexDirection: "column", gap: 6}}>
+      {subMetrics.map(m => {
+        const val = m.merged ? demoScore : (scores ? (scores[m.key] || 5) : 5);
+        const pct = val * 10;
+        const color = val >= 8 ? "#16A34A" : val >= 6 ? "#2563EB" : val >= 4 ? "#D97706" : "#DC2626";
+        return <div key={m.key} style={{display: "flex", alignItems: "center", gap: 8}}>
+          <span style={{fontSize: 12, width: 16, textAlign: "center"}}>{m.icon}</span>
+          <div style={{width: 90}}>
+            <div style={{fontSize: 12, fontWeight: 600, color: "#1E2761"}}>{m.label}</div>
+            <div style={{fontSize: 9, color: "#999"}}>{m.weight}</div>
+          </div>
+          <div style={{flex: 1, height: 8, background: "#E5E7EB", borderRadius: 4, overflow: "hidden"}}>
+            <div style={{width: pct + "%", height: "100%", background: `linear-gradient(90deg, ${color}, ${color}CC)`, borderRadius: 4, transition: "width 0.5s"}}></div>
+          </div>
+          <span style={{fontSize: 12, fontWeight: 700, color: color, fontFamily: "monospace", minWidth: 40, textAlign: "right"}}>{val}/10</span>
+        </div>;
+      })}
+    </div>
+  </div>;
 }
-
-// ─── Components ───
 function Badge({ status }) {
   const s = STATUS_COLORS[status] || STATUS_COLORS.pending;
   return (
@@ -598,6 +605,9 @@ function PriorityBadge({ priority }) {
 
 function EF({ label, value, onSave, placeholder, multi }) {
   const [local, setLocal] = useState(value || "");
+  const [targetMarkets, setTargetMarkets] = useState([]);
+  const [showAddMarket, setShowAddMarket] = useState(false);
+  const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
   const prevValue = useRef(value);
   useEffect(() => {
     if (value !== prevValue.current) {
@@ -730,6 +740,12 @@ export default function App() {
     });
     const unsubSw = onValue(swRef, (snap) => {
       const val = snap.val();
+    const marketsRef = ref(db, "targetMarkets");
+    const unsubMarkets = onValue(marketsRef, (snap) => {
+      const val = snap.val();
+      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
+      setTargetMarkets(arr);
+    });
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
       setSw(arr);
     });
@@ -739,6 +755,7 @@ export default function App() {
       unsubEast();
       unsubSw();
       unsubSeed();
+          if (typeof unsubMarkets === "function") unsubMarkets();
     };
   }, []);
 
@@ -859,44 +876,51 @@ export default function App() {
   };
 
   // ─── GEOCODE & DEMOGRAPHICS ───
-  const handleFetchDemos = async (region, site) => {
-    if (!site.coordinates) { notify("Add coordinates first"); return; }
-    setDemoLoading((prev) => ({ ...prev, [site.id]: true }));
+  
+  const handleAddMarket = () => {
+    if (!newMarketForm.name.trim()) return;
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const mkt = { ...newMarketForm, name: newMarketForm.name.trim(), states: newMarketForm.states.trim(), tier: Number(newMarketForm.tier) || 1, createdAt: new Date().toISOString() };
+    set(ref(db, "targetMarkets/" + id), mkt);
+    setNewMarketForm({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
+    setShowAddMarket(false);
+    setToast("Market added: " + mkt.name); setTimeout(() => setToast(null), 3000);
+  };
+  const handleRemoveMarket = (id) => {
+    remove(ref(db, "targetMarkets/" + id));
+    setToast("Market removed"); setTimeout(() => setToast(null), 3000);
+  };
+  const handleToggleMarket = (id, currentActive) => {
+    update(ref(db, "targetMarkets/" + id), { active: !currentActive });
+  };
+
+const handleFetchDemos = async (region, site) => {
+    if (!site.coordinates) return;
+    setDemoLoading(prev => ({ ...prev, [site.id]: true }));
     try {
       const result = await fetchDemographics(site.coordinates);
-      if (result?.error) {
+      if (result.error) {
         notify(result.error);
       } else if (result) {
         const updates = {};
-        // Only overwrite if field is currently empty — protect manually verified data
-        if (result.income3mi && !site.income3mi) updates.income3mi = result.income3mi;
-        if (result.pop3mi && !site.pop3mi) updates.pop3mi = result.pop3mi;
-        const skipped = [];
-        if (result.income3mi && site.income3mi) skipped.push("HHI (kept existing: " + site.income3mi + ")");
-        if (result.pop3mi && site.pop3mi) skipped.push("Pop (kept existing: " + site.pop3mi + ")");
+        const demoFields = ["pop1mi","pop3mi","pop5mi","income1mi","income3mi","income5mi","households1mi","households3mi","households5mi","homeValue1mi","homeValue3mi","homeValue5mi","popGrowth1mi","popGrowth3mi","popGrowth5mi","renterPct1mi","renterPct3mi","renterPct5mi"];
+        for (const f of demoFields) { if (result[f] !== undefined && result[f] !== null) updates[f] = result[f]; }
+        if (result.source) updates.demoSource = result.source;
+        if (result.fips) updates.demoFips = result.fips;
+        updates.demoPulledAt = new Date().toISOString();
+        if (result.tractCounts) updates.demoTractCounts = JSON.stringify(result.tractCounts);
         if (Object.keys(updates).length > 0) {
-          fbUpdate(`${region}/${site.id}`, updates);
-          fbPush(`${region}/${site.id}/activityLog`, {
-            action: `Demographics pulled: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"} (${result.source})${skipped.length ? " — Skipped overwrite: " + skipped.join(", ") : ""}`,
-            ts: new Date().toISOString(),
-            by: "System",
-          });
-        } else if (skipped.length > 0) {
-          // All fields already populated — log but don't overwrite
-          fbPush(`${region}/${site.id}/activityLog`, {
-            action: `Demographics fetch skipped — existing data preserved: ${skipped.join(", ")}. Census returned: Pop ${result.pop3mi || "?"}, HHI ${result.income3mi || "?"}`,
-            ts: new Date().toISOString(),
-            by: "System",
+          fbUpdate(region, site.id, updates);
+          fbPush(region, site.id, "activityLog", {
+            action: "Demographics pulled \u2014 Pop " + (result.pop3mi || "N/A") + " | HHI " + (result.income3mi || "N/A") + " | Growth " + (result.popGrowth3mi !== null ? result.popGrowth3mi + "%" : "N/A") + " | Renters " + (result.renterPct3mi !== null ? result.renterPct3mi + "%" : "N/A"),
+            date: new Date().toISOString(), by: "System"
           });
         }
-        setDemoReport((prev) => ({ ...prev, [site.id]: result }));
-        notify(Object.keys(updates).length > 0 ? "Demographics loaded — see report below" : "No demographic data found");
+        setDemoReport(prev => ({ ...prev, [site.id]: result }));
+        notify(Object.keys(updates).length + " demographic fields saved \u2014 1/3/5 mile rings with growth + renter data");
       }
-    } catch (err) {
-      notify("Demographics fetch failed");
-      console.error(err);
-    }
-    setDemoLoading((prev) => ({ ...prev, [site.id]: false }));
+    } catch (err) { notify("Demographics fetch failed"); console.error(err); }
+    setDemoLoading(prev => ({ ...prev, [site.id]: false }));
   };
 
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
@@ -1275,10 +1299,10 @@ export default function App() {
   // Computes SiteIQ once per site when data changes. Eliminates ~188 redundant calls per render.
   const siteIQCache = useMemo(() => {
     const cache = new Map();
-    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteIQ(s)); });
+    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteIQ(s, targetMarkets)); });
     return cache;
   }, [sw, east]);
-  const getSiteIQ = (site) => siteIQCache.get(site.id) || computeSiteIQ(site);
+  const getSiteIQ = (site) => siteIQCache.get(site.id) || computeSiteIQ(site, targetMarkets);
 
   const SortBar = () => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -1336,7 +1360,7 @@ export default function App() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
-                        <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
+                        <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} targetMarkets={targetMarkets} />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1361,7 +1385,7 @@ export default function App() {
                     <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "1px solid #F1F5F9" }}>
                       {/* SiteIQ™ Score — Primary Metric */}
                       <div style={{ background: "linear-gradient(135deg, #FAFBFC, #F1F5F9)", borderRadius: 12, padding: "10px 16px", margin: "14px 0 6px", border: "1px solid #E2E8F0" }}>
-                        <SiteIQBadge site={site} iq={getSiteIQ(site)} />
+                        <SiteIQBadge site={site} iq={getSiteIQ(site)} targetMarkets={targetMarkets} />
                       </div>
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "14px 0 10px" }}>
@@ -1444,67 +1468,44 @@ export default function App() {
                         <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3…" />
                       </div>
 
-                      {/* Pull Demographics Button */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                        <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: demoLoading[site.id] ? "#E8F0FE" : "linear-gradient(135deg,#1565C0,#1976D2)", color: demoLoading[site.id] ? "#1565C0" : "#fff", fontSize: 11, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5, display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 3px rgba(21,101,192,.2)" }}>
-                          {demoLoading[site.id] ? "⏳ Fetching…" : "📊 Pull Demographics"}
-                        </button>
-                      </div>
-
-                      {/* Demographic Report Card — 1/3/5 Mile Snapshot */}
-                      {demoReport[site.id] && (() => {
-                        const dr = demoReport[site.id];
-                        const r = dr.rings || {};
-                        const ringRow = (label, key) => (
-                          <tr key={label}>
-                            <td style={{ padding: "6px 10px", fontWeight: 700, color: "#334155", fontSize: 12, borderBottom: "1px solid #E2E8F0" }}>{label}</td>
-                            {[1, 3, 5].map((mi) => (
-                              <td key={mi} style={{ padding: "6px 10px", textAlign: "right", fontSize: 12, color: "#475569", borderBottom: "1px solid #E2E8F0" }}>
-                                {key === "medIncome" ? (r[mi]?.[key] ? "$" + r[mi][key].toLocaleString() : "—") : (r[mi]?.[key] ? r[mi][key].toLocaleString() : "—")}
-                              </td>
-                            ))}
-                          </tr>
-                        );
-                        return (
-                          <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}>
-                            <div style={{ background: "linear-gradient(135deg,#1E3A5F,#1565C0)", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em" }}>DEMOGRAPHIC REPORT</div>
-                              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                <span style={{ color: "rgba(255,255,255,.6)", fontSize: 9 }}>{dr.source}</span>
-                                <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,.3)", background: "transparent", color: "#fff", fontSize: 10, cursor: "pointer" }}>✕</button>
-                              </div>
-                            </div>
-                            <div style={{ padding: 14 }}>
-                              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
-                                <thead>
-                                  <tr style={{ background: "#F8FAFC" }}>
-                                    <th style={{ padding: "6px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" }}>Metric</th>
-                                    {[1, 3, 5].map((mi) => <th key={mi} style={{ padding: "6px 10px", textAlign: "right", fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" }}>{mi}-Mile</th>)}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {ringRow("Population", "pop")}
-                                  {ringRow("Households", "hh")}
-                                  {ringRow("Median HHI", "medIncome")}
-                                </tbody>
-                              </table>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                                <div style={{ background: "#F0F9FF", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 2 }}>Growth Outlook</div>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: dr.growthOutlook?.includes("Growing") ? "#16A34A" : dr.growthOutlook?.includes("Moderate") ? "#D97706" : "#64748B" }}>{dr.growthOutlook || "—"}</div>
-                                </div>
-                                <div style={{ background: "#F0F9FF", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 2 }}>County Context</div>
-                                  <div style={{ fontSize: 11, fontWeight: 600, color: "#334155" }}>{dr.countyPop ? `Pop ${dr.countyPop}` : "—"}{dr.countyIncome ? ` · HHI ${dr.countyIncome}` : ""}</div>
-                                </div>
-                              </div>
-                              {dr.fips && <div style={{ marginTop: 8, fontSize: 10, color: "#94A3B8", textAlign: "right" }}>FIPS {dr.fips}</div>}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Date on Market */}
+                      {/* DEMOGRAPHIC PROFILE TABLE */}
+<div style={{background: "linear-gradient(135deg, #1E2761 0%, #2C3E6B 100%)", borderRadius: 12, padding: "16px 20px", marginBottom: 16}}>
+  <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12}}>
+    <div style={{display: "flex", alignItems: "center", gap: 8}}>
+      <span style={{fontSize: 16}}>{String.fromCharCode(128202)}</span>
+      <span style={{color: "#fff", fontWeight: 800, fontSize: 14, letterSpacing: 1.5}}>DEMOGRAPHIC PROFILE</span>
+    </div>
+    <div style={{display: "flex", alignItems: "center", gap: 10}}>
+      <span style={{color: "rgba(255,255,255,0.5)", fontSize: 10}}>{site.demoSource || "Census ACS 5-Year (2022) multi-tract ring aggregation"}</span>
+      <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{background: "#C9A84C", color: "#1E2761", border: "none", borderRadius: 4, padding: "4px 12px", cursor: "pointer", fontWeight: 700, fontSize: 11, opacity: (demoLoading[site.id] || !site.coordinates) ? 0.5 : 1}}>{demoLoading[site.id] ? "Pulling..." : String.fromCharCode(8635) + " Refresh"}</button>
+    </div>
+  </div>
+  <table style={{width: "100%", borderCollapse: "collapse", fontSize: 13}}>
+    <thead><tr style={{borderBottom: "1px solid rgba(255,255,255,0.15)"}}>
+      <th style={{textAlign: "left", padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 11, letterSpacing: 1}}>METRIC</th>
+      <th style={{textAlign: "right", padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 11}}>1-MILE</th>
+      <th style={{textAlign: "right", padding: "8px 12px", color: "#C9A84C", fontWeight: 700, fontSize: 11, background: "rgba(201,168,76,0.08)"}}>3-MILE</th>
+      <th style={{textAlign: "right", padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 11}}>5-MILE</th>
+    </tr></thead>
+    <tbody>
+      {[
+        {label: String.fromCharCode(128101) + " Population", k1: "pop1mi", k3: "pop3mi", k5: "pop5mi"},
+        {label: String.fromCharCode(128176) + " Median HHI", k1: "income1mi", k3: "income3mi", k5: "income5mi"},
+        {label: String.fromCharCode(127968) + " Households", k1: "households1mi", k3: "households3mi", k5: "households5mi"},
+        {label: String.fromCharCode(127969) + " Avg Home Value", k1: "homeValue1mi", k3: "homeValue3mi", k5: "homeValue5mi"},
+        {label: String.fromCharCode(128200) + " Pop Growth", k1: "popGrowth1mi", k3: "popGrowth3mi", k5: "popGrowth5mi", pct: true},
+        {label: String.fromCharCode(127970) + " Renter %", k1: "renterPct1mi", k3: "renterPct3mi", k5: "renterPct5mi", pct: true}
+      ].map((row, idx) => <tr key={idx} style={{borderBottom: "1px solid rgba(255,255,255,0.06)"}}>
+        <td style={{padding: "8px 12px", color: "#fff", fontWeight: 500}}>{row.label}</td>
+        <td style={{padding: "8px 12px", textAlign: "right", color: "rgba(255,255,255,0.8)", fontFamily: "monospace"}}>{site[row.k1] ? (row.pct ? site[row.k1] + "%" : site[row.k1]) : String.fromCharCode(8212)}</td>
+        <td style={{padding: "8px 12px", textAlign: "right", color: "#C9A84C", fontWeight: 700, fontFamily: "monospace", background: "rgba(201,168,76,0.05)"}}>{site[row.k3] ? (row.pct ? site[row.k3] + "%" : site[row.k3]) : String.fromCharCode(8212)}</td>
+        <td style={{padding: "8px 12px", textAlign: "right", color: "rgba(255,255,255,0.8)", fontFamily: "monospace"}}>{site[row.k5] ? (row.pct ? site[row.k5] + "%" : site[row.k5]) : String.fromCharCode(8212)}</td>
+      </tr>)}
+    </tbody>
+  </table>
+  {site.demoPulledAt && <div style={{marginTop: 8, fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "right"}}>Last updated: {new Date(site.demoPulledAt).toLocaleDateString()}</div>}
+</div>
+{/* Date on Market */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Date on Market</div>
@@ -1713,6 +1714,38 @@ export default function App() {
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+
+{/* TARGET MARKETS BANNER */}
+<div style={{background: "linear-gradient(135deg, #1E2761, #2C3E6B)", borderRadius: 12, padding: "16px 24px", marginBottom: 24, color: "#fff"}}>
+  <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: targetMarkets.length > 0 ? 12 : 0}}>
+    <div style={{display: "flex", alignItems: "center", gap: 10}}>
+      <span style={{fontSize: 20}}>{String.fromCharCode(11088)}</span>
+      <span style={{fontWeight: 800, fontSize: 16, letterSpacing: 2}}>TARGET MARKETS</span>
+      <span style={{fontSize: 12, opacity: 0.7}}>{targetMarkets.filter(m => m.active).length} active</span>
+    </div>
+    <button onClick={() => setShowAddMarket(!showAddMarket)} style={{background: "transparent", border: "1px solid #C9A84C", color: "#C9A84C", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12}}>+ Add Market</button>
+  </div>
+  {showAddMarket && <div style={{display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center"}}>
+    <input value={newMarketForm.name} onChange={e => setNewMarketForm(p => ({...p, name: e.target.value}))} placeholder="Market Name" style={{padding: "6px 10px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff", width: 160}} />
+    <select value={newMarketForm.tier} onChange={e => setNewMarketForm(p => ({...p, tier: Number(e.target.value)}))} style={{padding: "6px 8px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff"}}><option value={1}>Tier 1</option><option value={2}>Tier 2</option><option value={3}>Tier 3</option><option value={4}>Tier 4</option></select>
+    <input value={newMarketForm.states} onChange={e => setNewMarketForm(p => ({...p, states: e.target.value}))} placeholder="States (TX,OH)" style={{padding: "6px 10px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff", width: 110}} />
+    <select value={newMarketForm.assignedTo} onChange={e => setNewMarketForm(p => ({...p, assignedTo: e.target.value}))} style={{padding: "6px 8px", borderRadius: 4, border: "1px solid #445", background: "#1a2040", color: "#fff"}}><option value="MT">MT</option><option value="DW">DW</option><option value="Both">Both</option></select>
+    <button onClick={handleAddMarket} style={{background: "#C9A84C", color: "#1E2761", border: "none", borderRadius: 4, padding: "6px 14px", cursor: "pointer", fontWeight: 700}}>Add</button>
+  </div>}
+  <div style={{display: "flex", flexWrap: "wrap", gap: 8}}>
+    {targetMarkets.map(m => <div key={m.id} style={{display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.08)", borderRadius: 6, padding: "5px 12px", fontSize: 12}}>
+      <span style={{width: 8, height: 8, borderRadius: "50%", background: m.tier === 1 ? "#C9A84C" : m.tier === 2 ? "#4CAF50" : m.tier === 3 ? "#2196F3" : "#999"}}></span>
+      <strong>{m.name}</strong>
+      <span style={{opacity: 0.6}}>T{m.tier}</span>
+      <span style={{opacity: 0.5}}>{m.states}</span>
+      <span style={{opacity: 0.5}}>{m.assignedTo}</span>
+      <span onClick={() => handleToggleMarket(m.id, m.active)} style={{cursor: "pointer", padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: m.active ? "#16A34A" : "#666", color: "#fff"}}>{m.active ? "ON" : "OFF"}</span>
+      <span onClick={() => handleRemoveMarket(m.id)} style={{cursor: "pointer", opacity: 0.5, fontSize: 14}}>{String.fromCharCode(215)}</span>
+    </div>)}
+    {targetMarkets.length === 0 && <span style={{opacity: 0.5, fontSize: 12}}>No target markets configured. Add markets to boost SiteIQ scores for priority areas.</span>}
+  </div>
+</div>
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
                 { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
@@ -1882,7 +1915,7 @@ export default function App() {
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
                             onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
                           >
-                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} /></td>
+                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} targetMarkets={targetMarkets} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
