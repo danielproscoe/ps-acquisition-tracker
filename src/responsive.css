@@ -1,0 +1,152 @@
+/* src/responsive.css -- Responsive layout for PS Acquisition Tracker */
+/* Addresses audit finding UX-02: No responsive breakpoints */
+/* Also addresses UX-01: Accessibility improvements */
+
+/* ---- Base accessibility improvements ---- */
+*:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+button, [role="button"] {
+  cursor: pointer;
+}
+
+/* Skip link for keyboard nav */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #2563eb;
+  color: #fff;
+  padding: 8px 16px;
+  z-index: 1000;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ---- Tablet breakpoint (1024px) ---- */
+@media (max-width: 1024px) {
+  /* Stack the stat cards 2x2 instead of 4-across */
+  div[style*="display: flex"][style*="gap"] {
+    flex-wrap: wrap !important;
+  }
+
+  /* Make the main content area not overflow */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Reduce padding on cards */
+  div[style*="borderRadius"] {
+    max-width: 100% !important;
+  }
+}
+
+/* ---- Mobile breakpoint (768px) ---- */
+@media (max-width: 768px) {
+  /* Navigation tabs: scroll horizontally */
+  nav, div[style*="borderBottom"] > div[style*="display: flex"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  /* Stack stat cards vertically */
+  div[style*="display: grid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Target markets: wrap pills */
+  div[style*="flexWrap: wrap"] {
+    gap: 6px !important;
+  }
+
+  /* Table: horizontal scroll */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Reduce font sizes */
+  h1, h2 {
+    font-size: 1.25rem !important;
+  }
+
+  /* Full-width buttons on mobile */
+  button {
+    min-height: 44px; /* WCAG 2.1 AA touch target */
+  }
+
+  /* Header: stack logo and actions */
+  header, div[style*="background: #1e293b"] > div {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+}
+
+/* ---- Small mobile (480px) ---- */
+@media (max-width: 480px) {
+  /* Pipeline funnel bars: shrink labels */
+  div[style*="Pipeline Funnel"] span {
+    font-size: 0.75rem !important;
+  }
+
+  /* Hide less critical columns in summary table */
+  th:nth-child(n+5),
+  td:nth-child(n+5) {
+    display: none;
+  }
+
+  /* Reduce card padding */
+  div[style*="padding: 24px"],
+  div[style*="padding: 20px"] {
+    padding: 12px !important;
+  }
+}
+
+/* ---- Print styles ---- */
+@media print {
+  /* Hide navigation and interactive elements */
+  nav, button, input, select, .skip-link {
+    display: none !important;
+  }
+
+  /* Remove background colors for printing */
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure tables print fully */
+  table {
+    width: 100% !important;
+    white-space: normal !important;
+  }
+}
+
+/* ---- Reduced motion preference ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- High contrast mode ---- */
+@media (prefers-contrast: high) {
+  button {
+    border: 2px solid currentColor !important;
+  }
+
+  div[style*="border"] {
+    border-width: 2px !important;
+  }
+}
