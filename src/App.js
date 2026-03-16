@@ -24,14 +24,13 @@ import "./responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════════
 const SITE_IQ_DEFAULTS = {
   dimensions: [
-    { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-    { key: "growth", label: "Growth", icon: "📈", weight: 0.15, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
-    { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
-    { key: "spacing", label: "PS Spacing", icon: "📏", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
-    { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
-    { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-    { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
-    { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
+    { key: "population", label: "Population", icon: "👥", weight: 0.08, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+    { key: "growth", label: "Growth", icon: "📈", weight: 0.10, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+    { key: "income", label: "Med. Income", icon: "💰", weight: 0.07, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+    { key: "spacing", label: "PS Spacing", icon: "📏", weight: 0.18, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
+    { key: "zoning", label: "Zoning", icon: "📋", weight: 0.22, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+    { key: "access", label: "Site Access", icon: "🛣️", weight: 0.10, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
+    { key: "competition", label: "Competition", icon: "🏢", weight: 0.15, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },      { key: "pricing", label: "Pricing", icon: "💲", weight: 0.05, tip: "Per-acre price analysis", source: "askingPrice + acreage", group: "financial" },      { key: "demand", label: "Demand Gen", icon: "🚗", weight: 0.05, tip: "Traffic, military, university, interstate signals", source: "Summary keywords", group: "market" },    { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.00, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
   ],
   tiers: {
     gold: { min: 8.0, colors: ['#FFD700', '#FFA500'], glow: '0 0 12px rgba(255,215,0,0.5)' },
@@ -721,14 +720,14 @@ const computeSiteIQ = (site, targetMarkets = []) => {
     else if (/boston|mass|worcester|springfield|new\s*jersey|nj|conn|hartford|stamford/i.test(mkt)) tierScore = 4;
     else if (/michigan|detroit|grand\s*rapids|ann\s*arbor|lansing/i.test(mkt)) tierScore = 4;
   }
-  scores.marketTier = tierScore;
+  scores.marketTier = tierScore;    // --- 8. PRICING (5%) ---    let pricingScore = 5;    const askStr = (site.askingPrice || "").toString();    const acreageVal = parseFloat(site.acreage) || 0;    if (acreageVal > 0) {      const priceMatch = askStr.match(/\$?([\d,.]+)\s*[mM]/);      if (priceMatch) {        const priceM = parseFloat(priceMatch[1].replace(/,/g, ""));        const perAcre = (priceM * 1000000) / acreageVal;        if (perAcre <= 150000) pricingScore = 10;        else if (perAcre <= 250000) pricingScore = 8;        else if (perAcre <= 400000) pricingScore = 6;        else if (perAcre <= 600000) pricingScore = 4;        else pricingScore = 2;      } else {        const plainMatch = askStr.match(/\$?([\d,]+)/);        if (plainMatch) {          const price = parseFloat(plainMatch[1].replace(/,/g, ""));          if (price > 1000) {            const perAcre = price / acreageVal;            if (perAcre <= 150000) pricingScore = 10;            else if (perAcre <= 250000) pricingScore = 8;            else if (perAcre <= 400000) pricingScore = 6;            else if (perAcre <= 600000) pricingScore = 4;            else pricingScore = 2;          }        }      }    }    if (/below\s*market|undervalued|motivated\s*seller|price\s*reduced/i.test(summary)) pricingScore = Math.min(10, pricingScore + 2);    if (/overpriced|above\s*market|premium\s*pricing/i.test(summary)) pricingScore = Math.max(0, pricingScore - 2);    scores.pricing = pricingScore;    // --- 9. DEMAND GENERATION (5%) ---    let demandScore = 5;    const vpdMatch = summary.match(/(\d[\d,]*)\s*(?:k\s*)?(?:vpd|adt|vehicles|traffic\s*count)/i);    if (vpdMatch) {      let vpd = parseFloat(vpdMatch[1].replace(/,/g, ""));      if (/k\s*vpd/i.test(summary)) vpd *= 1000;      if (vpd >= 30000) demandScore = 9;      else if (vpd >= 20000) demandScore = 8;      else if (vpd >= 10000) demandScore = 7;      else if (vpd >= 5000) demandScore = 6;      else demandScore = 4;    }    if (/military|fort\s+\w+|army|navy|air\s*force|base/i.test(summary)) demandScore = Math.min(10, demandScore + 2);    if (/universit(?:y|ies)|college|campus/i.test(summary)) demandScore = Math.min(10, demandScore + 1);    if (/(?:i-|interstate\s*)(?:10|20|30|35|40|45|69|71|75|77|80|85|90|95)\b/i.test(summary)) demandScore = Math.min(10, demandScore + 1);    if (/high\s*visib|visible\s*from|highway\s*front|signage/i.test(summary)) demandScore = Math.min(10, demandScore + 1);    scores.demand = demandScore;
 
   // --- COMPOSITE (weighted sum, 0-10 scale) ---
     const weightedSum =
       (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
       (incScore * getIQWeight("income")) + (spacingScore * getIQWeight("spacing")) +
       (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
-      (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
+      (compScore * getIQWeight("competition")) + (pricingScore * getIQWeight("pricing")) +        (demandScore * getIQWeight("demand"));
   let adjusted = Math.round(weightedSum * 10) / 10;
 
     // --- TARGET MARKET TIER BONUS (additive) ---
@@ -778,7 +777,7 @@ const computeSiteIQ = (site, targetMarkets = []) => {
   else { classification = "RED"; classColor = "#DC2626"; }
 
   return {
-    _iq: { zoning: zoningScore, spacing: spacingScore, demographics: (popScore + incScore) / 2, competition: compScore, pricing: tierScore, access: accessScore },
+    _iq: { zoning: zoningScore, spacing: spacingScore, demographics: (popScore + incScore) / 2, competition: compScore, pricing: pricingScore, demand: demandScore, access: accessScore },
       marketBonus: (() => { if (!targetMarkets || !targetMarkets.length) return null; const sm = (site.market || "").toLowerCase(); const sc = (site.city || "").toLowerCase(); const ss = (site.state || "").toUpperCase(); for (const tm of targetMarkets) { if (!tm.active) continue; const tn = (tm.name || "").toLowerCase(); const ts = (tm.states || "").toUpperCase().split(",").map(s=>s.trim()); if ((tn && (sm.includes(tn) || tn.includes(sm) || sc.includes(tn) || tn.includes(sc))) || (ts.length && ts.includes(ss))) return { name: tm.name, tier: tm.tier, bonus: tm.tier===1?1.0:tm.tier===2?0.6:tm.tier===3?0.3:0.1 }; } return null; })(),
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor,
     tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
@@ -840,7 +839,8 @@ function SiteIQBadge({ site, size = "normal" }) {
     { key: 'spacing', label: 'PS Spacing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.weight || 15, icon: '📡', score: iq._iq?.spacing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'spacing')?.source || '' },
     { key: 'competition', label: 'Competition', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.weight || 10, icon: '🏢', score: iq._iq?.competition ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'competition')?.source || '' },
     { key: 'access', label: 'Site Access', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.weight || 5, icon: '🛣️', score: iq._iq?.access ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'access')?.source || '' },
-    { key: 'pricing', label: 'Pricing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.weight || 10, icon: '💲', score: iq._iq?.pricing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.source || '' }
+    { key: 'pricing', label: 'Pricing', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.weight || 10, icon: '💲', score: iq._iq?.pricing ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'pricing')?.source || '' },
+      { key: 'demand', label: 'Demand Gen', weight: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'demand')?.weight || 5, icon: '🚗', score: iq._iq?.demand ?? 0, tip: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'demand')?.tip || '', source: SITE_IQ_CONFIG.dimensions.find(d => d.key === 'demand')?.source || '' }
   ];
 
   return (
