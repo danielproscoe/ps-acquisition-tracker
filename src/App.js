@@ -2861,11 +2861,11 @@ const handleFetchDemos = async (region, site) => {
                         {ppa && <div style={{ fontSize: 11, color: "#94a3b8" }}>{ppa}</div>}
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>{site.address || ""}{site.city ? ", " + site.city : ""}{site.state ? ", " + site.state : ""}{site.acreage ? " \u2022 " + site.acreage + " ac" : ""}</div>
+                    <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>{site.address || ""}{site.city ? ", " + site.city : ""}{site.state ? ", " + site.state : ""}{site.acreage ? " • " + site.acreage + " ac" : ""}</div>
                     {site.summary && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12, lineHeight: 1.5, maxHeight: 48, overflow: "hidden" }}>{site.summary}</div>}
                     <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-                      {site.coordinates && <a href={"https://www.google.com/maps?q=" + site.coordinates} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#60a5fa", textDecoration: "none" }}>\ud83d\udccd Pin Drop</a>}
-                      <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + "?site=" + site.id); notify("Link copied"); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#94a3b8", cursor: "pointer" }}>\ud83d\udd17 Copy Link</button>
+                      {site.coordinates && <a href={"https://www.google.com/maps?q=" + site.coordinates} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#60a5fa", textDecoration: "none" }}>📍 Pin Drop</a>}
+                      <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + "?site=" + site.id); notify("Link copied"); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#94a3b8", cursor: "pointer" }}>🔗 Copy Link</button>
                       {site.sellerBroker && <span style={{ fontSize: 12, color: "#64748b" }}>Broker: {site.sellerBroker}</span>}
                     </div>
                     <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
@@ -2883,8 +2883,8 @@ const handleFetchDemos = async (region, site) => {
                       <input placeholder="Review note..." value={ri.note || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), note: e.target.value}}))} style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: "#e0e7ff", fontSize: 13 }} />
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={e => { e.stopPropagation(); handleApprove(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: ri.routeTo ? "linear-gradient(135deg, #059669, #34d399)" : "#334155", color: ri.routeTo ? "#fff" : "#64748b", fontWeight: 700, fontSize: 13, cursor: ri.routeTo ? "pointer" : "not-allowed", transition: "all 0.2s ease", opacity: ri.routeTo ? 1 : 0.6 }}>\u2713 Approve & Route</button>
-                      <button onClick={e => { e.stopPropagation(); handleDecline(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #dc2626", background: "transparent", color: "#f87171", fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all 0.2s ease" }}>\u2717 Decline</button>
+                      <button onClick={e => { e.stopPropagation(); handleApprove(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: ri.routeTo ? "linear-gradient(135deg, #059669, #34d399)" : "#334155", color: ri.routeTo ? "#fff" : "#64748b", fontWeight: 700, fontSize: 13, cursor: ri.routeTo ? "pointer" : "not-allowed", transition: "all 0.2s ease", opacity: ri.routeTo ? 1 : 0.6 }}>✓ Approve & Route</button>
+                      <button onClick={e => { e.stopPropagation(); handleDecline(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #dc2626", background: "transparent", color: "#f87171", fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all 0.2s ease" }}>✗ Decline</button>
                     </div>
                   </div>
                 );})}
