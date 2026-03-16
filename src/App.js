@@ -767,6 +767,19 @@ export default function App() {
   const [east, setEast] = useState([]);
   const [sw, setSw] = useState([]);
   const [tab, setTab] = useState("dashboard");
+  const [transitioning, setTransitioning] = useState(false);
+  const navigateTo = useCallback((newTab, opts = {}) => {
+    if (newTab === tab && !opts.force) { if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
+    setTransitioning(true);
+    setTimeout(() => {
+      setTab(newTab);
+      if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
+      if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } else { setExpandedSite(null); }
+      if (newTab === "review") setShowNewAlert(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => setTransitioning(false), 350);
+    }, 280);
+  }, [tab]);
   const [toast, setToast] = useState(null);
   const [expandedSite, setExpandedSite] = useState(null);
   const [showNewAlert, setShowNewAlert] = useState(false);
@@ -1833,7 +1846,7 @@ export default function App() {
                           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                             <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
                             <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
-                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Property Listing</a>
+                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: site.listingUrl ? "#FFF3E0" : "#F8FAFC", color: site.listingUrl ? "#E65100" : "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: site.listingUrl ? "none" : "1px dashed #CBD5E1" }}>{site.listingUrl ? "🔗 Property Listing" : "🔍 Search Crexi"}</a>
                             <button onClick={() => {
                               const docs = site.docs ? Object.values(site.docs) : [];
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
@@ -1931,9 +1944,21 @@ export default function App() {
   // ═══ RENDER ═══
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #0C0C0E 0%, #111114 2%, #F0F2F5 6%, #F0F2F5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
+      {transitioning && <div className="tab-transition-overlay" />}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes tabSweep { 0% { transform: scaleX(0); opacity: 0; } 40% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+        @keyframes tabFadeOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.97) translateY(-8px); } }
+        @keyframes tabFadeIn { 0% { opacity: 0; transform: scale(0.97) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        .tab-transition-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; pointer-events: none; }
+        .tab-transition-overlay::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #F37C33, #FFB347, #F37C33, transparent); transform-origin: left; animation: tabSweep 0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .tab-transition-overlay::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(243,124,51,0.06) 0%, rgba(10,10,12,0.3) 50%, rgba(10,10,12,0.5) 100%); animation: tabSweep 0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .funnel-bar { cursor: pointer; position: relative; overflow: hidden; }
+        .funnel-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); transform: translateX(-100%); transition: transform 0.4s ease; }
+        .funnel-bar:hover::after { transform: translateX(100%); }
+        .funnel-bar:hover { filter: brightness(1.15); box-shadow: 0 4px 16px rgba(0,0,0,0.15); transform: scale(1.02); }
+        .funnel-bar:active { transform: scale(0.98); }
         @keyframes slideDown { from { max-height: 0; opacity: 0; transform: scaleY(0.95); } to { max-height: 2000px; opacity: 1; transform: scaleY(1); } }
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(243,124,51,0.4), 0 0 30px rgba(243,124,51,0.15); } 100% { box-shadow: 0 0 30px rgba(243,124,51,0.6), 0 0 60px rgba(243,124,51,0.25); } }
@@ -2105,7 +2130,7 @@ export default function App() {
             { key: "submit", label: "Submit Site" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
           ].map((n) => (
-            <button key={n.key} onClick={() => { setTab(n.key); if (n.key !== "review") setShowNewAlert(false); }} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
+            <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#F37C33"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 12px rgba(243,124,51,0.3)"; } }}
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.textShadow = "none"; } }}
             >
@@ -2124,10 +2149,10 @@ export default function App() {
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
-                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
-                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => { setTab("review"); setShowNewAlert(false); }, sub: "Review queue →" },
-                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => { setTab("southwest"); setExpandedSite(null); }, sub: "Open tracker →" },
-                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => { setTab("east"); setExpandedSite(null); }, sub: "Open tracker →" },
+                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => navigateTo("summary"), sub: "View summary →" },
+                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review"), sub: "Review queue →" },
+                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => navigateTo("southwest"), sub: "Open tracker →" },
+                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => navigateTo("east"), sub: "Open tracker →" },
               ].map((kpi, kpiIdx) => (
                 <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ ...STYLES.kpiCard(kpi.color), animationDelay: `${kpiIdx * 0.08}s` }}
                   onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px) scale(1.02)"; e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.3), 0 0 30px ${kpi.color}25, inset 0 1px 0 rgba(255,255,255,0.08)`; }}
@@ -2159,12 +2184,12 @@ export default function App() {
                 <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
                   <div style={{ display: "flex", gap: 10, flex: 1, flexWrap: "wrap" }}>
                     {[
-                      { label: "Added this week", value: addedThisWeek, color: "#3B82F6" },
-                      { label: "Under Contract", value: ucCount, color: "#16A34A" },
-                      { label: "LOI Active", value: loiCount, color: "#F59E0B" },
-                      { label: "GREEN Sites", value: greenCount, color: "#22C55E" },
+                      { label: "Added this week", value: addedThisWeek, color: "#3B82F6", action: () => navigateTo("summary") },
+                      { label: "Under Contract", value: ucCount, color: "#16A34A", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                      { label: "LOI Active", value: loiCount, color: "#F59E0B", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
+                      { label: "GREEN Sites", value: greenCount, color: "#22C55E", action: () => navigateTo("summary") },
                     ].map((v, vi) => (
-                      <div key={v.label} className="card-reveal" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.92)", borderRadius: 12, padding: "10px 14px", border: `1px solid ${v.color}18`, textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, backdropFilter: "blur(8px)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden" }}
+                      <div key={v.label} onClick={v.action} className="card-reveal funnel-bar" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.92)", borderRadius: 12, padding: "10px 14px", border: `1px solid ${v.color}18`, textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, backdropFilter: "blur(8px)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden", cursor: "pointer" }}
                         onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 4px 16px ${v.color}18`; }}
                         onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
                       >
@@ -2182,47 +2207,54 @@ export default function App() {
               );
             })()}
 
-            {/* ═══ PIPELINE VELOCITY — Executive View ═══ */}
+            {/* ═══ DEAL MOMENTUM — Executive Pulse ═══ */}
             {(() => {
               const all = [...sw, ...east];
               const now = Date.now();
               const DAY = 86400000;
-              const phaseDurations = {};
-              const staleSites = [];
+              const WEEK = 7 * DAY;
+
+              // --- Recent phase advances (last 30 days) ---
+              const recentMoves = [];
               all.forEach(s => {
                 const history = s.phaseHistory ? Object.values(s.phaseHistory) : [];
-                if (history.length > 0) {
-                  history.sort((a, b) => new Date(a.changedAt) - new Date(b.changedAt));
-                  history.forEach(h => {
-                    const dur = h.changedAt ? (new Date(h.changedAt).getTime()) : 0;
-                    if (!phaseDurations[h.from]) phaseDurations[h.from] = [];
-                    const prevIdx = history.indexOf(h) - 1;
-                    if (prevIdx >= 0) {
-                      const prevTs = new Date(history[prevIdx].changedAt).getTime();
-                      const days = Math.round((dur - prevTs) / DAY);
-                      if (days > 0 && days < 365) phaseDurations[h.from].push(days);
+                history.forEach(h => {
+                  if (h.changedAt) {
+                    const age = now - new Date(h.changedAt).getTime();
+                    if (age < 30 * DAY && age >= 0) {
+                      const regionKey = sw.find(x => x.id === s.id) ? "southwest" : "east";
+                      recentMoves.push({ name: s.name, from: h.from, to: h.to, date: h.changedAt, daysAgo: Math.floor(age / DAY), region: regionKey === "southwest" ? "DW" : "MT", regionKey, siteId: s.id });
                     }
-                  });
-                }
-                const lastChange = s.phaseHistory ? Object.values(s.phaseHistory).sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))[0] : null;
-                const phaseAge = lastChange ? Math.floor((now - new Date(lastChange.changedAt).getTime()) / DAY) : (s.approvedAt ? Math.floor((now - new Date(s.approvedAt).getTime()) / DAY) : null);
-                if (phaseAge !== null && phaseAge > 14 && s.phase !== "Closed" && s.phase !== "Dead") {
-                  staleSites.push({ name: s.name, phase: s.phase, days: phaseAge, region: sw.find(x => x.id === s.id) ? "DW" : "MT" });
-                }
+                  }
+                });
               });
-              const hasVelocityData = Object.keys(phaseDurations).length > 0 || staleSites.length > 0;
-              if (!hasVelocityData) return null;
-              const sortedStale = staleSites.sort((a, b) => b.days - a.days);
-              const maxStaleDays = sortedStale.length > 0 ? sortedStale[0].days : 1;
-              // Group stalled by phase
-              const staleByPhase = {};
-              sortedStale.forEach(s => { if (!staleByPhase[s.phase]) staleByPhase[s.phase] = []; staleByPhase[s.phase].push(s); });
-              const phaseOrder = ["Under Contract", "LOI Signed", "LOI Sent", "Prospect", "Submitted to PS", "PS Approved", "PS Revisions", "Due Diligence", "Incoming", "Scored"];
-              const orderedPhases = phaseOrder.filter(p => staleByPhase[p]);
-              // Severity color
-              const sevColor = (d) => d >= 60 ? "#DC2626" : d >= 30 ? "#F37C33" : "#D97706";
-              const sevBg = (d) => d >= 60 ? "rgba(220,38,38,0.08)" : d >= 30 ? "rgba(243,124,51,0.08)" : "rgba(217,119,6,0.06)";
-              const sevLabel = (d) => d >= 60 ? "ESCALATE" : d >= 30 ? "FOLLOW UP" : "MONITOR";
+              recentMoves.sort((a, b) => a.daysAgo - b.daysAgo);
+
+              // --- Pipeline value by stage ---
+              const parsePrice = (p) => { if (!p) return 0; const s = String(p).replace(/[$,]/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s) || 0; };
+              const loiValue = all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const ucValue = all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const prospectValue = all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
+
+              // --- Phase distribution for mini bars ---
+              const phaseGroups = [
+                { label: "Prospect", phases: ["Prospect", "Incoming", "Scored"], color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                { label: "LOI", phases: ["LOI Sent", "LOI Signed"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
+                { label: "Under Contract", phases: ["Under Contract", "Due Diligence"], color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                { label: "Closed", phases: ["Closed"], color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
+              ];
+              phaseGroups.forEach(g => { g.count = all.filter(s => g.phases.includes(s.phase)).length; });
+              const maxPhaseCount = Math.max(...phaseGroups.map(g => g.count), 1);
+
+              // --- Move type classification ---
+              const advancePhases = ["LOI Sent", "LOI Signed", "Under Contract", "Due Diligence", "Closed", "PS Approved"];
+              const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "PS Declined" ? "🔴" : "🔵";
+              const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "PS Declined" ? "EXITED" : "MOVED";
+
+              const hasData = recentMoves.length > 0 || all.length > 0;
+              if (!hasData) return null;
+
               return (
                 <div className="card-reveal" style={{ background: "linear-gradient(145deg, rgba(15,15,20,0.96) 0%, rgba(25,25,32,0.94) 100%)", borderRadius: 16, padding: 0, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
                   {/* Top ember line */}
@@ -2233,73 +2265,71 @@ export default function App() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #F37C33, #D45500)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(243,124,51,0.4)" }}>⚡</div>
                       <div>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F8FAFC", letterSpacing: "0.02em" }}>Pipeline Velocity</h3>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.7)", fontWeight: 500, marginTop: 1 }}>Phase transition speed & action items</div>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F8FAFC", letterSpacing: "0.02em" }}>Deal Momentum</h3>
+                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.7)", fontWeight: 500, marginTop: 1 }}>Pipeline value & recent activity</div>
                       </div>
                     </div>
-                    {staleSites.length > 0 && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8, background: staleSites.some(s => s.days >= 60) ? "rgba(220,38,38,0.15)" : "rgba(243,124,51,0.12)", border: `1px solid ${staleSites.some(s => s.days >= 60) ? "rgba(220,38,38,0.3)" : "rgba(243,124,51,0.25)"}` }}>
-                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: staleSites.some(s => s.days >= 60) ? "#EF4444" : "#F37C33", animation: "fireGlow 2s ease-in-out infinite" }} />
-                        <span style={{ fontSize: 11, fontWeight: 700, color: staleSites.some(s => s.days >= 60) ? "#FCA5A5" : "#FFB347" }}>{staleSites.length} REQUIRE ATTENTION</span>
-                      </div>
-                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", animation: "fireGlow 2s ease-in-out infinite" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#86EFAC" }}>{all.length} ACTIVE</span>
+                    </div>
                   </div>
 
-                  {/* Avg Phase Duration Row */}
-                  {Object.keys(phaseDurations).length > 0 && (
-                    <div style={{ padding: "14px 24px 0", display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {Object.entries(phaseDurations).filter(([, v]) => v.length > 0).sort((a, b) => {
-                        const avgA = a[1].reduce((x, y) => x + y, 0) / a[1].length;
-                        const avgB = b[1].reduce((x, y) => x + y, 0) / b[1].length;
-                        return avgB - avgA;
-                      }).map(([phase, days]) => {
-                        const avg = Math.round(days.reduce((a, b) => a + b, 0) / days.length);
-                        const col = avg > 30 ? "#EF4444" : avg > 14 ? "#F37C33" : "#22C55E";
-                        return (
-                          <div key={phase} style={{ flex: "1 1 90px", textAlign: "center", padding: "10px 8px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                            <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: col, lineHeight: 1 }}>{avg}<span style={{ fontSize: 10, opacity: 0.7 }}>d</span></div>
-                            <div style={{ fontSize: 8, fontWeight: 700, color: "rgba(148,163,184,0.6)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{phase}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {/* Pipeline Value Metrics */}
+                  <div style={{ padding: "16px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    {[
+                      { label: "LOI PIPELINE", value: fmtVal(loiValue), count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
+                      { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                      { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                    ].map(m => (
+                      <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "12px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.25s ease" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = `rgba(255,255,255,0.07)`; e.currentTarget.style.borderColor = `${m.color}40`; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                      >
+                        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: m.color, lineHeight: 1 }}>{m.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{m.label}</div>
+                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)", marginTop: 2 }}>{m.count} site{m.count !== 1 ? "s" : ""}</div>
+                      </div>
+                    ))}
+                  </div>
 
-                  {/* Action Items — Executive Table */}
-                  {staleSites.length > 0 && (
+                  {/* Phase Distribution Mini Bars */}
+                  <div style={{ padding: "14px 24px 0" }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 40 }}>
+                      {phaseGroups.map(g => (
+                        <div key={g.label} onClick={g.count > 0 ? g.action : undefined} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: g.count > 0 ? "pointer" : "default", transition: "all 0.2s ease" }}
+                          onMouseEnter={(e) => { if (g.count > 0) e.currentTarget.style.transform = "translateY(-2px)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+                        >
+                          <div style={{ fontSize: 12, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: g.count > 0 ? g.color : "rgba(148,163,184,0.3)" }}>{g.count}</div>
+                          <div style={{ width: "100%", height: Math.max(4, (g.count / maxPhaseCount) * 24), borderRadius: 3, background: g.count > 0 ? `linear-gradient(180deg, ${g.color}CC, ${g.color}66)` : "rgba(255,255,255,0.04)", transition: "all 0.5s ease" }} />
+                          <div style={{ fontSize: 8, fontWeight: 600, color: "rgba(148,163,184,0.4)", textTransform: "uppercase" }}>{g.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Recent Activity Feed */}
+                  {recentMoves.length > 0 && (
                     <div style={{ padding: "16px 24px 20px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>ATTENTION REQUIRED</div>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)" }}>Sorted by time in phase</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>RECENT ACTIVITY</div>
+                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)" }}>Last 30 days</div>
                       </div>
-                      {/* Column headers */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px 54px", gap: 8, padding: "0 0 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Site</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: "right" }}>Days</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: "center" }}>Status</div>
-                      </div>
-                      {/* Site rows */}
-                      <div style={{ maxHeight: 220, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(243,124,51,0.3) transparent" }}>
-                        {sortedStale.map((s, idx) => (
-                          <div key={s.name + idx} style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px 54px", gap: 8, padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", alignItems: "center", transition: "background 0.2s", cursor: "default" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ width: 3, height: 22, borderRadius: 2, background: sevColor(s.days), opacity: 0.8 }} />
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0", lineHeight: 1.2 }}>{s.name}</div>
-                                <div style={{ fontSize: 9, color: "rgba(148,163,184,0.5)", fontWeight: 500 }}>{s.region}</div>
-                              </div>
+                      <div style={{ maxHeight: 160, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(243,124,51,0.3) transparent" }}>
+                        {recentMoves.slice(0, 10).map((m, idx) => (
+                          <div key={m.name + idx + m.date} onClick={() => navigateTo(m.regionKey, { siteId: m.siteId })} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", borderRadius: 6, transition: "all 0.2s ease" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.paddingLeft = "8px"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "0"; }}
+                          >
+                            <span style={{ fontSize: 12 }}>{moveIcon(m.to)}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name} <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)" }}>({m.region})</span></div>
+                              <div style={{ fontSize: 10, color: "rgba(148,163,184,0.6)" }}>{m.from} → {m.to}</div>
                             </div>
-                            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(148,163,184,0.7)" }}>{s.phase}</div>
-                            <div style={{ textAlign: "right", position: "relative" }}>
-                              <div style={{ fontSize: 14, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: sevColor(s.days), lineHeight: 1 }}>{s.days}</div>
-                              {/* Mini severity bar */}
-                              <div style={{ marginTop: 3, height: 2, borderRadius: 1, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
-                                <div style={{ width: `${Math.min(100, (s.days / Math.max(maxStaleDays, 1)) * 100)}%`, height: "100%", borderRadius: 1, background: sevColor(s.days), transition: "width 0.5s ease" }} />
-                              </div>
-                            </div>
-                            <div style={{ textAlign: "center" }}>
-                              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", padding: "2px 6px", borderRadius: 4, background: sevBg(s.days), color: sevColor(s.days), border: `1px solid ${sevColor(s.days)}22` }}>{sevLabel(s.days)}</span>
+                            <div style={{ textAlign: "right" }}>
+                              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: advancePhases.includes(m.to) ? "rgba(34,197,94,0.1)" : m.to === "Dead" ? "rgba(220,38,38,0.1)" : "rgba(59,130,246,0.1)", color: advancePhases.includes(m.to) ? "#86EFAC" : m.to === "Dead" ? "#FCA5A5" : "#93C5FD", letterSpacing: "0.05em" }}>{moveLabel(m.to)}</span>
+                              <div style={{ fontSize: 9, color: "rgba(148,163,184,0.35)", marginTop: 2 }}>{m.daysAgo === 0 ? "Today" : m.daysAgo === 1 ? "Yesterday" : `${m.daysAgo}d ago`}</div>
                             </div>
                           </div>
                         ))}
@@ -2310,20 +2340,19 @@ export default function App() {
               );
             })()}
 
-            {/* ═══ PIPELINE FUNNEL ═══ */}
+            {/* ═══ PIPELINE FUNNEL — Interactive ═══ */}
             {(() => {
               const all = [...sw, ...east];
               const pending = subs.filter(s => s.status === "pending").length;
               const funnelStages = [
-                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳" },
-                { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "🔍" },
-                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS" || s.phase === "PS Revisions").length, color: "#6366F1", icon: "📤" },
-                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅" },
-                { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝" },
-                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝" },
-                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆" },
+                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
+                { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS" || s.phase === "PS Revisions").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
+                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
+                { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
+                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
-              const maxCount = Math.max(...funnelStages.map(s => s.count), 1);
               const declined = all.filter(s => s.phase === "PS Declined" || s.phase === "Dead").length;
               return (
                 <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
@@ -2336,10 +2365,10 @@ export default function App() {
                     {funnelStages.map((stage, idx) => {
                       const widthPct = stage.count > 0 ? Math.max(25, 30 + (1 - idx / (funnelStages.length - 1)) * 70) : 25;
                       return (
-                        <div key={stage.label} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10 }}>
+                        <div key={stage.label} onClick={stage.count > 0 ? stage.action : undefined} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, cursor: stage.count > 0 ? "pointer" : "default" }}>
                           <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#64748B", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
                           <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-                            <div style={{
+                            <div className={stage.count > 0 ? "funnel-bar" : ""} style={{
                               width: `${widthPct}%`,
                               background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "#F1F5F9",
                               borderRadius: idx === 0 ? "10px 10px 6px 6px" : idx === funnelStages.length - 1 ? "6px 6px 10px 10px" : 6,
@@ -2347,23 +2376,23 @@ export default function App() {
                               display: "flex",
                               justifyContent: "center",
                               alignItems: "center",
-                              transition: "all 0.4s ease",
+                              transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)",
                               minHeight: 28,
                             }}>
-                              <span style={{ fontSize: stage.count > 0 ? 16 : 12, fontWeight: 800, color: stage.count > 0 ? "#fff" : "#CBD5E1", fontFamily: "'Space Mono', monospace" }}>
+                              <span style={{ fontSize: stage.count > 0 ? 16 : 12, fontWeight: 800, color: stage.count > 0 ? "#fff" : "#CBD5E1", fontFamily: "'Space Mono', monospace", position: "relative", zIndex: 1 }}>
                                 {stage.count}
                               </span>
                             </div>
                           </div>
                           <div style={{ width: 50, fontSize: 10, color: "#94A3B8", flexShrink: 0 }}>
-                            {idx > 0 && funnelStages[idx - 1].count > 0 ? `${Math.round((stage.count / funnelStages[idx - 1].count) * 100) || 0}%` : ""}
+                            {stage.count > 0 ? "→" : ""}
                           </div>
                         </div>
                       );
                     })}
                   </div>
                   <div style={{ marginTop: 10, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
-                    Sites flow: Review Queue → Prospect → PS Submission → LOI → Under Contract → Closed
+                    Click any stage to navigate — sites flow left to right
                   </div>
                 </div>
               );
@@ -2373,7 +2402,7 @@ export default function App() {
               const total = r.data.length || 1;
               const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
               return (
-                <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} className="site-card card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", cursor: "pointer", backdropFilter: "blur(8px)", animationDelay: "0.7s", position: "relative", overflow: "hidden" }}>
+                <div key={r.label} onClick={() => navigateTo(r.tabKey)} className="site-card card-reveal funnel-bar" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", cursor: "pointer", backdropFilter: "blur(8px)", animationDelay: "0.7s", position: "relative", overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
                     <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{r.data.length} sites</span>
@@ -2408,7 +2437,9 @@ export default function App() {
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
             const raw = sortData(rk === "east" ? east : sw);
-            const d = raw.filter(s => (filterState === "all" || s.state === filterState) && (filterPhase === "all" || s.phase === filterPhase));
+            const PHASE_GROUPS = { "Prospect": ["Prospect", "Incoming", "Scored"], "LOI Sent": ["LOI Sent", "LOI Signed"], "Under Contract": ["Under Contract", "Due Diligence"], "Submitted to PS": ["Submitted to PS", "PS Revisions"] };
+            const matchPhase = (sPhase) => filterPhase === "all" || sPhase === filterPhase || (PHASE_GROUPS[filterPhase] && PHASE_GROUPS[filterPhase].includes(sPhase));
+            const d = raw.filter(s => (filterState === "all" || s.state === filterState) && matchPhase(s.phase));
             return (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -2424,7 +2455,7 @@ export default function App() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => navigateTo(rk, { siteId: s.id })} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
                             onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
                           >
@@ -2608,7 +2639,10 @@ export default function App() {
                             <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 6 }}>Phase: {site.phase || "Prospect"} · Tracker: {site._region === "southwest" ? "DW" : "MT"}</div>
                             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                               <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); notify(`Reviewed: ${site.name}`); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(22,163,74,0.25)" }}>✓ Mark Reviewed</button>
-                              <button onClick={() => { setTab(site._region); setTimeout(() => { setExpandedSite(site.id); setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }, 50); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Open in Tracker →</button>
+                              <button onClick={() => navigateTo(site._region, { siteId: site.id })} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = "#FFF3E0"; e.currentTarget.style.borderColor = "#F37C33"; e.currentTarget.style.color = "#E65100"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.color = "#475569"; }}
+                              >Open in Tracker →</button>
                               <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
                             </div>
                           </div>
@@ -2636,7 +2670,10 @@ export default function App() {
                   return (
                     <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 15, fontWeight: 700 }}>{site.name}</span>
+                        <span onClick={site.status === "approved" && site.region ? () => navigateTo(site.region, { siteId: site.id }) : undefined} style={{ fontSize: 15, fontWeight: 700, cursor: site.status === "approved" ? "pointer" : "default", transition: "color 0.2s" }}
+                          onMouseEnter={(e) => { if (site.status === "approved") e.currentTarget.style.color = "#F37C33"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = "inherit"; }}
+                        >{site.name}</span>
                         <SiteIQBadge site={site} size="small" />
                         <Badge status={site.status} />
                         {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
