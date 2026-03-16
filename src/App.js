@@ -22,6 +22,61 @@ import "./responsive.css";
 // Executives can adjust weights via the in-app Settings panel (writes to Firebase)
 // or by editing this default config directly. Weights auto-normalize to 1.0.
 // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// THEME CONSTANTS — centralized design tokens
+// ═══════════════════════════════════════════════════════════
+const T = {
+  // Brand palette (CLAUDE.md §3)
+  navy: T.navy,
+  gold: T.gold,
+  ice: "#D6E4F7",
+  steel: T.steel,
+  // Extended palette
+  bg: "#0f1129",
+  bgCard: "#1a1f3c",
+  bgCardHover: "#232a4a",
+  bgInput: "#232a4a",
+  bgSurface: "#f0f2f8",
+  bgLight: "#f8f9fc",
+  // Text
+  textPrimary: T.textPrimary,
+  textSecondary: T.textSecondary,
+  textMuted: T.textMuted,
+  textDark: T.textDark,
+  textLight: T.textLight,
+  // Accent
+  green: T.green,
+  greenDark: T.greenDark,
+  greenLight: T.greenLight,
+  red: T.red,
+  redDark: T.redDark,
+  redLight: T.redLight,
+  orange: T.orange,
+  orangeDark: T.orangeDark,
+  orangeLight: T.orangeLight,
+  blue: T.blue,
+  blueDark: T.blueDark,
+  // Borders
+  border: "#334155",
+  borderLight: T.borderLight,
+  borderGold: "rgba(201,168,76,0.3)",
+  // Phase colors
+  phaseProspect: T.blue,
+  phaseLOI: T.orange,
+  phaseUC: T.green,
+  phaseClosed: T.gold,
+  phaseDead: T.textMuted,
+  // Shadows
+  shadow: "0 4px 20px rgba(0,0,0,0.3)",
+  shadowHeavy: "0 20px 60px rgba(0,0,0,0.5)",
+  // Radius
+  radius: 12,
+  radiusSm: 8,
+  radiusLg: 16,
+  // Font
+  font: "'DM Sans', system-ui, -apple-system, sans-serif",
+};
+
 const SITE_IQ_DEFAULTS = {
   dimensions: [
     { key: "population", label: "Population", icon: "👥", weight: 0.08, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
@@ -846,16 +901,16 @@ function SiteIQBadge({ site, size = "normal" }) {
   const isSmall = size === "small";
 
   const tierColors = {
-    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: "#1E2761", ring: "#C9A84C", labelBg: "#FFF8E1" },
-    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: "#2C3E6B", labelBg: "#E8EAF6" },
+    gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: T.navy, ring: T.gold, labelBg: "#FFF8E1" },
+    steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: T.steel, labelBg: "#E8EAF6" },
     gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9" },
   };
   const tc = tierColors[iq.tier];
 
   // Small badge style variables
-    const smallColor = isGold ? "#C9A84C" : isSteel ? "#2C3E6B" : "#64748B";
+    const smallColor = isGold ? T.gold : isSteel ? T.steel : "#64748B";
     const smallBg = isGold ? "linear-gradient(135deg, #1a1a2e, #16213e)" : isSteel ? "linear-gradient(135deg, #0f172a, #1e293b)" : tc.labelBg;
-    const smallTextColor = isGold ? "#C9A84C" : isSteel ? "#8BACD4" : "#64748B";
+    const smallTextColor = isGold ? T.gold : isSteel ? "#8BACD4" : "#64748B";
   // Small inline badge (collapsed card header)
   if (isSmall) {
     return (
@@ -879,7 +934,7 @@ function SiteIQBadge({ site, size = "normal" }) {
   const stroke = 6;
   const circ = 2 * Math.PI * radius;
   const pctFill = Math.min(s / 10, 1);
-  const ringColor = isGold ? '#c9a84c' : isSteel ? '#7b9bb5' : '#6b7280';
+  const ringColor = isGold ? T.gold : isSteel ? '#7b9bb5' : '#6b7280';
   const glowColor = isGold ? 'rgba(201,168,76,0.4)' : isSteel ? 'rgba(123,155,181,0.3)' : 'none';
 
 
@@ -908,17 +963,17 @@ function SiteIQBadge({ site, size = "normal" }) {
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontSize: 32, fontWeight: 800, color: '#e0e7ff', lineHeight: 1 }}>{Math.floor(s)}<span style={{ fontSize: 18, fontWeight: 600 }}>.{((s % 1) * 10).toFixed(0)}</span></span>
-            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.5, color: '#64748b', marginTop: 2 }}>SITE IQ</span>
+            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.5, color: T.textMuted, marginTop: 2 }}>SITE IQ</span>
           </div>
         </div>
 
         {/* Tier + Label */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 2, color: isGold ? '#c9a84c' : isSteel ? '#7b9bb5' : '#9ca3af', fontStyle: 'italic' }}>{iq.label}</span>
+            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 2, color: isGold ? T.gold : isSteel ? '#7b9bb5' : '#9ca3af', fontStyle: 'italic' }}>{iq.label}</span>
             <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', letterSpacing: 0.5 }}>SiteIQ™</span>
           </div>
-          <span style={{ fontSize: 11, color: '#64748b' }}>Census + field data</span>
+          <span style={{ fontSize: 11, color: T.textMuted }}>Census + field data</span>
         </div>
       </div>
 
@@ -940,8 +995,8 @@ function SiteIQBadge({ site, size = "normal" }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 14 }}>{m.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: '#cbd5e1', textTransform: 'uppercase' }}>{m.label}</span>
-                  <span style={{ fontSize: 10, color: '#475569', fontWeight: 500 }}>{m.weight}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: T.textLight, textTransform: 'uppercase' }}>{m.label}</span>
+                  <span style={{ fontSize: 10, color: T.borderLight, fontWeight: 500 }}>{Math.round(m.weight * 100)}%</span>
                 </div>
                 <span style={{ fontSize: 16, fontWeight: 800, color: scoreColor, fontFamily: "'Space Mono', monospace" }}>{m.score.toFixed(1)}</span>
               </div>
@@ -965,9 +1020,9 @@ function SiteIQBadge({ site, size = "normal" }) {
                   backdropFilter: 'blur(12px)', maxWidth: 320, minWidth: 200,
                   boxShadow: '0 8px 24px rgba(0,0,0,0.4)'
                 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#e0e7ff', marginBottom: 4 }}>{m.icon} {m.label} ({m.weight}%)</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>{m.tip}</div>
-                  {m.source && <div style={{ fontSize: 10, color: '#475569', marginTop: 6, fontStyle: 'italic' }}>Source: {m.source}</div>}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#e0e7ff', marginBottom: 4 }}>{m.icon} {m.label} ({Math.round(m.weight * 100)}%)</div>
+                  <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.4 }}>{m.tip}</div>
+                  {m.source && <div style={{ fontSize: 10, color: T.borderLight, marginTop: 6, fontStyle: 'italic' }}>Source: {m.source}</div>}
                   <div style={{ position: 'absolute', top: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 10, height: 10, background: 'rgba(15,23,42,0.95)', borderTop: '1px solid rgba(99,102,241,0.3)', borderLeft: '1px solid rgba(99,102,241,0.3)' }} />
                 </div>
               )}
@@ -1209,6 +1264,8 @@ function App() {
   const [showAddMarket, setShowAddMarket] = useState(false);
   const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
   const [marketsOpen, setMarketsOpen] = useState(false);
+
+  const [confirmModal, setConfirmModal] = useState(null);
   // vettingReport removed — auto-generates on site add
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
@@ -1648,13 +1705,13 @@ const handleFetchDemos = async (region, site) => {
   };
 
   // ─── REVIEW ───
-  const handleApprove = (id) => {
+  const handleApprove = (id, force) => {
     const site = subs.find((s) => s.id === id);
     if (!site) return;
     const ri = reviewInputs[id] || {};
     const routeTo = ri.routeTo || site.region || "southwest";
     if (!ri.routeTo) {
-      if (!window.confirm("No route selected. Default to " + (REGIONS[routeTo]?.label || routeTo) + "?")) return;
+      if (!force) { setConfirmModal({ title: "Confirm Route", message: "No route selected. Default to " + (REGIONS[routeTo]?.label || routeTo) + "?", onConfirm: () => handleApprove(id, true) }); return; }
     }
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
     const now = new Date().toISOString();
@@ -1718,9 +1775,9 @@ const handleFetchDemos = async (region, site) => {
     notify(`Approved ${p.length}!`);
   };
 
-  const handleDecline = (id) => {
+  const handleDecline = (id, force) => {
     const ri = reviewInputs[id] || {};
-    if (!window.confirm("Decline this site? It will be removed from the queue.")) return;
+    if (!force) { setConfirmModal({ title: "Decline Site", message: "Decline this site? It will be removed from the queue.", onConfirm: () => handleDecline(id, true) }); return; }
     const reviewer = ri.reviewer || "Dan R";
     const note = ri.note || "";
     fbUpdate("submissions/" + id, { status: "declined", reviewedBy: reviewer, reviewNote: note });
@@ -1993,7 +2050,7 @@ const handleFetchDemos = async (region, site) => {
                         <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
                         <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} targetMarkets={targetMarkets} />
                         <PriorityBadge priority={site.priority} />
-                        <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
+                        <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: T.borderLight, cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
@@ -2001,7 +2058,7 @@ const handleFetchDemos = async (region, site) => {
                       <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#94A3B8", flexWrap: "wrap" }}>
                         {site.askingPrice && <span>Ask: <strong style={{ color: "#2C2C2C" }}>{site.askingPrice}</strong></span>}
                         {site.internalPrice && <span>PS: <strong style={{ color: "#F37C33" }}>{site.internalPrice}</strong></span>}
-                        {site.sellerBroker && <span>Broker: <strong style={{ color: "#475569" }}>{site.sellerBroker}</strong></span>}
+                        {site.sellerBroker && <span>Broker: <strong style={{ color: T.borderLight }}>{site.sellerBroker}</strong></span>}
                         {docs.length > 0 && <span style={{ color: "#64748B" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
                         {msgs.length > 0 && <span style={{ color: "#F37C33" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
@@ -2021,12 +2078,12 @@ const handleFetchDemos = async (region, site) => {
                         const curIdx = ids.indexOf(site.id);
                         const prevId = curIdx > 0 ? ids[curIdx - 1] : null;
                         const nextId = curIdx < ids.length - 1 ? ids[curIdx + 1] : null;
-                        const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? "#CBD5E1" : "#475569", fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
+                        const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? "#CBD5E1" : T.borderLight, fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
                         return (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px", borderBottom: "1px solid #F1F5F9", marginBottom: 10 }}>
                             <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setDetailTab('overview'); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>{"▲ Prev"}</button>
                             <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.02em" }}>
-                              <span style={{ fontWeight: 700, color: "#475569" }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: "#CBD5E1" }}>↑↓ keys · Esc close</span>
+                              <span style={{ fontWeight: 700, color: T.borderLight }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: "#CBD5E1" }}>↑↓ keys · Esc close</span>
                             </div>
                             <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setDetailTab('overview'); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>{"Next ▼"}</button>
                           </div>
@@ -2228,8 +2285,8 @@ const handleFetchDemos = async (region, site) => {
                             )}
                             {/* Footer */}
                             <div style={{ background: "#0F172A", padding: "6px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontSize: 8, color: "#475569", letterSpacing: "0.04em" }}>ESRI ArcGIS GeoEnrichment (paid)</span>
-                              <span style={{ fontSize: 8, color: "#475569" }}>{dr.pulledAt ? `Updated ${new Date(dr.pulledAt).toLocaleDateString()}` : ""}</span>
+                              <span style={{ fontSize: 8, color: T.borderLight, letterSpacing: "0.04em" }}>ESRI ArcGIS GeoEnrichment (paid)</span>
+                              <span style={{ fontSize: 8, color: T.borderLight }}>{dr.pulledAt ? `Updated ${new Date(dr.pulledAt).toLocaleDateString()}` : ""}</span>
                             </div>
                           </div>
                         );
@@ -2274,7 +2331,7 @@ const handleFetchDemos = async (region, site) => {
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                             {docs.map(([docKey, doc]) => (
                               <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
-                                <span style={{ fontWeight: 600, color: "#475569" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
+                                <span style={{ fontWeight: 600, color: T.borderLight }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
                                 <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
                                 <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
                               </div>
@@ -2300,7 +2357,7 @@ const handleFetchDemos = async (region, site) => {
                         {msgs.length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxHeight: 200, overflowY: "auto" }}>
                             {[...msgs].sort((a, b) => new Date(a.ts) - new Date(b.ts)).map((m, i) => {
-                              const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: "#475569" };
+                              const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: T.borderLight };
                               return (
                                 <div key={i} style={{ background: mc.bg, border: `1px solid ${mc.border}`, borderRadius: 8, padding: "8px 10px" }}>
                                   <div style={{ fontSize: 10, fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from} · {m.ts ? new Date(m.ts).toLocaleDateString() : ""}</div>
@@ -2337,7 +2394,7 @@ const handleFetchDemos = async (region, site) => {
 
                 </>)}
                       {/* Remove */}
-                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>🗑 Remove Site</button>
+                      <button onClick={() => { setConfirmModal({ title: "Remove Site", message: `Remove "${site.name}" from the tracker?`, onConfirm: () => handleRemove(regionKey, site.id) }); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>🗑 Remove Site</button>
                     </div>
                   )}
                 </div>
@@ -2422,7 +2479,7 @@ const handleFetchDemos = async (region, site) => {
         </div>
 
         {/* Nav */}
-        <div style={{ display: "flex", gap: 2, overflowX: "auto", padding: "4px 0", scrollbarWidth: "none" }}>
+        <div style={{ display: "flex", gap: 2, overflowX: "auto", padding: "4px 0", scrollbarWidth: "none" }} role="tablist" aria-label="Navigation tabs">
           {[
             { key: "dashboard", label: "Dashboard" },
             { key: "summary", label: "Summary" },
@@ -2431,7 +2488,7 @@ const handleFetchDemos = async (region, site) => {
             { key: "submit", label: "Submit Site" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
           ].map((n) => (
-            <button key={n.key} onClick={() => { setTab(n.key); if (n.key !== "review") setShowNewAlert(false); }} style={{ ...navBtn(n.key), position: "relative" }}
+            <button key={n.key} role="tab" aria-selected={tab === n.key} onClick={() => { setTab(n.key); if (n.key !== "review") setShowNewAlert(false); }} style={{ ...navBtn(n.key), position: "relative" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#F37C33"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; } }}
             >
@@ -2467,8 +2524,8 @@ const handleFetchDemos = async (region, site) => {
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, padding: "6px 12px" }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name || m.city || "Unnamed"}</span>
                   {m.state && <span style={{ fontSize: 10, color: "#64748B" }}>{m.state}</span>}
-                  {m.radius && <span style={{ fontSize: 9, color: "#475569", background: "rgba(255,255,255,.06)", padding: "1px 6px", borderRadius: 10 }}>{m.radius}mi</span>}
-                  <button onClick={() => setTargetMarkets(targetMarkets.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>×</button>
+                  {m.radius && <span style={{ fontSize: 9, color: T.borderLight, background: "rgba(255,255,255,.06)", padding: "1px 6px", borderRadius: 10 }}>{m.radius}mi</span>}
+                  <button onClick={() => setTargetMarkets(targetMarkets.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: T.borderLight, cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>×</button>
                 </div>
               ))}
             </div>
@@ -2649,14 +2706,14 @@ const handleFetchDemos = async (region, site) => {
                 const lastChange = hist.length > 0 ? Math.max(...hist.map(h => new Date(h.changedAt).getTime())) : 0;
                 return lastChange > 0 && (now - lastChange) / 86400000 > staleDays;
               });
-              const phaseColors = { Prospect: "#94a3b8", "LOI Sent": "#60a5fa", "LOI Signed": "#a78bfa", "Under Contract": "#4ade80" };
-              return (<div style={{ marginBottom: 28 }}><h3 style={{ color: "#1E2761", fontSize: 18, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 20 }}>⚡</span> Pipeline Velocity</h3><div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>{phaseStats.map(p => (<div onClick={() => { setPhaseFilter(p.phase === phaseFilter ? null : p.phase); }}  key={p.phase} style={{ cursor:"pointer", transition:"all 0.3s ease", transform: p.phase === phaseFilter ? "scale(1.05)" : "scale(1)", boxShadow: p.phase === phaseFilter ? "0 0 20px rgba(201,168,76,0.4)" : undefined, border: p.phase === phaseFilter ? "2px solid #c9a84c" : "1px solid transparent",  background: "rgba(30,41,59,0.8)", borderRadius: 10, padding: "14px 16px", borderLeft: "3px solid " + (phaseColors[p.phase] || "#64748b") }}><div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{p.phase}</div><div style={{ color: "#f1f5f9", fontSize: 24, fontWeight: 700, marginTop: 4 }}>{p.count}</div><div style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>avg {p.avgDays}d in phase</div></div>))}</div>{stalled.length > 0 && (<div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px" }}><span style={{ color: "#ef4444", fontWeight: 600, fontSize: 13 }}>\u26A0 {stalled.length} stalled (>{staleDays}d): </span><span style={{ color: "#fca5a5", fontSize: 13 }}>{stalled.map(s => s.name).join(", ")}</span></div>)}</div>);
+              const phaseColors = { Prospect: T.textSecondary, "LOI Sent": "#60a5fa", "LOI Signed": "#a78bfa", "Under Contract": "#4ade80" };
+              return (<div style={{ marginBottom: 28 }}><h3 style={{ color: T.navy, fontSize: 18, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 20 }}>⚡</span> Pipeline Velocity</h3><div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>{phaseStats.map(p => (<div onClick={() => { setPhaseFilter(p.phase === phaseFilter ? null : p.phase); }}  key={p.phase} style={{ cursor:"pointer", transition:"all 0.3s ease", transform: p.phase === phaseFilter ? "scale(1.05)" : "scale(1)", boxShadow: p.phase === phaseFilter ? "0 0 20px rgba(201,168,76,0.4)" : undefined, border: p.phase === phaseFilter ? "2px solid #c9a84c" : "1px solid transparent",  background: "rgba(30,41,59,0.8)", borderRadius: 10, padding: "14px 16px", borderLeft: "3px solid " + (phaseColors[p.phase] || T.textMuted) }}><div style={{ color: T.textSecondary, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{p.phase}</div><div style={{ color: "#f1f5f9", fontSize: 24, fontWeight: 700, marginTop: 4 }}>{p.count}</div><div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>avg {p.avgDays}d in phase</div></div>))}</div>{stalled.length > 0 && (<div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px" }}><span style={{ color: "#ef4444", fontWeight: 600, fontSize: 13 }}>\u26A0 {stalled.length} stalled (>{staleDays}d): </span><span style={{ color: "#fca5a5", fontSize: 13 }}>{stalled.map(s => s.name).join(", ")}</span></div>)}</div>);
             })()}
 
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
           const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
-          const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
+          const td = { padding: "8px 10px", fontSize: 11, color: T.borderLight, borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
           const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
           const allStates = [...new Set([...sw, ...east].map(s => s.state).filter(Boolean))].sort();
           const SumTable = ({ rk }) => {
@@ -2709,11 +2766,11 @@ const handleFetchDemos = async (region, site) => {
               <SortBar />
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Filter:</span>
-                  <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: "#475569", background: filterState !== "all" ? "#FFF7ED" : "#fff" }}>
+                  <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: T.borderLight, background: filterState !== "all" ? "#FFF7ED" : "#fff" }}>
                     <option value="all">All States</option>
                     {allStates.map(st => <option key={st} value={st}>{st}</option>)}
                   </select>
-                  <select value={filterPhase} onChange={(e) => setFilterPhase(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: "#475569", background: filterPhase !== "all" ? "#FFF7ED" : "#fff" }}>
+                  <select value={filterPhase} onChange={(e) => setFilterPhase(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: T.borderLight, background: filterPhase !== "all" ? "#FFF7ED" : "#fff" }}>
                     <option value="all">All Phases</option>
                     {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -2752,7 +2809,7 @@ const handleFetchDemos = async (region, site) => {
                     <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
                   </div>
                 ) : (
-                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: T.borderLight }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
                 )}
               </div>
               {/* ── Additional Attachments ── */}
@@ -2771,7 +2828,7 @@ const handleFetchDemos = async (region, site) => {
                           <div style={{ fontSize: 12, fontWeight: 600, color: "#2C2C2C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
                           <div style={{ fontSize: 10, color: "#94A3B8" }}>{(a.file.size / 1024).toFixed(0)} KB</div>
                         </div>
-                        <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", color: "#475569" }}>
+                        <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", color: T.borderLight }}>
                           {DOC_TYPES.filter((t) => t !== "Flyer").map((t) => <option key={t}>{t}</option>)}
                         </select>
                         <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
@@ -2834,7 +2891,7 @@ const handleFetchDemos = async (region, site) => {
             {subs.length === 0 ? (
               <div style={{ background: "#fff", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#475569", marginBottom: 6 }}>Review Queue Empty</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.borderLight, marginBottom: 6 }}>Review Queue Empty</div>
                 <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via the "Submit Site" tab appear here for review and approval before being added to a tracker. Use <strong>Submit Site → Send to Review</strong> to queue a new site.</div>
               </div>
             ) : (
@@ -2844,7 +2901,7 @@ const handleFetchDemos = async (region, site) => {
                   const iq = computeSiteIQ(site);
                   const isGold = iq.tier === "gold";
                   const isSteel = iq.tier === "steel";
-                  const tierColor = isGold ? "#c9a84c" : isSteel ? "#7b9bb5" : "#64748b";
+                  const tierColor = isGold ? T.gold : isSteel ? "#7b9bb5" : T.textMuted;
                   const ppa = site.acreage && site.askingPrice ? (parseFloat(String(site.askingPrice).replace(/[^0-9.]/g,"")) / parseFloat(site.acreage)).toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}) + "/ac" : "";
                   return (
                   <div key={site.id} style={{ background: "linear-gradient(135deg, #0f172a, #1e293b)", borderRadius: 16, padding: 24, marginBottom: 16, border: "1px solid " + tierColor + "33", boxShadow: "0 4px 24px rgba(0,0,0,0.3)", transition: "all 0.3s ease" }}
@@ -2857,33 +2914,33 @@ const handleFetchDemos = async (region, site) => {
                         <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "#F37C33", color: "#fff", fontWeight: 700, letterSpacing: 1 }}>PENDING</span>
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: "#c9a84c" }}>{site.askingPrice ? "$" + Number(String(site.askingPrice).replace(/[^0-9]/g,"")).toLocaleString() : "Unpriced"}</div>
-                        {ppa && <div style={{ fontSize: 11, color: "#94a3b8" }}>{ppa}</div>}
+                        <div style={{ fontSize: 18, fontWeight: 800, color: T.gold }}>{site.askingPrice ? "$" + Number(String(site.askingPrice).replace(/[^0-9]/g,"")).toLocaleString() : "Unpriced"}</div>
+                        {ppa && <div style={{ fontSize: 11, color: T.textSecondary }}>{ppa}</div>}
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>{site.address || ""}{site.city ? ", " + site.city : ""}{site.state ? ", " + site.state : ""}{site.acreage ? " • " + site.acreage + " ac" : ""}</div>
-                    {site.summary && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12, lineHeight: 1.5, maxHeight: 48, overflow: "hidden" }}>{site.summary}</div>}
+                    <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 8 }}>{site.address || ""}{site.city ? ", " + site.city : ""}{site.state ? ", " + site.state : ""}{site.acreage ? " • " + site.acreage + " ac" : ""}</div>
+                    {site.summary && <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 12, lineHeight: 1.5, maxHeight: 48, overflow: "hidden" }}>{site.summary}</div>}
                     <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
                       {site.coordinates && <a href={"https://www.google.com/maps?q=" + site.coordinates} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#60a5fa", textDecoration: "none" }}>📍 Pin Drop</a>}
-                      <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + "?site=" + site.id); notify("Link copied"); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#94a3b8", cursor: "pointer" }}>🔗 Copy Link</button>
-                      {site.sellerBroker && <span style={{ fontSize: 12, color: "#64748b" }}>Broker: {site.sellerBroker}</span>}
+                      <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + "?site=" + site.id); notify("Link copied"); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: T.textSecondary, cursor: "pointer" }}>🔗 Copy Link</button>
+                      {site.sellerBroker && <span style={{ fontSize: 12, color: T.textMuted }}>Broker: {site.sellerBroker}</span>}
                     </div>
                     <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-                      <select value={ri.routeTo || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), routeTo: e.target.value}}))} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: ri.routeTo ? "#e0e7ff" : "#64748b", fontSize: 13, minWidth: 160 }}>
+                      <select value={ri.routeTo || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), routeTo: e.target.value}}))} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: T.textDark, color: ri.routeTo ? "#e0e7ff" : T.textMuted, fontSize: 13, minWidth: 160 }}>
                         <option value="">Route to...</option>
                         <option value="southwest">Daniel Wollent (SW)</option>
                         <option value="east">Matthew Toussaint (East)</option>
                       </select>
-                      <select value={ri.reviewer || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), reviewer: e.target.value}}))} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: ri.reviewer ? "#e0e7ff" : "#64748b", fontSize: 13 }}>
+                      <select value={ri.reviewer || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), reviewer: e.target.value}}))} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: T.textDark, color: ri.reviewer ? "#e0e7ff" : T.textMuted, fontSize: 13 }}>
                         <option value="">Reviewer...</option>
                         <option value="Daniel Wollent">Daniel Wollent</option>
                         <option value="Matthew Toussaint">Matthew Toussaint</option>
                         <option value="Dan R">Dan R</option>
                       </select>
-                      <input placeholder="Review note..." value={ri.note || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), note: e.target.value}}))} style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: "#e0e7ff", fontSize: 13 }} />
+                      <input placeholder="Review note..." value={ri.note || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), note: e.target.value}}))} style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: T.textDark, color: "#e0e7ff", fontSize: 13 }} />
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={e => { e.stopPropagation(); handleApprove(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: ri.routeTo ? "linear-gradient(135deg, #059669, #34d399)" : "#334155", color: ri.routeTo ? "#fff" : "#64748b", fontWeight: 700, fontSize: 13, cursor: ri.routeTo ? "pointer" : "not-allowed", transition: "all 0.2s ease", opacity: ri.routeTo ? 1 : 0.6 }}>✓ Approve & Route</button>
+                      <button onClick={e => { e.stopPropagation(); handleApprove(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: ri.routeTo ? "linear-gradient(135deg, #059669, #34d399)" : "#334155", color: ri.routeTo ? "#fff" : T.textMuted, fontWeight: 700, fontSize: 13, cursor: ri.routeTo ? "pointer" : "not-allowed", transition: "all 0.2s ease", opacity: ri.routeTo ? 1 : 0.6 }}>✓ Approve & Route</button>
                       <button onClick={e => { e.stopPropagation(); handleDecline(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #dc2626", background: "transparent", color: "#f87171", fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all 0.2s ease" }}>✗ Decline</button>
                     </div>
                   </div>
@@ -2894,9 +2951,9 @@ const handleFetchDemos = async (region, site) => {
         )}
 
         {/* ═══ TRACKERS ═══ */}
-        {tab === "southwest" && <>{phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
+        {tab === "southwest" && <>{phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: T.gold, fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
                 <TrackerCards regionKey="southwest" /></>}
-        {tab === "east" && <>{phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
+        {tab === "east" && <>{phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: T.gold, fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
                 <TrackerCards regionKey="east" /></>}
       </div>
 
@@ -2912,9 +2969,9 @@ const handleFetchDemos = async (region, site) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div>
                 <h2 style={{ margin: 0, color: '#e0e7ff', fontSize: 20, fontWeight: 700 }}>⚙️ SiteIQ™ Weight Configuration</h2>
-                <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 12 }}>Adjust dimension weights. Changes apply to all site scores in real-time.</p>
+                <p style={{ margin: '4px 0 0', color: T.textSecondary, fontSize: 12 }}>Adjust dimension weights. Changes apply to all site scores in real-time.</p>
               </div>
-              <button onClick={() => setWeightEditorOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
+              <button onClick={() => setWeightEditorOpen(false)} style={{ background: 'none', border: 'none', color: T.textSecondary, fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
             </div>
 
             {/* Weight Total Indicator */}
@@ -2935,7 +2992,7 @@ const handleFetchDemos = async (region, site) => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <button onClick={() => { const nw = [...editWeights]; nw[idx] = { ...nw[idx], weight: Math.round(Math.max(0, nw[idx].weight - 0.01) * 100) / 100 }; setEditWeights(nw); }} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#a5b4fc', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
                         <input type="number" value={Math.round(dim.weight * 100)} min={0} max={100} onChange={e => { const nw = [...editWeights]; nw[idx] = { ...nw[idx], weight: Math.round(Math.max(0, Math.min(100, parseInt(e.target.value) || 0))) / 100 }; setEditWeights(nw); }} style={{ width: 48, textAlign: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 6, color: '#e0e7ff', fontSize: 15, fontWeight: 700, padding: '2px 4px' }} />
-                        <span style={{ color: '#64748b', fontSize: 13 }}>%</span>
+                        <span style={{ color: T.textMuted, fontSize: 13 }}>%</span>
                         <button onClick={() => { const nw = [...editWeights]; nw[idx] = { ...nw[idx], weight: Math.round(Math.min(1, nw[idx].weight + 0.01) * 100) / 100 }; setEditWeights(nw); }} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#a5b4fc', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                       </div>
                     </div>
@@ -2949,7 +3006,7 @@ const handleFetchDemos = async (region, site) => {
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setEditWeights(SITE_IQ_DEFAULTS.dimensions.map(d => ({ key: d.key, label: d.label, weight: d.weight }))); }} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', cursor: 'pointer', fontSize: 13 }}>Reset Defaults</button>
+              <button onClick={() => { setEditWeights(SITE_IQ_DEFAULTS.dimensions.map(d => ({ key: d.key, label: d.label, weight: d.weight }))); }} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: T.textSecondary, cursor: 'pointer', fontSize: 13 }}>Reset Defaults</button>
               <button onClick={() => {
                 const total = editWeights.reduce((s, w) => s + w.weight, 0);
                 if (total <= 0) return;
@@ -2969,7 +3026,19 @@ const handleFetchDemos = async (region, site) => {
               }} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: Math.abs(editWeights.reduce((s, w) => s + w.weight, 0) - 1) < 0.001 ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#991b1b', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>{Math.abs(editWeights.reduce((s, w) => s + w.weight, 0) - 1) < 0.001 ? 'Apply & Save' : 'Weights must = 100%'}</button>
             </div>
 
-            <p style={{ margin: '16px 0 0', color: '#475569', fontSize: 11, textAlign: 'center' }}>SiteIQ™ is a proprietary methodology of DJR Real Estate LLC. Not authorized for reuse. Weights auto-normalize internally. v{SITE_IQ_CONFIG.version}</p>
+            <p style={{ margin: '16px 0 0', color: T.borderLight, fontSize: 11, textAlign: 'center' }}>SiteIQ™ is a proprietary methodology of DJR Real Estate LLC. Not authorized for reuse. Weights auto-normalize internally. v{SITE_IQ_CONFIG.version}</p>
+          </div>
+        </div>
+      )}
+      {confirmModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)" }} onClick={() = role="dialog" aria-modal="true" aria-label="Confirmation dialog"> setConfirmModal(null)}>
+          <div style={{ background: "#1a1f3c", borderRadius: 16, padding: "32px 36px", maxWidth: 440, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", border: "1px solid rgba(201,168,76,0.3)" }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ color: T.gold, fontSize: 18, fontWeight: 700, margin: "0 0 12px" }}>{confirmModal.title}</h3>
+            <p style={{ color: "#b0bec5", fontSize: 14, lineHeight: 1.6, margin: "0 0 24px" }}>{confirmModal.message}</p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button onClick={() => setConfirmModal(null)} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#b0bec5", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Cancel</button>
+              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #C9A84C, #b8943f)", color: T.navy, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>Confirm</button>
+            </div>
           </div>
         </div>
       )}
