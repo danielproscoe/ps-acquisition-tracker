@@ -1792,7 +1792,7 @@ export default function App() {
 
   // âââ DOCUMENT UPLOAD (Firebase Storage) âââ
   const handleDocUpload = async (region, siteId, file, docType) => {
-    if (!file) return;
+    if (!file) { notify("No file selected"); return; }
     if (file.size > 20e6) { notify("Max 20MB per file"); return; }
     const docId = uid();
     const path = `docs/${siteId}/${docId}_${file.name}`;
@@ -1802,11 +1802,11 @@ export default function App() {
       await uploadBytes(sRef, file);
       const url = await getDownloadURL(sRef);
       const docEntry = { id: docId, name: file.name, type: docType, url, path, uploadedAt: new Date().toISOString() };
-      fbPush(`${region}/${siteId}/docs`, docEntry);
+      await fbPush(`${region}/${siteId}/docs`, docEntry);
       notify(`${docType} uploaded!`);
     } catch (e) {
       console.error(e);
-      notify("Upload failed â check Firebase Storage rules");
+      notify("Upload failed: " + (e.message || "Please try again"));
     }
   };
 
