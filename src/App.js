@@ -1973,11 +1973,11 @@ const handleFetchDemos = async (region, site) => {
           <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#94A3B8" }}>No sites yet.</div>
         ) : (
           <div style={{ display: "grid", gap: 14 }}>
-            {data.map((site) => {
+            {filteredData.map((site) => {
               const isOpen = expandedSite === site.id;
               const msgs = site.messages ? Object.values(site.messages) : [];
               const docs = site.docs ? Object.entries(site.docs) : [];
-    const filteredData = phaseFilter ? data.filter(([_, s]) => s.phase === phaseFilter) : data;
+    const filteredData = phaseFilter ? data.filter(s => s.phase === phaseFilter) : data;
               const logs = site.activityLog ? Object.values(site.activityLog) : [];
               const mi = msgInputs[site.id] || { from: "Dan R", text: "" };
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
