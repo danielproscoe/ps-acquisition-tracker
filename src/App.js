@@ -3031,7 +3031,7 @@ const handleFetchDemos = async (region, site) => {
         </div>
       )}
       {confirmModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)" }} onClick={() = role="dialog" aria-modal="true" aria-label="Confirmation dialog"> setConfirmModal(null)}>
+        <div role="dialog" aria-modal="true" aria-label="Confirmation dialog" style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)" }} onClick={() => setConfirmModal(null)}>
           <div style={{ background: "#1a1f3c", borderRadius: 16, padding: "32px 36px", maxWidth: 440, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", border: "1px solid rgba(201,168,76,0.3)" }} onClick={e => e.stopPropagation()}>
             <h3 style={{ color: T.gold, fontSize: 18, fontWeight: 700, margin: "0 0 12px" }}>{confirmModal.title}</h3>
             <p style={{ color: "#b0bec5", fontSize: 14, lineHeight: 1.6, margin: "0 0 24px" }}>{confirmModal.message}</p>
