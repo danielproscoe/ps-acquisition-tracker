@@ -1,16 +1,18 @@
 // src/config.js -- Shared constants for PS Acquisition Tracker
 // Addresses audit finding ARCH-05: Extract constants to shared config
 
-// ---- SiteIQ Scoring Weights (must match computeSiteIQ in App.js) ----
-export const SITEIQ_WEIGHTS = {
-  population: 0.25,
-  psProximity: 0.20,
-  income: 0.15,
-  zoning: 0.15,
-  marketTier: 0.10,
-  siteAccess: 0.10,
-  competition: 0.05
-};
+// ---- SiteIQ v2.0 Scoring Weights (must match computeSiteIQ in App.js) ----
+  export const SITEIQ_WEIGHTS = {
+        zoning: 0.22,
+        psProximity: 0.18,
+        population: 0.08,
+        income: 0.07,
+        growth: 0.10,
+        competition: 0.15,
+        pricing: 0.05,
+        demand: 0.05,
+        siteAccess: 0.10
+  };
 
 // ---- SiteIQ Classification Thresholds ----
 export const SITEIQ_THRESHOLDS = {
