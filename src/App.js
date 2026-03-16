@@ -1204,6 +1204,7 @@ function App() {
   const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
+  const [phaseFilter, setPhaseFilter] = useState(null);
   const [targetMarkets, setTargetMarkets] = useState([]);
   const [showAddMarket, setShowAddMarket] = useState(false);
   const [newMarketForm, setNewMarketForm] = useState({ name: "", tier: 1, states: "", assignedTo: "MT", active: true });
@@ -1652,15 +1653,20 @@ const handleFetchDemos = async (region, site) => {
     if (!site) return;
     const ri = reviewInputs[id] || {};
     const routeTo = ri.routeTo || site.region || "southwest";
+    if (!ri.routeTo) {
+      if (!window.confirm("No route selected. Default to " + (REGIONS[routeTo]?.label || routeTo) + "?")) return;
+    }
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
     const now = new Date().toISOString();
+    const reviewer = ri.reviewer || "Dan R";
+    const note = ri.note || "";
     const t = {
       ...site,
       region: routeTo,
       status: "tracking",
       approvedAt: now,
-      reviewedBy: ri.reviewer || "Dan R",
-      reviewNote: ri.note || "",
+      reviewedBy: reviewer,
+      reviewNote: note,
       askingPrice: site.askingPrice || "",
       internalPrice: site.internalPrice || "",
       income3mi: site.income3mi || "",
@@ -1673,16 +1679,15 @@ const handleFetchDemos = async (region, site) => {
       acreage: site.acreage || "",
       zoning: site.zoning || "",
       market: site.market || "",
-      priority: "⚪ None",
-      messages: {},
-      docs: {},
-      activityLog: { [uid()]: { action: `Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "Dan R" } },
+      priority: site.priority || "\u26aa None",
+      messages: site.messages || {},
+      docs: site.docs || {},
+      activityLog: { [uid()]: { action: "Approved \u2192 routed to " + routeLabel, ts: now, by: reviewer } },
     };
-    fbSet(`${routeTo}/${id}`, t);
-    fbUpdate(`submissions/${id}`, { status: "approved", reviewedBy: ri.reviewer, reviewNote: ri.note, routedTo: routeTo });
-    notify(`Approved → ${routeLabel}`);
-    autoGenerateVettingReport(routeTo, id, t);
-  };
+    fbSet(routeTo + "/" + id, t);
+    fbUpdate("submissions/" + id, { status: "approved", reviewedBy: reviewer, reviewNote: note, routedTo: routeTo });
+    notify("\u2705 Approved \u2192 " + routeLabel);
+  }
 
   const handleApproveAll = () => {
     const p = subs.filter((s) => s.status === "pending");
@@ -1715,9 +1720,12 @@ const handleFetchDemos = async (region, site) => {
 
   const handleDecline = (id) => {
     const ri = reviewInputs[id] || {};
-    fbUpdate(`submissions/${id}`, { status: "declined", reviewedBy: ri.reviewer, reviewNote: ri.note });
-    notify("Declined.");
-  };
+    if (!window.confirm("Decline this site? It will be removed from the queue.")) return;
+    const reviewer = ri.reviewer || "Dan R";
+    const note = ri.note || "";
+    fbUpdate("submissions/" + id, { status: "declined", reviewedBy: reviewer, reviewNote: note });
+    notify("\u274c Declined \u2014 removed from queue.");
+  }
 
   const handleClearDeclined = () => {
     subs.filter((s) => s.status === "declined").forEach((s) => fbRemove(`submissions/${s.id}`));
@@ -1969,6 +1977,7 @@ const handleFetchDemos = async (region, site) => {
               const isOpen = expandedSite === site.id;
               const msgs = site.messages ? Object.values(site.messages) : [];
               const docs = site.docs ? Object.entries(site.docs) : [];
+    const filteredData = phaseFilter ? data.filter(([_, s]) => s.phase === phaseFilter) : data;
               const logs = site.activityLog ? Object.values(site.activityLog) : [];
               const mi = msgInputs[site.id] || { from: "Dan R", text: "" };
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
@@ -2641,7 +2650,7 @@ const handleFetchDemos = async (region, site) => {
                 return lastChange > 0 && (now - lastChange) / 86400000 > staleDays;
               });
               const phaseColors = { Prospect: "#94a3b8", "LOI Sent": "#60a5fa", "LOI Signed": "#a78bfa", "Under Contract": "#4ade80" };
-              return (<div style={{ marginBottom: 28 }}><h3 style={{ color: "#e2e8f0", fontSize: 18, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 20 }}>⚡</span> Pipeline Velocity</h3><div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>{phaseStats.map(ps => (<div key={ps.phase} style={{ background: "rgba(30,41,59,0.8)", borderRadius: 10, padding: "14px 16px", borderLeft: "3px solid " + (phaseColors[ps.phase] || "#64748b") }}><div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{ps.phase}</div><div style={{ color: "#f1f5f9", fontSize: 24, fontWeight: 700, marginTop: 4 }}>{ps.count}</div><div style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>avg {ps.avgDays}d in phase</div></div>))}</div>{stalled.length > 0 && (<div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px" }}><span style={{ color: "#ef4444", fontWeight: 600, fontSize: 13 }}>\u26A0 {stalled.length} stalled (>{staleDays}d): </span><span style={{ color: "#fca5a5", fontSize: 13 }}>{stalled.map(s => s.name).join(", ")}</span></div>)}</div>);
+              return (<div style={{ marginBottom: 28 }}><h3 style={{ color: "#1E2761", fontSize: 18, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 20 }}>⚡</span> Pipeline Velocity</h3><div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>{phaseStats.map(ps => (<div onClick={() => { setPhaseFilter(p.phase === phaseFilter ? null : p.phase); }}  key={ps.phase} style={{ cursor:"pointer", transition:"all 0.3s ease", transform: p.phase === phaseFilter ? "scale(1.05)" : "scale(1)", boxShadow: p.phase === phaseFilter ? "0 0 20px rgba(201,168,76,0.4)" : undefined, border: p.phase === phaseFilter ? "2px solid #c9a84c" : "1px solid transparent",  background: "rgba(30,41,59,0.8)", borderRadius: 10, padding: "14px 16px", borderLeft: "3px solid " + (phaseColors[ps.phase] || "#64748b") }}><div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{ps.phase}</div><div style={{ color: "#f1f5f9", fontSize: 24, fontWeight: 700, marginTop: 4 }}>{ps.count}</div><div style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>avg {ps.avgDays}d in phase</div></div>))}</div>{stalled.length > 0 && (<div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px" }}><span style={{ color: "#ef4444", fontWeight: 600, fontSize: 13 }}>\u26A0 {stalled.length} stalled (>{staleDays}d): </span><span style={{ color: "#fca5a5", fontSize: 13 }}>{stalled.map(s => s.name).join(", ")}</span></div>)}</div>);
             })()}
 
         {/* ═══ SUMMARY ═══ */}
@@ -2831,52 +2840,64 @@ const handleFetchDemos = async (region, site) => {
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {sortData(subs).map((site) => {
-                  const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
-                  const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
-                  const isHL = highlightedSite === site.id;
+                  const ri = reviewInputs[site.id] || {};
+                  const iq = computeSiteIQ(site);
+                  const isGold = iq.tier === "gold";
+                  const isSteel = iq.tier === "steel";
+                  const tierColor = isGold ? "#c9a84c" : isSteel ? "#7b9bb5" : "#64748b";
+                  const ppa = site.acreage && site.askingPrice ? (parseFloat(String(site.askingPrice).replace(/[^0-9.]/g,"")) / parseFloat(site.acreage)).toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}) + "/ac" : "";
                   return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 15, fontWeight: 700 }}>{site.name}</span>
-                        <Badge status={site.status} />
-                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+                  <div key={site.id} style={{ background: "linear-gradient(135deg, #0f172a, #1e293b)", borderRadius: 16, padding: 24, marginBottom: 16, border: "1px solid " + tierColor + "33", boxShadow: "0 4px 24px rgba(0,0,0,0.3)", transition: "all 0.3s ease" }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.5)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.3)"; }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#e0e7ff" }}>{site.name}</h3>
+                        <SiteIQBadge site={site} size="small" />
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "#F37C33", color: "#fff", fontWeight: 700, letterSpacing: 1 }}>PENDING</span>
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748B", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
-                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
-                      {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>📍 Pin Drop</a></div>}
-                      {site.status === "pending" ? (
-                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                            <select value={ri.reviewer} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 120 }}>
-                              <option value="">Reviewer…</option>
-                              <option>Daniel Wollent</option>
-                              <option>Matthew Toussaint</option>
-                              <option>Dan R</option>
-                            </select>
-                            <input value={ri.note} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
-                          </div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve & Route</button>
-                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
-                          </div>
-                        </div>
-                      ) : (site.reviewedBy || site.reviewNote) && (
-                        <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>
-                          {site.reviewedBy && <span>By: <strong>{site.reviewedBy}</strong></span>}
-                          {site.reviewNote && <span style={{ marginLeft: 8, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
-                        </div>
-                      )}
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: "#c9a84c" }}>{site.askingPrice ? "$" + Number(String(site.askingPrice).replace(/[^0-9]/g,"")).toLocaleString() : "Unpriced"}</div>
+                        {ppa && <div style={{ fontSize: 11, color: "#94a3b8" }}>{ppa}</div>}
+                      </div>
                     </div>
-                  );
-                })}
+                    <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>{site.address || ""}{site.city ? ", " + site.city : ""}{site.state ? ", " + site.state : ""}{site.acreage ? " \u2022 " + site.acreage + " ac" : ""}</div>
+                    {site.summary && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12, lineHeight: 1.5, maxHeight: 48, overflow: "hidden" }}>{site.summary}</div>}
+                    <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                      {site.coordinates && <a href={"https://www.google.com/maps?q=" + site.coordinates} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#60a5fa", textDecoration: "none" }}>\ud83d\udccd Pin Drop</a>}
+                      <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + "?site=" + site.id); notify("Link copied"); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#94a3b8", cursor: "pointer" }}>\ud83d\udd17 Copy Link</button>
+                      {site.sellerBroker && <span style={{ fontSize: 12, color: "#64748b" }}>Broker: {site.sellerBroker}</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+                      <select value={ri.routeTo || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), routeTo: e.target.value}}))} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: ri.routeTo ? "#e0e7ff" : "#64748b", fontSize: 13, minWidth: 160 }}>
+                        <option value="">Route to...</option>
+                        <option value="southwest">Daniel Wollent (SW)</option>
+                        <option value="east">Matthew Toussaint (East)</option>
+                      </select>
+                      <select value={ri.reviewer || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), reviewer: e.target.value}}))} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: ri.reviewer ? "#e0e7ff" : "#64748b", fontSize: 13 }}>
+                        <option value="">Reviewer...</option>
+                        <option value="Daniel Wollent">Daniel Wollent</option>
+                        <option value="Matthew Toussaint">Matthew Toussaint</option>
+                        <option value="Dan R">Dan R</option>
+                      </select>
+                      <input placeholder="Review note..." value={ri.note || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), note: e.target.value}}))} style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: "#e0e7ff", fontSize: 13 }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={e => { e.stopPropagation(); handleApprove(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: ri.routeTo ? "linear-gradient(135deg, #059669, #34d399)" : "#334155", color: ri.routeTo ? "#fff" : "#64748b", fontWeight: 700, fontSize: 13, cursor: ri.routeTo ? "pointer" : "not-allowed", transition: "all 0.2s ease", opacity: ri.routeTo ? 1 : 0.6 }}>\u2713 Approve & Route</button>
+                      <button onClick={e => { e.stopPropagation(); handleDecline(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #dc2626", background: "transparent", color: "#f87171", fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all 0.2s ease" }}>\u2717 Decline</button>
+                    </div>
+                  </div>
+                );})}
               </div>
             )}
           </div>
         )}
 
         {/* ═══ TRACKERS ═══ */}
-        {tab === "southwest" && <TrackerCards regionKey="southwest" />}
-        {tab === "east" && <TrackerCards regionKey="east" />}
+        {tab === "southwest" && {phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
+                <TrackerCards regionKey="southwest" />}
+        {tab === "east" && {phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
+                <TrackerCards regionKey="east" />}
       </div>
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
