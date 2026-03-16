@@ -2182,12 +2182,11 @@ export default function App() {
               );
             })()}
 
-            {/* ═══ PIPELINE VELOCITY ═══ */}
+            {/* ═══ PIPELINE VELOCITY — Executive View ═══ */}
             {(() => {
               const all = [...sw, ...east];
               const now = Date.now();
               const DAY = 86400000;
-              // Compute avg days in each phase from phaseHistory
               const phaseDurations = {};
               const staleSites = [];
               all.forEach(s => {
@@ -2197,7 +2196,6 @@ export default function App() {
                   history.forEach(h => {
                     const dur = h.changedAt ? (new Date(h.changedAt).getTime()) : 0;
                     if (!phaseDurations[h.from]) phaseDurations[h.from] = [];
-                    // Find the previous transition to compute duration
                     const prevIdx = history.indexOf(h) - 1;
                     if (prevIdx >= 0) {
                       const prevTs = new Date(history[prevIdx].changedAt).getTime();
@@ -2206,38 +2204,104 @@ export default function App() {
                     }
                   });
                 }
-                // Stall detection: current phase for >14 days
                 const lastChange = s.phaseHistory ? Object.values(s.phaseHistory).sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))[0] : null;
                 const phaseAge = lastChange ? Math.floor((now - new Date(lastChange.changedAt).getTime()) / DAY) : (s.approvedAt ? Math.floor((now - new Date(s.approvedAt).getTime()) / DAY) : null);
                 if (phaseAge !== null && phaseAge > 14 && s.phase !== "Closed" && s.phase !== "Dead") {
-                  staleSites.push({ name: s.name, phase: s.phase, days: phaseAge });
+                  staleSites.push({ name: s.name, phase: s.phase, days: phaseAge, region: sw.find(x => x.id === s.id) ? "DW" : "MT" });
                 }
               });
               const hasVelocityData = Object.keys(phaseDurations).length > 0 || staleSites.length > 0;
-              if (!hasVelocityData) return null; // Don't render until phase transitions start being tracked
+              if (!hasVelocityData) return null;
+              const sortedStale = staleSites.sort((a, b) => b.days - a.days);
+              const maxStaleDays = sortedStale.length > 0 ? sortedStale[0].days : 1;
+              // Group stalled by phase
+              const staleByPhase = {};
+              sortedStale.forEach(s => { if (!staleByPhase[s.phase]) staleByPhase[s.phase] = []; staleByPhase[s.phase].push(s); });
+              const phaseOrder = ["Under Contract", "LOI Signed", "LOI Sent", "Prospect", "Submitted to PS", "PS Approved", "PS Revisions", "Due Diligence", "Incoming", "Scored"];
+              const orderedPhases = phaseOrder.filter(p => staleByPhase[p]);
+              // Severity color
+              const sevColor = (d) => d >= 60 ? "#DC2626" : d >= 30 ? "#F37C33" : "#D97706";
+              const sevBg = (d) => d >= 60 ? "rgba(220,38,38,0.08)" : d >= 30 ? "rgba(243,124,51,0.08)" : "rgba(217,119,6,0.06)";
+              const sevLabel = (d) => d >= 60 ? "ESCALATE" : d >= 30 ? "FOLLOW UP" : "MONITOR";
               return (
-                <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(243,124,51,0.3), rgba(255,179,71,0.4), rgba(243,124,51,0.3), transparent)" }} />
-                  <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#1a1a1a", display: "flex", alignItems: "center", gap: 8 }}>⚡ Pipeline Velocity</h3>
+                <div className="card-reveal" style={{ background: "linear-gradient(145deg, rgba(15,15,20,0.96) 0%, rgba(25,25,32,0.94) 100%)", borderRadius: 16, padding: 0, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
+                  {/* Top ember line */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 5%, #F37C33 30%, #FFB347 50%, #F37C33 70%, transparent 95%)" }} />
+
+                  {/* Header */}
+                  <div style={{ padding: "18px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #F37C33, #D45500)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(243,124,51,0.4)" }}>⚡</div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F8FAFC", letterSpacing: "0.02em" }}>Pipeline Velocity</h3>
+                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.7)", fontWeight: 500, marginTop: 1 }}>Phase transition speed & action items</div>
+                      </div>
+                    </div>
+                    {staleSites.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8, background: staleSites.some(s => s.days >= 60) ? "rgba(220,38,38,0.15)" : "rgba(243,124,51,0.12)", border: `1px solid ${staleSites.some(s => s.days >= 60) ? "rgba(220,38,38,0.3)" : "rgba(243,124,51,0.25)"}` }}>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: staleSites.some(s => s.days >= 60) ? "#EF4444" : "#F37C33", animation: "fireGlow 2s ease-in-out infinite" }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: staleSites.some(s => s.days >= 60) ? "#FCA5A5" : "#FFB347" }}>{staleSites.length} REQUIRE ATTENTION</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Avg Phase Duration Row */}
                   {Object.keys(phaseDurations).length > 0 && (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                      {Object.entries(phaseDurations).filter(([, v]) => v.length > 0).map(([phase, days]) => {
+                    <div style={{ padding: "14px 24px 0", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {Object.entries(phaseDurations).filter(([, v]) => v.length > 0).sort((a, b) => {
+                        const avgA = a[1].reduce((x, y) => x + y, 0) / a[1].length;
+                        const avgB = b[1].reduce((x, y) => x + y, 0) / b[1].length;
+                        return avgB - avgA;
+                      }).map(([phase, days]) => {
                         const avg = Math.round(days.reduce((a, b) => a + b, 0) / days.length);
+                        const col = avg > 30 ? "#EF4444" : avg > 14 ? "#F37C33" : "#22C55E";
                         return (
-                          <div key={phase} style={{ flex: "1 1 100px", textAlign: "center", padding: "8px 6px", borderRadius: 10, background: "#F8FAFC", border: "1px solid #E2E8F0" }}>
-                            <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: avg > 30 ? "#DC2626" : avg > 14 ? "#D97706" : "#16A34A" }}>{avg}d</div>
-                            <div style={{ fontSize: 8, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Avg in {phase}</div>
+                          <div key={phase} style={{ flex: "1 1 90px", textAlign: "center", padding: "10px 8px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: col, lineHeight: 1 }}>{avg}<span style={{ fontSize: 10, opacity: 0.7 }}>d</span></div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "rgba(148,163,184,0.6)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{phase}</div>
                           </div>
                         );
                       })}
                     </div>
                   )}
+
+                  {/* Action Items — Executive Table */}
                   {staleSites.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>⚠ Stalled Sites ({staleSites.length})</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {staleSites.sort((a, b) => b.days - a.days).slice(0, 8).map(s => (
-                          <span key={s.name} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "#FEF2F2", color: "#991B1B", fontWeight: 600, border: "1px solid #FCA5A5" }}>{s.name} — {s.days}d in {s.phase}</span>
+                    <div style={{ padding: "16px 24px 20px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>ATTENTION REQUIRED</div>
+                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)" }}>Sorted by time in phase</div>
+                      </div>
+                      {/* Column headers */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px 54px", gap: 8, padding: "0 0 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Site</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: "right" }}>Days</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: "center" }}>Status</div>
+                      </div>
+                      {/* Site rows */}
+                      <div style={{ maxHeight: 220, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(243,124,51,0.3) transparent" }}>
+                        {sortedStale.map((s, idx) => (
+                          <div key={s.name + idx} style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px 54px", gap: 8, padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", alignItems: "center", transition: "background 0.2s", cursor: "default" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ width: 3, height: 22, borderRadius: 2, background: sevColor(s.days), opacity: 0.8 }} />
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0", lineHeight: 1.2 }}>{s.name}</div>
+                                <div style={{ fontSize: 9, color: "rgba(148,163,184,0.5)", fontWeight: 500 }}>{s.region}</div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(148,163,184,0.7)" }}>{s.phase}</div>
+                            <div style={{ textAlign: "right", position: "relative" }}>
+                              <div style={{ fontSize: 14, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: sevColor(s.days), lineHeight: 1 }}>{s.days}</div>
+                              {/* Mini severity bar */}
+                              <div style={{ marginTop: 3, height: 2, borderRadius: 1, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                                <div style={{ width: `${Math.min(100, (s.days / Math.max(maxStaleDays, 1)) * 100)}%`, height: "100%", borderRadius: 1, background: sevColor(s.days), transition: "width 0.5s ease" }} />
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "center" }}>
+                              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", padding: "2px 6px", borderRadius: 4, background: sevBg(s.days), color: sevColor(s.days), border: `1px solid ${sevColor(s.days)}22` }}>{sevLabel(s.days)}</span>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
