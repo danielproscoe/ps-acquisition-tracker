@@ -1851,7 +1851,7 @@ export default function App() {
                               const docs = site.docs ? Object.values(site.docs) : [];
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
                               if (vr && vr.url) { window.open(vr.url, "_blank"); }
-                              else { autoGenerateVettingReport(regionKey, site.id, site); setTimeout(() => alert("Vetting report generated! Click again to view."), 1500); }
+                              else { const rpt = generateVettingReport(site); const blob = new Blob([rpt], { type: "text/plain;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); }
                             }} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
                           </div>
                         )}
@@ -2103,8 +2103,8 @@ export default function App() {
               </div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.06em", background: "linear-gradient(90deg, #fff 0%, #FFB347 25%, #F37C33 50%, #FFB347 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>PUBLIC STORAGE</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>Acquisition Pipeline <span style={{ color: "#F37C33", fontWeight: 700 }}>·</span> 2026</div>
-                <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 2, opacity: 0.6 }}>Powered by DJR Real Estate LLC</div>
+                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>Acquisition Pipeline <span style={{ color: "#F37C33", fontWeight: 700 }}>·</span> <span style={{ fontWeight: 800, color: "#F37C33" }}>v4.0</span></div>
+                <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
