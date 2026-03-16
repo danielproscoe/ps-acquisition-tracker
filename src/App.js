@@ -4,9 +4,7 @@
 // Firebase Realtime Database — live shared data across all 3 users
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { db, storage, auth } from "./firebase";
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { logSession, logPageView, ActivityLogPanel } from "./SessionLogger";
+import { db, storage } from "./firebase";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import {
   ref as storageRef,
@@ -866,12 +864,6 @@ const MT_SEED = [];
 // ═══ MAIN APP ═══
 export default function App() {
   const [loaded, setLoaded] = useState(false);
-  const [authUser, setAuthUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPass, setLoginPass] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [loginBusy, setLoginBusy] = useState(false);
   const [subs, setSubs] = useState([]);
   const [east, setEast] = useState([]);
   const [sw, setSw] = useState([]);
@@ -917,31 +909,8 @@ export default function App() {
   const [showIQConfig, setShowIQConfig] = useState(false);
   const [iqWeights, setIqWeights] = useState(SITE_IQ_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
-  // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
-  // ── AUTH LISTENER ──
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setAuthUser(u);
-      setAuthLoading(false);
-      if (u) { logSession(u); logPageView(u, "dashboard"); }
-    });
-    return () => unsub();
-  }, []);
 
-  // Log page views on tab change
-  useEffect(() => { if (authUser) logPageView(authUser, tab); }, [tab, authUser]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginBusy(true);
-    setLoginError("");
-    try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPass);
-    } catch (err) {
-      setLoginError(err.message.replace("Firebase: ", ""));
-    }
-    setLoginBusy(false);
-  };
 
   useEffect(() => {
     const handleKeyNav = (e) => {
@@ -2189,25 +2158,6 @@ export default function App() {
     );
   };
 
-  // ── AUTH GATE ──
-  if (authLoading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0F172A", color: "#94A3B8", fontFamily: "Inter, system-ui, sans-serif" }}>
-      <p>Loading...</p>
-    </div>
-  );
-
-  if (!authUser) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0F172A", fontFamily: "Inter, system-ui, sans-serif" }}>
-      <form onSubmit={handleLogin} style={{ background: "#1E293B", padding: 40, borderRadius: 12, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,.4)" }}>
-        <h2 style={{ color: "#F8FAFC", marginBottom: 8, fontSize: 22, textAlign: "center" }}>PS Acquisition Tracker</h2>
-        <p style={{ color: "#64748B", fontSize: 13, textAlign: "center", marginBottom: 24 }}>Sign in to continue</p>
-        {loginError && <p style={{ color: "#F87171", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{loginError}</p>}
-        <input placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} style={{ width: "100%", padding: "10px 14px", marginBottom: 12, borderRadius: 8, border: "1px solid #334155", background: "#0F172A", color: "#F8FAFC", fontSize: 14, boxSizing: "border-box" }} />
-        <input placeholder="Password" type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} style={{ width: "100%", padding: "10px 14px", marginBottom: 16, borderRadius: 8, border: "1px solid #334155", background: "#0F172A", color: "#F8FAFC", fontSize: 14, boxSizing: "border-box" }} />
-        <button type="submit" disabled={loginBusy} style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "#3B82F6", color: "#fff", fontWeight: 600, fontSize: 15, cursor: "pointer" }}>{loginBusy ? "Signing in..." : "Sign In"}</button>
-      </form>
-    </div>
-  );
 
   // ═══ RENDER ═══
   return (
@@ -2397,8 +2347,7 @@ export default function App() {
             { key: "east", label: "Matthew Toussaint" },
             { key: "submit", label: "Submit Site" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
-              { key: "activity", label: "Activity", adminOnly: true },
-          ].filter(n => !n.adminOnly || (authUser && authUser.email === "daniel.p.roscoe@gmail.com")).map((n) => (
+          ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#F37C33"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 12px rgba(243,124,51,0.3)"; } }}
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.textShadow = "none"; } }}
@@ -2407,12 +2356,6 @@ export default function App() {
               {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />}
             </button>
           ))}
-            {/* Sign Out */}
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ color: "#94A3B8", fontSize: 12 }}>{authUser?.email}</span>
-              <button onClick={() => signOut(auth)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #334155", background: "transparent", color: "#94A3B8", fontSize: 12, cursor: "pointer" }}>Sign Out</button>
-            </div>
-        </div>
       </div>
 
       {/* Main content */}
@@ -2995,8 +2938,6 @@ export default function App() {
         {tab === "east" && <TrackerCards regionKey="east" />}
       </div>
 
-        {/* ═══ ACTIVITY LOG ═══ */}
-        {tab === "activity" && <ActivityLogPanel currentUserEmail={authUser?.email} />}
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
                   <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
