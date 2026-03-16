@@ -9,7 +9,7 @@ import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebas
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import {
   ref as storageRef,
-  uploadBytesh,
+  uploadBytes,
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
