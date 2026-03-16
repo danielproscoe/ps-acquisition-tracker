@@ -9,7 +9,7 @@ import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebas
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import {
   ref as storageRef,
-  uploadBytes,
+  uploadBytesh,
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
@@ -2402,11 +2402,11 @@ const handleFetchDemos = async (region, site) => {
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.02em", background: "linear-gradient(90deg, #fff 0%, #F37C33 40%, #fff 60%, #fff 100%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite" }}>PUBLIC STORAGE</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline 4.0 · 2026</div>
+                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline 4.0</div>
                 <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.08em", marginTop: 2, opacity: 0.95, fontWeight: 500 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
-              <button onClick={() => setWeightEditorOpen(true)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }} title="SiteIQ Weight Configuration">⚙️ SiteIQ Config</button>
+              <button onClick={() => setWeightEditorOpen(true)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }} title="SiteIQ™ Weight Configuration">⚙️ SiteIQ Config</button>
             <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
             <button onClick={() => signOut(auth)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }} title={user?.email}>Sign Out</button>
           </div>
@@ -2531,64 +2531,64 @@ const handleFetchDemos = async (region, site) => {
             })()}
 
             {/* ═══ PIPELINE FUNNEL ═══ */}
-            {(() => {
-              const all = [...sw, ...east];
-              const pending = subs.filter(s => s.status === "pending").length;
-              const funnelStages = [
-                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳" },
-                { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "🔍" },
-                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS" || s.phase === "PS Revisions").length, color: "#6366F1", icon: "📤" },
-                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅" },
-                { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝" },
-                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝" },
-                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆" },
-              ];
-              const maxCount = Math.max(...funnelStages.map(s => s.count), 1);
-              const declined = all.filter(s => s.phase === "PS Declined" || s.phase === "Dead").length;
-              return (
-                <div style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#2C2C2C" }}>Pipeline Funnel</h3>
-                    {declined > 0 && <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 600 }}>{declined} declined/dead</span>}
+          {tab === "dashboard" && (() => {
+            const funnelStages = [
+              { key: "review", label: "Review Queue", icon: "⏳", data: subs, color: "#F97316", gradient: "linear-gradient(135deg, #F97316, #FB923C)" },
+              { key: "prospect", label: "Prospect", icon: "🔍", data: [...sw, ...east].filter(s => s.phase === "Prospect"), color: "#3B82F6", gradient: "linear-gradient(135deg, #2563EB, #60A5FA)" },
+              { key: "submitted", label: "Submitted to PS", icon: "📤", data: [...sw, ...east].filter(s => s.phase === "Submitted to PS"), color: "#8B5CF6", gradient: "linear-gradient(135deg, #7C3AED, #A78BFA)" },
+              { key: "approved", label: "PS Approved", icon: "✅", data: [...sw, ...east].filter(s => s.phase === "PS Approved"), color: "#10B981", gradient: "linear-gradient(135deg, #059669, #34D399)" },
+              { key: "loi", label: "LOI", icon: "📝", data: [...sw, ...east].filter(s => ["LOI Sent", "LOI Signed"].includes(s.phase)), color: "#F59E0B", gradient: "linear-gradient(135deg, #D97706, #FBBF24)" },
+              { key: "uc", label: "Under Contract", icon: "🤝", data: [...sw, ...east].filter(s => ["Under Contract", "Due Diligence"].includes(s.phase)), color: "#06B6D4", gradient: "linear-gradient(135deg, #0891B2, #22D3EE)" },
+              { key: "closed", label: "Closed", icon: "🏆", data: [...sw, ...east].filter(s => s.phase === "Closed"), color: "#22C55E", gradient: "linear-gradient(135deg, #16A34A, #4ADE80)" },
+            ];
+            const maxCount = Math.max(...funnelStages.map(s => s.data.length), 1);
+            const totalSites = [...sw, ...east].length + subs.length;
+            return (
+              <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #E5E7EB" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: "#1E293B" }}>🌊 Pipeline Funnel</span>
+                    <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 500, background: "#F1F5F9", borderRadius: 8, padding: "2px 8px" }}>{totalSites} total sites</span>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-                    {funnelStages.map((stage, idx) => {
-                      const widthPct = stage.count > 0 ? Math.max(25, 30 + (1 - idx / (funnelStages.length - 1)) * 70) : 25;
-                      return (
-                        <div key={stage.label} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#64748B", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
-                          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-                            <div style={{
-                              width: `${widthPct}%`,
-                              background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "#F1F5F9",
-                              borderRadius: idx === 0 ? "10px 10px 6px 6px" : idx === funnelStages.length - 1 ? "6px 6px 10px 10px" : 6,
-                              padding: "8px 12px",
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              transition: "all 0.4s ease",
-                              minHeight: 28,
-                            }}>
-                              <span style={{ fontSize: stage.count > 0 ? 16 : 12, fontWeight: 800, color: stage.count > 0 ? "#fff" : "#CBD5E1", fontFamily: "'Space Mono', monospace" }}>
-                                {stage.count}
-                              </span>
-                            </div>
-                          </div>
-                          <div style={{ width: 50, fontSize: 10, color: "#94A3B8", flexShrink: 0 }}>
-                            {idx > 0 && funnelStages[idx - 1].count > 0 ? `${Math.round((stage.count / funnelStages[idx - 1].count) * 100) || 0}%` : ""}
+                  <span style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Conversion Flow</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {funnelStages.map((stage, idx) => {
+                    const count = stage.data.length;
+                    const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                    const funnelWidth = Math.max(30, 100 - (idx * 10));
+                    const conversionRate = idx > 0 && funnelStages[idx - 1].data.length > 0
+                      ? ((count / funnelStages[idx - 1].data.length) * 100).toFixed(0) : null;
+                    return (
+                      <div key={stage.key}
+                        onClick={() => { if (stage.key === "review") setTab("submissions"); }}
+                        className="funnel-row"
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, cursor: stage.key === "review" ? "pointer" : "default", transition: "all 0.2s", border: "1px solid transparent" }}
+                      >
+                        <div style={{ width: 28, textAlign: "center", fontSize: 16 }}>{stage.icon}</div>
+                        <div style={{ width: 120, fontSize: 12, fontWeight: 600, color: "#334155" }}>{stage.label}</div>
+                        <div style={{ flex: 1, maxWidth: `${funnelWidth}%`, position: "relative" }}>
+                          <div style={{ height: 28, borderRadius: 6, background: stage.gradient, width: pct > 0 ? `${Math.max(pct, 8)}%` : "4px", transition: "width 0.6s ease", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 32 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}>{count}</span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
-                    Sites flow: Review Queue → Prospect → PS Submission → LOI → Under Contract → Closed
-                  </div>
+                        {conversionRate && (
+                          <div style={{ width: 48, textAlign: "right", fontSize: 11, fontWeight: 600, color: parseInt(conversionRate) >= 50 ? "#16A34A" : parseInt(conversionRate) >= 25 ? "#D97706" : "#DC2626" }}>
+                            {conversionRate}%
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })()}
-
-            {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, accent: REGIONS.southwest.accent, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, accent: REGIONS.east.accent, tabKey: "east" }].map((r) => {
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #F1F5F9", display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
+                  {["⏳ Review", "→", "🔍 Prospect", "→", "📤 Submitted", "→", "✅ Approved", "→", "📝 LOI", "→", "🤝 UC", "→", "🏆 Closed"].map((t, i) => (
+                    <span key={i} style={{ fontSize: 10, color: t === "→" ? "#CBD5E1" : "#64748B", fontWeight: t === "→" ? 400 : 500 }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}         {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, accent: REGIONS.southwest.accent, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, accent: REGIONS.east.accent, tabKey: "east" }].map((r) => {
               const total = r.data.length || 1;
               const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
               return (
@@ -2665,7 +2665,7 @@ const handleFetchDemos = async (region, site) => {
                   <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 420 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
                       <thead>
-                        <tr>{["SiteIQ", "Name", "City", "ST", "Phase", "Ask", "Acres", "3mi Pop", "Broker", "DOM", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                        <tr>{["SiteIQ™", "Name", "City", "ST", "Phase", "Ask", "Acres", "3mi Pop", "Broker", "DOM", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
@@ -2884,13 +2884,13 @@ const handleFetchDemos = async (region, site) => {
                           © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
                                 </div>
 
-      {/* ═══ SiteIQ Weight Configuration Modal ═══ */}
+      {/* ═══ SiteIQ™ Weight Configuration Modal ═══ */}
       {weightEditorOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setWeightEditorOpen(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)', borderRadius: 16, border: '1px solid rgba(99,102,241,0.3)', padding: 32, width: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 50px rgba(0,0,0,0.5), 0 0 40px rgba(99,102,241,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div>
-                <h2 style={{ margin: 0, color: '#e0e7ff', fontSize: 20, fontWeight: 700 }}>⚙️ SiteIQ Weight Configuration</h2>
+                <h2 style={{ margin: 0, color: '#e0e7ff', fontSize: 20, fontWeight: 700 }}>⚙️ SiteIQ™ Weight Configuration</h2>
                 <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 12 }}>Adjust dimension weights. Changes apply to all site scores in real-time.</p>
               </div>
               <button onClick={() => setWeightEditorOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
