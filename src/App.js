@@ -667,7 +667,7 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
       {/* Score Circle */}
       <div style={{
         position: "relative",
-        width: 56, height: 56, borderRadius: "50%",
+        width: 68, height: 68, borderRadius: "50%",
         background: tc.bg,
         boxShadow: tc.glow,
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -686,31 +686,31 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
           animation: "siteiq-ring 3s ease-in-out infinite alternate",
         }} /></>}
         <div style={{ textAlign: "center", lineHeight: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
         </div>
       </div>
       {/* Label + Breakdown */}
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{
-            fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
+            fontSize: 12, fontWeight: 800, letterSpacing: "0.12em",
             color: iq.tier === "gold" ? "#D45500" : iq.tier === "steel" ? "#1E2761" : "#64748B",
             textTransform: "uppercase",
-            padding: "3px 8px", borderRadius: 6,
+            padding: "4px 10px", borderRadius: 6,
             background: typeof tc.labelBg === "string" && tc.labelBg.startsWith("linear") ? tc.labelBg : tc.labelBg,
             boxShadow: iq.tier === "gold" ? "0 0 12px rgba(243,124,51,0.12)" : "none",
           }}>{iq.label}</span>
-          <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
-          {iq.classification && <span style={{ fontSize: 8, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.06em" }}>{iq.classification}</span>}
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteIQ™</span>
+          {iq.classification && <span style={{ fontSize: 10, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "2px 7px", borderRadius: 4, letterSpacing: "0.06em" }}>{iq.classification}</span>}
         </div>
         {iq.flags && iq.flags.length > 0 && (
           <div style={{ display: "flex", gap: 3, marginTop: 2, flexWrap: "wrap" }}>
             {iq.flags.map((f, i) => (
-              <span key={i} style={{ fontSize: 8, fontWeight: 600, color: "#DC2626", background: "#FEF2F2", padding: "1px 4px", borderRadius: 3 }}>{f}</span>
+              <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>
             ))}
           </div>
         )}
-        <div style={{ display: "flex", gap: 3, marginTop: 6, alignItems: "flex-end", height: 44 }}>
+        <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "flex-end", height: 64 }}>
           {[
             { key: "population", label: "POP" },
             { key: "income", label: "INC" },
@@ -725,12 +725,12 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
             const pct = Math.max(8, (v / 10) * 100);
             const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
             return (
-              <div key={f.key} title={`${f.label}: ${v}/10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 22 }}>
-                <div style={{ fontSize: 8, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
-                <div style={{ width: 14, height: 32, borderRadius: 3, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 3, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 6px ${c}40` : "none" }} />
+              <div key={f.key} title={`${f.label}: ${v}/10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 32 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
+                <div style={{ width: 20, height: 44, borderRadius: 4, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 4, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 8px ${c}50` : "none" }} />
                 </div>
-                <div style={{ fontSize: 6, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.02em", lineHeight: 1 }}>{f.label}</div>
+                <div style={{ fontSize: 8, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.02em", lineHeight: 1 }}>{f.label}</div>
               </div>
             );
           })}
@@ -1670,18 +1670,19 @@ export default function App() {
                       })()}
 
                       {/* ── Executive Property Header — Fire Theme ── */}
-                      <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 40%, #1a1520 70%, #0f0c14 100%)", borderRadius: 14, padding: "16px 20px", margin: "0 0 14px", overflow: "hidden", position: "relative", boxShadow: "0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+                      <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 40%, #1a1520 70%, #0f0c14 100%)", borderRadius: 16, padding: "24px 28px 20px", margin: "0 0 14px", overflow: "hidden", position: "relative", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
                         {/* Top fire accent */}
-                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 5%, #D45500 20%, #F37C33 40%, #FFB347 50%, #F37C33 60%, #D45500 80%, transparent 95%)", opacity: 0.7 }} />
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-                          {/* Left: SiteIQ + Key Stats */}
-                          <div style={{ flex: 1, minWidth: 200 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent 5%, #D45500 20%, #F37C33 40%, #FFB347 50%, #F37C33 60%, #D45500 80%, transparent 95%)", opacity: 0.8 }} />
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+                          {/* Left: SiteIQ Score + Bars + Key Stats */}
+                          <div style={{ flex: 1, minWidth: 280 }}>
+                            {/* Score + Label Row */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
                               <SiteIQBadge site={site} iq={getSiteIQ(site)} />
-                              {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
+                              {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
                             </div>
-                            {/* Key Metrics Strip */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 6 }}>
+                            {/* Key Metrics Strip — Larger */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
                               {[
                                 { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#F1F5F9" },
                                 { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#F1F5F9") : "#94A3B8" },
@@ -1689,9 +1690,9 @@ export default function App() {
                                 { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#F1F5F9" },
                                 { label: "3MI MED INC", val: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : "$" + fmtN(site.income3mi)) : "—", color: "#F1F5F9" },
                               ].map((m, idx) => (
-                                <div key={idx} style={{ background: "rgba(255,255,255,.06)", borderRadius: 8, padding: "6px 8px", border: "1px solid rgba(255,255,255,.08)" }}>
-                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", letterSpacing: "0.08em", marginBottom: 2 }}>{m.label}</div>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: m.color, fontFamily: "'DM Sans', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                                <div key={idx} style={{ background: "rgba(255,255,255,.07)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(255,255,255,.08)" }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", letterSpacing: "0.08em", marginBottom: 4 }}>{m.label}</div>
+                                  <div style={{ fontSize: 16, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
                                 </div>
                               ))}
                             </div>
@@ -1733,9 +1734,9 @@ export default function App() {
                         </div>
                         {/* Broker + Seller Row */}
                         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          {site.sellerBroker && <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>Broker: <span style={{ color: "#F1F5F9" }}>{site.sellerBroker}</span></span>}
-                          {site.internalPrice && <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>PS Price: <span style={{ color: "#F37C33" }}>{site.internalPrice}</span></span>}
-                          {dom !== null && <span style={{ fontSize: 10, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
+                          {site.sellerBroker && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Broker: <span style={{ color: "#F1F5F9", fontWeight: 700 }}>{site.sellerBroker}</span></span>}
+                          {site.internalPrice && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>PS Price: <span style={{ color: "#F37C33", fontWeight: 700 }}>{site.internalPrice}</span></span>}
+                          {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                         </div>
                       </div>
 
