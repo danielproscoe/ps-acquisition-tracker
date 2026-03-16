@@ -890,11 +890,14 @@ const computeSiteIQ = (site, targetMarkets = []) => {
     label: final >= 9 ? "ELITE" : final >= 8 ? "PRIME" : final >= 7 ? "STRONG" : final >= 6 ? "VIABLE" : final >= 4 ? "MARGINAL" : "WEAK",
   };
 };
+const _siteIQCache = new Map();
+const memoizedSiteIQ = (site, tm) => { if (!site) return computeSiteIQ(site, tm); const k = site.name + "|" + (site.phase||"") + "|" + (site.summary||"").length + "|" + (site.pop3mi||"") + "|" + JSON.stringify(site.siteiqData||{}); if (_siteIQCache.has(k)) return _siteIQCache.get(k); const r = computeSiteIQ(site, tm); _siteIQCache.set(k, r); if (_siteIQCache.size > 500) _siteIQCache.clear(); return r; };
+
 
 // ─── SiteIQ Badge Component ───
 function SiteIQBadge({ site, size = "normal" }) {
   const [hoveredMetric, setHoveredMetric] = useState(null);
-  const iq = computeSiteIQ(site);
+  const iq = memoizedSiteIQ(site);
   const s = iq.score;
   const isGold = iq.tier === "gold";
   const isSteel = iq.tier === "steel";
@@ -1914,7 +1917,7 @@ const handleFetchDemos = async (region, site) => {
   // Computes SiteIQ once per site when data changes. Eliminates ~188 redundant calls per render.
   const siteIQCache = useMemo(() => {
     const cache = new Map();
-    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteIQ(s, targetMarkets)); });
+    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, memoizedSiteIQ(s, targetMarkets)); });
     return cache;
   }, [sw, east]);
 
@@ -1943,7 +1946,7 @@ const handleFetchDemos = async (region, site) => {
     </div>
   );
 
-  const getSiteIQ = (site) => siteIQCache.get(site.id) || computeSiteIQ(site, targetMarkets);
+  const getSiteIQ = (site) => siteIQCache.get(site.id) || memoizedSiteIQ(site, targetMarkets);
 
   const SortBar = () => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -2898,7 +2901,7 @@ const handleFetchDemos = async (region, site) => {
               <div style={{ display: "grid", gap: 10 }}>
                 {sortData(subs).map((site) => {
                   const ri = reviewInputs[site.id] || {};
-                  const iq = computeSiteIQ(site);
+                  const iq = memoizedSiteIQ(site);
                   const isGold = iq.tier === "gold";
                   const isSteel = iq.tier === "steel";
                   const tierColor = isGold ? T.gold : isSteel ? "#7b9bb5" : T.textMuted;
