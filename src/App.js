@@ -2894,10 +2894,10 @@ const handleFetchDemos = async (region, site) => {
         )}
 
         {/* ═══ TRACKERS ═══ */}
-        {tab === "southwest" && {phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
-                <TrackerCards regionKey="southwest" />}
-        {tab === "east" && {phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
-                <TrackerCards regionKey="east" />}
+        {tab === "southwest" && <>{phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
+                <TrackerCards regionKey="southwest" /></>}
+        {tab === "east" && <>{phaseFilter && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", marginBottom: 12, borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)" }}><span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600 }}>Filtering: {phaseFilter}</span><button onClick={() => setPhaseFilter(null)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear Filter</button></div>}
+                <TrackerCards regionKey="east" /></>}
       </div>
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
