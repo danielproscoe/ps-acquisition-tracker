@@ -500,7 +500,7 @@ const generateVettingReport = (site, nearestPSDistance) => {
       row("PS Internal Price:", site.internalPrice);
       row("Coordinates:", site.coordinates);
       row("Phase:", site.phase);
-      row("Priority:", site.priority);
+      row("Priority:", (site.priority || "None").replace(/^[^\w]*/, "").trim());
       y += 6;
       // 2. Zoning
       section("2. ZONING & ENTITLEMENTS");
@@ -540,7 +540,7 @@ const generateVettingReport = (site, nearestPSDistance) => {
       row("Contact:", site.sellerBroker);
       row("Date on Market:", site.dateOnMarket);
       row("Phase:", site.phase);
-      row("Priority:", site.priority);
+      row("Priority:", (site.priority || "None").replace(/^[^\w]*/, "").trim());
       y += 6;
       // 7. Red Flags
       section("7. RED FLAGS / NOTES");
