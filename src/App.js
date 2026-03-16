@@ -247,87 +247,182 @@ const fetchDemographics = async (coordinates) => {
 // stripEmoji: removes emoji/special Unicode chars that corrupt in plain-text/PDF renders
 const stripEmoji = (str) => String(str || "").replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]|[\u{20E3}]|[\u{E0020}-\u{E007F}]/gu, "").trim();
 const cleanPriority = (p) => { const s = stripEmoji(p); return s || "None"; };
-const generateVettingReport = (site, nearestPSDistance) => {
-  const lines = [];
-  lines.push("===================================================");
-  lines.push(`SITE VETTING REPORT -- ${site.name || "Unnamed"}`);
-  lines.push(`PS Acquisition Pipeline  |  DJR Real Estate LLC  |  ${new Date().toLocaleDateString()}`);
-  lines.push("===================================================");
-  lines.push("");
-  lines.push("1. PROPERTY OVERVIEW");
-  lines.push("---------------------");
-  lines.push(`   Name:           ${site.name || "--"}`);
-  lines.push(`   Address:        ${site.address || "--"}`);
-  lines.push(`   City / State:   ${site.city || "--"}, ${site.state || "--"}`);
-  lines.push(`   Market:         ${site.market || "--"}`);
-  lines.push(`   Acreage:        ${site.acreage || "--"}`);
-  lines.push(`   Asking Price:   ${site.askingPrice || "--"}`);
-  lines.push(`   PS Int. Price:  ${site.internalPrice || "--"}`);
-  lines.push(`   Coordinates:    ${site.coordinates || "--"}`);
-  lines.push(`   Phase:          ${site.phase || "Prospect"}`);
-  lines.push(`   Priority:       ${cleanPriority(site.priority)}`);
-  lines.push(`   Listing URL:    ${site.listingUrl || "--"}`);
-  lines.push("");
-  lines.push("2. ZONING & ENTITLEMENTS");
-  lines.push("---------------------");
-  lines.push(`   Current Zoning: ${site.zoning || "Not confirmed"}`);
-  lines.push(`   Zoning Class:   ${site.zoningClassification || "unknown"}`);
-  lines.push(`   Storage Use:    ${site.zoning ? "Verify with local jurisdiction" : "UNKNOWN -- research required"}`);
-  lines.push("");
-  lines.push("3. DEMOGRAPHICS (3-Mile Radius)");
-  lines.push("---------------------");
-  lines.push(`   Population:     ${site.pop3mi ? fmtN(site.pop3mi) : "Not available"}`);
-  lines.push(`   Median HHI:     ${site.income3mi || "Not available"}`);
+const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
   const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
-  if (popN && incN) {
-    lines.push(`   Demo Score:     ${popN >= 40000 && incN >= 60000 ? "[PASS]" : popN >= 20000 && incN >= 50000 ? "[MARGINAL]" : "[BELOW THRESHOLD]"}`);
-  }
-  lines.push("");
-  lines.push("4. SITE SIZING ASSESSMENT");
-  lines.push("---------------------");
-  const acres = parseFloat(String(site.acreage).replace(/[^0-9.]/g, ""));
+  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+  const demoScore = (popN && incN) ? (popN >= 40000 && incN >= 60000 ? "PASS" : popN >= 20000 && incN >= 50000 ? "MARGINAL" : "BELOW THRESHOLD") : null;
+  const demoColor = demoScore === "PASS" ? "#16A34A" : demoScore === "MARGINAL" ? "#F59E0B" : "#EF4444";
+  let sizingText = "TBD", sizingColor = "#94A3B8", sizingTag = "PENDING";
   if (!isNaN(acres)) {
-    if (acres >= 3.5 && acres <= 5) lines.push(`   ${acres} ac -- PRIMARY (one-story climate-controlled) [PASS]`);
-    else if (acres >= 2.5 && acres < 3.5) lines.push(`   ${acres} ac -- SECONDARY (multi-story 3-4 story) [PASS]`);
-    else if (acres < 2.5) lines.push(`   ${acres} ac -- [FAIL] BELOW MINIMUM -- generally too small`);
-    else if (acres > 5 && acres <= 7) lines.push(`   ${acres} ac -- VIABLE if subdivisible [CAUTION]`);
-    else lines.push(`   ${acres} ac -- LARGE TRACT -- subdivision potential [CAUTION]`);
-  } else {
-    lines.push("   Acreage not confirmed -- sizing TBD");
+    if (acres >= 3.5 && acres <= 5) { sizingText = `${acres} ac — PRIMARY (one-story climate-controlled)`; sizingColor = "#16A34A"; sizingTag = "PASS"; }
+    else if (acres >= 2.5 && acres < 3.5) { sizingText = `${acres} ac — SECONDARY (multi-story 3-4 story)`; sizingColor = "#16A34A"; sizingTag = "PASS"; }
+    else if (acres < 2.5) { sizingText = `${acres} ac — Below minimum threshold`; sizingColor = "#EF4444"; sizingTag = "FAIL"; }
+    else if (acres > 5 && acres <= 7) { sizingText = `${acres} ac — Viable if subdivisible`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
+    else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
   }
-  lines.push("");
-  lines.push("5. PS PROXIMITY CHECK");
-  lines.push("---------------------");
-  lines.push(`   Nearest PS:     ${nearestPSDistance || "Run proximity check with PS_Locations_ALL.csv"}`);
-  if (site.siteiqData?.nearestPS) lines.push(`   Distance (mi):  ${site.siteiqData.nearestPS}`);
-  lines.push("");
-  lines.push("6. BROKER / SELLER");
-  lines.push("---------------------");
-  lines.push(`   Contact:        ${site.sellerBroker || "Not listed"}`);
-  lines.push(`   Date on Market: ${site.dateOnMarket || "Unknown"}`);
-  lines.push("");
-  lines.push("7. RED FLAGS / NOTES");
-  lines.push("---------------------");
+  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance || "Not checked");
+  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS >= 5 ? "#16A34A" : site.siteiqData.nearestPS >= 2.5 ? "#F59E0B" : "#EF4444") : "#94A3B8";
   const flags = [];
-  if (!site.zoning) flags.push("   [!] Zoning not confirmed");
-  if (!site.coordinates) flags.push("   [!] No coordinates -- cannot verify location");
-  if (acres < 2.5) flags.push("   [!] Below minimum acreage threshold");
-  if (popN && popN < 10000) flags.push("   [!] 3-mi population below 10,000 minimum");
-  if (incN && incN < 60000) flags.push("   [!] 3-mi median HHI below $60,000 target");
-  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("   [!] No confirmed asking price");
-  if (flags.length === 0) flags.push("   None identified at this time");
-  lines.push(flags.join("\n"));
-  lines.push("");
-  lines.push("8. SUMMARY / DEAL NOTES");
-  lines.push("---------------------");
-  lines.push(`   ${site.summary || "No notes"}`);
-  lines.push("");
-  lines.push("===================================================");
-  lines.push("Report generated by PS Acquisition Pipeline");
-  lines.push("DJR Real Estate LLC  |  Confidential");
-  lines.push("===================================================");
-  return lines.join("\n");
+  if (!site.zoning) flags.push("Zoning not confirmed");
+  if (!site.coordinates) flags.push("No coordinates — cannot verify location");
+  if (!isNaN(acres) && acres < 2.5) flags.push("Below minimum acreage threshold");
+  if (popN && popN < 10000) flags.push("3-mi population below 10,000 minimum");
+  if (incN && incN < 60000) flags.push("3-mi median HHI below $60,000 target");
+  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
+  const zoningClass = site.zoningClassification || "unknown";
+  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
+  const iq = iqResult || (typeof computeSiteIQ === "function" ? computeSiteIQ(site) : null);
+  const iqScore = iq?.score || "—";
+  const iqTier = iq?.tier || "gray";
+  const iqLabel = iq?.label || "—";
+  const iqBadgeColor = iqTier === "gold" ? "#C9A84C" : iqTier === "steel" ? "#2C3E6B" : "#94A3B8";
+  const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
+  const section = (num, title, icon) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${icon} ${title}</h2></div>`;
+  const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
+  const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}</style></head><body><div class="report">
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#0A0A0C 0%,#1E2761 60%,#2C3E6B 100%);padding:36px 40px;position:relative;overflow:hidden">
+    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#F37C33,#FFB347,#F37C33,transparent)"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(243,124,51,0.4)"><span style="font-size:20px;font-weight:900;color:#fff;font-family:'Space Mono'">PS</span></div>
+          <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
+        </div>
+        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
+          <span style="font-size:28px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</span>
+          <div><div style="font-size:9px;color:#94A3B8;letter-spacing:0.08em">SITEIQ</div><div style="font-size:11px;font-weight:800;color:${iqBadgeColor}">${iqLabel}</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEY METRICS BAR -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
+    ${[
+      { l: "ACREAGE", v: site.acreage ? site.acreage + " ac" : "—" },
+      { l: "ASKING PRICE", v: site.askingPrice || "—" },
+      { l: "3-MI POP", v: site.pop3mi ? fmtN(site.pop3mi) : "—" },
+      { l: "3-MI MED INC", v: site.income3mi ? ("$" + fmtN(site.income3mi)) : "—" },
+      { l: "NEAREST PS", v: psDistance },
+    ].map(m => `<div style="padding:16px 12px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">${m.l}</div><div style="font-size:16px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
+  </div>
+
+  <div style="padding:24px 40px 40px">
+    <!-- 1. PROPERTY OVERVIEW -->
+    ${section("1", "Property Overview", "")}
+    <table>${[
+      row("Name", site.name || "—", { bold: true }),
+      row("Address", `${site.address || "—"}, ${site.city || "—"}, ${site.state || "—"}`),
+      row("Market", site.market || "—"),
+      row("Acreage", site.acreage || "—"),
+      row("Asking Price", site.askingPrice || "—", { bold: true }),
+      row("PS Internal Price", site.internalPrice || "—"),
+      row("Phase", site.phase || "Prospect", { badge: true, badgeBg: site.phase === "Under Contract" ? "#DCFCE7" : "#FFF7ED", badgeColor: site.phase === "Under Contract" ? "#166534" : "#9A3412" }),
+      row("Priority", cleanPriority(site.priority)),
+      row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none">${site.coordinates} ↗</a>` : "—"),
+      row("Listing", site.listingUrl ? `<a href="${site.listingUrl}" target="_blank" style="color:#F37C33;text-decoration:none">View Listing ↗</a>` : "—"),
+      dom !== null ? row("Days on Market", `${dom} days`, { badge: true, badgeBg: dom > 365 ? "#FEE2E2" : dom > 180 ? "#FEF3C7" : "#DCFCE7", badgeColor: dom > 365 ? "#991B1B" : dom > 180 ? "#92400E" : "#166534" }) : "",
+    ].join("")}</table>
+
+    <!-- 2. ZONING -->
+    ${section("2", "Zoning & Entitlements", "")}
+    <table>${[
+      row("Current Zoning", site.zoning || "Not confirmed"),
+      row("Classification", zoningClass.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()), { badge: true, badgeBg: zoningColor + "18", badgeColor: zoningColor }),
+      row("Storage Use", site.zoning ? "Verify with local jurisdiction" : "UNKNOWN — research required"),
+    ].join("")}</table>
+
+    <!-- 3. DEMOGRAPHICS -->
+    ${section("3", "Demographics (3-Mile Radius)", "")}
+    <table>${[
+      row("Population", site.pop3mi ? fmtN(site.pop3mi) : "Not available"),
+      row("Median Income", site.income3mi ? ("$" + fmtN(site.income3mi)) : "Not available"),
+      demoScore ? row("Demo Score", demoScore, { badge: true, badgeBg: demoColor + "18", badgeColor: demoColor }) : "",
+    ].join("")}</table>
+
+    <!-- 4. SITE SIZING -->
+    ${section("4", "Site Sizing Assessment", "")}
+    <div style="padding:14px 18px;border-radius:10px;background:${sizingColor}0A;border:1px solid ${sizingColor}25;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:#1E293B">${sizingText}</span>
+      <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
+    </div>
+
+    <!-- 5. PS PROXIMITY -->
+    ${section("5", "PS Proximity Check", "")}
+    <div style="padding:14px 18px;border-radius:10px;background:${psColor}0A;border:1px solid ${psColor}25;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:#1E293B">Nearest PS Facility: <strong>${psDistance}</strong></span>
+      <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${psColor}18;color:${psColor}">${site.siteiqData?.nearestPS >= 5 ? "CLEAR" : site.siteiqData?.nearestPS >= 2.5 ? "CLOSE" : site.siteiqData?.nearestPS ? "TOO CLOSE" : "CHECK"}</span>
+    </div>
+
+    <!-- 6. BROKER -->
+    ${section("6", "Broker / Seller", "")}
+    <table>${[
+      row("Contact", site.sellerBroker || "Not listed"),
+      row("Date on Market", site.dateOnMarket || "Unknown"),
+    ].join("")}</table>
+
+    <!-- 7. RED FLAGS -->
+    ${section("7", "Red Flags", "")}
+    ${flags.length === 0
+      ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
+      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
+    }
+
+    <!-- 8. SUMMARY -->
+    ${section("8", "Summary & Deal Notes", "")}
+    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
+
+    ${iq && iq.scores ? (() => {
+      const dims = [
+        { key: "population", label: "Population", weight: 0.18 },
+        { key: "growth", label: "Growth", weight: 0.13 },
+        { key: "income", label: "Income", weight: 0.08 },
+        { key: "pricing", label: "Pricing", weight: 0.08 },
+        { key: "spacing", label: "PS Spacing", weight: 0.20 },
+        { key: "zoning", label: "Zoning", weight: 0.13 },
+        { key: "access", label: "Site Access", weight: 0.07 },
+        { key: "competition", label: "Competition", weight: 0.05 },
+        { key: "marketTier", label: "Market Tier", weight: 0.08 },
+      ];
+      return `
+    <!-- SITEIQ SCORECARD -->
+    ${section("IQ", "SiteIQ Scorecard", "")}
+    <!-- Visual Bar Chart -->
+    <div style="display:flex;gap:8px;align-items:flex-end;height:140px;padding:20px 0 0;margin-bottom:16px">
+      ${dims.map(d => {
+        const v = iq.scores[d.key] || 0;
+        const pct = Math.max(5, (v / 10) * 100);
+        const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="font-size:14px;font-weight:900;color:${c};font-family:'Space Mono',monospace">${v.toFixed ? v.toFixed(1) : v}</div>
+          <div style="width:100%;height:80px;border-radius:6px;background:#F1F5F9;position:relative;overflow:hidden">
+            <div style="position:absolute;bottom:0;left:0;right:0;height:${pct}%;border-radius:6px;background:linear-gradient(180deg,${c},${c}88);transition:height 0.5s"></div>
+          </div>
+          <div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.02em;text-align:center;line-height:1.2">${d.label}</div>
+        </div>`;
+      }).join("")}
+    </div>
+    <!-- Detail Table -->
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">
+      <thead><tr style="background:#FAFBFC">${["Dimension", "Score", "Weight", "Weighted"].map(h => `<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;text-align:left;border-bottom:2px solid #E2E8F0">${h}</th>`).join("")}</tr></thead>
+      <tbody>${dims.map((d, i) => { const v = iq.scores[d.key] || 0; return `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 12px;font-size:12px;font-weight:600;color:#1E293B">${d.label}</td><td style="padding:8px 12px;font-size:13px;font-weight:800;color:${v >= 7 ? "#16A34A" : v >= 4 ? "#F59E0B" : "#EF4444"};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : "—"}</td><td style="padding:8px 12px;font-size:11px;color:#94A3B8">${(d.weight * 100).toFixed(0)}%</td><td style="padding:8px 12px;font-size:12px;font-weight:700;color:#475569">${(v * d.weight).toFixed(2)}</td></tr>`; }).join("")}
+      <tr style="background:#1E2761"><td colspan="3" style="padding:10px 12px;font-size:12px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.04em">Composite Score</td><td style="padding:10px 12px;font-size:18px;font-weight:900;color:#F37C33;font-family:'Space Mono',monospace">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</td></tr>
+      </tbody></table>`;
+    })() : ""}
+  </div>
+
+  <!-- FOOTER -->
+  <div style="background:#0A0A0C;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
+    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#F37C33;font-weight:700">PS Acquisition Pipeline v4.0</span></div>
+    <div style="font-size:11px;color:#64748B"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
+  </div>
+</div></body></html>`;
 };
 
 // ─── SiteIQ™ v3 — Calibrated PS Site Scoring Engine ───
@@ -613,25 +708,28 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
             ))}
           </div>
         )}
-        <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 3, marginTop: 6, alignItems: "flex-end", height: 44 }}>
           {[
-            { key: "population", label: "POP", emoji: "👥" },
-            { key: "income", label: "INC", emoji: "💰" },
-            { key: "pricing", label: "PPA", emoji: "💲" },
-            { key: "spacing", label: "PS", emoji: "📏" },
-            { key: "zoning", label: "ZN", emoji: "📋" },
-            { key: "access", label: "ACC", emoji: "🛣️" },
-            { key: "competition", label: "CP", emoji: "🏢" },
-            { key: "marketTier", label: "MKT", emoji: "📍" },
+            { key: "population", label: "POP" },
+            { key: "income", label: "INC" },
+            { key: "pricing", label: "PPA" },
+            { key: "spacing", label: "PS" },
+            { key: "zoning", label: "ZN" },
+            { key: "access", label: "ACC" },
+            { key: "competition", label: "CP" },
+            { key: "marketTier", label: "MKT" },
           ].map((f) => {
             const v = iq.scores[f.key] || 0;
-            const c = v >= 8 ? "#16A34A" : v >= 6 ? "#2563EB" : v >= 4 ? "#D97706" : "#DC2626";
+            const pct = Math.max(8, (v / 10) * 100);
+            const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
             return (
-              <span key={f.key} title={`${f.label}: ${v}/10`} style={{
-                fontSize: 9, fontWeight: 700, color: c,
-                background: c + "15", padding: "1px 4px", borderRadius: 3,
-                fontFamily: "'Space Mono', monospace",
-              }}>{f.label}{v}</span>
+              <div key={f.key} title={`${f.label}: ${v}/10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 22 }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
+                <div style={{ width: 14, height: 32, borderRadius: 3, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 3, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 6px ${c}40` : "none" }} />
+                </div>
+                <div style={{ fontSize: 6, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.02em", lineHeight: 1 }}>{f.label}</div>
+              </div>
             );
           })}
         </div>
@@ -1072,12 +1170,13 @@ export default function App() {
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
   const autoGenerateVettingReport = (region, siteId, site) => {
     try {
-      const report = generateVettingReport(site);
+      const iqR = computeSiteIQ(site);
+      const report = generateVettingReport(site, null, iqR);
       const docId = uid();
       const now = new Date().toISOString();
-      const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-      const fileName = `Vetting_Report_${site.city || "Site"}_${site.state || ""}_${now.slice(0, 10)}.txt`;
-      const file = new File([blob], fileName, { type: "text/plain;charset=utf-8" });
+      const blob = new Blob([report], { type: "text/html;charset=utf-8" });
+      const fileName = `Vetting_Report_${site.city || "Site"}_${site.state || ""}_${now.slice(0, 10)}.html`;
+      const file = new File([blob], fileName, { type: "text/html;charset=utf-8" });
       const path = `docs/${siteId}/${docId}_${fileName}`;
       const sRef = storageRef(storage, path);
       uploadBytes(sRef, file).then(() => getDownloadURL(sRef)).then((url) => {
@@ -1851,7 +1950,7 @@ export default function App() {
                               const docs = site.docs ? Object.values(site.docs) : [];
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
                               if (vr && vr.url) { window.open(vr.url, "_blank"); }
-                              else { const rpt = generateVettingReport(site); const blob = new Blob([rpt], { type: "text/plain;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); }
+                              else { const iqR = computeSiteIQ(site); const rpt = generateVettingReport(site, null, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); }
                             }} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
                           </div>
                         )}
