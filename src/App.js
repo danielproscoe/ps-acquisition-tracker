@@ -2403,7 +2403,7 @@ const handleFetchDemos = async (region, site) => {
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.02em", background: "linear-gradient(90deg, #fff 0%, #F37C33 40%, #fff 60%, #fff 100%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite" }}>PUBLIC STORAGE</div>
                 <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline 4.0 · 2026</div>
-                <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 1, opacity: 0.7 }}>Powered by DJR Real Estate LLC</div>
+                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.08em", marginTop: 2, opacity: 0.95, fontWeight: 500 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
               <button onClick={() => setWeightEditorOpen(true)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }} title="SiteIQ Weight Configuration">⚙️ SiteIQ Config</button>
