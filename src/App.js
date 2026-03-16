@@ -160,14 +160,14 @@ function parseCSV(text) {
 
 // ─── Constants ───
 const REGIONS = {
-  southwest: { label: "Daniel Wollent", color: "#1565C0", accent: "#42A5F5" },
-  east: { label: "Matthew Toussaint", color: "#2D5F2D", accent: "#4CAF50" },
+  southwest: { label: "Daniel Wollent", color: T.blueDark, accent: T.blue },
+  east: { label: "Matthew Toussaint", color: "#2D5F2D", accent: T.green },
 };
 const STATUS_COLORS = {
-  pending: { bg: "#FFF3E0", text: "#E65100", dot: "#F37C33" },
-  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50" },
-  declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350" },
-  tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33" },
+  pending: { bg: T.orangeLight, text: T.orangeDark, dot: T.orange },
+  approved: { bg: T.greenLight, text: T.greenDark, dot: T.green },
+  declined: { bg: T.redLight, text: T.redDark, dot: T.red },
+  tracking: { bg: "#FFF8F0", text: "#BF360C", dot: T.orange },
 };
 const PHASES = [
   "Incoming",
@@ -189,12 +189,12 @@ const PRIORITY_COLORS = {
   "🔥 Hot": "#EF4444",
   "🟡 Warm": "#F59E0B",
   "🔵 Cold": "#3B82F6",
-  "⚪ None": "#CBD5E1",
+  "⚪ None": T.textLight,
 };
 const MSG_COLORS = {
-  "Dan R": { bg: "#FFF3E0", border: "#F37C33", text: "#E65100" },
-  "Daniel Wollent": { bg: "#EFF6FF", border: "#42A5F5", text: "#1565C0" },
-  "Matthew Toussaint": { bg: "#F0FDF4", border: "#4CAF50", text: "#2D5F2D" },
+  "Dan R": { bg: T.orangeLight, border: T.orange, text: T.orangeDark },
+  "Daniel Wollent": { bg: "#EFF6FF", border: T.blue, text: T.blueDark },
+  "Matthew Toussaint": { bg: "#F0FDF4", border: T.green, text: "#2D5F2D" },
 };
 const DOC_TYPES = [
   "Flyer",
@@ -245,9 +245,9 @@ const earthLink = (c) =>
 const STYLES = {
   cardBase: { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" },
   kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(135deg, #fff 0%, #FAFBFC 100%)", borderRadius: 14, padding: "20px 24px", minWidth: 130, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", borderLeft: `4px solid ${borderColor}`, transition: "all 0.25s ease" }),
-  labelMicro: { fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 },
+  labelMicro: { fontSize: 10, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 },
   btnPrimary: { padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 6px rgba(243,124,51,0.25)", transition: "all 0.2s" },
-  btnGhost: { padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" },
+  btnGhost: { padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: T.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" },
   frostedHeader: { background: "rgba(44,44,44,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", padding: "0 20px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(0,0,0,0.2)" },
 };
 
@@ -906,14 +906,14 @@ function SiteIQBadge({ site, size = "normal" }) {
   const tierColors = {
     gold: { bg: "linear-gradient(135deg, #C9A84C, #E8C84A, #C9A84C)", glow: "0 0 20px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.2)", text: T.navy, ring: T.gold, labelBg: "#FFF8E1" },
     steel: { bg: "linear-gradient(135deg, #2C3E6B, #3D5A99, #2C3E6B)", glow: "0 2px 8px rgba(44,62,107,0.3)", text: "#fff", ring: T.steel, labelBg: "#E8EAF6" },
-    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: "#94A3B8", labelBg: "#F1F5F9" },
+    gray: { bg: "linear-gradient(135deg, #94A3B8, #B0BEC5, #94A3B8)", glow: "0 2px 6px rgba(148,163,184,0.2)", text: "#fff", ring: T.textSecondary, labelBg: "#F1F5F9" },
   };
   const tc = tierColors[iq.tier];
 
   // Small badge style variables
-    const smallColor = isGold ? T.gold : isSteel ? T.steel : "#64748B";
+    const smallColor = isGold ? T.gold : isSteel ? T.steel : T.textMuted;
     const smallBg = isGold ? "linear-gradient(135deg, #1a1a2e, #16213e)" : isSteel ? "linear-gradient(135deg, #0f172a, #1e293b)" : tc.labelBg;
-    const smallTextColor = isGold ? T.gold : isSteel ? "#8BACD4" : "#64748B";
+    const smallTextColor = isGold ? T.gold : isSteel ? "#8BACD4" : T.textMuted;
   // Small inline badge (collapsed card header)
   if (isSmall) {
     return (
@@ -1068,7 +1068,7 @@ function Badge({ status }) {
 }
 
 function PriorityBadge({ priority }) {
-  const c = PRIORITY_COLORS[priority] || "#CBD5E1";
+  const c = PRIORITY_COLORS[priority] || T.textLight;
   return priority && priority !== "⚪ None" ? (
     <span
       style={{
@@ -1118,7 +1118,7 @@ function EF({ label, value, onSave, placeholder, multi }) {
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color: "#94A3B8",
+            color: T.textSecondary,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             marginBottom: 3,
@@ -1924,8 +1924,8 @@ const handleFetchDemos = async (region, site) => {
   if (authLoading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F1F5F9", fontFamily: "\'DM Sans\'" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <div style={{ color: "#64748B", fontSize: 14 }}>Authenticating...</div>
+        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: T.orange, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+        <div style={{ color: T.textMuted, fontSize: 14 }}>Authenticating...</div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -1935,8 +1935,8 @@ const handleFetchDemos = async (region, site) => {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(135deg, #0F172A, #1E293B)", fontFamily: "\'DM Sans\', sans-serif" }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: "40px 36px", width: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#F37C33", letterSpacing: "-0.02em" }}>PS Tracker</div>
-          <div style={{ fontSize: 13, color: "#94A3B8", marginTop: 4 }}>DJR Real Estate — Acquisition Pipeline</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: T.orange, letterSpacing: "-0.02em" }}>PS Tracker</div>
+          <div style={{ fontSize: 13, color: T.textSecondary, marginTop: 4 }}>DJR Real Estate — Acquisition Pipeline</div>
         </div>
         {loginError && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#DC2626" }}>{loginError}</div>}
         <input value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="Email" type="email" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, marginBottom: 10, boxSizing: "border-box", fontFamily: "\'DM Sans\'" }} onKeyDown={e => e.key === "Enter" && handleLogin()} />
@@ -1950,23 +1950,23 @@ const handleFetchDemos = async (region, site) => {
 
   const SortBar = () => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Sort:</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: T.textSecondary }}>Sort:</span>
       {SORT_OPTIONS.map((o) => (
-        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #F37C33" : "1px solid #E2E8F0", background: sortBy === o.key ? "#FFF3E0" : "#fff", color: sortBy === o.key ? "#E65100" : "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.15s" }}>{o.label}</button>
+        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #F37C33" : "1px solid #E2E8F0", background: sortBy === o.key ? T.orangeLight : "#fff", color: sortBy === o.key ? T.orangeDark : T.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.15s" }}>{o.label}</button>
       ))}
     </div>
   );
 
   // ─── STYLES ───
   const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2C2C2C", outline: "none", boxSizing: "border-box" };
-  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "#2C2C2C" : "transparent", color: tab === key ? "#F37C33" : "#64748B", whiteSpace: "nowrap" });
+  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "#2C2C2C" : "transparent", color: tab === key ? T.orange : T.textMuted, whiteSpace: "nowrap" });
   const pendingN = subs.filter((s) => s.status === "pending").length;
 
   if (!loaded) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans'" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <div style={{ color: "#64748B", fontSize: 14 }}>Loading…</div>
+        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: T.orange, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+        <div style={{ color: T.textMuted, fontSize: 14 }}>Loading…</div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -2026,12 +2026,12 @@ const handleFetchDemos = async (region, site) => {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <span style={{ width: 14, height: 14, borderRadius: "50%", background: region.accent }} />
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: region.color }}>{region.label} — Master Tracker</h2>
-          <span style={{ fontSize: 13, color: "#94A3B8" }}>({data.length})</span>
-            <span style={{ fontSize: 10, color: "#CBD5E1", marginLeft: "auto" }}>⌨ ↑↓ navigate · Enter toggle · ←→ scroll</span>
+          <span style={{ fontSize: 13, color: T.textSecondary }}>({data.length})</span>
+            <span style={{ fontSize: 10, color: T.textLight, marginLeft: "auto" }}>⌨ ↑↓ navigate · Enter toggle · ←→ scroll</span>
         </div>
         <SortBar />
         {data.length === 0 ? (
-          <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#94A3B8" }}>No sites yet.</div>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: T.textSecondary }}>No sites yet.</div>
         ) : (
           <div style={{ display: "grid", gap: 14 }}>
             {filteredData.map((site) => {
@@ -2057,18 +2057,18 @@ const handleFetchDemos = async (region, site) => {
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
-                      <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#94A3B8", flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 12, color: T.textMuted }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
+                      <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: T.textSecondary, flexWrap: "wrap" }}>
                         {site.askingPrice && <span>Ask: <strong style={{ color: "#2C2C2C" }}>{site.askingPrice}</strong></span>}
-                        {site.internalPrice && <span>PS: <strong style={{ color: "#F37C33" }}>{site.internalPrice}</strong></span>}
+                        {site.internalPrice && <span>PS: <strong style={{ color: T.orange }}>{site.internalPrice}</strong></span>}
                         {site.sellerBroker && <span>Broker: <strong style={{ color: T.borderLight }}>{site.sellerBroker}</strong></span>}
-                        {docs.length > 0 && <span style={{ color: "#64748B" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
-                        {msgs.length > 0 && <span style={{ color: "#F37C33" }}>💬 {msgs.length}</span>}
+                        {docs.length > 0 && <span style={{ color: T.textMuted }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
+                        {msgs.length > 0 && <span style={{ color: T.orange }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: T.orangeDark, textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
                       </div>
                     </div>
-                    <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
+                    <div style={{ fontSize: 16, color: T.textLight, transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
                   </div>
 
                   {/* Expanded */}
@@ -2081,12 +2081,12 @@ const handleFetchDemos = async (region, site) => {
                         const curIdx = ids.indexOf(site.id);
                         const prevId = curIdx > 0 ? ids[curIdx - 1] : null;
                         const nextId = curIdx < ids.length - 1 ? ids[curIdx + 1] : null;
-                        const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? "#CBD5E1" : T.borderLight, fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
+                        const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? T.textLight : T.borderLight, fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
                         return (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px", borderBottom: "1px solid #F1F5F9", marginBottom: 10 }}>
                             <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setDetailTab('overview'); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>{"▲ Prev"}</button>
                             <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.02em" }}>
-                              <span style={{ fontWeight: 700, color: T.borderLight }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: "#CBD5E1" }}>↑↓ keys · Esc close</span>
+                              <span style={{ fontWeight: 700, color: T.borderLight }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: T.textLight }}>↑↓ keys · Esc close</span>
                             </div>
                             <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setDetailTab('overview'); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>{"Next ▼"}</button>
                           </div>
@@ -2104,13 +2104,13 @@ const handleFetchDemos = async (region, site) => {
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 6 }}>
                               {[
                                 { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#F1F5F9" },
-                                { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#F1F5F9") : "#94A3B8" },
+                                { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#F1F5F9") : T.textSecondary },
                                 { label: "ACREAGE", val: site.acreage ? site.acreage + " ac" : "—", color: "#F1F5F9" },
                                 { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#F1F5F9" },
                                 { label: "3MI HHI", val: site.income3mi || "—", color: "#F1F5F9" },
                               ].map((m, idx) => (
                                 <div key={idx} style={{ background: "rgba(255,255,255,.06)", borderRadius: 8, padding: "6px 8px", border: "1px solid rgba(255,255,255,.08)" }}>
-                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", letterSpacing: "0.08em", marginBottom: 2 }}>{m.label}</div>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", marginBottom: 2 }}>{m.label}</div>
                                   <div style={{ fontSize: 12, fontWeight: 700, color: m.color, fontFamily: "'DM Sans', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
                                 </div>
                               ))}
@@ -2124,7 +2124,7 @@ const handleFetchDemos = async (region, site) => {
                     <button key={tab} onClick={(e) => { e.stopPropagation(); setDetailTab(tab); }}
                       style={{ padding: '10px 24px', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, border: 'none', cursor: 'pointer', borderRadius: '8px 8px 0 0', transition: 'all 0.2s',
                         background: detailTab === tab ? 'linear-gradient(135deg, #1E293B, #334155)' : 'transparent',
-                        color: detailTab === tab ? '#F97316' : '#94A3B8',
+                        color: detailTab === tab ? '#F97316' : T.textSecondary,
                         borderBottom: detailTab === tab ? '2px solid #F97316' : '2px solid transparent',
                         marginBottom: '-2px'
                       }}>
@@ -2150,7 +2150,7 @@ const handleFetchDemos = async (region, site) => {
                         ) : (
                           <div style={{ background: "#F1F5F9", borderRadius: 10, padding: "24px 14px", textAlign: "center", border: "1px dashed #CBD5E1" }}>
                             <div style={{ fontSize: 18, marginBottom: 4 }}>🛰️</div>
-                            <div style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Add coordinates to generate aerial view</div>
+                            <div style={{ fontSize: 12, color: T.textSecondary, fontWeight: 600 }}>Add coordinates to generate aerial view</div>
                           </div>
                         )}
                         {/* Flyer Quick Link */}
@@ -2159,7 +2159,7 @@ const handleFetchDemos = async (region, site) => {
                           return flyerDoc ? (
                             <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>📄 View Flyer — {flyerDoc[1].name?.length > 30 ? flyerDoc[1].name.slice(0, 30) + "…" : flyerDoc[1].name}</a>
                           ) : (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: "#FFF3E0", border: "1px dashed #F37C33", fontSize: 11, color: "#E65100", fontWeight: 600 }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: T.orangeLight, border: "1px dashed #F37C33", fontSize: 11, color: T.orangeDark, fontWeight: 600 }}>
                               📎 No flyer uploaded — add one below
                             </div>
                           );
@@ -2168,7 +2168,7 @@ const handleFetchDemos = async (region, site) => {
 
                       {/* Summary */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, margin: "14px 0", border: "1px solid #E2E8F0" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 6 }}>Recent Summary</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", marginBottom: 6 }}>Recent Summary</div>
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
                       </div>
 
@@ -2191,9 +2191,9 @@ const handleFetchDemos = async (region, site) => {
                         const dr = demoReport[site.id];
                         const r = dr.rings || {};
                         const fmtV = (v, prefix) => v != null ? (prefix || "") + v.toLocaleString() : "—";
-                        const growthColor = (s) => !s ? "#64748B" : s.includes("+") ? "#16A34A" : s.includes("-") ? "#EF4444" : "#64748B";
-                        const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: "0.06em" };
-                        const metricCell = { padding: "7px 12px", fontWeight: 700, color: "#E2E8F0", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
+                        const growthColor = (s) => !s ? T.textMuted : s.includes("+") ? "#16A34A" : s.includes("-") ? "#EF4444" : T.textMuted;
+                        const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em" };
+                        const metricCell = { padding: "7px 12px", fontWeight: 700, color: T.textPrimary, fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
                         const valCell = { padding: "7px 12px", textAlign: "right", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', monospace", borderBottom: "1px solid rgba(255,255,255,.08)" };
                         const goldVal = { ...valCell, color: "#FBBF24" };
                         const whiteVal = { ...valCell, color: "#F1F5F9" };
@@ -2204,10 +2204,10 @@ const handleFetchDemos = async (region, site) => {
                                 <span style={{ fontSize: 16 }}>📊</span>
                                 <div>
                                   <div style={{ color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>DEMOGRAPHIC INTELLIGENCE <span style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)", color: "#0F172A", fontSize: 11, fontWeight: 900, padding: "2px 8px", borderRadius: 5, letterSpacing: "0.06em" }}>2025</span></div>
-                                  <div style={{ color: "#94A3B8", fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", marginTop: 2 }}>ESRI ArcGIS GeoEnrichment — <span style={{ color: "#22D3EE" }}>Live Geocoded</span> — Current Year + 2030 Projections</div>
+                                  <div style={{ color: T.textSecondary, fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", marginTop: 2 }}>ESRI ArcGIS GeoEnrichment — <span style={{ color: "#22D3EE" }}>Live Geocoded</span> — Current Year + 2030 Projections</div>
                                 </div>
                               </div>
-                              <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.05)", color: "#94A3B8", fontSize: 11, cursor: "pointer", transition: "all .2s" }}>✕</button>
+                              <button onClick={() => setDemoReport((prev) => { const n = { ...prev }; delete n[site.id]; return n; })} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.05)", color: T.textSecondary, fontSize: 11, cursor: "pointer", transition: "all .2s" }}>✕</button>
                             </div>
                             {/* Ring Radius Table */}
                             <div style={{ background: "linear-gradient(180deg,#1E293B,#0F172A)", padding: "2px 16px 10px" }}>
@@ -2272,7 +2272,7 @@ const handleFetchDemos = async (region, site) => {
                                     { label: "Outlook", val: dr.growthOutlook, isOutlook: true },
                                   ].map((item, idx) => (
                                     <div key={idx} style={{ background: "rgba(255,255,255,.04)", borderRadius: 8, padding: "6px 8px", textAlign: "center", border: "1px solid rgba(255,255,255,.06)" }}>
-                                      <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{item.label}</div>
+                                      <div style={{ fontSize: 8, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{item.label}</div>
                                       {item.isOutlook ? (
                                         <div style={{ fontSize: 11, fontWeight: 800, color: item.val?.includes("High") || item.val?.includes("Growing") ? "#22C55E" : item.val?.includes("Declining") ? "#EF4444" : "#FBBF24" }}>{item.val || "—"}</div>
                                       ) : (
@@ -2298,12 +2298,12 @@ const handleFetchDemos = async (region, site) => {
 {/* Date on Market */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Date on Market</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", marginBottom: 3 }}>Date on Market</div>
                           <input type="date" value={site.dateOnMarket || ""} onChange={(e) => updateSiteField(regionKey, site.id, "dateOnMarket", e.target.value)} style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, fontFamily: "'DM Sans'", background: "#FAFBFC", color: "#2C2C2C", outline: "none", boxSizing: "border-box" }} />
                         </div>
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Days on Market</div>
-                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", color: dom !== null ? "#2C2C2C" : "#CBD5E1", fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "—"}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", marginBottom: 3 }}>Days on Market</div>
+                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", color: dom !== null ? "#2C2C2C" : T.textLight, fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "—"}</div>
                         </div>
                       </div>
 
@@ -2312,9 +2312,9 @@ const handleFetchDemos = async (region, site) => {
                         <EF label="Coordinates (lat, lng)" value={site.coordinates || ""} onSave={(v) => saveField(regionKey, site.id, "coordinates", v)} placeholder="39.123, -84.456" />
                         {site.coordinates && (
                           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                            <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
-                            <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
-                    {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : "https://" + site.listingUrl} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#FFF3E0", color: "#E65100", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Property Listing</a>}
+                            <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: T.blueDark, fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
+                            <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: T.greenLight, color: T.greenDark, fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
+                    {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : "https://" + site.listingUrl} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: T.orangeLight, color: T.orangeDark, fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🔗 Property Listing</a>}
                     <button onClick={() => downloadVettingPDF(site)} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
                           </div>
                         )}
@@ -2329,13 +2329,13 @@ const handleFetchDemos = async (region, site) => {
 
                       {/* Documents */}
                       <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, marginBottom: 14, border: "1px solid #E2E8F0" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 10 }}>📁 Documents</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", marginBottom: 10 }}>📁 Documents</div>
                         {docs.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                             {docs.map(([docKey, doc]) => (
                               <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
                                 <span style={{ fontWeight: 600, color: T.borderLight }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
-                                <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
+                                <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: T.blueDark, fontWeight: 600, textDecoration: "none" }}>↗ View</a>
                                 <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
                               </div>
                             ))}
@@ -2345,7 +2345,7 @@ const handleFetchDemos = async (region, site) => {
                           <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer" }}>
                             {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
                           </select>
-                          <label style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          <label style={{ padding: "5px 12px", borderRadius: 7, background: T.orange, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                             + Upload
                             <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
                           </label>
@@ -2356,11 +2356,11 @@ const handleFetchDemos = async (region, site) => {
                 {detailTab === 'activity' && (<>
                       {/* Messages */}
                       <div style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 8 }}>💬 Thread</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>💬 Thread</div>
                         {msgs.length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxHeight: 200, overflowY: "auto" }}>
                             {[...msgs].sort((a, b) => new Date(a.ts) - new Date(b.ts)).map((m, i) => {
-                              const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: T.borderLight };
+                              const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: T.textPrimary, text: T.borderLight };
                               return (
                                 <div key={i} style={{ background: mc.bg, border: `1px solid ${mc.border}`, borderRadius: 8, padding: "8px 10px" }}>
                                   <div style={{ fontSize: 10, fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from} · {m.ts ? new Date(m.ts).toLocaleDateString() : ""}</div>
@@ -2377,18 +2377,18 @@ const handleFetchDemos = async (region, site) => {
                             <option>Matthew Toussaint</option>
                           </select>
                           <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") handleSendMsg(regionKey, site.id); }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
-                          <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
+                          <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: T.orange, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
                         </div>
                       </div>
 
                       {/* Activity Log */}
                       {logs.length > 0 && (
                         <details style={{ marginBottom: 10 }}>
-                          <summary style={{ fontSize: 11, color: "#94A3B8", cursor: "pointer", fontWeight: 600 }}>Activity Log ({logs.length})</summary>
+                          <summary style={{ fontSize: 11, color: T.textSecondary, cursor: "pointer", fontWeight: 600 }}>Activity Log ({logs.length})</summary>
                           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
                             {[...logs].sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 20).map((l, i) => (
-                              <div key={i} style={{ fontSize: 11, color: "#94A3B8" }}>
-                                <span style={{ color: "#64748B" }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> — {l.action}
+                              <div key={i} style={{ fontSize: 11, color: T.textSecondary }}>
+                                <span style={{ color: T.textMuted }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> — {l.action}
                               </div>
                             ))}
                           </div>
@@ -2451,11 +2451,11 @@ const handleFetchDemos = async (region, site) => {
 
       {/* New site alert */}
       {showNewAlert && (
-        <div style={{ background: "#FFF3E0", borderBottom: "1px solid #F37C33", padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <span style={{ fontSize: 13, color: "#E65100", fontWeight: 600 }}>🔔 {newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
+        <div style={{ background: T.orangeLight, borderBottom: "1px solid #F37C33", padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ fontSize: 13, color: T.orangeDark, fontWeight: 600 }}>🔔 {newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
-            <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
+            <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: T.orange, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
+            <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: T.textSecondary, fontSize: 11, cursor: "pointer" }}>✕</button>
           </div>
         </div>
       )}
@@ -2466,18 +2466,18 @@ const handleFetchDemos = async (region, site) => {
         <div style={{ padding: "10px 0 6px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: "#F37C33", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: T.orange, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'" }}>PS</span>
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.02em", background: "linear-gradient(90deg, #fff 0%, #F37C33 40%, #fff 60%, #fff 100%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite" }}>PUBLIC STORAGE</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline 4.0</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.08em", marginTop: 2, opacity: 0.95, fontWeight: 500 }}>Powered by DJR Real Estate LLC</div>
+                <div style={{ fontSize: 10, color: T.textSecondary, letterSpacing: "0.1em", textTransform: "uppercase" }}>Acquisition Pipeline 4.0</div>
+                <div style={{ fontSize: 10, color: T.textSecondary, letterSpacing: "0.08em", marginTop: 2, opacity: 0.95, fontWeight: 500 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
               <button onClick={() => setWeightEditorOpen(true)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }} title="SiteIQ™ Weight Configuration">⚙️ SiteIQ Config</button>
-            <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
-            <button onClick={() => signOut(auth)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }} title={user?.email}>Sign Out</button>
+            <button onClick={handleExport} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: T.orange, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>⬇ Export Excel</button>
+            <button onClick={() => signOut(auth)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #475569", background: "transparent", color: T.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }} title={user?.email}>Sign Out</button>
           </div>
         </div>
 
@@ -2492,11 +2492,11 @@ const handleFetchDemos = async (region, site) => {
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
           ].map((n) => (
             <button key={n.key} role="tab" aria-selected={tab === n.key} onClick={() => { setTab(n.key); if (n.key !== "review") setShowNewAlert(false); }} style={{ ...navBtn(n.key), position: "relative" }}
-              onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#F37C33"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
-              onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; } }}
+              onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = T.orange; e.currentTarget.style.transform = "translateY(-1px)"; } }}
+              onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.transform = "translateY(0)"; } }}
             >
               {n.label}
-              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: "#F37C33" }} />}
+              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: T.orange }} />}
             </button>
           ))}
         </div>
@@ -2510,14 +2510,14 @@ const handleFetchDemos = async (region, site) => {
 {/* Target Markets — Collapsible Strip */}
       <div style={{ maxWidth: 1100, margin: "0 auto 12px", background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)", borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.15)" }}>
         <div onClick={() => setMarketsOpen(!marketsOpen)} style={{ display: "flex", alignItems: "center", padding: "10px 18px", cursor: "pointer", userSelect: "none" }}>
-          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.5, color: "#F37C33", textTransform: "uppercase" }}>Target Markets</span>
-          <span style={{ fontSize: 11, color: "#64748B", marginLeft: 10 }}>{targetMarkets.length} active</span>
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.5, color: T.orange, textTransform: "uppercase" }}>Target Markets</span>
+          <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 10 }}>{targetMarkets.length} active</span>
           <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
             {!marketsOpen && targetMarkets.slice(0, 5).map((m, i) => (
-              <span key={i} style={{ fontSize: 10, color: "#94A3B8", background: "rgba(255,255,255,.06)", padding: "2px 8px", borderRadius: 20 }}>{m.name || m.city || "Market"}</span>
+              <span key={i} style={{ fontSize: 10, color: T.textSecondary, background: "rgba(255,255,255,.06)", padding: "2px 8px", borderRadius: 20 }}>{m.name || m.city || "Market"}</span>
             ))}
-            {!marketsOpen && targetMarkets.length > 5 && <span style={{ fontSize: 10, color: "#64748B" }}>+{targetMarkets.length - 5}</span>}
-            <span style={{ color: "#64748B", fontSize: 14, transition: "transform 0.2s", transform: marketsOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+            {!marketsOpen && targetMarkets.length > 5 && <span style={{ fontSize: 10, color: T.textMuted }}>+{targetMarkets.length - 5}</span>}
+            <span style={{ color: T.textMuted, fontSize: 14, transition: "transform 0.2s", transform: marketsOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
           </span>
         </div>
         {marketsOpen && (
@@ -2525,8 +2525,8 @@ const handleFetchDemos = async (region, site) => {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
               {targetMarkets.map((m, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, padding: "6px 12px" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name || m.city || "Unnamed"}</span>
-                  {m.state && <span style={{ fontSize: 10, color: "#64748B" }}>{m.state}</span>}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{m.name || m.city || "Unnamed"}</span>
+                  {m.state && <span style={{ fontSize: 10, color: T.textMuted }}>{m.state}</span>}
                   {m.radius && <span style={{ fontSize: 9, color: T.borderLight, background: "rgba(255,255,255,.06)", padding: "1px 6px", borderRadius: 10 }}>{m.radius}mi</span>}
                   <button onClick={() => setTargetMarkets(targetMarkets.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: T.borderLight, cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>×</button>
                 </div>
@@ -2534,14 +2534,14 @@ const handleFetchDemos = async (region, site) => {
             </div>
             {showAddMarket ? (
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <input value={newMarketForm.name || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, name: e.target.value })} placeholder="Market name" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 11, width: 130, outline: "none" }} />
-                <input value={newMarketForm.state || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, state: e.target.value })} placeholder="State" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 11, width: 50, outline: "none" }} />
-                <input value={newMarketForm.radius || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, radius: e.target.value })} placeholder="Radius" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 11, width: 55, outline: "none" }} />
-                <button onClick={() => { if (newMarketForm.name) { setTargetMarkets([...targetMarkets, { ...newMarketForm }]); setNewMarketForm({}); setShowAddMarket(false); } }} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>✓ Add</button>
-                <button onClick={() => { setShowAddMarket(false); setNewMarketForm({}); }} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "#64748B", fontSize: 10, cursor: "pointer" }}>Cancel</button>
+                <input value={newMarketForm.name || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, name: e.target.value })} placeholder="Market name" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: T.textPrimary, fontSize: 11, width: 130, outline: "none" }} />
+                <input value={newMarketForm.state || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, state: e.target.value })} placeholder="State" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: T.textPrimary, fontSize: 11, width: 50, outline: "none" }} />
+                <input value={newMarketForm.radius || ""} onChange={(e) => setNewMarketForm({ ...newMarketForm, radius: e.target.value })} placeholder="Radius" style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: T.textPrimary, fontSize: 11, width: 55, outline: "none" }} />
+                <button onClick={() => { if (newMarketForm.name) { setTargetMarkets([...targetMarkets, { ...newMarketForm }]); setNewMarketForm({}); setShowAddMarket(false); } }} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: T.orange, color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>✓ Add</button>
+                <button onClick={() => { setShowAddMarket(false); setNewMarketForm({}); }} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: T.textMuted, fontSize: 10, cursor: "pointer" }}>Cancel</button>
               </div>
             ) : (
-              <button onClick={() => setShowAddMarket(true)} style={{ padding: "4px 12px", borderRadius: 6, border: "1px dashed rgba(255,255,255,.15)", background: "transparent", color: "#64748B", fontSize: 10, cursor: "pointer" }}>+ Add Market</button>
+              <button onClick={() => setShowAddMarket(true)} style={{ padding: "4px 12px", borderRadius: 6, border: "1px dashed rgba(255,255,255,.15)", background: "transparent", color: T.textMuted, fontSize: 10, cursor: "pointer" }}>+ Add Market</button>
             )}
           </div>
         )}
@@ -2549,7 +2549,7 @@ const handleFetchDemos = async (region, site) => {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
-                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
+                { label: "Pipeline", value: sw.length + east.length, color: T.orange, icon: "📊", action: () => setTab("summary"), sub: "View summary →" },
                 { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => { setTab("review"); setShowNewAlert(false); }, sub: "Review queue →" },
                 { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => { setTab("southwest"); setExpandedSite(null); }, sub: "Open tracker →" },
                 { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => { setTab("east"); setExpandedSite(null); }, sub: "Open tracker →" },
@@ -2558,7 +2558,7 @@ const handleFetchDemos = async (region, site) => {
                   onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = `0 6px 20px ${kpi.color}22`; }}
                   onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)"; }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: T.textSecondary, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
                     <span style={{ fontSize: 16, opacity: 0.6 }}>{kpi.icon}</span>
                   </div>
                   <div className="kpi-number" style={{ fontSize: 34, fontWeight: 800, color: "#2C2C2C", marginTop: 6, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{kpi.value}</div>
@@ -2587,11 +2587,11 @@ const handleFetchDemos = async (region, site) => {
                     ].map(v => (
                       <div key={v.label} style={{ flex: "1 1 100px", background: "#fff", borderRadius: 10, padding: "8px 12px", border: `1px solid ${v.color}22`, textAlign: "center" }}>
                         <div style={{ fontSize: 18, fontWeight: 800, color: v.color, fontFamily: "'Space Mono', monospace" }}>{v.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{v.label}</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: T.textSecondary, textTransform: "uppercase" }}>{v.label}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize: 10, color: "#94A3B8", textAlign: "right", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: 10, color: T.textSecondary, textAlign: "right", whiteSpace: "nowrap" }}>
                     Data as of {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}<br />
                     <span style={{ fontWeight: 600 }}>{all.length} active sites</span>
                   </div>
@@ -2616,10 +2616,10 @@ const handleFetchDemos = async (region, site) => {
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #E5E7EB" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: "#1E293B" }}>🌊 Pipeline Funnel</span>
-                    <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 500, background: "#F1F5F9", borderRadius: 8, padding: "2px 8px" }}>{totalSites} total sites</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: T.textDark }}>🌊 Pipeline Funnel</span>
+                    <span style={{ fontSize: 11, color: T.textSecondary, fontWeight: 500, background: "#F1F5F9", borderRadius: 8, padding: "2px 8px" }}>{totalSites} total sites</span>
                   </div>
-                  <span style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Conversion Flow</span>
+                  <span style={{ fontSize: 10, color: T.textSecondary, letterSpacing: "0.05em", textTransform: "uppercase" }}>Conversion Flow</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {funnelStages.map((stage, idx) => {
@@ -2635,7 +2635,7 @@ const handleFetchDemos = async (region, site) => {
                         style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, cursor: stage.key === "review" ? "pointer" : "default", transition: "all 0.2s", border: "1px solid transparent" }}
                       >
                         <div style={{ width: 28, textAlign: "center", fontSize: 16 }}>{stage.icon}</div>
-                        <div style={{ width: 120, fontSize: 12, fontWeight: 600, color: "#334155" }}>{stage.label}</div>
+                        <div style={{ width: 120, fontSize: 12, fontWeight: 600, color: T.border }}>{stage.label}</div>
                         <div style={{ flex: 1, maxWidth: `${funnelWidth}%`, position: "relative" }}>
                           <div style={{ height: 28, borderRadius: 6, background: stage.gradient, width: pct > 0 ? `${Math.max(pct, 8)}%` : "4px", transition: "width 0.6s ease", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 32 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}>{count}</span>
@@ -2652,19 +2652,19 @@ const handleFetchDemos = async (region, site) => {
                 </div>
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #F1F5F9", display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
                   {["⏳ Review", "→", "🔍 Prospect", "→", "📤 Submitted", "→", "✅ Approved", "→", "📝 LOI", "→", "🤝 UC", "→", "🏆 Closed"].map((t, i) => (
-                    <span key={i} style={{ fontSize: 10, color: t === "→" ? "#CBD5E1" : "#64748B", fontWeight: t === "→" ? 400 : 500 }}>{t}</span>
+                    <span key={i} style={{ fontSize: 10, color: t === "→" ? T.textLight : T.textMuted, fontWeight: t === "→" ? 400 : 500 }}>{t}</span>
                   ))}
                 </div>
               </div>
             );
           })()}         {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, accent: REGIONS.southwest.accent, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, accent: REGIONS.east.accent, tabKey: "east" }].map((r) => {
               const total = r.data.length || 1;
-              const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
+              const phaseColors = [T.textLight, T.textSecondary, "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", T.orange, "#16A34A", T.textMuted];
               return (
                 <div key={r.label} onClick={() => { setTab(r.tabKey); setExpandedSite(null); }} className="site-card" style={{ background: "#fff", borderRadius: 14, padding: 18, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,.06)", cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
-                    <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{r.data.length} sites</span>
+                    <span style={{ fontSize: 11, color: T.textSecondary, fontWeight: 600 }}>{r.data.length} sites</span>
                   </div>
                   {/* Visual pipeline bar */}
                   <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 10, background: "#F1F5F9" }}>
@@ -2676,8 +2676,8 @@ const handleFetchDemos = async (region, site) => {
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {PHASES.map((p, idx) => { const c = r.data.filter((s) => s.phase === p).length; return (
                       <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${phaseColors[idx]}11` : "#F8FAFC", border: c > 0 ? `1px solid ${phaseColors[idx]}33` : "1px solid #E2E8F0", transition: "all 0.2s" }}>
-                        <div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? phaseColors[idx] : "#CBD5E1" }}>{c}</div>
-                        <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? phaseColors[idx] : T.textLight }}>{c}</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: T.textSecondary, textTransform: "uppercase" }}>{p}</div>
                       </div>
                     ); })}
                   </div>
@@ -2715,7 +2715,7 @@ const handleFetchDemos = async (region, site) => {
 
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
-          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
+          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
           const td = { padding: "8px 10px", fontSize: 11, color: T.borderLight, borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
           const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
           const allStates = [...new Set([...sw, ...east].map(s => s.state).filter(Boolean))].sort();
@@ -2728,9 +2728,9 @@ const handleFetchDemos = async (region, site) => {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: r.accent }} />
                   <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: r.color }}>{r.label}</h3>
-                  <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length}{d.length !== raw.length ? ` of ${raw.length}` : ""})</span>
+                  <span style={{ fontSize: 12, color: T.textSecondary }}>({d.length}{d.length !== raw.length ? ` of ${raw.length}` : ""})</span>
                 </div>
-                {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
+                {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: T.textSecondary }}>No sites.</div> : (
                   <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 420 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
                       <thead>
@@ -2739,19 +2739,19 @@ const handleFetchDemos = async (region, site) => {
                       <tbody>
                         {d.map((s, i) => (
                           <tr key={s.id} onClick={() => { setTab(rk); setExpandedSite(s.id); setTimeout(() => { const el = document.getElementById(`site-${s.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350); }} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = T.orangeLight)}
                             onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
                           >
                             <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} targetMarkets={targetMarkets} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "#F1F5F9", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
+                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "#F1F5F9", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : T.textMuted, fontWeight: 600 }}>{s.phase || "—"}</span></td>
                             <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
                             <td style={td}>{s.sellerBroker || "—"}</td>
-                            <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
+                            <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : T.textSecondary }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
                             <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "—"}</td>
                           </tr>
                         ))}
@@ -2765,10 +2765,10 @@ const handleFetchDemos = async (region, site) => {
           return (
             <div style={{ animation: "fadeIn .3s ease-out" }}>
               <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>📊 Summary</h2>
-              <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: T.textSecondary }}>All tracked sites by region. Click any row to open.</p>
               <SortBar />
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Filter:</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: T.textSecondary }}>Filter:</span>
                   <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: T.borderLight, background: filterState !== "all" ? "#FFF7ED" : "#fff" }}>
                     <option value="all">All States</option>
                     {allStates.map(st => <option key={st} value={st}>{st}</option>)}
@@ -2777,7 +2777,7 @@ const handleFetchDemos = async (region, site) => {
                     <option value="all">All Phases</option>
                     {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  {(filterState !== "all" || filterPhase !== "all") && <button onClick={() => { setFilterState("all"); setFilterPhase("all"); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", cursor: "pointer" }}>✕ Clear</button>}
+                  {(filterState !== "all" || filterPhase !== "all") && <button onClick={() => { setFilterState("all"); setFilterPhase("all"); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: T.textSecondary, cursor: "pointer" }}>✕ Clear</button>}
               </div>
               <SumTable rk="southwest" />
               <SumTable rk="east" />
@@ -2792,33 +2792,33 @@ const handleFetchDemos = async (region, site) => {
               <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Submit Site</h2>
               <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F1F5F9", borderRadius: 10, padding: 3 }}>
                 {[["direct", "⚡ Direct to Tracker"], ["review", "📋 Send to Review"]].map(([k, l]) => (
-                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#2C2C2C" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
+                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#2C2C2C" : T.textSecondary, boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
                 ))}
               </div>
               {/* ── Flyer Upload Zone ── */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>📄 Flyer <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— auto-extracts acreage, price, zoning & broker</span></div>
-              <div style={{ border: flyerFile ? "2px solid #F37C33" : "2px dashed #E2E8F0", borderRadius: 12, padding: flyerFile ? 14 : 20, textAlign: "center", background: flyerFile ? "#FFF8F3" : "#F8FAFC", marginBottom: 16, cursor: "pointer", transition: "all .2s" }} onClick={() => !flyerParsing && flyerRef.current?.click()} onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#F37C33"; }} onDragLeave={(e) => { e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; }} onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; const f = e.dataTransfer.files?.[0]; if (f) parseFlyer(f); }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>📄 Flyer <span style={{ fontSize: 10, fontWeight: 500, color: T.textSecondary }}>— auto-extracts acreage, price, zoning & broker</span></div>
+              <div style={{ border: flyerFile ? "2px solid #F37C33" : "2px dashed #E2E8F0", borderRadius: 12, padding: flyerFile ? 14 : 20, textAlign: "center", background: flyerFile ? "#FFF8F3" : "#F8FAFC", marginBottom: 16, cursor: "pointer", transition: "all .2s" }} onClick={() => !flyerParsing && flyerRef.current?.click()} onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = T.orange; }} onDragLeave={(e) => { e.currentTarget.style.borderColor = flyerFile ? T.orange : T.textPrimary; }} onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = flyerFile ? T.orange : T.textPrimary; const f = e.dataTransfer.files?.[0]; if (f) parseFlyer(f); }}>
                 <input ref={flyerRef} type="file" accept=".pdf,image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFlyer(f); }} />
                 {flyerParsing ? (
-                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div><div style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Extracting info from flyer…</div></div>
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div><div style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>Extracting info from flyer…</div></div>
                 ) : flyerFile ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     {flyerPreview && <img src={flyerPreview} alt="Flyer preview" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #E2E8F0" }} />}
-                    {!flyerPreview && <div style={{ width: 48, height: 48, borderRadius: 6, background: "#FFF3E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>}
+                    {!flyerPreview && <div style={{ width: 48, height: 48, borderRadius: 6, background: T.orangeLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>}
                     <div style={{ textAlign: "left", flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#2C2C2C" }}>{flyerFile.name}</div>
-                      <div style={{ fontSize: 11, color: "#64748B" }}>{(flyerFile.size / 1024).toFixed(0)} KB — fields auto-populated</div>
+                      <div style={{ fontSize: 11, color: T.textMuted }}>{(flyerFile.size / 1024).toFixed(0)} KB — fields auto-populated</div>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
+                    <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: T.textSecondary, fontSize: 11, cursor: "pointer" }}>✕</button>
                   </div>
                 ) : (
-                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: T.borderLight }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: T.borderLight }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
                 )}
               </div>
               {/* ── Additional Attachments ── */}
               <div style={{ marginBottom: 16, background: "#F8FAFC", borderRadius: 10, padding: 14, border: "1px solid #E2E8F0" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— survey, PSA, environmental, etc.</span></div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: T.textSecondary }}>— survey, PSA, environmental, etc.</span></div>
                   <button onClick={() => attachRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#2C2C2C", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Add File</button>
                   <input ref={attachRef} type="file" accept=".pdf,image/*,.doc,.docx,.xlsx,.xls,.csv" multiple style={{ display: "none" }} onChange={(e) => { const files = Array.from(e.target.files || []); const newA = files.map((f) => ({ file: f, type: "Other", id: uid() })); setAttachments((prev) => [...prev, ...newA]); e.target.value = ""; }} />
                 </div>
@@ -2829,50 +2829,50 @@ const handleFetchDemos = async (region, site) => {
                         <div style={{ fontSize: 16 }}>{a.file.name.match(/\.pdf$/i) ? "📄" : a.file.type?.startsWith("image/") ? "🖼️" : "📎"}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: "#2C2C2C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
-                          <div style={{ fontSize: 10, color: "#94A3B8" }}>{(a.file.size / 1024).toFixed(0)} KB</div>
+                          <div style={{ fontSize: 10, color: T.textSecondary }}>{(a.file.size / 1024).toFixed(0)} KB</div>
                         </div>
                         <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", color: T.borderLight }}>
                           {DOC_TYPES.filter((t) => t !== "Flyer").map((t) => <option key={t}>{t}</option>)}
                         </select>
-                        <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                        <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: T.textSecondary, fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
                       </div>
                     ))}
                   </div>
                 )}
-                {attachments.length === 0 && <div style={{ fontSize: 11, color: "#CBD5E1" }}>Survey, demographics, PSA, environmental, etc.</div>}
+                {attachments.length === 0 && <div style={{ fontSize: 11, color: T.textLight }}>Survey, demographics, PSA, environmental, etc.</div>}
               </div>
               {/* ── Form Fields ── */}
               <div style={{ display: "grid", gap: 12 }}>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address" /></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Acreage</label><input style={inp} value={form.acreage} onChange={(e) => setForm({ ...form, acreage: e.target.value })} placeholder="e.g. 3.5" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Asking Price</label><input style={inp} value={form.askingPrice} onChange={(e) => setForm({ ...form, askingPrice: e.target.value })} placeholder="e.g. $1,200,000" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Acreage</label><input style={inp} value={form.acreage} onChange={(e) => setForm({ ...form, acreage: e.target.value })} placeholder="e.g. 3.5" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Asking Price</label><input style={inp} value={form.askingPrice} onChange={(e) => setForm({ ...form, askingPrice: e.target.value })} placeholder="e.g. $1,200,000" /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Zoning</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Seller / Broker</label><input style={inp} value={form.sellerBroker} onChange={(e) => setForm({ ...form, sellerBroker: e.target.value })} placeholder="Broker name" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Zoning</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Seller / Broker</label><input style={inp} value={form.sellerBroker} onChange={(e) => setForm({ ...form, sellerBroker: e.target.value })} placeholder="Broker name" /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Coordinates</label><input style={inp} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="lat, lng" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Coordinates</label><input style={inp} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="lat, lng" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
                 </div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: T.textMuted, textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
                 <button onClick={handleSubmit} style={{ padding: "12px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg,#F37C33,#E8650A)" : "linear-gradient(135deg,#2C2C2C,#3D3D3D)", color: "#fff", fontSize: 14, fontWeight: 700 }}>
                   {submitMode === "direct" ? "⚡ Add Now" : "📋 Submit for Review"}
                 </button>
               </div>
               {shareLink && (
-                <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
+                <div style={{ background: T.orangeLight, border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.orangeDark, marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: T.orange, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
                   </div>
                 </div>
               )}
@@ -2886,7 +2886,7 @@ const handleFetchDemos = async (region, site) => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
               <div style={{ display: "flex", gap: 6 }}>
-                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
+                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: T.orange, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
                 {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
               </div>
             </div>
@@ -2895,7 +2895,7 @@ const handleFetchDemos = async (region, site) => {
               <div style={{ background: "#fff", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: T.borderLight, marginBottom: 6 }}>Review Queue Empty</div>
-                <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via the "Submit Site" tab appear here for review and approval before being added to a tracker. Use <strong>Submit Site → Send to Review</strong> to queue a new site.</div>
+                <div style={{ fontSize: 12, color: T.textSecondary, maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via the "Submit Site" tab appear here for review and approval before being added to a tracker. Use <strong>Submit Site → Send to Review</strong> to queue a new site.</div>
               </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
@@ -2914,7 +2914,7 @@ const handleFetchDemos = async (region, site) => {
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#e0e7ff" }}>{site.name}</h3>
                         <SiteIQBadge site={site} size="small" />
-                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "#F37C33", color: "#fff", fontWeight: 700, letterSpacing: 1 }}>PENDING</span>
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: T.orange, color: "#fff", fontWeight: 700, letterSpacing: 1 }}>PENDING</span>
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: 18, fontWeight: 800, color: T.gold }}>{site.askingPrice ? "$" + Number(String(site.askingPrice).replace(/[^0-9]/g,"")).toLocaleString() : "Unpriced"}</div>
@@ -2943,7 +2943,7 @@ const handleFetchDemos = async (region, site) => {
                       <input placeholder="Review note..." value={ri.note || ""} onChange={e => setReviewInputs(p => ({...p, [site.id]: {...(p[site.id]||{}), note: e.target.value}}))} style={{ flex: 1, minWidth: 180, padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: T.textDark, color: "#e0e7ff", fontSize: 13 }} />
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={e => { e.stopPropagation(); handleApprove(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: ri.routeTo ? "linear-gradient(135deg, #059669, #34d399)" : "#334155", color: ri.routeTo ? "#fff" : T.textMuted, fontWeight: 700, fontSize: 13, cursor: ri.routeTo ? "pointer" : "not-allowed", transition: "all 0.2s ease", opacity: ri.routeTo ? 1 : 0.6 }}>✓ Approve & Route</button>
+                      <button onClick={e => { e.stopPropagation(); handleApprove(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: ri.routeTo ? "linear-gradient(135deg, #059669, #34d399)" : T.border, color: ri.routeTo ? "#fff" : T.textMuted, fontWeight: 700, fontSize: 13, cursor: ri.routeTo ? "pointer" : "not-allowed", transition: "all 0.2s ease", opacity: ri.routeTo ? 1 : 0.6 }}>✓ Approve & Route</button>
                       <button onClick={e => { e.stopPropagation(); handleDecline(site.id); }} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #dc2626", background: "transparent", color: "#f87171", fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all 0.2s ease" }}>✗ Decline</button>
                     </div>
                   </div>
@@ -2961,7 +2961,7 @@ const handleFetchDemos = async (region, site) => {
       </div>
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
-                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
+                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: T.textSecondary, fontSize: 11, letterSpacing: 0.3 }}>
                           © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
                                 </div>
 
