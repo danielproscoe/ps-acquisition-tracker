@@ -1916,6 +1916,7 @@ const handleFetchDemos = async (region, site) => {
   const TrackerCards = ({ regionKey }) => {
     const region = REGIONS[regionKey];
     const data = sortData(regionKey === "east" ? east : sw);
+    const filteredData = phaseFilter ? data.filter(s => s.phase === phaseFilter) : data;
     const [focusedIdx, setFocusedIdx] = useState(-1);
     const listRef = useRef(null);
 
@@ -1977,7 +1978,6 @@ const handleFetchDemos = async (region, site) => {
               const isOpen = expandedSite === site.id;
               const msgs = site.messages ? Object.values(site.messages) : [];
               const docs = site.docs ? Object.entries(site.docs) : [];
-    const filteredData = phaseFilter ? data.filter(s => s.phase === phaseFilter) : data;
               const logs = site.activityLog ? Object.values(site.activityLog) : [];
               const mi = msgInputs[site.id] || { from: "Dan R", text: "" };
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
