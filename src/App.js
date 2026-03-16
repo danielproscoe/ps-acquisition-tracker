@@ -720,7 +720,58 @@ const computeSiteIQ = (site, targetMarkets = []) => {
     else if (/boston|mass|worcester|springfield|new\s*jersey|nj|conn|hartford|stamford/i.test(mkt)) tierScore = 4;
     else if (/michigan|detroit|grand\s*rapids|ann\s*arbor|lansing/i.test(mkt)) tierScore = 4;
   }
-  scores.marketTier = tierScore;    // --- 8. PRICING (5%) ---    let pricingScore = 5;    const askStr = (site.askingPrice || "").toString();    const acreageVal = parseFloat(site.acreage) || 0;    if (acreageVal > 0) {      const priceMatch = askStr.match(/\$?([\d,.]+)\s*[mM]/);      if (priceMatch) {        const priceM = parseFloat(priceMatch[1].replace(/,/g, ""));        const perAcre = (priceM * 1000000) / acreageVal;        if (perAcre <= 150000) pricingScore = 10;        else if (perAcre <= 250000) pricingScore = 8;        else if (perAcre <= 400000) pricingScore = 6;        else if (perAcre <= 600000) pricingScore = 4;        else pricingScore = 2;      } else {        const plainMatch = askStr.match(/\$?([\d,]+)/);        if (plainMatch) {          const price = parseFloat(plainMatch[1].replace(/,/g, ""));          if (price > 1000) {            const perAcre = price / acreageVal;            if (perAcre <= 150000) pricingScore = 10;            else if (perAcre <= 250000) pricingScore = 8;            else if (perAcre <= 400000) pricingScore = 6;            else if (perAcre <= 600000) pricingScore = 4;            else pricingScore = 2;          }        }      }    }    if (/below\s*market|undervalued|motivated\s*seller|price\s*reduced/i.test(summary)) pricingScore = Math.min(10, pricingScore + 2);    if (/overpriced|above\s*market|premium\s*pricing/i.test(summary)) pricingScore = Math.max(0, pricingScore - 2);    scores.pricing = pricingScore;    // --- 9. DEMAND GENERATION (5%) ---    let demandScore = 5;    const vpdMatch = summary.match(/(\d[\d,]*)\s*(?:k\s*)?(?:vpd|adt|vehicles|traffic\s*count)/i);    if (vpdMatch) {      let vpd = parseFloat(vpdMatch[1].replace(/,/g, ""));      if (/k\s*vpd/i.test(summary)) vpd *= 1000;      if (vpd >= 30000) demandScore = 9;      else if (vpd >= 20000) demandScore = 8;      else if (vpd >= 10000) demandScore = 7;      else if (vpd >= 5000) demandScore = 6;      else demandScore = 4;    }    if (/military|fort\s+\w+|army|navy|air\s*force|base/i.test(summary)) demandScore = Math.min(10, demandScore + 2);    if (/universit(?:y|ies)|college|campus/i.test(summary)) demandScore = Math.min(10, demandScore + 1);    if (/(?:i-|interstate\s*)(?:10|20|30|35|40|45|69|71|75|77|80|85|90|95)\b/i.test(summary)) demandScore = Math.min(10, demandScore + 1);    if (/high\s*visib|visible\s*from|highway\s*front|signage/i.test(summary)) demandScore = Math.min(10, demandScore + 1);    scores.demand = demandScore;
+    scores.marketTier = tierScore;
+
+    // --- 8. PRICING (5%) ---
+    let pricingScore = 5;
+    const askStr = (site.askingPrice || "").toString();
+    const acreageVal = parseFloat(site.acreage) || 0;
+    if (acreageVal > 0) {
+      const priceMatch = askStr.match(/\$?([\d,.]+)\s*[mM]/);
+      if (priceMatch) {
+        const priceM = parseFloat(priceMatch[1].replace(/,/g, ""));
+        const perAcre = (priceM * 1000000) / acreageVal;
+        if (perAcre <= 150000) pricingScore = 10;
+        else if (perAcre <= 250000) pricingScore = 8;
+        else if (perAcre <= 400000) pricingScore = 6;
+        else if (perAcre <= 600000) pricingScore = 4;
+        else pricingScore = 2;
+      } else {
+        const plainMatch = askStr.match(/\$?([\d,]+)/);
+        if (plainMatch) {
+          const price = parseFloat(plainMatch[1].replace(/,/g, ""));
+          if (price > 1000) {
+            const perAcre = price / acreageVal;
+            if (perAcre <= 150000) pricingScore = 10;
+            else if (perAcre <= 250000) pricingScore = 8;
+            else if (perAcre <= 400000) pricingScore = 6;
+            else if (perAcre <= 600000) pricingScore = 4;
+            else pricingScore = 2;
+          }
+        }
+      }
+    }
+    if (/below\s*market|undervalued|motivated\s*seller|price\s*reduced/i.test(summary)) pricingScore = Math.min(10, pricingScore + 2);
+    if (/overpriced|above\s*market|premium\s*pricing/i.test(summary)) pricingScore = Math.max(0, pricingScore - 2);
+    scores.pricing = pricingScore;
+
+    // --- 9. DEMAND GENERATION (5%) ---
+    let demandScore = 5;
+    const vpdMatch = summary.match(/(\d[\d,]*)\s*(?:k\s*)?(?:vpd|adt|vehicles|traffic\s*count)/i);
+    if (vpdMatch) {
+      let vpd = parseFloat(vpdMatch[1].replace(/,/g, ""));
+      if (/k\s*vpd/i.test(summary)) vpd *= 1000;
+      if (vpd >= 30000) demandScore = 9;
+      else if (vpd >= 20000) demandScore = 8;
+      else if (vpd >= 10000) demandScore = 7;
+      else if (vpd >= 5000) demandScore = 6;
+      else demandScore = 4;
+    }
+    if (/military|fort\s+\w+|army|navy|air\s*force|base/i.test(summary)) demandScore = Math.min(10, demandScore + 2);
+    if (/universit(?:y|ies)|college|campus/i.test(summary)) demandScore = Math.min(10, demandScore + 1);
+    if (/(?:i-|interstate\s*)(?:10|20|30|35|40|45|69|71|75|77|80|85|90|95)\b/i.test(summary)) demandScore = Math.min(10, demandScore + 1);
+    if (/high\s*visib|visible\s*from|highway\s*front|signage/i.test(summary)) demandScore = Math.min(10, demandScore + 1);
+    scores.demand = demandScore;
 
   // --- COMPOSITE (weighted sum, 0-10 scale) ---
     const weightedSum =
