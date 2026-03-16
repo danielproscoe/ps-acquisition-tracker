@@ -2572,7 +2572,7 @@ const handleFetchDemos = async (region, site) => {
                             <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}>{count}</span>
                           </div>
                         </div>
-                        {conversionRate && (
+                        {conversionRate && parseInt(conversionRate) <= 100 && (
                           <div style={{ width: 48, textAlign: "right", fontSize: 11, fontWeight: 600, color: parseInt(conversionRate) >= 50 ? "#16A34A" : parseInt(conversionRate) >= 25 ? "#D97706" : "#DC2626" }}>
                             {conversionRate}%
                           </div>
@@ -2948,7 +2948,7 @@ const handleFetchDemos = async (region, site) => {
               }} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: Math.abs(editWeights.reduce((s, w) => s + w.weight, 0) - 1) < 0.001 ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#991b1b', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>{Math.abs(editWeights.reduce((s, w) => s + w.weight, 0) - 1) < 0.001 ? 'Apply & Save' : 'Weights must = 100%'}</button>
             </div>
 
-            <p style={{ margin: '16px 0 0', color: '#475569', fontSize: 11, textAlign: 'center' }}>Weights auto-normalize internally. Saved to Firebase for all users. v{SITE_IQ_CONFIG.version}</p>
+            <p style={{ margin: '16px 0 0', color: '#475569', fontSize: 11, textAlign: 'center' }}>SiteIQ™ is a proprietary methodology of DJR Real Estate LLC. Not authorized for reuse. Weights auto-normalize internally. v{SITE_IQ_CONFIG.version}</p>
           </div>
         </div>
       )}
