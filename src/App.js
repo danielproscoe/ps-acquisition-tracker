@@ -2803,4 +2803,143 @@ export default function App() {
                 <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input readOnly value={`${window.location.origin}${window.location.pathname}?
+                    <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ REVIEW ═══ */}
+        {tab === "review" && (
+          <div style={{ animation: "fadeIn .3s ease-out" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
+              <div style={{ display: "flex", gap: 6 }}>
+                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
+                {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
+              </div>
+            </div>
+
+            {/* ── Assigned Sites Needing Review ── */}
+            {(() => {
+              const allTracker = [...sw.map(s => ({ ...s, _region: "southwest" })), ...east.map(s => ({ ...s, _region: "east" }))];
+              const needsReviewSites = allTracker.filter(s => s.assignedTo && s.needsReview);
+              const byPerson = {};
+              needsReviewSites.forEach(s => {
+                if (!byPerson[s.assignedTo]) byPerson[s.assignedTo] = [];
+                byPerson[s.assignedTo].push(s);
+              });
+              if (Object.keys(byPerson).length === 0) return null;
+              return (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#D45500", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />
+                    Assigned for Review ({needsReviewSites.length})
+                  </div>
+                  {Object.entries(byPerson).map(([person, sites]) => (
+                    <div key={person} style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6, padding: "4px 10px", background: "#F8FAFC", borderRadius: 8, display: "inline-block", border: "1px solid #E2E8F0" }}>{person} ({sites.length})</div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {sites.map(site => (
+                          <div key={site.id} style={{ background: "#fff", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #F37C33", transition: "all 0.3s" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
+                              <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
+                              <span style={{ fontSize: 9, fontWeight: 700, color: "#D45500", background: "#FFF3E0", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(243,124,51,0.3)" }}>NEEDS REVIEW</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: "#64748B", marginBottom: 4 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `· ${site.acreage} ac` : ""} {site.askingPrice ? `· ${site.askingPrice}` : ""}</div>
+                            <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 6 }}>Phase: {site.phase || "Prospect"} · Tracker: {site._region === "southwest" ? "DW" : "MT"}</div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); notify(`Reviewed: ${site.name}`); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(22,163,74,0.25)" }}>✓ Mark Reviewed</button>
+                              <button onClick={() => navigateTo(site._region, { siteId: site.id })} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = "#FFF3E0"; e.currentTarget.style.borderColor = "#F37C33"; e.currentTarget.style.color = "#E65100"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.color = "#475569"; }}
+                              >Open in Tracker →</button>
+                              <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <SortBar />
+            {subs.length === 0 && [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length === 0 ? (
+              <div style={{ background: "#fff", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#475569", marginBottom: 6 }}>Review Queue Empty</div>
+                <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via "Submit Site" or assigned to someone in a tracker appear here. Assign sites using the "Assign to..." dropdown on any site card.</div>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {sortData(subs).map((site) => {
+                  const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
+                  const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
+                  const isHL = highlightedSite === site.id;
+                  return (
+                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <span onClick={site.status === "approved" && site.region ? () => navigateTo(site.region, { siteId: site.id }) : undefined} style={{ fontSize: 15, fontWeight: 700, cursor: site.status === "approved" ? "pointer" : "default", transition: "color 0.2s" }}
+                          onMouseEnter={(e) => { if (site.status === "approved") e.currentTarget.style.color = "#F37C33"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = "inherit"; }}
+                        >{site.name}</span>
+                        <SiteIQBadge site={site} size="small" />
+                        <Badge status={site.status} />
+                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748B", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
+                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
+                      {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>📍 Pin Drop</a></div>}
+                      {site.status === "pending" ? (
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                            <select value={ri.routeTo || site.region || ""} onChange={(e) => setRI("routeTo", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "2px solid #F37C33", fontSize: 12, background: "#FFF8F0", cursor: "pointer", minWidth: 160, fontWeight: 700, color: "#E65100" }}>
+                              <option value="">Route to…</option>
+                              <option value="southwest">→ Daniel Wollent (DW)</option>
+                              <option value="east">→ Matthew Toussaint (MT)</option>
+                            </select>
+                            <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 100 }}>
+                              <option value="">Reviewer…</option>
+                              <option>Dan R</option>
+                              <option>Daniel Wollent</option>
+                              <option>Matthew Toussaint</option>
+                            </select>
+                            <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve & Route</button>
+                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
+                          </div>
+                        </div>
+                      ) : (site.reviewedBy || site.reviewNote) && (
+                        <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>
+                          {site.reviewedBy && <span>By: <strong>{site.reviewedBy}</strong></span>}
+                          {site.reviewNote && <span style={{ marginLeft: 8, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ TRACKERS ═══ */}
+        {tab === "southwest" && <TrackerCards regionKey="southwest" />}
+        {tab === "east" && <TrackerCards regionKey="east" />}
+      </div>
+
+            {/* ═══ COPYRIGHT FOOTER ═══ */}
+                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
+                          © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
+                                </div>
+    </div>
+  );
+}
