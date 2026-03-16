@@ -713,6 +713,7 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
         <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "flex-end", height: 64 }}>
           {[
             { key: "population", label: "POP" },
+            { key: "growth", label: "GRO" },
             { key: "income", label: "INC" },
             { key: "pricing", label: "PPA" },
             { key: "spacing", label: "PS" },
@@ -903,6 +904,7 @@ export default function App() {
   const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
+  const [showSiteIQDetail, setShowSiteIQDetail] = useState({});
   // vettingReport removed — auto-generates on site add
   const [showIQConfig, setShowIQConfig] = useState(false);
   const [iqWeights, setIqWeights] = useState(SITE_IQ_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
@@ -1678,7 +1680,10 @@ export default function App() {
                           <div style={{ flex: 1, minWidth: 280 }}>
                             {/* Score + Label Row */}
                             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-                              <SiteIQBadge site={site} iq={getSiteIQ(site)} />
+                              <div onClick={() => setShowSiteIQDetail(prev => ({ ...prev, [site.id]: !prev[site.id] }))} style={{ cursor: "pointer", position: "relative" }} title="Click for detailed SiteIQ breakdown">
+                                <SiteIQBadge site={site} iq={getSiteIQ(site)} />
+                                <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "#64748B", fontWeight: 600, letterSpacing: "0.06em", whiteSpace: "nowrap", opacity: 0.7 }}>CLICK FOR DETAIL</div>
+                              </div>
                               {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
                             </div>
                             {/* Key Metrics Strip — Larger */}
@@ -1696,6 +1701,65 @@ export default function App() {
                                 </div>
                               ))}
                             </div>
+                            {/* ── SiteIQ Detail Panel — Click-to-expand ── */}
+                            {showSiteIQDetail[site.id] && (() => {
+                              const iqD = getSiteIQ(site);
+                              const dims = [
+                                { key: "population", label: "Population (3-mi)", weight: getIQWeight("population"), icon: "👥", tip: "Census / ESRI 3-mi radius population" },
+                                { key: "growth", label: "Growth (5yr CAGR)", weight: getIQWeight("growth"), icon: "📈", tip: "ESRI 2025→2030 population growth rate" },
+                                { key: "income", label: "Median HHI (3-mi)", weight: getIQWeight("income"), icon: "💰", tip: "Median household income within 3 miles" },
+                                { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs PS targets" },
+                                { key: "spacing", label: "PS Spacing", weight: getIQWeight("spacing"), icon: "📍", tip: "Distance to nearest Public Storage" },
+                                { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
+                                { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
+                                { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
+                                { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier"), icon: "🎯", tip: "Target market alignment (MT/DW tiers)" },
+                              ];
+                              const scoreColor = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
+                              const scoreLabel = (v) => v >= 9 ? "ELITE" : v >= 8 ? "PRIME" : v >= 7 ? "STRONG" : v >= 6 ? "VIABLE" : v >= 4 ? "MARGINAL" : "WEAK";
+                              return (
+                                <div style={{ marginTop: 12, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(243,124,51,.2)", boxShadow: "0 4px 20px rgba(0,0,0,.25)" }}>
+                                  <div style={{ background: "linear-gradient(135deg,#1a0a00,#2a1505)", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <span style={{ fontSize: 14 }}>🔬</span>
+                                      <span style={{ color: "#FFB347", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SiteIQ™ DETAILED SCORECARD</span>
+                                      <span style={{ color: "#64748B", fontSize: 10 }}>|</span>
+                                      <span style={{ color: scoreColor(iqD.score), fontSize: 13, fontWeight: 900, fontFamily: "'Space Mono', monospace" }}>{iqD.score.toFixed(1)}</span>
+                                      <span style={{ color: scoreColor(iqD.score), fontSize: 10, fontWeight: 800, background: scoreColor(iqD.score) + "18", padding: "2px 6px", borderRadius: 4 }}>{scoreLabel(iqD.score)}</span>
+                                    </div>
+                                    <button onClick={(e) => { e.stopPropagation(); setShowSiteIQDetail(prev => ({ ...prev, [site.id]: false })); }} style={{ background: "none", border: "1px solid rgba(255,255,255,.15)", borderRadius: 5, color: "#64748B", fontSize: 11, cursor: "pointer", padding: "2px 8px" }}>✕</button>
+                                  </div>
+                                  <div style={{ background: "linear-gradient(180deg,#0F0A05,#0a0a0e)", padding: "8px 12px" }}>
+                                    {dims.map((d, i) => {
+                                      const v = iqD.scores[d.key] || 0;
+                                      const weighted = (v * d.weight).toFixed(2);
+                                      const pct = (v / 10) * 100;
+                                      return (
+                                        <div key={d.key} style={{ display: "grid", gridTemplateColumns: "28px 1fr 50px 80px 50px 60px", alignItems: "center", gap: 6, padding: "6px 4px", borderBottom: i < dims.length - 1 ? "1px solid rgba(255,255,255,.04)" : "none" }} title={d.tip}>
+                                          <span style={{ fontSize: 13, textAlign: "center" }}>{d.icon}</span>
+                                          <div>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{d.label}</div>
+                                            <div style={{ fontSize: 8, color: "#475569", fontWeight: 600, letterSpacing: "0.04em" }}>{(d.weight * 100).toFixed(0)}% WEIGHT</div>
+                                          </div>
+                                          <div style={{ textAlign: "right", fontSize: 14, fontWeight: 900, color: scoreColor(v), fontFamily: "'Space Mono', monospace" }}>{v}</div>
+                                          <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
+                                            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, ${scoreColor(v)}88, ${scoreColor(v)})`, borderRadius: 4, transition: "width 0.5s ease" }} />
+                                          </div>
+                                          <div style={{ textAlign: "right", fontSize: 10, color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>×{d.weight.toFixed(2)}</div>
+                                          <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#FBBF24", fontFamily: "'Space Mono', monospace" }}>{weighted}</div>
+                                        </div>
+                                      );
+                                    })}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px 4px", borderTop: "2px solid rgba(243,124,51,.2)", marginTop: 4 }}>
+                                      <div style={{ fontSize: 10, color: "#64748B", fontWeight: 600 }}>
+                                        {iqD.flags && iqD.flags.length > 0 && iqD.flags.map((f, i) => <span key={i} style={{ display: "inline-block", fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>{f}</span>)}
+                                      </div>
+                                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#FBBF24", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(1)}</span> / 10</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                           {/* Right: Priority + Phase controls */}
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
@@ -1812,19 +1876,68 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Pull Demographics Button */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                        <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: demoLoading[site.id] ? "#E8F0FE" : "linear-gradient(135deg,#1565C0,#1976D2)", color: demoLoading[site.id] ? "#1565C0" : "#fff", fontSize: 11, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5, display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 3px rgba(21,101,192,.2)" }}>
-                          {demoLoading[site.id] ? "⏳ Fetching…" : "📊 Pull Demographics"}
-                        </button>
-                      </div>
+                      {/* ── Auto Demographics Snapshot — always visible when data exists ── */}
+                      {(site.pop3mi || site.income3mi) && (() => {
+                        const pN = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
+                        const fP = (v, pre) => { const n = pN(v); return n != null ? (pre || "") + n.toLocaleString() : null; };
+                        const gVal = site.popGrowth3mi ? (typeof site.popGrowth3mi === "number" ? site.popGrowth3mi : parseFloat(site.popGrowth3mi)) : null;
+                        const gColor = gVal != null ? (gVal > 0 ? "#22C55E" : gVal < 0 ? "#EF4444" : "#94A3B8") : "#64748B";
+                        const gLabel = gVal != null ? ((gVal >= 0 ? "+" : "") + gVal.toFixed(2) + "% /yr") : null;
+                        const gOutlook = gVal != null ? (gVal > 1.5 ? "High Growth" : gVal > 0.5 ? "Growing" : gVal > 0 ? "Stable Growth" : gVal > -0.5 ? "Flat" : "Declining") : null;
+                        const oColor = gVal != null ? (gVal > 1.5 ? "#22C55E" : gVal > 0.5 ? "#4ADE80" : gVal > 0 ? "#FBBF24" : gVal > -0.5 ? "#94A3B8" : "#EF4444") : "#64748B";
+                        const rows = [
+                          { label: "Population (3-mi)", val: fP(site.pop3mi), icon: "👥" },
+                          { label: "Median HHI (3-mi)", val: fP(site.income3mi, "$"), icon: "💰" },
+                          { label: "Pop Growth (ESRI 2025→2030)", val: gLabel, icon: "📈", color: gColor },
+                          { label: "Growth Outlook", val: gOutlook, icon: "🔮", color: oColor },
+                          { label: "Households (3-mi)", val: fP(site.households3mi), icon: "🏠" },
+                          { label: "Median Home Value (3-mi)", val: fP(site.homeValue3mi, "$"), icon: "🏡" },
+                          { label: "Acreage", val: site.acreage ? site.acreage + " ac" : null, icon: "📐" },
+                          { label: "Price / Acre", val: (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
+                          { label: "Nearest PS", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
+                          { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
+                        ].filter(r => r.val != null);
+                        return (
+                          <div style={{ borderRadius: 14, marginBottom: 14, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,.12)", border: "1px solid #E8ECF0" }}>
+                            <div style={{ background: "linear-gradient(135deg,#0F172A 0%,#1E293B 50%,#1565C0 100%)", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 14 }}>📊</span>
+                                <span style={{ color: "#fff", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em" }}>SITE DEMOGRAPHICS</span>
+                                <span style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)", color: "#0F172A", fontSize: 9, fontWeight: 900, padding: "2px 7px", borderRadius: 5, letterSpacing: "0.06em" }}>ESRI 2025</span>
+                              </div>
+                              <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id]} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.08)", color: demoLoading[site.id] ? "#64748B" : "#22D3EE", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                                {demoLoading[site.id] ? "⏳" : "🔄"} {demoLoading[site.id] ? "Loading..." : "Full Report"}
+                              </button>
+                            </div>
+                            <div style={{ background: "#FAFBFC", padding: "4px 0" }}>
+                              {rows.map((row, i) => (
+                                <div key={i} style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", alignItems: "center", padding: "7px 16px", borderBottom: i < rows.length - 1 ? "1px solid #F1F5F9" : "none", transition: "background .15s" }}>
+                                  <span style={{ fontSize: 13, textAlign: "center" }}>{row.icon}</span>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{row.label}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 800, color: row.color || "#1E293B", fontFamily: "'Space Mono', monospace", textAlign: "right" }}>{row.val}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Pull Demographics — Full ESRI Report */}
+                      {!(site.pop3mi || site.income3mi) && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                          <button onClick={() => handleFetchDemos(regionKey, site)} disabled={demoLoading[site.id] || !site.coordinates} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: demoLoading[site.id] ? "#E8F0FE" : "linear-gradient(135deg,#1565C0,#1976D2)", color: demoLoading[site.id] ? "#1565C0" : "#fff", fontSize: 11, fontWeight: 700, cursor: site.coordinates ? "pointer" : "not-allowed", opacity: site.coordinates ? 1 : 0.5, display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 3px rgba(21,101,192,.2)" }}>
+                            {demoLoading[site.id] ? "⏳ Fetching…" : "📊 Pull Demographics"}
+                          </button>
+                        </div>
+                      )}
 
                       {/* ESRI Demographic Report — Executive Dashboard */}
                       {demoReport[site.id] && (() => {
                         const dr = demoReport[site.id];
                         const r = dr.rings || {};
-                        const fmtV = (v, prefix) => v != null ? (prefix || "") + v.toLocaleString() : "—";
-                        const growthColor = (s) => !s ? "#64748B" : s.includes("+") ? "#16A34A" : s.includes("-") ? "#EF4444" : "#64748B";
+                        const fmtV = (v, prefix) => v != null ? (prefix || "") + (typeof v === "number" ? v.toLocaleString() : v) : "—";
+                        const fmtGrowth = (v) => { if (v == null || v === "") return "—"; const n = typeof v === "number" ? v : parseFloat(String(v)); if (isNaN(n)) return String(v); return (n >= 0 ? "+" : "") + n.toFixed(2) + "%"; };
+                        const growthColor = (s) => { if (!s && s !== 0) return "#64748B"; const n = typeof s === "number" ? s : parseFloat(String(s)); if (!isNaN(n)) return n > 0 ? "#16A34A" : n < 0 ? "#EF4444" : "#64748B"; const str = String(s); return str.includes("+") ? "#16A34A" : str.includes("-") ? "#EF4444" : "#64748B"; };
                         const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: "0.06em" };
                         const metricCell = { padding: "7px 12px", fontWeight: 700, color: "#E2E8F0", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
                         const valCell = { padding: "7px 12px", textAlign: "right", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', monospace", borderBottom: "1px solid rgba(255,255,255,.08)" };
@@ -1887,9 +2000,9 @@ export default function App() {
                                   </tr>
                                   <tr>
                                     <td style={{ ...metricCell, borderBottom: "none" }}>Pop Growth (CAGR)</td>
-                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[1]?.popGrowth) }}>{r[1]?.popGrowth || "—"}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{r[3]?.popGrowth || "—"}</td>
-                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[5]?.popGrowth) }}>{r[5]?.popGrowth || "—"}</td>
+                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[1]?.popGrowth) }}>{fmtGrowth(r[1]?.popGrowth)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{fmtGrowth(r[3]?.popGrowth)}</td>
+                                    <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[5]?.popGrowth) }}>{fmtGrowth(r[5]?.popGrowth)}</td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -1912,7 +2025,7 @@ export default function App() {
                                       ) : (
                                         <>
                                           <div style={{ fontSize: 12, fontWeight: 700, color: "#F1F5F9", fontFamily: "'DM Sans', monospace" }}>{item.val || "—"}</div>
-                                          {item.growth && <div style={{ fontSize: 9, fontWeight: 700, color: growthColor(item.growth), marginTop: 1 }}>{item.growth} /yr</div>}
+                                          {item.growth && <div style={{ fontSize: 9, fontWeight: 700, color: growthColor(item.growth), marginTop: 1 }}>{fmtGrowth(item.growth)} /yr</div>}
                                         </>
                                       )}
                                     </div>
@@ -2690,143 +2803,4 @@ export default function App() {
                 <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══ REVIEW ═══ */}
-        {tab === "review" && (
-          <div style={{ animation: "fadeIn .3s ease-out" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
-              <div style={{ display: "flex", gap: 6 }}>
-                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
-                {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
-              </div>
-            </div>
-
-            {/* ── Assigned Sites Needing Review ── */}
-            {(() => {
-              const allTracker = [...sw.map(s => ({ ...s, _region: "southwest" })), ...east.map(s => ({ ...s, _region: "east" }))];
-              const needsReviewSites = allTracker.filter(s => s.assignedTo && s.needsReview);
-              const byPerson = {};
-              needsReviewSites.forEach(s => {
-                if (!byPerson[s.assignedTo]) byPerson[s.assignedTo] = [];
-                byPerson[s.assignedTo].push(s);
-              });
-              if (Object.keys(byPerson).length === 0) return null;
-              return (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#D45500", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />
-                    Assigned for Review ({needsReviewSites.length})
-                  </div>
-                  {Object.entries(byPerson).map(([person, sites]) => (
-                    <div key={person} style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6, padding: "4px 10px", background: "#F8FAFC", borderRadius: 8, display: "inline-block", border: "1px solid #E2E8F0" }}>{person} ({sites.length})</div>
-                      <div style={{ display: "grid", gap: 8 }}>
-                        {sites.map(site => (
-                          <div key={site.id} style={{ background: "#fff", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #F37C33", transition: "all 0.3s" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: 14, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
-                              <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
-                              <span style={{ fontSize: 9, fontWeight: 700, color: "#D45500", background: "#FFF3E0", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(243,124,51,0.3)" }}>NEEDS REVIEW</span>
-                            </div>
-                            <div style={{ fontSize: 11, color: "#64748B", marginBottom: 4 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `· ${site.acreage} ac` : ""} {site.askingPrice ? `· ${site.askingPrice}` : ""}</div>
-                            <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 6 }}>Phase: {site.phase || "Prospect"} · Tracker: {site._region === "southwest" ? "DW" : "MT"}</div>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); notify(`Reviewed: ${site.name}`); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(22,163,74,0.25)" }}>✓ Mark Reviewed</button>
-                              <button onClick={() => navigateTo(site._region, { siteId: site.id })} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = "#FFF3E0"; e.currentTarget.style.borderColor = "#F37C33"; e.currentTarget.style.color = "#E65100"; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.color = "#475569"; }}
-                              >Open in Tracker →</button>
-                              <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            <SortBar />
-            {subs.length === 0 && [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length === 0 ? (
-              <div style={{ background: "#fff", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#475569", marginBottom: 6 }}>Review Queue Empty</div>
-                <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via "Submit Site" or assigned to someone in a tracker appear here. Assign sites using the "Assign to..." dropdown on any site card.</div>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {sortData(subs).map((site) => {
-                  const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
-                  const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
-                  const isHL = highlightedSite === site.id;
-                  return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span onClick={site.status === "approved" && site.region ? () => navigateTo(site.region, { siteId: site.id }) : undefined} style={{ fontSize: 15, fontWeight: 700, cursor: site.status === "approved" ? "pointer" : "default", transition: "color 0.2s" }}
-                          onMouseEnter={(e) => { if (site.status === "approved") e.currentTarget.style.color = "#F37C33"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = "inherit"; }}
-                        >{site.name}</span>
-                        <SiteIQBadge site={site} size="small" />
-                        <Badge status={site.status} />
-                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
-                      </div>
-                      <div style={{ fontSize: 12, color: "#64748B", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
-                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
-                      {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>📍 Pin Drop</a></div>}
-                      {site.status === "pending" ? (
-                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                            <select value={ri.routeTo || site.region || ""} onChange={(e) => setRI("routeTo", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "2px solid #F37C33", fontSize: 12, background: "#FFF8F0", cursor: "pointer", minWidth: 160, fontWeight: 700, color: "#E65100" }}>
-                              <option value="">Route to…</option>
-                              <option value="southwest">→ Daniel Wollent (DW)</option>
-                              <option value="east">→ Matthew Toussaint (MT)</option>
-                            </select>
-                            <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 100 }}>
-                              <option value="">Reviewer…</option>
-                              <option>Dan R</option>
-                              <option>Daniel Wollent</option>
-                              <option>Matthew Toussaint</option>
-                            </select>
-                            <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
-                          </div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve & Route</button>
-                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
-                          </div>
-                        </div>
-                      ) : (site.reviewedBy || site.reviewNote) && (
-                        <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>
-                          {site.reviewedBy && <span>By: <strong>{site.reviewedBy}</strong></span>}
-                          {site.reviewNote && <span style={{ marginLeft: 8, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ═══ TRACKERS ═══ */}
-        {tab === "southwest" && <TrackerCards regionKey="southwest" />}
-        {tab === "east" && <TrackerCards regionKey="east" />}
-      </div>
-
-            {/* ═══ COPYRIGHT FOOTER ═══ */}
-                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
-                          © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
-                                </div>
-    </div>
-  );
-}
+                    <input readOnly value={`${window.location.origin}${window.location.pathname}?
