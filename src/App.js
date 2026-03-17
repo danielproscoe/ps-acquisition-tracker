@@ -47,7 +47,7 @@ const REGIONS = {
   east: { label: "Matthew Toussaint", color: "#2D5F2D", accent: "#4CAF50" },
 };
 const STATUS_COLORS = {
-  pending: { bg: "#FFF3E0", text: "#E65100", dot: "#F37C33" },
+  pending: { bg: "#FFFBEB", text: "#92700C", dot: "#C9A84C" },
   approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50" },
   declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350" },
   tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33" },
@@ -156,12 +156,12 @@ const earthLink = (c) =>
 
 // ─── Shared Style Constants ───
 const STYLES = {
-  cardBase: { background: "rgba(255,255,255,0.95)", borderRadius: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(243,124,51,0.04)", overflow: "hidden", backdropFilter: "blur(8px)", transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)" },
+  cardBase: { background: "rgba(255,255,255,0.95)", borderRadius: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(201,168,76,0.06)", overflow: "hidden", backdropFilter: "blur(8px)", transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)" },
   kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(145deg, rgba(15,15,20,0.95) 0%, rgba(30,30,40,0.92) 100%)", borderRadius: 16, padding: "22px 24px", minWidth: 140, boxShadow: `0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)`, borderLeft: `3px solid ${borderColor}`, transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden" }),
   labelMicro: { fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 },
-  btnPrimary: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#F37C33 0%,#E8650A 50%,#D45500 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(243,124,51,0.35), 0 0 0 1px rgba(243,124,51,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden" },
-  btnGhost: { padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(243,124,51,0.2)", background: "rgba(243,124,51,0.04)", color: "#F37C33", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" },
-  frostedHeader: { background: "linear-gradient(180deg, rgba(10,10,12,0.97) 0%, rgba(18,18,22,0.95) 100%)", backdropFilter: "blur(20px) saturate(1.5)", WebkitBackdropFilter: "blur(20px) saturate(1.5)", padding: "0 24px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(243,124,51,0.15)" },
+  btnPrimary: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#C9A84C 0%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden" },
+  btnGhost: { padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.04)", color: "#C9A84C", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" },
+  frostedHeader: { background: "linear-gradient(180deg, rgba(10,10,12,0.97) 0%, rgba(18,18,22,0.95) 100%)", backdropFilter: "blur(20px) saturate(1.5)", WebkitBackdropFilter: "blur(20px) saturate(1.5)", padding: "0 24px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(201,168,76,0.15)" },
 };
 
 // ─── Debounce Helper ───
@@ -794,7 +794,7 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
   const isSmall = size === "small";
 
   const tierColors = {
-    gold: { bg: "linear-gradient(135deg, #F37C33, #FFB347, #F37C33)", glow: "0 0 24px rgba(243,124,51,0.5), 0 0 48px rgba(243,124,51,0.2), 0 0 4px rgba(255,179,71,0.8)", text: "#0a0a0a", ring: "#F37C33", labelBg: "linear-gradient(135deg, #FFF3E0, #FFF8ED)" },
+    gold: { bg: "linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)", glow: "0 0 24px rgba(201,168,76,0.5), 0 0 48px rgba(201,168,76,0.2), 0 0 4px rgba(255,215,0,0.8)", text: "#0a0a0a", ring: "#C9A84C", labelBg: "linear-gradient(135deg, #FFFBEB, #FFF8ED)" },
     steel: { bg: "linear-gradient(135deg, #1a1a2e, #2C3E6B, #1a1a2e)", glow: "0 2px 12px rgba(44,62,107,0.35), 0 0 2px rgba(243,124,51,0.2)", text: "#fff", ring: "#F37C33", labelBg: "linear-gradient(135deg, #E8EAF6, #F0F2FF)" },
     gray: { bg: "linear-gradient(135deg, #3a3a4a, #4a4a5a, #3a3a4a)", glow: "0 2px 8px rgba(0,0,0,0.2)", text: "#94A3B8", ring: "#64748B", labelBg: "#F1F5F9" },
   };
@@ -1682,7 +1682,7 @@ export default function App() {
     XLSX.utils.book_append_sheet(wb, summWs, "Full Pipeline");
     XLSX.utils.book_append_sheet(wb, makeSheet(sw), "Daniel Wollent");
     XLSX.utils.book_append_sheet(wb, makeSheet(east), "Matthew Toussaint");
-    XLSX.writeFile(wb, `PS_Acquisition_Pipeline_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `SiteIQ_Acquisition_Pipeline_${new Date().toISOString().slice(0, 10)}.xlsx`);
     notify("Exported!");
   };
 
@@ -1725,14 +1725,14 @@ export default function App() {
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
       <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Sort:</span>
       {SORT_OPTIONS.map((o) => (
-        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #F37C33" : "1px solid #E2E8F0", background: sortBy === o.key ? "#FFF3E0" : "#fff", color: sortBy === o.key ? "#E65100" : "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.15s" }}>{o.label}</button>
+        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #C9A84C" : "1px solid #E2E8F0", background: sortBy === o.key ? "#FFFBEB" : "#fff", color: sortBy === o.key ? "#92700C" : "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.15s" }}>{o.label}</button>
       ))}
     </div>
   );
 
   // ─── STYLES ───
   const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2C2C2C", outline: "none", boxSizing: "border-box" };
-  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "#2C2C2C" : "transparent", color: tab === key ? "#F37C33" : "#64748B", whiteSpace: "nowrap" });
+  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "rgba(201,168,76,0.12)" : "transparent", color: tab === key ? "#C9A84C" : "#64748B", whiteSpace: "nowrap", boxShadow: tab === key ? "0 0 12px rgba(201,168,76,0.08)" : "none" });
   const pendingSubsN = subs.filter((s) => s.status === "pending").length;
   const assignedReviewN = [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length;
   const pendingN = pendingSubsN + assignedReviewN;
@@ -1784,13 +1784,13 @@ export default function App() {
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: site.assignedTo ? "1px solid #F37C33" : "1px solid #E2E8F0", background: site.assignedTo ? "#FFF8F0" : "#F8FAFC", color: site.assignedTo ? "#D45500" : "#94A3B8", cursor: "pointer" }}>
+                        <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: site.assignedTo ? "1px solid #C9A84C" : "1px solid #E2E8F0", background: site.assignedTo ? "#FFFBEB" : "#F8FAFC", color: site.assignedTo ? "#92700C" : "#94A3B8", cursor: "pointer" }}>
                           <option value="">Assign to...</option>
                           <option value="Dan R">Dan R</option>
                           <option value="Daniel Wollent">Daniel Wollent</option>
                           <option value="Matthew Toussaint">Matthew Toussaint</option>
                         </select>
-                        {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 700, color: "#D45500", background: "#FFF3E0", padding: "1px 6px", borderRadius: 4, border: "1px solid #F37C33", letterSpacing: "0.04em" }}>NEEDS REVIEW</span>}
+                        {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "1px 6px", borderRadius: 4, border: "1px solid #C9A84C", letterSpacing: "0.04em" }}>NEEDS REVIEW</span>}
                       </div>
                       <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
                       <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#94A3B8", flexWrap: "wrap" }}>
@@ -1808,7 +1808,7 @@ export default function App() {
 
                   {/* Expanded */}
                   {isOpen && (
-                    <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "2px solid transparent", borderImage: "linear-gradient(90deg, transparent, #D45500, #F37C33, #FFB347, #F37C33, #D45500, transparent) 1" }}>
+                    <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "2px solid transparent", borderImage: "linear-gradient(90deg, transparent, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761, transparent) 1" }}>
                       {/* ── Nav Strip — Prev/Next + Keyboard hint ── */}
                       {(() => {
                         const sites = sortData(regionKey === "east" ? east : sw);
@@ -1831,7 +1831,7 @@ export default function App() {
                       {/* ── Executive Property Header — Fire Theme ── */}
                       <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 40%, #1a1520 70%, #0f0c14 100%)", borderRadius: 16, padding: "24px 28px 20px", margin: "0 0 14px", overflow: "hidden", position: "relative", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
                         {/* Top fire accent */}
-                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent 5%, #D45500 20%, #F37C33 40%, #FFB347 50%, #F37C33 60%, #D45500 80%, transparent 95%)", opacity: 0.8 }} />
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent 5%, #1E2761 20%, #C9A84C 40%, #FFD700 50%, #C9A84C 60%, #1E2761 80%, transparent 95%)", opacity: 0.8 }} />
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
                           {/* Left: SiteIQ Score + Bars + Key Stats */}
                           <div style={{ flex: 1, minWidth: 280 }}>
@@ -1926,7 +1926,7 @@ export default function App() {
                               {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                             </select>
                             {/* Assigned To */}
-                            <select value={site.assignedTo || ""} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ padding: "6px 10px", borderRadius: 7, border: site.assignedTo ? "2px solid #F37C33" : "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'DM Sans'", background: site.assignedTo ? "rgba(243,124,51,.12)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.assignedTo ? "#FFB347" : "#94A3B8" }}>
+                            <select value={site.assignedTo || ""} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ padding: "6px 10px", borderRadius: 7, border: site.assignedTo ? "2px solid #C9A84C" : "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'DM Sans'", background: site.assignedTo ? "rgba(201,168,76,.12)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.assignedTo ? "#FFD700" : "#94A3B8" }}>
                               <option value="">Assign to...</option>
                               <option value="Dan R">Dan R</option>
                               <option value="Daniel Wollent">Daniel Wollent</option>
@@ -1941,7 +1941,7 @@ export default function App() {
                             {/* Last Updated */}
                             {(() => {
                               const logs2 = Object.values(site.activityLog || {});
-                              const lastLog2 = logs2.length > 0 ? logs2.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0] : null;
+                              const lastLog2 = logs2.length > 0 ? logs2.sort((a, b) => new Date(b.ts || b.date || 0) - new Date(a.ts || a.date || 0))[0] : null;
                               const lastDate2 = lastLog2?.date || site.approvedAt;
                               const daysAgo2 = lastDate2 ? Math.floor((Date.now() - new Date(lastDate2).getTime()) / 86400000) : null;
                               return lastDate2 ? (
@@ -2340,22 +2340,22 @@ export default function App() {
         .funnel-bar:active { transform: scale(0.98); }
         @keyframes slideDown { from { max-height: 0; opacity: 0; transform: scaleY(0.95); } to { max-height: 2000px; opacity: 1; transform: scaleY(1); } }
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(243,124,51,0.4), 0 0 30px rgba(243,124,51,0.15); } 100% { box-shadow: 0 0 30px rgba(243,124,51,0.6), 0 0 60px rgba(243,124,51,0.25); } }
+        @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
         @keyframes siteiq-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
         @keyframes toastSlide { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
-        @keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(243,124,51,0.5); } 70% { box-shadow: 0 0 0 14px rgba(243,124,51,0); } 100% { box-shadow: 0 0 0 0 rgba(243,124,51,0); } }
+        @keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); } 70% { box-shadow: 0 0 0 14px rgba(201,168,76,0); } 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); } }
         @keyframes countUp { from { opacity: 0; transform: scale(0.3) translateY(10px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
         /* FIRE: Ember float particles */
         @keyframes emberFloat { 0% { transform: translateY(0) translateX(0) scale(1); opacity: 0.7; } 50% { transform: translateY(-20px) translateX(8px) scale(0.6); opacity: 0.4; } 100% { transform: translateY(-40px) translateX(-5px) scale(0.2); opacity: 0; } }
-        @keyframes fireGlow { 0% { box-shadow: 0 0 20px rgba(243,124,51,0.15), 0 0 60px rgba(232,101,10,0.08); } 50% { box-shadow: 0 0 30px rgba(243,124,51,0.25), 0 0 80px rgba(232,101,10,0.12); } 100% { box-shadow: 0 0 20px rgba(243,124,51,0.15), 0 0 60px rgba(232,101,10,0.08); } }
-        @keyframes fireEdge { 0% { border-image-source: linear-gradient(180deg, #F37C33, #E8650A, #D45500); } 50% { border-image-source: linear-gradient(180deg, #FFB347, #F37C33, #E8650A); } 100% { border-image-source: linear-gradient(180deg, #F37C33, #E8650A, #D45500); } }
+        @keyframes fireGlow { 0% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } 50% { box-shadow: 0 0 30px rgba(201,168,76,0.25), 0 0 80px rgba(30,39,97,0.12); } 100% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } }
+        @keyframes fireEdge { 0% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } 50% { border-image-source: linear-gradient(180deg, #FFD700, #C9A84C, #1E2761); } 100% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } }
         @keyframes headerEmber { 0% { background-position: 0% 100%; } 100% { background-position: 100% 0%; } }
         @keyframes tabSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes modalIn { from { opacity: 0; transform: scale(0.92) translateY(20px); backdrop-filter: blur(0); } to { opacity: 1; transform: scale(1) translateY(0); backdrop-filter: blur(4px); } }
         @keyframes kpiPulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
         @keyframes cardReveal { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes glowLine { 0% { left: -40%; } 100% { left: 140%; } }
-        @keyframes navUnderlineFire { 0% { background: linear-gradient(90deg, #D45500, #F37C33, #FFB347); background-size: 200% 100%; background-position: 0% 50%; } 100% { background: linear-gradient(90deg, #D45500, #F37C33, #FFB347); background-size: 200% 100%; background-position: 100% 50%; } }
+        @keyframes navUnderlineFire { 0% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 0% 50%; } 100% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 100% 50%; } }
         * { box-sizing: border-box; }
         input, select, textarea, button { font-family: 'DM Sans', sans-serif; }
         /* UPGRADED: Card hover with fire-edge glow */
@@ -2368,13 +2368,13 @@ export default function App() {
         /* UPGRADED: Smooth expand with fire accent */
         .card-expand { animation: slideDown 0.35s cubic-bezier(0.4,0,0.2,1); overflow: hidden; transform-origin: top; }
         /* UPGRADED: Nav underline with fire gradient */
-        .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #D45500, #F37C33, #FFB347, #F37C33, #D45500); background-size: 300% 100%; animation: navUnderlineFire 2s ease infinite; border-radius: 3px; box-shadow: 0 0 12px rgba(243,124,51,0.4); }
+        .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761); background-size: 300% 100%; animation: navUnderlineFire 2s ease infinite; border-radius: 3px; box-shadow: 0 0 12px rgba(201,168,76,0.4); }
         /* Sort pill glow */
         .sort-active { box-shadow: 0 0 0 2px rgba(243,124,51,0.25), 0 0 12px rgba(243,124,51,0.08); }
         /* UPGRADED: Scrollbar with fire accent */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.02); }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #F37C33, #D45500); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #C9A84C, #1E2761); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #FFB347, #F37C33); }
         /* UPGRADED: KPI number with fire entrance */
         .kpi-number { animation: countUp 0.6s cubic-bezier(0.4,0,0.2,1); }
@@ -2420,7 +2420,7 @@ export default function App() {
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "modalIn 0.35s cubic-bezier(0.4,0,0.2,1)" }} onClick={() => setShowIQConfig(false)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, maxWidth: 500, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(243,124,51,0.1), 0 0 60px rgba(243,124,51,0.06)", overflow: "hidden", animation: "cardReveal 0.4s cubic-bezier(0.4,0,0.2,1)" }}>
               <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 50%, #1a1520 100%)", padding: "22px 26px", color: "#fff", position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #D45500, #F37C33, #FFB347, #F37C33, #D45500, transparent)", opacity: 0.6 }} />
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761, transparent)", opacity: 0.6 }} />
                 <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>⚙️ SiteIQ™ Weight Configuration</div>
                 <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 5 }}>Adjust dimension weights. Changes apply to all users in real-time.</div>
               </div>
@@ -2447,7 +2447,7 @@ export default function App() {
                 <button onClick={handleResetDefaults} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Reset Defaults</button>
                 <div style={{ flex: 1 }} />
                 <button onClick={() => setShowIQConfig(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-                <button onClick={handleSaveWeights} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#F37C33 0%,#E8650A 50%,#D45500 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(243,124,51,0.35), 0 0 0 1px rgba(243,124,51,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
+                <button onClick={handleSaveWeights} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#C9A84C 0%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
                   onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 6px 24px rgba(243,124,51,0.45), 0 0 0 2px rgba(243,124,51,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(243,124,51,0.35), 0 0 0 1px rgba(243,124,51,0.1)"; e.currentTarget.style.transform = "translateY(0)"; }}
                 >Apply & Save</button>
@@ -2460,7 +2460,7 @@ export default function App() {
       {/* New site alert */}
       {showNewAlert && (
         <div style={{ background: "linear-gradient(135deg, rgba(243,124,51,0.08), rgba(255,179,71,0.06))", borderBottom: "1px solid rgba(243,124,51,0.2)", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, animation: "fadeIn 0.35s ease-out", backdropFilter: "blur(8px)" }}>
-          <span style={{ fontSize: 13, color: "#D45500", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />{newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
+          <span style={{ fontSize: 13, color: "#92700C", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />{newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
             <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
@@ -2510,11 +2510,11 @@ export default function App() {
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
-              onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#F37C33"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 12px rgba(243,124,51,0.3)"; } }}
+              onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#C9A84C"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 12px rgba(201,168,76,0.3)"; } }}
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.textShadow = "none"; } }}
             >
               {n.label}
-              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />}
+              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />}
             </button>
           ))}
         </div>
@@ -2982,7 +2982,7 @@ export default function App() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
               <div style={{ display: "flex", gap: 6 }}>
-                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve All ({pendingN})</button>}
+                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Approve All ({pendingN})</button>}
                 {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
               </div>
             </div>
@@ -2999,8 +2999,8 @@ export default function App() {
               if (Object.keys(byPerson).length === 0) return null;
               return (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#D45500", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#92700C", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />
                     Assigned for Review ({needsReviewSites.length})
                   </div>
                   {Object.entries(byPerson).map(([person, sites]) => (
@@ -3008,11 +3008,11 @@ export default function App() {
                       <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6, padding: "4px 10px", background: "#F8FAFC", borderRadius: 8, display: "inline-block", border: "1px solid #E2E8F0" }}>{person} ({sites.length})</div>
                       <div style={{ display: "grid", gap: 8 }}>
                         {sites.map(site => (
-                          <div key={site.id} style={{ background: "#fff", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #F37C33", transition: "all 0.3s" }}>
+                          <div key={site.id} style={{ background: "#fff", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #C9A84C", transition: "all 0.3s" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                               <span style={{ fontSize: 14, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
                               <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
-                              <span style={{ fontSize: 9, fontWeight: 700, color: "#D45500", background: "#FFF3E0", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(243,124,51,0.3)" }}>NEEDS REVIEW</span>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
                             </div>
                             <div style={{ fontSize: 11, color: "#64748B", marginBottom: 4 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `· ${site.acreage} ac` : ""} {site.askingPrice ? `· ${site.askingPrice}` : ""}</div>
                             <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 6 }}>Phase: {site.phase || "Prospect"} · Tracker: {site._region === "southwest" ? "DW" : "MT"}</div>
@@ -3063,7 +3063,7 @@ export default function App() {
                       {site.status === "pending" ? (
                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                            <select value={ri.routeTo || site.region || ""} onChange={(e) => setRI("routeTo", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "2px solid #F37C33", fontSize: 12, background: "#FFF8F0", cursor: "pointer", minWidth: 160, fontWeight: 700, color: "#E65100" }}>
+                            <select value={ri.routeTo || site.region || ""} onChange={(e) => setRI("routeTo", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "2px solid #C9A84C", fontSize: 12, background: "#FFFBEB", cursor: "pointer", minWidth: 160, fontWeight: 700, color: "#92700C" }}>
                               <option value="">Route to…</option>
                               <option value="southwest">→ Daniel Wollent (DW)</option>
                               <option value="east">→ Matthew Toussaint (MT)</option>
@@ -3077,7 +3077,7 @@ export default function App() {
                             <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
                           </div>
                           <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓ Approve & Route</button>
+                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Approve & Route</button>
                             <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
                           </div>
                         </div>
