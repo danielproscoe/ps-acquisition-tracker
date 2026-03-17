@@ -1535,7 +1535,7 @@ export default function App() {
       activityLog: { [uid()]: { action: `Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "Dan R" } },
     };
     fbSet(`${routeTo}/${id}`, t);
-    fbUpdate(`submissions/${id}`, { status: "approved", reviewedBy: ri.reviewer, reviewNote: ri.note, routedTo: routeTo });
+    fbUpdate(`submissions/${id}`, { status: "approved", reviewedBy: ri.reviewer || "Dan R", reviewNote: ri.note || "", routedTo: routeTo });
     notify(`Approved → ${routeLabel}`);
     autoGenerateVettingReport(routeTo, id, t);
   };
@@ -1571,7 +1571,7 @@ export default function App() {
 
   const handleDecline = (id) => {
     const ri = reviewInputs[id] || {};
-    fbUpdate(`submissions/${id}`, { status: "declined", reviewedBy: ri.reviewer, reviewNote: ri.note });
+    fbUpdate(`submissions/${id}`, { status: "declined", reviewedBy: ri.reviewer || "Dan R", reviewNote: ri.note || "" });
     notify("Declined.");
   };
 
