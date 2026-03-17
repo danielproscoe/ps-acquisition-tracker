@@ -1,4 +1,4 @@
-// src/App.js — Public Storage Acquisition Tracker
+// src/App.js — SiteIQ Acquisition Tracker
 // © 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
@@ -56,10 +56,10 @@ const PHASES = [
   "Incoming",
   "Scored",
   "Prospect",
-  "Submitted to PS",
-  "PS Approved",
-  "PS Revisions",
-  "PS Declined",
+  "Submitted to Client",
+  "Client Approved",
+  "Client Revisions",
+  "Client Declined",
   "LOI Sent",
   "LOI Signed",
   "Under Contract",
@@ -96,15 +96,14 @@ const DOC_TYPES = [
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
 // Persisted at Firebase path: config/siteiq_weights
 const SITE_IQ_DEFAULTS = [
-  { key: "population", label: "Population", icon: "👥", weight: 0.18, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.13, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
-  { key: "income", label: "Med. Income", icon: "💰", weight: 0.08, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. PS acquisition targets", source: "Asking price / acreage", group: "deal" },
-  { key: "spacing", label: "PS Spacing", icon: "📏", weight: 0.20, tip: "Distance to nearest PS facility", source: "PS_Locations_ALL.csv", group: "proximity" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.13, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "📈", weight: 0.25, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+  { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
+  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
   { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
-  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "PS market priority ranking", source: "Market field / config", group: "market" },
+  { key: "competition", label: "Competition", icon: "🏢", weight: 0.07, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
 ];
 
 // Live mutable config — starts as copy of defaults, merged with Firebase on load
@@ -261,7 +260,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     else if (acres > 5 && acres <= 7) { sizingText = `${acres} ac — Viable if subdivisible`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
     else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
   }
-  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance || "Not checked");
+  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
   const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS >= 5 ? "#16A34A" : site.siteiqData.nearestPS >= 2.5 ? "#F59E0B" : "#EF4444") : "#94A3B8";
   const flags = [];
   if (!site.zoning) flags.push("Zoning not confirmed");
@@ -290,7 +289,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(243,124,51,0.4)"><span style="font-size:20px;font-weight:900;color:#fff;font-family:'Space Mono'">PS</span></div>
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#1E2761);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(201,168,76,0.4)"><span style="font-size:16px;font-weight:900;color:#fff;font-family:'Space Mono'">IQ</span></div>
           <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
         </div>
         <div style="font-size:12px;color:#94A3B8;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
@@ -305,13 +304,12 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   </div>
 
   <!-- KEY METRICS BAR -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
     ${[
       { l: "ACREAGE", v: site.acreage ? site.acreage + " ac" : "—" },
       { l: "ASKING PRICE", v: site.askingPrice || "—" },
       { l: "3-MI POP", v: site.pop3mi ? fmtN(site.pop3mi) : "—" },
       { l: "3-MI MED INC", v: site.income3mi ? ("$" + fmtN(site.income3mi)) : "—" },
-      { l: "NEAREST PS", v: psDistance },
     ].map(m => `<div style="padding:16px 12px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">${m.l}</div><div style="font-size:16px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
   </div>
 
@@ -324,7 +322,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       row("Market", site.market || "—"),
       row("Acreage", site.acreage || "—"),
       row("Asking Price", site.askingPrice || "—", { bold: true }),
-      row("PS Internal Price", site.internalPrice || "—"),
+      row("Internal Price", site.internalPrice || "—"),
       row("Phase", site.phase || "Prospect", { badge: true, badgeBg: site.phase === "Under Contract" ? "#DCFCE7" : "#FFF7ED", badgeColor: site.phase === "Under Contract" ? "#166534" : "#9A3412" }),
       row("Priority", cleanPriority(site.priority)),
       row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none">${site.coordinates} ↗</a>` : "—"),
@@ -355,41 +353,33 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
     </div>
 
-    <!-- 5. PS PROXIMITY -->
-    ${section("5", "PS Proximity Check", "")}
-    <div style="padding:14px 18px;border-radius:10px;background:${psColor}0A;border:1px solid ${psColor}25;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:13px;font-weight:600;color:#1E293B">Nearest PS Facility: <strong>${psDistance}</strong></span>
-      <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${psColor}18;color:${psColor}">${site.siteiqData?.nearestPS >= 5 ? "CLEAR" : site.siteiqData?.nearestPS >= 2.5 ? "CLOSE" : site.siteiqData?.nearestPS ? "TOO CLOSE" : "CHECK"}</span>
-    </div>
-
-    <!-- 6. BROKER -->
-    ${section("6", "Broker / Seller", "")}
+    <!-- 5. BROKER -->
+    ${section("5", "Broker / Seller", "")}
     <table>${[
       row("Contact", site.sellerBroker || "Not listed"),
       row("Date on Market", site.dateOnMarket || "Unknown"),
     ].join("")}</table>
 
-    <!-- 7. RED FLAGS -->
-    ${section("7", "Red Flags", "")}
+    <!-- 6. RED FLAGS -->
+    ${section("6", "Red Flags", "")}
     ${flags.length === 0
       ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
       : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
     }
 
-    <!-- 8. SUMMARY -->
-    ${section("8", "Summary & Deal Notes", "")}
+    <!-- 7. SUMMARY -->
+    ${section("7", "Summary & Deal Notes", "")}
     <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
 
     ${iq && iq.scores ? (() => {
       const dims = [
-        { key: "population", label: "Population", weight: 0.18 },
-        { key: "growth", label: "Growth", weight: 0.13 },
-        { key: "income", label: "Income", weight: 0.08 },
+        { key: "population", label: "Population", weight: 0.20 },
+        { key: "growth", label: "Growth", weight: 0.25 },
+        { key: "income", label: "Income", weight: 0.10 },
         { key: "pricing", label: "Pricing", weight: 0.08 },
-        { key: "spacing", label: "PS Spacing", weight: 0.20 },
-        { key: "zoning", label: "Zoning", weight: 0.13 },
+        { key: "zoning", label: "Zoning", weight: 0.15 },
         { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "competition", label: "Competition", weight: 0.05 },
+        { key: "competition", label: "Competition", weight: 0.07 },
         { key: "marketTier", label: "Market Tier", weight: 0.08 },
       ];
       return `
@@ -421,16 +411,199 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 
   <!-- FOOTER -->
   <div style="background:#0A0A0C;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#F37C33;font-weight:700">PS Acquisition Pipeline 4.0</span></div>
+    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">SiteIQ Acquisition Pipeline 4.0</span></div>
     <div style="font-size:11px;color:#64748B"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
   </div>
 </div></body></html>`;
 };
 
-// ─── SiteIQ™ v3 — Calibrated PS Site Scoring Engine ───
-// Matches CLAUDE.md §6h framework exactly. Uses structured data fields, not regex on summary text.
-// Weights: Pop 18%, Growth 13%, HHI 8%, Pricing 8%, PS Spacing 20%, Zoning 13%, Access 7%, Competition 5%, Market 8%
-// Hard FAIL: pop <5K, HHI <$55K, PS <2.5mi, landlocked
+// ─── Zoning & Utility Report Generator ───
+const generateZoningUtilityReport = (site, iqResult) => {
+  const iq = iqResult || {};
+  const iqScore = typeof iq.composite === "number" ? iq.composite : (iq.score || "—");
+  const zoningClass = site.zoningClassification || "unknown";
+  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
+  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
+  const zoningBadgeBg = zoningClass === "by-right" ? "#F0FDF4" : zoningClass === "conditional" ? "#FFFBEB" : zoningClass === "rezone-required" ? "#FEF2F2" : zoningClass === "prohibited" ? "#FEF2F2" : "#F8FAFC";
+  const summary = (site.summary || "").toLowerCase();
+  const zoning = (site.zoning || "").toLowerCase();
+  const combined = zoning + " " + summary;
+
+  // Parse zoning intel from summary
+  const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
+  const hasSUP = /(conditional|sup\b|cup\b|special\s*use)/i.test(combined);
+  const hasRezone = /rezone/i.test(combined);
+  const hasOverlay = /overlay/i.test(combined);
+  const hasFlood = /flood/i.test(combined);
+  const hasUtilities = /(utilit|water|sewer|electric|gas\b)/i.test(combined);
+  const hasSeptic = /septic/i.test(combined);
+  const hasWell = /\bwell\b/i.test(combined);
+
+  // Zoning score from IQ
+  const zoningScore = iq?.scores?.zoning;
+  const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
+
+  const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:200px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
+  const section = (num, title) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#5E35B1,#7C4DFF);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(94,53,177,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${title}</h2></div>`;
+  const statusPill = (text, color) => `<span style="display:inline-block;padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color}30">${text}</span>`;
+
+  const flags = [];
+  if (zoningClass === "unknown") flags.push("Zoning classification not confirmed — verify with local planning");
+  if (zoningClass === "prohibited") flags.push("Storage use PROHIBITED in current zoning district");
+  if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
+  if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
+  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water, sewer, electric");
+  if (hasSeptic) flags.push("Septic system noted — may limit building size / add cost");
+  if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
+  if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
+  if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Zoning & Utility Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#5E35B1,#7C4DFF);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(94,53,177,0.4);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(94,53,177,0.5)}.save-btn{position:fixed;bottom:28px;right:200px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(30,39,97,0.4);transition:all 0.2s ease;z-index:9999}.save-btn:hover{transform:translateY(-2px)}</style></head><body>
+  <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
+  <div class="report">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#1a0a2e 0%,#2d1b69 40%,#5E35B1 100%);padding:36px 40px;position:relative;overflow:hidden">
+    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#7C4DFF,#B388FF,#7C4DFF,transparent)"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#7C4DFF,#B388FF);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(124,77,255,0.4)"><span style="font-size:18px;font-weight:900;color:#fff;font-family:'Space Mono'">Z&U</span></div>
+          <div><div style="font-size:10px;color:#B388FF;letter-spacing:0.12em;text-transform:uppercase">Zoning & Utility Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
+        </div>
+        <div style="font-size:12px;color:#B388FF;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${zoningColor}18;border:1px solid ${zoningColor}40">
+          <span style="font-size:11px;font-weight:800;color:${zoningColor};text-transform:uppercase">${zoningLabel}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEY METRICS BAR -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
+    ${[
+      { label: "Zoning District", value: site.zoning || "Unknown", color: "#5E35B1" },
+      { label: "Classification", value: zoningLabel.split(" (")[0], color: zoningColor },
+      { label: "Acreage", value: site.acreage ? `${site.acreage} ac` : "TBD", color: "#1E293B" },
+      { label: "Zoning Score", value: zoningScore != null ? `${zoningScore.toFixed(1)}/10` : "—", color: zoningScoreColor },
+    ].map(m => `<div style="padding:16px 20px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">${m.label}</div><div style="font-size:16px;font-weight:800;color:${m.color};font-family:'Space Mono',monospace">${m.value}</div></div>`).join("")}
+  </div>
+
+  <div style="padding:32px 40px">
+
+    <!-- 1. ZONING CLASSIFICATION -->
+    ${section("1", "Zoning Classification")}
+    <div style="padding:16px 20px;border-radius:10px;background:${zoningBadgeBg};border:1px solid ${zoningColor}25;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
+        ${statusPill(zoningLabel, zoningColor)}
+      </div>
+      <div style="font-size:12px;color:#64748B;line-height:1.6">
+        ${zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." : ""}
+        ${zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." : ""}
+        ${zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." : ""}
+        ${zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." : ""}
+        ${zoningClass === "unknown" ? "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding. See Section 3 for next steps." : ""}
+      </div>
+    </div>
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+      row("Zoning District", site.zoning || "Not recorded", { bold: true }),
+      row("Classification", zoningLabel, { badge: true, badgeBg: zoningBadgeBg, badgeColor: zoningColor }),
+      row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
+      row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
+    ].join("")}</table>
+
+    <!-- 2. SUPPLEMENTAL STANDARDS -->
+    ${section("2", "Supplemental Standards & Requirements")}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
+      ${[
+        { label: "Facade / Materials", icon: "🏗", text: /facade|material|masonry|brick/i.test(combined) ? "Requirements noted — see summary" : "No specific requirements identified" },
+        { label: "Setbacks", icon: "📐", text: /setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks apply" },
+        { label: "Height Limits", icon: "📏", text: /height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district height limits" },
+        { label: "Screening / Landscape", icon: "🌿", text: /screen|landscape|buffer/i.test(combined) ? "Screening / landscaping required" : "Standard requirements" },
+        { label: "Signage", icon: "🪧", text: /sign/i.test(combined) ? "Signage requirements noted" : "Standard district signage rules" },
+        { label: "Parking", icon: "🅿", text: /parking/i.test(combined) ? "Parking requirements noted" : "Per district standards" },
+      ].map(s => `<div style="padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:14px">${s.icon}</span><span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em">${s.label}</span></div><div style="font-size:12px;color:#64748B">${s.text}</div></div>`).join("")}
+    </div>
+
+    <!-- 3. UTILITY ASSESSMENT -->
+    ${section("3", "Utility Infrastructure")}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      ${[
+        { label: "Water Service", icon: "💧", available: /water|municipal|city\s*water/i.test(combined), issue: hasWell ? "Well water noted" : null, color: /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8" },
+        { label: "Sanitary Sewer", icon: "🚿", available: /sewer|sanitary/i.test(combined), issue: hasSeptic ? "Septic system" : null, color: /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#F59E0B" : "#94A3B8" },
+        { label: "Electric Service", icon: "⚡", available: /electric|power/i.test(combined), issue: null, color: /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8" },
+        { label: "Natural Gas", icon: "🔥", available: /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8" },
+        { label: "Stormwater", icon: "🌧", available: /storm|drainage|detention/i.test(combined), issue: hasFlood ? "Flood zone concern" : null, color: hasFlood ? "#EF4444" : /storm|drainage/i.test(combined) ? "#16A34A" : "#94A3B8" },
+        { label: "Telecom / Fiber", icon: "📡", available: /fiber|telecom|internet|broadband/i.test(combined), issue: null, color: /fiber|telecom/i.test(combined) ? "#16A34A" : "#94A3B8" },
+      ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.available ? "Available per listing/summary data" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned in listing data — verify with jurisdiction or utility provider"}</div></div>`).join("")}
+    </div>
+
+    <!-- 4. FLOOD ZONE -->
+    ${section("4", "Flood Zone & Environmental")}
+    <div style="padding:14px 18px;border-radius:10px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified in site data" : "No flood zone issues identified"}</span>
+      ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
+    </div>
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+      row("FEMA Flood Zone", hasFlood ? "Flood zone identified — verify FEMA panel" : "Not identified (verify FEMA map)"),
+      row("Environmental Concerns", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
+      row("Wetlands", /wetland/i.test(combined) ? "Wetlands noted — may affect buildable area" : "None identified"),
+      row("Topography", /slope|grade|topo|steep|flat/i.test(combined) ? "Topography notes in summary" : "Not assessed — review aerial imagery"),
+    ].join("")}</table>
+
+    <!-- 5. ACCESS & INFRASTRUCTURE -->
+    ${section("5", "Site Access & Infrastructure")}
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+      row("Road Frontage", /frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed"),
+      row("Curb Cuts", /curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "Not confirmed — verify on aerial"),
+      row("Road Type", /highway|arterial|collector|divided|two.?lane/i.test(combined) ? "Road classification noted" : "Not assessed"),
+      row("Visibility", /visib/i.test(combined) ? "Visibility noted" : "Not assessed"),
+      row("Landlocked", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? `<span style="color:#EF4444;font-weight:700">ACCESS CONCERN</span>` : "No landlocked concerns identified"),
+    ].join("")}</table>
+
+    <!-- 6. NEXT STEPS -->
+    ${section("6", "Recommended Next Steps")}
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${[
+        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify storage permissibility" } : null,
+        zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements, and precedent" } : null,
+        zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
+        !hasUtilities ? { pri: "MED", color: "#F59E0B", text: "Confirm utility availability — contact water/sewer provider and electric utility" } : null,
+        hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
+        hasSeptic ? { pri: "MED", color: "#F59E0B", text: "Verify sewer extension feasibility — septic may not support commercial climate-controlled storage" } : null,
+        hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
+        { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
+      ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
+    </div>
+
+    <!-- 7. RED FLAGS -->
+    ${section("7", "Red Flags & Action Items")}
+    ${flags.length === 0
+      ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
+      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
+    }
+
+    <!-- 8. DEAL NOTES -->
+    ${section("8", "Zoning & Utility Notes")}
+    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div style="background:#1a0a2e;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
+    <div style="font-size:11px;color:#7C4DFF">Report generated by <span style="color:#B388FF;font-weight:700">SiteIQ Acquisition Pipeline 4.0</span></div>
+    <div style="font-size:11px;color:#7C4DFF"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
+  </div>
+</div></body></html>`;
+};
+
+// ─── SiteIQ™ v3 — Calibrated Site Scoring Engine ───
+// Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
+// Weights: Pop 20%, Growth 25%, HHI 10%, Pricing 8%, Zoning 15%, Access 7%, Competition 7%, Market 8%
+// Hard FAIL: pop <5K, HHI <$55K, landlocked
 const computeSiteIQ = (site) => {
   const scores = {};
   const flags = [];
@@ -486,7 +659,7 @@ const computeSiteIQ = (site) => {
   }
   scores.growth = growthScore;
 
-  // --- 2c. PRICING (8%) — Price per acre vs. PS acquisition targets ---
+  // --- 2c. PRICING (8%) — Price per acre vs. acquisition targets ---
   // Thresholds: ≤$150K/ac=10, ≤$250K=8, ≤$400K=6, ≤$600K=4, >$600K=2, no data=5
   let pricingScore = 5; // default when price or acreage missing
   const priceRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
@@ -502,22 +675,7 @@ const computeSiteIQ = (site) => {
   }
   scores.pricing = pricingScore;
 
-  // --- 3. PS PROXIMITY (20%) ---
-  let spacingScore = 6;
-  const nearestPS = parseFloat(site.siteiqData?.nearestPS || 0);
-  if (nearestPS > 0) {
-    if (nearestPS >= 5) spacingScore = 10;
-    else if (nearestPS >= 3) spacingScore = 8;
-    else if (nearestPS >= 2.5) spacingScore = 5;
-    else { spacingScore = 0; hardFail = true; flags.push("FAIL: PS within 2.5 mi (" + nearestPS.toFixed(1) + " mi)"); }
-  } else {
-    if (/bullseye/i.test(summary) || /\b([5-9]|1\d)\+?\s*mi/i.test(summary) || /no\s*(?:nearby|close)\s*ps/i.test(summary)) spacingScore = 9;
-    else if (/\b[34]\s*mi/i.test(summary) || /good\s*spacing/i.test(summary)) spacingScore = 7;
-    else if (/\b[12]\.?\d?\s*mi\b/i.test(summary) || /close\s*to\s*ps/i.test(summary) || /spacing.*tight/i.test(summary)) spacingScore = 3;
-  }
-  scores.spacing = spacingScore;
-
-  // --- 4. ZONING (15%) §6c methodology ---
+  // --- 3. ZONING (15%) §6c methodology ---
   // Prefer structured zoningClassification field; fall back to regex on zoning + summary text
   let zoningScore = 3;
   const zClass = site.zoningClassification;
@@ -590,7 +748,6 @@ const computeSiteIQ = (site) => {
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
     (incScore * getIQWeight("income")) + (pricingScore * getIQWeight("pricing")) +
-    (spacingScore * getIQWeight("spacing")) +
     (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
     (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
   let adjusted = Math.round(weightedSum * 10) / 10;
@@ -716,7 +873,6 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
             { key: "growth", label: "GRO" },
             { key: "income", label: "INC" },
             { key: "pricing", label: "PPA" },
-            { key: "spacing", label: "PS" },
             { key: "zoning", label: "ZN" },
             { key: "access", label: "ACC" },
             { key: "competition", label: "CP" },
@@ -909,9 +1065,7 @@ export default function App() {
   const [showIQConfig, setShowIQConfig] = useState(false);
   const [iqWeights, setIqWeights] = useState(SITE_IQ_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
-
-
-
+  // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
   useEffect(() => {
     const handleKeyNav = (e) => {
       // Only navigate on tracker tabs
@@ -1177,7 +1331,8 @@ export default function App() {
   const autoGenerateVettingReport = (region, siteId, site) => {
     try {
       const iqR = computeSiteIQ(site);
-      const report = generateVettingReport(site, null, iqR);
+      const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
+      const report = generateVettingReport(site, psD, iqR);
       const docId = uid();
       const now = new Date().toISOString();
       const blob = new Blob([report], { type: "text/html;charset=utf-8" });
@@ -1472,7 +1627,7 @@ export default function App() {
       { key: "priority", header: "Priority", width: 12 },
       { key: "askingPrice", header: "Asking Price", width: 22 },
       { key: "pricePerAcre", header: "Price/Acre", width: 16 },
-      { key: "internalPrice", header: "PS Internal Price", width: 22 },
+      { key: "internalPrice", header: "Internal Price", width: 22 },
       { key: "income3mi", header: "3-Mi Avg Income", width: 18 },
       { key: "pop3mi", header: "3-Mi Population", width: 16 },
       { key: "sellerBroker", header: "Seller / Broker", width: 24 },
@@ -1640,7 +1795,7 @@ export default function App() {
                       <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
                       <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#94A3B8", flexWrap: "wrap" }}>
                         {site.askingPrice && <span>Ask: <strong style={{ color: "#2C2C2C" }}>{site.askingPrice}</strong></span>}
-                        {site.internalPrice && <span>PS: <strong style={{ color: "#F37C33" }}>{site.internalPrice}</strong></span>}
+                        {site.internalPrice && <span>Int: <strong style={{ color: "#F37C33" }}>{site.internalPrice}</strong></span>}
                         {site.sellerBroker && <span>Broker: <strong style={{ color: "#475569" }}>{site.sellerBroker}</strong></span>}
                         {docs.length > 0 && <span style={{ color: "#64748B" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
                         {msgs.length > 0 && <span style={{ color: "#F37C33" }}>💬 {msgs.length}</span>}
@@ -1710,8 +1865,7 @@ export default function App() {
                                 { key: "population", label: "Population (3-mi)", weight: getIQWeight("population"), icon: "👥", tip: "Census / ESRI 3-mi radius population" },
                                 { key: "growth", label: "Growth (5yr CAGR)", weight: getIQWeight("growth"), icon: "📈", tip: "ESRI 2025→2030 population growth rate" },
                                 { key: "income", label: "Median HHI (3-mi)", weight: getIQWeight("income"), icon: "💰", tip: "Median household income within 3 miles" },
-                                { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs PS targets" },
-                                { key: "spacing", label: "PS Spacing", weight: getIQWeight("spacing"), icon: "📍", tip: "Distance to nearest Public Storage" },
+                                { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs acquisition targets" },
                                 { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
                                 { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
@@ -1801,7 +1955,7 @@ export default function App() {
                         {/* Broker + Seller Row */}
                         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                           {site.sellerBroker && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Broker: <span style={{ color: "#F1F5F9", fontWeight: 700 }}>{site.sellerBroker}</span></span>}
-                          {site.internalPrice && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>PS Price: <span style={{ color: "#F37C33", fontWeight: 700 }}>{site.internalPrice}</span></span>}
+                          {site.internalPrice && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Internal Price: <span style={{ color: "#F37C33", fontWeight: 700 }}>{site.internalPrice}</span></span>}
                           {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                         </div>
                       </div>
@@ -1831,8 +1985,9 @@ export default function App() {
                           return flyerDoc ? (
                             <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>📄 View Flyer — {flyerDoc[1].name?.length > 30 ? flyerDoc[1].name.slice(0, 30) + "…" : flyerDoc[1].name}</a>
                           ) : (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: "#FFF3E0", border: "1px dashed #F37C33", fontSize: 11, color: "#E65100", fontWeight: 600 }}>
-                              📎 No flyer uploaded — add one below
+                            <div onClick={() => document.getElementById(`doc-upload-flyer-${site.id}`)?.click()} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: "#FFF3E0", border: "1px dashed #F37C33", fontSize: 11, color: "#E65100", fontWeight: 600, cursor: "pointer", transition: "all .2s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#FFE0B2"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "#FFF3E0"; }}>
+                              <input type="file" id={`doc-upload-flyer-${site.id}`} accept=".pdf,image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(regionKey, site.id, f, "Flyer"); e.target.value = ""; }} />
+                              📎 Click to upload flyer
                             </div>
                           );
                         })()}
@@ -1848,7 +2003,7 @@ export default function App() {
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, marginBottom: 12 }}>
                         <EF label="Market" value={site.market || ""} onSave={(v) => saveField(regionKey, site.id, "market", v)} placeholder="DFW, Houston…" />
                         <EF label="Asking Price" value={site.askingPrice || ""} onSave={(v) => saveField(regionKey, site.id, "askingPrice", v)} placeholder="$1.5M" />
-                        <EF label="PS Internal Price" value={site.internalPrice || ""} onSave={(v) => saveField(regionKey, site.id, "internalPrice", v)} placeholder="$1.2M" />
+                        <EF label="Internal Price" value={site.internalPrice || ""} onSave={(v) => saveField(regionKey, site.id, "internalPrice", v)} placeholder="$1.2M" />
                         <EF label="Seller / Broker" value={site.sellerBroker || ""} onSave={(v) => saveField(regionKey, site.id, "sellerBroker", v)} placeholder="John Smith" />
                         <EF label="3-Mile Income" value={site.income3mi || ""} onSave={(v) => saveField(regionKey, site.id, "income3mi", v)} placeholder="$95,000" />
                         <EF label="3-Mile Pop" value={site.pop3mi || ""} onSave={(v) => saveField(regionKey, site.id, "pop3mi", v)} placeholder="45,000" />
@@ -1869,7 +2024,7 @@ export default function App() {
                           </select>
                         </div>
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Nearest PS (mi)</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Nearest Facility (mi)</div>
                           <input type="number" step="0.1" min="0" value={site.siteiqData?.nearestPS || ""} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) fbUpdate(`${regionKey}/${site.id}/siteiqData`, { nearestPS: v }); }} placeholder="5.2" style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, fontFamily: "'DM Sans'", background: "#FAFBFC", color: "#2C2C2C" }} />
                         </div>
                         <div>
@@ -1896,7 +2051,7 @@ export default function App() {
                           { label: "Median Home Value (3-mi)", val: fP(site.homeValue3mi, "$"), icon: "🏡" },
                           { label: "Acreage", val: site.acreage ? site.acreage + " ac" : null, icon: "📐" },
                           { label: "Price / Acre", val: (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
-                          { label: "Nearest PS", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
+                          { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
                           { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
                         ].filter(r => r.val != null);
                         return (
@@ -2068,8 +2223,15 @@ export default function App() {
                               const docs = site.docs ? Object.values(site.docs) : [];
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
                               if (vr && vr.url) { window.open(vr.url, "_blank"); }
-                              else { const iqR = computeSiteIQ(site); const rpt = generateVettingReport(site, null, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); }
+                              else { const iqR = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); }
                             }} style={{ padding: "4px 10px", borderRadius: 6, background: "#EDE7F6", color: "#5E35B1", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>📋 Vetting Report</button>
+                            <button type="button" onClick={() => {
+                              const iqR = computeSiteIQ(site);
+                              const rpt = generateZoningUtilityReport(site, iqR);
+                              const blob = new Blob([rpt], { type: "text/html;charset=utf-8" });
+                              const url = URL.createObjectURL(blob);
+                              window.open(url, "_blank");
+                            }} style={{ padding: "4px 10px", borderRadius: 6, background: "#F3E5F5", color: "#7B1FA2", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>🏛 Zoning & Utility</button>
                           </div>
                         )}
                       </div>
@@ -2097,10 +2259,10 @@ export default function App() {
                           <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer" }}>
                             {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
                           </select>
-                          <label style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          <input type="file" id={`doc-upload-${site.id}`} style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
+                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.getElementById(`doc-upload-${site.id}`)?.click(); }} style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "'DM Sans'" }}>
                             + Upload
-                            <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
-                          </label>
+                          </button>
                         </div>
                       </div>
 
@@ -2126,8 +2288,8 @@ export default function App() {
                             <option>Daniel Wollent</option>
                             <option>Matthew Toussaint</option>
                           </select>
-                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") handleSendMsg(regionKey, site.id); }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
-                          <button onClick={() => handleSendMsg(regionKey, site.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
+                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendMsg(regionKey, site.id); } }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
+                          <button type="button" onClick={(e) => { e.preventDefault(); handleSendMsg(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
                         </div>
                       </div>
 
@@ -2157,7 +2319,6 @@ export default function App() {
       </div>
     );
   };
-
 
   // ═══ RENDER ═══
   return (
@@ -2307,21 +2468,21 @@ export default function App() {
         </div>
       )}
 
-      {/* Header — PS Fire Theme */}
+      {/* Header — SiteIQ Theme */}
       <div style={STYLES.frostedHeader}>
-        {/* Ambient fire line across header bottom */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 0%, #D45500 15%, #F37C33 30%, #FFB347 50%, #F37C33 70%, #D45500 85%, transparent 100%)", opacity: 0.6 }} />
-        {/* PS Banner */}
-        <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(243,124,51,0.08)", position: "relative" }}>
+        {/* Ambient gold line across header bottom */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 0%, #1E2761 15%, #C9A84C 30%, #FFD700 50%, #C9A84C 70%, #1E2761 85%, transparent 100%)", opacity: 0.6 }} />
+        {/* SiteIQ Banner */}
+        <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.08)", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 10, background: "linear-gradient(135deg, #F37C33 0%, #D45500 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(243,124,51,0.4), 0 0 0 2px rgba(243,124,51,0.15)", position: "relative" }}>
-                <span style={{ fontSize: 19, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'", textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>PS</span>
-                <div style={{ position: "absolute", inset: -3, borderRadius: 13, border: "1px solid rgba(243,124,51,0.3)", animation: "siteiq-ring 2.5s ease-in-out infinite alternate" }} />
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: "linear-gradient(135deg, #C9A84C 0%, #1E2761 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(201,168,76,0.4), 0 0 0 2px rgba(201,168,76,0.15)", position: "relative" }}>
+                <span style={{ fontSize: 17, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'", textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>IQ</span>
+                <div style={{ position: "absolute", inset: -3, borderRadius: 13, border: "1px solid rgba(201,168,76,0.3)", animation: "siteiq-ring 2.5s ease-in-out infinite alternate" }} />
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.06em", background: "linear-gradient(90deg, #fff 0%, #FFB347 25%, #F37C33 50%, #FFB347 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>PUBLIC STORAGE</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>Acquisition Pipeline <span style={{ color: "#F37C33", fontWeight: 700 }}>·</span> <span style={{ fontWeight: 800, color: "#F37C33" }}>4.0</span></div>
+                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.06em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>SITEIQ</div>
+                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>Acquisition Pipeline <span style={{ color: "#C9A84C", fontWeight: 700 }}>·</span> <span style={{ fontWeight: 800, color: "#C9A84C" }}>4.0</span></div>
                 <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
@@ -2356,7 +2517,7 @@ export default function App() {
               {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />}
             </button>
           ))}
-            </div>
+        </div>
       </div>
 
       {/* Main content */}
@@ -2466,9 +2627,9 @@ export default function App() {
               const maxPhaseCount = Math.max(...phaseGroups.map(g => g.count), 1);
 
               // --- Move type classification ---
-              const advancePhases = ["LOI Sent", "LOI Signed", "Under Contract", "Due Diligence", "Closed", "PS Approved"];
-              const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "PS Declined" ? "🔴" : "🔵";
-              const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "PS Declined" ? "EXITED" : "MOVED";
+              const advancePhases = ["LOI Sent", "LOI Signed", "Under Contract", "Due Diligence", "Closed", "Client Approved"];
+              const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "Client Declined" ? "🔴" : "🔵";
+              const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "Client Declined" ? "EXITED" : "MOVED";
 
               const hasData = recentMoves.length > 0 || all.length > 0;
               if (!hasData) return null;
@@ -2565,13 +2726,13 @@ export default function App() {
               const funnelStages = [
                 { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
                 { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
-                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS" || s.phase === "PS Revisions").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
+                { label: "Submitted to Client", count: all.filter(s => s.phase === "Submitted to Client" || s.phase === "Client Revisions").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to Client" }) },
+                { label: "Client Approved", count: all.filter(s => s.phase === "Client Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "Client Approved" }) },
                 { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
                 { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
-              const declined = all.filter(s => s.phase === "PS Declined" || s.phase === "Dead").length;
+              const declined = all.filter(s => s.phase === "Client Declined" || s.phase === "Dead").length;
               return (
                 <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(243,124,51,0.2), rgba(255,179,71,0.3), rgba(243,124,51,0.2), transparent)" }} />
@@ -2655,7 +2816,7 @@ export default function App() {
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
             const raw = sortData(rk === "east" ? east : sw);
-            const PHASE_GROUPS = { "Prospect": ["Prospect", "Incoming", "Scored"], "LOI Sent": ["LOI Sent", "LOI Signed"], "Under Contract": ["Under Contract", "Due Diligence"], "Submitted to PS": ["Submitted to PS", "PS Revisions"] };
+            const PHASE_GROUPS = { "Prospect": ["Prospect", "Incoming", "Scored"], "LOI Sent": ["LOI Sent", "LOI Signed"], "Under Contract": ["Under Contract", "Due Diligence"], "Submitted to Client": ["Submitted to Client", "Client Revisions"] };
             const matchPhase = (sPhase) => filterPhase === "all" || sPhase === filterPhase || (PHASE_GROUPS[filterPhase] && PHASE_GROUPS[filterPhase].includes(sPhase));
             const d = raw.filter(s => (filterState === "all" || s.state === filterState) && matchPhase(s.phase));
             return (
@@ -2938,7 +3099,6 @@ export default function App() {
         {tab === "southwest" && <TrackerCards regionKey="southwest" />}
         {tab === "east" && <TrackerCards regionKey="east" />}
       </div>
-
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
                   <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
