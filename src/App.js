@@ -330,45 +330,86 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       dom !== null ? row("Days on Market", `${dom} days`, { badge: true, badgeBg: dom > 365 ? "#FEE2E2" : dom > 180 ? "#FEF3C7" : "#DCFCE7", badgeColor: dom > 365 ? "#991B1B" : dom > 180 ? "#92400E" : "#166534" }) : "",
     ].join("")}</table>
 
-    <!-- 2. ZONING -->
-    ${section("2", "Zoning & Entitlements", "")}
+    <!-- 2. DEEP DIVE: ZONING & ENTITLEMENTS -->
+    ${section("2", "Zoning & Entitlements — Deep Dive", "")}
+    <div style="padding:16px 20px;border-radius:10px;background:${zoningColor}08;border:1px solid ${zoningColor}25;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:14px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
+        <span style="padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${zoningColor}15;color:${zoningColor};border:1px solid ${zoningColor}30">${zoningClass.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+      </div>
+      <div style="font-size:12px;color:#64748B;line-height:1.6">${
+        zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required." :
+        zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing. Timeline: 2-6 months. Factor SUP costs (~$15K-$50K) into underwriting." :
+        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required: 4-12 month timeline, $25K-$75K+ cost." :
+        zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong>. Rezone is the only option." :
+        "Zoning classification has <strong>not been confirmed</strong>. Permitted use table must be reviewed before proceeding."
+      }</div>
+    </div>
     <table>${[
-      row("Current Zoning", site.zoning || "Not confirmed"),
+      row("Zoning District", site.zoning || "Not confirmed", { bold: true }),
       row("Classification", zoningClass.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()), { badge: true, badgeBg: zoningColor + "18", badgeColor: zoningColor }),
-      row("Storage Use", site.zoning ? "Verify with local jurisdiction" : "UNKNOWN — research required"),
+      row("Storage Use Term", /(by\s*right|permitted)/i.test((site.zoning||"")+" "+(site.summary||"")) ? "Permitted (by right)" : /(conditional|sup\b|cup\b)/i.test((site.zoning||"")+" "+(site.summary||"")) ? "Conditional / SUP / CUP" : /rezone/i.test((site.zoning||"")+" "+(site.summary||"")) ? "Rezone required" : "Not determined"),
+      row("Overlay Districts", /overlay/i.test((site.zoning||"")+" "+(site.summary||"")) ? "Yes — additional standards apply" : "None identified"),
+      row("Ordinance Source", site.zoningSource || "<em style='color:#94A3B8'>Not yet researched</em>"),
+      row("Planning Contact", site.planningContact || "<em style='color:#94A3B8'>Research needed</em>"),
     ].join("")}</table>
+    ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.zoningNotes}</div>` : ""}
 
-    <!-- 3. DEMOGRAPHICS -->
-    ${section("3", "Demographics (3-Mile Radius)", "")}
+    <!-- 3. DEEP DIVE: UTILITIES & WATER -->
+    ${section("3", "Utilities & Water — Deep Dive", "")}
+    <table>${[
+      row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — extension required</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
+      row("Sewer Provider", site.sewerProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
+      row("Electric Provider", site.electricProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("3-Phase Power", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Not available</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
+      row("Gas Provider", site.gasProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Tap/Impact Fees", site.tapFees || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
+    ].join("")}</table>
+    ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${site.utilityNotes}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
+
+    <!-- 4. TOPOGRAPHY & FLOOD -->
+    ${section("4", "Topography & Flood Assessment", "")}
+    <table>${[
+      row("FEMA Flood Zone", site.floodZone || (/flood/i.test(site.summary||"") ? '<span style="color:#F59E0B;font-weight:700">Flood concern noted — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
+      row("Terrain", site.terrain || "<em style='color:#94A3B8'>Review Google Earth / county contours</em>"),
+      row("Wetlands", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present — reduces developable area</span>' : site.wetlands === false ? '<span style="color:#16A34A">None identified</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
+      row("Grading Risk", site.gradingRisk || "<em style='color:#94A3B8'>Assess from aerial/contours</em>"),
+    ].join("")}</table>
+    ${site.topoNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.topoNotes}</div>` : ""}
+
+    <!-- 5. DEMOGRAPHICS -->
+    ${section("5", "Demographics (3-Mile Radius)", "")}
     <table>${[
       row("Population", site.pop3mi ? fmtN(site.pop3mi) : "Not available"),
       row("Median Income", site.income3mi ? ("$" + fmtN(site.income3mi)) : "Not available"),
       demoScore ? row("Demo Score", demoScore, { badge: true, badgeBg: demoColor + "18", badgeColor: demoColor }) : "",
     ].join("")}</table>
 
-    <!-- 4. SITE SIZING -->
-    ${section("4", "Site Sizing Assessment", "")}
+    <!-- 6. SITE SIZING -->
+    ${section("6", "Site Sizing Assessment", "")}
     <div style="padding:14px 18px;border-radius:10px;background:${sizingColor}0A;border:1px solid ${sizingColor}25;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px;font-weight:600;color:#1E293B">${sizingText}</span>
       <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
     </div>
 
-    <!-- 5. BROKER -->
-    ${section("5", "Broker / Seller", "")}
+    <!-- 7. BROKER -->
+    ${section("7", "Broker / Seller", "")}
     <table>${[
       row("Contact", site.sellerBroker || "Not listed"),
       row("Date on Market", site.dateOnMarket || "Unknown"),
     ].join("")}</table>
 
-    <!-- 6. RED FLAGS -->
-    ${section("6", "Red Flags", "")}
+    <!-- 8. RED FLAGS -->
+    ${section("8", "Red Flags", "")}
     ${flags.length === 0
       ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
       : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
     }
 
-    <!-- 7. SUMMARY -->
-    ${section("7", "Summary & Deal Notes", "")}
+    <!-- 9. SUMMARY -->
+    ${section("9", "Summary & Deal Notes", "")}
     <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
 
     ${iq && iq.scores ? (() => {
