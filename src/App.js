@@ -3671,24 +3671,35 @@ export default function App() {
           const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
           const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
           return (
-            <div style={{ animation: "fadeIn .3s ease-out", position: "relative" }}>
+            <div style={{ animation: "fadeIn .3s ease-out", position: "relative", maxWidth: 1100, margin: "0 auto" }}>
               <button onClick={() => setReviewDetailSite(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(232,122,46,0.25)", background: "rgba(232,122,46,0.08)", color: "#E87A2E", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 16 }}>← Back to Review Queue</button>
 
               {/* Header */}
-              <div style={{ background: "linear-gradient(135deg, rgba(15,21,56,0.9), rgba(30,39,97,0.8))", borderRadius: 16, padding: 24, marginBottom: 20, border: "1px solid rgba(201,168,76,0.1)", position: "relative", overflow: "hidden" }}>
+              <div style={{ background: "linear-gradient(135deg, rgba(15,21,56,0.9), rgba(30,39,97,0.8))", borderRadius: 16, padding: 24, marginBottom: 20, border: "1px solid rgba(201,168,76,0.1)", position: "relative" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, transparent, ${iqR.classColor || "#C9A84C"}60, transparent)` }} />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
                       <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{site.name}</h2>
                       <Badge status={site.status} />
                       {!site.recommendedAt && site.status === "pending" && <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "3px 10px", borderRadius: 5, letterSpacing: "0.1em" }}>NEW</span>}
                     </div>
-                    <div style={{ fontSize: 14, color: "#94A3B8" }}>{site.address}, {site.city}, {site.state}</div>
-                    <div style={{ fontSize: 12, color: "#6B7394", marginTop: 4 }}>{site.acreage ? `${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""} {site.zoning ? `• ${site.zoning}` : ""}</div>
-                    {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 8 }}>{site.address}, {site.city}, {site.state}</div>
+                    {/* Key deal metrics — hero strip */}
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
+                      {site.askingPrice && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Asking Price</div><div style={{ fontSize: 20, fontWeight: 900, color: "#C9A84C" }}>{site.askingPrice.toString().startsWith("$") ? site.askingPrice : `$${Number(site.askingPrice).toLocaleString()}`}</div></div>}
+                      {site.acreage && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Acreage</div><div style={{ fontSize: 20, fontWeight: 900, color: "#E2E8F0" }}>{site.acreage} ac</div></div>}
+                      {site.zoning && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Zoning</div><div style={{ fontSize: 20, fontWeight: 900, color: "#E2E8F0" }}>{site.zoning}</div></div>}
+                      {dom !== null && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Days on Market</div><div style={{ fontSize: 20, fontWeight: 900, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#E2E8F0" }}>{dom}</div></div>}
+                    </div>
                   </div>
-                  <SiteIQBadge site={site} iq={iqR} />
+                  {/* SiteIQ Score — large, right-aligned */}
+                  <div style={{ flexShrink: 0, textAlign: "center", padding: "8px 16px", borderRadius: 14, background: iqR.score >= 7.5 ? "rgba(22,163,74,0.1)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.1)" : "rgba(220,38,38,0.1)", border: `1px solid ${iqR.score >= 7.5 ? "rgba(22,163,74,0.25)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.25)" : "rgba(220,38,38,0.25)"}` }}>
+                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>SiteIQ Score</div>
+                    <div style={{ fontSize: 42, fontWeight: 900, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", lineHeight: 1 }}>{iqR.score}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", textTransform: "uppercase", marginTop: 4 }}>{iqR.label || "—"}</div>
+                    {iqR.classification && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2 }}>{iqR.classification}</div>}
+                  </div>
                 </div>
               </div>
 
