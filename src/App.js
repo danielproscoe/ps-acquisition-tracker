@@ -2123,6 +2123,7 @@ export default function App() {
           <span style={{ width: 14, height: 14, borderRadius: "50%", background: region.accent }} />
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: region.color }}>{region.label} — Master Tracker</h2>
           <span style={{ fontSize: 13, color: "#94A3B8" }}>({data.length})</span>
+          {data.some(s => s.phase === "Dead" || s.phase === "Declined") && <button onClick={() => { if (window.confirm("Remove all Dead/Declined sites from this tracker?")) { data.filter(s => s.phase === "Dead" || s.phase === "Declined").forEach(s => handleRemove(regionKey, s.id)); } }} style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🗑 Remove Dead ({data.filter(s => s.phase === "Dead" || s.phase === "Declined").length})</button>}
         </div>
         <SortBar />
         {data.length === 0 ? (
