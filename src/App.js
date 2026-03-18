@@ -1018,15 +1018,22 @@ const computeSiteIQ = (site) => {
   if (site.siteiqData?.brokerConfirmedZoning) adjusted = Math.min(10, adjusted + 0.3);
   if (site.siteiqData?.surveyClean) adjusted = Math.min(10, adjusted + 0.2);
 
-  // --- WATER AVAILABILITY — HARD REQUIREMENT ---
-  // SOURCE NOTE: Municipal water hookup is a MUST for self-storage. Fire suppression
-  // (sprinkler systems) requires municipal-grade pressure and flow. Private wells cannot
-  // support commercial fire code requirements for 50,000+ SF buildings. If water is
-  // explicitly confirmed unavailable, the deal is DEAD.
+  // --- WATER HOOKUP — HARD REQUIREMENT ---
+  // SOURCE NOTE: Water hookup is a MUST for self-storage. Fire suppression (sprinkler systems)
+  // requires municipal-grade pressure and flow. We don't need to be IN a MUD — we just need
+  // to be able to HOOK UP to the nearest water main. Line extension is a cost item, not a
+  // deal killer. The deal killer is if there's NO water main within reasonable distance.
   // Septic is fine for sewer (storage has minimal wastewater), but water is non-negotiable.
-  if (site.waterAvailable === false && !(site.waterProvider && site.waterProvider.length > 5)) {
-    flags.push("⚠ WATER: No confirmed municipal water — verify hookup feasibility (HARD REQUIREMENT)");
-    adjusted = Math.max(0, adjusted - 1.0);
+  if (site.waterAvailable === false) {
+    if (site.waterProvider && site.waterProvider.length > 10) {
+      // Provider identified but not currently connected — line extension likely needed. Flag but don't kill.
+      flags.push("⚠ WATER: Not currently connected — line extension to nearest main required. Verify distance & cost.");
+      adjusted = Math.max(0, adjusted - 0.3);
+    } else {
+      // No provider identified at all — high risk
+      flags.push("⚠ WATER: No water provider identified — verify hookup feasibility (HARD REQUIREMENT for fire suppression)");
+      adjusted = Math.max(0, adjusted - 1.0);
+    }
   }
 
   // --- RESEARCH COMPLETENESS — HARD VET BEFORE SCORE ---
