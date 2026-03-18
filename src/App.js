@@ -1555,18 +1555,15 @@ export default function App() {
       setShowNewAlert(true);
     }
     localStorage.setItem("ps-last-seen", new Date().toISOString());
-    // Deep link review
+    // Deep link review — opens full property detail page directly
     try {
       const params = new URLSearchParams(window.location.search);
-      const reviewId = params.get("review");
+      const reviewId = params.get("review") || params.get("reviewSite");
       if (reviewId && subs.find((s) => s.id === reviewId)) {
         setTab("review");
-        setHighlightedSite(reviewId);
+        setReviewDetailSite(reviewId);
         setShowNewAlert(false);
-        setTimeout(() => {
-          const el = document.getElementById(`review-${reviewId}`);
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 500);
+        window.scrollTo({ top: 0 });
       }
     } catch {}
   }, [loaded, subs]);
