@@ -1338,6 +1338,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [transitioning, setTransitioning] = useState(false);
   const navigateTo = useCallback((newTab, opts = {}) => {
+    if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setTab("review"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     if (newTab === tab && !opts.force) { if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
     setTransitioning(true);
     setTimeout(() => {
@@ -3636,7 +3637,7 @@ export default function App() {
                   const isExpanded = false; // legacy — full-page detail replaced inline expand
                   return (
                     <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
-                      onClick={(e) => { e.stopPropagation(); setReviewDetailSite(site.id); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      onClick={(e) => { e.stopPropagation(); navigateTo("review", { reviewSiteId: site.id }); }}
                       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,168,76,0.15), 0 0 0 1px rgba(201,168,76,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
                     >
