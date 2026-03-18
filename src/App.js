@@ -2473,7 +2473,9 @@ export default function App() {
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
         @keyframes siteiq-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
-        @keyframes siteiq-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes siteiq-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(140deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(320deg); } 100% { transform: rotate(360deg); } }
+        @keyframes turbine-pulse { 0%, 100% { filter: drop-shadow(0 0 6px rgba(57,255,20,0.3)) drop-shadow(0 0 12px rgba(0,229,255,0.15)); } 25% { filter: drop-shadow(0 0 14px rgba(57,255,20,0.7)) drop-shadow(0 0 28px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(232,122,46,0.2)); } 50% { filter: drop-shadow(0 0 8px rgba(57,255,20,0.4)) drop-shadow(0 0 16px rgba(0,229,255,0.2)); } 75% { filter: drop-shadow(0 0 18px rgba(232,122,46,0.5)) drop-shadow(0 0 32px rgba(201,168,76,0.3)) drop-shadow(0 0 48px rgba(57,255,20,0.15)); } }
+        @keyframes lightning-arc { 0% { opacity: 0; transform: scaleX(0); } 5% { opacity: 1; transform: scaleX(1); } 10% { opacity: 0.3; } 15% { opacity: 0.8; } 20% { opacity: 0; transform: scaleX(1); } 100% { opacity: 0; } }
         @keyframes toastSlide { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); } 70% { box-shadow: 0 0 0 14px rgba(201,168,76,0); } 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); } }
         @keyframes countUp { from { opacity: 0; transform: scale(0.3) translateY(10px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
@@ -2614,19 +2616,25 @@ export default function App() {
         <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.08)", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 46, height: 46, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg viewBox="0 0 64 64" style={{ width: 46, height: 46, filter: "drop-shadow(0 0 8px rgba(57,255,20,0.4)) drop-shadow(0 0 16px rgba(0,229,255,0.2))", animation: "siteiq-spin 12s linear infinite" }}>
+              <div style={{ width: 52, height: 52, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {/* Lightning arcs */}
+                <div style={{ position: "absolute", top: -4, left: 14, width: 24, height: 2, background: "linear-gradient(90deg, transparent, #39FF14, #00E5FF, transparent)", borderRadius: 1, animation: "lightning-arc 6s ease-in-out infinite", transformOrigin: "left center" }} />
+                <div style={{ position: "absolute", bottom: -2, right: 10, width: 20, height: 2, background: "linear-gradient(90deg, transparent, #E87A2E, #C9A84C, transparent)", borderRadius: 1, animation: "lightning-arc 6s ease-in-out 3s infinite", transformOrigin: "right center" }} />
+                <svg viewBox="0 0 64 64" style={{ width: 52, height: 52, animation: "siteiq-spin 8s cubic-bezier(0.4, 0, 0.2, 1) infinite, turbine-pulse 8s ease-in-out infinite" }}>
                   <defs>
-                    <radialGradient id="iqbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#1a1a2e"/><stop offset="100%" stopColor="#0a0a0c"/></radialGradient>
-                    <linearGradient id="iqblade" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#39FF14" stopOpacity="0.9"/><stop offset="100%" stopColor="#00E5FF" stopOpacity="0.7"/></linearGradient>
+                    <radialGradient id="iqbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#0F1538"/><stop offset="80%" stopColor="#0a0a0c"/><stop offset="100%" stopColor="#1E2761"/></radialGradient>
+                    <linearGradient id="iqblade" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#39FF14" stopOpacity="0.95"/><stop offset="50%" stopColor="#00E5FF" stopOpacity="0.8"/><stop offset="100%" stopColor="#E87A2E" stopOpacity="0.6"/></linearGradient>
+                    <linearGradient id="iqblade2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#E87A2E" stopOpacity="0.9"/><stop offset="100%" stopColor="#C9A84C" stopOpacity="0.5"/></linearGradient>
+                    <radialGradient id="iqcore" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#1E2761"/><stop offset="60%" stopColor="#0F1538"/><stop offset="100%" stopColor="#0a0a0c"/></radialGradient>
                   </defs>
-                  <rect width="64" height="64" rx="14" fill="url(#iqbg)"/>
+                  <rect width="64" height="64" rx="14" fill="url(#iqbg)" stroke="#2C3E6B" strokeWidth="0.5"/>
                   <g transform="translate(32,32)">
-                    {[0,60,120,180,240,300].map(r => <path key={r} d="M0,-18 Q8,-8 2,-2 Q-2,-4 0,-18Z" fill="url(#iqblade)" opacity="0.85" transform={`rotate(${r})`}/>)}
-                    <circle r="8" fill="#1a1a2e" stroke="#3a3a5c" strokeWidth="1.5"/>
-                    <circle r="6" fill="none" stroke="#555577" strokeWidth="0.5"/>
+                    {[0,60,120,180,240,300].map((r,i) => <path key={r} d="M0,-20 Q9,-9 2.5,-1.5 Q-2.5,-5 0,-20Z" fill={i % 2 === 0 ? "url(#iqblade)" : "url(#iqblade2)"} opacity="0.9" transform={`rotate(${r})`}/>)}
+                    <circle r="9" fill="url(#iqcore)" stroke="#39FF14" strokeWidth="0.8" opacity="0.6"/>
+                    <circle r="6" fill="none" stroke="#E87A2E" strokeWidth="0.4" opacity="0.5"/>
+                    <circle r="3" fill="#39FF14" opacity="0.15"/>
                   </g>
-                  <text x="32" y="37" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="900" fontSize="12" fill="#e0e0e0" letterSpacing="-0.3">IQ</text>
+                  <text x="32" y="37" textAnchor="middle" fontFamily="'Inter',system-ui,sans-serif" fontWeight="900" fontSize="11" fill="#E2E8F0" letterSpacing="-0.3" opacity="0.9">IQ</text>
                 </svg>
               </div>
               <div>
