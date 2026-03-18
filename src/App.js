@@ -293,8 +293,9 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   if (incN && incN < 60000) flags.push("3-mi median HHI below $60,000 target");
   if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
-  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water, sewer, electric");
-  // NOTE: Septic is VIABLE for storage — minimal wastewater (restrooms/office only). Not a red flag.
+  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
+  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
+  // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
   const iq = iqResult || (typeof computeSiteIQ === "function" ? computeSiteIQ(site) : null);
@@ -694,8 +695,9 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   if (zoningClass === "prohibited") flags.push("Storage use PROHIBITED in current zoning district");
   if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
-  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water, sewer, electric");
-  // NOTE: Septic is VIABLE for storage — minimal wastewater (restrooms/office only). Not a red flag.
+  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
+  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
+  // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
   if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
@@ -1015,6 +1017,17 @@ const computeSiteIQ = (site) => {
   // --- BROKER INTEL BONUSES (from siteiqData) ---
   if (site.siteiqData?.brokerConfirmedZoning) adjusted = Math.min(10, adjusted + 0.3);
   if (site.siteiqData?.surveyClean) adjusted = Math.min(10, adjusted + 0.2);
+
+  // --- WATER AVAILABILITY — HARD REQUIREMENT ---
+  // SOURCE NOTE: Municipal water hookup is a MUST for self-storage. Fire suppression
+  // (sprinkler systems) requires municipal-grade pressure and flow. Private wells cannot
+  // support commercial fire code requirements for 50,000+ SF buildings. If water is
+  // explicitly confirmed unavailable, the deal is DEAD.
+  // Septic is fine for sewer (storage has minimal wastewater), but water is non-negotiable.
+  if (site.waterAvailable === false && !(site.waterProvider && site.waterProvider.length > 5)) {
+    flags.push("⚠ WATER: No confirmed municipal water — verify hookup feasibility (HARD REQUIREMENT)");
+    adjusted = Math.max(0, adjusted - 1.0);
+  }
 
   // --- RESEARCH COMPLETENESS — HARD VET BEFORE SCORE ---
   // SiteIQ score incorporates depth of due diligence research.
