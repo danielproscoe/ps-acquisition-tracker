@@ -49,7 +49,7 @@ const REGIONS = {
 const STATUS_COLORS = {
   pending: { bg: "#FFFBEB", text: "#92700C", dot: "#C9A84C", label: "Pending" },
   recommended: { bg: "#E0E7FF", text: "#3730A3", dot: "#6366F1", label: "Dan R. Approved" },
-  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50", label: "⚡ SiteIQ Approved" },
+  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50", label: "⚡ Approved to Tracker" },
   declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350", label: "Declined" },
   tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33", label: "In Tracker" },
 };
@@ -1016,7 +1016,7 @@ const computeSiteIQ = (site) => {
   if (/under contract|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
   else if (/psa sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.2);
   else if (/^loi$/i.test(phase)) adjusted = Math.min(10, adjusted + 0.15);
-  else if (/ps approved/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
+  else if (/siteiq approved|ps approved/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
 
   // --- STALE LISTING PENALTY ---
   if (site.dateOnMarket) {
@@ -1370,7 +1370,7 @@ export default function App() {
   const [filterState, setFilterState] = useState("all");
   const [filterPhase, setFilterPhase] = useState("all");
   const [highlightedSite, setHighlightedSite] = useState(null);
-  const [reviewExpandedSite, setReviewExpandedSite] = useState(null);
+  // reviewExpandedSite removed — replaced by reviewDetailSite (full-page detail)
   const [reviewTab, setReviewTab] = useState("mine");
   const [reviewDetailSite, setReviewDetailSite] = useState(null); // site ID for full-page review detail
   const [shareLink, setShareLink] = useState(null);
@@ -1913,8 +1913,7 @@ export default function App() {
     notify(`PS Approved → ${routeLabel} tracker`);
   };
 
-  // Legacy: direct approve (bypasses two-step — for backward compat)
-  const handleApprove = (id) => handleRecommend(id);
+  // handleApprove removed — replaced by two-step: handleRecommend (Dan) → handlePSApprove (PS)
 
   const handleApproveAll = () => {
     const p = subs.filter((s) => s.status === "pending");
@@ -3590,7 +3589,7 @@ export default function App() {
                   const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
                   const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
                   const isHL = highlightedSite === site.id;
-                  const isExpanded = reviewExpandedSite === site.id;
+                  const isExpanded = false; // legacy — full-page detail replaced inline expand
                   return (
                     <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
                       onClick={() => setReviewDetailSite(site.id)}
