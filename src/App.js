@@ -3034,6 +3034,49 @@ export default function App() {
               ))}
             </div>
 
+            {/* ── ACTION ITEMS BANNER — personalized for DW/MT ── */}
+            {(() => {
+              const dwQueue = subs.filter(s => s.status === "recommended" && (s.routedTo === "southwest" || s.region === "southwest"));
+              const mtQueue = subs.filter(s => s.status === "recommended" && (s.routedTo === "east" || s.region === "east"));
+              const myQueue = subs.filter(s => s.status === "pending");
+              const actionItems = [];
+              if (myQueue.length > 0) {
+                const topSite = myQueue.sort((a, b) => (getSiteIQ(b).score || 0) - (getSiteIQ(a).score || 0))[0];
+                actionItems.push({ who: "Dan R.", count: myQueue.length, top: topSite, color: "#C9A84C", tab: "mine", icon: "📋" });
+              }
+              if (dwQueue.length > 0) {
+                const topSite = dwQueue.sort((a, b) => (getSiteIQ(b).score || 0) - (getSiteIQ(a).score || 0))[0];
+                actionItems.push({ who: "Daniel Wollent", count: dwQueue.length, top: topSite, color: "#42A5F5", tab: "dw", icon: "◆" });
+              }
+              if (mtQueue.length > 0) {
+                const topSite = mtQueue.sort((a, b) => (getSiteIQ(b).score || 0) - (getSiteIQ(a).score || 0))[0];
+                actionItems.push({ who: "Matthew Toussaint", count: mtQueue.length, top: topSite, color: "#4CAF50", tab: "mt", icon: "●" });
+              }
+              if (actionItems.length === 0) return null;
+              return (
+                <div className="card-reveal" style={{ background: "linear-gradient(135deg, rgba(232,122,46,0.06), rgba(201,168,76,0.04))", borderRadius: 14, padding: 16, marginBottom: 16, border: "1px solid rgba(232,122,46,0.15)", animationDelay: "0.35s" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", boxShadow: "0 0 10px rgba(232,122,46,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Action Required</span>
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {actionItems.map(ai => (
+                      <div key={ai.who} onClick={() => { navigateTo("review"); setTimeout(() => setReviewTab(ai.tab), 50); }} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: `1px solid ${ai.color}25`, cursor: "pointer", transition: "all 0.2s" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${ai.color}50`; e.currentTarget.style.transform = "translateX(4px)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${ai.color}25`; e.currentTarget.style.transform = "translateX(0)"; }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>{ai.icon} {ai.who} — <span style={{ color: ai.color }}>{ai.count} site{ai.count !== 1 ? "s" : ""} awaiting review</span></div>
+                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — SiteIQ {getSiteIQ(ai.top).score}</div>
+                        </div>
+                        <span style={{ fontSize: 12, color: ai.color, fontWeight: 700 }}>Review →</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Velocity Stats + Last Updated */}
             {(() => {
               const all = [...sw, ...east];
@@ -3699,6 +3742,40 @@ export default function App() {
                 {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a>}
                 <button onClick={() => { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 SiteIQ Deep Vet Report</button>
               </div>
+
+              {/* ── ACTIVITY TIMELINE ── */}
+              {(() => {
+                const events = [];
+                if (site.submittedAt) events.push({ ts: site.submittedAt, action: "Site entered review queue", by: "System", icon: "📥", color: "#F59E0B" });
+                if (site.recommendedAt) events.push({ ts: site.recommendedAt, action: `Dan R. approved & routed to ${REGIONS[site.routedTo || site.region]?.label || "—"}`, by: site.recommendedBy || "Dan R.", icon: "✓", color: "#C9A84C" });
+                if (site.approvedAt && site.approvedBy) events.push({ ts: site.approvedAt, action: `PS approved → moved to tracker`, by: site.approvedBy, icon: "⚡", color: "#16A34A" });
+                // Pull from activityLog if it exists
+                if (site.activityLog) {
+                  Object.values(site.activityLog).forEach(log => {
+                    if (log.ts && log.action) events.push({ ts: log.ts, action: log.action, by: log.by || "System", icon: "→", color: "#6366F1" });
+                  });
+                }
+                events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+                if (events.length === 0) return null;
+                const fmtDate = (ts) => { const d = new Date(ts); const now = Date.now(); const diff = now - d.getTime(); if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`; if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`; return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); };
+                return (
+                  <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 16, marginBottom: 20, border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Activity Timeline</div>
+                    <div style={{ position: "relative", paddingLeft: 20 }}>
+                      <div style={{ position: "absolute", left: 6, top: 4, bottom: 4, width: 2, background: "rgba(201,168,76,0.1)", borderRadius: 1 }} />
+                      {events.slice(0, 10).map((ev, i) => (
+                        <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < events.length - 1 ? 12 : 0, position: "relative" }}>
+                          <div style={{ position: "absolute", left: -14, top: 2, width: 14, height: 14, borderRadius: "50%", background: "rgba(15,21,56,0.9)", border: `2px solid ${ev.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8 }}>{ev.icon}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{ev.action}</div>
+                            <div style={{ fontSize: 10, color: "#6B7394", marginTop: 1 }}>{ev.by} · {fmtDate(ev.ts)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ── APPROVAL ACTION BAR ── */}
               <div style={{ background: "linear-gradient(135deg, rgba(15,21,56,0.9), rgba(30,39,97,0.8))", borderRadius: 16, padding: 20, border: "1px solid rgba(201,168,76,0.15)", marginBottom: 20 }}>
