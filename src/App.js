@@ -2719,6 +2719,8 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
         input, select, textarea, button { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        select option { background: #1a1a2e; color: #E2E8F0; }
+        select option:checked { background: #E87A2E; color: #fff; }
         /* UPGRADED: Card hover with fire-edge glow */
         .site-card { transition: all 0.4s cubic-bezier(0.4,0,0.2,1); position: relative; }
         .site-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 16px; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; box-shadow: 0 0 0 1px rgba(243,124,51,0.15), 0 8px 32px rgba(243,124,51,0.08); z-index: 0; }
