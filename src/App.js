@@ -1343,6 +1343,7 @@ export default function App() {
     setTimeout(() => {
       setTab(newTab);
       setDetailView(null);
+      setReviewDetailSite(null);
       if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
       if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } else { setExpandedSite(null); }
       if (newTab === "review") setShowNewAlert(false);
@@ -3505,7 +3506,7 @@ export default function App() {
         )}
 
         {/* ═══ REVIEW ═══ */}
-        {tab === "review" && (
+        {tab === "review" && !reviewDetailSite && (
           <div style={{ animation: "fadeIn .3s ease-out" }}>
             {/* Review Queue Sub-Tabs */}
             {(() => {
