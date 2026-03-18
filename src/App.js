@@ -2553,8 +2553,7 @@ export default function App() {
         @keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.8; transform: translateY(80vh) scale(1); } 50% { opacity: 0.4; } 90% { opacity: 0.2; } 100% { transform: translateY(-20px) scale(0.2); opacity: 0; } }
         @keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
         @keyframes nodePulse { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 0.8; transform: scale(1.5); } 50% { opacity: 0.3; transform: scale(1); } 70% { opacity: 0.6; transform: scale(1.3); } 100% { opacity: 0; transform: scale(0.5); } }
-        @keyframes electricFlicker { 0%, 100% { opacity: 1; } 10% { opacity: 0.4; } 12% { opacity: 1; } 50% { opacity: 0.9; } 52% { opacity: 0.3; } 54% { opacity: 1; } }
-        @keyframes glitchText { 0%, 100% { transform: translate(0); text-shadow: none; } 2% { transform: translate(-2px, 1px); text-shadow: 2px 0 #39FF14, -2px 0 #E87A2E; } 4% { transform: translate(2px, -1px); text-shadow: -2px 0 #00E5FF, 2px 0 #E87A2E; } 6% { transform: translate(0); text-shadow: none; } 50% { transform: translate(0); text-shadow: none; } 52% { transform: translate(1px, -1px); text-shadow: -1px 0 #39FF14, 1px 0 #00E5FF; } 54% { transform: translate(0); text-shadow: none; } }
+        @keyframes glitchText { 0%, 100% { transform: translate(0); text-shadow: none; } 1% { transform: translate(-1px, 0); text-shadow: 1px 0 rgba(57,255,20,0.25), -1px 0 rgba(232,122,46,0.25); } 2% { transform: translate(0); text-shadow: none; } }
         @keyframes kpiElectric { 0% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } 50% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(57,255,20,0.05); } 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } }
         @keyframes speedStreak { 0% { transform: translateX(-100%) scaleY(0.5); opacity: 0; } 30% { opacity: 0.8; transform: translateX(0) scaleY(1); } 100% { transform: translateX(200%) scaleY(0.5); opacity: 0; } }
       `}</style>
@@ -2676,8 +2675,8 @@ export default function App() {
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #39FF14 0%, #00E5FF 20%, #fff 40%, #C9A84C 55%, #FFD700 70%, #E87A2E 85%, #39FF14 100%)", backgroundSize: "400% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite, glitchText 8s step-end infinite" }}>SITEIQ</div>
-                <div style={{ fontSize: 10, color: "#6B7394", letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 1, animation: "electricFlicker 6s step-end infinite" }}>AI-Powered Land Acquisition Engine</div>
+                <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #39FF14 0%, #00E5FF 20%, #fff 40%, #C9A84C 55%, #FFD700 70%, #E87A2E 85%, #39FF14 100%)", backgroundSize: "400% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite, glitchText 15s step-end infinite" }}>SITEIQ</div>
+                <div style={{ fontSize: 10, color: "#6B7394", letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 1 }}>AI-Powered Land Acquisition Engine</div>
                 <div style={{ fontSize: 8, color: "#6B7394", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
