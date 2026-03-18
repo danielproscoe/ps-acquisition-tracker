@@ -2223,6 +2223,87 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* ── DEEP VET PANEL — Zoning, Utilities, Topo Research Fields ── */}
+                      <div style={{ borderRadius: 14, marginBottom: 14, overflow: "hidden", border: "1px solid rgba(232,122,46,0.15)" }}>
+                        <div style={{ background: "linear-gradient(135deg,#0F1538,#1E2761)", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 14 }}>🔬</span>
+                            <span style={{ color: "#E87A2E", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em" }}>DEEP VET — ZONING &amp; UTILITIES</span>
+                          </div>
+                          <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>McKinsey-grade research fields</span>
+                        </div>
+                        <div style={{ background: "rgba(15,21,56,0.3)", padding: "12px 16px" }}>
+                          {/* ZONING RESEARCH */}
+                          <div style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 16, height: 2, background: "#C9A84C", borderRadius: 1 }} /> Zoning & Entitlements
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                            <EF label="Ordinance Source (URL / Section)" value={site.zoningSource || ""} onSave={(v) => saveField(regionKey, site.id, "zoningSource", v)} placeholder="ecode360.com/CityName §14.3.2" />
+                            <EF label="Planning Dept Contact" value={site.planningContact || ""} onSave={(v) => saveField(regionKey, site.id, "planningContact", v)} placeholder="Jane Smith (972) 555-1234" />
+                          </div>
+                          <EF multi label="Zoning Research Notes" value={site.zoningNotes || ""} onSave={(v) => saveField(regionKey, site.id, "zoningNotes", v)} placeholder="Permitted use table: §14-3, Table 14-1 — 'Storage Warehouse (Mini)' listed as P (Permitted) in C-3 district. No overlay. Setbacks: 25' front, 10' side, 15' rear. Height limit: 35'. Parking: 1 per 50 units." />
+
+                          {/* UTILITIES RESEARCH */}
+                          <div style={{ fontSize: 10, fontWeight: 800, color: "#16A34A", textTransform: "uppercase", letterSpacing: "0.08em", margin: "14px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 16, height: 2, background: "#16A34A", borderRadius: 1 }} /> Utilities & Water
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <EF label="Water Provider" value={site.waterProvider || ""} onSave={(v) => saveField(regionKey, site.id, "waterProvider", v)} placeholder="City of Argyle / Mustang SUD" />
+                            <div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Water Available</div>
+                              <select value={site.waterAvailable === true ? "yes" : site.waterAvailable === false ? "no" : ""} onChange={(e) => { const v = e.target.value === "yes" ? true : e.target.value === "no" ? false : null; updateSiteField(regionKey, site.id, "waterAvailable", v); }} style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.12)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: site.waterAvailable === true ? "rgba(22,163,74,0.1)" : site.waterAvailable === false ? "rgba(239,68,68,0.1)" : "rgba(15,21,56,0.5)", color: "#E2E8F0", cursor: "pointer" }}>
+                                <option value="">Not confirmed</option>
+                                <option value="yes">YES — Municipal</option>
+                                <option value="no">NO — Extension required</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <EF label="Sewer Provider" value={site.sewerProvider || ""} onSave={(v) => saveField(regionKey, site.id, "sewerProvider", v)} placeholder="City Municipal / Septic" />
+                            <div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Sewer Available</div>
+                              <select value={site.sewerAvailable === true ? "yes" : site.sewerAvailable === false ? "no" : ""} onChange={(e) => { const v = e.target.value === "yes" ? true : e.target.value === "no" ? false : null; updateSiteField(regionKey, site.id, "sewerAvailable", v); }} style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.12)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: site.sewerAvailable === true ? "rgba(22,163,74,0.1)" : site.sewerAvailable === false ? "rgba(239,68,68,0.1)" : "rgba(15,21,56,0.5)", color: "#E2E8F0", cursor: "pointer" }}>
+                                <option value="">Not confirmed</option>
+                                <option value="yes">YES</option>
+                                <option value="no">NO</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <EF label="Electric Provider" value={site.electricProvider || ""} onSave={(v) => saveField(regionKey, site.id, "electricProvider", v)} placeholder="Oncor / CoServ" />
+                            <div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>3-Phase Power</div>
+                              <select value={site.threePhase === true ? "yes" : site.threePhase === false ? "no" : ""} onChange={(e) => { const v = e.target.value === "yes" ? true : e.target.value === "no" ? false : null; updateSiteField(regionKey, site.id, "threePhase", v); }} style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.12)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.5)", color: "#E2E8F0", cursor: "pointer" }}>
+                                <option value="">Not confirmed</option>
+                                <option value="yes">Available</option>
+                                <option value="no">Not available</option>
+                              </select>
+                            </div>
+                            <EF label="Tap/Impact Fees" value={site.tapFees || ""} onSave={(v) => saveField(regionKey, site.id, "tapFees", v)} placeholder="$4,200 commercial" />
+                          </div>
+                          <EF multi label="Utility Research Notes" value={site.utilityNotes || ""} onSave={(v) => saveField(regionKey, site.id, "utilityNotes", v)} placeholder="Site is inside Mustang SUD CCN boundary. 8&quot; water main on Faught Rd (adjacent). Sewer: city municipal, main at property line. Oncor electric, 3-phase available. Gas: Atmos Energy. Tap fees: $4,200 water, $3,800 sewer per 2026 published schedule." />
+
+                          {/* TOPOGRAPHY & FLOOD */}
+                          <div style={{ fontSize: 10, fontWeight: 800, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em", margin: "14px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 16, height: 2, background: "#E87A2E", borderRadius: 1 }} /> Topography & Flood
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <EF label="FEMA Flood Zone" value={site.floodZone || ""} onSave={(v) => saveField(regionKey, site.id, "floodZone", v)} placeholder="Zone X (no flood)" />
+                            <EF label="Terrain" value={site.terrain || ""} onSave={(v) => saveField(regionKey, site.id, "terrain", v)} placeholder="Flat, <2% grade" />
+                            <div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Wetlands</div>
+                              <select value={site.wetlands === true ? "yes" : site.wetlands === false ? "no" : ""} onChange={(e) => { const v = e.target.value === "yes" ? true : e.target.value === "no" ? false : null; updateSiteField(regionKey, site.id, "wetlands", v); }} style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.12)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.5)", color: "#E2E8F0", cursor: "pointer" }}>
+                                <option value="">Not checked</option>
+                                <option value="no">None identified</option>
+                                <option value="yes">Present</option>
+                              </select>
+                            </div>
+                            <EF label="Grading Risk" value={site.gradingRisk || ""} onSave={(v) => saveField(regionKey, site.id, "gradingRisk", v)} placeholder="Low / Medium / High" />
+                          </div>
+                          <EF multi label="Topo & Environmental Notes" value={site.topoNotes || ""} onSave={(v) => saveField(regionKey, site.id, "topoNotes", v)} placeholder="FEMA Zone X (Panel 48121C0405G). Flat terrain, ~3ft fall NW to SE across 400ft. No wetlands per NWI. Clay soil per USDA Web Soil Survey — standard for DFW. No environmental flags." />
+                        </div>
+                      </div>
+
                       {/* ── Auto Demographics Snapshot — always visible when data exists ── */}
                       {(site.pop3mi || site.income3mi) && (() => {
                         const pN = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
