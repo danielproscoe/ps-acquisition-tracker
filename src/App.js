@@ -376,7 +376,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
           </div>
           <div>
             <div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:0.02em">Research Completeness</div>
-            <div style="font-size:10px;color:#94A3B8;margin-top:2px">McKinsey-grade due diligence standard &mdash; ${done}/${total} items verified</div>
+            <div style="font-size:10px;color:#94A3B8;margin-top:2px">Institutional-grade due diligence &mdash; ${done}/${total} items verified against primary sources</div>
           </div>
         </div>
         <span style="padding:6px 16px;border-radius:8px;font-size:12px;font-weight:800;background:${gradeColor}18;color:${gradeColor};border:1px solid ${gradeColor}30;letter-spacing:0.06em">${grade}</span>
@@ -2293,7 +2293,7 @@ export default function App() {
                             <span style={{ fontSize: 14 }}>🔬</span>
                             <span style={{ color: "#E87A2E", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em" }}>DEEP VET — ZONING &amp; UTILITIES</span>
                           </div>
-                          <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>McKinsey-grade research fields</span>
+                          <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>Institutional-grade research fields</span>
                         </div>
                         <div style={{ background: "rgba(15,21,56,0.3)", padding: "12px 16px" }}>
                           {/* ZONING RESEARCH */}
