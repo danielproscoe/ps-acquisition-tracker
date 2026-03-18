@@ -1,5 +1,4 @@
 // src/App.js — SiteIQ Acquisition Tracker
-// SiteIQ v4.1 — turbine logo update
 // © 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
@@ -63,7 +62,6 @@ const PHASES = [
   "Client Declined",
   "LOI Sent",
   "LOI Signed",
-  "PSA Sent",
   "Under Contract",
   "Due Diligence",
   "Closed",
@@ -158,12 +156,12 @@ const earthLink = (c) =>
 
 // ─── Shared Style Constants ───
 const STYLES = {
-  cardBase: { background: "rgba(255,255,255,0.95)", borderRadius: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(201,168,76,0.06)", overflow: "hidden", backdropFilter: "blur(8px)", transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)" },
-  kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(145deg, rgba(15,15,20,0.95) 0%, rgba(30,30,40,0.92) 100%)", borderRadius: 16, padding: "22px 24px", minWidth: 140, boxShadow: `0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)`, borderLeft: `3px solid ${borderColor}`, transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden" }),
-  labelMicro: { fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 },
-  btnPrimary: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#C9A84C 0%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden" },
-  btnGhost: { padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.04)", color: "#C9A84C", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" },
-  frostedHeader: { background: "linear-gradient(180deg, rgba(10,10,12,0.97) 0%, rgba(18,18,22,0.95) 100%)", backdropFilter: "blur(20px) saturate(1.5)", WebkitBackdropFilter: "blur(20px) saturate(1.5)", padding: "0 24px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(201,168,76,0.15)" },
+  cardBase: { background: "rgba(15,21,56,0.6)", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(201,168,76,0.08)", overflow: "hidden", backdropFilter: "blur(12px)", transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)" },
+  kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(145deg, rgba(15,21,56,0.85) 0%, rgba(10,14,42,0.95) 100%)", borderRadius: 16, padding: "22px 24px", minWidth: 140, boxShadow: `0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)`, borderLeft: `3px solid ${borderColor}`, transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden" }),
+  labelMicro: { fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 },
+  btnPrimary: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#E87A2E 0%,#C9A84C 50%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(232,122,46,0.35), 0 0 0 1px rgba(232,122,46,0.15)", transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden" },
+  btnGhost: { padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(232,122,46,0.25)", background: "rgba(232,122,46,0.06)", color: "#E87A2E", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)" },
+  frostedHeader: { background: "linear-gradient(165deg, rgba(15,21,56,0.98) 0%, rgba(10,14,42,0.97) 50%, rgba(15,21,56,0.98) 100%)", backdropFilter: "blur(24px) saturate(1.8)", WebkitBackdropFilter: "blur(24px) saturate(1.8)", padding: "0 24px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 40px rgba(0,0,0,0.5), 0 1px 0 rgba(232,122,46,0.2)" },
 };
 
 // ─── Debounce Helper ───
@@ -798,7 +796,6 @@ const computeSiteIQ = (site) => {
   // --- PHASE BONUS ---
   const phase = (site.phase || "").toLowerCase();
   if (/under contract|due diligence|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
-  else if (/psa sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.25);
   else if (/loi signed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.2);
   else if (/loi sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
 
@@ -840,7 +837,7 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
   const tierColors = {
     gold: { bg: "linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)", glow: "0 0 24px rgba(201,168,76,0.5), 0 0 48px rgba(201,168,76,0.2), 0 0 4px rgba(255,215,0,0.8)", text: "#0a0a0a", ring: "#C9A84C", labelBg: "linear-gradient(135deg, #FFFBEB, #FFF8ED)" },
     steel: { bg: "linear-gradient(135deg, #1a1a2e, #2C3E6B, #1a1a2e)", glow: "0 2px 12px rgba(44,62,107,0.35), 0 0 2px rgba(243,124,51,0.2)", text: "#fff", ring: "#F37C33", labelBg: "linear-gradient(135deg, #E8EAF6, #F0F2FF)" },
-    gray: { bg: "linear-gradient(135deg, #3a3a4a, #4a4a5a, #3a3a4a)", glow: "0 2px 8px rgba(0,0,0,0.2)", text: "#94A3B8", ring: "#64748B", labelBg: "#F1F5F9" },
+    gray: { bg: "linear-gradient(135deg, #3a3a4a, #4a4a5a, #3a3a4a)", glow: "0 2px 8px rgba(0,0,0,0.2)", text: "#94A3B8", ring: "#64748B", labelBg: "rgba(15,21,56,0.3)" },
   };
   const tc = tierColors[iq.tier];
 
@@ -1004,11 +1001,11 @@ function EF({ label, value, onSave, placeholder, multi }) {
     width: "100%",
     padding: multi ? "8px 10px" : "6px 10px",
     borderRadius: 8,
-    border: "1px solid #E2E8F0",
+    border: "1px solid rgba(201,168,76,0.12)",
     fontSize: 13,
-    fontFamily: "'DM Sans', sans-serif",
-    background: "#FAFBFC",
-    color: "#2C2C2C",
+    fontFamily: "'Inter', sans-serif",
+    background: "rgba(15,21,56,0.5)",
+    color: "#E2E8F0",
     outline: "none",
     boxSizing: "border-box",
     resize: multi ? "vertical" : "none",
@@ -1024,9 +1021,9 @@ function EF({ label, value, onSave, placeholder, multi }) {
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color: "#94A3B8",
+            color: "#6B7394",
             textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            letterSpacing: "0.08em",
             marginBottom: 3,
           }}
         >
@@ -1145,7 +1142,7 @@ export default function App() {
   useEffect(() => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap";
+    link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap";
     document.head.appendChild(link);
   }, []);
 
@@ -1767,25 +1764,25 @@ export default function App() {
 
   const SortBar = () => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Sort:</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7394" }}>Sort:</span>
       {SORT_OPTIONS.map((o) => (
-        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #C9A84C" : "1px solid #E2E8F0", background: sortBy === o.key ? "#FFFBEB" : "#fff", color: sortBy === o.key ? "#92700C" : "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.15s" }}>{o.label}</button>
+        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #E87A2E" : "1px solid rgba(201,168,76,0.12)", background: sortBy === o.key ? "rgba(232,122,46,0.12)" : "rgba(15,21,56,0.4)", color: sortBy === o.key ? "#E87A2E" : "#6B7394", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter'", transition: "all 0.15s" }}>{o.label}</button>
       ))}
     </div>
   );
 
   // ─── STYLES ───
-  const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2C2C2C", outline: "none", boxSizing: "border-box" };
-  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", background: tab === key ? "rgba(201,168,76,0.12)" : "transparent", color: tab === key ? "#C9A84C" : "#64748B", whiteSpace: "nowrap", boxShadow: tab === key ? "0 0 12px rgba(201,168,76,0.08)" : "none" });
+  const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 14, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", outline: "none", boxSizing: "border-box" };
+  const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', sans-serif", transition: "all 0.15s cubic-bezier(0.22,1,0.36,1)", background: tab === key ? "rgba(232,122,46,0.15)" : "transparent", color: tab === key ? "#E87A2E" : "#6B7394", whiteSpace: "nowrap", boxShadow: tab === key ? "0 0 16px rgba(232,122,46,0.12), inset 0 0 0 1px rgba(232,122,46,0.2)" : "none" });
   const pendingSubsN = subs.filter((s) => s.status === "pending").length;
   const assignedReviewN = [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length;
   const pendingN = pendingSubsN + assignedReviewN;
 
   if (!loaded) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F1F5F9", fontFamily: "'DM Sans'" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 40%, #0F1538 100%)", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ width: 40, height: 40, border: "4px solid #E2E8F0", borderTopColor: "#F37C33", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <div style={{ color: "#64748B", fontSize: 14 }}>Loading…</div>
+        <div style={{ width: 48, height: 48, border: "3px solid rgba(232,122,46,0.15)", borderTopColor: "#E87A2E", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(232,122,46,0.2)" }} />
+        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Initializing SiteIQ™</div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -1805,7 +1802,7 @@ export default function App() {
         </div>
         <SortBar />
         {data.length === 0 ? (
-          <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#94A3B8" }}>No sites yet.</div>
+          <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 40, textAlign: "center", color: "#6B7394", border: "1px solid rgba(201,168,76,0.06)" }}>No sites yet.</div>
         ) : (
           <div style={{ display: "grid", gap: 14 }}>
             {data.map((site) => {
@@ -1817,18 +1814,18 @@ export default function App() {
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#F37C33" : (PRIORITY_COLORS[site.priority] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(243,124,51,0.12), 0 0 0 1px rgba(243,124,51,0.15), 0 0 40px rgba(243,124,51,0.04)", transform: "scale(1.003)", background: "rgba(255,252,248,0.97)" } : {}) }}>
+                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[site.priority] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
                   <div onClick={() => { const next = isOpen ? null : site.id; setExpandedSite(next); if (next) setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA" }}>{site.name}</span>
                         <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
                         <PriorityBadge priority={site.priority} />
-                        <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer" }}>
+                        <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: site.assignedTo ? "1px solid #C9A84C" : "1px solid #E2E8F0", background: site.assignedTo ? "#FFFBEB" : "#F8FAFC", color: site.assignedTo ? "#92700C" : "#94A3B8", cursor: "pointer" }}>
+                        <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: site.assignedTo ? "1px solid #E87A2E" : "1px solid rgba(201,168,76,0.15)", background: site.assignedTo ? "rgba(232,122,46,0.12)" : "rgba(15,21,56,0.6)", color: site.assignedTo ? "#E87A2E" : "#6B7394", cursor: "pointer" }}>
                           <option value="">Assign to...</option>
                           <option value="Dan R">Dan R</option>
                           <option value="Daniel Wollent">Daniel Wollent</option>
@@ -1836,13 +1833,13 @@ export default function App() {
                         </select>
                         {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "1px 6px", borderRadius: 4, border: "1px solid #C9A84C", letterSpacing: "0.04em" }}>NEEDS REVIEW</span>}
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748B" }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
-                      <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#94A3B8", flexWrap: "wrap" }}>
-                        {site.askingPrice && <span>Ask: <strong style={{ color: "#2C2C2C" }}>{site.askingPrice}</strong></span>}
-                        {site.internalPrice && <span>Int: <strong style={{ color: "#F37C33" }}>{site.internalPrice}</strong></span>}
-                        {site.sellerBroker && <span>Broker: <strong style={{ color: "#475569" }}>{site.sellerBroker}</strong></span>}
-                        {docs.length > 0 && <span style={{ color: "#64748B" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
-                        {msgs.length > 0 && <span style={{ color: "#F37C33" }}>💬 {msgs.length}</span>}
+                      <div style={{ fontSize: 12, color: "#6B7394" }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
+                      <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#6B7394", flexWrap: "wrap" }}>
+                        {site.askingPrice && <span>Ask: <strong style={{ color: "#E2E8F0" }}>{site.askingPrice}</strong></span>}
+                        {site.internalPrice && <span>Int: <strong style={{ color: "#E87A2E" }}>{site.internalPrice}</strong></span>}
+                        {site.sellerBroker && <span>Broker: <strong style={{ color: "#C9A84C" }}>{site.sellerBroker}</strong></span>}
+                        {docs.length > 0 && <span style={{ color: "#6B7394" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
+                        {msgs.length > 0 && <span style={{ color: "#E87A2E" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
                       </div>
@@ -1860,12 +1857,12 @@ export default function App() {
                         const curIdx = ids.indexOf(site.id);
                         const prevId = curIdx > 0 ? ids[curIdx - 1] : null;
                         const nextId = curIdx < ids.length - 1 ? ids[curIdx + 1] : null;
-                        const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#fff", color: disabled ? "#CBD5E1" : "#475569", fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
+                        const navBtnStyle = (disabled) => ({ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(201,168,76,0.1)", background: disabled ? "rgba(15,21,56,0.4)" : "rgba(15,21,56,0.5)", color: disabled ? "#CBD5E1" : "#94A3B8", fontSize: 11, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 4 });
                         return (
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px", borderBottom: "1px solid #F1F5F9", marginBottom: 10 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.1)", marginBottom: 10 }}>
                             <button disabled={!prevId} onClick={() => { if (prevId) { setExpandedSite(prevId); setTimeout(() => { const el = document.getElementById(`site-${prevId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!prevId)}>▲ Prev</button>
                             <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.02em" }}>
-                              <span style={{ fontWeight: 700, color: "#475569" }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: "#CBD5E1" }}>↑↓ keys · Esc close</span>
+                              <span style={{ fontWeight: 700, color: "#94A3B8" }}>{curIdx + 1}</span> of {ids.length} · <span style={{ color: "#CBD5E1" }}>↑↓ keys · Esc close</span>
                             </div>
                             <button disabled={!nextId} onClick={() => { if (nextId) { setExpandedSite(nextId); setTimeout(() => { const el = document.getElementById(`site-${nextId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); } }} style={navBtnStyle(!nextId)}>Next ▼</button>
                           </div>
@@ -1883,21 +1880,21 @@ export default function App() {
                             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
                               <div onClick={() => setShowSiteIQDetail(prev => ({ ...prev, [site.id]: !prev[site.id] }))} style={{ cursor: "pointer", position: "relative" }} title="Click for detailed SiteIQ breakdown">
                                 <SiteIQBadge site={site} iq={getSiteIQ(site)} />
-                                <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "#64748B", fontWeight: 600, letterSpacing: "0.06em", whiteSpace: "nowrap", opacity: 0.7 }}>CLICK FOR DETAIL</div>
+                                <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "#6B7394", fontWeight: 600, letterSpacing: "0.06em", whiteSpace: "nowrap", opacity: 0.7 }}>CLICK FOR DETAIL</div>
                               </div>
                               {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
                             </div>
                             {/* Key Metrics Strip — Larger */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
                               {[
-                                { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#F1F5F9" },
-                                { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#F1F5F9") : "#94A3B8" },
-                                { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#F1F5F9" },
-                                { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#F1F5F9" },
-                                { label: "3MI MED INC", val: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : "$" + fmtN(site.income3mi)) : "—", color: "#F1F5F9" },
+                                { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
+                                { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "rgba(201,168,76,0.1)") : "#94A3B8" },
+                                { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0" },
+                                { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#E2E8F0" },
+                                { label: "3MI MED INC", val: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : "$" + fmtN(site.income3mi)) : "—", color: "#E2E8F0" },
                               ].map((m, idx) => (
                                 <div key={idx} style={{ background: "rgba(255,255,255,.07)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(255,255,255,.08)" }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", letterSpacing: "0.08em", marginBottom: 4 }}>{m.label}</div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 4 }}>{m.label}</div>
                                   <div style={{ fontSize: 16, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
                                 </div>
                               ))}
@@ -1923,11 +1920,11 @@ export default function App() {
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                       <span style={{ fontSize: 14 }}>🔬</span>
                                       <span style={{ color: "#FFB347", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SiteIQ™ DETAILED SCORECARD</span>
-                                      <span style={{ color: "#64748B", fontSize: 10 }}>|</span>
+                                      <span style={{ color: "#6B7394", fontSize: 10 }}>|</span>
                                       <span style={{ color: scoreColor(iqD.score), fontSize: 13, fontWeight: 900, fontFamily: "'Space Mono', monospace" }}>{iqD.score.toFixed(1)}</span>
                                       <span style={{ color: scoreColor(iqD.score), fontSize: 10, fontWeight: 800, background: scoreColor(iqD.score) + "18", padding: "2px 6px", borderRadius: 4 }}>{scoreLabel(iqD.score)}</span>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); setShowSiteIQDetail(prev => ({ ...prev, [site.id]: false })); }} style={{ background: "none", border: "1px solid rgba(255,255,255,.15)", borderRadius: 5, color: "#64748B", fontSize: 11, cursor: "pointer", padding: "2px 8px" }}>✕</button>
+                                    <button onClick={(e) => { e.stopPropagation(); setShowSiteIQDetail(prev => ({ ...prev, [site.id]: false })); }} style={{ background: "none", border: "1px solid rgba(255,255,255,.15)", borderRadius: 5, color: "#6B7394", fontSize: 11, cursor: "pointer", padding: "2px 8px" }}>✕</button>
                                   </div>
                                   <div style={{ background: "linear-gradient(180deg,#0F0A05,#0a0a0e)", padding: "8px 12px" }}>
                                     {dims.map((d, i) => {
@@ -1939,7 +1936,7 @@ export default function App() {
                                           <span style={{ fontSize: 13, textAlign: "center" }}>{d.icon}</span>
                                           <div>
                                             <div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{d.label}</div>
-                                            <div style={{ fontSize: 8, color: "#475569", fontWeight: 600, letterSpacing: "0.04em" }}>{(d.weight * 100).toFixed(0)}% WEIGHT</div>
+                                            <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 600, letterSpacing: "0.04em" }}>{(d.weight * 100).toFixed(0)}% WEIGHT</div>
                                           </div>
                                           <div style={{ textAlign: "right", fontSize: 14, fontWeight: 900, color: scoreColor(v), fontFamily: "'Space Mono', monospace" }}>{v}</div>
                                           <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
@@ -1951,7 +1948,7 @@ export default function App() {
                                       );
                                     })}
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px 4px", borderTop: "2px solid rgba(243,124,51,.2)", marginTop: 4 }}>
-                                      <div style={{ fontSize: 10, color: "#64748B", fontWeight: 600 }}>
+                                      <div style={{ fontSize: 10, color: "#6B7394", fontWeight: 600 }}>
                                         {iqD.flags && iqD.flags.length > 0 && iqD.flags.map((f, i) => <span key={i} style={{ display: "inline-block", fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>{f}</span>)}
                                       </div>
                                       <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#FBBF24", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(1)}</span> / 10</div>
@@ -1963,14 +1960,14 @@ export default function App() {
                           </div>
                           {/* Right: Priority + Phase controls */}
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
-                            <select value={site.priority || "⚪ None"} onChange={(e) => updateSiteField(regionKey, site.id, "priority", e.target.value)} style={{ padding: "6px 10px", borderRadius: 7, border: `2px solid ${PRIORITY_COLORS[site.priority] || "rgba(255,255,255,.15)"}`, fontSize: 12, fontFamily: "'DM Sans'", background: "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: PRIORITY_COLORS[site.priority] || "#F1F5F9" }}>
+                            <select value={site.priority || "⚪ None"} onChange={(e) => updateSiteField(regionKey, site.id, "priority", e.target.value)} style={{ padding: "6px 10px", borderRadius: 7, border: `2px solid ${PRIORITY_COLORS[site.priority] || "rgba(255,255,255,.15)"}`, fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: PRIORITY_COLORS[site.priority] || "rgba(201,168,76,0.1)" }}>
                               {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                             </select>
-                            <select value={site.phase || "Prospect"} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'DM Sans'", background: "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 600, color: "#F1F5F9" }}>
+                            <select value={site.phase || "Prospect"} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 600, color: "#E2E8F0" }}>
                               {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                             </select>
                             {/* Assigned To */}
-                            <select value={site.assignedTo || ""} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ padding: "6px 10px", borderRadius: 7, border: site.assignedTo ? "2px solid #C9A84C" : "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'DM Sans'", background: site.assignedTo ? "rgba(201,168,76,.12)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.assignedTo ? "#FFD700" : "#94A3B8" }}>
+                            <select value={site.assignedTo || ""} onChange={(e) => { const val = e.target.value; updateSiteField(regionKey, site.id, "assignedTo", val); if (val && !site.reviewedBy) updateSiteField(regionKey, site.id, "needsReview", true); }} style={{ padding: "6px 10px", borderRadius: 7, border: site.assignedTo ? "2px solid #C9A84C" : "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: site.assignedTo ? "rgba(201,168,76,.12)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.assignedTo ? "#FFD700" : "#94A3B8" }}>
                               <option value="">Assign to...</option>
                               <option value="Dan R">Dan R</option>
                               <option value="Daniel Wollent">Daniel Wollent</option>
@@ -1998,7 +1995,7 @@ export default function App() {
                         </div>
                         {/* Broker + Seller Row */}
                         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          {site.sellerBroker && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Broker: <span style={{ color: "#F1F5F9", fontWeight: 700 }}>{site.sellerBroker}</span></span>}
+                          {site.sellerBroker && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Broker: <span style={{ color: "#E2E8F0", fontWeight: 700 }}>{site.sellerBroker}</span></span>}
                           {site.internalPrice && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Internal Price: <span style={{ color: "#F37C33", fontWeight: 700 }}>{site.internalPrice}</span></span>}
                           {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                         </div>
@@ -2007,7 +2004,7 @@ export default function App() {
                       {/* Aerial / Satellite View */}
                       <div style={{ margin: "0 0 10px" }}>
                         {site.coordinates ? (
-                          <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid #E2E8F0" }}>
+                          <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)" }}>
                             <iframe
                               title={`Aerial — ${site.name}`}
                               src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`}
@@ -2018,7 +2015,7 @@ export default function App() {
                             <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em" }}>AERIAL VIEW</div>
                           </div>
                         ) : (
-                          <div style={{ background: "#F1F5F9", borderRadius: 10, padding: "24px 14px", textAlign: "center", border: "1px dashed #CBD5E1" }}>
+                          <div style={{ background: "rgba(15,21,56,0.3)", borderRadius: 10, padding: "24px 14px", textAlign: "center", border: "1px dashed #CBD5E1" }}>
                             <div style={{ fontSize: 18, marginBottom: 4 }}>🛰️</div>
                             <div style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Add coordinates to generate aerial view</div>
                           </div>
@@ -2038,8 +2035,8 @@ export default function App() {
                       </div>
 
                       {/* Summary */}
-                      <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, margin: "10px 0", border: "1px solid #E2E8F0" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 6 }}>Recent Summary</div>
+                      <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: 14, margin: "10px 0", border: "1px solid rgba(201,168,76,0.08)" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.08em" }}>Recent Summary</div>
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
                       </div>
 
@@ -2059,7 +2056,7 @@ export default function App() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Zoning Class.</div>
-                          <select value={site.zoningClassification || "unknown"} onChange={(e) => { updateSiteField(regionKey, site.id, "zoningClassification", e.target.value); fbPush(`${regionKey}/${site.id}/activityLog`, { action: `Zoning class → ${e.target.value}`, ts: new Date().toISOString(), by: "User" }); }} style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, fontFamily: "'DM Sans'", background: site.zoningClassification === "by-right" ? "#F0FDF4" : site.zoningClassification === "prohibited" ? "#FEF2F2" : "#FAFBFC", color: "#2C2C2C", cursor: "pointer" }}>
+                          <select value={site.zoningClassification || "unknown"} onChange={(e) => { updateSiteField(regionKey, site.id, "zoningClassification", e.target.value); fbPush(`${regionKey}/${site.id}/activityLog`, { action: `Zoning class → ${e.target.value}`, ts: new Date().toISOString(), by: "User" }); }} style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 11, fontFamily: "'Inter', sans-serif", background: site.zoningClassification === "by-right" ? "#F0FDF4" : site.zoningClassification === "prohibited" ? "#FEF2F2" : "rgba(15,21,56,0.35)", color: "#E2E8F0", cursor: "pointer" }}>
                             <option value="unknown">Unknown</option>
                             <option value="by-right">By-Right ✅</option>
                             <option value="conditional">Conditional (SUP/CUP)</option>
@@ -2069,11 +2066,11 @@ export default function App() {
                         </div>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Nearest Facility (mi)</div>
-                          <input type="number" step="0.1" min="0" value={site.siteiqData?.nearestPS || ""} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) fbUpdate(`${regionKey}/${site.id}/siteiqData`, { nearestPS: v }); }} placeholder="5.2" style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, fontFamily: "'DM Sans'", background: "#FAFBFC", color: "#2C2C2C" }} />
+                          <input type="number" step="0.1" min="0" value={site.siteiqData?.nearestPS || ""} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) fbUpdate(`${regionKey}/${site.id}/siteiqData`, { nearestPS: v }); }} placeholder="5.2" style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.35)", color: "#E2E8F0" }} />
                         </div>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Competitors</div>
-                          <input type="number" step="1" min="0" value={site.siteiqData?.competitorCount ?? ""} onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) fbUpdate(`${regionKey}/${site.id}/siteiqData`, { competitorCount: v }); }} placeholder="3" style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, fontFamily: "'DM Sans'", background: "#FAFBFC", color: "#2C2C2C" }} />
+                          <input type="number" step="1" min="0" value={site.siteiqData?.competitorCount ?? ""} onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) fbUpdate(`${regionKey}/${site.id}/siteiqData`, { competitorCount: v }); }} placeholder="3" style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.35)", color: "#E2E8F0" }} />
                         </div>
                       </div>
 
@@ -2110,11 +2107,11 @@ export default function App() {
                                 {demoLoading[site.id] ? "⏳" : "🔄"} {demoLoading[site.id] ? "Loading..." : "Full Report"}
                               </button>
                             </div>
-                            <div style={{ background: "#FAFBFC", padding: "4px 0" }}>
+                            <div style={{ background: "rgba(15,21,56,0.35)", padding: "4px 0" }}>
                               {rows.map((row, i) => (
-                                <div key={i} style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", alignItems: "center", padding: "7px 16px", borderBottom: i < rows.length - 1 ? "1px solid #F1F5F9" : "none", transition: "background .15s" }}>
+                                <div key={i} style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", alignItems: "center", padding: "7px 16px", borderBottom: i < rows.length - 1 ? "1px solid rgba(201,168,76,0.1)" : "none", transition: "background .15s" }}>
                                   <span style={{ fontSize: 13, textAlign: "center" }}>{row.icon}</span>
-                                  <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>{row.label}</span>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{row.label}</span>
                                   <span style={{ fontSize: 13, fontWeight: 800, color: row.color || "#1E293B", fontFamily: "'Space Mono', monospace", textAlign: "right" }}>{row.val}</span>
                                 </div>
                               ))}
@@ -2141,9 +2138,9 @@ export default function App() {
                         const growthColor = (s) => { if (!s && s !== 0) return "#64748B"; const n = typeof s === "number" ? s : parseFloat(String(s)); if (!isNaN(n)) return n > 0 ? "#16A34A" : n < 0 ? "#EF4444" : "#64748B"; const str = String(s); return str.includes("+") ? "#16A34A" : str.includes("-") ? "#EF4444" : "#64748B"; };
                         const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: "0.06em" };
                         const metricCell = { padding: "7px 12px", fontWeight: 700, color: "#E2E8F0", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
-                        const valCell = { padding: "7px 12px", textAlign: "right", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', monospace", borderBottom: "1px solid rgba(255,255,255,.08)" };
+                        const valCell = { padding: "7px 12px", textAlign: "right", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', monospace", borderBottom: "1px solid rgba(255,255,255,.08)" };
                         const goldVal = { ...valCell, color: "#FBBF24" };
-                        const whiteVal = { ...valCell, color: "#F1F5F9" };
+                        const whiteVal = { ...valCell, color: "#E2E8F0" };
                         return (
                           <div style={{ borderRadius: 14, marginBottom: 14, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,.15)" }}>
                             {/* Header */}
@@ -2220,12 +2217,12 @@ export default function App() {
                                     { label: "Outlook", val: dr.growthOutlook, isOutlook: true },
                                   ].map((item, idx) => (
                                     <div key={idx} style={{ background: "rgba(255,255,255,.04)", borderRadius: 8, padding: "6px 8px", textAlign: "center", border: "1px solid rgba(255,255,255,.06)" }}>
-                                      <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{item.label}</div>
+                                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{item.label}</div>
                                       {item.isOutlook ? (
                                         <div style={{ fontSize: 11, fontWeight: 800, color: item.val?.includes("High") || item.val?.includes("Growing") ? "#22C55E" : item.val?.includes("Declining") ? "#EF4444" : "#FBBF24" }}>{item.val || "—"}</div>
                                       ) : (
                                         <>
-                                          <div style={{ fontSize: 12, fontWeight: 700, color: "#F1F5F9", fontFamily: "'DM Sans', monospace" }}>{item.val || "—"}</div>
+                                          <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0", fontFamily: "'Inter', monospace" }}>{item.val || "—"}</div>
                                           {item.growth && <div style={{ fontSize: 9, fontWeight: 700, color: growthColor(item.growth), marginTop: 1 }}>{fmtGrowth(item.growth)} /yr</div>}
                                         </>
                                       )}
@@ -2236,8 +2233,8 @@ export default function App() {
                             )}
                             {/* Footer */}
                             <div style={{ background: "#0F172A", padding: "6px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontSize: 8, color: "#475569", letterSpacing: "0.04em" }}>ESRI ArcGIS GeoEnrichment (paid)</span>
-                              <span style={{ fontSize: 8, color: "#475569" }}>{dr.pulledAt ? `Updated ${new Date(dr.pulledAt).toLocaleDateString()}` : ""}</span>
+                              <span style={{ fontSize: 8, color: "#94A3B8", letterSpacing: "0.04em" }}>ESRI ArcGIS GeoEnrichment (paid)</span>
+                              <span style={{ fontSize: 8, color: "#94A3B8" }}>{dr.pulledAt ? `Updated ${new Date(dr.pulledAt).toLocaleDateString()}` : ""}</span>
                             </div>
                           </div>
                         );
@@ -2247,11 +2244,11 @@ export default function App() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Date on Market</div>
-                          <input type="date" value={site.dateOnMarket || ""} onChange={(e) => updateSiteField(regionKey, site.id, "dateOnMarket", e.target.value)} style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, fontFamily: "'DM Sans'", background: "#FAFBFC", color: "#2C2C2C", outline: "none", boxSizing: "border-box" }} />
+                          <input type="date" value={site.dateOnMarket || ""} onChange={(e) => updateSiteField(regionKey, site.id, "dateOnMarket", e.target.value)} style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 13, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.35)", color: "#E2E8F0", outline: "none", boxSizing: "border-box" }} />
                         </div>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Days on Market</div>
-                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", color: dom !== null ? "#2C2C2C" : "#CBD5E1", fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "—"}</div>
+                          <div style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 13, background: "rgba(15,21,56,0.4)", color: dom !== null ? "#E2E8F0" : "#CBD5E1", fontWeight: dom !== null ? 700 : 400 }}>{dom !== null ? `${dom} days` : "—"}</div>
                         </div>
                       </div>
 
@@ -2262,7 +2259,7 @@ export default function App() {
                           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                             <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
                             <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
-                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: site.listingUrl ? "#FFF3E0" : "#F8FAFC", color: site.listingUrl ? "#E65100" : "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: site.listingUrl ? "none" : "1px dashed #CBD5E1" }}>{site.listingUrl ? "🔗 Property Listing" : "🔍 Search Crexi"}</a>
+                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: site.listingUrl ? "#FFF3E0" : "rgba(15,21,56,0.4)", color: site.listingUrl ? "#E65100" : "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: site.listingUrl ? "none" : "1px dashed #CBD5E1" }}>{site.listingUrl ? "🔗 Property Listing" : "🔍 Search Crexi"}</a>
                             <button onClick={() => {
                               const docs = site.docs ? Object.values(site.docs) : [];
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
@@ -2286,13 +2283,13 @@ export default function App() {
                       </div>
 
                       {/* Documents */}
-                      <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 14, marginBottom: 14, border: "1px solid #E2E8F0" }}>
+                      <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 14, marginBottom: 14, border: "1px solid rgba(201,168,76,0.1)" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 10 }}>📁 Documents</div>
                         {docs.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                             {docs.map(([docKey, doc]) => (
-                              <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
-                                <span style={{ fontWeight: 600, color: "#475569" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
+                              <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.1)", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
+                                <span style={{ fontWeight: 600, color: "#94A3B8" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
                                 <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
                                 <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
                               </div>
@@ -2300,11 +2297,11 @@ export default function App() {
                           </div>
                         )}
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer" }}>
+                          <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, background: "rgba(15,21,56,0.5)", cursor: "pointer" }}>
                             {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
                           </select>
                           <input type="file" id={`doc-upload-${site.id}`} style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
-                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.getElementById(`doc-upload-${site.id}`)?.click(); }} style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "'DM Sans'" }}>
+                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.getElementById(`doc-upload-${site.id}`)?.click(); }} style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "'Inter', sans-serif" }}>
                             + Upload
                           </button>
                         </div>
@@ -2316,23 +2313,23 @@ export default function App() {
                         {msgs.length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxHeight: 200, overflowY: "auto" }}>
                             {[...msgs].sort((a, b) => new Date(a.ts) - new Date(b.ts)).map((m, i) => {
-                              const mc = MSG_COLORS[m.from] || { bg: "#F8FAFC", border: "#E2E8F0", text: "#475569" };
+                              const mc = MSG_COLORS[m.from] || { bg: "rgba(15,21,56,0.4)", border: "rgba(201,168,76,0.1)", text: "#94A3B8" };
                               return (
                                 <div key={i} style={{ background: mc.bg, border: `1px solid ${mc.border}`, borderRadius: 8, padding: "8px 10px" }}>
                                   <div style={{ fontSize: 10, fontWeight: 700, color: mc.text, marginBottom: 2 }}>{m.from} · {m.ts ? new Date(m.ts).toLocaleDateString() : ""}</div>
-                                  <div style={{ fontSize: 13, color: "#2C2C2C" }}>{m.text}</div>
+                                  <div style={{ fontSize: 13, color: "#E2E8F0" }}>{m.text}</div>
                                 </div>
                               );
                             })}
                           </div>
                         )}
                         <div style={{ display: "flex", gap: 6 }}>
-                          <select value={mi.from} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, from: e.target.value } })} style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", minWidth: 130 }}>
+                          <select value={mi.from} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, from: e.target.value } })} style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 11, background: "rgba(15,21,56,0.5)", cursor: "pointer", minWidth: 130 }}>
                             <option>Dan R</option>
                             <option>Daniel Wollent</option>
                             <option>Matthew Toussaint</option>
                           </select>
-                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendMsg(regionKey, site.id); } }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", fontFamily: "'DM Sans'" }} />
+                          <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendMsg(regionKey, site.id); } }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 13, outline: "none", fontFamily: "'Inter', sans-serif" }} />
                           <button type="button" onClick={(e) => { e.preventDefault(); handleSendMsg(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
                         </div>
                       </div>
@@ -2344,7 +2341,7 @@ export default function App() {
                           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
                             {[...logs].sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 20).map((l, i) => (
                               <div key={i} style={{ fontSize: 11, color: "#94A3B8" }}>
-                                <span style={{ color: "#64748B" }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> — {l.action}
+                                <span style={{ color: "#6B7394" }}>{l.ts ? new Date(l.ts).toLocaleDateString() : ""}</span> — {l.action}
                               </div>
                             ))}
                           </div>
@@ -2352,7 +2349,7 @@ export default function App() {
                       )}
 
                       {/* Remove */}
-                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>🗑 Remove Site</button>
+                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}>🗑 Remove Site</button>
                     </div>
                   )}
                 </div>
@@ -2366,17 +2363,25 @@ export default function App() {
 
   // ═══ RENDER ═══
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #0C0C0E 0%, #111114 2%, #F0F2F5 6%, #F0F2F5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 30%, #0F1538 60%, #0A0E2A 100%)", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: "#E2E8F0" }}>
+      {/* AI Data Stream Background Particles */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
+        {[...Array(12)].map((_, i) => (
+          <div key={i} style={{ position: "absolute", left: `${8 + i * 8}%`, bottom: "-10px", width: 2, height: 2, borderRadius: "50%", background: i % 3 === 0 ? "#E87A2E" : i % 3 === 1 ? "#C9A84C" : "#2C3E6B", opacity: 0, animation: `dataStream ${4 + (i % 5) * 2}s ${i * 0.8}s infinite cubic-bezier(0.4,0,0.2,1)` }} />
+        ))}
+        {/* Scan line */}
+        <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent 10%, rgba(232,122,46,0.06) 50%, transparent 90%)", animation: "scanLine 8s linear infinite" }} />
+      </div>
       {transitioning && <div className="tab-transition-overlay" />}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes tabSweep { 0% { transform: scaleX(0); opacity: 0; } 40% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
         @keyframes tabFadeOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.97) translateY(-8px); } }
         @keyframes tabFadeIn { 0% { opacity: 0; transform: scale(0.97) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         .tab-transition-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; pointer-events: none; }
-        .tab-transition-overlay::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #F37C33, #FFB347, #F37C33, transparent); transform-origin: left; animation: tabSweep 0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
-        .tab-transition-overlay::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(243,124,51,0.06) 0%, rgba(10,10,12,0.3) 50%, rgba(10,10,12,0.5) 100%); animation: tabSweep 0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .tab-transition-overlay::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent); transform-origin: left; animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; box-shadow: 0 0 20px rgba(232,122,46,0.5), 0 0 40px rgba(232,122,46,0.2); }
+        .tab-transition-overlay::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(232,122,46,0.04) 0%, rgba(15,21,56,0.3) 50%, rgba(10,14,42,0.5) 100%); animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; }
         .funnel-bar { cursor: pointer; position: relative; overflow: hidden; }
         .funnel-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); transform: translateX(-100%); transition: transform 0.4s ease; }
         .funnel-bar:hover::after { transform: translateX(100%); }
@@ -2398,39 +2403,45 @@ export default function App() {
         @keyframes tabSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes modalIn { from { opacity: 0; transform: scale(0.92) translateY(20px); backdrop-filter: blur(0); } to { opacity: 1; transform: scale(1) translateY(0); backdrop-filter: blur(4px); } }
         @keyframes kpiPulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-        @keyframes cardReveal { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes cardReveal { from { opacity: 0; transform: translateY(12px) scale(0.97); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
         @keyframes glowLine { 0% { left: -40%; } 100% { left: 140%; } }
         @keyframes navUnderlineFire { 0% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 0% 50%; } 100% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 100% 50%; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
-        input, select, textarea, button { font-family: 'DM Sans', sans-serif; }
+        input, select, textarea, button { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
         /* UPGRADED: Card hover with fire-edge glow */
         .site-card { transition: all 0.4s cubic-bezier(0.4,0,0.2,1); position: relative; }
         .site-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 16px; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; box-shadow: 0 0 0 1px rgba(243,124,51,0.15), 0 8px 32px rgba(243,124,51,0.08); z-index: 0; }
-        .site-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.1), 0 0 0 1px rgba(243,124,51,0.12) !important; }
+        .site-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(232,122,46,0.25), 0 0 40px rgba(232,122,46,0.06) !important; }
         .site-card:hover::before { opacity: 1; }
         .site-card-open { transform: none !important; }
         .site-card-open:hover { transform: none !important; }
         /* UPGRADED: Smooth expand with fire accent */
-        .card-expand { animation: slideDown 0.35s cubic-bezier(0.4,0,0.2,1); overflow: hidden; transform-origin: top; }
+        .card-expand { animation: slideDown 0.25s cubic-bezier(0.22,1,0.36,1); overflow: hidden; transform-origin: top; }
         /* UPGRADED: Nav underline with fire gradient */
-        .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761); background-size: 300% 100%; animation: navUnderlineFire 2s ease infinite; border-radius: 3px; box-shadow: 0 0 12px rgba(201,168,76,0.4); }
+        .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #1E2761, #E87A2E, #C9A84C, #E87A2E, #1E2761); background-size: 300% 100%; animation: navUnderlineFire 1.5s ease infinite; border-radius: 3px; box-shadow: 0 0 16px rgba(232,122,46,0.5); }
         /* Sort pill glow */
         .sort-active { box-shadow: 0 0 0 2px rgba(243,124,51,0.25), 0 0 12px rgba(243,124,51,0.08); }
         /* UPGRADED: Scrollbar with fire accent */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.02); }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #C9A84C, #1E2761); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #FFB347, #F37C33); }
+        ::-webkit-scrollbar-track { background: rgba(15,21,56,0.4); }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #E87A2E, #C9A84C); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #FFB347, #E87A2E); }
         /* UPGRADED: KPI number with fire entrance */
         .kpi-number { animation: countUp 0.6s cubic-bezier(0.4,0,0.2,1); }
         /* Tab content transition */
         .tab-content { animation: tabSlide 0.4s cubic-bezier(0.4,0,0.2,1); }
         /* Card staggered reveal */
-        .card-reveal { animation: cardReveal 0.4s cubic-bezier(0.4,0,0.2,1) backwards; }
+        .card-reveal { animation: cardReveal 0.3s cubic-bezier(0.22,1,0.36,1) backwards; }
         /* Fire glow on interactive elements */
         button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.1s; }
-        /* Frosted glass card style */
-        .glass-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.18); }
+        /* Frosted glass card style — dark mode */
+        .glass-card { background: rgba(15,21,56,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(201,168,76,0.08); }
+        /* AI data-stream particles */
+        @keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 20% { opacity: 0.6; } 80% { opacity: 0.3; } 100% { transform: translateY(-20px) scale(0.3); opacity: 0; } }
+        @keyframes lightningPulse { 0% { opacity: 0; } 10% { opacity: 1; } 20% { opacity: 0; } 30% { opacity: 0.7; } 40% { opacity: 0; } 100% { opacity: 0; } }
+        @keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
+        @keyframes dataFlicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
       `}</style>
 
       {/* Toast */}
@@ -2463,7 +2474,7 @@ export default function App() {
         };
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "modalIn 0.35s cubic-bezier(0.4,0,0.2,1)" }} onClick={() => setShowIQConfig(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, maxWidth: 500, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(243,124,51,0.1), 0 0 60px rgba(243,124,51,0.06)", overflow: "hidden", animation: "cardReveal 0.4s cubic-bezier(0.4,0,0.2,1)" }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 20, maxWidth: 500, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(243,124,51,0.1), 0 0 60px rgba(243,124,51,0.06)", overflow: "hidden", animation: "cardReveal 0.4s cubic-bezier(0.4,0,0.2,1)" }}>
               <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 50%, #1a1520 100%)", padding: "22px 26px", color: "#fff", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761, transparent)", opacity: 0.6 }} />
                 <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>⚙️ SiteIQ™ Weight Configuration</div>
@@ -2471,27 +2482,27 @@ export default function App() {
               </div>
               <div style={{ padding: "16px 24px" }}>
                 {iqWeights.map(dim => (
-                  <div key={dim.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #F1F5F9" }}>
+                  <div key={dim.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
                     <span style={{ fontSize: 16, width: 24 }}>{dim.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{dim.label}</div>
                       <div style={{ fontSize: 10, color: "#94A3B8" }}>{dim.tip}</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <button onClick={() => adjustWeight(dim.key, -0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B" }}>−</button>
+                      <button onClick={() => adjustWeight(dim.key, -0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>−</button>
                       <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono', monospace", width: 48, textAlign: "center", color: dim.weight > 0.15 ? "#F37C33" : dim.weight > 0.05 ? "#1E293B" : "#94A3B8" }}>{Math.round(dim.weight * 100)}%</div>
-                      <button onClick={() => adjustWeight(dim.key, 0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B" }}>+</button>
+                      <button onClick={() => adjustWeight(dim.key, 0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>+</button>
                     </div>
                   </div>
                 ))}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: "10px 0", borderTop: "2px solid #E2E8F0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: "10px 0", borderTop: "2px solid rgba(201,168,76,0.1)" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: totalPct === 100 ? "#16A34A" : totalPct > 100 ? "#DC2626" : "#D97706" }}>Total: {totalPct}% {totalPct === 100 ? "✓" : totalPct > 100 ? "(will normalize)" : "(will normalize)"}</div>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, padding: "16px 24px", borderTop: "1px solid #E2E8F0", background: "#F8FAFC" }}>
-                <button onClick={handleResetDefaults} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Reset Defaults</button>
+              <div style={{ display: "flex", gap: 8, padding: "16px 24px", borderTop: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)" }}>
+                <button onClick={handleResetDefaults} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Reset Defaults</button>
                 <div style={{ flex: 1 }} />
-                <button onClick={() => setShowIQConfig(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+                <button onClick={() => setShowIQConfig(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
                 <button onClick={handleSaveWeights} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#C9A84C 0%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
                   onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 6px 24px rgba(243,124,51,0.45), 0 0 0 2px rgba(243,124,51,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(243,124,51,0.35), 0 0 0 1px rgba(243,124,51,0.1)"; e.currentTarget.style.transform = "translateY(0)"; }}
@@ -2508,7 +2519,7 @@ export default function App() {
           <span style={{ fontSize: 13, color: "#92700C", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />{newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
-            <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
+            <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
           </div>
         </div>
       )}
@@ -2539,15 +2550,15 @@ export default function App() {
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.06em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>SITEIQ</div>
                 <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>Acquisition Pipeline <span style={{ color: "#C9A84C", fontWeight: 700 }}>·</span> <span style={{ fontWeight: 800, color: "#C9A84C" }}>4.0</span></div>
-                <div style={{ fontSize: 8, color: "#64748B", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC</div>
+                <div style={{ fontSize: 8, color: "#6B7394", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowIQConfig(true)} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
+              <button onClick={() => setShowIQConfig(true)} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(201,168,76,0.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
               >⚙️ SiteIQ Config</button>
-              <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(243,124,51,0.25)", background: "rgba(243,124,51,0.06)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
+              <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(243,124,51,0.25)", background: "rgba(243,124,51,0.06)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(243,124,51,0.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
               >⬇ Export Excel</button>
@@ -2566,8 +2577,8 @@ export default function App() {
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
-              onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#C9A84C"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 12px rgba(201,168,76,0.3)"; } }}
-              onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#64748B"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.textShadow = "none"; } }}
+              onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#E87A2E"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 16px rgba(232,122,46,0.4)"; } }}
+              onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#6B7394"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.textShadow = "none"; } }}
             >
               {n.label}
               {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />}
@@ -2577,7 +2588,7 @@ export default function App() {
       </div>
 
       {/* Main content */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px", position: "relative", zIndex: 1 }}>
 
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
@@ -2676,7 +2687,6 @@ export default function App() {
               const phaseGroups = [
                 { label: "Prospect", phases: ["Prospect", "Incoming", "Scored"], color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "LOI", phases: ["LOI Sent", "LOI Signed"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
-                { label: "PSA", phases: ["PSA Sent"], color: "#8B5CF6", icon: "📄", action: () => navigateTo("summary", { phase: "PSA Sent" }) },
                 { label: "Under Contract", phases: ["Under Contract", "Due Diligence"], color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", phases: ["Closed"], color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
@@ -2684,7 +2694,7 @@ export default function App() {
               const maxPhaseCount = Math.max(...phaseGroups.map(g => g.count), 1);
 
               // --- Move type classification ---
-              const advancePhases = ["LOI Sent", "LOI Signed", "PSA Sent", "Under Contract", "Due Diligence", "Closed", "Client Approved"];
+              const advancePhases = ["LOI Sent", "LOI Signed", "Under Contract", "Due Diligence", "Closed", "Client Approved"];
               const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "Client Declined" ? "🔴" : "🔵";
               const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "Client Declined" ? "EXITED" : "MOVED";
 
@@ -2701,7 +2711,7 @@ export default function App() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #F37C33, #D45500)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(243,124,51,0.4)" }}>⚡</div>
                       <div>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F8FAFC", letterSpacing: "0.02em" }}>Deal Momentum</h3>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "rgba(15,21,56,0.4)", letterSpacing: "0.02em" }}>Deal Momentum</h3>
                         <div style={{ fontSize: 10, color: "rgba(148,163,184,0.7)", fontWeight: 500, marginTop: 1 }}>Pipeline value & recent activity</div>
                       </div>
                     </div>
@@ -2786,7 +2796,6 @@ export default function App() {
                 { label: "Submitted to Client", count: all.filter(s => s.phase === "Submitted to Client" || s.phase === "Client Revisions").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to Client" }) },
                 { label: "Client Approved", count: all.filter(s => s.phase === "Client Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "Client Approved" }) },
                 { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
-                { label: "PSA Sent", count: all.filter(s => s.phase === "PSA Sent").length, color: "#8B5CF6", icon: "📄", action: () => navigateTo("summary", { phase: "PSA Sent" }) },
                 { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
@@ -2795,7 +2804,7 @@ export default function App() {
                 <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(243,124,51,0.2), rgba(255,179,71,0.3), rgba(243,124,51,0.2), transparent)" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#1a1a1a" }}>Pipeline Funnel</h3>
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F4F6FA" }}>Pipeline Funnel</h3>
                     {declined > 0 && <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 600 }}>{declined} declined/dead</span>}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
@@ -2803,11 +2812,11 @@ export default function App() {
                       const widthPct = stage.count > 0 ? Math.max(25, 30 + (1 - idx / (funnelStages.length - 1)) * 70) : 25;
                       return (
                         <div key={stage.label} onClick={stage.count > 0 ? stage.action : undefined} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, cursor: stage.count > 0 ? "pointer" : "default" }}>
-                          <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#64748B", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
+                          <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#6B7394", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
                           <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
                             <div className={stage.count > 0 ? "funnel-bar" : ""} style={{
                               width: `${widthPct}%`,
-                              background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "#F1F5F9",
+                              background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "rgba(15,21,56,0.3)",
                               borderRadius: idx === 0 ? "10px 10px 6px 6px" : idx === funnelStages.length - 1 ? "6px 6px 10px 10px" : 6,
                               padding: "8px 12px",
                               display: "flex",
@@ -2839,13 +2848,13 @@ export default function App() {
               const total = r.data.length || 1;
               const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
               return (
-                <div key={r.label} onClick={() => navigateTo(r.tabKey)} className="site-card card-reveal funnel-bar" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", cursor: "pointer", backdropFilter: "blur(8px)", animationDelay: "0.7s", position: "relative", overflow: "hidden" }}>
+                <div key={r.label} onClick={() => navigateTo(r.tabKey)} className="site-card card-reveal funnel-bar" style={{ background: "rgba(15,21,56,0.6)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(201,168,76,0.06)", cursor: "pointer", backdropFilter: "blur(12px)", animationDelay: "0.7s", position: "relative", overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
                     <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{r.data.length} sites</span>
                   </div>
                   {/* Visual pipeline bar */}
-                  <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 10, background: "#F1F5F9" }}>
+                  <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 10, background: "rgba(15,21,56,0.3)" }}>
                     {PHASES.map((p, idx) => {
                       const c = r.data.filter((s) => s.phase === p).length;
                       return c > 0 ? <div key={p} title={`${p}: ${c}`} style={{ width: `${(c / total) * 100}%`, background: phaseColors[idx] || r.accent, transition: "width 0.5s ease" }} /> : null;
@@ -2853,7 +2862,7 @@ export default function App() {
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {PHASES.map((p, idx) => { const c = r.data.filter((s) => s.phase === p).length; return (
-                      <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${phaseColors[idx]}11` : "#F8FAFC", border: c > 0 ? `1px solid ${phaseColors[idx]}33` : "1px solid #E2E8F0", transition: "all 0.2s" }}>
+                      <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${phaseColors[idx]}11` : "rgba(15,21,56,0.4)", border: c > 0 ? `1px solid ${phaseColors[idx]}33` : "1px solid rgba(201,168,76,0.1)", transition: "all 0.2s" }}>
                         <div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? phaseColors[idx] : "#CBD5E1" }}>{c}</div>
                         <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div>
                       </div>
@@ -2867,14 +2876,14 @@ export default function App() {
 
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
-          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 1 };
-          const td = { padding: "8px 10px", fontSize: 11, color: "#475569", borderBottom: "1px solid #F1F5F9", whiteSpace: "nowrap" };
+          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", borderBottom: "2px solid rgba(201,168,76,0.1)", whiteSpace: "nowrap", position: "sticky", top: 0, background: "rgba(15,21,56,0.4)", zIndex: 1 };
+          const td = { padding: "8px 10px", fontSize: 11, color: "#94A3B8", borderBottom: "1px solid rgba(201,168,76,0.1)", whiteSpace: "nowrap" };
           const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
           const allStates = [...new Set([...sw, ...east].map(s => s.state).filter(Boolean))].sort();
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
             const raw = sortData(rk === "east" ? east : sw);
-            const PHASE_GROUPS = { "Prospect": ["Prospect", "Incoming", "Scored"], "LOI Sent": ["LOI Sent", "LOI Signed"], "PSA Sent": ["PSA Sent"], "Under Contract": ["Under Contract", "Due Diligence"], "Submitted to Client": ["Submitted to Client", "Client Revisions"] };
+            const PHASE_GROUPS = { "Prospect": ["Prospect", "Incoming", "Scored"], "LOI Sent": ["LOI Sent", "LOI Signed"], "Under Contract": ["Under Contract", "Due Diligence"], "Submitted to Client": ["Submitted to Client", "Client Revisions"] };
             const matchPhase = (sPhase) => filterPhase === "all" || sPhase === filterPhase || (PHASE_GROUPS[filterPhase] && PHASE_GROUPS[filterPhase].includes(sPhase));
             const d = raw.filter(s => (filterState === "all" || s.state === filterState) && matchPhase(s.phase));
             return (
@@ -2884,23 +2893,23 @@ export default function App() {
                   <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: r.color }}>{r.label}</h3>
                   <span style={{ fontSize: 12, color: "#94A3B8" }}>({d.length}{d.length !== raw.length ? ` of ${raw.length}` : ""})</span>
                 </div>
-                {d.length === 0 ? <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
-                  <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid #E2E8F0", maxHeight: 420 }}>
-                    <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "#fff" }}>
+                {d.length === 0 ? <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: 20, textAlign: "center", color: "#94A3B8" }}>No sites.</div> : (
+                  <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid rgba(201,168,76,0.1)", maxHeight: 420 }}>
+                    <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "rgba(15,21,56,0.5)" }}>
                       <thead>
                         <tr>{["SiteIQ", "Name", "City", "ST", "Phase", "Ask", "Acres", "3mi Pop", "Broker", "DOM", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => navigateTo(rk, { siteId: s.id })} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => navigateTo(rk, { siteId: s.id })} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "#FAFBFC" : "#fff"; }}
+                            onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
                           >
                             <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} /></td>
-                            <td style={{ ...td, fontWeight: 600, color: "#2C2C2C" }}>{s.name}</td>
+                            <td style={{ ...td, fontWeight: 600, color: "#E2E8F0" }}>{s.name}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "#F1F5F9", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
+                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "rgba(15,21,56,0.3)", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
                             <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
@@ -2918,20 +2927,20 @@ export default function App() {
           };
           return (
             <div style={{ animation: "fadeIn .3s ease-out" }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#2C2C2C" }}>📊 Summary</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#E2E8F0" }}>📊 Summary</h2>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
               <SortBar />
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Filter:</span>
-                  <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: "#475569", background: filterState !== "all" ? "#FFF7ED" : "#fff" }}>
+                  <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", color: "#94A3B8", background: filterState !== "all" ? "#FFF7ED" : "rgba(15,21,56,0.5)" }}>
                     <option value="all">All States</option>
                     {allStates.map(st => <option key={st} value={st}>{st}</option>)}
                   </select>
-                  <select value={filterPhase} onChange={(e) => setFilterPhase(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", color: "#475569", background: filterPhase !== "all" ? "#FFF7ED" : "#fff" }}>
+                  <select value={filterPhase} onChange={(e) => setFilterPhase(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", color: "#94A3B8", background: filterPhase !== "all" ? "#FFF7ED" : "rgba(15,21,56,0.5)" }}>
                     <option value="all">All Phases</option>
                     {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  {(filterState !== "all" || filterPhase !== "all") && <button onClick={() => { setFilterState("all"); setFilterPhase("all"); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", cursor: "pointer" }}>✕ Clear</button>}
+                  {(filterState !== "all" || filterPhase !== "all") && <button onClick={() => { setFilterState("all"); setFilterPhase("all"); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#94A3B8", cursor: "pointer" }}>✕ Clear</button>}
               </div>
               <SumTable rk="southwest" />
               <SumTable rk="east" />
@@ -2942,50 +2951,50 @@ export default function App() {
         {/* ═══ SUBMIT ═══ */}
         {tab === "submit" && (
           <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
-            <div style={{ background: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
+            <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
               <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Submit Site</h2>
-              <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F1F5F9", borderRadius: 10, padding: 3 }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "rgba(15,21,56,0.3)", borderRadius: 10, padding: 3 }}>
                 {[["direct", "⚡ Direct to Tracker"], ["review", "📋 Send to Review"]].map(([k, l]) => (
-                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans'", background: submitMode === k ? "#fff" : "transparent", color: submitMode === k ? "#2C2C2C" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
+                  <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', sans-serif", background: submitMode === k ? "rgba(15,21,56,0.5)" : "transparent", color: submitMode === k ? "#E2E8F0" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
                 ))}
               </div>
               {/* ── Flyer Upload Zone ── */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>📄 Flyer <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— auto-extracts acreage, price, zoning & broker</span></div>
-              <div style={{ border: flyerFile ? "2px solid #F37C33" : "2px dashed #E2E8F0", borderRadius: 12, padding: flyerFile ? 14 : 20, textAlign: "center", background: flyerFile ? "#FFF8F3" : "#F8FAFC", marginBottom: 16, cursor: "pointer", transition: "all .2s" }} onClick={() => !flyerParsing && flyerRef.current?.click()} onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#F37C33"; }} onDragLeave={(e) => { e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; }} onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "#E2E8F0"; const f = e.dataTransfer.files?.[0]; if (f) parseFlyer(f); }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>📄 Flyer <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— auto-extracts acreage, price, zoning & broker</span></div>
+              <div style={{ border: flyerFile ? "2px solid #F37C33" : "2px dashed #E2E8F0", borderRadius: 12, padding: flyerFile ? 14 : 20, textAlign: "center", background: flyerFile ? "#FFF8F3" : "rgba(15,21,56,0.4)", marginBottom: 16, cursor: "pointer", transition: "all .2s" }} onClick={() => !flyerParsing && flyerRef.current?.click()} onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#F37C33"; }} onDragLeave={(e) => { e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "rgba(201,168,76,0.1)"; }} onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = flyerFile ? "#F37C33" : "rgba(201,168,76,0.1)"; const f = e.dataTransfer.files?.[0]; if (f) parseFlyer(f); }}>
                 <input ref={flyerRef} type="file" accept=".pdf,image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFlyer(f); }} />
                 {flyerParsing ? (
-                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div><div style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Extracting info from flyer…</div></div>
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div><div style={{ fontSize: 12, color: "#6B7394", fontWeight: 600 }}>Extracting info from flyer…</div></div>
                 ) : flyerFile ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    {flyerPreview && <img src={flyerPreview} alt="Flyer preview" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #E2E8F0" }} />}
+                    {flyerPreview && <img src={flyerPreview} alt="Flyer preview" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)" }} />}
                     {!flyerPreview && <div style={{ width: 48, height: 48, borderRadius: 6, background: "#FFF3E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>}
                     <div style={{ textAlign: "left", flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#2C2C2C" }}>{flyerFile.name}</div>
-                      <div style={{ fontSize: 11, color: "#64748B" }}>{(flyerFile.size / 1024).toFixed(0)} KB — fields auto-populated</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>{flyerFile.name}</div>
+                      <div style={{ fontSize: 11, color: "#6B7394" }}>{(flyerFile.size / 1024).toFixed(0)} KB — fields auto-populated</div>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
+                    <button onClick={(e) => { e.stopPropagation(); setFlyerFile(null); setFlyerPreview(null); if (flyerRef.current) flyerRef.current.value = ""; }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
                   </div>
                 ) : (
-                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
+                  <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: "#94A3B8" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
                 )}
               </div>
               {/* ── Additional Attachments ── */}
-              <div style={{ marginBottom: 16, background: "#F8FAFC", borderRadius: 10, padding: 14, border: "1px solid #E2E8F0" }}>
+              <div style={{ marginBottom: 16, background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 14, border: "1px solid rgba(201,168,76,0.1)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2C2C2C", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— survey, PSA, environmental, etc.</span></div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— survey, PSA, environmental, etc.</span></div>
                   <button onClick={() => attachRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#2C2C2C", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Add File</button>
                   <input ref={attachRef} type="file" accept=".pdf,image/*,.doc,.docx,.xlsx,.xls,.csv" multiple style={{ display: "none" }} onChange={(e) => { const files = Array.from(e.target.files || []); const newA = files.map((f) => ({ file: f, type: "Other", id: uid() })); setAttachments((prev) => [...prev, ...newA]); e.target.value = ""; }} />
                 </div>
                 {attachments.length > 0 && (
                   <div style={{ display: "grid", gap: 6 }}>
                     {attachments.map((a) => (
-                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#FAFAFA" }}>
+                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "#FAFAFA" }}>
                         <div style={{ fontSize: 16 }}>{a.file.name.match(/\.pdf$/i) ? "📄" : a.file.type?.startsWith("image/") ? "🖼️" : "📎"}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#2C2C2C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
                           <div style={{ fontSize: 10, color: "#94A3B8" }}>{(a.file.size / 1024).toFixed(0)} KB</div>
                         </div>
-                        <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11, background: "#fff", cursor: "pointer", color: "#475569" }}>
+                        <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", fontSize: 11, background: "rgba(15,21,56,0.5)", cursor: "pointer", color: "#94A3B8" }}>
                           {DOC_TYPES.filter((t) => t !== "Flyer").map((t) => <option key={t}>{t}</option>)}
                         </select>
                         <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
@@ -2997,26 +3006,26 @@ export default function App() {
               </div>
               {/* ── Form Fields ── */}
               <div style={{ display: "grid", gap: 12 }}>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Address *</label><input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address" /></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>City *</label><input style={inp} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>State *</label><input style={inp} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Acreage</label><input style={inp} value={form.acreage} onChange={(e) => setForm({ ...form, acreage: e.target.value })} placeholder="e.g. 3.5" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Asking Price</label><input style={inp} value={form.askingPrice} onChange={(e) => setForm({ ...form, askingPrice: e.target.value })} placeholder="e.g. $1,200,000" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Acreage</label><input style={inp} value={form.acreage} onChange={(e) => setForm({ ...form, acreage: e.target.value })} placeholder="e.g. 3.5" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Asking Price</label><input style={inp} value={form.askingPrice} onChange={(e) => setForm({ ...form, askingPrice: e.target.value })} placeholder="e.g. $1,200,000" /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Zoning</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Seller / Broker</label><input style={inp} value={form.sellerBroker} onChange={(e) => setForm({ ...form, sellerBroker: e.target.value })} placeholder="Broker name" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Zoning</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Seller / Broker</label><input style={inp} value={form.sellerBroker} onChange={(e) => setForm({ ...form, sellerBroker: e.target.value })} placeholder="Broker name" /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Coordinates</label><input style={inp} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="lat, lng" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Coordinates</label><input style={inp} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="lat, lng" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
                 </div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
-                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
+                <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
                 <button onClick={handleSubmit} style={{ padding: "12px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: submitMode === "direct" ? "linear-gradient(135deg,#F37C33,#E8650A)" : "linear-gradient(135deg,#2C2C2C,#3D3D3D)", color: "#fff", fontSize: 14, fontWeight: 700 }}>
                   {submitMode === "direct" ? "⚡ Add Now" : "📋 Submit for Review"}
                 </button>
@@ -3025,7 +3034,7 @@ export default function App() {
                 <div style={{ background: "#FFF3E0", border: "1px solid #F37C33", borderRadius: 10, padding: 14, marginTop: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>✅ Submitted! Share this review link:</div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", outline: "none" }} onClick={(e) => e.target.select()} />
+                    <input readOnly value={`${window.location.origin}${window.location.pathname}?review=${shareLink}`} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, background: "rgba(15,21,56,0.5)", outline: "none" }} onClick={(e) => e.target.select()} />
                     <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?review=${shareLink}`); notify("Copied!"); }} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📋 Copy</button>
                   </div>
                 </div>
@@ -3063,22 +3072,22 @@ export default function App() {
                   </div>
                   {Object.entries(byPerson).map(([person, sites]) => (
                     <div key={person} style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6, padding: "4px 10px", background: "#F8FAFC", borderRadius: 8, display: "inline-block", border: "1px solid #E2E8F0" }}>{person} ({sites.length})</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 6, padding: "4px 10px", background: "rgba(15,21,56,0.4)", borderRadius: 8, display: "inline-block", border: "1px solid rgba(201,168,76,0.1)" }}>{person} ({sites.length})</div>
                       <div style={{ display: "grid", gap: 8 }}>
                         {sites.map(site => (
-                          <div key={site.id} style={{ background: "#fff", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #C9A84C", transition: "all 0.3s" }}>
+                          <div key={site.id} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #C9A84C", transition: "all 0.3s" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: 14, fontWeight: 700, color: "#2C2C2C" }}>{site.name}</span>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: "#E2E8F0" }}>{site.name}</span>
                               <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
                               <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
                             </div>
-                            <div style={{ fontSize: 11, color: "#64748B", marginBottom: 4 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `· ${site.acreage} ac` : ""} {site.askingPrice ? `· ${site.askingPrice}` : ""}</div>
+                            <div style={{ fontSize: 11, color: "#6B7394", marginBottom: 4 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `· ${site.acreage} ac` : ""} {site.askingPrice ? `· ${site.askingPrice}` : ""}</div>
                             <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 6 }}>Phase: {site.phase || "Prospect"} · Tracker: {site._region === "southwest" ? "DW" : "MT"}</div>
                             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                               <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); notify(`Reviewed: ${site.name}`); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(22,163,74,0.25)" }}>✓ Mark Reviewed</button>
-                              <button onClick={() => navigateTo(site._region, { siteId: site.id })} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}
+                              <button onClick={() => navigateTo(site._region, { siteId: site.id })} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}
                                 onMouseEnter={(e) => { e.currentTarget.style.background = "#FFF3E0"; e.currentTarget.style.borderColor = "#F37C33"; e.currentTarget.style.color = "#E65100"; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.color = "#475569"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(15,21,56,0.5)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.1)"; e.currentTarget.style.color = "#94A3B8"; }}
                               >Open in Tracker →</button>
                               <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
                             </div>
@@ -3093,9 +3102,9 @@ export default function App() {
 
             <SortBar />
             {subs.length === 0 && [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length === 0 ? (
-              <div style={{ background: "#fff", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#475569", marginBottom: 6 }}>Review Queue Empty</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#94A3B8", marginBottom: 6 }}>Review Queue Empty</div>
                 <div style={{ fontSize: 12, color: "#94A3B8", maxWidth: 380, margin: "0 auto", lineHeight: 1.5 }}>Sites submitted via "Submit Site" or assigned to someone in a tracker appear here. Assign sites using the "Assign to..." dropdown on any site card.</div>
               </div>
             ) : (
@@ -3105,7 +3114,7 @@ export default function App() {
                   const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
                   const isHL = highlightedSite === site.id;
                   return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "#fff", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
+                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                         <span onClick={site.status === "approved" && site.region ? () => navigateTo(site.region, { siteId: site.id }) : undefined} style={{ fontSize: 15, fontWeight: 700, cursor: site.status === "approved" ? "pointer" : "default", transition: "color 0.2s" }}
                           onMouseEnter={(e) => { if (site.status === "approved") e.currentTarget.style.color = "#F37C33"; }}
@@ -3113,30 +3122,30 @@ export default function App() {
                         >{site.name}</span>
                         <SiteIQBadge site={site} size="small" />
                         <Badge status={site.status} />
-                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748B", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
+                      <div style={{ fontSize: 12, color: "#6B7394", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
                       {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
                       {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>📍 Pin Drop</a></div>}
                       {site.status === "pending" ? (
-                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(201,168,76,0.1)" }}>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                             <select value={ri.routeTo || site.region || ""} onChange={(e) => setRI("routeTo", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "2px solid #C9A84C", fontSize: 12, background: "#FFFBEB", cursor: "pointer", minWidth: 160, fontWeight: 700, color: "#92700C" }}>
                               <option value="">Route to…</option>
                               <option value="southwest">→ Daniel Wollent (DW)</option>
                               <option value="east">→ Matthew Toussaint (MT)</option>
                             </select>
-                            <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, background: "#fff", cursor: "pointer", minWidth: 100 }}>
+                            <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, background: "rgba(15,21,56,0.5)", cursor: "pointer", minWidth: 100 }}>
                               <option value="">Reviewer…</option>
                               <option>Dan R</option>
                               <option>Daniel Wollent</option>
                               <option>Matthew Toussaint</option>
                             </select>
-                            <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 12, outline: "none" }} />
+                            <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, outline: "none" }} />
                           </div>
                           <div style={{ display: "flex", gap: 6 }}>
                             <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Approve & Route</button>
-                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", color: "#64748B", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
+                            <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
                           </div>
                         </div>
                       ) : (site.reviewedBy || site.reviewNote) && (
@@ -3159,7 +3168,7 @@ export default function App() {
       </div>
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
-                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid #E2E8F0", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
+                  <div style={{ textAlign: "center", padding: "18px 0 14px", borderTop: "1px solid rgba(201,168,76,0.1)", marginTop: 24, color: "#94A3B8", fontSize: 11, letterSpacing: 0.3 }}>
                           © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Proprietary software — unauthorized reproduction prohibited.
                                 </div>
     </div>
