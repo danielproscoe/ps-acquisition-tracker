@@ -2553,7 +2553,11 @@ export default function App() {
         @keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.8; transform: translateY(80vh) scale(1); } 50% { opacity: 0.4; } 90% { opacity: 0.2; } 100% { transform: translateY(-20px) scale(0.2); opacity: 0; } }
         @keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
         @keyframes nodePulse { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 0.8; transform: scale(1.5); } 50% { opacity: 0.3; transform: scale(1); } 70% { opacity: 0.6; transform: scale(1.3); } 100% { opacity: 0; transform: scale(0.5); } }
-        @keyframes glitchText { 0%, 100% { transform: translate(0); text-shadow: none; } 1% { transform: translate(-1px, 0); text-shadow: 1px 0 rgba(57,255,20,0.25), -1px 0 rgba(232,122,46,0.25); } 2% { transform: translate(0); text-shadow: none; } }
+        @keyframes logoAutoSpin { 0% { transform: rotate(0deg); } 50% { transform: rotate(1800deg); } 100% { transform: rotate(3600deg); } }
+        @keyframes logoClickSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(1080deg) scale(1.15); } 100% { transform: rotate(2160deg) scale(1); } }
+        .logo-auto-spin { animation: logoAutoSpin 8s ease-in-out infinite; }
+        .logo-click-spin { animation: logoClickSpin 1.2s cubic-bezier(0.2, 0, 0, 1) !important; }
+        .logo-spin-container:hover { box-shadow: 0 4px 30px rgba(232,122,46,0.4), 0 0 0 2px rgba(201,168,76,0.25) !important; }
         @keyframes kpiElectric { 0% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } 50% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(57,255,20,0.05); } 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } }
         @keyframes speedStreak { 0% { transform: translateX(-100%) scaleY(0.5); opacity: 0; } 30% { opacity: 0.8; transform: translateX(0) scaleY(1); } 100% { transform: translateX(200%) scaleY(0.5); opacity: 0; } }
       `}</style>
@@ -2640,42 +2644,17 @@ export default function App() {
 
       {/* Header — SiteIQ Theme */}
       <div style={STYLES.frostedHeader}>
-        {/* Ambient gold line across header bottom */}
-        {/* Electric header accent line */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 0%, #39FF14 10%, #00E5FF 25%, #E87A2E 40%, #FFD700 50%, #E87A2E 60%, #00E5FF 75%, #39FF14 90%, transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 2s linear infinite", opacity: 0.7 }} />
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(57,255,20,0.3), transparent)", animation: "scanLine 3s linear infinite", boxShadow: "0 0 8px rgba(57,255,20,0.3)" }} />
+        {/* Clean header accent */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 0%, #1E2761 15%, #C9A84C 35%, #E87A2E 50%, #C9A84C 65%, #1E2761 85%, transparent 100%)", opacity: 0.5 }} />
         {/* SiteIQ Banner */}
         <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.08)", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 52, height: 52, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {/* Speed streaks behind turbine */}
-                <div style={{ position: "absolute", top: 12, left: -20, width: 30, height: 1, background: "linear-gradient(90deg, transparent, #39FF14, transparent)", animation: "speedStreak 3s ease-in-out infinite", opacity: 0.6 }} />
-                <div style={{ position: "absolute", top: 24, left: -16, width: 24, height: 1, background: "linear-gradient(90deg, transparent, #00E5FF, transparent)", animation: "speedStreak 3s ease-in-out 0.5s infinite", opacity: 0.4 }} />
-                <div style={{ position: "absolute", top: 36, left: -22, width: 28, height: 1, background: "linear-gradient(90deg, transparent, #E87A2E, transparent)", animation: "speedStreak 3s ease-in-out 1s infinite", opacity: 0.5 }} />
-                {/* Lightning arcs — faster */}
-                <div style={{ position: "absolute", top: -6, left: 8, width: 36, height: 2, background: "linear-gradient(90deg, transparent, #39FF14, #00E5FF, #39FF14, transparent)", borderRadius: 1, animation: "lightning-arc 4s ease-in-out infinite", transformOrigin: "left center" }} />
-                <div style={{ position: "absolute", bottom: -4, right: 4, width: 32, height: 2, background: "linear-gradient(90deg, transparent, #E87A2E, #FFD700, #E87A2E, transparent)", borderRadius: 1, animation: "lightning-arc 4s ease-in-out 2s infinite", transformOrigin: "right center" }} />
-                <div style={{ position: "absolute", left: -6, top: 20, width: 2, height: 20, background: "linear-gradient(180deg, transparent, #39FF14, transparent)", animation: "lightning-arc 5s ease-in-out 1s infinite" }} />
-                <svg viewBox="0 0 64 64" style={{ width: 52, height: 52, animation: "siteiq-spin 8s cubic-bezier(0.4, 0, 0.2, 1) infinite, turbine-pulse 8s ease-in-out infinite" }}>
-                  <defs>
-                    <radialGradient id="iqbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#0F1538"/><stop offset="80%" stopColor="#0a0a0c"/><stop offset="100%" stopColor="#1E2761"/></radialGradient>
-                    <linearGradient id="iqblade" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#39FF14" stopOpacity="0.95"/><stop offset="50%" stopColor="#00E5FF" stopOpacity="0.8"/><stop offset="100%" stopColor="#E87A2E" stopOpacity="0.6"/></linearGradient>
-                    <linearGradient id="iqblade2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#E87A2E" stopOpacity="0.9"/><stop offset="100%" stopColor="#C9A84C" stopOpacity="0.5"/></linearGradient>
-                    <radialGradient id="iqcore" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#1E2761"/><stop offset="60%" stopColor="#0F1538"/><stop offset="100%" stopColor="#0a0a0c"/></radialGradient>
-                  </defs>
-                  <rect width="64" height="64" rx="14" fill="url(#iqbg)" stroke="#2C3E6B" strokeWidth="0.5"/>
-                  <g transform="translate(32,32)">
-                    {[0,60,120,180,240,300].map((r,i) => <path key={r} d="M0,-20 Q9,-9 2.5,-1.5 Q-2.5,-5 0,-20Z" fill={i % 2 === 0 ? "url(#iqblade)" : "url(#iqblade2)"} opacity="0.9" transform={`rotate(${r})`}/>)}
-                    <circle r="9" fill="url(#iqcore)" stroke="#39FF14" strokeWidth="0.8" opacity="0.6"/>
-                    <circle r="6" fill="none" stroke="#E87A2E" strokeWidth="0.4" opacity="0.5"/>
-                    <circle r="3" fill="#39FF14" opacity="0.15"/>
-                  </g>
-                  <text x="32" y="37" textAnchor="middle" fontFamily="'Inter',system-ui,sans-serif" fontWeight="900" fontSize="11" fill="#E2E8F0" letterSpacing="-0.3" opacity="0.9">IQ</text>
-                </svg>
+              <div className="logo-spin-container" onClick={(e) => { e.currentTarget.querySelector('.logo-img')?.classList.remove('logo-click-spin'); void e.currentTarget.querySelector('.logo-img')?.offsetWidth; e.currentTarget.querySelector('.logo-img')?.classList.add('logo-click-spin'); }} style={{ width: 48, height: 48, borderRadius: 12, overflow: "hidden", cursor: "pointer", position: "relative", boxShadow: "0 4px 20px rgba(232,122,46,0.25), 0 0 0 1px rgba(201,168,76,0.15)", flexShrink: 0 }}>
+                <img className="logo-img logo-auto-spin" src="/siteiq-logo.png" alt="SiteIQ" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #39FF14 0%, #00E5FF 20%, #fff 40%, #C9A84C 55%, #FFD700 70%, #E87A2E 85%, #39FF14 100%)", backgroundSize: "400% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite, glitchText 15s step-end infinite" }}>SITEIQ</div>
+                <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>SITEIQ</div>
                 <div style={{ fontSize: 10, color: "#6B7394", letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 1 }}>AI-Powered Land Acquisition Engine</div>
                 <div style={{ fontSize: 8, color: "#6B7394", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC</div>
               </div>
