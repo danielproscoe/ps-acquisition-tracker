@@ -3535,20 +3535,30 @@ export default function App() {
           const docs = site.docs ? Object.entries(site.docs) : [];
           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
+          // Keyboard nav for detail view
+          const handleDetailKey = (e) => {
+            if (e.key === "ArrowLeft" && prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowRight" && nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "Escape") { setDetailView(null); }
+          };
+          if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
+
           return (
-            <div style={{ animation: "fadeIn 0.2s ease-out" }}>
+            <div style={{ animation: "fadeIn 0.15s ease-out" }}>
               {/* TOP NAV BAR */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                <button onClick={() => { setDetailView(null); navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>← Back to Tracker</button>
+                <button onClick={() => { setDetailView(null); window._detailKeyBound = false; navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button disabled={!prevSite} onClick={() => prevSite && setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id })} style={navBtnSt(!prevSite)}>← Prev</button>
-                  <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px" }}>{idx + 1} of {allSites.length}</span>
-                  <button disabled={!nextSite} onClick={() => nextSite && setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id })} style={navBtnSt(!nextSite)}>Next →</button>
+                  <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
+                  <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
+                  <button disabled={!nextSite} onClick={() => { if (nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!nextSite)}>Next →</button>
                 </div>
+                <span style={{ fontSize: 9, color: "#4A5080", fontWeight: 500 }}>← → keys · Esc back</span>
               </div>
 
               {/* HERO HEADER */}
-              <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #1E2761 60%, #2C3E6B 100%)", borderRadius: 16, padding: "32px 36px", marginBottom: 20, position: "relative", overflow: "hidden" }}>
+              <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #1E2761 60%, #2C3E6B 100%)", borderRadius: 16, padding: "32px 36px", marginBottom: 20, position: "relative", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)", opacity: 0.6 }} />
                 <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent)" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
                   <div style={{ flex: 1 }}>
