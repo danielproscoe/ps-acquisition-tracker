@@ -62,6 +62,7 @@ const PHASES = [
   "Client Declined",
   "LOI Sent",
   "LOI Signed",
+  "PSA Sent",
   "Under Contract",
   "Due Diligence",
   "Closed",
@@ -1331,6 +1332,17 @@ export default function App() {
     setExpandedSite(null);
   };
 
+  const handleSendToReview = (region, id, site) => {
+    const now = new Date().toISOString();
+    const sub = { ...site, status: "pending", region, submittedAt: now, sentBackToReview: true };
+    delete sub.messages; delete sub.docs; delete sub.activityLog;
+    fbSet(`submissions/${id}`, sub);
+    fbRemove(`${region}/${id}`);
+    fbPush(`${region}/${id}/activityLog`, { action: "Sent back to Review Queue", ts: now, by: "Dan R" });
+    setExpandedSite(null);
+    notify(`${site.name} → Review Queue`);
+  };
+
   // ─── GEOCODE & DEMOGRAPHICS ───
   const handleFetchDemos = async (region, site) => {
     if (!site.coordinates) { notify("Add coordinates first"); return; }
@@ -2348,8 +2360,11 @@ export default function App() {
                         </details>
                       )}
 
-                      {/* Remove */}
-                      <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}>🗑 Remove Site</button>
+                      {/* Send to Review / Remove */}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button onClick={() => { if (window.confirm(`Send "${site.name}" back to Review Queue?`)) handleSendToReview(regionKey, site.id, site); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(232,122,46,0.3)", background: "rgba(232,122,46,0.08)", color: "#E87A2E", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}>↩ Send to Review</button>
+                        <button onClick={() => { if (window.confirm(`Remove "${site.name}"?`)) handleRemove(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "rgba(153,27,27,0.08)", color: "#FCA5A5", fontSize: 11, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}>🗑 Remove Site</button>
+                      </div>
                     </div>
                   )}
                 </div>
