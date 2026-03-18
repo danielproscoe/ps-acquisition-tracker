@@ -2270,6 +2270,18 @@ export default function App() {
                         })()}
                       </div>
 
+                      {/* ── PREMIUM ACTION BAR ── */}
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "16px 0", padding: "14px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)" }}>
+                        {site.coordinates && <>
+                          <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🗺 Google Maps</a>
+                          <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🌍 Google Earth</a>
+                        </>}
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Property Listing</a>}
+                        <button onClick={() => {
+                          const iqR = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 SiteIQ Deep Vet Report</button>
+                      </div>
+
                       {/* Summary */}
                       <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: 14, margin: "10px 0", border: "1px solid rgba(201,168,76,0.08)" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.08em" }}>Recent Summary</div>
@@ -2572,19 +2584,6 @@ export default function App() {
                       {/* Coordinates */}
                       <div style={{ marginBottom: 12 }}>
                         <EF label="Coordinates (lat, lng)" value={site.coordinates || ""} onSave={(v) => saveField(regionKey, site.id, "coordinates", v)} placeholder="39.123, -84.456" />
-                        {site.coordinates && (
-                          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                            <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
-                            <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
-                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: site.listingUrl ? "#FFF3E0" : "rgba(15,21,56,0.4)", color: site.listingUrl ? "#E65100" : "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: site.listingUrl ? "none" : "1px dashed #CBD5E1" }}>{site.listingUrl ? "🔗 Property Listing" : "🔗 Add Listing URL"}</a>
-                            <button onClick={() => {
-                              const docs = site.docs ? Object.values(site.docs) : [];
-                              const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
-                              if (vr && vr.url) { window.open(vr.url, "_blank"); }
-                              else { const iqR = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); }
-                            }} style={{ padding: "8px 18px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #D45500)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 16px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.04em", textTransform: "uppercase", transition: "all 0.2s" }}>🔬 SiteIQ Deep Vet Report</button>
-                          </div>
-                        )}
                       </div>
 
                       {/* Listing URL */}
