@@ -1010,6 +1010,30 @@ const computeSiteIQ = (site) => {
   if (site.siteiqData?.brokerConfirmedZoning) adjusted = Math.min(10, adjusted + 0.3);
   if (site.siteiqData?.surveyClean) adjusted = Math.min(10, adjusted + 0.2);
 
+  // --- RESEARCH COMPLETENESS — HARD VET BEFORE SCORE ---
+  // SiteIQ score incorporates depth of due diligence research.
+  // Sites with verified primary-source research score higher than unvetted sites.
+  // Source: CLAUDE.md §6h — "HARD VET, then SiteIQ score, not the other way around"
+  const vetChecks = [
+    !!site.zoningSource,                                          // Ordinance cited
+    !!site.zoningClassification && site.zoningClassification !== "unknown",  // Classification confirmed
+    !!site.zoningNotes && site.zoningNotes.length > 20,           // Permitted use table reviewed
+    !!site.waterProvider,                                          // Water provider identified
+    site.waterAvailable === true || site.waterAvailable === false, // Water availability confirmed
+    !!site.sewerProvider,                                          // Sewer provider identified
+    !!site.electricProvider,                                       // Electric provider identified
+    !!site.floodZone,                                              // FEMA flood zone checked
+    !!site.planningContact,                                        // Planning dept contact found
+  ];
+  const vetDone = vetChecks.filter(Boolean).length;
+  const vetPct = vetDone / vetChecks.length;
+  // Full vet (100%) = +0.5 bonus. Partial vet scales linearly. Zero vet = -0.3 penalty.
+  if (vetPct === 1) { adjusted = Math.min(10, adjusted + 0.5); }
+  else if (vetPct >= 0.7) { adjusted = Math.min(10, adjusted + 0.3); }
+  else if (vetPct >= 0.4) { /* no adjustment — neutral */ }
+  else if (vetPct > 0) { adjusted = Math.max(0, adjusted - 0.1); }
+  else { adjusted = Math.max(0, adjusted - 0.3); flags.push("No deep vet research completed"); }
+
   const final = Math.round(adjusted * 10) / 10;
 
   // --- CLASSIFICATION (§6h) ---
@@ -2552,7 +2576,7 @@ export default function App() {
                           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                             <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F0FE", color: "#1565C0", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🗺 Google Maps</a>
                             <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: "#E8F5E9", color: "#2E7D32", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>🌍 Google Earth</a>
-                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: site.listingUrl ? "#FFF3E0" : "rgba(15,21,56,0.4)", color: site.listingUrl ? "#E65100" : "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: site.listingUrl ? "none" : "1px dashed #CBD5E1" }}>{site.listingUrl ? "🔗 Property Listing" : "🔍 Search Crexi"}</a>
+                            <a href={site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : `https://www.crexi.com/properties?query=${encodeURIComponent((site.address || "") + " " + (site.city || "") + " " + (site.state || ""))}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 6, background: site.listingUrl ? "#FFF3E0" : "rgba(15,21,56,0.4)", color: site.listingUrl ? "#E65100" : "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: site.listingUrl ? "none" : "1px dashed #CBD5E1" }}>{site.listingUrl ? "🔗 Property Listing" : "🔗 Add Listing URL"}</a>
                             <button onClick={() => {
                               const docs = site.docs ? Object.values(site.docs) : [];
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
