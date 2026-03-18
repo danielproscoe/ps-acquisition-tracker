@@ -2446,13 +2446,36 @@ export default function App() {
   // ═══ RENDER ═══
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 30%, #0F1538 60%, #0A0E2A 100%)", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: "#E2E8F0" }}>
-      {/* AI Data Stream Background Particles */}
+      {/* AI NEURAL NETWORK BACKGROUND — Circuit Grid + Data Streams + Lightning */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
-        {[...Array(12)].map((_, i) => (
-          <div key={i} style={{ position: "absolute", left: `${8 + i * 8}%`, bottom: "-10px", width: 2, height: 2, borderRadius: "50%", background: i % 3 === 0 ? "#E87A2E" : i % 3 === 1 ? "#C9A84C" : "#2C3E6B", opacity: 0, animation: `dataStream ${4 + (i % 5) * 2}s ${i * 0.8}s infinite cubic-bezier(0.4,0,0.2,1)` }} />
+        {/* Circuit grid pattern */}
+        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.03 }}>
+          <defs><pattern id="circuit" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M0 40h30M50 40h30M40 0v30M40 50v30" stroke="#E87A2E" strokeWidth="0.5" fill="none"/>
+            <circle cx="40" cy="40" r="2" fill="#E87A2E"/>
+            <circle cx="0" cy="40" r="1.5" fill="#39FF14"/>
+            <circle cx="80" cy="40" r="1.5" fill="#39FF14"/>
+            <circle cx="40" cy="0" r="1.5" fill="#00E5FF"/>
+            <circle cx="40" cy="80" r="1.5" fill="#00E5FF"/>
+          </pattern></defs>
+          <rect width="100%" height="100%" fill="url(#circuit)"/>
+        </svg>
+        {/* Fast data stream particles — 24 particles, staggered */}
+        {[...Array(24)].map((_, i) => (
+          <div key={i} style={{ position: "absolute", left: `${3 + i * 4}%`, bottom: "-10px", width: i % 4 === 0 ? 3 : 1.5, height: i % 4 === 0 ? 3 : 1.5, borderRadius: "50%", background: i % 5 === 0 ? "#39FF14" : i % 5 === 1 ? "#00E5FF" : i % 5 === 2 ? "#E87A2E" : i % 5 === 3 ? "#C9A84C" : "#FFD700", opacity: 0, animation: `dataStream ${2 + (i % 4) * 1.5}s ${i * 0.4}s infinite cubic-bezier(0.22,1,0.36,1)` }} />
         ))}
-        {/* Scan line */}
-        <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent 10%, rgba(232,122,46,0.06) 50%, transparent 90%)", animation: "scanLine 8s linear infinite" }} />
+        {/* Horizontal lightning streaks */}
+        {[...Array(3)].map((_, i) => (
+          <div key={"lt"+i} style={{ position: "absolute", top: `${20 + i * 30}%`, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${i === 0 ? "#39FF14" : i === 1 ? "#E87A2E" : "#00E5FF"}08, transparent)`, animation: `scanLine ${4 + i * 2}s linear ${i * 1.5}s infinite` }} />
+        ))}
+        {/* Vertical data pulse lines */}
+        {[...Array(4)].map((_, i) => (
+          <div key={"vp"+i} style={{ position: "absolute", left: `${15 + i * 25}%`, top: 0, bottom: 0, width: 1, background: `linear-gradient(180deg, transparent, ${i % 2 === 0 ? "rgba(57,255,20,0.04)" : "rgba(232,122,46,0.04)"}, transparent)`, animation: `dataStream ${6 + i * 2}s ${i}s infinite linear` }} />
+        ))}
+        {/* Electric node pulses at intersections */}
+        {[...Array(6)].map((_, i) => (
+          <div key={"node"+i} style={{ position: "absolute", left: `${10 + i * 16}%`, top: `${15 + (i % 3) * 30}%`, width: 4, height: 4, borderRadius: "50%", background: i % 2 === 0 ? "#39FF14" : "#E87A2E", opacity: 0, animation: `nodePulse ${3 + i % 3}s ${i * 0.7}s infinite ease-in-out`, boxShadow: `0 0 8px ${i % 2 === 0 ? "rgba(57,255,20,0.5)" : "rgba(232,122,46,0.5)"}` }} />
+        ))}
       </div>
       {transitioning && <div className="tab-transition-overlay" />}
       <style>{`
@@ -2501,7 +2524,7 @@ export default function App() {
         .site-card-open { transform: none !important; }
         .site-card-open:hover { transform: none !important; }
         /* UPGRADED: Smooth expand with fire accent */
-        .card-expand { animation: slideDown 0.25s cubic-bezier(0.22,1,0.36,1); overflow: hidden; transform-origin: top; }
+        .card-expand { animation: slideDown 0.18s cubic-bezier(0.22,1,0.36,1); overflow: hidden; transform-origin: top; }
         /* UPGRADED: Nav underline with fire gradient */
         .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #1E2761, #E87A2E, #C9A84C, #E87A2E, #1E2761); background-size: 300% 100%; animation: navUnderlineFire 1.5s ease infinite; border-radius: 3px; box-shadow: 0 0 16px rgba(232,122,46,0.5); }
         /* Sort pill glow */
@@ -2516,16 +2539,24 @@ export default function App() {
         /* Tab content transition */
         .tab-content { animation: tabSlide 0.4s cubic-bezier(0.4,0,0.2,1); }
         /* Card staggered reveal */
-        .card-reveal { animation: cardReveal 0.3s cubic-bezier(0.22,1,0.36,1) backwards; }
-        /* Fire glow on interactive elements */
-        button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.1s; }
+        .card-reveal { animation: cardReveal 0.2s cubic-bezier(0.22,1,0.36,1) backwards; }
+        /* Electric glow on interactive elements */
+        button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.08s; }
+        /* KPI cards electric pulse */
+        .kpi-electric { animation: kpiElectric 4s ease-in-out infinite; }
+        .kpi-electric:hover { box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 30px rgba(57,255,20,0.08), 0 0 60px rgba(232,122,46,0.06) !important; }
+        /* Site card electric hover */
+        .site-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(57,255,20,0.12), 0 0 30px rgba(232,122,46,0.06) !important; transition: all 0.15s cubic-bezier(0.22,1,0.36,1) !important; }
         /* Frosted glass card style — dark mode */
         .glass-card { background: rgba(15,21,56,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(201,168,76,0.08); }
-        /* AI data-stream particles */
-        @keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 20% { opacity: 0.6; } 80% { opacity: 0.3; } 100% { transform: translateY(-20px) scale(0.3); opacity: 0; } }
-        @keyframes lightningPulse { 0% { opacity: 0; } 10% { opacity: 1; } 20% { opacity: 0; } 30% { opacity: 0.7; } 40% { opacity: 0; } 100% { opacity: 0; } }
+        /* AI LIGHTNING DATA STREAMS */
+        @keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.8; transform: translateY(80vh) scale(1); } 50% { opacity: 0.4; } 90% { opacity: 0.2; } 100% { transform: translateY(-20px) scale(0.2); opacity: 0; } }
         @keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
-        @keyframes dataFlicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        @keyframes nodePulse { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 0.8; transform: scale(1.5); } 50% { opacity: 0.3; transform: scale(1); } 70% { opacity: 0.6; transform: scale(1.3); } 100% { opacity: 0; transform: scale(0.5); } }
+        @keyframes electricFlicker { 0%, 100% { opacity: 1; } 10% { opacity: 0.4; } 12% { opacity: 1; } 50% { opacity: 0.9; } 52% { opacity: 0.3; } 54% { opacity: 1; } }
+        @keyframes glitchText { 0%, 100% { transform: translate(0); text-shadow: none; } 2% { transform: translate(-2px, 1px); text-shadow: 2px 0 #39FF14, -2px 0 #E87A2E; } 4% { transform: translate(2px, -1px); text-shadow: -2px 0 #00E5FF, 2px 0 #E87A2E; } 6% { transform: translate(0); text-shadow: none; } 50% { transform: translate(0); text-shadow: none; } 52% { transform: translate(1px, -1px); text-shadow: -1px 0 #39FF14, 1px 0 #00E5FF; } 54% { transform: translate(0); text-shadow: none; } }
+        @keyframes kpiElectric { 0% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } 50% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(57,255,20,0.05); } 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } }
+        @keyframes speedStreak { 0% { transform: translateX(-100%) scaleY(0.5); opacity: 0; } 30% { opacity: 0.8; transform: translateX(0) scaleY(1); } 100% { transform: translateX(200%) scaleY(0.5); opacity: 0; } }
       `}</style>
 
       {/* Toast */}
@@ -2611,15 +2642,22 @@ export default function App() {
       {/* Header — SiteIQ Theme */}
       <div style={STYLES.frostedHeader}>
         {/* Ambient gold line across header bottom */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 0%, #1E2761 15%, #C9A84C 30%, #FFD700 50%, #C9A84C 70%, #1E2761 85%, transparent 100%)", opacity: 0.6 }} />
+        {/* Electric header accent line */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 0%, #39FF14 10%, #00E5FF 25%, #E87A2E 40%, #FFD700 50%, #E87A2E 60%, #00E5FF 75%, #39FF14 90%, transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 2s linear infinite", opacity: 0.7 }} />
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(57,255,20,0.3), transparent)", animation: "scanLine 3s linear infinite", boxShadow: "0 0 8px rgba(57,255,20,0.3)" }} />
         {/* SiteIQ Banner */}
         <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.08)", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 52, height: 52, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {/* Lightning arcs */}
-                <div style={{ position: "absolute", top: -4, left: 14, width: 24, height: 2, background: "linear-gradient(90deg, transparent, #39FF14, #00E5FF, transparent)", borderRadius: 1, animation: "lightning-arc 6s ease-in-out infinite", transformOrigin: "left center" }} />
-                <div style={{ position: "absolute", bottom: -2, right: 10, width: 20, height: 2, background: "linear-gradient(90deg, transparent, #E87A2E, #C9A84C, transparent)", borderRadius: 1, animation: "lightning-arc 6s ease-in-out 3s infinite", transformOrigin: "right center" }} />
+                {/* Speed streaks behind turbine */}
+                <div style={{ position: "absolute", top: 12, left: -20, width: 30, height: 1, background: "linear-gradient(90deg, transparent, #39FF14, transparent)", animation: "speedStreak 3s ease-in-out infinite", opacity: 0.6 }} />
+                <div style={{ position: "absolute", top: 24, left: -16, width: 24, height: 1, background: "linear-gradient(90deg, transparent, #00E5FF, transparent)", animation: "speedStreak 3s ease-in-out 0.5s infinite", opacity: 0.4 }} />
+                <div style={{ position: "absolute", top: 36, left: -22, width: 28, height: 1, background: "linear-gradient(90deg, transparent, #E87A2E, transparent)", animation: "speedStreak 3s ease-in-out 1s infinite", opacity: 0.5 }} />
+                {/* Lightning arcs — faster */}
+                <div style={{ position: "absolute", top: -6, left: 8, width: 36, height: 2, background: "linear-gradient(90deg, transparent, #39FF14, #00E5FF, #39FF14, transparent)", borderRadius: 1, animation: "lightning-arc 4s ease-in-out infinite", transformOrigin: "left center" }} />
+                <div style={{ position: "absolute", bottom: -4, right: 4, width: 32, height: 2, background: "linear-gradient(90deg, transparent, #E87A2E, #FFD700, #E87A2E, transparent)", borderRadius: 1, animation: "lightning-arc 4s ease-in-out 2s infinite", transformOrigin: "right center" }} />
+                <div style={{ position: "absolute", left: -6, top: 20, width: 2, height: 20, background: "linear-gradient(180deg, transparent, #39FF14, transparent)", animation: "lightning-arc 5s ease-in-out 1s infinite" }} />
                 <svg viewBox="0 0 64 64" style={{ width: 52, height: 52, animation: "siteiq-spin 8s cubic-bezier(0.4, 0, 0.2, 1) infinite, turbine-pulse 8s ease-in-out infinite" }}>
                   <defs>
                     <radialGradient id="iqbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#0F1538"/><stop offset="80%" stopColor="#0a0a0c"/><stop offset="100%" stopColor="#1E2761"/></radialGradient>
@@ -2638,8 +2676,8 @@ export default function App() {
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.06em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>SITEIQ</div>
-                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>AI-Powered Land Acquisition Engine</div>
+                <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #39FF14 0%, #00E5FF 20%, #fff 40%, #C9A84C 55%, #FFD700 70%, #E87A2E 85%, #39FF14 100%)", backgroundSize: "400% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3s linear infinite, glitchText 8s step-end infinite" }}>SITEIQ</div>
+                <div style={{ fontSize: 10, color: "#6B7394", letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 1, animation: "electricFlicker 6s step-end infinite" }}>AI-Powered Land Acquisition Engine</div>
                 <div style={{ fontSize: 8, color: "#6B7394", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC</div>
               </div>
             </div>
