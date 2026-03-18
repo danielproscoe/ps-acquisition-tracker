@@ -1,4 +1,5 @@
 // src/App.js — SiteIQ Acquisition Tracker
+// SiteIQ v4.1 — turbine logo update
 // © 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
