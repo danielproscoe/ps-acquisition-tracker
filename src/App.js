@@ -2718,22 +2718,12 @@ export default function App() {
           </pattern></defs>
           <rect width="100%" height="100%" fill="url(#circuit)"/>
         </svg>
-        {/* Fast data stream particles — 24 particles, staggered */}
-        {[...Array(24)].map((_, i) => (
-          <div key={i} style={{ position: "absolute", left: `${3 + i * 4}%`, bottom: "-10px", width: i % 4 === 0 ? 3 : 1.5, height: i % 4 === 0 ? 3 : 1.5, borderRadius: "50%", background: i % 5 === 0 ? "#39FF14" : i % 5 === 1 ? "#00E5FF" : i % 5 === 2 ? "#E87A2E" : i % 5 === 3 ? "#C9A84C" : "#FFD700", opacity: 0, animation: `dataStream ${2 + (i % 4) * 1.5}s ${i * 0.4}s infinite cubic-bezier(0.22,1,0.36,1)` }} />
+        {/* Subtle data stream particles — 8 particles, slow, muted */}
+        {[...Array(8)].map((_, i) => (
+          <div key={i} style={{ position: "absolute", left: `${8 + i * 12}%`, bottom: "-10px", width: 1, height: 1, borderRadius: "50%", background: i % 2 === 0 ? "#C9A84C" : "#2C3E6B", opacity: 0, animation: `dataStream ${8 + (i % 3) * 4}s ${i * 1.5}s infinite cubic-bezier(0.22,1,0.36,1)` }} />
         ))}
-        {/* Horizontal lightning streaks */}
-        {[...Array(3)].map((_, i) => (
-          <div key={"lt"+i} style={{ position: "absolute", top: `${20 + i * 30}%`, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${i === 0 ? "#39FF14" : i === 1 ? "#E87A2E" : "#00E5FF"}08, transparent)`, animation: `scanLine ${4 + i * 2}s linear ${i * 1.5}s infinite` }} />
-        ))}
-        {/* Vertical data pulse lines */}
-        {[...Array(4)].map((_, i) => (
-          <div key={"vp"+i} style={{ position: "absolute", left: `${15 + i * 25}%`, top: 0, bottom: 0, width: 1, background: `linear-gradient(180deg, transparent, ${i % 2 === 0 ? "rgba(57,255,20,0.04)" : "rgba(232,122,46,0.04)"}, transparent)`, animation: `dataStream ${6 + i * 2}s ${i}s infinite linear` }} />
-        ))}
-        {/* Electric node pulses at intersections */}
-        {[...Array(6)].map((_, i) => (
-          <div key={"node"+i} style={{ position: "absolute", left: `${10 + i * 16}%`, top: `${15 + (i % 3) * 30}%`, width: 4, height: 4, borderRadius: "50%", background: i % 2 === 0 ? "#39FF14" : "#E87A2E", opacity: 0, animation: `nodePulse ${3 + i % 3}s ${i * 0.7}s infinite ease-in-out`, boxShadow: `0 0 8px ${i % 2 === 0 ? "rgba(57,255,20,0.5)" : "rgba(232,122,46,0.5)"}` }} />
-        ))}
+        {/* Subtle scan line */}
+        <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent 20%, rgba(201,168,76,0.03) 50%, transparent 80%)", animation: "scanLine 12s linear infinite" }} />
       </div>
       {transitioning && <div className="tab-transition-overlay" />}
       <style>{`
