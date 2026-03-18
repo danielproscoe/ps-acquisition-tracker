@@ -1296,6 +1296,7 @@ export default function App() {
     setTransitioning(true);
     setTimeout(() => {
       setTab(newTab);
+      setDetailView(null);
       if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
       if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } else { setExpandedSite(null); }
       if (newTab === "review") setShowNewAlert(false);
@@ -1305,6 +1306,7 @@ export default function App() {
   }, [tab]);
   const [toast, setToast] = useState(null);
   const [expandedSite, setExpandedSite] = useState(null);
+  const [detailView, setDetailView] = useState(null); // { regionKey, siteId }
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
@@ -2055,7 +2057,7 @@ export default function App() {
                   <div onClick={() => { const next = isOpen ? null : site.id; setExpandedSite(next); if (next) setTimeout(() => { const el = document.getElementById(`site-${site.id}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA" }}>{site.name}</span>
+                        <span onClick={(e) => { e.stopPropagation(); setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
                         <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
@@ -3500,9 +3502,108 @@ export default function App() {
           </div>
         )}
 
+        {/* ═══ PROPERTY DETAIL VIEW ═══ */}
+        {detailView && (() => {
+          const dv = detailView;
+          const allSites = sortData(dv.regionKey === "east" ? east : sw);
+          const site = allSites.find(s => s.id === dv.siteId);
+          if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => setDetailView(null)} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
+          const idx = allSites.findIndex(s => s.id === dv.siteId);
+          const prevSite = idx > 0 ? allSites[idx - 1] : null;
+          const nextSite = idx < allSites.length - 1 ? allSites[idx + 1] : null;
+          const iqR = getSiteIQ(site);
+          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+          const docs = site.docs ? Object.entries(site.docs) : [];
+          const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
+          const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
+          return (
+            <div style={{ animation: "fadeIn 0.2s ease-out" }}>
+              {/* TOP NAV BAR */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
+                <button onClick={() => { setDetailView(null); navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>← Back to Tracker</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button disabled={!prevSite} onClick={() => prevSite && setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id })} style={navBtnSt(!prevSite)}>← Prev</button>
+                  <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px" }}>{idx + 1} of {allSites.length}</span>
+                  <button disabled={!nextSite} onClick={() => nextSite && setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id })} style={navBtnSt(!nextSite)}>Next →</button>
+                </div>
+              </div>
+
+              {/* HERO HEADER */}
+              <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #1E2761 60%, #2C3E6B 100%)", borderRadius: 16, padding: "32px 36px", marginBottom: 20, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent)" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 6 }}>{site.name}</div>
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 12 }}>{site.address}, {site.city}, {site.state}</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)" }}>{site.market}</span>}
+                      <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
+                      {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <SiteIQBadge site={site} iq={iqR} />
+                    <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>Broker: <strong style={{ color: "#E2E8F0" }}>{site.sellerBroker || "—"}</strong></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* KEY METRICS STRIP */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 20 }}>
+                {[
+                  { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
+                  { label: "INTERNAL", val: site.internalPrice ? fmtPrice(site.internalPrice) : "—", color: "#E87A2E" },
+                  { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0" },
+                  { label: "ZONING", val: site.zoning || "—", color: "#C9A84C" },
+                  { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#E2E8F0" },
+                  { label: "3MI MED INC", val: site.income3mi ? "$" + fmtN(site.income3mi) : "—", color: "#E2E8F0" },
+                ].map((m, i) => (
+                  <div key={i} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(201,168,76,0.08)" }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 4 }}>{m.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)" }}>
+                <button onClick={() => {
+                  const iqGen = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 SiteIQ Deep Vet Report</button>
+                {site.coordinates && <>
+                  <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🗺 Google Maps</a>
+                  <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🌍 Google Earth</a>
+                </>}
+                {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🔗 Property Listing</a>}
+                {flyerDoc && <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(243,124,51,0.12)", color: "#FFB347", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(243,124,51,0.25)", display: "flex", alignItems: "center", gap: 6 }}>📄 View Flyer</a>}
+              </div>
+
+              {/* AERIAL VIEW */}
+              {site.coordinates && (
+                <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 20, position: "relative" }}>
+                  <iframe title={`Aerial — ${site.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
+                  <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em" }}>AERIAL VIEW</div>
+                </div>
+              )}
+
+              {/* SUMMARY */}
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Summary / Deal Notes</div>
+                <div style={{ fontSize: 13, color: "#E2E8F0", lineHeight: 1.7 }}>{site.summary || "No notes yet."}</div>
+              </div>
+
+              {/* BOTTOM NAV */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 0", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
+                <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!prevSite), padding: "12px 24px" }}>← {prevSite ? prevSite.name : "Start"}</button>
+                <button onClick={() => { setDetailView(null); navigateTo(dv.regionKey); }} style={{ padding: "12px 24px", borderRadius: 10, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↩ Back to Tracker</button>
+                <button disabled={!nextSite} onClick={() => { if (nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!nextSite), padding: "12px 24px" }}>{nextSite ? nextSite.name : "End"} →</button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ═══ TRACKERS ═══ */}
-        {tab === "southwest" && <TrackerCards regionKey="southwest" />}
-        {tab === "east" && <TrackerCards regionKey="east" />}
+        {(tab === "southwest" || tab === "east") && !detailView && <TrackerCards regionKey={tab} />}
       </div>
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
