@@ -919,6 +919,9 @@ const computeSiteIQ = (site) => {
 
   // --- 3. ZONING (15%) §6c methodology ---
   // Prefer structured zoningClassification field; fall back to regex on zoning + summary text
+  // SOURCE NOTE: ETJ / unincorporated / no zoning = 10/10 (BEST outcome for storage).
+  // Under Texas law (Ch. 231 LGC), counties have no zoning authority. ETJ grants platting control only, NOT use restrictions.
+  // We actively target unzoned land — it's a HUGE positive, not a neutral score.
   let zoningScore = 3;
   const zClass = site.zoningClassification;
   if (zClass && zClass !== "unknown") {
@@ -927,11 +930,14 @@ const computeSiteIQ = (site) => {
     else if (zClass === "rezone-required") zoningScore = 2;
     else if (zClass === "prohibited") { zoningScore = 0; flags.push("Zoning prohibits storage"); }
   } else {
-    const byRight = /(by\s*right|permitted|storage\s*(?:by|permitted)|(?:^|\s)(?:cs|gb|mu|b[- ]?\d|c[- ]?\d|m[- ]?\d)\b|commercial|industrial|business|unrestricted|pud\s*allow)/i;
+    // "no zoning", "unincorporated", "ETJ", "unrestricted" = 10/10 — best possible outcome
+    const noZoning = /(no\s*zoning|unincorporated|unrestricted|\bETJ\b|county\s*[-—]\s*no\s*zon)/i;
+    const byRight = /(by\s*right|permitted|storage\s*(?:by|permitted)|(?:^|\s)(?:cs|gb|mu|b[- ]?\d|c[- ]?\d|m[- ]?\d)\b|commercial|industrial|business|pud\s*allow)/i;
     const conditional = /(conditional|sup\b|cup\b|special\s*use|overlay|variance|needs?\s*sup)/i;
     const prohibited = /(prohibited|residential\s*only|(?:^|\s)ag\b|agriculture|not\s*permitted)/i;
     const rezoning = /(rezone|rezoning\s*required)/i;
-    if (byRight.test(combinedText)) zoningScore = 10;
+    if (noZoning.test(combinedText)) zoningScore = 10; // No zoning = unrestricted = best score
+    else if (byRight.test(combinedText)) zoningScore = 10;
     else if (conditional.test(combinedText)) zoningScore = 6;
     else if (rezoning.test(combinedText)) zoningScore = 2;
     else if (prohibited.test(combinedText)) { zoningScore = 0; flags.push("Zoning prohibits storage"); }
@@ -3589,8 +3595,184 @@ export default function App() {
               {/* SUMMARY */}
               <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Summary / Deal Notes</div>
-                <div style={{ fontSize: 13, color: "#E2E8F0", lineHeight: 1.7 }}>{site.summary || "No notes yet."}</div>
+                <div style={{ fontSize: 13, color: "#E2E8F0", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{site.summary || "No notes yet."}</div>
               </div>
+
+              {/* DEMOGRAPHICS — Full display */}
+              {(site.pop3mi || site.income3mi) && (() => {
+                const pN2 = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
+                const fP2 = (v, pre) => { const n = pN2(v); return n != null ? (pre || "") + n.toLocaleString() : null; };
+                const gVal2 = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : null;
+                const gColor2 = gVal2 != null ? (gVal2 > 0 ? "#22C55E" : gVal2 < 0 ? "#EF4444" : "#94A3B8") : "#6B7394";
+                const gLabel2 = gVal2 != null ? ((gVal2 >= 0 ? "+" : "") + gVal2.toFixed(2) + "% /yr") : null;
+                const gOutlook2 = gVal2 != null ? (gVal2 > 1.5 ? "High Growth" : gVal2 > 0.5 ? "Growing" : gVal2 > 0 ? "Stable Growth" : gVal2 > -0.5 ? "Flat" : "Declining") : null;
+                const demoRows = [
+                  { label: "Population (3-mi)", val: fP2(site.pop3mi), icon: "👥" },
+                  { label: "Median HHI (3-mi)", val: fP2(site.income3mi, "$"), icon: "💰" },
+                  { label: "Pop Growth (ESRI)", val: gLabel2, icon: "📈", color: gColor2 },
+                  { label: "Growth Outlook", val: gOutlook2, icon: "🔮", color: gVal2 != null ? (gVal2 > 1.5 ? "#22C55E" : gVal2 > 0.5 ? "#4ADE80" : "#FBBF24") : "#6B7394" },
+                  { label: "Households (3-mi)", val: fP2(site.households3mi), icon: "🏠" },
+                  { label: "Median Home Value", val: fP2(site.homeValue3mi, "$"), icon: "🏡" },
+                  { label: "Price / Acre", val: (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
+                  { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
+                  { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
+                ].filter(r => r.val != null);
+                return demoRows.length > 0 ? (
+                  <div style={{ borderRadius: 14, marginBottom: 20, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)" }}>
+                    <div style={{ background: "linear-gradient(135deg,#0F172A,#1E293B,#1565C0)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 14 }}>📊</span>
+                      <span style={{ color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>SITE DEMOGRAPHICS</span>
+                      <span style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)", color: "#0F172A", fontSize: 10, fontWeight: 900, padding: "2px 8px", borderRadius: 5 }}>ESRI 2025</span>
+                    </div>
+                    <div style={{ background: "rgba(15,21,56,0.3)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 0 }}>
+                      {demoRows.map((row, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 18px", borderBottom: "1px solid rgba(201,168,76,0.06)" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 13 }}>{row.icon}</span><span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{row.label}</span></span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: row.color || "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{row.val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* ZONING & UTILITIES SNAPSHOT */}
+              {(site.zoningNotes || site.utilityNotes || site.waterProvider) && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                  {/* Zoning Card */}
+                  <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, border: "1px solid rgba(201,168,76,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <span style={{ fontSize: 14 }}>🏛</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.06em" }}>Zoning</span>
+                      {site.zoningClassification && site.zoningClassification !== "unknown" && (
+                        <span style={{ padding: "2px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: site.zoningClassification === "by-right" ? "rgba(22,163,74,0.15)" : site.zoningClassification === "conditional" ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: site.zoningClassification === "by-right" ? "#22C55E" : site.zoningClassification === "conditional" ? "#F59E0B" : "#EF4444" }}>{site.zoningClassification === "by-right" ? "BY-RIGHT" : site.zoningClassification === "conditional" ? "CONDITIONAL" : site.zoningClassification.toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#E2E8F0", marginBottom: 6 }}>{site.zoning || "Not confirmed"}</div>
+                    {site.zoningSource && <div style={{ fontSize: 10, color: "#6B7394", lineHeight: 1.5, marginBottom: 8, maxHeight: 60, overflow: "hidden" }}>{site.zoningSource.substring(0, 200)}...</div>}
+                    {site.planningContact && <div style={{ fontSize: 10, color: "#94A3B8" }}>📞 {site.planningContact.substring(0, 100)}</div>}
+                  </div>
+                  {/* Utilities Card */}
+                  <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, border: "1px solid rgba(201,168,76,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <span style={{ fontSize: 14 }}>💧</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#16A34A", textTransform: "uppercase", letterSpacing: "0.06em" }}>Utilities</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {[
+                        { label: "Water", val: site.waterAvailable === true ? "✓" : site.waterAvailable === false ? "✗" : "?", color: site.waterAvailable === true ? "#22C55E" : site.waterAvailable === false ? "#EF4444" : "#6B7394", detail: site.waterProvider },
+                        { label: "Sewer", val: site.sewerAvailable === true ? "✓" : site.sewerAvailable === false ? "✗" : "?", color: site.sewerAvailable === true ? "#22C55E" : site.sewerAvailable === false ? "#EF4444" : "#6B7394", detail: site.sewerProvider },
+                        { label: "Electric", val: site.threePhase === true ? "3Φ ✓" : site.electricProvider ? "✓" : "?", color: site.threePhase === true ? "#22C55E" : site.electricProvider ? "#22C55E" : "#6B7394", detail: site.electricProvider },
+                        { label: "Flood", val: site.floodZone ? (site.floodZone.toLowerCase().includes("zone x") ? "Clear" : "Check") : "?", color: site.floodZone && site.floodZone.toLowerCase().includes("zone x") ? "#22C55E" : "#F59E0B" },
+                      ].map((u, i) => (
+                        <div key={i} style={{ padding: "6px 8px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8" }}>{u.label}</span>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: u.color }}>{u.val}</span>
+                          </div>
+                          {u.detail && <div style={{ fontSize: 8, color: "#6B7394", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.detail.substring(0, 40)}</div>}
+                        </div>
+                      ))}
+                    </div>
+                    {site.tapFees && <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 8 }}>💲 {site.tapFees.substring(0, 80)}...</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* TOPO & ACCESS SNAPSHOT */}
+              {(site.terrain || site.floodZone || site.gradingRisk) && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 14 }}>🌍</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.06em" }}>Topography & Access</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    {[
+                      { label: "FEMA Flood", val: site.floodZone || "Not checked", icon: "🌊" },
+                      { label: "Terrain", val: site.terrain || "Not assessed", icon: "⛰️" },
+                      { label: "Grading Risk", val: site.gradingRisk || "Not assessed", icon: "📐" },
+                    ].map((t, i) => (
+                      <div key={i} style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(15,21,56,0.3)" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", marginBottom: 4 }}>{t.icon} {t.label}</div>
+                        <div style={{ fontSize: 11, color: "#E2E8F0", lineHeight: 1.4, maxHeight: 44, overflow: "hidden" }}>{typeof t.val === "string" ? t.val.substring(0, 80) : t.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ZONING RESEARCH NOTES (full) */}
+              {site.zoningNotes && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>🏛 Zoning Research Notes</div>
+                  <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{site.zoningNotes}</div>
+                </div>
+              )}
+
+              {/* UTILITY RESEARCH NOTES (full) */}
+              {site.utilityNotes && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#16A34A", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>💧 Utility Research Notes</div>
+                  <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{site.utilityNotes}</div>
+                </div>
+              )}
+
+              {/* DOCUMENTS */}
+              {docs.length > 0 && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>📁 Documents ({docs.length})</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {docs.map(([dk, doc]) => (
+                      <a key={dk} href={doc.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, background: "rgba(232,122,46,0.08)", border: "1px solid rgba(232,122,46,0.15)", color: "#E87A2E", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>{doc.type}: {doc.name?.length > 25 ? doc.name.slice(0, 25) + "…" : doc.name} ↗</a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SITEIQ DETAILED SCORECARD */}
+              {iqR && iqR.scores && (() => {
+                const dims2 = [
+                  { key: "population", label: "Population", icon: "👥", weight: getIQWeight("population") },
+                  { key: "growth", label: "Growth", icon: "📈", weight: getIQWeight("growth") },
+                  { key: "income", label: "Income", icon: "💰", weight: getIQWeight("income") },
+                  { key: "pricing", label: "Pricing", icon: "🏷️", weight: getIQWeight("pricing") },
+                  { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
+                  { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
+                  { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
+                  { key: "marketTier", label: "Market Tier", icon: "🎯", weight: getIQWeight("marketTier") },
+                ];
+                const sc2 = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
+                return (
+                  <div style={{ borderRadius: 14, marginBottom: 20, overflow: "hidden", border: "1px solid rgba(232,122,46,0.15)" }}>
+                    <div style={{ background: "linear-gradient(135deg,#1a0a00,#2a1505)", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>🔬</span>
+                        <span style={{ color: "#FFB347", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>SiteIQ™ SCORECARD</span>
+                        <span style={{ color: sc2(iqR.score), fontSize: 14, fontWeight: 900, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span>
+                      </div>
+                      {iqR.flags && iqR.flags.length > 0 && <div style={{ display: "flex", gap: 4 }}>{iqR.flags.map((f, i) => <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>)}</div>}
+                    </div>
+                    <div style={{ background: "linear-gradient(180deg,#0F0A05,#0a0a0e)", padding: "8px 14px" }}>
+                      {dims2.map((d, i) => {
+                        const v2 = iqR.scores[d.key] || 0;
+                        const pct2 = (v2 / 10) * 100;
+                        return (
+                          <div key={d.key} style={{ display: "grid", gridTemplateColumns: "28px 1fr 50px 90px 60px", alignItems: "center", gap: 6, padding: "7px 4px", borderBottom: i < dims2.length - 1 ? "1px solid rgba(255,255,255,.04)" : "none" }}>
+                            <span style={{ fontSize: 13, textAlign: "center" }}>{d.icon}</span>
+                            <div><div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{d.label}</div><div style={{ fontSize: 8, color: "#6B7394" }}>{(d.weight * 100).toFixed(0)}% weight</div></div>
+                            <div style={{ textAlign: "right", fontSize: 15, fontWeight: 900, color: sc2(v2), fontFamily: "'Space Mono'" }}>{v2}</div>
+                            <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct2}%`, background: `linear-gradient(90deg, ${sc2(v2)}88, ${sc2(v2)})`, borderRadius: 4 }} /></div>
+                            <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#FBBF24", fontFamily: "'Space Mono'" }}>{(v2 * d.weight).toFixed(2)}</div>
+                          </div>
+                        );
+                      })}
+                      <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 4px 4px", borderTop: "2px solid rgba(243,124,51,.2)", marginTop: 4 }}>
+                        <span style={{ fontSize: 10, color: "#94A3B8" }}>COMPOSITE: <span style={{ color: "#FBBF24", fontWeight: 900, fontSize: 14, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span> / 10</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* BOTTOM NAV */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 0", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
