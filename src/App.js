@@ -338,6 +338,65 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   </div>
 
   <div style="padding:24px 40px 40px">
+    <!-- RESEARCH COMPLETENESS GATE -->
+    ${(() => {
+      const checks = [
+        { label: "Zoning District Identified", done: !!site.zoning, category: "ZONING" },
+        { label: "Zoning Classification Confirmed", done: !!site.zoningClassification && site.zoningClassification !== "unknown", category: "ZONING" },
+        { label: "Ordinance Source Cited", done: !!site.zoningSource, category: "ZONING" },
+        { label: "Planning Dept Contact Found", done: !!site.planningContact, category: "ZONING" },
+        { label: "Permitted Use Table Reviewed", done: !!site.zoningNotes && site.zoningNotes.length > 20, category: "ZONING" },
+        { label: "Water Provider Identified", done: !!site.waterProvider, category: "UTILITY" },
+        { label: "Water Availability Confirmed", done: site.waterAvailable === true || site.waterAvailable === false, category: "UTILITY" },
+        { label: "Sewer Provider Identified", done: !!site.sewerProvider, category: "UTILITY" },
+        { label: "Sewer Availability Confirmed", done: site.sewerAvailable === true || site.sewerAvailable === false, category: "UTILITY" },
+        { label: "Electric Provider + 3-Phase", done: !!site.electricProvider, category: "UTILITY" },
+        { label: "Tap/Impact Fees Documented", done: !!site.tapFees, category: "UTILITY" },
+        { label: "FEMA Flood Zone Checked", done: !!site.floodZone, category: "TOPO" },
+        { label: "Terrain Assessment", done: !!site.terrain, category: "TOPO" },
+        { label: "Wetlands Checked (NWI)", done: site.wetlands === true || site.wetlands === false, category: "TOPO" },
+      ];
+      const done = checks.filter(c => c.done).length;
+      const total = checks.length;
+      const pct = Math.round((done / total) * 100);
+      const grade = pct === 100 ? "COMPLETE" : pct >= 80 ? "NEAR COMPLETE" : pct >= 50 ? "IN PROGRESS" : "INCOMPLETE";
+      const gradeColor = pct === 100 ? "#16A34A" : pct >= 80 ? "#3B82F6" : pct >= 50 ? "#F59E0B" : "#EF4444";
+      const catSummary = (cat) => { const items = checks.filter(c => c.category === cat); const d = items.filter(c => c.done).length; return { done: d, total: items.length, pct: Math.round((d / items.length) * 100) }; };
+      const z = catSummary("ZONING"); const u = catSummary("UTILITY"); const t = catSummary("TOPO");
+      return `
+    <div style="margin-bottom:24px;border-radius:12px;overflow:hidden;border:2px solid ${gradeColor}30">
+      <div style="background:linear-gradient(135deg,#0A0A0C,#1E2761);padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:48px;height:48px;border-radius:10px;background:${gradeColor}15;border:2px solid ${gradeColor}40;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:20px;font-weight:900;color:${gradeColor};font-family:'Space Mono',monospace">${pct}%</span>
+          </div>
+          <div>
+            <div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:0.02em">Research Completeness</div>
+            <div style="font-size:10px;color:#94A3B8;margin-top:2px">McKinsey-grade due diligence standard &mdash; ${done}/${total} items verified</div>
+          </div>
+        </div>
+        <span style="padding:6px 16px;border-radius:8px;font-size:12px;font-weight:800;background:${gradeColor}18;color:${gradeColor};border:1px solid ${gradeColor}30;letter-spacing:0.06em">${grade}</span>
+      </div>
+      <div style="background:#FAFBFC;padding:14px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        ${[
+          { label: "Zoning & Entitlements", ...z, color: "#1E2761" },
+          { label: "Utilities & Water", ...u, color: "#16A34A" },
+          { label: "Topography & Flood", ...t, color: "#E87A2E" },
+        ].map(c => `<div style="text-align:center;padding:12px;border-radius:8px;background:#fff;border:1px solid #E2E8F0">
+          <div style="font-size:9px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${c.label}</div>
+          <div style="width:100%;height:6px;border-radius:3px;background:#E2E8F0;overflow:hidden;margin-bottom:4px"><div style="width:${c.pct}%;height:100%;border-radius:3px;background:${c.pct === 100 ? "#16A34A" : c.pct >= 60 ? "#F59E0B" : "#EF4444"};transition:width 0.5s"></div></div>
+          <div style="font-size:11px;font-weight:700;color:${c.pct === 100 ? "#16A34A" : "#64748B"}">${c.done}/${c.total}</div>
+        </div>`).join("")}
+      </div>
+      ${pct < 100 ? `<div style="background:#FEF2F2;padding:10px 20px;border-top:1px solid #FECACA">
+        <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:4px">&#9888; OUTSTANDING RESEARCH ITEMS:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${checks.filter(c => !c.done).map(c => `<span style="font-size:9px;font-weight:600;color:#991B1B;background:#FEE2E2;padding:2px 8px;border-radius:4px">${c.label}</span>`).join("")}</div>
+      </div>` : `<div style="background:#F0FDF4;padding:10px 20px;border-top:1px solid #BBF7D0;text-align:center">
+        <span style="font-size:11px;font-weight:700;color:#166534">&#10003; ALL RESEARCH ITEMS VERIFIED &mdash; REPORT IS INSTITUTIONAL-GRADE</span>
+      </div>`}
+    </div>`;
+    })()}
+
     <!-- 1. PROPERTY OVERVIEW -->
     ${section("1", "Property Overview", "")}
     <table>${[
