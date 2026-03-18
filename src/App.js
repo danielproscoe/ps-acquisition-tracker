@@ -2582,7 +2582,7 @@ export default function App() {
                               const vr = docs.find(d => d.name && d.name.startsWith("Vetting_Report"));
                               if (vr && vr.url) { window.open(vr.url, "_blank"); }
                               else { const iqR = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); }
-                            }} style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 11, fontWeight: 600, border: "1px solid rgba(232,122,46,0.25)", cursor: "pointer" }}>📋 Vetting Report</button>
+                            }} style={{ padding: "8px 18px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #D45500)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 16px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.04em", textTransform: "uppercase", transition: "all 0.2s" }}>🔬 SiteIQ Deep Vet Report</button>
                           </div>
                         )}
                       </div>
