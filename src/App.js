@@ -2383,6 +2383,7 @@ export default function App() {
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
         @keyframes siteiq-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
+        @keyframes siteiq-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes toastSlide { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); } 70% { box-shadow: 0 0 0 14px rgba(201,168,76,0); } 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); } }
         @keyframes countUp { from { opacity: 0; transform: scale(0.3) translateY(10px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
@@ -2517,9 +2518,20 @@ export default function App() {
         <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.08)", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 10, background: "linear-gradient(135deg, #C9A84C 0%, #1E2761 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(201,168,76,0.4), 0 0 0 2px rgba(201,168,76,0.15)", position: "relative" }}>
-                <span style={{ fontSize: 17, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono'", textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>IQ</span>
-                <div style={{ position: "absolute", inset: -3, borderRadius: 13, border: "1px solid rgba(201,168,76,0.3)", animation: "siteiq-ring 2.5s ease-in-out infinite alternate" }} />
+              <div style={{ width: 46, height: 46, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg viewBox="0 0 64 64" style={{ width: 46, height: 46, filter: "drop-shadow(0 0 8px rgba(57,255,20,0.4)) drop-shadow(0 0 16px rgba(0,229,255,0.2))", animation: "siteiq-spin 12s linear infinite" }}>
+                  <defs>
+                    <radialGradient id="iqbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#1a1a2e"/><stop offset="100%" stopColor="#0a0a0c"/></radialGradient>
+                    <linearGradient id="iqblade" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#39FF14" stopOpacity="0.9"/><stop offset="100%" stopColor="#00E5FF" stopOpacity="0.7"/></linearGradient>
+                  </defs>
+                  <rect width="64" height="64" rx="14" fill="url(#iqbg)"/>
+                  <g transform="translate(32,32)">
+                    {[0,60,120,180,240,300].map(r => <path key={r} d="M0,-18 Q8,-8 2,-2 Q-2,-4 0,-18Z" fill="url(#iqblade)" opacity="0.85" transform={`rotate(${r})`}/>)}
+                    <circle r="8" fill="#1a1a2e" stroke="#3a3a5c" strokeWidth="1.5"/>
+                    <circle r="6" fill="none" stroke="#555577" strokeWidth="0.5"/>
+                  </g>
+                  <text x="32" y="37" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="900" fontSize="12" fill="#e0e0e0" letterSpacing="-0.3">IQ</text>
+                </svg>
               </div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.06em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>SITEIQ</div>
