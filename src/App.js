@@ -2364,30 +2364,6 @@ export default function App() {
                           <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🌍 Google Earth</a>
                         </>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Property Listing</a>}
-                        {/* Draggable PDF icon — drag to desktop, file manager, or Claude */}
-                        <div
-                          draggable
-                          onDragStart={(e) => {
-                            const iqR = computeSiteIQ(site);
-                            const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
-                            const rpt = generateVettingReport(site, psD, iqR);
-                            const blob = new Blob([rpt], { type: "text/html;charset=utf-8" });
-                            const url = URL.createObjectURL(blob);
-                            const fname = `Vetting_Report_${(site.name || site.city || "Site").replace(/[^a-zA-Z0-9]/g, "_")}.html`;
-                            e.dataTransfer.setData("DownloadURL", `text/html:${fname}:${url}`);
-                            e.dataTransfer.setData("text/uri-list", url);
-                            e.dataTransfer.effectAllowed = "copy";
-                            e.currentTarget.style.opacity = "0.6";
-                          }}
-                          onDragEnd={(e) => { e.currentTarget.style.opacity = "1"; }}
-                          title="Drag this PDF to your desktop, a folder, or Claude"
-                          style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 56, height: 56, borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "2px dashed rgba(220,38,38,0.25)", cursor: "grab", transition: "all 0.2s", userSelect: "none", flexShrink: 0 }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.15)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.5)"; e.currentTarget.style.transform = "scale(1.05)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.08)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.25)"; e.currentTarget.style.transform = "scale(1)"; }}
-                        >
-                          <span style={{ fontSize: 20, lineHeight: 1 }}>📄</span>
-                          <span style={{ fontSize: 7, fontWeight: 800, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 2 }}>DRAG</span>
-                        </div>
                         <button onClick={() => {
                           const iqR = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
                         }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 SiteIQ Deep Vet Report</button>
@@ -3063,7 +3039,7 @@ export default function App() {
               const week = 7 * 86400000;
               const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < week).length;
               const ucCount = all.filter(s => s.phase === "Under Contract").length;
-              const loiCount = all.filter(s => s.phase === "LOI").length;
+              const loiCount = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
               const greenCount = all.filter(s => getSiteIQ(s).score >= 7.5).length;
               return (
                 <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
@@ -3117,7 +3093,7 @@ export default function App() {
 
               // --- Pipeline value by stage ---
               const parsePrice = (p) => { if (!p) return 0; const s = String(p).replace(/[$,]/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s) || 0; };
-              const loiValue = all.filter(s => s.phase === "LOI").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const loiValue = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
               const ucValue = all.filter(s => s.phase === "Under Contract").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
               const prospectValue = all.filter(s => s.phase === "Prospect").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
               const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
@@ -3127,8 +3103,7 @@ export default function App() {
                 { label: "Prospect", phases: ["Prospect"], color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "Submitted to PS", phases: ["Submitted to PS"], color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
                 { label: "PS Approved", phases: ["PS Approved"], color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
-                { label: "LOI", phases: ["LOI"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
-                { label: "PSA Sent", phases: ["PSA Sent"], color: "#D946EF", icon: "📄", action: () => navigateTo("summary", { phase: "PSA Sent" }) },
+                { label: "LOI / PSA", phases: ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
                 { label: "Under Contract", phases: ["Under Contract"], color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", phases: ["Closed"], color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
@@ -3166,7 +3141,7 @@ export default function App() {
                   {/* Pipeline Value Metrics */}
                   <div style={{ padding: "16px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                     {[
-                      { label: "LOI PIPELINE", value: fmtVal(loiValue), count: all.filter(s => s.phase === "LOI").length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "LOI / PSA PIPELINE", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI" }) },
                       { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                       { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
                     ].map(m => (
@@ -3237,8 +3212,7 @@ export default function App() {
                 { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
                 { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
-                { label: "LOI", count: all.filter(s => s.phase === "LOI").length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
-                { label: "PSA Sent", count: all.filter(s => s.phase === "PSA Sent").length, color: "#D946EF", icon: "📄", action: () => navigateTo("summary", { phase: "PSA Sent" }) },
+                { label: "LOI / PSA", count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
                 { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
@@ -3746,30 +3720,6 @@ export default function App() {
 
               {/* ACTION BUTTONS */}
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)", alignItems: "center" }}>
-                {/* Draggable PDF icon */}
-                <div
-                  draggable
-                  onDragStart={(e) => {
-                    const iqR = computeSiteIQ(site);
-                    const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
-                    const rpt = generateVettingReport(site, psD, iqR);
-                    const blob = new Blob([rpt], { type: "text/html;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const fname = `Vetting_Report_${(site.name || site.city || "Site").replace(/[^a-zA-Z0-9]/g, "_")}.html`;
-                    e.dataTransfer.setData("DownloadURL", `text/html:${fname}:${url}`);
-                    e.dataTransfer.setData("text/uri-list", url);
-                    e.dataTransfer.effectAllowed = "copy";
-                    e.currentTarget.style.opacity = "0.6";
-                  }}
-                  onDragEnd={(e) => { e.currentTarget.style.opacity = "1"; }}
-                  title="Drag to desktop, file manager, or Claude"
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 62, height: 62, borderRadius: 12, background: "rgba(220,38,38,0.08)", border: "2px dashed rgba(220,38,38,0.25)", cursor: "grab", transition: "all 0.2s", userSelect: "none", flexShrink: 0 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.15)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.5)"; e.currentTarget.style.transform = "scale(1.08)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.08)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.25)"; e.currentTarget.style.transform = "scale(1)"; }}
-                >
-                  <span style={{ fontSize: 22, lineHeight: 1 }}>📄</span>
-                  <span style={{ fontSize: 8, fontWeight: 800, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 2 }}>DRAG PDF</span>
-                </div>
                 <button onClick={() => {
                   const iqGen = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
                 }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 SiteIQ Deep Vet Report</button>
