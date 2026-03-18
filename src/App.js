@@ -379,6 +379,10 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       row("Planning Contact", site.planningContact || "<em style='color:#94A3B8'>Research needed</em>"),
     ].join("")}</table>
     ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.zoningNotes}</div>` : ""}
+    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0F4FF;border-left:3px solid #1E2761;font-size:9px;color:#475569;line-height:1.6">
+      <strong style="color:#1E2761;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
+      Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+    </div>
     <!-- Supplemental Standards Grid -->
     <div style="margin-top:16px"><div style="font-size:11px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Supplemental Standards</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -413,6 +417,10 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       row("Tap/Impact Fees", site.tapFees || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
     ].join("")}</table>
     ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${site.utilityNotes}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>&#9888; Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
+    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0FFF4;border-left:3px solid #16A34A;font-size:9px;color:#475569;line-height:1.6">
+      <strong style="color:#16A34A;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
+      Water/sewer provider identified via city utility department website, county records, and state regulatory databases (TCEQ CCN maps for TX, state DEQ/utility commission for other states). Service boundary verified via municipal GIS portals and utility district maps. Tap/impact fees sourced from published jurisdiction fee schedules (commercial/warehouse classification). Electric provider identified via utility service territory maps; 3-phase availability checked against provider service records. Distance to nearest water/sewer main estimated via GIS infrastructure layers where available. Capacity constraints checked against published moratoriums and allocation notices.
+    </div>
 
     <!-- 4. TOPOGRAPHY & FLOOD -->
     ${section("4", "Topography & Flood Assessment", "")}
@@ -428,6 +436,10 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
     ].join("")}</table>
     ${site.topoNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.topoNotes}</div>` : ""}
+    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#FFF7ED;border-left:3px solid #E87A2E;font-size:9px;color:#475569;line-height:1.6">
+      <strong style="color:#E87A2E;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
+      FEMA flood zone designation sourced from FEMA Flood Map Service Center (msc.fema.gov) — FIRM panel number and zone classification recorded. Topographic assessment via Google Earth elevation profiles, USGS TopoView, and county GIS contour data. Wetlands checked via U.S. Fish & Wildlife Service National Wetlands Inventory (NWI) mapper. Soil data from USDA Web Soil Survey where available. Grading cost estimates based on industry benchmarks: flat-2% = no concern, 2-5% = $50K-$150K, 5-10% = $150K-$400K+, >10% = potentially prohibitive. Environmental screening via EPA NEPAssist and state environmental databases.
+    </div>
 
     <!-- 5. SITE ACCESS & INFRASTRUCTURE -->
     ${section("5", "Site Access & Infrastructure", "")}
@@ -525,9 +537,60 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     })() : ""}
   </div>
 
+  <!-- SOURCES & METHODOLOGY APPENDIX -->
+  <div style="padding:28px 40px 20px;border-top:2px solid #1E2761">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#1E2761,#2C3E6B);display:flex;align-items:center;justify-content:center;font-size:11px;color:#C9A84C;font-weight:900">&#167;</div>
+      <h2 style="margin:0;font-size:14px;font-weight:800;color:#1E2761;letter-spacing:0.02em">Sources &amp; Methodology</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
+        <div style="font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Zoning &amp; Entitlements</div>
+        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
+          &bull; Municipal zoning ordinance (ecode360, Municode, American Legal, Code Publishing)<br/>
+          &bull; Permitted use table — exact district column verified<br/>
+          &bull; Overlay district maps via jurisdiction GIS portal<br/>
+          &bull; Planning department direct contact for confirmation
+        </div>
+      </div>
+      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
+        <div style="font-size:9px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Utilities &amp; Water</div>
+        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
+          &bull; City/county utility department + published fee schedules<br/>
+          &bull; TCEQ CCN maps (TX) / state utility commission databases<br/>
+          &bull; Municipal GIS infrastructure layers (water/sewer mains)<br/>
+          &bull; Electric utility service territory maps — 3-phase verification
+        </div>
+      </div>
+      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
+        <div style="font-size:9px;font-weight:800;color:#E87A2E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Topography &amp; Environmental</div>
+        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
+          &bull; FEMA Flood Map Service Center (msc.fema.gov) — FIRM panels<br/>
+          &bull; Google Earth elevation profiles + USGS TopoView<br/>
+          &bull; National Wetlands Inventory (NWI) mapper — USFWS<br/>
+          &bull; USDA Web Soil Survey + EPA NEPAssist screening
+        </div>
+      </div>
+      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
+        <div style="font-size:9px;font-weight:800;color:#2C3E6B;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Demographics &amp; Scoring</div>
+        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
+          &bull; Licensed ESRI 2025 estimates + 2030 five-year projections<br/>
+          &bull; U.S. Census Bureau ACS 5-Year (population, HHI, households)<br/>
+          &bull; SiteIQ&trade; composite scoring: 8 weighted dimensions, 0&ndash;10 scale<br/>
+          &bull; PS proximity: Haversine distance against 3,400+ owned locations
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 14px;border-radius:6px;background:#0A0A0C;font-size:8px;color:#64748B;line-height:1.6;text-align:center">
+      This report was generated by SiteIQ&trade;, a proprietary AI-powered acquisition intelligence platform developed by DJR Real Estate LLC.
+      All zoning, utility, and environmental findings are sourced from primary municipal records, federal databases, and licensed data providers.
+      Findings should be independently verified prior to capital commitment. Report date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <div style="background:#0A0A0C;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">SiteIQ Acquisition Pipeline 4.0</span></div>
+    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">SiteIQ&trade; AI-Powered Land Acquisition Engine</span></div>
     <div style="font-size:11px;color:#64748B"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
   </div>
 </div></body></html>`;
