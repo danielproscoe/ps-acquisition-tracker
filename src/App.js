@@ -2364,6 +2364,30 @@ export default function App() {
                           <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🌍 Google Earth</a>
                         </>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Property Listing</a>}
+                        {/* Draggable PDF icon — drag to desktop, file manager, or Claude */}
+                        <div
+                          draggable
+                          onDragStart={(e) => {
+                            const iqR = computeSiteIQ(site);
+                            const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
+                            const rpt = generateVettingReport(site, psD, iqR);
+                            const blob = new Blob([rpt], { type: "text/html;charset=utf-8" });
+                            const url = URL.createObjectURL(blob);
+                            const fname = `Vetting_Report_${(site.name || site.city || "Site").replace(/[^a-zA-Z0-9]/g, "_")}.html`;
+                            e.dataTransfer.setData("DownloadURL", `text/html:${fname}:${url}`);
+                            e.dataTransfer.setData("text/uri-list", url);
+                            e.dataTransfer.effectAllowed = "copy";
+                            e.currentTarget.style.opacity = "0.6";
+                          }}
+                          onDragEnd={(e) => { e.currentTarget.style.opacity = "1"; }}
+                          title="Drag this PDF to your desktop, a folder, or Claude"
+                          style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 56, height: 56, borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "2px dashed rgba(220,38,38,0.25)", cursor: "grab", transition: "all 0.2s", userSelect: "none", flexShrink: 0 }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.15)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.5)"; e.currentTarget.style.transform = "scale(1.05)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.08)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.25)"; e.currentTarget.style.transform = "scale(1)"; }}
+                        >
+                          <span style={{ fontSize: 20, lineHeight: 1 }}>📄</span>
+                          <span style={{ fontSize: 7, fontWeight: 800, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 2 }}>DRAG</span>
+                        </div>
                         <button onClick={() => {
                           const iqR = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
                         }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 SiteIQ Deep Vet Report</button>
@@ -3721,7 +3745,31 @@ export default function App() {
               </div>
 
               {/* ACTION BUTTONS */}
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)" }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)", alignItems: "center" }}>
+                {/* Draggable PDF icon */}
+                <div
+                  draggable
+                  onDragStart={(e) => {
+                    const iqR = computeSiteIQ(site);
+                    const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
+                    const rpt = generateVettingReport(site, psD, iqR);
+                    const blob = new Blob([rpt], { type: "text/html;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const fname = `Vetting_Report_${(site.name || site.city || "Site").replace(/[^a-zA-Z0-9]/g, "_")}.html`;
+                    e.dataTransfer.setData("DownloadURL", `text/html:${fname}:${url}`);
+                    e.dataTransfer.setData("text/uri-list", url);
+                    e.dataTransfer.effectAllowed = "copy";
+                    e.currentTarget.style.opacity = "0.6";
+                  }}
+                  onDragEnd={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  title="Drag to desktop, file manager, or Claude"
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 62, height: 62, borderRadius: 12, background: "rgba(220,38,38,0.08)", border: "2px dashed rgba(220,38,38,0.25)", cursor: "grab", transition: "all 0.2s", userSelect: "none", flexShrink: 0 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.15)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.5)"; e.currentTarget.style.transform = "scale(1.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.08)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.25)"; e.currentTarget.style.transform = "scale(1)"; }}
+                >
+                  <span style={{ fontSize: 22, lineHeight: 1 }}>📄</span>
+                  <span style={{ fontSize: 8, fontWeight: 800, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 2 }}>DRAG PDF</span>
+                </div>
                 <button onClick={() => {
                   const iqGen = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
                 }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 SiteIQ Deep Vet Report</button>
