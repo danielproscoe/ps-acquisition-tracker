@@ -294,7 +294,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
   if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water, sewer, electric");
-  if (hasSeptic) flags.push("Septic system noted — may limit building size / add cost");
+  // NOTE: Septic is VIABLE for storage — minimal wastewater (restrooms/office only). Not a red flag.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
   const iq = iqResult || (typeof computeSiteIQ === "function" ? computeSiteIQ(site) : null);
@@ -464,7 +464,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       ${[
         { label: "Water Service", icon: "&#128167;", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#EF4444" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
-        { label: "Sanitary Sewer", icon: "&#128703;", available: !!site.sewerProvider || site.sewerAvailable === true || /sewer|sanitary/i.test(combined), issue: site.sewerAvailable === false ? "Not available" : hasSeptic ? "Septic system" : null, color: site.sewerAvailable === true ? "#16A34A" : site.sewerAvailable === false ? "#EF4444" : !!site.sewerProvider ? "#16A34A" : /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#F59E0B" : "#94A3B8", detail: site.sewerProvider || null },
+        { label: "Sanitary Sewer", icon: "&#128703;", available: !!site.sewerProvider || site.sewerAvailable === true || /sewer|sanitary/i.test(combined) || hasSeptic, issue: site.sewerAvailable === false && !hasSeptic ? "Not available" : null, color: site.sewerAvailable === true ? "#16A34A" : !!site.sewerProvider ? "#16A34A" : /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#16A34A" : site.sewerAvailable === false ? "#F59E0B" : "#94A3B8", detail: site.sewerProvider || (hasSeptic ? "Septic — viable for storage (low wastewater)" : null) },
         { label: "Electric Service", icon: "&#9889;", available: !!site.electricProvider || site.threePhase === true || /electric|power/i.test(combined), issue: site.threePhase === false ? "No 3-phase" : null, color: site.threePhase === true ? "#16A34A" : !!site.electricProvider ? "#16A34A" : /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.electricProvider ? (site.electricProvider + (site.threePhase === true ? " — 3-Phase ✓" : "")) : null },
         { label: "Natural Gas", icon: "&#128293;", available: !!site.gasProvider || /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: !!site.gasProvider ? "#16A34A" : /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.gasProvider || null },
         { label: "Stormwater", icon: "&#127783;", available: /storm|drainage|detention/i.test(combined), issue: hasFlood ? "Flood zone concern" : null, color: hasFlood ? "#EF4444" : /storm|drainage/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
@@ -545,7 +545,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
         !hasUtilities ? { pri: "HIGH", color: "#EF4444", text: "Confirm water & sewer availability — contact provider and verify service boundary" } : null,
         hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "MED", color: "#F59E0B", text: "Verify sewer extension feasibility — septic may not support commercial climate-controlled storage" } : null,
+        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
         hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
         { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
       ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
@@ -695,7 +695,7 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
   if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water, sewer, electric");
-  if (hasSeptic) flags.push("Septic system noted — may limit building size / add cost");
+  // NOTE: Septic is VIABLE for storage — minimal wastewater (restrooms/office only). Not a red flag.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
   if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
@@ -815,7 +815,7 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
         zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
         !hasUtilities ? { pri: "MED", color: "#F59E0B", text: "Confirm utility availability — contact water/sewer provider and electric utility" } : null,
         hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "MED", color: "#F59E0B", text: "Verify sewer extension feasibility — septic may not support commercial climate-controlled storage" } : null,
+        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
         hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
         { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
       ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
