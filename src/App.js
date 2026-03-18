@@ -3662,9 +3662,9 @@ export default function App() {
         )}
 
         {/* ═══ REVIEW DETAIL VIEW — Full property page from review queue ═══ */}
-        {reviewDetailSite && (() => {
+        {tab === "review" && reviewDetailSite && (() => {
           const site = subs.find(s => s.id === reviewDetailSite);
-          if (!site) { setReviewDetailSite(null); return null; }
+          if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => setReviewDetailSite(null)} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
           const iqR = computeSiteIQ(site);
           const ri = reviewInputs[site.id] || {};
           const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
