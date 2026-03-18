@@ -143,8 +143,12 @@ const fmtPrice = (v) => {
   // Already has $X.XXM format with parenthetical — extract just the leading price
   const mMatch = String(v).match(/^\$?([\d,.]+)\s*[Mm]/);
   if (mMatch) return "$" + parseFloat(mMatch[1].replace(/,/g, "")).toFixed(2).replace(/\.?0+$/, "") + "M";
-  // Raw number like $1,300,000 or 1300000
-  const n = Number(String(v).replace(/[^0-9.]/g, ""));
+  // $700K format — extract number before K
+  const kMatch = String(v).match(/^\$?([\d,.]+)\s*[Kk]/);
+  if (kMatch) return "$" + parseFloat(kMatch[1].replace(/,/g, "")).toFixed(0) + "K";
+  // Raw number like $1,300,000 or 1300000 — only parse leading digits
+  const leadMatch = String(v).match(/^\$?([\d,.]+)/);
+  const n = leadMatch ? Number(leadMatch[1].replace(/,/g, "")) : NaN;
   if (isNaN(n) || n === 0) return v;
   if (n >= 1000000) return "$" + (n / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
   if (n >= 1000) return "$" + Math.round(n / 1000) + "K";
@@ -3187,8 +3191,8 @@ export default function App() {
 
         {/* ═══ SUMMARY ═══ */}
         {tab === "summary" && (() => {
-          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", borderBottom: "2px solid rgba(201,168,76,0.1)", whiteSpace: "nowrap", position: "sticky", top: 0, background: "rgba(15,21,56,0.4)", zIndex: 1 };
-          const td = { padding: "8px 10px", fontSize: 11, color: "#94A3B8", borderBottom: "1px solid rgba(201,168,76,0.1)", whiteSpace: "nowrap" };
+          const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#C9A84C", textTransform: "uppercase", borderBottom: "2px solid rgba(201,168,76,0.15)", whiteSpace: "nowrap", position: "sticky", top: 0, background: "rgba(15,21,56,0.6)", zIndex: 1 };
+          const td = { padding: "8px 10px", fontSize: 11, color: "#E2E8F0", borderBottom: "1px solid rgba(201,168,76,0.08)", whiteSpace: "nowrap" };
           const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
           const allStates = [...new Set([...sw, ...east].map(s => s.state).filter(Boolean))].sort();
           const SumTable = ({ rk }) => {
@@ -3212,9 +3216,9 @@ export default function App() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => navigateTo(rk, { siteId: s.id })} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF3E0")}
-                            onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "#FFFDF5" : t === "steel" ? "#F8F9FE" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
+                          <tr key={s.id} onClick={() => navigateTo(rk, { siteId: s.id })} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(232,122,46,0.12)")}
+                            onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
                           >
                             <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#E2E8F0" }}>{s.name}</td>
