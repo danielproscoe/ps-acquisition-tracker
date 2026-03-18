@@ -1079,8 +1079,18 @@ const computeSiteIQ = (site) => {
   else if (final >= 3.0) { classification = "ORANGE"; classColor = "#EA580C"; }
   else { classification = "RED"; classColor = "#DC2626"; }
 
+  const breakdown = [
+    { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population") },
+    { label: "Growth", key: "growth", score: scores.growth, weight: getIQWeight("growth") },
+    { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income") },
+    { label: "Pricing", key: "pricing", score: scores.pricing, weight: getIQWeight("pricing") },
+    { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning") },
+    { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access") },
+    { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition") },
+    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier") },
+  ];
   return {
-    score: final, scores, flags, hardFail, hasDemoData, classification, classColor,
+    score: final, scores, flags, hardFail, hasDemoData, classification, classColor, breakdown,
     tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
     label: final >= 9 ? "ELITE" : final >= 8 ? "PRIME" : final >= 7 ? "STRONG" : final >= 6 ? "VIABLE" : final >= 4 ? "MARGINAL" : "WEAK",
   };
@@ -1359,6 +1369,7 @@ export default function App() {
   const [filterState, setFilterState] = useState("all");
   const [filterPhase, setFilterPhase] = useState("all");
   const [highlightedSite, setHighlightedSite] = useState(null);
+  const [reviewExpandedSite, setReviewExpandedSite] = useState(null);
   const [shareLink, setShareLink] = useState(null);
   const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
@@ -3517,20 +3528,77 @@ export default function App() {
                   const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
                   const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
                   const isHL = highlightedSite === site.id;
+                  const isExpanded = reviewExpandedSite === site.id;
                   return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span onClick={site.status === "approved" && site.region ? () => navigateTo(site.region, { siteId: site.id }) : undefined} style={{ fontSize: 15, fontWeight: 700, cursor: site.status === "approved" ? "pointer" : "default", transition: "color 0.2s" }}
-                          onMouseEnter={(e) => { if (site.status === "approved") e.currentTarget.style.color = "#F37C33"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = "inherit"; }}
-                        >{site.name}</span>
+                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : isExpanded ? "rgba(15,21,56,0.7)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : isExpanded ? "0 2px 16px rgba(0,0,0,.15), 0 0 0 1px rgba(201,168,76,0.15)" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s" }}>
+                      <div onClick={() => setReviewExpandedSite(isExpanded ? null : site.id)} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap", cursor: "pointer" }}
+                        onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.opacity = "0.85"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                      >
+                        <span style={{ fontSize: 10, color: "#94A3B8", transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{site.name}</span>
                         <SiteIQBadge site={site} size="small" />
                         <Badge status={site.status} />
-                        {site.status === "pending" && <button onClick={() => { const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+                        {site.status === "pending" && <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
                       </div>
                       <div style={{ fontSize: 12, color: "#6B7394", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
-                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
-                      {site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }}>📍 Pin Drop</a></div>}
+                      {!isExpanded && site.summary && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4, lineHeight: 1.4, maxHeight: 40, overflow: "hidden" }}>{site.summary.substring(0, 200)}{site.summary.length > 200 ? "…" : ""}</div>}
+                      {!isExpanded && site.coordinates && <div style={{ fontSize: 10, marginBottom: 4 }}><a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>📍 Pin Drop</a></div>}
+
+                      {/* ── EXPANDED DETAIL PANEL ── */}
+                      {isExpanded && (() => {
+                        const iqR = computeSiteIQ(site);
+                        return (
+                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+                            {/* SiteIQ Scorecard */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6, marginBottom: 14 }}>
+                              {(iqR.breakdown || []).map((b, i) => (
+                                <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                  <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 2 }}>{b.label}</div>
+                                  <div style={{ fontSize: 16, fontWeight: 800, color: b.score >= 8 ? "#16A34A" : b.score >= 6 ? "#D97706" : b.score >= 4 ? "#EA580C" : "#DC2626" }}>{b.score}/10</div>
+                                  <div style={{ fontSize: 9, color: "#6B7394" }}>{Math.round(b.weight * 100)}% weight</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Key Details Grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 16px", fontSize: 12, marginBottom: 14 }}>
+                              {[
+                                ["Acreage", site.acreage ? `${site.acreage} ac` : "—"],
+                                ["Asking Price", site.askingPrice || "—"],
+                                ["Zoning", site.zoning || "—"],
+                                ["3-Mi Population", site.pop3mi || "—"],
+                                ["3-Mi Med. HHI", site.income3mi || "—"],
+                                ["Market", site.market || "—"],
+                                ["Broker", site.sellerBroker || "—"],
+                                ["Days on Market", site.dateOnMarket ? `${Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)} days` : "—"],
+                              ].map(([k, v]) => (
+                                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                  <span style={{ color: "#94A3B8", fontWeight: 600 }}>{k}</span>
+                                  <span style={{ color: "#E2E8F0", fontWeight: 500 }}>{v}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Summary */}
+                            {site.summary && <div style={{ fontSize: 11, color: "#CBD5E1", lineHeight: 1.5, marginBottom: 12, padding: 10, background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>{site.summary}</div>}
+
+                            {/* Links row */}
+                            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                              {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none", fontSize: 11, fontWeight: 600 }}>📍 Pin Drop</a>}
+                              {site.listingUrl && <a href={site.listingUrl} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", textDecoration: "none", fontSize: 11, fontWeight: 600 }}>🔗 Listing</a>}
+                              <button onClick={(e) => { e.stopPropagation(); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); }} style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>📄 Full Vetting Report</button>
+                            </div>
+
+                            {/* Composite Score Banner */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "8px 12px", borderRadius: 8, background: iqR.score >= 7.5 ? "rgba(22,163,74,0.1)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.1)" : "rgba(220,38,38,0.1)", border: `1px solid ${iqR.score >= 7.5 ? "rgba(22,163,74,0.2)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.2)" : "rgba(220,38,38,0.2)"}` }}>
+                              <span style={{ fontSize: 22, fontWeight: 900, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626" }}>{iqR.score}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", textTransform: "uppercase" }}>{iqR.classification || (iqR.score >= 7.5 ? "GREEN" : iqR.score >= 5.5 ? "YELLOW" : "RED")}</span>
+                              {iqR.flags && iqR.flags.length > 0 && <span style={{ fontSize: 10, color: "#F59E0B" }}>{iqR.flags.join(" · ")}</span>}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {site.status === "pending" ? (
                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(201,168,76,0.1)" }}>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
