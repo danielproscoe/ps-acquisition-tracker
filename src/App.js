@@ -49,14 +49,14 @@ const REGIONS = {
 const STATUS_COLORS = {
   pending: { bg: "#FFFBEB", text: "#92700C", dot: "#C9A84C", label: "Pending" },
   recommended: { bg: "#E0E7FF", text: "#3730A3", dot: "#6366F1", label: "Dan R. Approved" },
-  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50", label: "PS Approved" },
+  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50", label: "⚡ SiteIQ Approved" },
   declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350", label: "Declined" },
   tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33", label: "In Tracker" },
 };
 const PHASES = [
   "Prospect",
   "Submitted to PS",
-  "PS Approved",
+  "SiteIQ Approved",
   "LOI",
   "PSA Sent",
   "Under Contract",
@@ -69,7 +69,8 @@ const PHASE_MIGRATION = {
   "Incoming": "Prospect",
   "Scored": "Prospect",
   "Submitted to Client": "Submitted to PS",
-  "Client Approved": "PS Approved",
+  "Client Approved": "SiteIQ Approved",
+  "PS Approved": "SiteIQ Approved",
   "Client Revisions": "Submitted to PS",
   "Client Declined": "Declined",
   "LOI Sent": "LOI",
@@ -3102,7 +3103,7 @@ export default function App() {
               const phaseGroups = [
                 { label: "Prospect", phases: ["Prospect"], color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "Submitted to PS", phases: ["Submitted to PS"], color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "PS Approved", phases: ["PS Approved"], color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
+                { label: "SiteIQ Approved", phases: ["SiteIQ Approved"], color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "SiteIQ Approved" }) },
                 { label: "LOI / PSA", phases: ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
                 { label: "Under Contract", phases: ["Under Contract"], color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", phases: ["Closed"], color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
@@ -3111,7 +3112,7 @@ export default function App() {
               const maxPhaseCount = Math.max(...phaseGroups.map(g => g.count), 1);
 
               // --- Move type classification ---
-              const advancePhases = ["PS Approved", "LOI", "PSA Sent", "Under Contract", "Closed"];
+              const advancePhases = ["SiteIQ Approved", "LOI", "PSA Sent", "Under Contract", "Closed"];
               const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "Declined" ? "🔴" : "🔵";
               const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "Declined" ? "EXITED" : "MOVED";
 
@@ -3211,7 +3212,7 @@ export default function App() {
                 { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
                 { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
+                { label: "SiteIQ Approved", count: all.filter(s => s.phase === "SiteIQ Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "SiteIQ Approved" }) },
                 { label: "LOI / PSA", count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
                 { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
@@ -3325,7 +3326,7 @@ export default function App() {
                             <td style={{ ...td, fontWeight: 600, color: "#E2E8F0" }}>{s.name}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" || s.phase === "Closed" ? "#DCFCE7" : s.phase === "PSA Sent" ? "#F5D0FE" : s.phase === "LOI" ? "#FEF3C7" : s.phase === "PS Approved" ? "#E0E7FF" : s.phase === "Submitted to PS" ? "#DBEAFE" : "rgba(15,21,56,0.3)", color: s.phase === "Under Contract" || s.phase === "Closed" ? "#166534" : s.phase === "PSA Sent" ? "#86198F" : s.phase === "LOI" ? "#92400E" : s.phase === "PS Approved" ? "#3730A3" : s.phase === "Submitted to PS" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
+                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" || s.phase === "Closed" ? "#DCFCE7" : s.phase === "PSA Sent" ? "#F5D0FE" : s.phase === "LOI" ? "#FEF3C7" : s.phase === "SiteIQ Approved" ? "#E0E7FF" : s.phase === "Submitted to PS" ? "#DBEAFE" : "rgba(15,21,56,0.3)", color: s.phase === "Under Contract" || s.phase === "Closed" ? "#166534" : s.phase === "PSA Sent" ? "#86198F" : s.phase === "LOI" ? "#92400E" : s.phase === "SiteIQ Approved" ? "#3730A3" : s.phase === "Submitted to PS" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
                             <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
