@@ -1359,7 +1359,7 @@ export default function App() {
   const [newSiteCount, setNewSiteCount] = useState(0);
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
-  const [submitMode, setSubmitMode] = useState("direct");
+  const [submitMode, setSubmitMode] = useState("review");
   const [flyerFile, setFlyerFile] = useState(null);
   const [flyerParsing, setFlyerParsing] = useState(false);
   const [flyerPreview, setFlyerPreview] = useState(null);
@@ -3515,7 +3515,7 @@ export default function App() {
               const dwCount = subs.filter(s => s.status === "recommended" && (s.routedTo === "southwest" || s.region === "southwest")).length;
               const mtCount = subs.filter(s => s.status === "recommended" && (s.routedTo === "east" || s.region === "east")).length;
               const reviewTabs = [
-                { key: "mine", label: "My Queue", count: myCount, color: "#C9A84C", icon: "📋" },
+                { key: "mine", label: "Dan R.", count: myCount, color: "#C9A84C", icon: "📋" },
                 { key: "dw", label: "Daniel Wollent", count: dwCount, color: "#42A5F5", icon: "◆" },
                 { key: "mt", label: "Matthew Toussaint", count: mtCount, color: "#4CAF50", icon: "●" },
               ];
