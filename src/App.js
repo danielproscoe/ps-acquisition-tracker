@@ -2401,7 +2401,7 @@ export default function App() {
                                 <div key={i} style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", alignItems: "center", padding: "7px 16px", borderBottom: i < rows.length - 1 ? "1px solid rgba(201,168,76,0.1)" : "none", transition: "background .15s" }}>
                                   <span style={{ fontSize: 13, textAlign: "center" }}>{row.icon}</span>
                                   <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{row.label}</span>
-                                  <span style={{ fontSize: 13, fontWeight: 800, color: row.color || "#1E293B", fontFamily: "'Space Mono', monospace", textAlign: "right" }}>{row.val}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 800, color: row.color || "#E2E8F0", fontFamily: "'Space Mono', monospace", textAlign: "right" }}>{row.val}</span>
                                 </div>
                               ))}
                             </div>
@@ -2808,12 +2808,12 @@ export default function App() {
                   <div key={dim.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
                     <span style={{ fontSize: 16, width: 24 }}>{dim.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{dim.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#E2E8F0" }}>{dim.label}</div>
                       <div style={{ fontSize: 10, color: "#94A3B8" }}>{dim.tip}</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <button onClick={() => adjustWeight(dim.key, -0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>−</button>
-                      <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono', monospace", width: 48, textAlign: "center", color: dim.weight > 0.15 ? "#F37C33" : dim.weight > 0.05 ? "#1E293B" : "#94A3B8" }}>{Math.round(dim.weight * 100)}%</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono', monospace", width: 48, textAlign: "center", color: dim.weight > 0.15 ? "#F37C33" : dim.weight > 0.05 ? "#E2E8F0" : "#94A3B8" }}>{Math.round(dim.weight * 100)}%</div>
                       <button onClick={() => adjustWeight(dim.key, 0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>+</button>
                     </div>
                   </div>
