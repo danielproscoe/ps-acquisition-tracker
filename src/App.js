@@ -47,27 +47,35 @@ const REGIONS = {
   east: { label: "Matthew Toussaint", color: "#2D5F2D", accent: "#4CAF50" },
 };
 const STATUS_COLORS = {
-  pending: { bg: "#FFFBEB", text: "#92700C", dot: "#C9A84C" },
-  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50" },
-  declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350" },
-  tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33" },
+  pending: { bg: "#FFFBEB", text: "#92700C", dot: "#C9A84C", label: "Pending" },
+  recommended: { bg: "#E0E7FF", text: "#3730A3", dot: "#6366F1", label: "Dan R. Approved" },
+  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50", label: "PS Approved" },
+  declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350", label: "Declined" },
+  tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33", label: "In Tracker" },
 };
 const PHASES = [
-  "Incoming",
-  "Scored",
   "Prospect",
-  "Submitted to Client",
-  "Client Approved",
-  "Client Revisions",
-  "Client Declined",
-  "LOI Sent",
-  "LOI Signed",
+  "Submitted to PS",
+  "PS Approved",
+  "LOI",
   "PSA Sent",
   "Under Contract",
-  "Due Diligence",
   "Closed",
+  "Declined",
   "Dead",
 ];
+// Legacy phase migration map — consolidates old 14-phase system to new 8-phase pipeline
+const PHASE_MIGRATION = {
+  "Incoming": "Prospect",
+  "Scored": "Prospect",
+  "Submitted to Client": "Submitted to PS",
+  "Client Approved": "PS Approved",
+  "Client Revisions": "Submitted to PS",
+  "Client Declined": "Declined",
+  "LOI Sent": "LOI",
+  "LOI Signed": "LOI",
+  "Due Diligence": "Under Contract",
+};
 const PRIORITIES = ["🔥 Hot", "🟡 Warm", "🔵 Cold", "⚪ None"];
 const PRIORITY_COLORS = {
   "🔥 Hot": "#EF4444",
@@ -1004,9 +1012,10 @@ const computeSiteIQ = (site) => {
 
   // --- PHASE BONUS ---
   const phase = (site.phase || "").toLowerCase();
-  if (/under contract|due diligence|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
-  else if (/loi signed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.2);
-  else if (/loi sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
+  if (/under contract|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
+  else if (/psa sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.2);
+  else if (/^loi$/i.test(phase)) adjusted = Math.min(10, adjusted + 0.15);
+  else if (/ps approved/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
 
   // --- STALE LISTING PENALTY ---
   if (site.dateOnMarket) {
@@ -1216,7 +1225,7 @@ function Badge({ status }) {
           background: s.dot,
         }}
       />
-      {status}
+      {s.label || status}
     </span>
   );
 }
@@ -1449,6 +1458,30 @@ export default function App() {
       unsubIQ();
     };
   }, []);
+
+  // ─── PHASE MIGRATION — one-time remap of legacy phases ───
+  const [migrated, setMigrated] = useState(false);
+  useEffect(() => {
+    if (!loaded || migrated) return;
+    const now = new Date().toISOString();
+    const migrate = (sites, region) => {
+      sites.forEach(s => {
+        if (PHASE_MIGRATION[s.phase]) {
+          const newPhase = PHASE_MIGRATION[s.phase];
+          fbUpdate(`${region}/${s.id}`, { phase: newPhase });
+          fbPush(`${region}/${s.id}/activityLog`, { action: `Phase migrated: ${s.phase} → ${newPhase}`, ts: now, by: "System" });
+        }
+      });
+    };
+    migrate(sw, "southwest");
+    migrate(east, "east");
+    subs.forEach(s => {
+      if (PHASE_MIGRATION[s.phase]) {
+        fbUpdate(`submissions/${s.id}`, { phase: PHASE_MIGRATION[s.phase] });
+      }
+    });
+    setMigrated(true);
+  }, [loaded, sw, east, subs, migrated]);
 
   // ─── SEED ON FIRST LOAD ───
   useEffect(() => {
@@ -1807,12 +1840,33 @@ export default function App() {
     if (attachRef.current) attachRef.current.value = "";
   };
 
-  // ─── REVIEW ───
-  const handleApprove = (id) => {
+  // ─── REVIEW — TWO-STEP APPROVAL ───
+  // Step 1: Dan recommends & assigns route (site stays in review queue)
+  const handleRecommend = (id) => {
     const site = subs.find((s) => s.id === id);
     if (!site) return;
     const ri = reviewInputs[id] || {};
     const routeTo = ri.routeTo || site.region || "southwest";
+    const routeLabel = REGIONS[routeTo]?.label || routeTo;
+    const now = new Date().toISOString();
+    fbUpdate(`submissions/${id}`, {
+      status: "recommended",
+      region: routeTo,
+      recommendedBy: "Dan R.",
+      recommendedAt: now,
+      reviewNote: ri.note || "",
+      routedTo: routeTo,
+    });
+    notify(`Recommended → ${routeLabel} (awaiting PS approval)`);
+    autoGenerateVettingReport(routeTo, id, { ...site, region: routeTo });
+  };
+
+  // Step 2: PS (DW/MT/Jarrod) approves — moves to tracker
+  const handlePSApprove = (id) => {
+    const site = subs.find((s) => s.id === id);
+    if (!site) return;
+    const ri = reviewInputs[id] || {};
+    const routeTo = site.routedTo || site.region || "southwest";
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
     const now = new Date().toISOString();
     const t = {
@@ -1820,8 +1874,9 @@ export default function App() {
       region: routeTo,
       status: "tracking",
       approvedAt: now,
-      reviewedBy: ri.reviewer || "Dan R",
-      reviewNote: ri.note || "",
+      approvedBy: ri.reviewer || "PS",
+      reviewedBy: site.recommendedBy || "Dan R",
+      reviewNote: site.reviewNote || ri.note || "",
       askingPrice: site.askingPrice || "",
       internalPrice: site.internalPrice || "",
       income3mi: site.income3mi || "",
@@ -1837,13 +1892,15 @@ export default function App() {
       priority: "⚪ None",
       messages: {},
       docs: {},
-      activityLog: { [uid()]: { action: `Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "Dan R" } },
+      activityLog: { [uid()]: { action: `PS Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "PS" } },
     };
     fbSet(`${routeTo}/${id}`, t);
-    fbUpdate(`submissions/${id}`, { status: "approved", reviewedBy: ri.reviewer || "Dan R", reviewNote: ri.note || "", routedTo: routeTo });
-    notify(`Approved → ${routeLabel}`);
-    autoGenerateVettingReport(routeTo, id, t);
+    fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now });
+    notify(`PS Approved → ${routeLabel} tracker`);
   };
+
+  // Legacy: direct approve (bypasses two-step — for backward compat)
+  const handleApprove = (id) => handleRecommend(id);
 
   const handleApproveAll = () => {
     const p = subs.filter((s) => s.status === "pending");
@@ -1853,25 +1910,16 @@ export default function App() {
     p.forEach((s) => {
       const ri = reviewInputs[s.id] || {};
       const routeTo = ri.routeTo || s.region || "southwest";
-      const t = {
-        ...s,
-        region: routeTo,
-        status: "tracking",
-        approvedAt: now,
-        reviewedBy: ri.reviewer || "Dan R",
-        priority: "⚪ None",
-        messages: {},
-        docs: {},
-        activityLog: { [uid()]: { action: `Bulk approved → ${REGIONS[routeTo]?.label || routeTo}`, ts: now, by: "Dan R" } },
-      };
-      updates[`${routeTo}/${s.id}`] = t;
-      updates[`submissions/${s.id}/status`] = "approved";
+      updates[`submissions/${s.id}/status`] = "recommended";
+      updates[`submissions/${s.id}/region`] = routeTo;
       updates[`submissions/${s.id}/routedTo`] = routeTo;
+      updates[`submissions/${s.id}/recommendedBy`] = "Dan R.";
+      updates[`submissions/${s.id}/recommendedAt`] = now;
     });
     import("firebase/database").then(({ ref: fbRef, update: fbUpd }) => {
       fbUpd(ref(db, "/"), updates);
     });
-    notify(`Approved ${p.length}!`);
+    notify(`Recommended ${p.length} sites (awaiting PS approval)`);
   };
 
   const handleDecline = (id) => {
@@ -2038,7 +2086,7 @@ export default function App() {
   // ─── STYLES ───
   const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 14, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", outline: "none", boxSizing: "border-box" };
   const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', sans-serif", transition: "all 0.15s cubic-bezier(0.22,1,0.36,1)", background: tab === key ? "rgba(232,122,46,0.15)" : "transparent", color: tab === key ? "#E87A2E" : "#6B7394", whiteSpace: "nowrap", boxShadow: tab === key ? "0 0 16px rgba(232,122,46,0.12), inset 0 0 0 1px rgba(232,122,46,0.2)" : "none" });
-  const pendingSubsN = subs.filter((s) => s.status === "pending").length;
+  const pendingSubsN = subs.filter((s) => s.status === "pending" || s.status === "recommended").length;
   const assignedReviewN = [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length;
   const pendingN = pendingSubsN + assignedReviewN;
 
@@ -2979,8 +3027,8 @@ export default function App() {
               const now = Date.now();
               const week = 7 * 86400000;
               const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < week).length;
-              const ucCount = all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length;
-              const loiCount = all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length;
+              const ucCount = all.filter(s => s.phase === "Under Contract").length;
+              const loiCount = all.filter(s => s.phase === "LOI").length;
               const greenCount = all.filter(s => getSiteIQ(s).score >= 7.5).length;
               return (
                 <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
@@ -2988,7 +3036,7 @@ export default function App() {
                     {[
                       { label: "Added this week", value: addedThisWeek, color: "#3B82F6", action: () => navigateTo("summary") },
                       { label: "Under Contract", value: ucCount, color: "#16A34A", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "LOI Active", value: loiCount, color: "#F59E0B", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
+                      { label: "LOI Active", value: loiCount, color: "#F59E0B", action: () => navigateTo("summary", { phase: "LOI" }) },
                       { label: "GREEN Sites", value: greenCount, color: "#22C55E", action: () => navigateTo("summary") },
                     ].map((v, vi) => (
                       <div key={v.label} onClick={v.action} className="card-reveal funnel-bar" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.92)", borderRadius: 12, padding: "10px 14px", border: `1px solid ${v.color}18`, textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, backdropFilter: "blur(8px)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden", cursor: "pointer" }}
@@ -3034,25 +3082,28 @@ export default function App() {
 
               // --- Pipeline value by stage ---
               const parsePrice = (p) => { if (!p) return 0; const s = String(p).replace(/[$,]/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s) || 0; };
-              const loiValue = all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-              const ucValue = all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-              const prospectValue = all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const loiValue = all.filter(s => s.phase === "LOI").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const ucValue = all.filter(s => s.phase === "Under Contract").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const prospectValue = all.filter(s => s.phase === "Prospect").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
               const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
 
               // --- Phase distribution for mini bars ---
               const phaseGroups = [
-                { label: "Prospect", phases: ["Prospect", "Incoming", "Scored"], color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
-                { label: "LOI", phases: ["LOI Sent", "LOI Signed"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
-                { label: "Under Contract", phases: ["Under Contract", "Due Diligence"], color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                { label: "Prospect", phases: ["Prospect"], color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                { label: "Submitted to PS", phases: ["Submitted to PS"], color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
+                { label: "PS Approved", phases: ["PS Approved"], color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
+                { label: "LOI", phases: ["LOI"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
+                { label: "PSA Sent", phases: ["PSA Sent"], color: "#D946EF", icon: "📄", action: () => navigateTo("summary", { phase: "PSA Sent" }) },
+                { label: "Under Contract", phases: ["Under Contract"], color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", phases: ["Closed"], color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
               phaseGroups.forEach(g => { g.count = all.filter(s => g.phases.includes(s.phase)).length; });
               const maxPhaseCount = Math.max(...phaseGroups.map(g => g.count), 1);
 
               // --- Move type classification ---
-              const advancePhases = ["LOI Sent", "LOI Signed", "Under Contract", "Due Diligence", "Closed", "Client Approved"];
-              const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "Client Declined" ? "🔴" : "🔵";
-              const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "Client Declined" ? "EXITED" : "MOVED";
+              const advancePhases = ["PS Approved", "LOI", "PSA Sent", "Under Contract", "Closed"];
+              const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "Declined" ? "🔴" : "🔵";
+              const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "Declined" ? "EXITED" : "MOVED";
 
               const hasData = recentMoves.length > 0 || all.length > 0;
               if (!hasData) return null;
@@ -3080,9 +3131,9 @@ export default function App() {
                   {/* Pipeline Value Metrics */}
                   <div style={{ padding: "16px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                     {[
-                      { label: "LOI PIPELINE", value: fmtVal(loiValue), count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
-                      { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                      { label: "LOI PIPELINE", value: fmtVal(loiValue), count: all.filter(s => s.phase === "LOI").length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                      { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
                     ].map(m => (
                       <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "12px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.25s ease" }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = `rgba(255,255,255,0.07)`; e.currentTarget.style.borderColor = `${m.color}40`; e.currentTarget.style.transform = "translateY(-2px)"; }}
@@ -3148,14 +3199,15 @@ export default function App() {
               const pending = subs.filter(s => s.status === "pending").length;
               const funnelStages = [
                 { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
-                { label: "Prospect", count: all.filter(s => s.phase === "Prospect" || s.phase === "Incoming" || s.phase === "Scored").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
-                { label: "Submitted to Client", count: all.filter(s => s.phase === "Submitted to Client" || s.phase === "Client Revisions").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to Client" }) },
-                { label: "Client Approved", count: all.filter(s => s.phase === "Client Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "Client Approved" }) },
-                { label: "LOI", count: all.filter(s => s.phase === "LOI Sent" || s.phase === "LOI Signed").length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI Sent" }) },
-                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract" || s.phase === "Due Diligence").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
+                { label: "PS Approved", count: all.filter(s => s.phase === "PS Approved").length, color: "#8B5CF6", icon: "✅", action: () => navigateTo("summary", { phase: "PS Approved" }) },
+                { label: "LOI", count: all.filter(s => s.phase === "LOI").length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
+                { label: "PSA Sent", count: all.filter(s => s.phase === "PSA Sent").length, color: "#D946EF", icon: "📄", action: () => navigateTo("summary", { phase: "PSA Sent" }) },
+                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
               ];
-              const declined = all.filter(s => s.phase === "Client Declined" || s.phase === "Dead").length;
+              const declined = all.filter(s => s.phase === "Declined" || s.phase === "Dead").length;
               return (
                 <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(243,124,51,0.2), rgba(255,179,71,0.3), rgba(243,124,51,0.2), transparent)" }} />
@@ -3239,8 +3291,7 @@ export default function App() {
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
             const raw = sortData(rk === "east" ? east : sw);
-            const PHASE_GROUPS = { "Prospect": ["Prospect", "Incoming", "Scored"], "LOI Sent": ["LOI Sent", "LOI Signed"], "Under Contract": ["Under Contract", "Due Diligence"], "Submitted to Client": ["Submitted to Client", "Client Revisions"] };
-            const matchPhase = (sPhase) => filterPhase === "all" || sPhase === filterPhase || (PHASE_GROUPS[filterPhase] && PHASE_GROUPS[filterPhase].includes(sPhase));
+            const matchPhase = (sPhase) => filterPhase === "all" || sPhase === filterPhase;
             const d = raw.filter(s => (filterState === "all" || s.state === filterState) && matchPhase(s.phase));
             return (
               <div style={{ marginBottom: 24 }}>
@@ -3265,7 +3316,7 @@ export default function App() {
                             <td style={{ ...td, fontWeight: 600, color: "#E2E8F0" }}>{s.name}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" ? "#DCFCE7" : s.phase === "LOI Signed" ? "#FEF3C7" : s.phase === "LOI Sent" ? "#DBEAFE" : "rgba(15,21,56,0.3)", color: s.phase === "Under Contract" ? "#166534" : s.phase === "LOI Signed" ? "#92400E" : s.phase === "LOI Sent" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
+                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" || s.phase === "Closed" ? "#DCFCE7" : s.phase === "PSA Sent" ? "#F5D0FE" : s.phase === "LOI" ? "#FEF3C7" : s.phase === "PS Approved" ? "#E0E7FF" : s.phase === "Submitted to PS" ? "#DBEAFE" : "rgba(15,21,56,0.3)", color: s.phase === "Under Contract" || s.phase === "Closed" ? "#166534" : s.phase === "PSA Sent" ? "#86198F" : s.phase === "LOI" ? "#92400E" : s.phase === "PS Approved" ? "#3730A3" : s.phase === "Submitted to PS" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
                             <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
@@ -3405,7 +3456,7 @@ export default function App() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 6 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
               <div style={{ display: "flex", gap: 6 }}>
-                {pendingN > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Approve All ({pendingN})</button>}
+                {subs.filter(s => s.status === "pending").length > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Recommend All ({subs.filter(s => s.status === "pending").length})</button>}
                 {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
               </div>
             </div>
@@ -3488,22 +3539,35 @@ export default function App() {
                               <option value="southwest">→ Daniel Wollent (DW)</option>
                               <option value="east">→ Matthew Toussaint (MT)</option>
                             </select>
-                            <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, background: "rgba(15,21,56,0.5)", cursor: "pointer", minWidth: 100 }}>
-                              <option value="">Reviewer…</option>
-                              <option>Dan R</option>
-                              <option>Daniel Wollent</option>
-                              <option>Matthew Toussaint</option>
-                            </select>
                             <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, outline: "none" }} />
                           </div>
                           <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Approve & Route</button>
+                            <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleRecommend(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Recommend & Route</button>
                             <button onClick={() => { handleDecline(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Decline</button>
                           </div>
                         </div>
-                      ) : (site.reviewedBy || site.reviewNote) && (
+                      ) : site.status === "recommended" ? (
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(16,163,74,0.2)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#16A34A", background: "#DCFCE7", padding: "3px 10px", borderRadius: 6 }}>Dan R. Approved</span>
+                            <span style={{ fontSize: 10, color: "#94A3B8" }}>→ {REGIONS[site.routedTo || site.region]?.label || "Unassigned"}</span>
+                            {site.reviewNote && <span style={{ fontSize: 10, color: "#94A3B8", fontStyle: "italic" }}>"{site.reviewNote}"</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                            <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(22,163,74,0.2)", fontSize: 12, background: "rgba(22,163,74,0.05)", cursor: "pointer", minWidth: 140, fontWeight: 600 }}>
+                              <option value="">PS Approver…</option>
+                              <option>Daniel Wollent</option>
+                              <option>Matthew Toussaint</option>
+                              <option>Jarrod</option>
+                            </select>
+                            <button onClick={() => { handlePSApprove(site.id); setHighlightedSite(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#16A34A,#15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}>✓ PS Approve → Tracker</button>
+                            <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending", recommendedBy: null, recommendedAt: null, routedTo: null }); notify("Sent back to pending."); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>↩ Send Back</button>
+                          </div>
+                        </div>
+                      ) : (site.reviewedBy || site.reviewNote || site.recommendedBy) && (
                         <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>
-                          {site.reviewedBy && <span>By: <strong>{site.reviewedBy}</strong></span>}
+                          {site.recommendedBy && <span>Recommended by: <strong>{site.recommendedBy}</strong></span>}
+                          {site.approvedBy && <span style={{ marginLeft: 8 }}>PS Approved by: <strong>{site.approvedBy}</strong></span>}
                           {site.reviewNote && <span style={{ marginLeft: 8, fontStyle: "italic" }}>"{site.reviewNote}"</span>}
                         </div>
                       )}
