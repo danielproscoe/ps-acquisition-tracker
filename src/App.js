@@ -1,4 +1,4 @@
-// src/App.js — StorageIQ Acquisition Tracker
+// src/App.js — Storvex Acquisition Tracker
 // © 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
@@ -56,7 +56,7 @@ const STATUS_COLORS = {
 const PHASES = [
   "Prospect",
   "Submitted to PS",
-  "StorageIQ Approved",
+  "Storvex Approved",
   "LOI",
   "PSA Sent",
   "Under Contract",
@@ -69,9 +69,10 @@ const PHASE_MIGRATION = {
   "Incoming": "Prospect",
   "Scored": "Prospect",
   "Submitted to Client": "Submitted to PS",
-  "Client Approved": "StorageIQ Approved",
-  "PS Approved": "StorageIQ Approved",
-  "SiteIQ Approved": "StorageIQ Approved",
+  "Client Approved": "Storvex Approved",
+  "PS Approved": "Storvex Approved",
+  "SiteIQ Approved": "Storvex Approved",
+  "StorageIQ Approved": "Storvex Approved",
   "Client Revisions": "Submitted to PS",
   "Client Declined": "Declined",
   "LOI Sent": "LOI",
@@ -103,10 +104,10 @@ const DOC_TYPES = [
   "Other",
 ];
 
-// ─── StorageIQ™ Configurable Weight System v2.0 ───
+// ─── Storvex™ Configurable Weight System v2.0 ───
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
 // Persisted at Firebase path: config/siteiq_weights
-const SITE_IQ_DEFAULTS = [
+const SITE_SCORE_DEFAULTS = [
   { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
   { key: "growth", label: "Growth", icon: "📈", weight: 0.25, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
   { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
@@ -118,10 +119,10 @@ const SITE_IQ_DEFAULTS = [
 ];
 
 // Live mutable config — starts as copy of defaults, merged with Firebase on load
-let SITE_IQ_CONFIG = SITE_IQ_DEFAULTS.map(d => ({ ...d }));
+let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
 
 // Auto-normalize so weights always sum to 1.0
-const normalizeSiteIQWeights = (dims) => {
+const normalizeSiteScoreWeights = (dims) => {
   const total = dims.reduce((s, d) => s + d.weight, 0);
   if (total > 0 && Math.abs(total - 1.0) > 0.001) {
     dims.forEach(d => { d.weight = d.weight / total; });
@@ -131,7 +132,7 @@ const normalizeSiteIQWeights = (dims) => {
 
 // Get normalized weight by key
 const getIQWeight = (key) => {
-  const dim = SITE_IQ_CONFIG.find(d => d.key === key);
+  const dim = SITE_SCORE_CONFIG.find(d => d.key === key);
   return dim ? dim.weight : 0;
 };
 
@@ -308,7 +309,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
-  const iq = iqResult || (typeof computeSiteIQ === "function" ? computeSiteIQ(site) : null);
+  const iq = iqResult || (typeof computeSiteScore === "function" ? computeSiteScore(site) : null);
   const iqScore = iq?.score || "—";
   const iqTier = iq?.tier || "gray";
   const iqLabel = iq?.label || "—";
@@ -336,7 +337,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       <div style="text-align:right">
         <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
           <span style="font-size:28px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</span>
-          <div><div style="font-size:9px;color:#94A3B8;letter-spacing:0.08em">STORAGEIQ</div><div style="font-size:11px;font-weight:800;color:${iqBadgeColor}">${iqLabel}</div></div>
+          <div><div style="font-size:9px;color:#94A3B8;letter-spacing:0.08em">STORVEX</div><div style="font-size:11px;font-weight:800;color:${iqBadgeColor}">${iqLabel}</div></div>
         </div>
       </div>
     </div>
@@ -585,8 +586,8 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         { key: "marketTier", label: "Market Tier", weight: 0.08 },
       ];
       return `
-    <!-- STORAGEIQ SCORECARD -->
-    ${section("IQ", "StorageIQ Scorecard", "")}
+    <!-- STORVEX SCORECARD -->
+    ${section("IQ", "Storvex Scorecard", "")}
     <!-- Visual Bar Chart -->
     <div style="display:flex;gap:8px;align-items:flex-end;height:140px;padding:20px 0 0;margin-bottom:16px">
       ${dims.map(d => {
@@ -650,13 +651,13 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         <div style="font-size:8.5px;color:#64748B;line-height:1.5">
           &bull; Licensed ESRI 2025 estimates + 2030 five-year projections<br/>
           &bull; U.S. Census Bureau ACS 5-Year (population, HHI, households)<br/>
-          &bull; StorageIQ&trade; composite scoring: 8 weighted dimensions, 0&ndash;10 scale<br/>
+          &bull; Storvex&trade; composite scoring: 8 weighted dimensions, 0&ndash;10 scale<br/>
           &bull; PS proximity: Haversine distance against 3,400+ owned locations
         </div>
       </div>
     </div>
     <div style="padding:10px 14px;border-radius:6px;background:#0A0A0C;font-size:8px;color:#64748B;line-height:1.6;text-align:center">
-      This report was generated by StorageIQ&trade;, a proprietary AI-powered acquisition intelligence platform developed by DJR Real Estate LLC.
+      This report was generated by Storvex&trade;, a proprietary AI-powered acquisition intelligence platform developed by DJR Real Estate LLC.
       All zoning, utility, and environmental findings are sourced from primary municipal records, federal databases, and licensed data providers.
       Findings should be independently verified prior to capital commitment. Report date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
     </div>
@@ -664,7 +665,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 
   <!-- FOOTER -->
   <div style="background:#0A0A0C;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">StorageIQ&trade; AI-Powered Data</span> · Patent Pending</div>
+    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">Storvex&trade; AI-Powered Data</span> · Patent Pending</div>
     <div style="font-size:11px;color:#64748B"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
   </div>
 </div></body></html>`;
@@ -848,17 +849,17 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
 
   <!-- FOOTER -->
   <div style="background:#1a0a2e;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#7C4DFF">Report generated by <span style="color:#B388FF;font-weight:700">StorageIQ Acquisition Pipeline 4.0</span> · Patent Pending</div>
+    <div style="font-size:11px;color:#7C4DFF">Report generated by <span style="color:#B388FF;font-weight:700">Storvex Acquisition Pipeline 4.0</span> · Patent Pending</div>
     <div style="font-size:11px;color:#7C4DFF"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
   </div>
 </div></body></html>`;
 };
 
-// ─── StorageIQ™ v3 — Calibrated Site Scoring Engine ───
+// ─── Storvex™ v3 — Calibrated Site Scoring Engine ───
 // Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
 // Weights: Pop 20%, Growth 25%, HHI 10%, Pricing 8%, Zoning 15%, Access 7%, Competition 7%, Market 8%
 // Hard FAIL: pop <5K, HHI <$55K, landlocked
-const computeSiteIQ = (site) => {
+const computeSiteScore = (site) => {
   const scores = {};
   const flags = [];
   let hardFail = false;
@@ -1017,7 +1018,7 @@ const computeSiteIQ = (site) => {
   if (/under contract|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
   else if (/psa sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.2);
   else if (/^loi$/i.test(phase)) adjusted = Math.min(10, adjusted + 0.15);
-  else if (/storageiq approved|siteiq approved|ps approved/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
+  else if (/storvex approved|sitescore approved|ps approved/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
 
   // --- STALE LISTING PENALTY ---
   if (site.dateOnMarket) {
@@ -1048,9 +1049,9 @@ const computeSiteIQ = (site) => {
   }
 
   // --- RESEARCH COMPLETENESS — HARD VET BEFORE SCORE ---
-  // SiteIQ score incorporates depth of due diligence research.
+  // SiteScore incorporates depth of due diligence research.
   // Sites with verified primary-source research score higher than unvetted sites.
-  // Source: CLAUDE.md §6h — "HARD VET, then SiteIQ score, not the other way around"
+  // Source: CLAUDE.md §6h — "HARD VET, then SiteScore, not the other way around"
   const vetChecks = [
     !!site.zoningSource,                                          // Ordinance cited
     !!site.zoningClassification && site.zoningClassification !== "unknown",  // Classification confirmed
@@ -1098,9 +1099,9 @@ const computeSiteIQ = (site) => {
   };
 };
 
-// ─── SiteIQ Badge Component ───
-function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
-  const iq = iqProp || computeSiteIQ(site);
+// ─── SiteScore Badge Component ───
+function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
+  const iq = iqProp || computeSiteScore(site);
   const s = iq.score;
   const isGold = iq.tier === "gold";
   const isSteel = iq.tier === "steel";
@@ -1142,18 +1143,18 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
         boxShadow: tc.glow,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
-        ...(isGold ? { animation: "siteiq-glow 2s ease-in-out infinite alternate" } : {}),
+        ...(isGold ? { animation: "storvex-glow 2s ease-in-out infinite alternate" } : {}),
       }}>
         {isGold && <><div style={{
           position: "absolute", inset: -4, borderRadius: "50%",
           border: "2px solid #F37C33",
           opacity: 0.6,
-          animation: "siteiq-ring 2s ease-in-out infinite alternate",
+          animation: "storvex-ring 2s ease-in-out infinite alternate",
         }} /><div style={{
           position: "absolute", inset: -8, borderRadius: "50%",
           border: "1px solid rgba(243,124,51,0.2)",
           opacity: 0.3,
-          animation: "siteiq-ring 3s ease-in-out infinite alternate",
+          animation: "storvex-ring 3s ease-in-out infinite alternate",
         }} /></>}
         <div style={{ textAlign: "center", lineHeight: 1 }}>
           <div style={{ fontSize: 24, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
@@ -1170,7 +1171,7 @@ function SiteIQBadge({ site, size = "normal", iq: iqProp }) {
             background: typeof tc.labelBg === "string" && tc.labelBg.startsWith("linear") ? tc.labelBg : tc.labelBg,
             boxShadow: iq.tier === "gold" ? "0 0 12px rgba(243,124,51,0.12)" : "none",
           }}>{iq.label}</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>StorageIQ™</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>Storvex™</span>
           {iq.classification && <span style={{ fontSize: 10, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "2px 7px", borderRadius: 4, letterSpacing: "0.06em" }}>{iq.classification}</span>}
         </div>
         {iq.flags && iq.flags.length > 0 && (
@@ -1380,10 +1381,10 @@ export default function App() {
   const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
-  const [showSiteIQDetail, setShowSiteIQDetail] = useState({});
+  const [showSiteScoreDetail, setShowSiteScoreDetail] = useState({});
   // vettingReport removed — auto-generates on site add
   const [showIQConfig, setShowIQConfig] = useState(false);
-  const [iqWeights, setIqWeights] = useState(SITE_IQ_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
+  const [iqWeights, setIqWeights] = useState(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
   useEffect(() => {
@@ -1436,16 +1437,16 @@ export default function App() {
       setSeeded(!!snap.val());
     });
 
-    // SiteIQ weight config listener — merges Firebase overrides into live config
+    // SiteScore weight config listener — merges Firebase overrides into live config
     const iqRef = ref(db, "config/siteiq_weights");
     const unsubIQ = onValue(iqRef, (snap) => {
       const val = snap.val();
       if (val?.dimensions) {
-        const merged = SITE_IQ_DEFAULTS.map(d => {
+        const merged = SITE_SCORE_DEFAULTS.map(d => {
           const override = val.dimensions.find(o => o.key === d.key);
           return { ...d, weight: override ? override.weight : d.weight };
         });
-        SITE_IQ_CONFIG = normalizeSiteIQWeights(merged);
+        SITE_SCORE_CONFIG = normalizeSiteScoreWeights(merged);
         setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
       }
     });
@@ -1682,7 +1683,7 @@ export default function App() {
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
   const autoGenerateVettingReport = (region, siteId, site) => {
     try {
-      const iqR = computeSiteIQ(site);
+      const iqR = computeSiteScore(site);
       const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
       const report = generateVettingReport(site, psD, iqR);
       const docId = uid();
@@ -1982,7 +1983,7 @@ export default function App() {
   const handleExport = async () => {
     const XLSX = await import("xlsx");
     const cols = [
-      { key: "siteiq", header: "StorageIQ™", width: 10 },
+      { key: "sitescore", header: "Storvex™", width: 10 },
       { key: "name", header: "Facility Name", width: 28 },
       { key: "address", header: "Address", width: 30 },
       { key: "city", header: "City", width: 16 },
@@ -2008,7 +2009,7 @@ export default function App() {
       const sorted = [...sites].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       const rows = sorted.map((s) =>
         cols.map((c) => {
-          if (c.key === "siteiq") return getSiteIQ(s).score;
+          if (c.key === "sitescore") return getSiteScore(s).score;
           if (c.key === "pricePerAcre") {
             const p = parseFloat(String(s.askingPrice || "").replace(/[^0-9.]/g, ""));
             const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
@@ -2032,7 +2033,7 @@ export default function App() {
     const summCols = [{ key: "_region", header: "Region", width: 18 }, ...cols];
     const summRows = allSorted.map((s) =>
       summCols.map((c) => {
-        if (c.key === "siteiq") return getSiteIQ(s).score;
+        if (c.key === "sitescore") return getSiteScore(s).score;
         if (c.key === "pricePerAcre") {
           const p = parseFloat(String(s.askingPrice || "").replace(/[^0-9.]/g, ""));
           const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
@@ -2048,13 +2049,13 @@ export default function App() {
     XLSX.utils.book_append_sheet(wb, summWs, "Full Pipeline");
     XLSX.utils.book_append_sheet(wb, makeSheet(sw), "Daniel Wollent");
     XLSX.utils.book_append_sheet(wb, makeSheet(east), "Matthew Toussaint");
-    XLSX.writeFile(wb, `StorageIQ_Acquisition_Pipeline_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `Storvex_Acquisition_Pipeline_${new Date().toISOString().slice(0, 10)}.xlsx`);
     notify("Exported!");
   };
 
   // ─── SORT ───
   const SORT_OPTIONS = [
-    { key: "siteiq", label: "StorageIQ™ (Best)" },
+    { key: "sitescore", label: "Storvex™ (Best)" },
     { key: "name", label: "Name (A→Z)" },
     { key: "city", label: "City (A→Z)" },
     { key: "recent", label: "Recently Added" },
@@ -2068,7 +2069,7 @@ export default function App() {
   const sortData = (arr) => {
     const sorted = [...arr];
     switch (sortBy) {
-      case "siteiq": return sorted.sort((a, b) => getSiteIQ(b).score - getSiteIQ(a).score);
+      case "sitescore": return sorted.sort((a, b) => getSiteScore(b).score - getSiteScore(a).score);
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
       case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
       case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
@@ -2078,14 +2079,14 @@ export default function App() {
     }
   };
 
-  // ─── MEMOIZED SiteIQ CACHE ───
-  // Computes SiteIQ once per site when data changes. Eliminates ~188 redundant calls per render.
-  const siteIQCache = useMemo(() => {
+  // ─── MEMOIZED SiteScore CACHE ───
+  // Computes SiteScore once per site when data changes. Eliminates ~188 redundant calls per render.
+  const siteScoreCache = useMemo(() => {
     const cache = new Map();
-    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteIQ(s)); });
+    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteScore(s)); });
     return cache;
   }, [sw, east]);
-  const getSiteIQ = (site) => siteIQCache.get(site.id) || computeSiteIQ(site);
+  const getSiteScore = (site) => siteScoreCache.get(site.id) || computeSiteScore(site);
 
   const SortBar = () => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -2107,7 +2108,7 @@ export default function App() {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 40%, #0F1538 100%)", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: 48, height: 48, border: "3px solid rgba(232,122,46,0.15)", borderTopColor: "#E87A2E", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(232,122,46,0.2)" }} />
-        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Initializing StorageIQ™</div>
+        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Initializing Storvex™</div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -2146,7 +2147,7 @@ export default function App() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span onClick={(e) => { e.stopPropagation(); setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
-                        <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
+                        <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -2200,12 +2201,12 @@ export default function App() {
                         {/* Top fire accent */}
                         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent 5%, #1E2761 20%, #C9A84C 40%, #FFD700 50%, #C9A84C 60%, #1E2761 80%, transparent 95%)", opacity: 0.8 }} />
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-                          {/* Left: StorageIQ Score + Bars + Key Stats */}
+                          {/* Left: Storvex Score + Bars + Key Stats */}
                           <div style={{ flex: 1, minWidth: 280 }}>
                             {/* Score + Label Row */}
                             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-                              <div onClick={() => setShowSiteIQDetail(prev => ({ ...prev, [site.id]: !prev[site.id] }))} style={{ cursor: "pointer", position: "relative" }} title="Click for detailed SiteIQ breakdown">
-                                <SiteIQBadge site={site} iq={getSiteIQ(site)} />
+                              <div onClick={() => setShowSiteScoreDetail(prev => ({ ...prev, [site.id]: !prev[site.id] }))} style={{ cursor: "pointer", position: "relative" }} title="Click for detailed SiteScore breakdown">
+                                <SiteScoreBadge site={site} iq={getSiteScore(site)} />
                                 <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "#6B7394", fontWeight: 600, letterSpacing: "0.06em", whiteSpace: "nowrap", opacity: 0.7 }}>CLICK FOR DETAIL</div>
                               </div>
                               {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
@@ -2225,9 +2226,9 @@ export default function App() {
                                 </div>
                               ))}
                             </div>
-                            {/* ── SiteIQ Detail Panel — Click-to-expand ── */}
-                            {showSiteIQDetail[site.id] && (() => {
-                              const iqD = getSiteIQ(site);
+                            {/* ── SiteScore Detail Panel — Click-to-expand ── */}
+                            {showSiteScoreDetail[site.id] && (() => {
+                              const iqD = getSiteScore(site);
                               const dims = [
                                 { key: "population", label: "Population (3-mi)", weight: getIQWeight("population"), icon: "👥", tip: "Census / ESRI 3-mi radius population" },
                                 { key: "growth", label: "Growth (5yr CAGR)", weight: getIQWeight("growth"), icon: "📈", tip: "ESRI 2025→2030 population growth rate" },
@@ -2245,12 +2246,12 @@ export default function App() {
                                   <div style={{ background: "linear-gradient(135deg,#1a0a00,#2a1505)", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                       <span style={{ fontSize: 14 }}>🔬</span>
-                                      <span style={{ color: "#FFB347", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>StorageIQ™ DETAILED SCORECARD</span>
+                                      <span style={{ color: "#FFB347", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>Storvex™ DETAILED SCORECARD</span>
                                       <span style={{ color: "#6B7394", fontSize: 10 }}>|</span>
                                       <span style={{ color: scoreColor(iqD.score), fontSize: 13, fontWeight: 900, fontFamily: "'Space Mono', monospace" }}>{iqD.score.toFixed(1)}</span>
                                       <span style={{ color: scoreColor(iqD.score), fontSize: 10, fontWeight: 800, background: scoreColor(iqD.score) + "18", padding: "2px 6px", borderRadius: 4 }}>{scoreLabel(iqD.score)}</span>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); setShowSiteIQDetail(prev => ({ ...prev, [site.id]: false })); }} style={{ background: "none", border: "1px solid rgba(255,255,255,.15)", borderRadius: 5, color: "#6B7394", fontSize: 11, cursor: "pointer", padding: "2px 8px" }}>✕</button>
+                                    <button onClick={(e) => { e.stopPropagation(); setShowSiteScoreDetail(prev => ({ ...prev, [site.id]: false })); }} style={{ background: "none", border: "1px solid rgba(255,255,255,.15)", borderRadius: 5, color: "#6B7394", fontSize: 11, cursor: "pointer", padding: "2px 8px" }}>✕</button>
                                   </div>
                                   <div style={{ background: "linear-gradient(180deg,#0F0A05,#0a0a0e)", padding: "8px 12px" }}>
                                     {dims.map((d, i) => {
@@ -2368,8 +2369,8 @@ export default function App() {
                         </>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Property Listing</a>}
                         <button onClick={() => {
-                          const iqR = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
-                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 StorageIQ Deep Vet Report</button>
+                          const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 Storvex Deep Vet Report</button>
                       </div>
 
                       {/* Summary */}
@@ -2390,7 +2391,7 @@ export default function App() {
                         <EF label="Zoning" value={site.zoning || ""} onSave={(v) => saveField(regionKey, site.id, "zoning", v)} placeholder="C-2, B3…" />
                       </div>
 
-                      {/* Structured SiteIQ Fields */}
+                      {/* Structured SiteScore Fields */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", marginBottom: 3 }}>Zoning Class.</div>
@@ -2804,9 +2805,9 @@ export default function App() {
         .funnel-bar:active { transform: scale(0.98); }
         @keyframes slideDown { from { max-height: 0; opacity: 0; transform: scaleY(0.95); } to { max-height: 2000px; opacity: 1; transform: scaleY(1); } }
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        @keyframes siteiq-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
-        @keyframes siteiq-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
-        @keyframes siteiq-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(140deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(320deg); } 100% { transform: rotate(360deg); } }
+        @keyframes storvex-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
+        @keyframes storvex-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
+        @keyframes storvex-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(140deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(320deg); } 100% { transform: rotate(360deg); } }
         @keyframes turbine-pulse { 0%, 100% { filter: drop-shadow(0 0 6px rgba(57,255,20,0.3)) drop-shadow(0 0 12px rgba(0,229,255,0.15)); } 25% { filter: drop-shadow(0 0 14px rgba(57,255,20,0.7)) drop-shadow(0 0 28px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(232,122,46,0.2)); } 50% { filter: drop-shadow(0 0 8px rgba(57,255,20,0.4)) drop-shadow(0 0 16px rgba(0,229,255,0.2)); } 75% { filter: drop-shadow(0 0 18px rgba(232,122,46,0.5)) drop-shadow(0 0 32px rgba(201,168,76,0.3)) drop-shadow(0 0 48px rgba(57,255,20,0.15)); } }
         @keyframes lightning-arc { 0% { opacity: 0; transform: scaleX(0); } 5% { opacity: 1; transform: scaleX(1); } 10% { opacity: 0.3; } 15% { opacity: 0.8; } 20% { opacity: 0; transform: scaleX(1); } 100% { opacity: 0; } }
         @keyframes toastSlide { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
@@ -2876,10 +2877,10 @@ export default function App() {
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, background: "linear-gradient(135deg, rgba(15,15,20,0.97), rgba(30,20,15,0.95))", color: "#fff", padding: "12px 22px", borderRadius: 14, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(243,124,51,0.2), 0 0 30px rgba(243,124,51,0.08)", animation: "toastSlide 0.35s cubic-bezier(0.4,0,0.2,1)", borderLeft: "3px solid transparent", borderImage: "linear-gradient(180deg, #FFB347, #F37C33, #D45500) 1", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.6)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate", flexShrink: 0 }} />{toast}</div>
+        <div style={{ position: "fixed", top: 24, right: 24, background: "linear-gradient(135deg, rgba(15,15,20,0.97), rgba(30,20,15,0.95))", color: "#fff", padding: "12px 22px", borderRadius: 14, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(243,124,51,0.2), 0 0 30px rgba(243,124,51,0.08)", animation: "toastSlide 0.35s cubic-bezier(0.4,0,0.2,1)", borderLeft: "3px solid transparent", borderImage: "linear-gradient(180deg, #FFB347, #F37C33, #D45500) 1", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.6)", animation: "storvex-glow 1.5s ease-in-out infinite alternate", flexShrink: 0 }} />{toast}</div>
       )}
 
-      {/* SiteIQ Weight Config Modal */}
+      {/* SiteScore Weight Config Modal */}
       {showIQConfig && (() => {
         const totalW = iqWeights.reduce((s, d) => s + d.weight, 0);
         const totalPct = Math.round(totalW * 100);
@@ -2888,8 +2889,8 @@ export default function App() {
         };
         const handleSaveWeights = () => {
           const normalized = iqWeights.map(d => ({ ...d, weight: d.weight / totalW }));
-          SITE_IQ_CONFIG = SITE_IQ_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
-          normalizeSiteIQWeights(SITE_IQ_CONFIG);
+          SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
+          normalizeSiteScoreWeights(SITE_SCORE_CONFIG);
           fbSet("config/siteiq_weights", {
             dimensions: normalized.map(d => ({ key: d.key, weight: Math.round(d.weight * 1000) / 1000 })),
             updatedAt: new Date().toISOString(),
@@ -2897,17 +2898,17 @@ export default function App() {
             version: "2.0",
           });
           setShowIQConfig(false);
-          notify("StorageIQ weights saved & applied");
+          notify("Storvex weights saved & applied");
         };
         const handleResetDefaults = () => {
-          setIqWeights(SITE_IQ_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
+          setIqWeights(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
         };
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "modalIn 0.35s cubic-bezier(0.4,0,0.2,1)" }} onClick={() => setShowIQConfig(false)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 20, maxWidth: 500, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(243,124,51,0.1), 0 0 60px rgba(243,124,51,0.06)", overflow: "hidden", animation: "cardReveal 0.4s cubic-bezier(0.4,0,0.2,1)" }}>
               <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 50%, #1a1520 100%)", padding: "22px 26px", color: "#fff", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761, transparent)", opacity: 0.6 }} />
-                <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>⚙️ StorageIQ™ Weight Configuration</div>
+                <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>⚙️ Storvex™ Weight Configuration</div>
                 <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 5 }}>Adjust dimension weights. Changes apply to all users in real-time.</div>
               </div>
               <div style={{ padding: "16px 24px" }}>
@@ -2946,7 +2947,7 @@ export default function App() {
       {/* New site alert */}
       {showNewAlert && (
         <div style={{ background: "linear-gradient(135deg, rgba(243,124,51,0.08), rgba(255,179,71,0.06))", borderBottom: "1px solid rgba(243,124,51,0.2)", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, animation: "fadeIn 0.35s ease-out", backdropFilter: "blur(8px)" }}>
-          <span style={{ fontSize: 13, color: "#92700C", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />{newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
+          <span style={{ fontSize: 13, color: "#92700C", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "storvex-glow 1.5s ease-in-out infinite alternate" }} />{newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setTab("review"); setShowNewAlert(false); }} style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Review</button>
             <button onClick={() => setShowNewAlert(false)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#94A3B8", fontSize: 11, cursor: "pointer" }}>✕</button>
@@ -2954,19 +2955,19 @@ export default function App() {
         </div>
       )}
 
-      {/* Header — SiteIQ Theme */}
+      {/* Header — Storvex Theme */}
       <div style={STYLES.frostedHeader}>
         {/* Clean header accent */}
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 0%, #1E2761 15%, #C9A84C 35%, #E87A2E 50%, #C9A84C 65%, #1E2761 85%, transparent 100%)", opacity: 0.5 }} />
-        {/* SiteIQ Banner */}
+        {/* Storvex Banner */}
         <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.08)", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div className="logo-spin-container" onClick={(e) => { e.currentTarget.querySelector('.logo-img')?.classList.remove('logo-click-spin'); void e.currentTarget.querySelector('.logo-img')?.offsetWidth; e.currentTarget.querySelector('.logo-img')?.classList.add('logo-click-spin'); }} style={{ width: 48, height: 48, borderRadius: 12, overflow: "hidden", cursor: "pointer", position: "relative", boxShadow: "0 4px 20px rgba(232,122,46,0.25), 0 0 0 1px rgba(201,168,76,0.15)", flexShrink: 0 }}>
-                <img className="logo-img logo-auto-spin" src="/siteiq-logo.png" alt="StorageIQ" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img className="logo-img logo-auto-spin" src="/storvex-logo.png" alt="Storvex" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>STORAGEIQ</div>
+                <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>STORVEX</div>
                 <div style={{ fontSize: 10, color: "#6B7394", letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 1 }}>AI-Powered Data</div>
                 <div style={{ fontSize: 8, color: "#6B7394", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC · <span style={{ color: "#C9A84C" }}>Patent Pending</span></div>
               </div>
@@ -2975,7 +2976,7 @@ export default function App() {
               <button onClick={() => setShowIQConfig(true)} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(201,168,76,0.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
-              >⚙️ StorageIQ Config</button>
+              >⚙️ Storvex Config</button>
               <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(243,124,51,0.25)", background: "rgba(243,124,51,0.06)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(243,124,51,0.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
@@ -2999,7 +3000,7 @@ export default function App() {
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#6B7394"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.textShadow = "none"; } }}
             >
               {n.label}
-              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />}
+              {n.key === "review" && pendingN > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "storvex-glow 1.5s ease-in-out infinite alternate" }} />}
             </button>
           ))}
         </div>
@@ -3042,22 +3043,22 @@ export default function App() {
               const myQueue = subs.filter(s => s.status === "pending");
               const actionItems = [];
               if (myQueue.length > 0) {
-                const topSite = myQueue.sort((a, b) => (getSiteIQ(b).score || 0) - (getSiteIQ(a).score || 0))[0];
+                const topSite = myQueue.sort((a, b) => (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0))[0];
                 actionItems.push({ who: "Dan R.", count: myQueue.length, top: topSite, color: "#C9A84C", tab: "mine", icon: "📋" });
               }
               if (dwQueue.length > 0) {
-                const topSite = dwQueue.sort((a, b) => (getSiteIQ(b).score || 0) - (getSiteIQ(a).score || 0))[0];
+                const topSite = dwQueue.sort((a, b) => (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0))[0];
                 actionItems.push({ who: "Daniel Wollent", count: dwQueue.length, top: topSite, color: "#42A5F5", tab: "dw", icon: "◆" });
               }
               if (mtQueue.length > 0) {
-                const topSite = mtQueue.sort((a, b) => (getSiteIQ(b).score || 0) - (getSiteIQ(a).score || 0))[0];
+                const topSite = mtQueue.sort((a, b) => (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0))[0];
                 actionItems.push({ who: "Matthew Toussaint", count: mtQueue.length, top: topSite, color: "#4CAF50", tab: "mt", icon: "●" });
               }
               if (actionItems.length === 0) return null;
               return (
                 <div className="card-reveal" style={{ background: "linear-gradient(135deg, rgba(232,122,46,0.06), rgba(201,168,76,0.04))", borderRadius: 14, padding: 16, marginBottom: 16, border: "1px solid rgba(232,122,46,0.15)", animationDelay: "0.35s" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", boxShadow: "0 0 10px rgba(232,122,46,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", boxShadow: "0 0 10px rgba(232,122,46,0.5)", animation: "storvex-glow 1.5s ease-in-out infinite alternate" }} />
                     <span style={{ fontSize: 12, fontWeight: 800, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Action Required</span>
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
@@ -3068,7 +3069,7 @@ export default function App() {
                       >
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>{ai.icon} {ai.who} — <span style={{ color: ai.color }}>{ai.count} site{ai.count !== 1 ? "s" : ""} awaiting review</span></div>
-                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — SiteIQ {getSiteIQ(ai.top).score}</div>
+                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — SiteScore {getSiteScore(ai.top).score}</div>
                         </div>
                         <span style={{ fontSize: 12, color: ai.color, fontWeight: 700 }}>Review →</span>
                       </div>
@@ -3086,7 +3087,7 @@ export default function App() {
               const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < week).length;
               const ucCount = all.filter(s => s.phase === "Under Contract").length;
               const loiCount = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
-              const greenCount = all.filter(s => getSiteIQ(s).score >= 7.5).length;
+              const greenCount = all.filter(s => getSiteScore(s).score >= 7.5).length;
               return (
                 <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
                   <div style={{ display: "flex", gap: 10, flex: 1, flexWrap: "wrap" }}>
@@ -3148,7 +3149,7 @@ export default function App() {
               const phaseGroups = [
                 { label: "Prospect", phases: ["Prospect"], color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "Submitted to PS", phases: ["Submitted to PS"], color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "StorageIQ Approved", phases: ["StorageIQ Approved"], color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "StorageIQ Approved" }) },
+                { label: "Storvex Approved", phases: ["Storvex Approved"], color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "Storvex Approved" }) },
                 { label: "LOI / PSA", phases: ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"], color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
                 { label: "Under Contract", phases: ["Under Contract"], color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", phases: ["Closed"], color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
@@ -3157,7 +3158,7 @@ export default function App() {
               const maxPhaseCount = Math.max(...phaseGroups.map(g => g.count), 1);
 
               // --- Move type classification ---
-              const advancePhases = ["StorageIQ Approved", "LOI", "PSA Sent", "Under Contract", "Closed"];
+              const advancePhases = ["Storvex Approved", "LOI", "PSA Sent", "Under Contract", "Closed"];
               const moveIcon = (to) => advancePhases.includes(to) ? "🟢" : to === "Dead" || to === "Declined" ? "🔴" : "🔵";
               const moveLabel = (to) => advancePhases.includes(to) ? "ADVANCED" : to === "Dead" || to === "Declined" ? "EXITED" : "MOVED";
 
@@ -3257,7 +3258,7 @@ export default function App() {
                 { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
                 { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "StorageIQ Approved", count: all.filter(s => s.phase === "StorageIQ Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "StorageIQ Approved" }) },
+                { label: "Storvex Approved", count: all.filter(s => s.phase === "Storvex Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "Storvex Approved" }) },
                 { label: "LOI / PSA", count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
                 { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
                 { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
@@ -3359,19 +3360,19 @@ export default function App() {
                   <div style={{ overflow: "auto", borderRadius: 10, border: "1px solid rgba(201,168,76,0.1)", maxHeight: 420 }}>
                     <table style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse", background: "rgba(15,21,56,0.5)" }}>
                       <thead>
-                        <tr>{["StorageIQ", "Name", "City", "ST", "Phase", "Ask", "Acres", "3mi Pop", "Broker", "DOM", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                        <tr>{["Storvex", "Name", "City", "ST", "Phase", "Ask", "Acres", "3mi Pop", "Broker", "DOM", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setDetailView({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteIQ(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => { setDetailView({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(232,122,46,0.12)")}
-                            onMouseLeave={(e) => { const t = getSiteIQ(s).tier; e.currentTarget.style.background = t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
+                            onMouseLeave={(e) => { const t = getSiteScore(s).tier; e.currentTarget.style.background = t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
                           >
-                            <td style={{ ...td, textAlign: "center" }}><SiteIQBadge site={s} size="small" iq={getSiteIQ(s)} /></td>
+                            <td style={{ ...td, textAlign: "center" }}><SiteScoreBadge site={s} size="small" iq={getSiteScore(s)} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#E2E8F0" }}>{s.name}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
-                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" || s.phase === "Closed" ? "#DCFCE7" : s.phase === "PSA Sent" ? "#F5D0FE" : s.phase === "LOI" ? "#FEF3C7" : s.phase === "StorageIQ Approved" ? "#E0E7FF" : s.phase === "Submitted to PS" ? "#DBEAFE" : "rgba(15,21,56,0.3)", color: s.phase === "Under Contract" || s.phase === "Closed" ? "#166534" : s.phase === "PSA Sent" ? "#86198F" : s.phase === "LOI" ? "#92400E" : s.phase === "StorageIQ Approved" ? "#3730A3" : s.phase === "Submitted to PS" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
+                            <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: s.phase === "Under Contract" || s.phase === "Closed" ? "#DCFCE7" : s.phase === "PSA Sent" ? "#F5D0FE" : s.phase === "LOI" ? "#FEF3C7" : s.phase === "Storvex Approved" ? "#E0E7FF" : s.phase === "Submitted to PS" ? "#DBEAFE" : "rgba(15,21,56,0.3)", color: s.phase === "Under Contract" || s.phase === "Closed" ? "#166534" : s.phase === "PSA Sent" ? "#86198F" : s.phase === "LOI" ? "#92400E" : s.phase === "Storvex Approved" ? "#3730A3" : s.phase === "Submitted to PS" ? "#1E40AF" : "#64748B", fontWeight: 600 }}>{s.phase || "—"}</span></td>
                             <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
@@ -3559,7 +3560,7 @@ export default function App() {
               return (
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: "#92700C", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }} />
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "storvex-glow 1.5s ease-in-out infinite alternate" }} />
                     Assigned for Review ({needsReviewSites.length})
                   </div>
                   {Object.entries(byPerson).map(([person, sites]) => (
@@ -3570,7 +3571,7 @@ export default function App() {
                           <div key={site.id} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #C9A84C", transition: "all 0.3s" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                               <span style={{ fontSize: 14, fontWeight: 700, color: "#E2E8F0" }}>{site.name}</span>
-                              <SiteIQBadge site={site} size="small" iq={getSiteIQ(site)} />
+                              <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
                               <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
                             </div>
                             <div style={{ fontSize: 11, color: "#6B7394", marginBottom: 4 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `· ${site.acreage} ac` : ""} {site.askingPrice ? `· ${site.askingPrice}` : ""}</div>
@@ -3623,12 +3624,12 @@ export default function App() {
                   if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                   return true;
                 }).sort((a, b) => {
-                  // NEW (unreviewed) sites first, then descending SiteIQ score
+                  // NEW (unreviewed) sites first, then descending SiteScore
                   const aIsNew = !a.recommendedAt && !a.approvedAt && a.status === "pending";
                   const bIsNew = !b.recommendedAt && !b.approvedAt && b.status === "pending";
                   if (aIsNew && !bIsNew) return -1;
                   if (!aIsNew && bIsNew) return 1;
-                  return (getSiteIQ(b).score || 0) - (getSiteIQ(a).score || 0);
+                  return (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0);
                 }).map((site) => {
                   const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
                   const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
@@ -3643,14 +3644,14 @@ export default function App() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}
                       >
                         <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{site.name}</span>
-                        <SiteIQBadge site={site} size="small" />
+                        <SiteScoreBadge site={site} size="small" />
                         <Badge status={site.status} />
                         {site.status === "pending" && <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
                       </div>
                       <div style={{ fontSize: 12, color: "#6B7394", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
                       {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{site.summary.substring(0, 180)}{site.summary.length > 180 ? "…" : ""}</div>}
                       {/* NEW badge for unreviewed sites */}
-                      {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "siteiq-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
+                      {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "storvex-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
                       {site.status === "recommended" && <div style={{ marginTop: 4, fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>}
                     </div>
                   );
@@ -3665,7 +3666,7 @@ export default function App() {
         {reviewDetailSite && (() => {
           const site = subs.find(s => s.id === reviewDetailSite);
           if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => setReviewDetailSite(null)} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
-          const iqR = computeSiteIQ(site);
+          const iqR = computeSiteScore(site);
           const ri = reviewInputs[site.id] || {};
           const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
           const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
@@ -3692,9 +3693,9 @@ export default function App() {
                       {dom !== null && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Days on Market</div><div style={{ fontSize: 20, fontWeight: 900, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#E2E8F0" }}>{dom}</div></div>}
                     </div>
                   </div>
-                  {/* StorageIQ Score — large, right-aligned */}
+                  {/* Storvex Score — large, right-aligned */}
                   <div style={{ flexShrink: 0, textAlign: "center", padding: "8px 16px", borderRadius: 14, background: iqR.score >= 7.5 ? "rgba(22,163,74,0.1)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.1)" : "rgba(220,38,38,0.1)", border: `1px solid ${iqR.score >= 7.5 ? "rgba(22,163,74,0.25)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.25)" : "rgba(220,38,38,0.25)"}` }}>
-                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>StorageIQ Score</div>
+                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>Storvex Score</div>
                     <div style={{ fontSize: 42, fontWeight: 900, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", lineHeight: 1 }}>{iqR.score}</div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", textTransform: "uppercase", marginTop: 4 }}>{iqR.label || "—"}</div>
                     {iqR.classification && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2 }}>{iqR.classification}</div>}
@@ -3702,7 +3703,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* StorageIQ Scorecard */}
+              {/* Storvex Scorecard */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 20 }}>
                 {(iqR.breakdown || []).map((b, i) => (
                   <div key={i} style={{ background: "rgba(15,21,56,0.6)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -3752,7 +3753,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
                 {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)" }}>🗺 Google Maps</a>}
                 {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a>}
-                <button onClick={() => { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 StorageIQ Deep Vet Report</button>
+                <button onClick={() => { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 Storvex Deep Vet Report</button>
               </div>
 
               {/* ── ACTIVITY TIMELINE ── */}
@@ -3848,7 +3849,7 @@ export default function App() {
           const idx = allSites.findIndex(s => s.id === dv.siteId);
           const prevSite = idx > 0 ? allSites[idx - 1] : null;
           const nextSite = idx < allSites.length - 1 ? allSites[idx + 1] : null;
-          const iqR = getSiteIQ(site);
+          const iqR = getSiteScore(site);
           const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
           const docs = site.docs ? Object.entries(site.docs) : [];
           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
@@ -3889,7 +3890,7 @@ export default function App() {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <SiteIQBadge site={site} iq={iqR} />
+                    <SiteScoreBadge site={site} iq={iqR} />
                     <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>Broker: <strong style={{ color: "#E2E8F0" }}>{site.sellerBroker || "—"}</strong></div>
                   </div>
                 </div>
@@ -3915,8 +3916,8 @@ export default function App() {
               {/* ACTION BUTTONS */}
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)", alignItems: "center" }}>
                 <button onClick={() => {
-                  const iqGen = computeSiteIQ(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
-                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 StorageIQ Deep Vet Report</button>
+                  const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 Storvex Deep Vet Report</button>
                 {site.coordinates && <>
                   <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🗺 Google Maps</a>
                   <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🌍 Google Earth</a>
@@ -4070,7 +4071,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* STORAGEIQ DETAILED SCORECARD */}
+              {/* STORVEX DETAILED SCORECARD */}
               {iqR && iqR.scores && (() => {
                 const dims2 = [
                   { key: "population", label: "Population", icon: "👥", weight: getIQWeight("population") },
@@ -4088,7 +4089,7 @@ export default function App() {
                     <div style={{ background: "linear-gradient(135deg,#1a0a00,#2a1505)", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 14 }}>🔬</span>
-                        <span style={{ color: "#FFB347", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>StorageIQ™ SCORECARD</span>
+                        <span style={{ color: "#FFB347", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>Storvex™ SCORECARD</span>
                         <span style={{ color: sc2(iqR.score), fontSize: 14, fontWeight: 900, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span>
                       </div>
                       {iqR.flags && iqR.flags.length > 0 && <div style={{ display: "flex", gap: 4 }}>{iqR.flags.map((f, i) => <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>)}</div>}
