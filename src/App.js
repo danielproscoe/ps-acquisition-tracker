@@ -108,13 +108,14 @@ const DOC_TYPES = [
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
 // Persisted at Firebase path: config/siteiq_weights
 const SITE_SCORE_DEFAULTS = [
-  { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.25, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+  { key: "population", label: "Population", icon: "👥", weight: 0.18, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "📈", weight: 0.20, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
   { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
   { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.14, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
   { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "competition", label: "Competition", icon: "🏢", weight: 0.07, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: 0.10, tip: "Distance to nearest PS — closer = validated market", source: "siteiqData.nearestPS", group: "market" },
+  { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
   { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
 ];
 
@@ -576,13 +577,14 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 
     ${iq && iq.scores ? (() => {
       const dims = [
-        { key: "population", label: "Population", weight: 0.20 },
-        { key: "growth", label: "Growth", weight: 0.25 },
+        { key: "population", label: "Population", weight: 0.18 },
+        { key: "growth", label: "Growth", weight: 0.20 },
         { key: "income", label: "Income", weight: 0.10 },
         { key: "pricing", label: "Pricing", weight: 0.08 },
-        { key: "zoning", label: "Zoning", weight: 0.15 },
+        { key: "zoning", label: "Zoning", weight: 0.14 },
         { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "competition", label: "Competition", weight: 0.07 },
+        { key: "psProximity", label: "PS Proximity", weight: 0.10 },
+        { key: "competition", label: "Competition", weight: 0.05 },
         { key: "marketTier", label: "Market Tier", weight: 0.08 },
       ];
       return `
@@ -1005,12 +1007,28 @@ const computeSiteScore = (site) => {
   }
   scores.marketTier = tierScore;
 
+  // --- PS PROXIMITY / MARKET VALIDATION (10%) ---
+  // Closer to existing PS = validated market = higher score. Far = unproven.
+  let psProxScore = 5;
+  const nearestPS = site.siteiqData?.nearestPS;
+  if (nearestPS !== undefined && nearestPS !== null && !isNaN(nearestPS)) {
+    if (nearestPS <= 5) psProxScore = 10;
+    else if (nearestPS <= 10) psProxScore = 9;
+    else if (nearestPS <= 15) psProxScore = 7;
+    else if (nearestPS <= 25) psProxScore = 5;
+    else psProxScore = 3;
+  }
+  scores.psProximity = psProxScore;
+
   // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights ---
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
     (incScore * getIQWeight("income")) + (pricingScore * getIQWeight("pricing")) +
-    (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
-    (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
+    (zoningScore * getIQWeight("zoning")) + (psProxScore * getIQWeight("psProximity")) +
+    (scores.access * getIQWeight("access")) + (compScore * getIQWeight("competition")) +
+    (tierScore * getIQWeight("marketTier"));
+
+
   let adjusted = Math.round(weightedSum * 10) / 10;
 
   // --- PHASE BONUS ---
@@ -1027,8 +1045,13 @@ const computeSiteScore = (site) => {
   }
 
   // --- BROKER INTEL BONUSES (from siteiqData) ---
-  if (site.siteiqData?.brokerConfirmedZoning) adjusted = Math.min(10, adjusted + 0.3);
-  if (site.siteiqData?.surveyClean) adjusted = Math.min(10, adjusted + 0.2);
+  // Broker intel bonuses — capped at +0.3 total to prevent score inflation
+  let brokerBonus = 0;
+  if (site.siteiqData?.brokerConfirmedZoning) brokerBonus += 0.2;
+  if (site.siteiqData?.surveyClean) brokerBonus += 0.1;
+  adjusted = Math.min(10, adjusted + Math.min(0.3, brokerBonus));
+
+
 
   // --- WATER HOOKUP — HARD REQUIREMENT ---
   // SOURCE NOTE: Water hookup is a MUST for self-storage. Fire suppression (sprinkler systems)
@@ -1089,6 +1112,7 @@ const computeSiteScore = (site) => {
     { label: "Pricing", key: "pricing", score: scores.pricing, weight: getIQWeight("pricing") },
     { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning") },
     { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access") },
+    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity") },
     { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition") },
     { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier") },
   ];
@@ -2236,6 +2260,7 @@ export default function App() {
                                 { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs acquisition targets" },
                                 { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
+                                { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest PS — closer = validated market" },
                                 { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
                                 { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier"), icon: "🎯", tip: "Target market alignment (MT/DW tiers)" },
                               ];
@@ -4079,6 +4104,7 @@ export default function App() {
                   { key: "income", label: "Income", icon: "💰", weight: getIQWeight("income") },
                   { key: "pricing", label: "Pricing", icon: "🏷️", weight: getIQWeight("pricing") },
                   { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
+                  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: getIQWeight("psProximity") },
                   { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
                   { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
                   { key: "marketTier", label: "Market Tier", icon: "🎯", weight: getIQWeight("marketTier") },
