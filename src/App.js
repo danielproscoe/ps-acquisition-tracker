@@ -318,11 +318,63 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   const zoningScore = iq?.scores?.zoning;
   const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
-  const section = (num, title, icon) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${icon} ${title}</h2></div>`;
+  const section = (num, title, icon) => `<div id="section-${num}" class="report-section" data-section-num="${num}" data-section-title="${title}" style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761;scroll-margin-top:60px"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${icon} ${title}</h2></div>`;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
   const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0;padding-top:52px}@media print{body{background:#fff;padding-top:0}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}.report-nav{position:fixed;top:0;left:0;right:0;z-index:10000;background:linear-gradient(135deg,#0A0A0C 0%,#1E2761 100%);border-bottom:2px solid rgba(201,168,76,0.2);box-shadow:0 2px 16px rgba(0,0,0,0.3);display:flex;align-items:center;height:52px;padding:0 16px;gap:8px;font-family:'DM Sans',sans-serif}.report-nav-sections{display:flex;align-items:center;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none;-ms-overflow-style:none;padding:0 8px}.report-nav-sections::-webkit-scrollbar{display:none}.report-nav-btn{padding:6px 12px;border-radius:6px;border:none;background:transparent;color:#94A3B8;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s ease;font-family:'DM Sans',sans-serif}.report-nav-btn:hover{background:rgba(243,124,51,0.12);color:#F37C33}.report-nav-btn.active{background:rgba(243,124,51,0.15);color:#F37C33;font-weight:700}.report-nav-arrow{width:32px;height:32px;border-radius:8px;border:1px solid rgba(201,168,76,0.2);background:rgba(201,168,76,0.06);color:#C9A84C;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:'DM Sans',sans-serif;flex-shrink:0}.report-nav-arrow:hover{background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.4)}.report-nav-arrow:disabled{opacity:0.3;cursor:default}.report-nav-title{font-size:13px;font-weight:800;color:#C9A84C;white-space:nowrap;margin-right:8px;flex-shrink:0;letter-spacing:0.02em}</style></head><body>
+  <!-- STICKY NAVIGATION BAR -->
+  <nav class="report-nav no-print" id="reportNav">
+    <span class="report-nav-title">&#9670; ${(site.name || "Site").length > 18 ? (site.name || "Site").slice(0, 18) + "…" : (site.name || "Site")}</span>
+    <button class="report-nav-arrow" id="navPrev" title="Previous section" onclick="navigateSection(-1)">&#8592;</button>
+    <div class="report-nav-sections" id="navSections"></div>
+    <button class="report-nav-arrow" id="navNext" title="Next section" onclick="navigateSection(1)">&#8594;</button>
+    <button class="report-nav-arrow" title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="margin-left:4px;font-size:12px">&#8593;</button>
+  </nav>
   <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
+  <script>
+  document.addEventListener("DOMContentLoaded",function(){
+    var sections=document.querySelectorAll(".report-section");
+    var navContainer=document.getElementById("navSections");
+    var currentIdx=0;
+    var sectionIds=[];
+    sections.forEach(function(sec,i){
+      var num=sec.getAttribute("data-section-num");
+      var title=sec.getAttribute("data-section-title");
+      var short=title.length>20?title.slice(0,20)+"…":title;
+      sectionIds.push(sec.id);
+      var btn=document.createElement("button");
+      btn.className="report-nav-btn";
+      btn.textContent=num+". "+short;
+      btn.setAttribute("data-idx",i);
+      btn.onclick=function(){sec.scrollIntoView({behavior:"smooth",block:"start"});};
+      navContainer.appendChild(btn);
+    });
+    function updateActive(){
+      var scrollY=window.scrollY+80;
+      var active=0;
+      sections.forEach(function(sec,i){if(sec.offsetTop<=scrollY)active=i;});
+      currentIdx=active;
+      navContainer.querySelectorAll(".report-nav-btn").forEach(function(btn,i){
+        btn.classList.toggle("active",i===active);
+        if(i===active)btn.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"});
+      });
+      document.getElementById("navPrev").disabled=active===0;
+      document.getElementById("navNext").disabled=active===sections.length-1;
+    }
+    window.addEventListener("scroll",updateActive,{passive:true});
+    updateActive();
+    window.navigateSection=function(dir){
+      var next=Math.max(0,Math.min(sections.length-1,currentIdx+dir));
+      sections[next].scrollIntoView({behavior:"smooth",block:"start"});
+    };
+    document.addEventListener("keydown",function(e){
+      if(e.key==="ArrowLeft"||e.key==="ArrowUp"){e.preventDefault();window.navigateSection(-1);}
+      if(e.key==="ArrowRight"||e.key==="ArrowDown"){e.preventDefault();window.navigateSection(1);}
+      if(e.key==="Home"){e.preventDefault();window.scrollTo({top:0,behavior:"smooth"});}
+      if(e.key==="End"){e.preventDefault();window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});}
+    });
+  });
+  </script>
   <div class="report">
   <!-- HEADER -->
   <div style="background:linear-gradient(135deg,#0A0A0C 0%,#1E2761 60%,#2C3E6B 100%);padding:36px 40px;position:relative;overflow:hidden">
@@ -356,6 +408,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 
   <div style="padding:24px 40px 40px">
     <!-- RESEARCH COMPLETENESS GATE -->
+    <div id="section-RC" class="report-section" data-section-num="RC" data-section-title="Research Completeness" style="scroll-margin-top:60px"></div>
     ${(() => {
       const checks = [
         { label: "Zoning District Identified", done: !!site.zoning, category: "ZONING" },
@@ -615,7 +668,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   </div>
 
   <!-- SOURCES & METHODOLOGY APPENDIX -->
-  <div style="padding:28px 40px 20px;border-top:2px solid #1E2761">
+  <div id="section-SRC" class="report-section" data-section-num="&#167;" data-section-title="Sources &amp; Methodology" style="padding:28px 40px 20px;border-top:2px solid #1E2761;scroll-margin-top:60px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#1E2761,#2C3E6B);display:flex;align-items:center;justify-content:center;font-size:11px;color:#C9A84C;font-weight:900">&#167;</div>
       <h2 style="margin:0;font-size:14px;font-weight:800;color:#1E2761;letter-spacing:0.02em">Sources &amp; Methodology</h2>
