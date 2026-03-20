@@ -1687,6 +1687,7 @@ export default function App() {
   const [showIQConfig, setShowIQConfig] = useState(false);
   const [demoExpanded, setDemoExpanded] = useState(false);
   const [scoreExpanded, setScoreExpanded] = useState(false);
+  const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
   const [iqWeights, setIqWeights] = useState(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
@@ -4186,8 +4187,8 @@ export default function App() {
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
           // Keyboard nav for detail view
           const handleDetailKey = (e) => {
-            if (e.key === "ArrowLeft" && prevSite) { setDemoExpanded(false); setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "ArrowRight" && nextSite) { setDemoExpanded(false); setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowLeft" && prevSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowRight" && nextSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
             if (e.key === "Escape") { setDetailView(null); }
           };
           if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
@@ -4246,33 +4247,447 @@ export default function App() {
                         <button onClick={() => setScoreExpanded(false)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✕</button>
                       </div>
                     </div>
-                    {/* Dimension rows */}
+                    {/* Dimension rows — CLICKABLE with expandable deep-dive panels */}
                     <div style={{ padding: "8px 0" }}>
                       {bd.map((dim, i) => {
                         const pct = (dim.score / 10) * 100;
                         const barC = dim.score >= 8 ? "#22C55E" : dim.score >= 6 ? "#3B82F6" : dim.score >= 4 ? "#F59E0B" : "#EF4444";
                         const wPct = wSum > 0 ? ((dim.weight / wSum) * 100).toFixed(0) : "0";
                         const contrib = (dim.score * dim.weight / wSum).toFixed(2);
+                        const dimIcons = ["👥","📈","💰","🏠","🏡","🏷️","🏛","📍","🚗","🏪","🗺"];
+                        const isExpanded = scoreDimExpanded === dim.key;
+                        const pN = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
+                        const popRaw = pN(site.pop3mi); const pop1Raw = pN(site.pop1mi); const hhiRaw = pN(site.income3mi);
+                        const hhRaw = pN(site.households3mi); const hvRaw = pN(site.homeValue3mi);
+                        const gVal = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : null;
+                        const iq = site.siteiqData || {};
+                        const pricePerAc = (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? Math.round(p / a) : null; })();
+                        // Helper: metric row inside expansion
+                        const MRow = ({ label, value, bench, benchLabel, color, pctOf }) => (
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid rgba(201,168,76,0.04)" }}>
+                            <div style={{ width: 140, fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>{label}</div>
+                            <div style={{ flex: 1, position: "relative", height: 10, borderRadius: 5, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(100, (pctOf || 0))}%`, borderRadius: 5, background: `linear-gradient(90deg, ${color}99, ${color})`, transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+                            </div>
+                            <div style={{ width: 90, textAlign: "right", fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{value || "—"}</div>
+                            {bench && <div style={{ width: 100, textAlign: "right", fontSize: 9, color: "#6B7394" }}>vs {benchLabel}</div>}
+                          </div>
+                        );
+                        // Helper: Storvex analysis box
+                        const StorvexAnalysis = ({ text, signal, signalColor }) => (
+                          <div style={{ marginTop: 16, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(201,168,76,0.12)" }}>
+                            <div style={{ background: "linear-gradient(135deg, #1E2761, #0F172A)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 12 }}>🔬</span>
+                              <span style={{ fontSize: 10, fontWeight: 900, color: "#C9A84C", letterSpacing: "0.1em" }}>STORVEX SUMMARY ANALYSIS</span>
+                              {signal && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 800, padding: "2px 10px", borderRadius: 5, background: (signalColor || "#C9A84C") + "18", color: signalColor || "#C9A84C" }}>{signal}</span>}
+                            </div>
+                            <div style={{ padding: "12px 16px", background: "rgba(10,10,14,0.6)", fontSize: 11, color: "#CBD5E1", lineHeight: 1.7 }}>{text}</div>
+                          </div>
+                        );
+                        // Build expansion content per dimension key
+                        const renderDimExpansion = () => {
+                          const dK = dim.key;
+                          if (dK === "population") {
+                            const popBench = 40000; const minPop = 5000;
+                            const popPct = popRaw ? Math.min(100, (popRaw / popBench) * 100) : 0;
+                            const pop1Pct = pop1Raw ? Math.min(100, (pop1Raw / 10000) * 100) : 0;
+                            const futurePop = popRaw && gVal != null ? Math.round(popRaw * Math.pow(1 + gVal / 100, 5)) : null;
+                            const futPct = futurePop ? Math.min(100, (futurePop / popBench) * 100) : 0;
+                            const signal = popRaw >= 40000 ? "DENSE MARKET" : popRaw >= 25000 ? "SOLID DEMAND" : popRaw >= 10000 ? "EMERGING" : "THIN";
+                            const sigColor = popRaw >= 40000 ? "#22C55E" : popRaw >= 25000 ? "#3B82F6" : popRaw >= 10000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(59,130,246,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>RADIUS POPULATION BREAKDOWN</div>
+                                  <MRow label="1-Mile Radius" value={pop1Raw ? pop1Raw.toLocaleString() : "—"} color="#8B5CF6" pctOf={pop1Pct} bench benchLabel="10K" />
+                                  <MRow label="3-Mile Radius" value={popRaw ? popRaw.toLocaleString() : "—"} color="#3B82F6" pctOf={popPct} bench benchLabel="40K" />
+                                  <MRow label="5-Mile (est.)" value={popRaw ? Math.round(popRaw * 2.4).toLocaleString() : "—"} color="#1D4ED8" pctOf={popRaw ? Math.min(100, (popRaw * 2.4 / 100000) * 100) : 0} bench benchLabel="100K" />
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(34,197,94,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PROJECTED TRAJECTORY (2025-2030)</div>
+                                  <MRow label="Current (2025)" value={popRaw ? popRaw.toLocaleString() : "—"} color="#3B82F6" pctOf={popPct} />
+                                  <MRow label="Projected (2030)" value={futurePop ? futurePop.toLocaleString() : "—"} color={gVal > 0 ? "#22C55E" : "#EF4444"} pctOf={futPct} />
+                                  <MRow label="Net Change" value={futurePop && popRaw ? (futurePop > popRaw ? "+" : "") + (futurePop - popRaw).toLocaleString() : "—"} color={gVal > 0 ? "#22C55E" : "#EF4444"} pctOf={futurePop && popRaw ? Math.min(100, Math.abs(futurePop - popRaw) / popRaw * 100 * 5) : 0} />
+                                  <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ fontSize: 10, color: "#6B7394" }}>5-Year CAGR</span>
+                                    <span style={{ fontSize: 13, fontWeight: 800, color: gVal > 0 ? "#22C55E" : gVal === 0 ? "#94A3B8" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{gVal != null ? (gVal >= 0 ? "+" : "") + gVal.toFixed(2) + "%" : "—"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 4 }}>
+                                <div style={{ background: "rgba(15,21,56,0.3)", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em" }}>PS BENCHMARK</div>
+                                  <div style={{ fontSize: 16, fontWeight: 900, color: "#4A5080", fontFamily: "'Space Mono', monospace" }}>40,000</div>
+                                  <div style={{ fontSize: 9, color: popRaw >= 40000 ? "#22C55E" : "#F59E0B", fontWeight: 700 }}>{popRaw ? (popRaw >= 40000 ? "EXCEEDS" : Math.round(popRaw / 400) + "% of target") : "—"}</div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.3)", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em" }}>MIN THRESHOLD</div>
+                                  <div style={{ fontSize: 16, fontWeight: 900, color: "#EF4444", fontFamily: "'Space Mono', monospace" }}>5,000</div>
+                                  <div style={{ fontSize: 9, color: popRaw >= 5000 ? "#22C55E" : "#EF4444", fontWeight: 700 }}>{popRaw >= 5000 ? "CLEAR" : "BELOW MIN"}</div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.3)", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em" }}>DENSITY SIGNAL</div>
+                                  <div style={{ fontSize: 14, fontWeight: 900, color: sigColor, fontFamily: "'Space Mono', monospace" }}>{signal}</div>
+                                  <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>Score: {dim.score}/10</div>
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={signal} signalColor={sigColor} text={popRaw >= 40000 ? `Dense population base of ${popRaw.toLocaleString()} within 3 miles indicates strong latent storage demand. This market exceeds Public Storage's 40K benchmark, placing it in the top tier for household-driven self-storage absorption. ${gVal > 1 ? "Combined with above-average growth, this submarket has compounding demand tailwinds." : "Population density alone supports facility viability."}` : popRaw >= 15000 ? `Population of ${popRaw.toLocaleString()} within 3 miles falls in the mid-range for storage feasibility. While below the 40K premium benchmark, this density is sufficient to support a climate-controlled facility if competition is limited. ${gVal > 1.5 ? "Strong growth trajectory could push this into premium territory within 3-5 years." : "Growth and income quality become critical tiebreakers at this population level."}` : `Population of ${popRaw ? popRaw.toLocaleString() : "N/A"} within 3 miles signals a thinner demand base. Storage facilities in sub-15K markets require either very low competition, premium income demographics, or exceptional growth to justify development. Recommend careful validation of demand drivers.`} />
+                            </div>);
+                          }
+                          if (dK === "growth") {
+                            const gC = gVal > 1.5 ? "#22C55E" : gVal > 0.5 ? "#4ADE80" : gVal > 0 ? "#FBBF24" : gVal > -0.5 ? "#94A3B8" : "#EF4444";
+                            const outlook = gVal > 2.0 ? "RAPID EXPANSION" : gVal > 1.5 ? "HIGH GROWTH" : gVal > 1.0 ? "ABOVE AVERAGE" : gVal > 0.5 ? "STEADY GROWTH" : gVal > 0 ? "STABLE" : gVal > -0.5 ? "FLAT" : "DECLINING";
+                            const natAvg = 0.5; const futurePop = popRaw && gVal != null ? Math.round(popRaw * Math.pow(1 + gVal / 100, 5)) : null;
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 20, border: `1px solid ${gC}15`, textAlign: "center" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 8 }}>5-YEAR COMPOUND ANNUAL GROWTH RATE</div>
+                                  <div style={{ fontSize: 48, fontWeight: 900, color: gC, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{gVal != null ? (gVal >= 0 ? "+" : "") + gVal.toFixed(2) + "%" : "—"}</div>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: gC, marginTop: 8, letterSpacing: "0.05em" }}>{outlook}</div>
+                                  <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.04)", overflow: "hidden", marginTop: 14 }}>
+                                    <div style={{ height: "100%", width: `${Math.min(100, Math.max(5, ((gVal || 0) / 3) * 100))}%`, borderRadius: 4, background: `linear-gradient(90deg, ${gC}99, ${gC})` }} />
+                                  </div>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}><span style={{ fontSize: 8, color: "#4A5080" }}>0%</span><span style={{ fontSize: 8, color: "#4A5080" }}>3%+ (rapid)</span></div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 20, border: "1px solid rgba(59,130,246,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>GROWTH CONTEXT</div>
+                                  <MRow label="This Market" value={gVal != null ? gVal.toFixed(2) + "%" : "—"} color={gC} pctOf={gVal ? Math.min(100, (gVal / 3) * 100) : 0} />
+                                  <MRow label="National Average" value={natAvg.toFixed(2) + "%"} color="#4A5080" pctOf={(natAvg / 3) * 100} />
+                                  <MRow label="Spread vs National" value={gVal != null ? (gVal - natAvg >= 0 ? "+" : "") + (gVal - natAvg).toFixed(2) + "%" : "—"} color={gVal > natAvg ? "#22C55E" : "#EF4444"} pctOf={gVal ? Math.min(100, Math.abs(gVal - natAvg) / 3 * 100) : 0} />
+                                  {futurePop && popRaw && <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}>
+                                    <div style={{ fontSize: 9, color: "#6B7394", marginBottom: 4 }}>5-YEAR NET POPULATION CHANGE</div>
+                                    <div style={{ fontSize: 18, fontWeight: 900, color: futurePop > popRaw ? "#22C55E" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{futurePop > popRaw ? "+" : ""}{(futurePop - popRaw).toLocaleString()} people</div>
+                                    <div style={{ fontSize: 10, color: "#94A3B8" }}>{popRaw.toLocaleString()} (2025) → {futurePop.toLocaleString()} (2030)</div>
+                                  </div>}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={outlook} signalColor={gC} text={gVal > 1.5 ? `This submarket is growing at ${gVal.toFixed(2)}% annually, ${(gVal / natAvg).toFixed(1)}x the national average. Rapid population growth is the strongest predictor of new storage demand, as incoming households typically need storage during relocation transitions. This growth rate projects ${futurePop ? "+" + (futurePop - (popRaw || 0)).toLocaleString() + " new residents" : "significant expansion"} by 2030, creating a compounding demand tailwind.` : gVal > 0.5 ? `Growth rate of ${gVal.toFixed(2)}% tracks above the national average of ${natAvg}%. Steady population expansion supports organic storage demand growth. New household formation in this corridor will drive incremental absorption, though the pace suggests a 3-5 year lease-up horizon for new development.` : gVal > 0 ? `Modest growth at ${gVal.toFixed(2)}% is near the national baseline. Storage demand will be primarily driven by existing household turnover and life events (moves, downsizing, renovations) rather than net new population. Competition quality becomes the critical differentiator in stable markets.` : `Population contraction at ${gVal ? gVal.toFixed(2) : "N/A"}% annually presents a demand headwind. Storage facilities in declining markets can still perform if positioned to capture market share from weaker operators, but organic demand growth is limited. Recommend focus on existing facility occupancy data and competitor health.`} />
+                            </div>);
+                          }
+                          if (dK === "income") {
+                            const hhiBench = 90000; const midBench = 65000; const minBench = 55000;
+                            const pctTop = hhiRaw ? Math.min(100, (hhiRaw / hhiBench) * 100) : 0;
+                            const tier = hhiRaw >= 90000 ? "PREMIUM" : hhiRaw >= 75000 ? "AFFLUENT" : hhiRaw >= 65000 ? "STRONG" : hhiRaw >= 55000 ? "ADEQUATE" : "BELOW THRESHOLD";
+                            const tierC = hhiRaw >= 90000 ? "#C9A84C" : hhiRaw >= 75000 ? "#22C55E" : hhiRaw >= 65000 ? "#3B82F6" : hhiRaw >= 55000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tierC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>MEDIAN HOUSEHOLD INCOME</div>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1, marginBottom: 8 }}>{hhiRaw ? "$" + hhiRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, background: tierC + "18", border: `1px solid ${tierC}30` }}>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: tierC }}>{tier}</span>
+                                  </div>
+                                  <div style={{ marginTop: 14 }}>
+                                    <MRow label="This Market" value={"$" + (hhiRaw || 0).toLocaleString()} color={tierC} pctOf={pctTop} />
+                                    <MRow label="Premium ($90K)" value="$90,000" color="#C9A84C" pctOf={100} />
+                                    <MRow label="Strong ($65K)" value="$65,000" color="#3B82F6" pctOf={(65000 / hhiBench) * 100} />
+                                    <MRow label="Minimum ($55K)" value="$55,000" color="#EF4444" pctOf={(55000 / hhiBench) * 100} />
+                                  </div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>INCOME IMPLICATIONS FOR STORAGE</div>
+                                  {[
+                                    { label: "Willingness to Pay", val: hhiRaw >= 75000 ? "High" : hhiRaw >= 55000 ? "Moderate" : "Limited", color: hhiRaw >= 75000 ? "#22C55E" : hhiRaw >= 55000 ? "#F59E0B" : "#EF4444", desc: "Higher income = premium unit absorption" },
+                                    { label: "Climate-Controlled Demand", val: hhiRaw >= 65000 ? "Strong" : "Moderate", color: hhiRaw >= 65000 ? "#22C55E" : "#F59E0B", desc: "Affluent households store higher-value items" },
+                                    { label: "Price Sensitivity", val: hhiRaw >= 90000 ? "Low" : hhiRaw >= 65000 ? "Moderate" : "High", color: hhiRaw >= 90000 ? "#22C55E" : hhiRaw >= 65000 ? "#F59E0B" : "#EF4444", desc: "Impacts rate growth potential" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ padding: "10px 0", borderBottom: j < 2 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{r.label}</span>
+                                        <span style={{ fontSize: 12, fontWeight: 800, color: r.color, fontFamily: "'Space Mono', monospace" }}>{r.val}</span>
+                                      </div>
+                                      <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2 }}>{r.desc}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={tier} signalColor={tierC} text={hhiRaw >= 90000 ? `Premium income market at $${hhiRaw.toLocaleString()} median HHI. Households at this income level are the core self-storage demographic: homeowners with accumulated possessions, disposable income for monthly storage rents, and preference for climate-controlled units. This income tier supports premium pricing strategies and strong RevPAF.` : hhiRaw >= 65000 ? `Solid income base at $${hhiRaw.toLocaleString()} median HHI. This level supports standard self-storage pricing and moderate climate-controlled unit demand. Households can absorb typical rate increases without significant churn. Income alone is not a differentiator but removes downside risk.` : `Income at $${(hhiRaw || 0).toLocaleString()} approaches the $55K minimum threshold. Lower-income markets typically see higher price sensitivity, lower climate-controlled uptake, and greater churn. Storage demand exists but skews toward smaller, drive-up units. Premium pricing will be constrained.`} />
+                            </div>);
+                          }
+                          if (dK === "households") {
+                            const hhBench = 25000;
+                            const hhPct = hhRaw ? Math.min(100, (hhRaw / hhBench) * 100) : 0;
+                            const signal = hhRaw >= 25000 ? "DEEP DEMAND POOL" : hhRaw >= 18000 ? "STRONG BASE" : hhRaw >= 12000 ? "ADEQUATE" : hhRaw >= 6000 ? "MODERATE" : "LIMITED";
+                            const sigC = hhRaw >= 25000 ? "#22C55E" : hhRaw >= 12000 ? "#3B82F6" : hhRaw >= 6000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sigC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>3-MILE HOUSEHOLD COUNT</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{hhRaw ? hhRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: sigC + "18", border: `1px solid ${sigC}30` }}>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: sigC }}>{signal}</span>
+                                  </div>
+                                </div>
+                                <MRow label="This Market" value={(hhRaw || 0).toLocaleString()} color={sigC} pctOf={hhPct} bench benchLabel="25K" />
+                                <MRow label="Top Tier (25K)" value="25,000" color="#22C55E" pctOf={100} />
+                                <MRow label="Solid Base (12K)" value="12,000" color="#3B82F6" pctOf={48} />
+                                <MRow label="Minimum (6K)" value="6,000" color="#F59E0B" pctOf={24} />
+                                {popRaw && hhRaw && <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ fontSize: 10, color: "#6B7394" }}>Avg Household Size</span>
+                                  <span style={{ fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(popRaw / hhRaw).toFixed(1)} people/hh</span>
+                                </div>}
+                              </div>
+                              <StorvexAnalysis signal={signal} signalColor={sigC} text={hhRaw >= 25000 ? `${hhRaw.toLocaleString()} households within 3 miles represents a deep demand pool. Industry data indicates approximately 10% of US households rent storage at any given time, projecting ~${Math.round(hhRaw * 0.10).toLocaleString()} potential storage renters in this trade area. This base can support multiple facilities without saturation.` : hhRaw >= 12000 ? `${hhRaw.toLocaleString()} households provide a solid demand base. With typical 10% storage penetration, this projects ~${Math.round((hhRaw || 0) * 0.10).toLocaleString()} potential renters. Sufficient to support a single well-positioned facility, though competition share becomes a critical variable.` : `Household count of ${(hhRaw || 0).toLocaleString()} indicates a thinner customer base. Each competitor in the trade area consumes a larger share of available demand. Success depends on capturing a dominant market position and/or below-average competition.`} />
+                            </div>);
+                          }
+                          if (dK === "homeValue") {
+                            const hvBench = 500000;
+                            const hvPct = hvRaw ? Math.min(100, (hvRaw / hvBench) * 100) : 0;
+                            const tier = hvRaw >= 500000 ? "PREMIUM" : hvRaw >= 350000 ? "UPPER-MIDDLE" : hvRaw >= 250000 ? "MIDDLE MARKET" : hvRaw >= 180000 ? "MODERATE" : "VALUE";
+                            const tierC = hvRaw >= 500000 ? "#C9A84C" : hvRaw >= 350000 ? "#22C55E" : hvRaw >= 250000 ? "#3B82F6" : hvRaw >= 180000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tierC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>MEDIAN HOME VALUE (3-MI)</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{hvRaw ? "$" + hvRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: tierC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: tierC }}>{tier}</span></div>
+                                </div>
+                                <MRow label="This Market" value={"$" + (hvRaw || 0).toLocaleString()} color={tierC} pctOf={hvPct} bench benchLabel="$500K" />
+                                <MRow label="Premium ($500K)" value="$500,000" color="#C9A84C" pctOf={100} />
+                                <MRow label="Affluent ($350K)" value="$350,000" color="#22C55E" pctOf={70} />
+                                <MRow label="Middle ($250K)" value="$250,000" color="#3B82F6" pctOf={50} />
+                              </div>
+                              <StorvexAnalysis signal={tier} signalColor={tierC} text={hvRaw >= 350000 ? `Home values averaging $${(hvRaw || 0).toLocaleString()} signal an affluent submarket. Higher home values strongly correlate with storage demand: homeowners accumulate more possessions, invest in climate-sensitive items (furniture, electronics, wine), and are willing to pay premium storage rates. This is a wealth indicator that supports aggressive RevPAF targets.` : hvRaw >= 180000 ? `Middle-market home values at $${(hvRaw || 0).toLocaleString()} indicate a stable residential base. Storage demand will be driven by standard household storage needs (seasonal items, life transitions) rather than premium asset storage. Pricing should target competitive market rates.` : `Home values below $180K suggest a value-oriented market. Storage demand exists but skews toward basic, cost-sensitive solutions. Climate-controlled premium units may see slower absorption. Drive-up and smaller unit mixes perform better in this tier.`} />
+                            </div>);
+                          }
+                          if (dK === "pricing") {
+                            const tiers = [{ label: "VALUE BUY", max: 150000, color: "#22C55E" }, { label: "COMPETITIVE", max: 250000, color: "#3B82F6" }, { label: "MARKET RATE", max: 400000, color: "#F59E0B" }, { label: "PREMIUM", max: 600000, color: "#E87A2E" }, { label: "ELEVATED", max: Infinity, color: "#EF4444" }];
+                            const tier = tiers.find(t => (pricePerAc || 0) <= t.max) || tiers[4];
+                            const askP = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
+                            const intP = site.internalPrice ? parseFloat(String(site.internalPrice).replace(/[^0-9.]/g, "")) : null;
+                            const acreage = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tier.color}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PRICE PER ACRE ANALYSIS</div>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1, marginBottom: 8 }}>{pricePerAc ? "$" + pricePerAc.toLocaleString() : "—"}</div>
+                                  <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, background: tier.color + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: tier.color }}>{tier.label}</span></div>
+                                  <div style={{ marginTop: 14 }}>
+                                    {tiers.slice(0, 4).map((t, j) => <MRow key={j} label={t.label + " (<$" + (t.max / 1000) + "K)"} value={"$" + t.max.toLocaleString()} color={t.color} pctOf={(t.max / 600000) * 100} />)}
+                                  </div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>DEAL ECONOMICS</div>
+                                  {[
+                                    { label: "Asking Price", val: askP ? "$" + Math.round(askP).toLocaleString() : "—" },
+                                    { label: "Internal Target", val: intP ? "$" + Math.round(intP).toLocaleString() : "—", color: "#E87A2E" },
+                                    { label: "Acreage", val: acreage ? acreage.toFixed(2) + " ac" : "—" },
+                                    { label: "Price / Acre", val: pricePerAc ? "$" + pricePerAc.toLocaleString() : "—" },
+                                    { label: "Price / SF", val: pricePerAc ? "$" + (pricePerAc / 43560).toFixed(2) : "—" },
+                                    { label: "Spread (Ask vs Int)", val: askP && intP ? "$" + Math.round(askP - intP).toLocaleString() + " (" + Math.round((1 - intP / askP) * 100) + "% below)" : "—", color: askP && intP && intP < askP ? "#22C55E" : "#94A3B8" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: j < 5 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.label}</span>
+                                      <span style={{ fontSize: 12, fontWeight: 800, color: r.color || "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{r.val}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={tier.label} signalColor={tier.color} text={pricePerAc && pricePerAc <= 250000 ? `At $${pricePerAc.toLocaleString()}/acre, this acquisition is competitively priced for the self-storage development pipeline. Land cost represents roughly 15-25% of total development cost for a climate-controlled facility. ${intP && intP < askP ? `The ${Math.round((1 - intP / askP) * 100)}% spread between asking and internal target provides negotiation room.` : ""} This pricing supports attractive yield-on-cost projections.` : pricePerAc && pricePerAc <= 400000 ? `Market-rate pricing at $${pricePerAc.toLocaleString()}/acre. Manageable for storage development but leaves less margin for cost overruns. The total land basis should be modeled against projected Year 3 NOI to confirm yield-on-cost exceeds 8%.` : `${pricePerAc ? "Elevated pricing at $" + pricePerAc.toLocaleString() + "/acre" : "Pricing data unavailable"}. Higher land costs compress development returns and extend breakeven timelines. Consider aggressive negotiation, seller financing, or ground lease structures to manage basis.`} />
+                            </div>);
+                          }
+                          if (dK === "zoning") {
+                            const zClass = site.zoningClassification || "unknown";
+                            const zColor = zClass === "by-right" ? "#22C55E" : zClass === "conditional" ? "#F59E0B" : zClass === "rezone-required" ? "#EF4444" : "#6B7394";
+                            const zLabel = zClass === "by-right" ? "BY-RIGHT" : zClass === "conditional" ? "CONDITIONAL (SUP/CUP)" : zClass === "rezone-required" ? "REZONE REQUIRED" : "UNKNOWN";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${zColor}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>ZONING CLASSIFICATION</div>
+                                  <div style={{ fontSize: 22, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", marginBottom: 6 }}>{site.zoning || "TBD"}</div>
+                                  <div style={{ display: "inline-block", padding: "5px 14px", borderRadius: 6, background: zColor + "18", border: `1px solid ${zColor}30`, marginBottom: 14 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 800, color: zColor }}>{zLabel}</span>
+                                  </div>
+                                  {site.zoningUseTerm && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>USE CATEGORY: </span><span style={{ fontSize: 11, color: "#E2E8F0" }}>{site.zoningUseTerm}</span></div>}
+                                  {site.zoningOrdinanceSection && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>ORDINANCE: </span><span style={{ fontSize: 11, color: "#E2E8F0" }}>{site.zoningOrdinanceSection}</span></div>}
+                                  {site.overlayDistrict && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>OVERLAY: </span><span style={{ fontSize: 11, color: "#E2E8F0" }}>{site.overlayDistrict}</span></div>}
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>ENTITLEMENT REQUIREMENTS</div>
+                                  {[
+                                    { label: "Permitting Path", val: zLabel, color: zColor },
+                                    { label: "Est. Timeline", val: site.supTimeline || (zClass === "by-right" ? "30-60 days" : zClass === "conditional" ? "3-6 months" : "6-12+ months"), color: zClass === "by-right" ? "#22C55E" : zClass === "conditional" ? "#F59E0B" : "#EF4444" },
+                                    { label: "Est. Cost", val: site.supCost || (zClass === "by-right" ? "$5K-$15K" : zClass === "conditional" ? "$25K-$50K" : "$50K-$100K+") },
+                                    { label: "Political Risk", val: site.politicalRisk || "Not assessed" },
+                                    { label: "Planning Contact", val: site.planningContact || "Not recorded" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: j < 4 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.label}</span>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: r.color || "#E2E8F0", textAlign: "right", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.val}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={zLabel} signalColor={zColor} text={zClass === "by-right" ? `Storage is permitted by-right under ${site.zoning || "current zoning"}, eliminating the largest entitlement risk factor. By-right approval typically takes 30-60 days through standard site plan review. This is the optimal zoning scenario and significantly de-risks the development timeline.${site.facadeReqs ? " Note: architectural/facade requirements may apply." : ""}` : zClass === "conditional" ? `Storage requires a conditional use permit (SUP/CUP) under ${site.zoning || "current zoning"}. This introduces 3-6 months of entitlement timeline and $25K-$50K in application/legal costs. Success depends on political environment, neighbor opposition risk, and recent approval history. ${site.politicalRisk === "Low" ? "Low political risk noted." : "Recommend checking recent storage approvals in this jurisdiction."}` : zClass === "rezone-required" ? `Rezoning is required, representing the highest entitlement risk. Timeline extends to 6-12+ months with $50K-$100K+ in costs and no guarantee of approval. This adds significant risk premium to the deal and should be reflected in pricing negotiations.` : `Zoning classification not yet confirmed for ${site.zoning || "this parcel"}. Immediate verification of the permitted use table is required before advancing. Contact local planning department to confirm self-storage permissibility under the current district.`} />
+                            </div>);
+                          }
+                          if (dK === "psProximity") {
+                            const psD = iq.nearestPS; const psDist = typeof psD === "number" ? psD : parseFloat(psD);
+                            const proxSignal = psDist <= 5 ? "VALIDATED SUBMARKET" : psDist <= 10 ? "PS ADJACENT" : psDist <= 15 ? "MODERATE DISTANCE" : psDist <= 25 ? "EDGE OF FOOTPRINT" : "REMOTE";
+                            const proxC = psDist <= 5 ? "#22C55E" : psDist <= 10 ? "#3B82F6" : psDist <= 15 ? "#F59E0B" : "#E87A2E";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${proxC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PS NEAREST FACILITY PROXIMITY</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 42, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{psDist ? psDist.toFixed(1) : "—"}<span style={{ fontSize: 16, color: "#6B7394" }}> mi</span></div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: proxC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: proxC }}>{proxSignal}</span></div>
+                                </div>
+                                <div style={{ marginTop: 8 }}>
+                                  {[
+                                    { label: "0-5 mi: Validated Submarket", color: "#22C55E", active: psDist <= 5, score: "10/10" },
+                                    { label: "5-10 mi: PS Adjacent", color: "#3B82F6", active: psDist > 5 && psDist <= 10, score: "9/10" },
+                                    { label: "10-15 mi: Moderate", color: "#F59E0B", active: psDist > 10 && psDist <= 15, score: "7/10" },
+                                    { label: "15-25 mi: Edge", color: "#E87A2E", active: psDist > 15 && psDist <= 25, score: "5/10" },
+                                    { label: "25-35 mi: Remote", color: "#EF4444", active: psDist > 25, score: "3/10" },
+                                  ].map((t, j) => (
+                                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 6, marginBottom: 4, background: t.active ? t.color + "12" : "transparent", border: t.active ? `1px solid ${t.color}30` : "1px solid transparent" }}>
+                                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.active ? t.color : "#4A5080" }} />
+                                      <span style={{ fontSize: 11, color: t.active ? "#E2E8F0" : "#6B7394", fontWeight: t.active ? 700 : 500, flex: 1 }}>{t.label}</span>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: t.active ? t.color : "#4A5080", fontFamily: "'Space Mono', monospace" }}>{t.score}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={proxSignal} signalColor={proxC} text={psDist <= 5 ? `Nearest PS facility is just ${psDist.toFixed(1)} miles away, confirming this as a validated PS submarket. Proximity to existing PS locations indicates the market has been previously vetted and approved by PS development. Closer proximity = stronger market validation signal, not cannibalization risk. New facilities in proven PS markets typically achieve faster lease-up.` : psDist <= 15 ? `At ${psDist.toFixed(1)} miles from the nearest PS location, this site sits within PS's established operating footprint. The distance suggests an adjacent trade area that PS has not yet saturated, presenting an infill opportunity. This proximity supports operational efficiency for PS's regional management structure.` : `${psDist ? psDist.toFixed(1) : "N/A"} miles from the nearest PS facility places this at the edge of PS's current footprint. While not a disqualifier, sites beyond 25 miles require stronger standalone fundamentals (demographics, growth, limited competition) to justify expansion into a new submarket. Above 35 miles is an automatic exclusion per PS criteria.`} />
+                            </div>);
+                          }
+                          if (dK === "access") {
+                            const acreage = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+                            const sizeSignal = acreage >= 3.5 && acreage <= 5 ? "IDEAL SIZE" : acreage >= 2.5 ? "VIABLE" : acreage >= 5 && acreage <= 7 ? "LARGE" : "REVIEW";
+                            const sizeC = acreage >= 3.5 && acreage <= 5 ? "#22C55E" : acreage >= 2.5 ? "#3B82F6" : "#F59E0B";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sizeC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>SITE SIZE & CONFIGURATION</div>
+                                  <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 14 }}>
+                                    <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{acreage ? acreage.toFixed(2) : "—"}<span style={{ fontSize: 14, color: "#6B7394" }}> ac</span></div>
+                                    <div style={{ padding: "4px 12px", borderRadius: 6, background: sizeC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: sizeC }}>{sizeSignal}</span></div>
+                                  </div>
+                                  {[
+                                    { label: "Primary (3.5-5 ac)", desc: "One-story indoor CC", range: [3.5, 5], color: "#22C55E" },
+                                    { label: "Secondary (2.5-3.5 ac)", desc: "Multi-story option", range: [2.5, 3.5], color: "#3B82F6" },
+                                    { label: "Large (5-7 ac)", desc: "Subdivisible", range: [5, 7], color: "#F59E0B" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 5, marginBottom: 3, background: acreage >= r.range[0] && acreage <= r.range[1] ? r.color + "12" : "transparent" }}>
+                                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: acreage >= r.range[0] && acreage <= r.range[1] ? r.color : "#4A5080" }} />
+                                      <span style={{ fontSize: 10, color: acreage >= r.range[0] && acreage <= r.range[1] ? "#E2E8F0" : "#6B7394", fontWeight: acreage >= r.range[0] && acreage <= r.range[1] ? 700 : 500 }}>{r.label}</span>
+                                      <span style={{ fontSize: 9, color: "#4A5080", marginLeft: "auto" }}>{r.desc}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>ACCESS & ENVIRONMENTAL</div>
+                                  {[
+                                    { label: "Road Frontage", val: site.roadFrontage || "Not confirmed" },
+                                    { label: "Traffic (VPD)", val: site.trafficData || "—" },
+                                    { label: "Flood Zone", val: site.floodZone || "Not checked", color: site.floodZone && site.floodZone.toLowerCase().includes("zone x") ? "#22C55E" : "#F59E0B" },
+                                    { label: "Terrain", val: site.terrain || "—" },
+                                    { label: "Visibility", val: site.visibility || "—" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: j < 4 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.label}</span>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: r.color || "#E2E8F0", textAlign: "right", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.val}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={sizeSignal} signalColor={sizeC} text={`${acreage ? acreage.toFixed(2) + " acres" : "Acreage TBD"} — ${acreage >= 3.5 && acreage <= 5 ? "ideal footprint for PS's preferred one-story, indoor climate-controlled product. This size accommodates 80,000-110,000 net rentable SF with adequate parking, landscaping, and stormwater management." : acreage >= 2.5 && acreage < 3.5 ? "suitable for a multi-story (3-4 story) climate-controlled facility. Tighter footprint requires vertical construction but can still achieve 70,000-100,000 net rentable SF." : acreage > 5 ? "large parcel offers flexibility. Could accommodate PS's standard product with excess land for future expansion, pad site sale, or outparcel development to offset land basis." : "may be undersized for PS's standard product. Evaluate whether a compact multi-story design is feasible for this footprint."} ${site.floodZone && !site.floodZone.toLowerCase().includes("zone x") ? " Flood zone designation requires additional investigation." : ""}`} />
+                            </div>);
+                          }
+                          if (dK === "competition") {
+                            const compCount = iq.competitorCount || 0;
+                            const compNames = iq.competitorNames;
+                            const nearComp = iq.nearestCompetitor;
+                            const signal = compCount <= 1 ? "UNDERSERVED" : compCount <= 3 ? "LOW COMPETITION" : compCount <= 6 ? "MODERATE" : "COMPETITIVE";
+                            const sigC = compCount <= 1 ? "#22C55E" : compCount <= 3 ? "#3B82F6" : compCount <= 6 ? "#F59E0B" : "#EF4444";
+                            const operators = compNames ? String(compNames).split(",").map(n => n.trim()).filter(Boolean) : [];
+                            const reitCount = operators.filter(n => n.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage|National Storage/i)).length;
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sigC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>COMPETITIVE DENSITY (3-MI RADIUS)</div>
+                                  <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                    <div style={{ fontSize: 48, fontWeight: 900, color: sigC, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{compCount}</div>
+                                    <div>
+                                      <div style={{ padding: "4px 12px", borderRadius: 6, background: sigC + "18", marginBottom: 4 }}><span style={{ fontSize: 11, fontWeight: 800, color: sigC }}>{signal}</span></div>
+                                      {reitCount > 0 && <div style={{ fontSize: 10, color: "#EF4444", fontWeight: 700 }}>{reitCount} REIT operator{reitCount > 1 ? "s" : ""}</div>}
+                                    </div>
+                                  </div>
+                                  {nearComp && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>NEAREST: </span><span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{nearComp}</span></div>}
+                                  {(site.demandSupplySignal || site.competingSF) && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>MARKET: </span><span style={{ fontSize: 11, color: "#C9A84C", fontWeight: 600 }}>{site.demandSupplySignal || site.competingSF}</span></div>}
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(232,122,46,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 10 }}>OPERATOR LANDSCAPE</div>
+                                  <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                                    {operators.length > 0 ? operators.map((name, j) => (
+                                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: j < operators.length - 1 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: name.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage/i) ? "#EF4444" : name.match(/StorageMart|U-Haul|SecurCare/i) ? "#F59E0B" : "#3B82F6", flexShrink: 0 }} />
+                                        <span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600, flex: 1 }}>{name}</span>
+                                        {name.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage|National Storage/i) && <span style={{ fontSize: 8, fontWeight: 800, color: "#EF4444", background: "rgba(239,68,68,0.1)", padding: "1px 5px", borderRadius: 3 }}>REIT</span>}
+                                      </div>
+                                    )) : <div style={{ fontSize: 11, color: "#6B7394", fontStyle: "italic" }}>No operator data available</div>}
+                                  </div>
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={signal} signalColor={sigC} text={compCount <= 1 ? `Only ${compCount} competing facilit${compCount === 1 ? "y" : "ies"} within 3 miles signals an underserved market with significant unmet demand. Low competition environments allow for premium pricing, faster lease-up, and dominant market positioning. This is the ideal competitive landscape for a new PS development.` : compCount <= 3 ? `${compCount} competitors within 3 miles represents manageable competition. Market is not saturated, and a well-positioned PS facility can capture meaningful share. ${reitCount > 0 ? `${reitCount} REIT operator(s) present validates institutional-grade demand.` : "Predominantly local operators suggest opportunity for a REIT-quality facility to capture market share."} Focus on differentiation through climate-controlled product and PS brand strength.` : compCount <= 6 ? `${compCount} facilities within 3 miles indicates moderate competition. Market is established with proven demand, but share capture requires competitive positioning. ${reitCount >= 2 ? "Multiple REIT operators confirm a mature, validated market." : ""} Key success factors: unit mix optimization, competitive rate strategy, and superior site visibility/access.` : `${compCount} facilities within 3 miles signals high competitive density. New entrant faces lease-up headwinds in a market with existing supply. Recommend careful analysis of occupancy rates, rate trends, and whether recent new supply has been absorbed. Success requires a differentiated value proposition or displacement of weaker operators.`} />
+                            </div>);
+                          }
+                          if (dK === "marketTier") {
+                            const mt = iq.marketTier;
+                            const tierLabel = mt === 1 ? "TIER 1 — PRIMARY" : mt === 2 ? "TIER 2 — STRATEGIC" : mt === 3 ? "TIER 3 — GROWTH" : mt === 4 ? "TIER 4 — EMERGING" : "UNCLASSIFIED";
+                            const tierC = mt === 1 ? "#C9A84C" : mt === 2 ? "#22C55E" : mt === 3 ? "#3B82F6" : mt === 4 ? "#8B5CF6" : "#6B7394";
+                            const tierMarkets = { 1: "Cincinnati / N. KY, Indianapolis", 2: "Independence KY, S. Dayton OH, Springboro OH", 3: "Middle TN corridor", 4: "DFW, Austin, Houston, Central TX" };
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tierC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>TARGET MARKET CLASSIFICATION</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 16 }}>
+                                  <div style={{ fontSize: 28, fontWeight: 900, color: tierC, letterSpacing: "0.02em" }}>{tierLabel}</div>
+                                </div>
+                                {[1, 2, 3, 4].map(t => (
+                                  <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 6, marginBottom: 4, background: mt === t ? (t === 1 ? "#C9A84C" : t === 2 ? "#22C55E" : t === 3 ? "#3B82F6" : "#8B5CF6") + "12" : "transparent", border: mt === t ? `1px solid ${t === 1 ? "#C9A84C" : t === 2 ? "#22C55E" : t === 3 ? "#3B82F6" : "#8B5CF6"}30` : "1px solid transparent" }}>
+                                    <div style={{ width: 24, height: 24, borderRadius: 6, background: (t === 1 ? "#C9A84C" : t === 2 ? "#22C55E" : t === 3 ? "#3B82F6" : "#8B5CF6") + (mt === t ? "30" : "10"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: mt === t ? "#E2E8F0" : "#4A5080" }}>{t}</div>
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontSize: 11, fontWeight: mt === t ? 700 : 500, color: mt === t ? "#E2E8F0" : "#6B7394" }}>Tier {t}: {t === 1 ? "Primary" : t === 2 ? "Strategic" : t === 3 ? "Growth" : "Emerging"}</div>
+                                      <div style={{ fontSize: 9, color: "#4A5080" }}>{tierMarkets[t]}</div>
+                                    </div>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: mt === t ? tierC : "#4A5080", fontFamily: "'Space Mono', monospace" }}>{t === 1 ? "10/10" : t === 2 ? "8/10" : t === 3 ? "6/10" : "4/10"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <StorvexAnalysis signal={tierLabel} signalColor={tierC} text={mt === 1 ? `${site.market || "This market"} is a Tier 1 primary target — PS's highest-priority expansion corridor. MT and DW have confirmed active deal flow here. Sites in Tier 1 markets receive a scoring boost reflecting PS's strategic focus and established operational infrastructure in the region.` : mt === 2 ? `Tier 2 strategic market — identified as a coverage gap in PS's footprint. These markets have zero or minimal PS presence despite strong fundamentals, representing greenfield expansion opportunities.` : mt === 3 ? `Tier 3 growth market — Middle TN corridor. Growing market with PS interest but lower strategic priority than Tier 1-2. Sites here compete primarily on fundamentals (demographics, zoning, pricing) rather than market alignment.` : mt === 4 ? `Tier 4 emerging market. PS has broader interest in this region but no confirmed target list placement. Sites score on their standalone merits. Strong fundamentals can still drive advancement.` : `Market not classified in PS's target tier system. This site will be evaluated purely on demographic and competitive fundamentals without a market alignment bonus.`} />
+                            </div>);
+                          }
+                          return <div style={{ padding: 16, fontSize: 11, color: "#6B7394", fontStyle: "italic" }}>Detailed analysis not yet available for this dimension.</div>;
+                        };
                         return (
-                          <div key={dim.key} style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px 60px 70px", alignItems: "center", padding: "10px 24px", borderBottom: i < bd.length - 1 ? "1px solid rgba(201,168,76,0.04)" : "none", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(201,168,76,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 14 }}>{["👥","📈","💰","🏠","🏡","🏷️","🏛","📍","🚗","🏪","🗺"][i] || "📊"}</span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0" }}>{dim.label}</span>
+                          <div key={dim.key}>
+                            <div onClick={() => setScoreDimExpanded(isExpanded ? null : dim.key)} style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px 60px 70px", alignItems: "center", padding: "10px 24px", borderBottom: (i < bd.length - 1 && !isExpanded) ? "1px solid rgba(201,168,76,0.04)" : "none", transition: "background 0.15s", cursor: "pointer", background: isExpanded ? "rgba(201,168,76,0.06)" : "transparent" }} onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "rgba(201,168,76,0.03)"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "transparent"; }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 14 }}>{dimIcons[i] || "📊"}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: isExpanded ? "#C9A84C" : "#E2E8F0" }}>{dim.label}</span>
+                                <span style={{ fontSize: 9, color: isExpanded ? "#C9A84C" : "#4A5080", transition: "transform 0.2s", display: "inline-block", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                              </div>
+                              <div style={{ position: "relative", height: 20, borderRadius: 10, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 10, background: `linear-gradient(90deg, ${barC}CC, ${barC})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)", boxShadow: dim.score >= 8 ? `0 0 12px ${barC}40` : "none" }} />
+                                <div style={{ position: "absolute", left: 8, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 10, fontWeight: 800, color: dim.score >= 5 ? "#fff" : barC, zIndex: 1 }}>{dim.score}/10</div>
+                              </div>
+                              <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>{wPct}%</div>
+                              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: barC, fontFamily: "'Space Mono', monospace" }}>{dim.score}</div>
+                              <div style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>+{contrib}</div>
                             </div>
-                            <div style={{ position: "relative", height: 20, borderRadius: 10, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
-                              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 10, background: `linear-gradient(90deg, ${barC}CC, ${barC})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)", boxShadow: dim.score >= 8 ? `0 0 12px ${barC}40` : "none" }} />
-                              <div style={{ position: "absolute", left: 8, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 10, fontWeight: 800, color: dim.score >= 5 ? "#fff" : barC, zIndex: 1 }}>{dim.score}/10</div>
-                            </div>
-                            <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>{wPct}%</div>
-                            <div style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: barC, fontFamily: "'Space Mono', monospace" }}>{dim.score}</div>
-                            <div style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>+{contrib}</div>
+                            {/* EXPANDED DIMENSION DEEP DIVE */}
+                            {isExpanded && (
+                              <div style={{ padding: "16px 24px 20px", background: "rgba(10,10,14,0.8)", borderBottom: "2px solid rgba(201,168,76,0.1)", animation: "fadeIn 0.2s ease-out" }}>
+                                {renderDimExpansion()}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                     {/* Column headers */}
                     <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px 60px 70px", padding: "0 24px 8px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", paddingTop: 8 }}>DIMENSION</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", paddingTop: 8 }}>DIMENSION — CLICK TO EXPAND</div>
                       <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", paddingTop: 8 }}>SCORE BAR</div>
                       <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "center", paddingTop: 8 }}>WEIGHT</div>
                       <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "center", paddingTop: 8 }}>RAW</div>
