@@ -73,19 +73,19 @@ Canonical reference for all Storvex constants — weights, thresholds, tiers, ph
 
 ### Storvex SiteScore System
 
-Weighted composite scoring across 9 dimensions (weights auto-normalize to 1.0):
+Weighted composite scoring across 9 dimensions (weights sum to exactly 1.00):
 
 | Dimension | Key | Weight | Source |
 |---|---|---|---|
-| Population | population | 18% | ESRI / Census ACS |
-| Growth | growth | 20% | ESRI 5-year projections |
-| Med. Income | income | 10% | ESRI / Census ACS |
-| Pricing | pricing | 8% | Asking price / acreage |
-| Zoning | zoning | 14% | Zoning field + summary |
-| Site Access | access | 7% | Site data + summary |
-| Facility Proximity | psProximity | 10% | siteiqData.nearestPS |
-| Competition | competition | 5% | Competitor data / summary |
-| Market Tier | marketTier | 8% | Market field / config |
+| Population | population | 15% | ESRI / Census ACS |
+| Growth | growth | 17% | ESRI 5-year projections |
+| Med. Income | income | 8% | ESRI / Census ACS |
+| Pricing | pricing | 7% | Asking price / acreage |
+| Zoning | zoning | 15% | Zoning field + summary |
+| Site Access | access | 6% | Site data + summary |
+| Facility Proximity | psProximity | 12% | siteiqData.nearestPS |
+| Competition | competition | 10% | Competitor data / summary |
+| Market Tier | marketTier | 10% | Market field / config |
 
 **Adjustments applied after weighted sum:**
 - Phase bonuses: Under Contract/Closed (+0.3), PSA Sent (+0.2), LOI (+0.15), Storvex Approved (+0.1)

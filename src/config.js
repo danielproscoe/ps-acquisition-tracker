@@ -3,17 +3,19 @@
 // Addresses audit finding ARCH-05: Extract constants to shared config
 
 // ---- Storvex SiteScore v2.0 Scoring Weights (must match SITE_SCORE_DEFAULTS in App.js) ----
+// Weights MUST sum to exactly 1.00
 export const SITESCORE_WEIGHTS = {
-  population: 0.18,
-  growth: 0.20,
-  income: 0.10,
-  pricing: 0.08,
-  zoning: 0.14,
-  access: 0.07,
-  psProximity: 0.10,
-  competition: 0.05,
-  marketTier: 0.08
+  population: 0.15,
+  growth: 0.17,
+  income: 0.08,
+  pricing: 0.07,
+  zoning: 0.15,
+  access: 0.06,
+  psProximity: 0.12,
+  competition: 0.10,
+  marketTier: 0.10
 };
+// Sum: 0.15 + 0.17 + 0.08 + 0.07 + 0.15 + 0.06 + 0.12 + 0.10 + 0.10 = 1.00
 
 // ---- Storvex SiteScore Classification Thresholds ----
 export const SITESCORE_THRESHOLDS = {
@@ -138,7 +140,7 @@ export const SITESCORE_DIMENSIONS = [
   { key: 'zoning', label: 'Zoning', icon: '📋', group: 'entitlements', source: 'Zoning field + summary' },
   { key: 'access', label: 'Site Access', icon: '🛣️', group: 'physical', source: 'Site data + summary' },
   { key: 'psProximity', label: 'Facility Proximity', icon: '📦', group: 'market', source: 'siteiqData.nearestPS' },
-  { key: 'competition', label: 'Competition', icon: '🏢', group: 'market', source: 'Competitor data / summary' },
+  { key: 'competition', label: 'Competition', icon: '🏢', group: 'market', source: 'Competitor density in trade area' },
   { key: 'marketTier', label: 'Market Tier', icon: '📍', group: 'market', source: 'Market field / config' }
 ];
 

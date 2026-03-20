@@ -107,25 +107,29 @@ const DOC_TYPES = [
 // ─── Storvex™ Configurable Weight System v2.0 ───
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
 // Persisted at Firebase path: config/siteiq_weights (legacy key — retained for backward compatibility)
+// IMPORTANT: Weights MUST sum to exactly 1.00. Auto-normalization is a safety net, not a feature.
 const SITE_SCORE_DEFAULTS = [
-  { key: "population", label: "Population", icon: "👥", weight: 0.18, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.20, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
-  { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.14, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
-  { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "psProximity", label: "Facility Proximity", icon: "📦", weight: 0.10, tip: "Distance to nearest existing facility — closer = validated market", source: "siteiqData.nearestPS", group: "market" },
-  { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
-  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
+  { key: "population", label: "Population", icon: "👥", weight: 0.15, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "📈", weight: 0.17, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+  { key: "income", label: "Med. Income", icon: "💰", weight: 0.08, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "pricing", label: "Pricing", icon: "💲", weight: 0.07, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
+  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "access", label: "Site Access", icon: "🛣️", weight: 0.06, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
+  { key: "psProximity", label: "Facility Proximity", icon: "📦", weight: 0.12, tip: "Distance to nearest existing facility — closer = validated market", source: "siteiqData.nearestPS", group: "market" },
+  { key: "competition", label: "Competition", icon: "🏢", weight: 0.10, tip: "Competitor density in trade area", source: "Competitor data / summary", group: "market" },
+  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.10, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
 ];
+// Sum verification: 0.15 + 0.17 + 0.08 + 0.07 + 0.15 + 0.06 + 0.12 + 0.10 + 0.10 = 1.00
 
 // Live mutable config — starts as copy of defaults, merged with Firebase on load
 let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
 
-// Auto-normalize so weights always sum to 1.0
+// Auto-normalize so weights always sum to 1.0 (safety net — declared weights should already sum to 1.0)
 const normalizeSiteScoreWeights = (dims) => {
   const total = dims.reduce((s, d) => s + d.weight, 0);
-  if (total > 0 && Math.abs(total - 1.0) > 0.001) {
+  if (total <= 0) { console.error("SiteScore: All weights are zero — cannot normalize"); return dims; }
+  if (Math.abs(total - 1.0) > 0.001) {
+    console.warn(`SiteScore: Weights sum to ${total.toFixed(3)}, normalizing to 1.0`);
     dims.forEach(d => { d.weight = d.weight / total; });
   }
   return dims;
@@ -278,7 +282,8 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
   }
   const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
-  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS >= 5 ? "#16A34A" : site.siteiqData.nearestPS >= 2.5 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+  // Closer to existing facility = validated market = green (matches scoring engine)
+  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 10 ? "#16A34A" : site.siteiqData.nearestPS <= 20 ? "#F59E0B" : "#94A3B8") : "#94A3B8";
   // Z&U intelligence parsing
   const combined = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
   const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
@@ -302,7 +307,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   if (!site.coordinates) flags.push("No coordinates — cannot verify location");
   if (!isNaN(acres) && acres < 2.5) flags.push("Below minimum acreage threshold");
   if (popN && popN < 10000) flags.push("3-mi population below 10,000 minimum");
-  if (incN && incN < 60000) flags.push("3-mi median HHI below $60,000 target");
+  if (incN && incN < 55000) flags.push("3-mi median HHI below $55,000 threshold");
   if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
   if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
@@ -629,17 +634,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
 
     ${iq && iq.scores ? (() => {
-      const dims = [
-        { key: "population", label: "Population", weight: 0.18 },
-        { key: "growth", label: "Growth", weight: 0.20 },
-        { key: "income", label: "Income", weight: 0.10 },
-        { key: "pricing", label: "Pricing", weight: 0.08 },
-        { key: "zoning", label: "Zoning", weight: 0.14 },
-        { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "psProximity", label: "Facility Proximity", weight: 0.10 },
-        { key: "competition", label: "Competition", weight: 0.05 },
-        { key: "marketTier", label: "Market Tier", weight: 0.08 },
-      ];
+      const dims = SITE_SCORE_CONFIG.map(d => ({ key: d.key, label: d.label, weight: d.weight }));
       return `
     <!-- STORVEX SCORECARD -->
     ${section("IQ", "Storvex Scorecard", "")}
@@ -726,7 +721,8 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 </div></body></html>`;
 };
 
-// ─── Zoning & Utility Report — merged into generateVettingReport above ───
+// ─── DEAD CODE: _REMOVED_generateZoningUtilityReport (183 lines) ───
+// Merged into generateVettingReport above. Retained for git history reference only.
 const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   const iq = iqResult || {};
   const iqScore = typeof iq.composite === "number" ? iq.composite : (iq.score || "—");
@@ -911,9 +907,11 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
 };
 
 // ─── Storvex™ v3 — Calibrated Site Scoring Engine ───
-// Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
-// Weights: Pop 20%, Growth 25%, HHI 10%, Pricing 8%, Zoning 15%, Access 7%, Competition 7%, Market 8%
+// Weights are defined in SITE_SCORE_DEFAULTS above and auto-normalized to sum 1.0.
+// Current calibration: Pop 15%, Growth 17%, HHI 8%, Pricing 7%, Zoning 15%,
+//   Access 6%, Facility Proximity 12%, Competition 10%, Market Tier 10%
 // Hard FAIL: pop <5K, HHI <$55K, landlocked
+// Adjustments: phase bonus, stale penalty, broker intel, water hookup, research completeness
 const computeSiteScore = (site) => {
   const scores = {};
   const flags = [];
@@ -1057,6 +1055,8 @@ const computeSiteScore = (site) => {
     else if (/independence|springboro|s\.?\s*dayton/i.test(mkt)) tierScore = 8;
     else if (/tn|tenn|nashville|murfreesboro|clarksville|lebanon/i.test(mkt)) tierScore = 6;
     else if (/dfw|dallas|austin|houston|san\s*ant/i.test(mkt)) tierScore = 4;
+    else if (mkt.trim()) { tierScore = 5; flags.push("Market '" + site.market + "' not in tier map — defaulting to mid-tier (5/10)"); }
+    else { tierScore = 2; flags.push("No market assigned — tier score defaulting to 2/10"); }
   }
   scores.marketTier = tierScore;
 
@@ -1266,6 +1266,7 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
             { key: "pricing", label: "PPA" },
             { key: "zoning", label: "ZN" },
             { key: "access", label: "ACC" },
+            { key: "psProximity", label: "PROX" },
             { key: "competition", label: "CP" },
             { key: "marketTier", label: "MKT" },
           ].map((f) => {
@@ -2311,10 +2312,10 @@ export default function App() {
                                 { key: "growth", label: "Growth (5yr CAGR)", weight: getIQWeight("growth"), icon: "📈", tip: "ESRI 2025→2030 population growth rate" },
                                 { key: "income", label: "Median HHI (3-mi)", weight: getIQWeight("income"), icon: "💰", tip: "Median household income within 3 miles" },
                                 { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs acquisition targets" },
-                                { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
+                                { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Intended use permissibility in zoning district" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
                                 { key: "psProximity", label: "Facility Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest existing facility — closer = validated market" },
-                                { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
+                                { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competitor density within trade area" },
                                 { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier"), icon: "🎯", tip: "Target market alignment (MT/DW tiers)" },
                               ];
                               const scoreColor = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
@@ -3938,13 +3939,16 @@ export default function App() {
             if (e.key === "ArrowRight" && nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
             if (e.key === "Escape") { setDetailView(null); }
           };
-          if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
+          // Clean up old listener before adding new one (prevents stale closures)
+          if (window._detailKeyHandler) { window.removeEventListener("keydown", window._detailKeyHandler); }
+          window._detailKeyHandler = handleDetailKey;
+          window.addEventListener("keydown", handleDetailKey);
 
           return (
             <div style={{ animation: "fadeIn 0.15s ease-out" }}>
               {/* TOP NAV BAR */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                <button onClick={() => { setDetailView(null); window._detailKeyBound = false; navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
+                <button onClick={() => { setDetailView(null); if (window._detailKeyHandler) { window.removeEventListener("keydown", window._detailKeyHandler); window._detailKeyHandler = null; } navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
@@ -4151,17 +4155,7 @@ export default function App() {
 
               {/* STORVEX DETAILED SCORECARD */}
               {iqR && iqR.scores && (() => {
-                const dims2 = [
-                  { key: "population", label: "Population", icon: "👥", weight: getIQWeight("population") },
-                  { key: "growth", label: "Growth", icon: "📈", weight: getIQWeight("growth") },
-                  { key: "income", label: "Income", icon: "💰", weight: getIQWeight("income") },
-                  { key: "pricing", label: "Pricing", icon: "🏷️", weight: getIQWeight("pricing") },
-                  { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
-                  { key: "psProximity", label: "Facility Proximity", icon: "📦", weight: getIQWeight("psProximity") },
-                  { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
-                  { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
-                  { key: "marketTier", label: "Market Tier", icon: "🎯", weight: getIQWeight("marketTier") },
-                ];
+                const dims2 = SITE_SCORE_CONFIG.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight }));
                 const sc2 = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
                 return (
                   <div style={{ borderRadius: 14, marginBottom: 20, overflow: "hidden", border: "1px solid rgba(232,122,46,0.15)" }}>
