@@ -108,14 +108,17 @@ const DOC_TYPES = [
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
 // Persisted at Firebase path: config/siteiq_weights
 const SITE_SCORE_DEFAULTS = [
-  { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.25, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+  { key: "population", label: "Population", icon: "👥", weight: 0.16, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "📈", weight: 0.18, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
   { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "households", label: "Households", icon: "🏠", weight: 0.05, tip: "3-mile household count (demand proxy)", source: "ESRI / Census ACS", group: "demographics" },
+  { key: "homeValue", label: "Home Value", icon: "🏡", weight: 0.05, tip: "Median home value — affluence signal", source: "ESRI / Census ACS", group: "demographics" },
   { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.14, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: 0.10, tip: "Distance to nearest PS location", source: "siteiqData.nearestPS", group: "market" },
   { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "competition", label: "Competition", icon: "🏢", weight: 0.07, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
-  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
+  { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.02, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
 ];
 
 // Live mutable config — starts as copy of defaults, merged with Firebase on load
@@ -309,6 +312,34 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
+  // Utility Readiness Score (0-100) — quantifies how "hookup-ready" a site is
+  const utilChecks = [
+    { done: !!site.waterProvider, weight: 20, label: "Water provider identified" },
+    { done: site.waterAvailable === true, weight: 15, label: "Water confirmed available" },
+    { done: site.insideServiceBoundary === true, weight: 10, label: "Inside service boundary" },
+    { done: !!site.sewerProvider || hasSeptic, weight: 12, label: "Sewer/septic solution" },
+    { done: site.sewerAvailable === true || hasSeptic, weight: 8, label: "Sewer confirmed" },
+    { done: !!site.electricProvider, weight: 10, label: "Electric provider identified" },
+    { done: site.threePhase === true, weight: 10, label: "3-phase power available" },
+    { done: !!site.waterTapFee || !!site.tapFees, weight: 5, label: "Tap fees documented" },
+    { done: site.fireFlowAdequate === true, weight: 5, label: "Fire flow confirmed" },
+    { done: !!site.distToWaterMain, weight: 5, label: "Distance to main known" },
+  ];
+  const utilScore = utilChecks.reduce((sum, c) => sum + (c.done ? c.weight : 0), 0);
+  const utilGrade = utilScore >= 80 ? "A" : utilScore >= 60 ? "B" : utilScore >= 40 ? "C" : utilScore >= 20 ? "D" : "F";
+  const utilGradeColor = utilScore >= 80 ? "#16A34A" : utilScore >= 60 ? "#3B82F6" : utilScore >= 40 ? "#F59E0B" : "#EF4444";
+  // Water hookup cost estimator
+  const distFt = site.distToWaterMain ? parseFloat(String(site.distToWaterMain).replace(/[^0-9.]/g, "")) : null;
+  const waterTapN = site.waterTapFee ? parseFloat(String(site.waterTapFee).replace(/[^0-9.]/g, "")) : null;
+  const sewerTapN = site.sewerTapFee ? parseFloat(String(site.sewerTapFee).replace(/[^0-9.]/g, "")) : null;
+  const impactN = site.impactFees ? parseFloat(String(site.impactFees).replace(/[^0-9.]/g, "")) : null;
+  const extensionLow = distFt ? Math.round(distFt * 50) : null;
+  const extensionHigh = distFt ? Math.round(distFt * 150) : null;
+  const totalUtilLow = (waterTapN || 0) + (sewerTapN || 0) + (impactN || 0) + (extensionLow || 0);
+  const totalUtilHigh = (waterTapN || 0) + (sewerTapN || 0) + (impactN || 0) + (extensionHigh || 0);
+  if (site.waterAvailable === false && !site.distToWaterMain) flags.push("Water extension required but distance to main UNKNOWN — critical cost variable");
+  if (distFt && distFt > 500) flags.push(`Water main is ${Math.round(distFt)} LF away — extension cost est. $${Math.round(extensionLow/1000)}K–$${Math.round(extensionHigh/1000)}K`);
+  if (site.fireFlowAdequate === false) flags.push("Fire flow INADEQUATE — hydrant/main upgrade required before development");
   const iq = iqResult || (typeof computeSiteScore === "function" ? computeSiteScore(site) : null);
   const iqScore = iq?.score || "—";
   const iqTier = iq?.tier || "gray";
@@ -329,7 +360,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#1E2761);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(201,168,76,0.4)"><span style="font-size:16px;font-weight:900;color:#fff;font-family:'Space Mono'">IQ</span></div>
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#2E9E6B,#1E2761);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(46,158,107,0.4)"><span style="font-size:22px;font-weight:900;color:#fff;font-family:'Space Mono';letter-spacing:-0.02em">S</span></div>
           <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
         </div>
         <div style="font-size:12px;color:#94A3B8;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
@@ -337,7 +368,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       <div style="text-align:right">
         <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
           <span style="font-size:28px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</span>
-          <div><div style="font-size:9px;color:#94A3B8;letter-spacing:0.08em">SITESCORE</div><div style="font-size:11px;font-weight:800;color:${iqBadgeColor}">${iqLabel}</div></div>
+          <div><div style="font-size:9px;color:#CBD5E1;letter-spacing:0.1em;font-weight:700">SITESCORE<span style="font-size:7px;vertical-align:super">™</span></div><div style="font-size:11px;font-weight:800;color:${iqBadgeColor}">${iqLabel}</div></div>
         </div>
       </div>
     </div>
@@ -360,15 +391,23 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         { label: "Zoning District Identified", done: !!site.zoning, category: "ZONING" },
         { label: "Zoning Classification Confirmed", done: !!site.zoningClassification && site.zoningClassification !== "unknown", category: "ZONING" },
         { label: "Ordinance Source Cited", done: !!site.zoningSource, category: "ZONING" },
+        { label: "Ordinance Section Referenced", done: !!site.zoningOrdinanceSection, category: "ZONING" },
+        { label: "Exact Use Category Extracted", done: !!site.zoningUseTerm, category: "ZONING" },
+        { label: "Jurisdiction Type Identified", done: !!site.jurisdictionType, category: "ZONING" },
         { label: "Planning Dept Contact Found", done: !!site.planningContact, category: "ZONING" },
         { label: "Permitted Use Table Reviewed", done: !!site.zoningNotes && site.zoningNotes.length > 20, category: "ZONING" },
         { label: "Water Provider Identified", done: !!site.waterProvider, category: "UTILITY" },
         { label: "Water Availability Confirmed", done: site.waterAvailable === true || site.waterAvailable === false, category: "UTILITY" },
+        { label: "Inside Service Boundary", done: site.insideServiceBoundary === true || site.insideServiceBoundary === false, category: "UTILITY" },
+        { label: "Distance to Water Main", done: !!site.distToWaterMain, category: "UTILITY" },
+        { label: "Fire Flow Assessed", done: site.fireFlowAdequate === true || site.fireFlowAdequate === false, category: "UTILITY" },
         { label: "Sewer Provider Identified", done: !!site.sewerProvider, category: "UTILITY" },
         { label: "Sewer Availability Confirmed", done: site.sewerAvailable === true || site.sewerAvailable === false, category: "UTILITY" },
         { label: "Electric Provider + 3-Phase", done: !!site.electricProvider, category: "UTILITY" },
-        { label: "Tap/Impact Fees Documented", done: !!site.tapFees, category: "UTILITY" },
+        { label: "Tap/Impact Fees Documented", done: !!site.tapFees || !!site.waterTapFee, category: "UTILITY" },
         { label: "FEMA Flood Zone Checked", done: !!site.floodZone, category: "TOPO" },
+        { label: "FIRM Panel Recorded", done: !!site.firmPanel, category: "TOPO" },
+        { label: "Soil Type Checked", done: !!site.soilType, category: "TOPO" },
         { label: "Terrain Assessment", done: !!site.terrain, category: "TOPO" },
         { label: "Wetlands Checked (NWI)", done: site.wetlands === true || site.wetlands === false, category: "TOPO" },
       ];
@@ -448,31 +487,84 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       row("Zoning District", site.zoning || "Not confirmed", { bold: true }),
       row("Classification", zoningLabel, { badge: true, badgeBg: zoningColor + "18", badgeColor: zoningColor }),
       row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
-      row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
-      row("Zoning Score", zoningScore != null ? `<span style="font-weight:900;color:${zoningScoreColor};font-family:'Space Mono',monospace">${zoningScore.toFixed(1)}/10</span>` : "—"),
+      row("Exact Use Category", site.zoningUseTerm || "<em style='color:#94A3B8'>Extract from permitted use table</em>"),
+      row("Overlay Districts", site.overlayDistrict || (hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified")),
+      row("Jurisdiction Type", site.jurisdictionType || "<em style='color:#94A3B8'>City / Township / Unincorporated County</em>"),
+      row("Ordinance Section", site.zoningOrdinanceSection || "<em style='color:#94A3B8'>Section & chapter reference needed</em>"),
       row("Ordinance Source", site.zoningSource || "<em style='color:#94A3B8'>Not yet researched</em>"),
+      row("Verification Date", site.zoningVerifyDate || "<em style='color:#94A3B8'>Not verified</em>"),
+      row("Zoning Score", zoningScore != null ? `<span style="font-weight:900;color:${zoningScoreColor};font-family:'Space Mono',monospace">${zoningScore.toFixed(1)}/10</span>` : "—"),
+      site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Timeline", site.supTimeline || "<em style='color:#F59E0B'>Typically 2–6 months — confirm with planning</em>") : "",
+      site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Est. Cost", site.supCost || "<em style='color:#F59E0B'>$15K–$50K typical — confirm with local attorney</em>") : "",
+      site.zoningClass === "conditional" || hasSUP ? row("Political Risk", site.politicalRisk || "<em style='color:#94A3B8'>Check recent similar applications</em>") : "",
+      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Timeline", site.rezoneTimeline || "<em style='color:#EF4444'>4–12 months typical</em>") : "",
+      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Est. Cost", site.rezoneCost || "<em style='color:#EF4444'>$25K–$75K+ typical</em>") : "",
       row("Planning Contact", site.planningContact || "<em style='color:#94A3B8'>Research needed</em>"),
-    ].join("")}</table>
+      row("Planning Phone", site.planningPhone || "<em style='color:#94A3B8'>—</em>"),
+      row("Planning Email", site.planningEmail || "<em style='color:#94A3B8'>—</em>"),
+    ].filter(Boolean).join("")}</table>
     ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.zoningNotes}</div>` : ""}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0F4FF;border-left:3px solid #1E2761;font-size:9px;color:#475569;line-height:1.6">
       <strong style="color:#1E2761;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
       Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
     </div>
+    <!-- Entitlement Risk Matrix -->
+    ${(zoningClass === "conditional" || zoningClass === "rezone-required" || hasSUP || hasRezone) ? `
+    <div style="margin-top:16px;padding:16px 20px;border-radius:10px;background:#FEF3C7;border:2px solid #F59E0B40">
+      <div style="font-size:11px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">&#9888; Entitlement Risk Assessment</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div style="text-align:center;padding:10px;border-radius:8px;background:#fff;border:1px solid #FDE68A">
+          <div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em">Timeline</div>
+          <div style="font-size:16px;font-weight:900;color:#D97706;margin-top:4px">${site.supTimeline || site.rezoneTimeline || (hasSUP ? "2–6 mo" : "4–12 mo")}</div>
+        </div>
+        <div style="text-align:center;padding:10px;border-radius:8px;background:#fff;border:1px solid #FDE68A">
+          <div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em">Est. Cost</div>
+          <div style="font-size:16px;font-weight:900;color:#D97706;margin-top:4px">${site.supCost || site.rezoneCost || (hasSUP ? "$15–50K" : "$25–75K+")}</div>
+        </div>
+        <div style="text-align:center;padding:10px;border-radius:8px;background:#fff;border:1px solid #FDE68A">
+          <div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em">Political Risk</div>
+          <div style="font-size:16px;font-weight:900;color:#D97706;margin-top:4px">${site.politicalRisk || "Assess"}</div>
+        </div>
+      </div>
+      ${site.recentApprovals ? `<div style="font-size:11px;color:#78350F;margin-top:10px;line-height:1.5"><strong>Recent Similar Applications:</strong> ${site.recentApprovals}</div>` : `<div style="font-size:10px;color:#92400E;margin-top:8px;font-style:italic">Check jurisdiction for recent storage/warehouse approvals or denials — establishes political precedent.</div>`}
+    </div>` : ""}
     <!-- Supplemental Standards Grid -->
     <div style="margin-top:16px"><div style="font-size:11px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Supplemental Standards</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
       ${[
-        { label: "Facade / Materials", icon: "&#127959;", text: /facade|material|masonry|brick/i.test(combined) ? "Requirements noted — see summary" : "No specific requirements identified" },
-        { label: "Setbacks", icon: "&#128208;", text: /setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks apply" },
-        { label: "Height Limits", icon: "&#128207;", text: /height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district height limits" },
-        { label: "Screening / Landscape", icon: "&#127807;", text: /screen|landscape|buffer/i.test(combined) ? "Screening / landscaping required" : "Standard requirements" },
-        { label: "Signage", icon: "&#129707;", text: /sign/i.test(combined) ? "Signage requirements noted" : "Standard district signage rules" },
-        { label: "Parking", icon: "&#127359;", text: /parking/i.test(combined) ? "Parking requirements noted" : "Per district standards" },
+        { label: "Facade / Materials", icon: "&#127959;", text: site.facadeReqs || (/facade|material|masonry|brick/i.test(combined) ? "Requirements noted — see summary" : "No specific requirements identified") },
+        { label: "Setbacks", icon: "&#128208;", text: site.setbackReqs || (/setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks apply") },
+        { label: "Height Limits", icon: "&#128207;", text: site.heightLimit || (/height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district height limits") },
+        { label: "Screening / Landscape", icon: "&#127807;", text: site.screeningReqs || (/screen|landscape|buffer/i.test(combined) ? "Screening / landscaping required" : "Standard requirements") },
+        { label: "Signage", icon: "&#129707;", text: site.signageReqs || (/sign/i.test(combined) ? "Signage requirements noted" : "Standard district signage rules") },
+        { label: "Parking", icon: "&#127359;", text: site.parkingReqs || (/parking/i.test(combined) ? "Parking requirements noted" : "Per district standards") },
       ].map(s => `<div style="padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:14px">${s.icon}</span><span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em">${s.label}</span></div><div style="font-size:12px;color:#64748B">${s.text}</div></div>`).join("")}
     </div></div>
 
     <!-- 3. UTILITIES & WATER — HARD VET -->
     ${section("3", "Utilities & Water — Can We Hook Up?", "")}
+    <!-- Utility Readiness Score -->
+    <div style="display:flex;gap:16px;margin-bottom:16px">
+      <div style="flex:1;padding:16px 20px;border-radius:10px;background:${utilGradeColor}08;border:2px solid ${utilGradeColor}30;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:${utilGradeColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Utility Readiness</div>
+        <div style="font-size:36px;font-weight:900;color:${utilGradeColor};font-family:'Space Mono',monospace;line-height:1">${utilGrade}</div>
+        <div style="font-size:11px;color:#64748B;margin-top:4px">${utilScore}/100 points</div>
+        <div style="margin-top:8px;height:6px;border-radius:3px;background:#E2E8F0;overflow:hidden"><div style="height:100%;width:${utilScore}%;border-radius:3px;background:${utilGradeColor};transition:width 0.5s ease"></div></div>
+      </div>
+      ${totalUtilLow > 0 || totalUtilHigh > 0 ? `<div style="flex:1;padding:16px 20px;border-radius:10px;background:#FEF3C7;border:2px solid #FDE68A;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Est. Utility Budget</div>
+        <div style="font-size:22px;font-weight:900;color:#D97706;font-family:'Space Mono',monospace;line-height:1">$${totalUtilLow > 0 ? (totalUtilLow/1000).toFixed(0) + "K" : "—"} – $${totalUtilHigh > 0 ? (totalUtilHigh/1000).toFixed(0) + "K" : "—"}</div>
+        <div style="font-size:10px;color:#78350F;margin-top:6px;line-height:1.4">${waterTapN ? "Water tap: $" + (waterTapN/1000).toFixed(0) + "K" : ""}${sewerTapN ? " | Sewer tap: $" + (sewerTapN/1000).toFixed(0) + "K" : ""}${extensionLow ? " | Extension: $" + (extensionLow/1000).toFixed(0) + "K–$" + (extensionHigh/1000).toFixed(0) + "K" : ""}${impactN ? " | Impact: $" + (impactN/1000).toFixed(0) + "K" : ""}</div>
+      </div>` : `<div style="flex:1;padding:16px 20px;border-radius:10px;background:#F8FAFC;border:2px solid #E2E8F0;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Est. Utility Budget</div>
+        <div style="font-size:18px;font-weight:700;color:#94A3B8;margin-top:8px">Pending Data</div>
+        <div style="font-size:10px;color:#94A3B8;margin-top:6px">Add tap fees & distance to main for auto-estimate</div>
+      </div>`}
+    </div>
+    <!-- Readiness Checklist -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:16px;padding:12px 16px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
+      ${utilChecks.map(c => `<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><span style="font-size:12px">${c.done ? "&#9989;" : "&#11036;"}</span><span style="font-size:10px;color:${c.done ? "#16A34A" : "#94A3B8"};font-weight:${c.done ? 600 : 400}">${c.label}</span></div>`).join("")}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       ${[
         { label: "Water Service", icon: "&#128167;", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#EF4444" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
@@ -483,13 +575,34 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         { label: "Telecom / Fiber", icon: "&#128225;", available: /fiber|telecom|internet|broadband/i.test(combined), issue: null, color: /fiber|telecom/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
       ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.detail ? `<strong style="color:#1E293B">${u.detail}</strong>` : u.available ? "Available per verified research" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned — verify with jurisdiction or utility provider"}</div></div>`).join("")}
     </div>
+    <div style="font-size:11px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Water & Sewer Infrastructure</div>
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
       row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
       row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : "<em style='color:#94A3B8'>Not confirmed — verify with provider</em>"),
+      row("Inside Service Boundary", site.insideServiceBoundary === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.insideServiceBoundary === false ? '<span style="color:#EF4444;font-weight:700">NO — outside boundary</span>' : "<em style='color:#94A3B8'>Verify via utility service area map</em>"),
+      row("Distance to Water Main", site.distToWaterMain || "<em style='color:#94A3B8'>Verify via GIS / utility maps</em>"),
+      row("Water Main Size", site.waterMainSize || "<em style='color:#94A3B8'>Request from provider — min 6\" for fire flow</em>"),
+      row("Fire Flow Adequate", site.fireFlowAdequate === true ? '<span style="color:#16A34A;font-weight:700">YES — meets fire code</span>' : site.fireFlowAdequate === false ? '<span style="color:#EF4444;font-weight:700">NO — hydrant/main upgrade needed</span>' : "<em style='color:#94A3B8'>Confirm 1,500+ GPM at 20 PSI for commercial</em>"),
+      row("Nearest Fire Hydrant", site.nearestHydrant || "<em style='color:#94A3B8'>Check aerial / Google Street View</em>"),
       row("Sewer Provider", site.sewerProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">3-Phase Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Not available — upgrade needed</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Tap/Impact Fees", site.tapFees || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
+      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false && hasSeptic ? '<span style="color:#16A34A;font-weight:700">Septic — viable for storage</span>' : site.sewerAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — septic may be viable</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
+      row("Distance to Sewer Main", site.distToSewerMain || "<em style='color:#94A3B8'>Verify via GIS / utility maps</em>"),
+      row("Capacity / Moratorium", site.utilityCapacity || "<em style='color:#94A3B8'>Check for allocation limits or moratoriums</em>"),
+    ].join("")}</table>
+    <div style="font-size:11px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin:16px 0 8px">Power, Gas & Telecom</div>
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+      row("Electric Provider", site.electricProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("3-Phase Power", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Not available — upgrade needed ($15K–$40K typical)</span>' : "<em style='color:#94A3B8'>Required for HVAC on climate-controlled units</em>"),
+      row("Natural Gas", site.gasProvider || (/\bgas\b/i.test(combined) ? "Available per site data" : "<em style='color:#94A3B8'>Verify — needed for heating in climate-controlled</em>")),
+      row("Fiber / Telecom", site.telecomProvider || (/fiber|telecom/i.test(combined) ? "Available" : "<em style='color:#94A3B8'>Needed for smart-access, security systems</em>")),
+    ].join("")}</table>
+    <div style="font-size:11px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin:16px 0 8px">Fees & Cost Estimates</div>
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+      row("Water Tap Fee", site.waterTapFee || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
+      row("Sewer Tap Fee", site.sewerTapFee || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
+      row("Impact Fees", site.impactFees || "<em style='color:#94A3B8'>Check for transportation / drainage impact fees</em>"),
+      row("Line Extension Est.", site.lineExtensionCost || (site.distToWaterMain ? "<em style='color:#F59E0B'>Estimate at $50–$150/LF based on distance</em>" : "<em style='color:#94A3B8'>Depends on distance to main</em>")),
+      row("Total Utility Budget Est.", site.totalUtilityBudget || "<em style='color:#94A3B8'>Sum tap fees + impact fees + extension costs</em>"),
     ].join("")}</table>
     ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${site.utilityNotes}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>&#9888; Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0FFF4;border-left:3px solid #16A34A;font-size:9px;color:#475569;line-height:1.6">
@@ -503,12 +616,19 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified in site data" : "No flood zone issues identified"}</span>
       ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
     </div>
-    <table>${[
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
       row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern noted — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
+      row("FIRM Panel #", site.firmPanel || "<em style='color:#94A3B8'>Locate at msc.fema.gov</em>"),
       row("Terrain", site.terrain || "<em style='color:#94A3B8'>Review Google Earth / county contours</em>"),
-      row("Wetlands", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present — reduces developable area</span>' : site.wetlands === false ? '<span style="color:#16A34A">None identified</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
+      row("Grade Change", site.gradeChange || "<em style='color:#94A3B8'>Estimate via elevation profile</em>"),
+      row("Drainage Direction", site.drainageDirection || "<em style='color:#94A3B8'>Assess from contours</em>"),
       row("Grading Risk", site.gradingRisk || "<em style='color:#94A3B8'>Assess from aerial/contours</em>"),
+      row("Est. Grading Cost", site.gradingCost || (site.gradingRisk === "High" ? '<span style="color:#EF4444;font-weight:700">$150K–$400K+ estimated</span>' : site.gradingRisk === "Medium" ? '<span style="color:#F59E0B">$50K–$150K estimated</span>' : "<em style='color:#94A3B8'>Based on grade assessment</em>")),
+      row("Wetlands (NWI)", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present — reduces developable area</span>' : site.wetlands === false ? '<span style="color:#16A34A">None identified per NWI</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
+      row("Wetland Area", site.wetlandArea || (site.wetlands === true ? "<em style='color:#EF4444'>Measure from NWI overlay</em>" : "—")),
+      row("Soil Type", site.soilType || "<em style='color:#94A3B8'>Check USDA Web Soil Survey</em>"),
       row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
+      row("Stormwater / Detention", site.stormwater || (/detention|stormwater/i.test(combined) ? "Requirements noted" : "<em style='color:#94A3B8'>Check local stormwater ordinance</em>")),
     ].join("")}</table>
     ${site.topoNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.topoNotes}</div>` : ""}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#FFF7ED;border-left:3px solid #E87A2E;font-size:9px;color:#475569;line-height:1.6">
@@ -519,37 +639,118 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     <!-- 5. SITE ACCESS & INFRASTRUCTURE -->
     ${section("5", "Site Access & Infrastructure", "")}
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Road Frontage", /frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed"),
-      row("Curb Cuts", /curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "Not confirmed — verify on aerial"),
-      row("Road Type", /highway|arterial|collector|divided|two.?lane/i.test(combined) ? "Road classification noted" : "Not assessed"),
-      row("Visibility", /visib/i.test(combined) ? "Visibility noted" : "Not assessed"),
-      row("Landlocked", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN — verify road frontage</span>' : "No landlocked concerns identified"),
+      row("Road Frontage", site.roadFrontage || (/frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed")),
+      row("Frontage Road Name", site.frontageRoadName || "<em style='color:#94A3B8'>Identify from aerial / listing</em>"),
+      row("Road Type", site.roadType || (/highway|arterial|collector|divided|two.?lane/i.test(combined) ? "Road classification noted — see summary" : "<em style='color:#94A3B8'>Assess: arterial / collector / local / highway</em>")),
+      row("Speed Limit / Traffic", site.trafficData || "<em style='color:#94A3B8'>Check DOT traffic counts</em>"),
+      row("Median / Turn Restrictions", site.medianType || "<em style='color:#94A3B8'>Divided highway = restricted left turns (flag for storage)</em>"),
+      row("Signalized Intersection", site.nearestSignal || "<em style='color:#94A3B8'>Nearest signal — affects trailer access</em>"),
+      row("Curb Cuts / Driveways", site.curbCuts || (/curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "<em style='color:#94A3B8'>Verify on aerial — new cuts need permitting</em>")),
+      row("Driveway Grade", site.drivewayGrade || "<em style='color:#94A3B8'>Steep grades = problem for trailers/trucks</em>"),
+      row("Visibility from Road", site.visibility || (/visib/i.test(combined) ? "Visibility noted" : "<em style='color:#94A3B8'>Signage visibility is key for storage operators</em>")),
+      row("Decel / Turn Lane", site.decelLane || "<em style='color:#94A3B8'>May be required by DOT for high-speed roads</em>"),
+      row("Landlocked Risk", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN — verify road frontage</span>' : '<span style="color:#16A34A">No landlocked concerns</span>'),
     ].join("")}</table>
 
-    <!-- 6. DEMOGRAPHICS -->
-    ${section("6", "Demographics (3-Mile Radius)", "")}
-    <table>${[
-      row("Population", site.pop3mi ? fmtN(site.pop3mi) : "Not available"),
-      row("Median Income", site.income3mi ? ("$" + fmtN(site.income3mi)) : "Not available"),
-      demoScore ? row("Demo Score", demoScore, { badge: true, badgeBg: demoColor + "18", badgeColor: demoColor }) : "",
-    ].join("")}</table>
+    <!-- 6. DEMOGRAPHICS — FULL DEPTH -->
+    ${section("6", "Demographics & Demand Drivers", "")}
+    ${(() => {
+      const hhN = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
+      const hvN = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
+      const pop1 = parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
+      const growthPct = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
+      const growthColor = growthPct !== null ? (growthPct >= 1.5 ? "#16A34A" : growthPct >= 0.5 ? "#3B82F6" : growthPct >= 0 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+      return `
+    <!-- Demo KPI Cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      ${[
+        { label: "Population (3-mi)", val: popN > 0 ? fmtN(popN) : "—", color: popN >= 25000 ? "#16A34A" : popN >= 10000 ? "#3B82F6" : popN > 0 ? "#F59E0B" : "#94A3B8", sub: pop1 > 0 ? "1-mi: " + fmtN(pop1) : null },
+        { label: "Median HHI", val: incN > 0 ? "$" + fmtN(incN) : "—", color: incN >= 75000 ? "#16A34A" : incN >= 55000 ? "#3B82F6" : incN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
+        { label: "Households", val: hhN > 0 ? fmtN(hhN) : "—", color: hhN >= 18000 ? "#16A34A" : hhN >= 6000 ? "#3B82F6" : hhN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
+        { label: "Home Value", val: hvN > 0 ? "$" + fmtN(hvN) : "—", color: hvN >= 250000 ? "#16A34A" : hvN >= 120000 ? "#3B82F6" : hvN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
+      ].map(k => `<div style="padding:12px 14px;border-radius:10px;background:${k.color}08;border:1px solid ${k.color}20;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:${k.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${k.label}</div>
+        <div style="font-size:20px;font-weight:900;color:${k.color};font-family:'Space Mono',monospace;line-height:1.2">${k.val}</div>
+        ${k.sub ? `<div style="font-size:9px;color:#64748B;margin-top:4px">${k.sub}</div>` : ""}
+      </div>`).join("")}
+    </div>
+    <!-- Growth Trend -->
+    <div style="padding:12px 18px;border-radius:10px;background:${growthColor}08;border:1px solid ${growthColor}20;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-size:9px;font-weight:800;color:${growthColor};text-transform:uppercase;letter-spacing:0.06em">5-Year Population Growth (CAGR)</div>
+        <div style="font-size:11px;color:#64748B;margin-top:2px">ESRI 2025 → 2030 projection</div>
+      </div>
+      <div style="font-size:24px;font-weight:900;color:${growthColor};font-family:'Space Mono',monospace">${growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(1) + "%" : "—"}</div>
+    </div>
+    ${demoScore ? `<div style="padding:10px 18px;border-radius:8px;background:${demoColor}08;border:1px solid ${demoColor}20;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-size:12px;font-weight:700;color:#1E293B">Demographic Gate</span>${statusPill(demoScore, demoColor)}</div>` : ""}
+    <!-- Full Demographics Table -->
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+      row("Population (3-mi)", popN > 0 ? fmtN(popN) : "<em style='color:#94A3B8'>Not available</em>"),
+      row("Population (1-mi)", pop1 > 0 ? fmtN(pop1) : "<em style='color:#94A3B8'>Not available</em>"),
+      row("Median HHI", incN > 0 ? "$" + fmtN(incN) : "<em style='color:#94A3B8'>Not available</em>"),
+      row("Households (3-mi)", hhN > 0 ? fmtN(hhN) : "<em style='color:#94A3B8'>Census ACS needed</em>"),
+      row("Median Home Value", hvN > 0 ? "$" + fmtN(hvN) : "<em style='color:#94A3B8'>Census ACS needed</em>"),
+      row("5-Yr Pop Growth", growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR" : "<em style='color:#94A3B8'>ESRI data needed</em>"),
+      row("Renter %", site.renterPct3mi ? site.renterPct3mi + "%" : "<em style='color:#94A3B8'>Higher renter % = more storage demand</em>"),
+      row("Demand Drivers", site.demandDrivers || "<em style='color:#94A3B8'>Major employers, new housing, military bases, universities</em>"),
+    ].join("")}</table>`;
+    })()}
 
-    <!-- 7. SITE SIZING -->
-    ${section("7", "Site Sizing Assessment", "")}
+    <!-- 7. COMPETITION LANDSCAPE -->
+    ${section("7", "Competition Landscape (3-Mile Radius)", "")}
+    ${(() => {
+      const cc = site.siteiqData?.competitorCount;
+      const compColor = cc !== undefined && cc !== null ? (cc <= 1 ? "#16A34A" : cc <= 3 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+      const compLabel = cc !== undefined && cc !== null ? (cc === 0 ? "NO COMPETITORS" : cc === 1 ? "1 COMPETITOR" : cc + " COMPETITORS") : "NOT ASSESSED";
+      const satLevel = cc !== undefined && cc !== null ? (cc === 0 ? "Unserved Market" : cc <= 2 ? "Low Saturation" : cc <= 4 ? "Moderate Saturation" : "High Saturation") : "Unknown";
+      return `
+    <div style="display:flex;gap:16px;margin-bottom:16px">
+      <div style="flex:1;padding:16px 20px;border-radius:10px;background:${compColor}08;border:2px solid ${compColor}30;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:${compColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Competitor Count (3-mi)</div>
+        <div style="font-size:36px;font-weight:900;color:${compColor};font-family:'Space Mono',monospace;line-height:1">${cc !== undefined && cc !== null ? cc : "?"}</div>
+        <div style="font-size:11px;color:#64748B;margin-top:6px">${satLevel}</div>
+      </div>
+      <div style="flex:1;padding:16px 20px;border-radius:10px;background:#F8FAFC;border:2px solid #E2E8F0;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Nearest PS Location</div>
+        <div style="font-size:22px;font-weight:900;color:#1E2761;font-family:'Space Mono',monospace;line-height:1">${site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi" : "—"}</div>
+        <div style="font-size:11px;color:#64748B;margin-top:6px">${site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 5 ? "Validated submarket" : site.siteiqData.nearestPS <= 15 ? "Expansion zone" : site.siteiqData.nearestPS <= 35 ? "Frontier market" : "Too remote") : "Run proximity check"}</div>
+      </div>
+    </div>
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+      row("Competitor Count", compLabel, { badge: true, badgeBg: compColor + "18", badgeColor: compColor }),
+      row("Saturation Level", satLevel),
+      row("Nearest PS Facility", site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi — " + (site.siteiqData.nearestPS <= 10 ? "market validated, demand proven" : "expansion opportunity") : "<em style='color:#94A3B8'>Run §6b proximity check</em>"),
+      row("Known Operators", site.competitorNames || "<em style='color:#94A3B8'>List operators within 3 mi (Extra Space, CubeSmart, Life Storage, etc.)</em>"),
+      row("Nearest Competitor", site.nearestCompetitor || "<em style='color:#94A3B8'>Name, distance, and facility type</em>"),
+      row("Competitor Facility Types", site.competitorTypes || "<em style='color:#94A3B8'>Climate-controlled, drive-up, multi-story, etc.</em>"),
+      row("Est. Competing SF", site.competingSF || "<em style='color:#94A3B8'>Estimate total competitive supply within 3 mi</em>"),
+      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand potential</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#EF4444;font-weight:700">Saturated — verify occupancy rates</span>' : "<em style='color:#94A3B8'>Research occupancy rates of nearby facilities</em>")),
+    ].join("")}</table>
+    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#FFF7ED;border-left:3px solid #E87A2E;font-size:9px;color:#475569;line-height:1.6">
+      <strong style="color:#E87A2E;font-size:9px;letter-spacing:0.05em">COMPETITION METHODOLOGY</strong><br/>
+      Competitor scan via Google Maps, SpareFoot, SelfStorage.com, and operator websites within 3-mile radius. Operator names, facility types, and estimated SF recorded. Occupancy data sourced from operator quarterly filings (public REITs: PSA, EXR, CUBE, LSI, NSA) and local market surveys. Demand/supply assessment based on population-to-storage-SF ratio (industry benchmark: 7-9 SF per capita = equilibrium, &lt;5 SF = underserved, &gt;12 SF = oversupplied).
+    </div>`;
+    })()}
+
+    <!-- 8. SITE SIZING -->
+    ${section("8", "Site Sizing Assessment", "")}
     <div style="padding:14px 18px;border-radius:10px;background:${sizingColor}0A;border:1px solid ${sizingColor}25;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px;font-weight:600;color:#1E293B">${sizingText}</span>
       <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
     </div>
 
-    <!-- 8. BROKER -->
-    ${section("8", "Broker / Seller", "")}
-    <table>${[
+    <!-- 9. BROKER -->
+    ${section("9", "Broker / Seller", "")}
+    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
       row("Contact", site.sellerBroker || "Not listed"),
       row("Date on Market", site.dateOnMarket || "Unknown"),
+      row("Days on Market", site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) + " days" : "Unknown"),
+      row("Listing Source", site.listingSource || "<em style='color:#94A3B8'>Crexi / LoopNet / CoStar</em>"),
+      row("Broker Notes", site.brokerNotes || "<em style='color:#94A3B8'>Seller motivation, timeline, pricing signals</em>"),
     ].join("")}</table>
 
-    <!-- 9. RECOMMENDED NEXT STEPS -->
-    ${section("9", "Recommended Next Steps", "")}
+    <!-- 10. RECOMMENDED NEXT STEPS -->
+    ${section("10", "Recommended Next Steps", "")}
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
       ${[
         zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify indoor storage permissibility" } : null,
@@ -563,31 +764,34 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
     </div>
 
-    <!-- 10. RED FLAGS -->
-    ${section("10", "Red Flags & Action Items", "")}
+    <!-- 11. RED FLAGS -->
+    ${section("11", "Red Flags & Action Items", "")}
     ${flags.length === 0
       ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
       : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
     }
 
-    <!-- 11. SUMMARY -->
-    ${section("11", "Summary & Deal Notes", "")}
+    <!-- 12. SUMMARY -->
+    ${section("12", "Summary & Deal Notes", "")}
     <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
 
     ${iq && iq.scores ? (() => {
       const dims = [
-        { key: "population", label: "Population", weight: 0.20 },
-        { key: "growth", label: "Growth", weight: 0.25 },
+        { key: "population", label: "Population", weight: 0.16 },
+        { key: "growth", label: "Growth", weight: 0.18 },
         { key: "income", label: "Income", weight: 0.10 },
+        { key: "households", label: "Households", weight: 0.05 },
+        { key: "homeValue", label: "Home Value", weight: 0.05 },
         { key: "pricing", label: "Pricing", weight: 0.08 },
-        { key: "zoning", label: "Zoning", weight: 0.15 },
+        { key: "zoning", label: "Zoning", weight: 0.14 },
+        { key: "psProximity", label: "PS Proximity", weight: 0.10 },
         { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "competition", label: "Competition", weight: 0.07 },
-        { key: "marketTier", label: "Market Tier", weight: 0.08 },
+        { key: "competition", label: "Competition", weight: 0.05 },
+        { key: "marketTier", label: "Market Tier", weight: 0.02 },
       ];
       return `
     <!-- SITESCORE SCORECARD -->
-    ${section("IQ", "SiteScore Scorecard", "")}
+    ${section("S", "SiteScore™ Scorecard", "")}
     <!-- Visual Bar Chart -->
     <div style="display:flex;gap:8px;align-items:flex-end;height:140px;padding:20px 0 0;margin-bottom:16px">
       ${dims.map(d => {
@@ -855,10 +1059,10 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
 </div></body></html>`;
 };
 
-// ─── SiteScore™ v3 — Calibrated Site Scoring Engine ───
+// ─── SiteScore™ v3.1 — 11-Dimension Calibrated Scoring Engine ───
 // Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
-// Weights: Pop 20%, Growth 25%, HHI 10%, Pricing 8%, Zoning 15%, Access 7%, Competition 7%, Market 8%
-// Hard FAIL: pop <5K, HHI <$55K, landlocked
+// Weights: Pop 16%, Growth 18%, HHI 10%, Households 5%, HomeValue 5%, Pricing 8%, Zoning 14%, PS Proximity 10%, Access 7%, Competition 5%, Market 2%
+// Hard FAIL: pop <5K, HHI <$55K, landlocked, >35mi from nearest PS
 const computeSiteScore = (site) => {
   const scores = {};
   const flags = [];
@@ -914,7 +1118,49 @@ const computeSiteScore = (site) => {
   }
   scores.growth = growthScore;
 
-  // --- 2c. PRICING (8%) — Price per acre vs. acquisition targets ---
+  // --- 2c. HOUSEHOLDS (5%) — 3-mi household count (demand proxy) ---
+  let hhScore = 5;
+  const hhRaw = parseNum(site.households3mi);
+  if (hhRaw > 0) {
+    if (hhRaw >= 25000) hhScore = 10;
+    else if (hhRaw >= 18000) hhScore = 8;
+    else if (hhRaw >= 12000) hhScore = 7;
+    else if (hhRaw >= 6000) hhScore = 5;
+    else hhScore = 3;
+  }
+  scores.households = hhScore;
+
+  // --- 2d. HOME VALUE (5%) — 3-mi median home value (affluence signal) ---
+  let hvScore = 5;
+  const hvRaw = parseNum(site.homeValue3mi);
+  if (hvRaw > 0) {
+    if (hvRaw >= 500000) hvScore = 10;
+    else if (hvRaw >= 350000) hvScore = 9;
+    else if (hvRaw >= 250000) hvScore = 8;
+    else if (hvRaw >= 180000) hvScore = 6;
+    else if (hvRaw >= 120000) hvScore = 4;
+    else hvScore = 2;
+  }
+  scores.homeValue = hvScore;
+
+  // --- 2e. PS PROXIMITY (10%) — Distance to nearest PS location ---
+  // Closer = market validation, NOT cannibalization. >35mi = too remote (FAIL).
+  let psProxScore = 5;
+  const nearestPS = site.siteiqData?.nearestPS;
+  if (nearestPS !== undefined && nearestPS !== null) {
+    const psDist = parseFloat(String(nearestPS));
+    if (!isNaN(psDist)) {
+      if (psDist > 35) { psProxScore = 0; hardFail = true; flags.push("FAIL: >35 mi from nearest PS location — too remote"); }
+      else if (psDist <= 5) psProxScore = 10;
+      else if (psDist <= 10) psProxScore = 9;
+      else if (psDist <= 15) psProxScore = 7;
+      else if (psDist <= 25) psProxScore = 5;
+      else psProxScore = 3;
+    }
+  }
+  scores.psProximity = psProxScore;
+
+  // --- 3a. PRICING (8%) — Price per acre vs. acquisition targets ---
   // Thresholds: ≤$150K/ac=10, ≤$250K=8, ≤$400K=6, ≤$600K=4, >$600K=2, no data=5
   let pricingScore = 5; // default when price or acreage missing
   const priceRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
@@ -1005,11 +1251,13 @@ const computeSiteScore = (site) => {
   }
   scores.marketTier = tierScore;
 
-  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights ---
+  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, all 11 dimensions ---
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
-    (incScore * getIQWeight("income")) + (pricingScore * getIQWeight("pricing")) +
-    (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
+    (incScore * getIQWeight("income")) + (hhScore * getIQWeight("households")) +
+    (hvScore * getIQWeight("homeValue")) + (pricingScore * getIQWeight("pricing")) +
+    (zoningScore * getIQWeight("zoning")) + (psProxScore * getIQWeight("psProximity")) +
+    (scores.access * getIQWeight("access")) +
     (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
   let adjusted = Math.round(weightedSum * 10) / 10;
 
@@ -1077,17 +1325,20 @@ const computeSiteScore = (site) => {
   // --- CLASSIFICATION (§6h) ---
   let classification, classColor;
   if (hardFail) { classification = "RED"; classColor = "#DC2626"; }
-  else if (final >= 7.5) { classification = "GREEN"; classColor = "#16A34A"; }
-  else if (final >= 5.5) { classification = "YELLOW"; classColor = "#D97706"; }
-  else if (final >= 3.0) { classification = "ORANGE"; classColor = "#EA580C"; }
+  else if (final >= 8.0) { classification = "GREEN"; classColor = "#16A34A"; }
+  else if (final >= 6.0) { classification = "YELLOW"; classColor = "#D97706"; }
+  else if (final >= 4.0) { classification = "ORANGE"; classColor = "#EA580C"; }
   else { classification = "RED"; classColor = "#DC2626"; }
 
   const breakdown = [
     { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population") },
     { label: "Growth", key: "growth", score: scores.growth, weight: getIQWeight("growth") },
     { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income") },
+    { label: "Households", key: "households", score: scores.households, weight: getIQWeight("households") },
+    { label: "Home Value", key: "homeValue", score: scores.homeValue, weight: getIQWeight("homeValue") },
     { label: "Pricing", key: "pricing", score: scores.pricing, weight: getIQWeight("pricing") },
     { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning") },
+    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity") },
     { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access") },
     { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition") },
     { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier") },
@@ -1126,7 +1377,7 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
         transition: "all 0.3s ease",
         boxShadow: iq.tier === "gold" ? "0 0 8px rgba(243,124,51,0.15)" : "none",
       }}>
-        <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", opacity: 0.7 }}>IQ</span>
+        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: "inherit", opacity: 0.85 }}>S</span>
         {s.toFixed(1)}
         {iq.classification && <span style={{ width: 6, height: 6, borderRadius: "50%", background: iq.classColor, flexShrink: 0 }} title={iq.classification} />}
       </span>
@@ -1171,7 +1422,7 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
             background: typeof tc.labelBg === "string" && tc.labelBg.startsWith("linear") ? tc.labelBg : tc.labelBg,
             boxShadow: iq.tier === "gold" ? "0 0 12px rgba(243,124,51,0.12)" : "none",
           }}>{iq.label}</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteScore™</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#CBD5E1", letterSpacing: "0.08em" }}>SiteScore<span style={{ fontSize: 8, verticalAlign: "super" }}>™</span></span>
           {iq.classification && <span style={{ fontSize: 10, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "2px 7px", borderRadius: 4, letterSpacing: "0.06em" }}>{iq.classification}</span>}
         </div>
         {iq.flags && iq.flags.length > 0 && (
@@ -2116,7 +2367,7 @@ export default function App() {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 40%, #0F1538 100%)", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: 48, height: 48, border: "3px solid rgba(232,122,46,0.15)", borderTopColor: "#E87A2E", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(232,122,46,0.2)" }} />
-        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Initializing SiteScore™</div>
+        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Initializing Storvex — AI-Powered Land Engine</div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -2241,8 +2492,11 @@ export default function App() {
                                 { key: "population", label: "Population (3-mi)", weight: getIQWeight("population"), icon: "👥", tip: "Census / ESRI 3-mi radius population" },
                                 { key: "growth", label: "Growth (5yr CAGR)", weight: getIQWeight("growth"), icon: "📈", tip: "ESRI 2025→2030 population growth rate" },
                                 { key: "income", label: "Median HHI (3-mi)", weight: getIQWeight("income"), icon: "💰", tip: "Median household income within 3 miles" },
+                                { key: "households", label: "Households (3-mi)", weight: getIQWeight("households"), icon: "🏠", tip: "Household count — demand proxy" },
+                                { key: "homeValue", label: "Home Value (3-mi)", weight: getIQWeight("homeValue"), icon: "🏡", tip: "Median home value — affluence signal" },
                                 { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs acquisition targets" },
                                 { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
+                                { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest PS — closer = validated market" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
                                 { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
                                 { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier"), icon: "🎯", tip: "Target market alignment (MT/DW tiers)" },
@@ -4109,8 +4363,11 @@ export default function App() {
                   { key: "population", label: "Population", icon: "👥", weight: getIQWeight("population") },
                   { key: "growth", label: "Growth", icon: "📈", weight: getIQWeight("growth") },
                   { key: "income", label: "Income", icon: "💰", weight: getIQWeight("income") },
+                  { key: "households", label: "Households", icon: "🏠", weight: getIQWeight("households") },
+                  { key: "homeValue", label: "Home Value", icon: "🏡", weight: getIQWeight("homeValue") },
                   { key: "pricing", label: "Pricing", icon: "🏷️", weight: getIQWeight("pricing") },
                   { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
+                  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: getIQWeight("psProximity") },
                   { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
                   { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
                   { key: "marketTier", label: "Market Tier", icon: "🎯", weight: getIQWeight("marketTier") },
