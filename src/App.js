@@ -3619,33 +3619,7 @@ export default function App() {
               );
             })()}
 
-            {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, accent: REGIONS.southwest.accent, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, accent: REGIONS.east.accent, tabKey: "east" }].map((r) => {
-              const total = r.data.length || 1;
-              const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
-              return (
-                <div key={r.label} onClick={() => navigateTo(r.tabKey)} className="site-card card-reveal funnel-bar" style={{ background: "rgba(15,21,56,0.6)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(201,168,76,0.06)", cursor: "pointer", backdropFilter: "blur(12px)", animationDelay: "0.7s", position: "relative", overflow: "hidden" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
-                    <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{r.data.length} sites</span>
-                  </div>
-                  {/* Visual pipeline bar */}
-                  <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 10, background: "rgba(15,21,56,0.3)" }}>
-                    {PHASES.map((p, idx) => {
-                      const c = r.data.filter((s) => s.phase === p).length;
-                      return c > 0 ? <div key={p} title={`${p}: ${c}`} style={{ width: `${(c / total) * 100}%`, background: phaseColors[idx] || r.accent, transition: "width 0.5s ease" }} /> : null;
-                    })}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {PHASES.map((p, idx) => { const c = r.data.filter((s) => s.phase === p).length; return (
-                      <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${phaseColors[idx]}11` : "rgba(15,21,56,0.4)", border: c > 0 ? `1px solid ${phaseColors[idx]}33` : "1px solid rgba(201,168,76,0.1)", transition: "all 0.2s" }}>
-                        <div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? phaseColors[idx] : "#CBD5E1" }}>{c}</div>
-                        <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div>
-                      </div>
-                    ); })}
-                  </div>
-                </div>
-              );
-            })}
+            {/* Pipeline comparison cards removed — side-by-side phase counts created competitive optics between DW and MT trackers */}
           </div>
         )}
 
