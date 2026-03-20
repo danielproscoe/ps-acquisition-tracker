@@ -1,3 +1,4 @@
+# STRATEGY DOCUMENT
 # Storvex™ Software Monetization Strategy
 ## Confidential Client Deliverable — DJR Real Estate LLC
 
@@ -42,13 +43,33 @@ Public Storage is not just Dan's biggest client. It is the **proof environment**
 
 **Objective:** Make Storvex™ indispensable to PS acquisition workflow.
 
+**Current status (as of March 2026):**
+- Dan is running Storvex™ internally — DJR controls the platform entirely
+- PS employees Jarrod (decision maker) and Dan (W) have **view-only dashboard access** — they can see the pipeline, scored deals, and SiteScore™ ratings, but cannot input deals, run scores, or modify anything
+- Jarrod has seen the dashboard and is impressed — this was before the upgraded vetting reports were completed
+- Matt Toussaint (East region) has NOT yet seen the platform — catch-up call scheduled for next week (he reached out proactively, likely nudged internally by the SW team)
+- PS sees scores and dimension weights by design — this is a selling point that demonstrates institutional rigor, not an IP exposure risk. Seeing weights does not enable replication of the data pipelines, scoring thresholds, broker overlays, or platform architecture
+- No PS employee has login credentials — they access the dashboard via shared link, view-only
+- Vetting reports have been significantly upgraded since Jarrod's initial viewing — this creates a natural reason to re-engage the decision maker
+
+**Immediate tactical plan:**
+
+| Action | Detail | Timing |
+|--------|--------|--------|
+| Matt Toussaint demo call | Walk Matt through the Storvex™ dashboard — pipeline view, scored deals, vetting reports. Show deals relevant to East region if available; otherwise show SW deals. Do NOT mention licensing, fees, or agreements. Let the product sell itself. Goal: Matt walks away thinking "I need this for my region." | Next week |
+| Re-engage Jarrod with upgraded vetting reports | Show the decision maker the latest version — *"We've made some major upgrades to the reporting, want to walk you through what the new deal packages look like."* This re-impresses with the best version of the product. | Shortly after Matt call |
+| Continue internal operation | Dan's team runs all scoring, vetting, and pipeline management inside Storvex™. PS receives outputs only. Do NOT create PS employee logins. Do NOT expand beyond view-only dashboard access. | Ongoing |
+| Initiate PVA conversation | Once both regions are engaged and Jarrod has seen the upgraded reports, begin the Preferred Vendor Agreement discussion. Frame as formalizing the existing partnership. | After Jarrod re-engagement |
+
+**Phase 1 execution milestones:**
+
 | Action | Detail | Success Metric |
 |--------|--------|----------------|
-| Present to PS acquisition leadership | Position as Dan's proprietary institutional methodology — *"Every site I bring you has been vetted through our patent-pending SiteScore™ engine with a 14-point research completeness gate"* | Meeting secured with VP-level or above |
-| Deliver scored deal packages | Every submission includes SiteScore™ composite rating, dimension breakdown, source methodology appendix, and research completeness grade | PS begins referencing scores in internal reviews |
-| Negotiate Preferred Vendor Agreement | Formalize the relationship — preferred deal-sourcing partner with technology-differentiated process | Signed agreement |
+| Secure both PS regions | Jarrod (decision maker, impressed) + Matt (East, demo pending) both actively relying on Dan's scored submissions | Both regional managers receiving and referencing SiteScore™ ratings |
+| Deliver scored deal packages | Every submission includes SiteScore™ composite rating, dimension breakdown, vetting report, and research completeness grade | PS begins referencing scores in internal reviews |
+| Negotiate Preferred Vendor Agreement | Formalize the relationship — preferred deal-sourcing partner with technology-differentiated process (see Section IX for full PVA framework) | Signed agreement |
 | Track PS hit rate by score | Correlate SiteScore™ ratings with PS accept/decline decisions to calibrate the model | Minimum 30 scored submissions with outcome data |
-| Build PS regional manager relationships | Daniel Wollent (SW) and Matthew Toussaint (East) are PS employees — they receive Dan's scored deal packages and Market Intelligence Briefs, but do NOT get direct Storvex™ access. Dan's team runs the platform internally and delivers outputs. | Both regional managers actively receiving and relying on Dan's scored submissions for their regions |
+| Maintain view-only access posture | PS employees see the Storvex™ dashboard (pipeline, scores, deals) but do NOT get login credentials, input access, or the ability to run scores independently. Dan's team runs the platform internally. | No PS employee has independent system access |
 
 **Key deliverable to PS:** A quarterly "Market Intelligence Brief" — scored pipeline summary, regional heat maps, trend analysis — all generated from Storvex™ data. This positions Dan as a strategic advisor, not just a deal source.
 
@@ -433,9 +454,9 @@ This distinction is critical. It preserves Dan's IP position entirely while stil
 
 | Phase | What PS Receives | What PS Does NOT Receive | Dan's IP Status |
 |-------|-----------------|-------------------------|-----------------|
-| **Phase 1 (Embed)** | Scored deal packages, SiteScore™ ratings, Market Intelligence Briefs, research completeness grades | Platform access, scoring methodology, algorithm weights, source code, database access | Full ownership; no license granted |
-| **Phase 2 (Prove)** | Same as Phase 1 + calibration performance reports (e.g., "sites scoring 7+ close at 2x rate") | Direct system access, raw calibration data, scoring model internals | Full ownership; no license granted |
-| **Phase 3 (Deploy)** | *If PS wants direct platform access:* Storvex™ Enterprise license under formal SaaS agreement | Source code, algorithm weights, modification rights, sublicense rights | Licensed use only; Dan retains full ownership |
+| **Phase 1 (Embed)** | View-only dashboard access (pipeline, scores, deals), scored deal packages, SiteScore™ ratings, vetting reports, Market Intelligence Briefs. PS sees dimension weights by design — this demonstrates institutional rigor and is a selling point. | Login credentials, input access, ability to run scores, source code, database access, scoring thresholds, data pipelines, broker overlay logic | Full ownership; no license granted; view-only access is complimentary during trial |
+| **Phase 2 (Prove)** | Same as Phase 1 + calibration performance reports (e.g., "sites scoring 7+ close at 2x rate"). Trial period converts to paid license ($48K–$60K/yr). | Independent system access, raw calibration data, scoring model internals | Full ownership; paid license in effect |
+| **Phase 3 (Deploy)** | *If PS wants expanded access:* Storvex™ Enterprise license under formal SaaS agreement with input/operational access | Source code, modification rights, sublicense rights, algorithm internals | Licensed use only; Dan retains full ownership |
 
 ### Protective Language for All PS-Facing Materials
 
@@ -453,7 +474,7 @@ This is a **positive signal** — it means the product is working. But it trigge
 
 | License Term | Purpose |
 |-------------|---------|
-| Annual license fee ($120K–$180K/yr) | Revenue; establishes commercial value of the software |
+| Annual license fee ($48K–$60K initial; escalates at renewal) | Revenue; establishes commercial value; low enough for fast approval |
 | DJR retains all IP, source code, and algorithm ownership | Non-negotiable — this is the foundation of external monetization |
 | PS receives a non-exclusive, non-transferable license to use | PS cannot sublicense, modify, or distribute |
 | Dan continues as preferred deal-sourcing partner | Software access does not replace the broker relationship |
@@ -472,7 +493,91 @@ This is the scenario the patent filing is designed to address. Dan's response:
 
 ---
 
-## VIII. Risk Factors
+## IX. Preferred Vendor Agreement (PVA) — Full Framework
+
+### What It Is
+
+A contract between DJR Real Estate LLC and Public Storage that formally recognizes Dan as a preferred partner for deal sourcing and site evaluation. It converts the existing reputation-based relationship into a contractual asset that survives personnel changes at PS.
+
+### Why It Matters Now
+
+Without a PVA, Dan's position at PS is based entirely on personal relationships with people who could leave, get promoted, or get replaced. One leadership change could unwind everything. The PVA converts reputation capital into contractual capital.
+
+### Core Sections
+
+**1. Preferred Status & Scope**
+- PS formally recognizes DJR Real Estate LLC as a preferred deal-sourcing partner for land acquisition in designated regions
+- Defines what "preferred" means — first look at opportunities, priority review of submissions, direct access to regional decision-makers
+- Does NOT mean exclusive — PS can still use other brokers, but Dan gets preferred treatment
+
+**2. Technology-Differentiated Process**
+- PS acknowledges that Dan uses proprietary technology (Storvex™, SiteScore™) to source and evaluate deals
+- PS acknowledges this technology is owned entirely by DJR Real Estate LLC
+- PS agrees not to reverse-engineer, replicate, or commission a substantially similar system
+- This is the clause that protects Dan if someone at PS says "let's just build our own"
+
+**3. Commission Terms**
+- Locks in commission rates in writing (2–3% buy-side, or current arrangement)
+- Defines when commission is earned (LOI, contract, close)
+- Prevents PS from cutting Dan out of deals he sourced — if Dan brings the deal, Dan gets paid
+- Commission rights survive termination for any deals in the pipeline at time of termination
+
+**4. Software Trial & License Conversion**
+- DJR grants PS complimentary view-only access to the Storvex™ dashboard during the trial period (not to exceed six months from the Effective Date)
+- Following the trial period, continued access requires execution of a software license addendum at DJR's then-current commercial rates (anticipated $48,000–$60,000/yr for initial license)
+- Trial-to-license conversion is written into the PVA from day one — PS knows upfront that free access is temporary
+
+**5. Term & Renewal**
+- 3-year initial term with automatic annual renewal
+- Either party can terminate with 90–180 day written notice
+- Commission rights survive termination for any deals in the pipeline
+
+**6. Data Ownership**
+- Dan owns: scoring methodology, SiteScore™ algorithm, platform data, market intelligence
+- PS owns: their internal acquisition decisions, their proprietary deal criteria
+- Neither party can share the other's confidential information
+
+**7. Non-Solicitation**
+- PS agrees not to hire Dan's team members (and vice versa) during the term
+
+**8. Confidentiality**
+- Mutual NDA baked in
+- PS cannot disclose Dan's methodology or scoring to competitors
+- Dan cannot disclose PS's acquisition criteria or internal decisions
+
+### What the PVA Gets Dan
+
+| Without PVA | With PVA |
+|---|---|
+| Relationship dies if PS contacts leave | Contract survives leadership changes |
+| PS could cut commission rate anytime | Rates locked in writing |
+| PS could replicate the tool with no consequences | Anti-cloning clause + patent protection |
+| "Preferred" status is just a feeling | "Preferred" status is a legal commitment |
+| No leverage in licensing negotiation | Software trial terms already framed |
+| View-only access has no defined end date | Trial period converts to paid license automatically |
+| Dan is a vendor | Dan is a contractual partner |
+
+### How to Get It Done
+
+Engage a **commercial real estate attorney** (not a general business lawyer) who understands REIT vendor relationships. Budget $3,000–$7,000 for drafting and negotiation.
+
+**The pitch to PS:** *"We've been working together informally and it's going great. I'd like to formalize the partnership so both sides have clarity on terms, commissions, and IP. My attorneys are putting together a standard preferred vendor agreement — nothing changes about how we work, it just puts what we're already doing on paper."*
+
+PS has hundreds of vendor agreements. This is routine paperwork for them. The only unusual element — and the one that matters most — is the technology acknowledgment clause. That's the one the attorney needs to get right.
+
+### Post-Trial Licensing Approach
+
+After the 3–6 month trial period, the license fee kicks in. **Recommended initial rate: $48,000–$60,000/year.**
+
+| Factor | Rationale |
+|--------|-----------|
+| Why not higher ($120K–$180K) | PS already generates $500K+ in commissions for Dan — the license fee is secondary. A big number triggers corporate procurement, competing bids, and delays. The goal is getting the PVA signed fast. |
+| Why not free | Free sets a precedent that the software has no commercial value. It undermines every future licensing conversation and makes IP harder to defend. |
+| Why $48K–$60K | Low enough for a regional VP to approve without procurement involvement. High enough to establish commercial value on paper. Creates a documented software revenue stream critical for valuation. A rounding error against PS's acquisition budget. Can escalate at renewal. |
+
+---
+
+## X. Risk Factors
 
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|------------|
