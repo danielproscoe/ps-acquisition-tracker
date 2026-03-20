@@ -26,4 +26,27 @@ Storvex isn't a static tool — it's a compounding asset. Every REC Package make
 
 ---
 
+## Risk: Tool Access Dependency
+
+**Scenario:** Firm restricts or eliminates Claude usage for client work.
+
+### What survives without the tool:
+
+- **The dataset.** Every REC Package lives in the repo — structured, searchable, and portable. Two years of deal intelligence doesn't disappear when the tool goes away.
+- **The methodology.** SiteScore dimensions, pricing frameworks, competitive analysis templates — all codified. A junior analyst can run the playbook manually. Slower, but the rigor is baked in.
+- **The institutional knowledge.** What PS greenlit, what it passed on, and why. That pattern library exists in the REC Package archive regardless of how it was built.
+
+### Mitigation — build while you have access:
+
+1. **Maximize structured output now.** Every deal should produce a complete REC Package. The more that exist in the repo, the more valuable the archive.
+2. **Document the methodology explicitly.** SiteScore weights, pricing assumptions, analytical frameworks — write them down so they're reproducible without AI assistance.
+3. **Let results make the case.** If deals sourced through this process outperform, the tool justifies continued access. Track hit rate and deal performance vs. legacy process.
+4. **Keep outputs portable.** Everything lives in version-controlled files, not locked inside a platform. If access changes, the work product transfers cleanly.
+
+### Bottom line:
+
+Claude is the accelerant, not the engine. The engine is the structured acquisition methodology and the proprietary deal dataset. Build both aggressively while access is available — they compound regardless of the tool.
+
+---
+
 *Note: Watch for the inflection point where approved-vs-rejected REC Package outcomes start feeding back into automated SiteScore weight optimization. That's when the intangible value truly compounds.*
