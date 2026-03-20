@@ -3558,7 +3558,10 @@ export default function App() {
             {/* ── Assigned Sites Needing Review ── */}
             {(() => {
               const allTracker = [...sw.map(s => ({ ...s, _region: "southwest" })), ...east.map(s => ({ ...s, _region: "east" }))];
-              const needsReviewSites = allTracker.filter(s => s.assignedTo && s.needsReview);
+              let needsReviewSites = allTracker.filter(s => s.assignedTo && s.needsReview);
+              if (reviewTab === "mine") needsReviewSites = needsReviewSites.filter(s => s.assignedTo === "Dan R");
+              else if (reviewTab === "dw") needsReviewSites = needsReviewSites.filter(s => s.assignedTo === "Daniel Wollent");
+              else if (reviewTab === "mt") needsReviewSites = needsReviewSites.filter(s => s.assignedTo === "Matthew Toussaint");
               const byPerson = {};
               needsReviewSites.forEach(s => {
                 if (!byPerson[s.assignedTo]) byPerson[s.assignedTo] = [];
