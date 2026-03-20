@@ -106,7 +106,7 @@ const DOC_TYPES = [
 
 // ─── Storvex™ Configurable Weight System v2.0 ───
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
-// Persisted at Firebase path: config/siteiq_weights
+// Persisted at Firebase path: config/siteiq_weights (legacy key — retained for backward compatibility)
 const SITE_SCORE_DEFAULTS = [
   { key: "population", label: "Population", icon: "👥", weight: 0.18, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
   { key: "growth", label: "Growth", icon: "📈", weight: 0.20, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
@@ -114,7 +114,7 @@ const SITE_SCORE_DEFAULTS = [
   { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
   { key: "zoning", label: "Zoning", icon: "📋", weight: 0.14, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
   { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: 0.10, tip: "Distance to nearest PS — closer = validated market", source: "siteiqData.nearestPS", group: "market" },
+  { key: "psProximity", label: "Facility Proximity", icon: "📦", weight: 0.10, tip: "Distance to nearest existing facility — closer = validated market", source: "siteiqData.nearestPS", group: "market" },
   { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
   { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
 ];
@@ -306,7 +306,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
   if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
+  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for commercial development. Verify hookup feasibility.");
   // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
@@ -491,17 +491,17 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         ${statusPill(zoningLabel, zoningColor)}
       </div>
       <div style="font-size:12px;color:#64748B;line-height:1.6">${
-        zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." :
-        zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." :
-        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." :
-        zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." :
+        zoningClass === "by-right" ? "The intended use is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." :
+        zoningClass === "conditional" ? "The intended use is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." :
+        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> the intended use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." :
+        zoningClass === "prohibited" ? "The intended use is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." :
         "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding."
       }</div>
     </div>
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
       row("Zoning District", site.zoning || "Not confirmed", { bold: true }),
       row("Classification", zoningLabel, { badge: true, badgeBg: zoningColor + "18", badgeColor: zoningColor }),
-      row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
+      row("Intended Use Status", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
       row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
       row("Zoning Score", zoningScore != null ? `<span style="font-weight:900;color:${zoningScoreColor};font-family:'Space Mono',monospace">${zoningScore.toFixed(1)}/10</span>` : "—"),
       row("Ordinance Source", site.zoningSource || "<em style='color:#94A3B8'>Not yet researched</em>"),
@@ -510,7 +510,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.zoningNotes}</div>` : ""}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0F4FF;border-left:3px solid #1E2761;font-size:9px;color:#475569;line-height:1.6">
       <strong style="color:#1E2761;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+      Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Use terms searched against permitted use table for the target property type. Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
     </div>
     <!-- Supplemental Standards Grid -->
     <div style="margin-top:16px"><div style="font-size:11px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Supplemental Standards</div>
@@ -535,7 +535,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         { label: "Natural Gas", icon: "&#128293;", available: !!site.gasProvider || /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: !!site.gasProvider ? "#16A34A" : /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.gasProvider || null },
         { label: "Stormwater", icon: "&#127783;", available: /storm|drainage|detention/i.test(combined), issue: hasFlood ? "Flood zone concern" : null, color: hasFlood ? "#EF4444" : /storm|drainage/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
         { label: "Telecom / Fiber", icon: "&#128225;", available: /fiber|telecom|internet|broadband/i.test(combined), issue: null, color: /fiber|telecom/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
-      ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.detail ? `<strong style="color:#1E293B">${u.detail}</strong>` : u.available ? "Available per verified research" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned — verify with jurisdiction or utility provider"}</div></div>`).join("")}
+      ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.detail ? `<strong style="color:#1E293B">${u.detail}</strong>` : u.available ? "Available per verified research" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not confirmed — verify with jurisdiction or utility provider"}</div></div>`).join("")}
     </div>
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
       row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
@@ -548,7 +548,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${site.utilityNotes}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>&#9888; Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0FFF4;border-left:3px solid #16A34A;font-size:9px;color:#475569;line-height:1.6">
       <strong style="color:#16A34A;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      Water/sewer provider identified via city utility department website, county records, and state regulatory databases (TCEQ CCN maps for TX, state DEQ/utility commission for other states). Service boundary verified via municipal GIS portals and utility district maps. Tap/impact fees sourced from published jurisdiction fee schedules (commercial/warehouse classification). Electric provider identified via utility service territory maps; 3-phase availability checked against provider service records. Distance to nearest water/sewer main estimated via GIS infrastructure layers where available. Capacity constraints checked against published moratoriums and allocation notices.
+      Water/sewer provider identified via city utility department website, county records, and state regulatory databases (TCEQ CCN maps for TX, state DEQ/utility commission for other states). Service boundary verified via municipal GIS portals and utility district maps. Tap/impact fees sourced from published jurisdiction fee schedules (commercial classification). Electric provider identified via utility service territory maps; 3-phase availability checked against provider service records. Distance to nearest water/sewer main estimated via GIS infrastructure layers where available. Capacity constraints checked against published moratoriums and allocation notices.
     </div>
 
     <!-- 4. TOPOGRAPHY & FLOOD -->
@@ -606,12 +606,12 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     ${section("9", "Recommended Next Steps", "")}
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
       ${[
-        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify indoor storage permissibility" } : null,
+        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify intended use permissibility" } : null,
         zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements, and precedent" } : null,
         zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
         !hasUtilities ? { pri: "HIGH", color: "#EF4444", text: "Confirm water & sewer availability — contact provider and verify service boundary" } : null,
         hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
+        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — confirm system capacity with county for intended use." } : null,
         hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
         { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
       ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
@@ -636,7 +636,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         { key: "pricing", label: "Pricing", weight: 0.08 },
         { key: "zoning", label: "Zoning", weight: 0.14 },
         { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "psProximity", label: "PS Proximity", weight: 0.10 },
+        { key: "psProximity", label: "Facility Proximity", weight: 0.10 },
         { key: "competition", label: "Competition", weight: 0.05 },
         { key: "marketTier", label: "Market Tier", weight: 0.08 },
       ];
@@ -706,8 +706,8 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         <div style="font-size:8.5px;color:#64748B;line-height:1.5">
           &bull; Licensed ESRI 2025 estimates + 2030 five-year projections<br/>
           &bull; U.S. Census Bureau ACS 5-Year (population, HHI, households)<br/>
-          &bull; Storvex&trade; composite scoring: 8 weighted dimensions, 0&ndash;10 scale<br/>
-          &bull; PS proximity: Haversine distance against 3,400+ owned locations
+          &bull; Storvex&trade; composite scoring: 9 weighted dimensions, 0&ndash;10 scale<br/>
+          &bull; Facility proximity: Haversine distance against comparable facility database
         </div>
       </div>
     </div>
@@ -762,7 +762,7 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
   if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
+  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for commercial development. Verify hookup feasibility.");
   // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
@@ -811,17 +811,17 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
         ${statusPill(zoningLabel, zoningColor)}
       </div>
       <div style="font-size:12px;color:#64748B;line-height:1.6">
-        ${zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." : ""}
-        ${zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." : ""}
-        ${zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." : ""}
-        ${zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." : ""}
+        ${zoningClass === "by-right" ? "The intended use is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." : ""}
+        ${zoningClass === "conditional" ? "The intended use is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." : ""}
+        ${zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> the intended use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." : ""}
+        ${zoningClass === "prohibited" ? "The intended use is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." : ""}
         ${zoningClass === "unknown" ? "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding. See Section 3 for next steps." : ""}
       </div>
     </div>
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
       row("Zoning District", site.zoning || "Not recorded", { bold: true }),
       row("Classification", zoningLabel, { badge: true, badgeBg: zoningBadgeBg, badgeColor: zoningColor }),
-      row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
+      row("Intended Use Status", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
       row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
     ].join("")}</table>
 
@@ -878,12 +878,12 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
     ${section("6", "Recommended Next Steps")}
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
       ${[
-        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify storage permissibility" } : null,
+        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify intended use permissibility" } : null,
         zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements, and precedent" } : null,
         zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
         !hasUtilities ? { pri: "MED", color: "#F59E0B", text: "Confirm utility availability — contact water/sewer provider and electric utility" } : null,
         hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
+        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — confirm system capacity with county for intended use." } : null,
         hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
         { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
       ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
@@ -1060,8 +1060,8 @@ const computeSiteScore = (site) => {
   }
   scores.marketTier = tierScore;
 
-  // --- PS PROXIMITY / MARKET VALIDATION (10%) ---
-  // Closer to existing PS = validated market = higher score. Far = unproven.
+  // --- FACILITY PROXIMITY / MARKET VALIDATION (10%) ---
+  // Closer to existing comparable facility = validated market = higher score. Far = unproven.
   let psProxScore = 5;
   const nearestPS = site.siteiqData?.nearestPS;
   if (nearestPS !== undefined && nearestPS !== null && !isNaN(nearestPS)) {
@@ -1107,11 +1107,11 @@ const computeSiteScore = (site) => {
 
 
   // --- WATER HOOKUP — HARD REQUIREMENT ---
-  // SOURCE NOTE: Water hookup is a MUST for self-storage. Fire suppression (sprinkler systems)
+  // SOURCE NOTE: Water hookup is a MUST for commercial development. Fire suppression (sprinkler systems)
   // requires municipal-grade pressure and flow. We don't need to be IN a MUD — we just need
   // to be able to HOOK UP to the nearest water main. Line extension is a cost item, not a
   // deal killer. The deal killer is if there's NO water main within reasonable distance.
-  // Septic is fine for sewer (storage has minimal wastewater), but water is non-negotiable.
+  // Septic may be viable for sewer depending on use, but water is non-negotiable.
   if (site.waterAvailable === false) {
     if (site.waterProvider && site.waterProvider.length > 10) {
       // Provider identified but not currently connected — line extension likely needed. Flag but don't kill.
@@ -1119,7 +1119,7 @@ const computeSiteScore = (site) => {
       adjusted = Math.max(0, adjusted - 0.3);
     } else {
       // No provider identified at all — high risk
-      flags.push("⚠ WATER: No water provider identified — verify hookup feasibility (HARD REQUIREMENT for fire suppression)");
+      flags.push("⚠ WATER: No water provider identified — verify hookup feasibility (HARD REQUIREMENT for commercial development)");
       adjusted = Math.max(0, adjusted - 1.0);
     }
   }
@@ -1165,7 +1165,7 @@ const computeSiteScore = (site) => {
     { label: "Pricing", key: "pricing", score: scores.pricing, weight: getIQWeight("pricing") },
     { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning") },
     { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access") },
-    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity") },
+    { label: "Facility Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity") },
     { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition") },
     { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier") },
   ];
@@ -1984,11 +1984,11 @@ export default function App() {
       priority: "⚪ None",
       messages: {},
       docs: {},
-      activityLog: { [uid()]: { action: `PS Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "PS" } },
+      activityLog: { [uid()]: { action: `Storvex Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "Storvex" } },
     };
     fbSet(`${routeTo}/${id}`, t);
     fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now });
-    notify(`PS Approved → ${routeLabel} tracker`);
+    notify(`Storvex Approved → ${routeLabel} tracker`);
   };
 
   // handleApprove removed — replaced by two-step: handleRecommend (Dan) → handlePSApprove (PS)
@@ -2313,7 +2313,7 @@ export default function App() {
                                 { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs acquisition targets" },
                                 { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
-                                { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest PS — closer = validated market" },
+                                { key: "psProximity", label: "Facility Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest existing facility — closer = validated market" },
                                 { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
                                 { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier"), icon: "🎯", tip: "Target market alignment (MT/DW tiers)" },
                               ];
@@ -3802,7 +3802,7 @@ export default function App() {
                   { label: "3-Mi Med. HHI", value: site.income3mi || "—" },
                   { label: "Market", value: site.market || "—" },
                   { label: "Broker", value: site.sellerBroker || "—" },
-                  { label: "Nearest PS", value: site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : "—" },
+                  { label: "Nearest Facility", value: site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : "—" },
                 ].map(m => (
                   <div key={m.label} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ fontSize: 10, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>{m.label}</div>
@@ -4157,7 +4157,7 @@ export default function App() {
                   { key: "income", label: "Income", icon: "💰", weight: getIQWeight("income") },
                   { key: "pricing", label: "Pricing", icon: "🏷️", weight: getIQWeight("pricing") },
                   { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
-                  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: getIQWeight("psProximity") },
+                  { key: "psProximity", label: "Facility Proximity", icon: "📦", weight: getIQWeight("psProximity") },
                   { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
                   { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
                   { key: "marketTier", label: "Market Tier", icon: "🎯", weight: getIQWeight("marketTier") },
