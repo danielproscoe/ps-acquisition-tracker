@@ -2378,7 +2378,7 @@ export default function App() {
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Property Listing</a>}
                         <button onClick={() => {
                           const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
-                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 SiteScore Deep Vet Report</button>
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 Storvex Deep Vet Report</button>
                       </div>
 
                       {/* Summary */}
@@ -3577,20 +3577,36 @@ export default function App() {
                   {Object.entries(byPerson).map(([person, sites]) => (
                     <div key={person} style={{ marginBottom: 14 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 6, padding: "4px 10px", background: "rgba(15,21,56,0.4)", borderRadius: 8, display: "inline-block", border: "1px solid rgba(201,168,76,0.1)" }}>{person} ({sites.length})</div>
-                      <div style={{ display: "grid", gap: 8 }}>
+                      <div style={{ display: "grid", gap: 10 }}>
                         {sites.map(site => (
-                          <div key={site.id} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", borderLeft: "4px solid #C9A84C", transition: "all 0.3s" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: 14, fontWeight: 700, color: "#E2E8F0" }}>{site.name}</span>
-                              <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
-                              <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
-                            </div>
-                            <div style={{ fontSize: 11, color: "#6B7394", marginBottom: 4 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `· ${site.acreage} ac` : ""} {site.askingPrice ? `· ${site.askingPrice}` : ""}</div>
-                            <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 6 }}>Phase: {site.phase || "Prospect"} · Tracker: {site._region === "southwest" ? "DW" : "MT"}</div>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); notify(`Reviewed: ${site.name}`); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(22,163,74,0.25)" }}>✓ Storvex Approved</button>
-                              <button onClick={() => { setDetailView({ regionKey: site._region, siteId: site.id }); setTab(site._region); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(232,122,46,0.2)", background: "rgba(232,122,46,0.08)", color: "#E87A2E", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>View Property →</button>
-                              <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
+                          <div key={site.id} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,.1)", borderLeft: "4px solid #C9A84C", transition: "all 0.3s" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                              <div style={{ flex: 1, minWidth: 250 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0" }}>{site.name}</span>
+                                  <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
+                                </div>
+                                <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 4 }}>{site.address}, {site.city}, {site.state}</div>
+                                <div style={{ display: "flex", gap: 14, fontSize: 11, color: "#6B7394", marginBottom: 8, flexWrap: "wrap" }}>
+                                  {site.acreage && <span><strong style={{ color: "#E2E8F0" }}>{site.acreage} ac</strong></span>}
+                                  {site.askingPrice && <span><strong style={{ color: "#C9A84C" }}>{site.askingPrice}</strong></span>}
+                                  <span>Phase: {site.phase || "Prospect"}</span>
+                                  <span>Tracker: {site._region === "southwest" ? "DW" : "MT"}</span>
+                                </div>
+                                {/* Links row */}
+                                <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                                  {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(232,122,46,0.1)", color: "#E87A2E", fontSize: 11, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.2)" }}>🔗 Listing</a>}
+                                  {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(21,101,192,0.1)", color: "#42A5F5", fontSize: 11, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.2)" }}>📍 Map</a>}
+                                  <button onClick={() => { setDetailView({ regionKey: site._region, siteId: site.id }); setTab(site._region); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>View Full Detail →</button>
+                                </div>
+                              </div>
+                              {/* Action buttons — right side */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 160 }}>
+                                <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); updateSiteField(site._region, site.id, "phase", "Storvex Approved"); notify(`✓ Approved — ${site.name} stays in ${site._region === "southwest" ? "DW" : "MT"} tracker`); }} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 2px 12px rgba(22,163,74,0.3)", letterSpacing: "0.02em" }}>✓ Approve</button>
+                                <button onClick={() => { if (window.confirm(`Reject "${site.name}"? This will remove it from the tracker.`)) { fbRemove(`${site._region}/${site.id}`); notify(`✗ Rejected — ${site.name} removed`); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                                <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 18px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(148,163,184,0.06)", color: "#94A3B8", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -3660,6 +3676,11 @@ export default function App() {
                         {site.status === "pending" && <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
                       </div>
                       <div style={{ fontSize: 12, color: "#6B7394", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
+                      {/* Links */}
+                      <div style={{ display: "flex", gap: 6, marginTop: 4, marginBottom: 4, flexWrap: "wrap" }}>
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(232,122,46,0.1)", color: "#E87A2E", fontSize: 10, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.15)" }}>🔗 Listing</a>}
+                        {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(21,101,192,0.08)", color: "#42A5F5", fontSize: 10, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.15)" }}>📍 Map</a>}
+                      </div>
                       {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{site.summary.substring(0, 180)}{site.summary.length > 180 ? "…" : ""}</div>}
                       {/* NEW badge for unreviewed sites */}
                       {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
@@ -3706,7 +3727,7 @@ export default function App() {
                   </div>
                   {/* SiteScore Score — large, right-aligned */}
                   <div style={{ flexShrink: 0, textAlign: "center", padding: "8px 16px", borderRadius: 14, background: iqR.score >= 7.5 ? "rgba(22,163,74,0.1)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.1)" : "rgba(220,38,38,0.1)", border: `1px solid ${iqR.score >= 7.5 ? "rgba(22,163,74,0.25)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.25)" : "rgba(220,38,38,0.25)"}` }}>
-                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>SiteScore Score</div>
+                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>Storvex Score</div>
                     <div style={{ fontSize: 42, fontWeight: 900, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", lineHeight: 1 }}>{iqR.score}</div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", textTransform: "uppercase", marginTop: 4 }}>{iqR.label || "—"}</div>
                     {iqR.classification && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2 }}>{iqR.classification}</div>}
@@ -3764,7 +3785,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
                 {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)" }}>🗺 Google Maps</a>}
                 {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a>}
-                <button onClick={() => { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 SiteScore Deep Vet Report</button>
+                <button onClick={() => { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 Storvex Deep Vet Report</button>
               </div>
 
               {/* ── ACTIVITY TIMELINE ── */}
@@ -3928,7 +3949,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)", alignItems: "center" }}>
                 <button onClick={() => {
                   const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
-                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 SiteScore Deep Vet Report</button>
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 Storvex Deep Vet Report</button>
                 {site.coordinates && <>
                   <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🗺 Google Maps</a>
                   <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🌍 Google Earth</a>
