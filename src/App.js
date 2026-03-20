@@ -1685,6 +1685,8 @@ export default function App() {
   const [showSiteScoreDetail, setShowSiteScoreDetail] = useState({});
   // vettingReport removed — auto-generates on site add
   const [showIQConfig, setShowIQConfig] = useState(false);
+  const [demoExpanded, setDemoExpanded] = useState(false);
+  const [scoreExpanded, setScoreExpanded] = useState(false);
   const [iqWeights, setIqWeights] = useState(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
@@ -4184,8 +4186,8 @@ export default function App() {
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
           // Keyboard nav for detail view
           const handleDetailKey = (e) => {
-            if (e.key === "ArrowLeft" && prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "ArrowRight" && nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowLeft" && prevSite) { setDemoExpanded(false); setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowRight" && nextSite) { setDemoExpanded(false); setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
             if (e.key === "Escape") { setDetailView(null); }
           };
           if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
@@ -4218,11 +4220,78 @@ export default function App() {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <SiteScoreBadge site={site} iq={iqR} />
+                    <div onClick={() => setScoreExpanded(!scoreExpanded)} style={{ cursor: "pointer", transition: "transform 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"} onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"} title="Click for full SiteScore breakdown">
+                      <SiteScoreBadge site={site} iq={iqR} />
+                    </div>
                     <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>Broker: <strong style={{ color: "#E2E8F0" }}>{site.sellerBroker || "—"}</strong></div>
                   </div>
                 </div>
               </div>
+
+              {/* SITESCORE DEEP BREAKDOWN — expandable */}
+              {scoreExpanded && (() => {
+                const bd = iqR.breakdown || [];
+                const wSum = bd.reduce((a, b) => a + b.weight, 0);
+                return (
+                  <div style={{ borderRadius: 16, marginBottom: 20, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", background: "rgba(10,10,14,0.95)", boxShadow: "0 8px 40px rgba(0,0,0,0.4)" }}>
+                    <div style={{ background: "linear-gradient(135deg,#0F172A,#1E2761,#1565C0)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 18 }}>🎯</span>
+                        <span style={{ color: "#fff", fontSize: 16, fontWeight: 900, letterSpacing: "0.06em" }}>SITESCORE<span style={{ fontSize: 10, verticalAlign: "super" }}>™</span> BREAKDOWN</span>
+                        <span style={{ background: iqR.classColor + "25", color: iqR.classColor, fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 6 }}>{iqR.classification}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 32, fontWeight: 900, color: iqR.tier === "gold" ? "#FFD700" : "#E2E8F0", fontFamily: "'Space Mono', monospace", textShadow: iqR.tier === "gold" ? "0 0 20px rgba(255,215,0,0.4)" : "none" }}>{iqR.score.toFixed(1)}</div>
+                        <span style={{ fontSize: 12, color: "#94A3B8" }}>/10</span>
+                        <button onClick={() => setScoreExpanded(false)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✕</button>
+                      </div>
+                    </div>
+                    {/* Dimension rows */}
+                    <div style={{ padding: "8px 0" }}>
+                      {bd.map((dim, i) => {
+                        const pct = (dim.score / 10) * 100;
+                        const barC = dim.score >= 8 ? "#22C55E" : dim.score >= 6 ? "#3B82F6" : dim.score >= 4 ? "#F59E0B" : "#EF4444";
+                        const wPct = wSum > 0 ? ((dim.weight / wSum) * 100).toFixed(0) : "0";
+                        const contrib = (dim.score * dim.weight / wSum).toFixed(2);
+                        return (
+                          <div key={dim.key} style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px 60px 70px", alignItems: "center", padding: "10px 24px", borderBottom: i < bd.length - 1 ? "1px solid rgba(201,168,76,0.04)" : "none", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(201,168,76,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 14 }}>{["👥","📈","💰","🏠","🏡","🏷️","🏛","📍","🚗","🏪","🗺"][i] || "📊"}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0" }}>{dim.label}</span>
+                            </div>
+                            <div style={{ position: "relative", height: 20, borderRadius: 10, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 10, background: `linear-gradient(90deg, ${barC}CC, ${barC})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)", boxShadow: dim.score >= 8 ? `0 0 12px ${barC}40` : "none" }} />
+                              <div style={{ position: "absolute", left: 8, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 10, fontWeight: 800, color: dim.score >= 5 ? "#fff" : barC, zIndex: 1 }}>{dim.score}/10</div>
+                            </div>
+                            <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>{wPct}%</div>
+                            <div style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: barC, fontFamily: "'Space Mono', monospace" }}>{dim.score}</div>
+                            <div style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>+{contrib}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Column headers */}
+                    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px 60px 70px", padding: "0 24px 8px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", paddingTop: 8 }}>DIMENSION</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", paddingTop: 8 }}>SCORE BAR</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "center", paddingTop: 8 }}>WEIGHT</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "center", paddingTop: 8 }}>RAW</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "right", paddingTop: 8 }}>CONTRIB</div>
+                    </div>
+                    {/* Flags */}
+                    {iqR.flags && iqR.flags.length > 0 && (
+                      <div style={{ padding: "12px 24px 16px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 8 }}>FLAGS & ADJUSTMENTS</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {iqR.flags.map((f, i) => (
+                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 6, background: f.includes("FAIL") ? "rgba(239,68,68,0.12)" : f.includes("Growth corridor") ? "rgba(34,197,94,0.12)" : "rgba(201,168,76,0.08)", color: f.includes("FAIL") ? "#EF4444" : f.includes("Growth corridor") ? "#22C55E" : "#C9A84C", border: `1px solid ${f.includes("FAIL") ? "rgba(239,68,68,0.2)" : f.includes("Growth corridor") ? "rgba(34,197,94,0.2)" : "rgba(201,168,76,0.15)"}` }}>{f}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* KEY METRICS STRIP */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 20 }}>
@@ -4268,7 +4337,7 @@ export default function App() {
                 <div style={{ fontSize: 13, color: "#E2E8F0", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{site.summary || "No notes yet."}</div>
               </div>
 
-              {/* DEMOGRAPHICS — Full display */}
+              {/* DEMOGRAPHICS — Clickable + Expandable */}
               {(site.pop3mi || site.income3mi) && (() => {
                 const pN2 = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
                 const fP2 = (v, pre) => { const n = pN2(v); return n != null ? (pre || "") + n.toLocaleString() : null; };
@@ -4276,6 +4345,11 @@ export default function App() {
                 const gColor2 = gVal2 != null ? (gVal2 > 0 ? "#22C55E" : gVal2 < 0 ? "#EF4444" : "#94A3B8") : "#6B7394";
                 const gLabel2 = gVal2 != null ? ((gVal2 >= 0 ? "+" : "") + gVal2.toFixed(2) + "% /yr") : null;
                 const gOutlook2 = gVal2 != null ? (gVal2 > 1.5 ? "High Growth" : gVal2 > 0.5 ? "Growing" : gVal2 > 0 ? "Stable Growth" : gVal2 > -0.5 ? "Flat" : "Declining") : null;
+                const popRaw = pN2(site.pop3mi);
+                const hhiRaw = pN2(site.income3mi);
+                const hhRaw = pN2(site.households3mi);
+                const hvRaw = pN2(site.homeValue3mi);
+                const pop1Raw = pN2(site.pop1mi);
                 const demoRows = [
                   { label: "Population (3-mi)", val: fP2(site.pop3mi), icon: "👥" },
                   { label: "Median HHI (3-mi)", val: fP2(site.income3mi, "$"), icon: "💰" },
@@ -4284,16 +4358,24 @@ export default function App() {
                   { label: "Households (3-mi)", val: fP2(site.households3mi), icon: "🏠" },
                   { label: "Median Home Value", val: fP2(site.homeValue3mi, "$"), icon: "🏡" },
                   { label: "Price / Acre", val: (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
-                  { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
+                  { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? (typeof site.siteiqData.nearestPS === "number" ? site.siteiqData.nearestPS.toFixed(1) : site.siteiqData.nearestPS) + " mi" : null, icon: "📍" },
                   { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
                 ].filter(r => r.val != null);
+                // Benchmarks for bar charts
+                const popBench = 40000; const hhiBench = 90000; const hhBench = 25000; const hvBench = 500000;
+                const compCount = site.siteiqData?.competitorCount;
+                const compNames = site.siteiqData?.competitorNames;
+                const nearComp = site.siteiqData?.nearestCompetitor;
+                const demandSig = site.siteiqData?.demandSupplySignal || site.demandSupplySignal;
                 return demoRows.length > 0 ? (
-                  <div style={{ borderRadius: 14, marginBottom: 20, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)" }}>
-                    <div style={{ background: "linear-gradient(135deg,#0F172A,#1E293B,#1565C0)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ borderRadius: 14, marginBottom: 20, overflow: "hidden", border: `1px solid ${demoExpanded ? "rgba(201,168,76,0.2)" : "rgba(201,168,76,0.1)"}`, transition: "all 0.3s" }}>
+                    <div onClick={() => setDemoExpanded(!demoExpanded)} style={{ background: "linear-gradient(135deg,#0F172A,#1E293B,#1565C0)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "linear-gradient(135deg,#0F172A,#1E293B,#1976D2)"} onMouseLeave={(e) => e.currentTarget.style.background = "linear-gradient(135deg,#0F172A,#1E293B,#1565C0)"}>
                       <span style={{ fontSize: 14 }}>📊</span>
                       <span style={{ color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>SITE DEMOGRAPHICS</span>
                       <span style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)", color: "#0F172A", fontSize: 10, fontWeight: 900, padding: "2px 8px", borderRadius: 5 }}>ESRI 2025</span>
+                      <span style={{ marginLeft: "auto", color: "#C9A84C", fontSize: 11, fontWeight: 700, opacity: 0.8 }}>{demoExpanded ? "▲ Collapse" : "▼ Expand Deep Dive"}</span>
                     </div>
+                    {/* Compact view — always visible */}
                     <div style={{ background: "rgba(15,21,56,0.3)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 0 }}>
                       {demoRows.map((row, i) => (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 18px", borderBottom: "1px solid rgba(201,168,76,0.06)" }}>
@@ -4302,6 +4384,113 @@ export default function App() {
                         </div>
                       ))}
                     </div>
+                    {/* EXPANDED DEEP DIVE */}
+                    {demoExpanded && (
+                      <div style={{ background: "rgba(10,10,14,0.95)", borderTop: "2px solid rgba(201,168,76,0.15)" }}>
+                        {/* POPULATION ANALYSIS */}
+                        <div style={{ padding: "20px 24px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                            <div style={{ width: 3, height: 18, borderRadius: 2, background: "#3B82F6" }} />
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "#3B82F6", letterSpacing: "0.1em" }}>POPULATION ANALYSIS</span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            {/* Pop bar chart */}
+                            <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(59,130,246,0.1)" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", marginBottom: 12, letterSpacing: "0.08em" }}>3-MILE POPULATION vs BENCHMARK</div>
+                              {[
+                                { label: "This Site", val: popRaw, color: "#3B82F6" },
+                                { label: "PS Benchmark (40K)", val: popBench, color: "#4A5080" },
+                                { label: "Min Threshold (5K)", val: 5000, color: "#EF4444" },
+                              ].map((b, i) => (
+                                <div key={i} style={{ marginBottom: 10 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                                    <span style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8" }}>{b.label}</span>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: b.color, fontFamily: "'Space Mono', monospace" }}>{b.val ? b.val.toLocaleString() : "—"}</span>
+                                  </div>
+                                  <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${Math.min(100, ((b.val || 0) / popBench) * 100)}%`, borderRadius: 4, background: `linear-gradient(90deg, ${b.color}99, ${b.color})`, transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Growth trajectory */}
+                            <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(34,197,94,0.1)" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", marginBottom: 12, letterSpacing: "0.08em" }}>GROWTH TRAJECTORY</div>
+                              <div style={{ textAlign: "center", padding: "12px 0" }}>
+                                <div style={{ fontSize: 36, fontWeight: 900, color: gColor2, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{gLabel2 || "—"}</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: gVal2 != null ? (gVal2 > 1.5 ? "#22C55E" : "#FBBF24") : "#6B7394", marginTop: 6, fontStyle: "italic" }}>{gOutlook2 || "No data"}</div>
+                              </div>
+                              <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 8, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.1)" }}>
+                                <div style={{ fontSize: 10, color: "#94A3B8", lineHeight: 1.6 }}>
+                                  {gVal2 != null && gVal2 > 1.5 ? "High-growth corridor — population expanding rapidly. Strong demand signal for storage as new households form." : gVal2 != null && gVal2 > 0.5 ? "Steady growth market. Population is expanding at a sustainable pace, driving incremental storage demand." : gVal2 != null && gVal2 > 0 ? "Stable market with modest growth. Existing facilities may absorb most new demand." : "Flat or declining population. Storage demand may be static — focus on existing household turnover."}
+                                </div>
+                              </div>
+                              {pop1Raw && <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", padding: "6px 10px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 10, color: "#6B7394" }}>1-Mile Pop</span><span style={{ fontSize: 12, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{pop1Raw.toLocaleString()}</span></div>}
+                            </div>
+                          </div>
+                        </div>
+                        {/* INCOME & WEALTH */}
+                        <div style={{ padding: "4px 24px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                            <div style={{ width: 3, height: 18, borderRadius: 2, background: "#C9A84C" }} />
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>INCOME & WEALTH INDICATORS</span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                            {[
+                              { label: "MEDIAN HHI", val: hhiRaw, fmt: "$" + (hhiRaw || 0).toLocaleString(), bench: hhiBench, benchLabel: "$90K (top tier)", color: "#C9A84C", signal: hhiRaw >= 90000 ? "Premium" : hhiRaw >= 65000 ? "Strong" : hhiRaw >= 55000 ? "Adequate" : "Below threshold" },
+                              { label: "HOUSEHOLDS", val: hhRaw, fmt: (hhRaw || 0).toLocaleString(), bench: hhBench, benchLabel: "25K (top tier)", color: "#8B5CF6", signal: hhRaw >= 25000 ? "Deep demand pool" : hhRaw >= 12000 ? "Solid base" : "Limited pool" },
+                              { label: "HOME VALUE", val: hvRaw, fmt: "$" + (hvRaw || 0).toLocaleString(), bench: hvBench, benchLabel: "$500K (top tier)", color: "#F37C33", signal: hvRaw >= 500000 ? "Premium market" : hvRaw >= 250000 ? "Affluent" : hvRaw >= 180000 ? "Middle market" : "Value market" },
+                            ].map((m, i) => (
+                              <div key={i} style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: `1px solid ${m.color}15` }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 8 }}>{m.label}</div>
+                                <div style={{ fontSize: 22, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", marginBottom: 4 }}>{m.val ? m.fmt : "—"}</div>
+                                <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.04)", overflow: "hidden", marginBottom: 8 }}>
+                                  <div style={{ height: "100%", width: `${Math.min(100, ((m.val || 0) / m.bench) * 100)}%`, borderRadius: 3, background: `linear-gradient(90deg, ${m.color}99, ${m.color})` }} />
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ fontSize: 9, color: "#6B7394" }}>vs {m.benchLabel}</span>
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: m.color }}>{m.signal}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* COMPETITION LANDSCAPE */}
+                        {(compCount != null || compNames) && (
+                          <div style={{ padding: "4px 24px 20px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                              <div style={{ width: 3, height: 18, borderRadius: 2, background: "#E87A2E" }} />
+                              <span style={{ fontSize: 12, fontWeight: 800, color: "#E87A2E", letterSpacing: "0.1em" }}>COMPETITION LANDSCAPE</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(232,122,46,0.1)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 4 }}>FACILITIES WITHIN 3 MI</div>
+                                    <div style={{ fontSize: 36, fontWeight: 900, color: compCount <= 3 ? "#22C55E" : compCount <= 6 ? "#F59E0B" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{compCount}</div>
+                                  </div>
+                                  <div style={{ padding: "6px 12px", borderRadius: 8, background: compCount <= 3 ? "rgba(34,197,94,0.12)" : compCount <= 6 ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)", border: `1px solid ${compCount <= 3 ? "rgba(34,197,94,0.2)" : compCount <= 6 ? "rgba(245,158,11,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                                    <div style={{ fontSize: 11, fontWeight: 800, color: compCount <= 3 ? "#22C55E" : compCount <= 6 ? "#F59E0B" : "#EF4444" }}>{compCount <= 3 ? "UNDERSERVED" : compCount <= 6 ? "MODERATE" : "COMPETITIVE"}</div>
+                                  </div>
+                                </div>
+                                {nearComp && <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>NEAREST: </span><span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{nearComp}</span></div>}
+                                {demandSig && <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>SIGNAL: </span><span style={{ fontSize: 11, color: "#C9A84C", fontWeight: 600 }}>{demandSig}</span></div>}
+                              </div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(232,122,46,0.1)" }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 10 }}>COMPETING OPERATORS</div>
+                                {compNames ? String(compNames).split(",").map((name, i) => (
+                                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(201,168,76,0.04)" }}>
+                                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: name.trim().match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage/) ? "#EF4444" : name.trim().match(/StorageMart|U-Haul|SecurCare/) ? "#F59E0B" : "#3B82F6", flexShrink: 0 }} />
+                                    <span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{name.trim()}</span>
+                                    {name.trim().match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage/) && <span style={{ fontSize: 8, fontWeight: 800, color: "#EF4444", background: "rgba(239,68,68,0.1)", padding: "1px 5px", borderRadius: 3 }}>REIT</span>}
+                                  </div>
+                                )) : <div style={{ fontSize: 11, color: "#6B7394" }}>No competitor data</div>}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : null;
               })()}
