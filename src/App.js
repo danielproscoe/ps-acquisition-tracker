@@ -318,10 +318,10 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   const zoningScore = iq?.scores?.zoning;
   const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
-  const section = (num, title, icon) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${icon} ${title}</h2></div>`;
+  const section = (num, title) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${title}</h2></div>`;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
   const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{@page{size:letter;margin:0.4in 0.5in}body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.report{box-shadow:none;max-width:100%}table{page-break-inside:avoid}h2{page-break-after:avoid}div[style*="grid"]{page-break-inside:avoid}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
   <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
   <div class="report">
   <!-- HEADER -->
@@ -415,7 +415,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     })()}
 
     <!-- 1. PROPERTY OVERVIEW -->
-    ${section("1", "Property Overview", "")}
+    ${section("1", "Property Overview")}
     <table>${[
       row("Name", site.name || "—", { bold: true }),
       row("Address", `${site.address || "—"}, ${site.city || "—"}, ${site.state || "—"}`),
@@ -431,7 +431,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     ].join("")}</table>
 
     <!-- 2. ZONING & ENTITLEMENTS — HARD VET -->
-    ${section("2", "Zoning & Entitlements — Can We Get Indoor Storage Here?", "")}
+    ${section("2", "Zoning & Entitlements — Can We Get Indoor Storage Here?")}
     <div style="padding:16px 20px;border-radius:10px;background:${zoningColor}08;border:2px solid ${zoningColor}35;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
@@ -473,7 +473,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     </div></div>
 
     <!-- 3. UTILITIES & WATER — HARD VET -->
-    ${section("3", "Utilities & Water — Can We Hook Up?", "")}
+    ${section("3", "Utilities & Water — Can We Hook Up?")}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       ${[
         { label: "Water Service", icon: "&#128167;", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#EF4444" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
@@ -499,7 +499,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     </div>
 
     <!-- 4. TOPOGRAPHY & FLOOD -->
-    ${section("4", "Topography & Flood Assessment", "")}
+    ${section("4", "Topography & Flood Assessment")}
     <div style="padding:14px 18px;border-radius:10px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified in site data" : "No flood zone issues identified"}</span>
       ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
@@ -518,7 +518,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     </div>
 
     <!-- 5. SITE ACCESS & INFRASTRUCTURE -->
-    ${section("5", "Site Access & Infrastructure", "")}
+    ${section("5", "Site Access & Infrastructure")}
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
       row("Road Frontage", /frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed"),
       row("Curb Cuts", /curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "Not confirmed — verify on aerial"),
@@ -528,7 +528,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     ].join("")}</table>
 
     <!-- 6. DEMOGRAPHICS -->
-    ${section("6", "Demographics (3-Mile Radius)", "")}
+    ${section("6", "Demographics (3-Mile Radius)")}
     <table>${[
       row("Population", site.pop3mi ? fmtN(site.pop3mi) : "Not available"),
       row("Median Income", site.income3mi ? ("$" + fmtN(site.income3mi)) : "Not available"),
@@ -536,21 +536,21 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     ].join("")}</table>
 
     <!-- 7. SITE SIZING -->
-    ${section("7", "Site Sizing Assessment", "")}
+    ${section("7", "Site Sizing Assessment")}
     <div style="padding:14px 18px;border-radius:10px;background:${sizingColor}0A;border:1px solid ${sizingColor}25;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px;font-weight:600;color:#1E293B">${sizingText}</span>
       <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
     </div>
 
     <!-- 8. BROKER -->
-    ${section("8", "Broker / Seller", "")}
+    ${section("8", "Broker / Seller")}
     <table>${[
       row("Contact", site.sellerBroker || "Not listed"),
       row("Date on Market", site.dateOnMarket || "Unknown"),
     ].join("")}</table>
 
     <!-- 9. RECOMMENDED NEXT STEPS -->
-    ${section("9", "Recommended Next Steps", "")}
+    ${section("9", "Recommended Next Steps")}
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
       ${[
         zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify indoor storage permissibility" } : null,
@@ -565,31 +565,31 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     </div>
 
     <!-- 10. RED FLAGS -->
-    ${section("10", "Red Flags & Action Items", "")}
+    ${section("10", "Red Flags & Action Items")}
     ${flags.length === 0
       ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
       : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
     }
 
     <!-- 11. SUMMARY -->
-    ${section("11", "Summary & Deal Notes", "")}
+    ${section("11", "Summary & Deal Notes")}
     <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
 
     ${iq && iq.scores ? (() => {
       const dims = [
-        { key: "population", label: "Population", weight: 0.18 },
-        { key: "growth", label: "Growth", weight: 0.20 },
-        { key: "income", label: "Income", weight: 0.10 },
-        { key: "pricing", label: "Pricing", weight: 0.08 },
-        { key: "zoning", label: "Zoning", weight: 0.14 },
-        { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "psProximity", label: "PS Proximity", weight: 0.10 },
-        { key: "competition", label: "Competition", weight: 0.05 },
-        { key: "marketTier", label: "Market Tier", weight: 0.08 },
+        { key: "population", label: "Population", weight: getIQWeight("population") },
+        { key: "growth", label: "Growth", weight: getIQWeight("growth") },
+        { key: "income", label: "Income", weight: getIQWeight("income") },
+        { key: "pricing", label: "Pricing", weight: getIQWeight("pricing") },
+        { key: "zoning", label: "Zoning", weight: getIQWeight("zoning") },
+        { key: "access", label: "Site Access", weight: getIQWeight("access") },
+        { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity") },
+        { key: "competition", label: "Competition", weight: getIQWeight("competition") },
+        { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier") },
       ];
       return `
     <!-- STORVEX SCORECARD -->
-    ${section("IQ", "Storvex Scorecard", "")}
+    ${section("IQ", "Storvex\u2122 Scorecard")}
     <!-- Visual Bar Chart -->
     <div style="display:flex;gap:8px;align-items:flex-end;height:140px;padding:20px 0 0;margin-bottom:16px">
       ${dims.map(d => {
@@ -715,7 +715,7 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
   if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Zoning & Utility Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#5E35B1,#7C4DFF);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(94,53,177,0.4);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(94,53,177,0.5)}.save-btn{position:fixed;bottom:28px;right:200px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(30,39,97,0.4);transition:all 0.2s ease;z-index:9999}.save-btn:hover{transform:translateY(-2px)}</style></head><body>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Zoning & Utility Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{@page{size:letter;margin:0.4in 0.5in}body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.report{box-shadow:none;max-width:100%}table{page-break-inside:avoid}h2{page-break-after:avoid}div[style*="grid"]{page-break-inside:avoid}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#5E35B1,#7C4DFF);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(94,53,177,0.4);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(94,53,177,0.5)}.save-btn{position:fixed;bottom:28px;right:200px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(30,39,97,0.4);transition:all 0.2s ease;z-index:9999}.save-btn:hover{transform:translateY(-2px)}</style></head><body>
   <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
   <div class="report">
 
@@ -1662,7 +1662,6 @@ export default function App() {
     delete sub.messages; delete sub.docs; delete sub.activityLog;
     fbSet(`submissions/${id}`, sub);
     fbRemove(`${region}/${id}`);
-    fbPush(`${region}/${id}/activityLog`, { action: "Sent back to Review Queue", ts: now, by: "Dan R" });
     setExpandedSite(null);
     notify(`${site.name} → Review Queue`);
   };
@@ -1929,9 +1928,9 @@ export default function App() {
       zoning: site.zoning || "",
       market: site.market || "",
       priority: "⚪ None",
-      messages: {},
-      docs: {},
-      activityLog: { [uid()]: { action: `PS Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "PS" } },
+      messages: site.messages || {},
+      docs: site.docs || {},
+      activityLog: { ...(site.activityLog || {}), [uid()]: { action: `PS Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "PS" } },
     };
     fbSet(`${routeTo}/${id}`, t);
     fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now });
@@ -1944,18 +1943,18 @@ export default function App() {
     const p = subs.filter((s) => s.status === "pending");
     if (!p.length) return;
     const now = new Date().toISOString();
-    const updates = {};
     p.forEach((s) => {
       const ri = reviewInputs[s.id] || {};
       const routeTo = ri.routeTo || s.region || "southwest";
-      updates[`submissions/${s.id}/status`] = "recommended";
-      updates[`submissions/${s.id}/region`] = routeTo;
-      updates[`submissions/${s.id}/routedTo`] = routeTo;
-      updates[`submissions/${s.id}/recommendedBy`] = "Dan R.";
-      updates[`submissions/${s.id}/recommendedAt`] = now;
-    });
-    import("firebase/database").then(({ ref: fbRef, update: fbUpd }) => {
-      fbUpd(ref(db, "/"), updates);
+      fbUpdate(`submissions/${s.id}`, {
+        status: "recommended",
+        region: routeTo,
+        routedTo: routeTo,
+        recommendedBy: "Dan R.",
+        recommendedAt: now,
+        reviewNote: ri.note || "",
+      });
+      autoGenerateVettingReport(routeTo, s.id, { ...s, region: routeTo });
     });
     notify(`Recommended ${p.length} sites (awaiting PS approval)`);
   };
@@ -3037,29 +3036,59 @@ export default function App() {
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
-              {[
-                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => navigateTo("summary"), sub: "View summary →" },
-                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review"), sub: "Review queue →" },
-                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => navigateTo("southwest"), sub: "Open tracker →" },
-                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => navigateTo("east"), sub: "Open tracker →" },
-              ].map((kpi, kpiIdx) => (
-                <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ ...STYLES.kpiCard(kpi.color), animationDelay: `${kpiIdx * 0.08}s` }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px) scale(1.02)"; e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.3), 0 0 30px ${kpi.color}25, inset 0 1px 0 rgba(255,255,255,0.08)`; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = `0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)`; }}>
-                  {/* Ambient glow line */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${kpi.color}40, transparent)`, opacity: 0.8 }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 1 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
-                    <span style={{ fontSize: 18, opacity: 0.4, filter: "grayscale(0.3)" }}>{kpi.icon}</span>
-                  </div>
-                  <div className="kpi-number" style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginTop: 8, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", position: "relative", zIndex: 1, textShadow: `0 0 30px ${kpi.color}30` }}>{kpi.value}</div>
-                  <div style={{ fontSize: 10, color: kpi.color, marginTop: 6, fontWeight: 700, letterSpacing: "0.02em", position: "relative", zIndex: 1 }}>{kpi.sub}</div>
-                  {/* Bottom fire accent line */}
-                  <div style={{ position: "absolute", bottom: 0, left: "10%", right: "10%", height: 2, background: `linear-gradient(90deg, transparent, ${kpi.color}50, transparent)`, borderRadius: 2 }} />
+            {/* ═══ KPI CARDS — Executive Dashboard ═══ */}
+            {(() => {
+              const all = [...sw, ...east];
+              const now = Date.now();
+              const WEEK = 7 * 86400000;
+              // Week-over-week trend calculation
+              const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < WEEK).length;
+              const addedLastWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) >= WEEK && (now - new Date(s.approvedAt).getTime()) < 2 * WEEK).length;
+              const pipelineDelta = addedThisWeek - addedLastWeek;
+              // Avg Storvex score
+              const scores = all.map(s => getSiteScore(s).score).filter(s => s > 0);
+              const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "—";
+              // UC value
+              const parsePrice = (p) => { if (!p) return 0; const s = String(p).replace(/[$,]/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s) || 0; };
+              const ucValue = all.filter(s => s.phase === "Under Contract").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
+              const kpis = [
+                { label: "Pipeline", value: all.length, color: "#F37C33", icon: "📊", action: () => navigateTo("summary"), sub: "View summary →", delta: pipelineDelta, deltaLabel: "vs last week" },
+                { label: "Pending Review", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review"), sub: "Review queue →", delta: null },
+                { label: "Avg Storvex", value: avgScore, color: "#C9A84C", icon: "⚡", action: () => navigateTo("summary"), sub: "Score distribution →", delta: null, isScore: true },
+                { label: "Under Contract", value: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }), sub: ucValue > 0 ? fmtVal(ucValue) + " value" : "None active", delta: null },
+                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => navigateTo("southwest"), sub: "Open tracker →", delta: null },
+                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => navigateTo("east"), sub: "Open tracker →", delta: null },
+              ];
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+                  {kpis.map((kpi, kpiIdx) => (
+                    <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ ...STYLES.kpiCard(kpi.color), animationDelay: `${kpiIdx * 0.08}s` }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px) scale(1.02)"; e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.3), 0 0 30px ${kpi.color}25, inset 0 1px 0 rgba(255,255,255,0.08)`; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = `0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)`; }}>
+                      {/* Ambient glow line */}
+                      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${kpi.color}40, transparent)`, opacity: 0.8 }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 1 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
+                        <span style={{ fontSize: 18, opacity: 0.4, filter: "grayscale(0.3)" }}>{kpi.icon}</span>
+                      </div>
+                      <div className="kpi-number" style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginTop: 8, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", position: "relative", zIndex: 1, textShadow: `0 0 30px ${kpi.color}30` }}>{kpi.value}</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, position: "relative", zIndex: 1 }}>
+                        <div style={{ fontSize: 10, color: kpi.color, fontWeight: 700, letterSpacing: "0.02em" }}>{kpi.sub}</div>
+                        {kpi.delta !== null && kpi.delta !== undefined && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 6, background: kpi.delta > 0 ? "rgba(34,197,94,0.12)" : kpi.delta < 0 ? "rgba(239,68,68,0.12)" : "rgba(148,163,184,0.1)" }}>
+                            <span style={{ fontSize: 8, color: kpi.delta > 0 ? "#22C55E" : kpi.delta < 0 ? "#EF4444" : "#94A3B8" }}>{kpi.delta > 0 ? "▲" : kpi.delta < 0 ? "▼" : "—"}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: kpi.delta > 0 ? "#22C55E" : kpi.delta < 0 ? "#EF4444" : "#94A3B8", fontFamily: "'Space Mono', monospace" }}>{Math.abs(kpi.delta)}</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Bottom fire accent line */}
+                      <div style={{ position: "absolute", bottom: 0, left: "10%", right: "10%", height: 2, background: `linear-gradient(90deg, transparent, ${kpi.color}50, transparent)`, borderRadius: 2 }} />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
             {/* ── ACTION ITEMS BANNER — personalized for DW/MT ── */}
             {(() => {
@@ -3200,7 +3229,7 @@ export default function App() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #F37C33, #D45500)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(243,124,51,0.4)" }}>⚡</div>
                       <div>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "rgba(15,21,56,0.4)", letterSpacing: "0.02em" }}>Deal Momentum</h3>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#E2E8F0", letterSpacing: "0.02em" }}>Deal Momentum</h3>
                         <div style={{ fontSize: 10, color: "rgba(148,163,184,0.7)", fontWeight: 500, marginTop: 1 }}>Pipeline value & recent activity</div>
                       </div>
                     </div>
@@ -3210,23 +3239,43 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Pipeline Value Metrics */}
-                  <div style={{ padding: "16px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, overflow: "hidden" }}>
-                    {[
-                      { label: "LOI / PSA PIPELINE", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI" }) },
-                      { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
-                    ].map(m => (
-                      <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "12px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.25s ease" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = `rgba(255,255,255,0.07)`; e.currentTarget.style.borderColor = `${m.color}40`; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.transform = "translateY(0)"; }}
-                      >
-                        <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: m.color, lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{m.label}</div>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)", marginTop: 2 }}>{m.count} site{m.count !== 1 ? "s" : ""}</div>
+                  {/* Pipeline Value Waterfall Bridge */}
+                  {(() => {
+                    const totalValue = prospectValue + loiValue + ucValue;
+                    const bars = [
+                      { label: "PROSPECT", value: prospectValue, count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                      { label: "LOI / PSA", value: loiValue, count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "UNDER CONTRACT", value: ucValue, count: all.filter(s => s.phase === "Under Contract").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                    ];
+                    const maxVal = Math.max(...bars.map(b => b.value), 1);
+                    const barH = 100;
+                    return (
+                      <div style={{ padding: "16px 24px 0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 8 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline Value Bridge</span>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{fmtVal(totalValue)} total</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", height: barH + 28 }}>
+                          {bars.map(b => {
+                            const h = maxVal > 0 ? Math.max(8, (b.value / maxVal) * barH) : 8;
+                            return (
+                              <div key={b.label} onClick={b.action} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer", transition: "all 0.25s ease" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+                              >
+                                <div style={{ fontSize: 13, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: b.color, marginBottom: 4 }}>{fmtVal(b.value)}</div>
+                                <div style={{ width: "100%", height: h, borderRadius: 6, background: `linear-gradient(180deg, ${b.color}, ${b.color}66)`, transition: "height 0.5s ease", position: "relative" }}>
+                                  <div style={{ position: "absolute", inset: 0, borderRadius: 6, background: "linear-gradient(180deg, rgba(255,255,255,0.15), transparent)" }} />
+                                </div>
+                                <div style={{ fontSize: 8, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, textAlign: "center" }}>{b.label}</div>
+                                <div style={{ fontSize: 9, color: "rgba(148,163,184,0.4)" }}>{b.count} site{b.count !== 1 ? "s" : ""}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
 
                   {/* Phase Distribution Mini Bars */}
                   <div style={{ padding: "14px 24px 0" }}>
@@ -3275,59 +3324,101 @@ export default function App() {
               );
             })()}
 
-            {/* ═══ PIPELINE FUNNEL — Interactive ═══ */}
+            {/* ═══ ACQUISITION PROCESS FLOW — McKinsey Chevron ═══ */}
             {(() => {
               const all = [...sw, ...east];
               const pending = subs.filter(s => s.status === "pending").length;
-              const funnelStages = [
-                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
-                { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
-                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "Storvex Approved", count: all.filter(s => s.phase === "Storvex Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "Storvex Approved" }) },
-                { label: "LOI / PSA", count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
-                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
+              const totalPipeline = all.length + pending;
+              const stages = [
+                { label: "Review\nQueue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review"), desc: "Incoming sites" },
+                { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }), desc: "Initial screening" },
+                { label: "Submitted\nto PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }), desc: "Client review" },
+                { label: "Storvex\nApproved", count: all.filter(s => s.phase === "Storvex Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "Storvex Approved" }), desc: "Scored & vetted" },
+                { label: "LOI /\nPSA", count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }), desc: "Active negotiation" },
+                { label: "Under\nContract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }), desc: "Due diligence" },
+                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }), desc: "Acquisition complete" },
               ];
               const declined = all.filter(s => s.phase === "Declined" || s.phase === "Dead").length;
+              // Conversion rates between stages
+              const conversionRates = stages.slice(0, -1).map((s, i) => {
+                const next = stages[i + 1];
+                if (s.count === 0) return null;
+                const downstream = stages.slice(i + 1).reduce((sum, st) => sum + st.count, 0);
+                return Math.round((downstream / (s.count + downstream)) * 100);
+              });
               return (
-                <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(243,124,51,0.2), rgba(255,179,71,0.3), rgba(243,124,51,0.2), transparent)" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F4F6FA" }}>Pipeline Funnel</h3>
-                    {declined > 0 && <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 600 }}>{declined} declined/dead</span>}
+                <div className="card-reveal" style={{ background: "linear-gradient(145deg, rgba(15,15,20,0.96), rgba(25,25,32,0.94))", borderRadius: 16, padding: 0, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #F59E0B, #3B82F6, #8B5CF6, #F37C33, #16A34A, #059669, transparent)" }} />
+                  <div style={{ padding: "18px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #1E2761, #2C3E6B)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, boxShadow: "0 2px 8px rgba(30,39,97,0.4)" }}>🔄</div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#E2E8F0", letterSpacing: "0.02em" }}>Acquisition Process Flow</h3>
+                        <div style={{ fontSize: 10, color: "#6B7394", marginTop: 1 }}>End-to-end pipeline progression</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      {declined > 0 && <span style={{ fontSize: 10, color: "#EF4444", fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}>{declined} exited</span>}
+                      <span style={{ fontSize: 10, color: "#6B7394", fontWeight: 600 }}>{totalPipeline} total</span>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-                    {funnelStages.map((stage, idx) => {
-                      const widthPct = stage.count > 0 ? Math.max(25, 30 + (1 - idx / (funnelStages.length - 1)) * 70) : 25;
-                      return (
-                        <div key={stage.label} onClick={stage.count > 0 ? stage.action : undefined} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, cursor: stage.count > 0 ? "pointer" : "default" }}>
-                          <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#6B7394", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
-                          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-                            <div className={stage.count > 0 ? "funnel-bar" : ""} style={{
-                              width: `${widthPct}%`,
-                              background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "rgba(15,21,56,0.3)",
-                              borderRadius: idx === 0 ? "10px 10px 6px 6px" : idx === funnelStages.length - 1 ? "6px 6px 10px 10px" : 6,
-                              padding: "8px 12px",
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)",
-                              minHeight: 28,
-                            }}>
-                              <span style={{ fontSize: stage.count > 0 ? 16 : 12, fontWeight: 800, color: stage.count > 0 ? "#fff" : "#CBD5E1", fontFamily: "'Space Mono', monospace", position: "relative", zIndex: 1 }}>
-                                {stage.count}
-                              </span>
+
+                  {/* Chevron Process Flow */}
+                  <div style={{ padding: "20px 16px 8px", overflowX: "auto" }}>
+                    <div style={{ display: "flex", alignItems: "stretch", minWidth: 700 }}>
+                      {stages.map((stage, idx) => {
+                        const isFirst = idx === 0;
+                        const isLast = idx === stages.length - 1;
+                        const hasCount = stage.count > 0;
+                        const intensity = hasCount ? Math.min(1, stage.count / Math.max(...stages.map(s => s.count), 1)) : 0;
+                        return (
+                          <div key={stage.label} style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            {/* Chevron shape */}
+                            <div onClick={hasCount ? stage.action : undefined} style={{ position: "relative", cursor: hasCount ? "pointer" : "default", transition: "all 0.25s ease", width: "100%" }}
+                              onMouseEnter={(e) => { if (hasCount) { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.filter = "brightness(1.15)"; } }}
+                              onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.filter = "brightness(1)"; }}
+                            >
+                              <svg viewBox="0 0 140 72" style={{ width: "100%", height: 72, display: "block" }} preserveAspectRatio="none">
+                                <defs>
+                                  <linearGradient id={`chevGrad${idx}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor={hasCount ? stage.color : "rgba(107,115,148,0.15)"} stopOpacity={hasCount ? 0.9 + intensity * 0.1 : 0.3} />
+                                    <stop offset="100%" stopColor={hasCount ? stage.color : "rgba(107,115,148,0.08)"} stopOpacity={hasCount ? 0.7 + intensity * 0.1 : 0.15} />
+                                  </linearGradient>
+                                </defs>
+                                <path d={isFirst ? "M 2 4 L 118 4 L 138 36 L 118 68 L 2 68 Z" : isLast ? "M 0 4 L 20 36 L 0 68 L 136 68 C 138 68 138 66 138 64 L 138 8 C 138 6 138 4 136 4 Z" : "M 0 4 L 20 36 L 0 68 L 118 68 L 138 36 L 118 4 Z"} fill={`url(#chevGrad${idx})`} stroke={hasCount ? stage.color : "rgba(107,115,148,0.2)"} strokeWidth={hasCount ? 1.5 : 0.5} strokeOpacity={0.6} />
+                              </svg>
+                              {/* Content overlay */}
+                              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: isFirst ? "0 8px 0 4px" : isLast ? "0 4px 0 14px" : "0 8px 0 14px" }}>
+                                <div style={{ fontSize: 22, fontWeight: 900, color: hasCount ? "#fff" : "#4A5080", fontFamily: "'Space Mono', monospace", lineHeight: 1, textShadow: hasCount ? "0 1px 4px rgba(0,0,0,0.3)" : "none" }}>{stage.count}</div>
+                                <div style={{ fontSize: 8, fontWeight: 700, color: hasCount ? "rgba(255,255,255,0.85)" : "#4A5080", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "center", lineHeight: 1.2, marginTop: 2, whiteSpace: "pre-line" }}>{stage.label}</div>
+                              </div>
                             </div>
+                            {/* Conversion arrow between stages */}
+                            {idx < stages.length - 1 && conversionRates[idx] !== null && (
+                              <div style={{ position: "absolute", right: -8, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(15,15,20,0.95)", borderRadius: 10, padding: "2px 5px", border: "1px solid rgba(255,255,255,0.1)" }}>
+                                <span style={{ fontSize: 8, fontWeight: 800, color: conversionRates[idx] >= 50 ? "#22C55E" : conversionRates[idx] >= 25 ? "#F59E0B" : "#6B7394", fontFamily: "'Space Mono', monospace" }}>{conversionRates[idx]}%</span>
+                              </div>
+                            )}
+                            {/* Stage description */}
+                            <div style={{ fontSize: 8, color: "#4A5080", fontWeight: 500, marginTop: 4, textAlign: "center" }}>{stage.desc}</div>
                           </div>
-                          <div style={{ width: 50, fontSize: 10, color: "#94A3B8", flexShrink: 0 }}>
-                            {stage.count > 0 ? "→" : ""}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div style={{ marginTop: 10, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
-                    Click any stage to navigate — sites flow left to right
+
+                  {/* Stage-by-stage metrics bar */}
+                  <div style={{ padding: "6px 24px 16px" }}>
+                    <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,0.04)" }}>
+                      {stages.map((s, i) => s.count > 0 ? (
+                        <div key={i} style={{ width: `${(s.count / totalPipeline) * 100}%`, background: s.color, transition: "width 0.5s ease", minWidth: 2 }} title={`${s.label.replace('\n', ' ')}: ${s.count}`} />
+                      ) : null)}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                      <span style={{ fontSize: 9, color: "#4A5080" }}>Intake</span>
+                      <span style={{ fontSize: 9, color: "#4A5080" }}>Click any stage to drill down</span>
+                      <span style={{ fontSize: 9, color: "#4A5080" }}>Close</span>
+                    </div>
                   </div>
                 </div>
               );
