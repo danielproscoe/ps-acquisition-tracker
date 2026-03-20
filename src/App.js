@@ -1642,7 +1642,7 @@ export default function App() {
   const [transitioning, setTransitioning] = useState(false);
   const navigateTo = useCallback((newTab, opts = {}) => {
     if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setTab("review"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    if (newTab === tab && !opts.force) { if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
+    if (newTab === tab && !opts.force) { if (detailView) { setDetailView(null); window.scrollTo({ top: 0, behavior: "smooth" }); return; } if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
     setTransitioning(true);
     setTimeout(() => {
       setTab(newTab);
