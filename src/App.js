@@ -2476,6 +2476,7 @@ export default function App() {
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
                       </div>
                     </div>
+                    <button onClick={(e) => { e.stopPropagation(); setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(21,101,192,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(21,101,192,0.3)"; }}>📊 Detail</button>
                     <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
                   </div>
 
