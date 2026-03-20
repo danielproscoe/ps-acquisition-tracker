@@ -3,7 +3,7 @@
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { db, storage } from "./firebase";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import {
@@ -142,8 +142,12 @@ const SITE_SCORE_DEFAULTS = [
   { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
 ];
 
-// Live mutable config — starts as copy of defaults, merged with Firebase on load
-let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
+// Live config — starts as copy of defaults, updated via updateSiteScoreConfig() only
+// Frozen after each update to prevent accidental mutation
+let SITE_SCORE_CONFIG = Object.freeze(SITE_SCORE_DEFAULTS.map(d => ({ ...d })));
+const updateSiteScoreConfig = (newDims) => {
+  SITE_SCORE_CONFIG = Object.freeze(normalizeSiteScoreWeights(newDims.map(d => ({ ...d }))));
+};
 
 // Auto-normalize so weights always sum to 1.0
 const normalizeSiteScoreWeights = (dims) => {
@@ -161,6 +165,8 @@ const getIQWeight = (key) => {
 };
 
 // ─── Helpers ───
+const isValidCoords = (c) => /^-?\d{1,3}\.?\d*,\s*-?\d{1,3}\.?\d*$/.test(String(c || "").trim());
+const safeMapsUrl = (c) => isValidCoords(c) ? `https://maps.google.com/maps?q=${encodeURIComponent(c.trim())}&t=k&z=17&output=embed` : "";
 const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const fmt$ = (v) => {
@@ -1198,6 +1204,29 @@ const DW_SEED = [];
 const MT_SEED = [];
 
 // ═══ MAIN APP ═══
+// ─── Error Boundary — prevents full-app crash on component errors ───
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error("ErrorBoundary caught:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, textAlign: "center", background: "#0F172A", minHeight: "100vh", color: "#E2E8F0", fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠</div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Something went wrong</h2>
+          <p style={{ color: "#94A3B8", fontSize: 14, marginBottom: 24 }}>{this.state.error?.message || "An unexpected error occurred."}</p>
+          <button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #F37C33, #D45500)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+            Reload Application
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [subs, setSubs] = useState([]);
@@ -1312,7 +1341,7 @@ export default function App() {
           const override = val.dimensions.find(o => o.key === d.key);
           return { ...d, weight: override ? override.weight : d.weight };
         });
-        SITE_SCORE_CONFIG = normalizeSiteScoreWeights(merged);
+        updateSiteScoreConfig(merged);
         setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
       }
     });
@@ -2201,7 +2230,7 @@ export default function App() {
                           <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)" }}>
                             <iframe
                               title={`Aerial — ${site.name}`}
-                              src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`}
+                              src={safeMapsUrl(site.coordinates)}
                               style={{ width: "100%", height: 220, border: "none" }}
                               loading="lazy"
                               allowFullScreen
@@ -2633,6 +2662,7 @@ export default function App() {
 
   // ═══ RENDER ═══
   return (
+    <ErrorBoundary>
     <div style={{ minHeight: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 30%, #0F1538 60%, #0A0E2A 100%)", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: "#E2E8F0" }}>
       {/* AI NEURAL NETWORK BACKGROUND — Circuit Grid + Data Streams + Lightning */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
@@ -2756,8 +2786,7 @@ export default function App() {
         };
         const handleSaveWeights = () => {
           const normalized = iqWeights.map(d => ({ ...d, weight: d.weight / totalW }));
-          SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
-          normalizeSiteScoreWeights(SITE_SCORE_CONFIG);
+          updateSiteScoreConfig(SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight })));
           fbSet("config/siteiq_weights", {
             dimensions: normalized.map(d => ({ key: d.key, weight: Math.round(d.weight * 1000) / 1000 })),
             updatedAt: new Date().toISOString(),
@@ -3699,7 +3728,7 @@ export default function App() {
               {/* Aerial */}
               {site.coordinates && (
                 <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 20, position: "relative" }}>
-                  <iframe title={`Aerial — ${site.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
+                  <iframe title={`Aerial — ${site.name}`} src={safeMapsUrl(site.coordinates)} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
                   <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>AERIAL VIEW</div>
                 </div>
               )}
@@ -3895,7 +3924,7 @@ export default function App() {
               {/* AERIAL VIEW */}
               {site.coordinates && (
                 <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 20, position: "relative" }}>
-                  <iframe title={`Aerial — ${site.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
+                  <iframe title={`Aerial — ${site.name}`} src={safeMapsUrl(site.coordinates)} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
                   <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em" }}>AERIAL VIEW</div>
                 </div>
               )}
@@ -4102,5 +4131,6 @@ export default function App() {
                           © {new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Patent Pending (App. No. 64/009,393). Proprietary software — unauthorized reproduction prohibited.
                                 </div>
     </div>
+    </ErrorBoundary>
   );
 }

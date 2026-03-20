@@ -31,7 +31,7 @@ export function logPageView(user, page) {
 export function ActivityLogPanel({ currentUserEmail }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const isAdmin = currentUserEmail === "daniel.p.roscoe@gmail.com";
+  const isAdmin = currentUserEmail === (process.env.REACT_APP_ADMIN_EMAIL || "daniel.p.roscoe@gmail.com");
 
   useEffect(() => {
     if (!isAdmin) { setLoading(false); return; }
