@@ -1050,6 +1050,7 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
             { key: "pricing", label: "PPA" },
             { key: "zoning", label: "ZN" },
             { key: "access", label: "ACC" },
+            { key: "psProximity", label: "PS" },
             { key: "competition", label: "CP" },
             { key: "marketTier", label: "MKT" },
           ].map((f) => {
@@ -1224,7 +1225,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [transitioning, setTransitioning] = useState(false);
   const navigateTo = useCallback((newTab, opts = {}) => {
-    if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setTab("review"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setDetailView(null); setTab("review"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     if (newTab === tab && !opts.force) { if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
     setTransitioning(true);
     setTimeout(() => {
@@ -1301,6 +1302,25 @@ export default function App() {
     window.addEventListener("keydown", handleKeyNav);
     return () => window.removeEventListener("keydown", handleKeyNav);
   }, [tab, expandedSite, sw, east, sortBy]);
+
+  // ─── DETAIL VIEW KEYBOARD NAVIGATION — Arrow left/right, Escape ───
+  useEffect(() => {
+    if (!detailView) return;
+    const dv = detailView;
+    const allSites = sortData(dv.regionKey === "east" ? east : sw);
+    const idx = allSites.findIndex(s => s.id === dv.siteId);
+    const prevSite = idx > 0 ? allSites[idx - 1] : null;
+    const nextSite = idx < allSites.length - 1 ? allSites[idx + 1] : null;
+    const handleDetailKey = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "ArrowLeft" && prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+      if (e.key === "ArrowRight" && nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+      if (e.key === "Escape") { setDetailView(null); }
+    };
+    window.addEventListener("keydown", handleDetailKey);
+    return () => window.removeEventListener("keydown", handleDetailKey);
+  }, [detailView, sw, east, sortBy]);
 
   // ─── FONT LOADER ───
   useEffect(() => {
@@ -1969,7 +1989,7 @@ export default function App() {
     const cache = new Map();
     [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteScore(s)); });
     return cache;
-  }, [sw, east]);
+  }, [sw, east, iqWeights]);
   const getSiteScore = (site) => siteScoreCache.get(site.id) || computeSiteScore(site);
 
   const SortBar = () => (
@@ -2055,7 +2075,7 @@ export default function App() {
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
                       </div>
                     </div>
-                    <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
+                    <div style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "rgba(232,122,46,0.06)", border: "1px solid rgba(232,122,46,0.12)", transition: "all 0.2s" }}>Open <span style={{ fontSize: 12, transition: "transform 0.2s" }}>→</span></div>
                   </div>
 
                   {/* Expanded */}
@@ -3599,19 +3619,23 @@ export default function App() {
               if (filtered.length === 0) return null;
               return (
               <div style={{ display: "grid", gap: 10 }}>
-                {sortData(subs).filter(site => {
-                  if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
-                  if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
-                  if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
-                  return true;
-                }).sort((a, b) => {
-                  // NEW (unreviewed) sites first, then descending SiteScore
-                  const aIsNew = !a.recommendedAt && !a.approvedAt && a.status === "pending";
-                  const bIsNew = !b.recommendedAt && !b.approvedAt && b.status === "pending";
-                  if (aIsNew && !bIsNew) return -1;
-                  if (!aIsNew && bIsNew) return 1;
-                  return (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0);
-                }).map((site) => {
+                {(() => {
+                  const filtered = subs.filter(site => {
+                    if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
+                    if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
+                    if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
+                    return true;
+                  });
+                  // Apply user sort if explicitly set; otherwise default to NEW-first + SiteScore
+                  const sorted = sortBy !== "city" ? sortData(filtered) : [...filtered].sort((a, b) => {
+                    const aIsNew = !a.recommendedAt && !a.approvedAt && a.status === "pending";
+                    const bIsNew = !b.recommendedAt && !b.approvedAt && b.status === "pending";
+                    if (aIsNew && !bIsNew) return -1;
+                    if (!aIsNew && bIsNew) return 1;
+                    return (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0);
+                  });
+                  return sorted;
+                })().map((site) => {
                   const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
                   const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
                   const isHL = highlightedSite === site.id;
@@ -3835,22 +3859,13 @@ export default function App() {
           const docs = site.docs ? Object.entries(site.docs) : [];
           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
-          // Keyboard nav for detail view
-          const handleDetailKey = (e) => {
-            if (e.key === "ArrowLeft" && prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "ArrowRight" && nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "Escape") { setDetailView(null); }
-          };
-          // Attach keydown handler — cleanup on next render via removal before re-attach
-          if (window._detailKeyHandler) { window.removeEventListener("keydown", window._detailKeyHandler); }
-          window._detailKeyHandler = handleDetailKey;
-          window.addEventListener("keydown", handleDetailKey);
+          // Keyboard nav handled by useEffect below
 
           return (
             <div style={{ animation: "fadeIn 0.15s ease-out" }}>
               {/* TOP NAV BAR */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                <button onClick={() => { if (window._detailKeyHandler) { window.removeEventListener("keydown", window._detailKeyHandler); window._detailKeyHandler = null; } setDetailView(null); navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
+                <button onClick={() => { setDetailView(null); navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
