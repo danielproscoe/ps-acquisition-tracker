@@ -1144,7 +1144,8 @@ const computeSiteScore = (site) => {
     popScore = 2;
     scores.population = popScore;
     hardFail = false;
-    flags = flags.filter(f => f !== "FAIL: 3-mi pop under 5,000");
+    const failIdx = flags.indexOf("FAIL: 3-mi pop under 5,000");
+    if (failIdx !== -1) flags.splice(failIdx, 1);
     flags.push("Growth corridor: pop under 5K but high growth — scored 2 (not FAIL)");
   }
 
