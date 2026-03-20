@@ -1689,6 +1689,7 @@ export default function App() {
   const [scoreExpanded, setScoreExpanded] = useState(false);
   const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
   const [demoRowExpanded, setDemoRowExpanded] = useState(null); // which demographics row is expanded (key string)
+  const [hoveredMetric, setHoveredMetric] = useState(null); // which key metric box tooltip is showing
   const [iqWeights, setIqWeights] = useState(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
@@ -4711,22 +4712,155 @@ export default function App() {
                 );
               })()}
 
-              {/* KEY METRICS STRIP */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 20 }}>
-                {[
-                  { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
-                  { label: "INTERNAL", val: site.internalPrice ? fmtPrice(site.internalPrice) : "—", color: "#E87A2E" },
-                  { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0" },
-                  { label: "ZONING", val: site.zoning || "—", color: "#C9A84C" },
-                  { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#E2E8F0" },
-                  { label: "3MI MED INC", val: site.income3mi ? "$" + fmtN(site.income3mi) : "—", color: "#E2E8F0" },
-                ].map((m, i) => (
-                  <div key={i} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(201,168,76,0.08)" }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 4 }}>{m.label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+              {/* KEY METRICS STRIP — with hover tooltips */}
+              {(() => {
+                const askRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
+                const intRaw = parseFloat(String(site.internalPrice || "").replace(/[^0-9.]/g, ""));
+                const acRaw = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+                const popRaw = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
+                const incRaw = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
+                const hhRaw = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
+                const hvRaw = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
+                const growthRaw = site.popGrowth3mi || site.growthRate;
+                const growthPct = growthRaw ? parseFloat(String(growthRaw).replace(/[^0-9.\-]/g, "")) : null;
+                const ppaVal = (!isNaN(askRaw) && askRaw > 0 && !isNaN(acRaw) && acRaw > 0) ? Math.round(askRaw / acRaw) : null;
+                const dom = site.daysOnMarket || site.dom;
+                const phase = site.phase || "Prospect";
+
+                const buildTooltip = (key) => {
+                  if (key === "asking") {
+                    const domStr = dom ? `${dom} days on market` : null;
+                    const ppaStr = ppaVal ? `$${ppaVal.toLocaleString()}/acre` : null;
+                    const lines = [];
+                    lines.push(!isNaN(askRaw) && askRaw > 0 ? `Listed at $${askRaw.toLocaleString()}` : "No asking price listed");
+                    if (ppaStr) lines.push(`Equates to ${ppaStr} across ${acRaw} acres`);
+                    if (domStr) lines.push(domStr);
+                    if (!isNaN(intRaw) && intRaw > 0) { const disc = (((askRaw - intRaw) / askRaw) * 100).toFixed(1); lines.push(`Internal target: $${intRaw.toLocaleString()} (${disc}% below ask)`); }
+                    if (ppaVal) { const tier = ppaVal <= 150000 ? "Excellent - well below $150K/ac target" : ppaVal <= 250000 ? "Good - within $250K/ac acquisition range" : ppaVal <= 400000 ? "Moderate - above preferred range" : "Premium pricing - above $400K/ac"; lines.push(tier); }
+                    return lines;
+                  }
+                  if (key === "internal") {
+                    const lines = [];
+                    if (!isNaN(intRaw) && intRaw > 0) {
+                      if (phase === "Under Contract") lines.push(`Under contract at $${intRaw.toLocaleString()}`);
+                      else if (phase === "LOI") lines.push(`LOI submitted at $${intRaw.toLocaleString()}`);
+                      else if (phase === "PSA Sent") lines.push(`PSA sent at $${intRaw.toLocaleString()}`);
+                      else lines.push(`Internal price target: $${intRaw.toLocaleString()}`);
+                      if (!isNaN(askRaw) && askRaw > 0) { const disc = (((askRaw - intRaw) / askRaw) * 100).toFixed(1); lines.push(`${disc}% discount to asking ($${askRaw.toLocaleString()})`); }
+                      if (site.summary) { const s = site.summary; if (s.toLowerCase().includes("counter")) lines.push("Negotiation history in recent summary"); }
+                    } else { lines.push("No internal pricing established yet"); lines.push("Awaiting broker response or initial valuation"); }
+                    return lines;
+                  }
+                  if (key === "acreage") {
+                    const lines = [];
+                    if (!isNaN(acRaw) && acRaw > 0) {
+                      lines.push(`${acRaw.toFixed(2)} acres total`);
+                      if (acRaw >= 3.5 && acRaw <= 5) lines.push("Ideal size for one-story indoor climate-controlled storage");
+                      else if (acRaw >= 2.5 && acRaw < 3.5) lines.push("Fits 3-4 story multi-story storage product");
+                      else if (acRaw > 5 && acRaw <= 7) lines.push("Larger site - potential for phased development or pad split");
+                      else if (acRaw > 7) lines.push("Oversized - would need subdivision or excess land disposition");
+                      else if (acRaw < 2.5) lines.push("Below minimum 2.5ac threshold - tight fit");
+                      if (acRaw > 7) lines.push("Evaluate partial acquisition or subdivide strategy");
+                      if (ppaVal) lines.push(`Current basis: $${ppaVal.toLocaleString()}/acre`);
+                    } else { lines.push("Acreage not specified"); }
+                    return lines;
+                  }
+                  if (key === "zoning") {
+                    const lines = [];
+                    const zc = site.zoningClassification || "unknown";
+                    const zu = site.zoningUseTerm;
+                    lines.push(`District: ${site.zoning || "Not specified"}`);
+                    if (zc === "by-right") lines.push("Self-storage is PERMITTED BY RIGHT - no hearing required");
+                    else if (zc === "conditional") lines.push("Conditional use / SUP required - public hearing needed");
+                    else if (zc === "rezone-required") lines.push("Rezone required - higher cost and timeline risk");
+                    else if (zc === "prohibited") lines.push("Storage use PROHIBITED in current district");
+                    else lines.push("Zoning viability not yet confirmed");
+                    if (zu) lines.push(`Use category: "${zu}"`);
+                    if (site.zoningOrdinanceSection) lines.push(`Source: ${site.zoningOrdinanceSection}`);
+                    if (site.jurisdictionType) lines.push(`Jurisdiction: ${site.jurisdictionType}`);
+                    if (site.supCost) lines.push(`Est. entitlement cost: ${site.supCost}`);
+                    return lines;
+                  }
+                  if (key === "pop") {
+                    const lines = [];
+                    if (!isNaN(popRaw) && popRaw > 0) {
+                      lines.push(`${popRaw.toLocaleString()} residents within 3-mile radius`);
+                      const tier = popRaw >= 40000 ? "Dense suburban market - strong demand pool" : popRaw >= 25000 ? "Solid suburban density" : popRaw >= 15000 ? "Moderate density - viable with growth" : popRaw >= 10000 ? "Lower density - growth trajectory critical" : "Thin population base";
+                      lines.push(tier);
+                      if (growthPct !== null) {
+                        const gStr = growthPct >= 2.0 ? `${growthPct.toFixed(1)}% CAGR - explosive growth corridor` : growthPct >= 1.5 ? `${growthPct.toFixed(1)}% CAGR - strong growth` : growthPct >= 1.0 ? `${growthPct.toFixed(1)}% CAGR - healthy growth` : growthPct >= 0 ? `${growthPct.toFixed(1)}% CAGR - stable` : `${growthPct.toFixed(1)}% CAGR - declining`;
+                        lines.push(`5-yr growth outlook: ${gStr}`);
+                        if (growthPct > 0) { const proj = Math.round(popRaw * Math.pow(1 + growthPct / 100, 5)); lines.push(`Projected 2030 population: ~${proj.toLocaleString()}`); }
+                      }
+                      if (!isNaN(hhRaw) && hhRaw > 0) lines.push(`${hhRaw.toLocaleString()} households (${(popRaw / hhRaw).toFixed(1)} persons/hh)`);
+                    } else { lines.push("Population data not available"); }
+                    if (site.demandDrivers) lines.push(`Drivers: ${site.demandDrivers.substring(0, 120)}${site.demandDrivers.length > 120 ? "..." : ""}`);
+                    return lines;
+                  }
+                  if (key === "income") {
+                    const lines = [];
+                    if (!isNaN(incRaw) && incRaw > 0) {
+                      lines.push(`$${incRaw.toLocaleString()} median household income (3-mi)`);
+                      const tier = incRaw >= 90000 ? "Premium affluent market - strong pricing power" : incRaw >= 75000 ? "Upper-middle income - favorable for climate-controlled" : incRaw >= 65000 ? "Solid middle income - core storage demographic" : incRaw >= 55000 ? "Moderate income - viable but price-sensitive" : "Below target threshold ($55K minimum)";
+                      lines.push(tier);
+                      if (!isNaN(hvRaw) && hvRaw > 0) lines.push(`Median home value: $${hvRaw.toLocaleString()}`);
+                      if (growthPct !== null) {
+                        const incomeGrowth = growthPct >= 1.5 ? "Rising incomes likely - high-growth market" : growthPct >= 0.5 ? "Stable income trajectory with population growth" : "Flat or declining growth - monitor pricing power";
+                        lines.push(`5-yr outlook: ${incomeGrowth}`);
+                      }
+                      if (site.renterPct3mi) lines.push(`Renter percentage: ${site.renterPct3mi} (renters = higher storage demand)`);
+                    } else { lines.push("Income data not available"); }
+                    return lines;
+                  }
+                  return [];
+                };
+
+                const metricItems = [
+                  { key: "asking", label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
+                  { key: "internal", label: "INTERNAL", val: site.internalPrice ? fmtPrice(site.internalPrice) : "---", color: "#E87A2E" },
+                  { key: "acreage", label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "---", color: "#E2E8F0" },
+                  { key: "zoning", label: "ZONING", val: site.zoning || "---", color: "#C9A84C" },
+                  { key: "pop", label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "---", color: "#E2E8F0" },
+                  { key: "income", label: "3MI MED INC", val: site.income3mi ? "$" + fmtN(site.income3mi) : "---", color: "#E2E8F0" },
+                ];
+
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 20 }}>
+                    {metricItems.map((m) => {
+                      const isHov = hoveredMetric === m.key;
+                      const ttLines = isHov ? buildTooltip(m.key) : [];
+                      return (
+                        <div key={m.key} style={{ position: "relative" }}
+                          onMouseEnter={() => setHoveredMetric(m.key)} onMouseLeave={() => setHoveredMetric(null)}>
+                          <div style={{ background: isHov ? "rgba(30,39,97,0.85)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: "14px 16px", border: isHov ? "1px solid rgba(201,168,76,0.35)" : "1px solid rgba(201,168,76,0.08)", cursor: "pointer", transition: "all 0.2s ease", transform: isHov ? "translateY(-2px)" : "none", boxShadow: isHov ? "0 8px 32px rgba(201,168,76,0.15)" : "none" }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: isHov ? "#C9A84C" : "#6B7394", letterSpacing: "0.1em", marginBottom: 4, transition: "color 0.2s" }}>{m.label}</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                          </div>
+                          {isHov && ttLines.length > 0 && (
+                            <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", minWidth: 320, maxWidth: 420, zIndex: 9999, borderRadius: 14, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.2), 0 0 40px rgba(30,39,97,0.4)", animation: "fadeIn 0.15s ease-out" }}>
+                              <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "10px 14px", borderBottom: "2px solid #C9A84C", display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 12 }}>{m.key === "asking" ? "💰" : m.key === "internal" ? "🎯" : m.key === "acreage" ? "📐" : m.key === "zoning" ? "📋" : m.key === "pop" ? "👥" : "💵"}</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Storvex Intelligence</span>
+                              </div>
+                              <div style={{ background: "linear-gradient(180deg, #0F1538, #131B45)", padding: "14px 16px" }}>
+                                {ttLines.map((line, li) => (
+                                  <div key={li} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0", borderBottom: li < ttLines.length - 1 ? "1px solid rgba(201,168,76,0.06)" : "none" }}>
+                                    <span style={{ color: "#C9A84C", fontSize: 8, marginTop: 5, flexShrink: 0 }}>&#9670;</span>
+                                    <span style={{ fontSize: 12, color: li === 0 ? "#F4F6FA" : "#CBD5E1", fontWeight: li === 0 ? 700 : 500, lineHeight: 1.5 }}>{line}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ background: "rgba(201,168,76,0.04)", padding: "6px 14px", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
+                                <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600, letterSpacing: "0.05em" }}>SiteScore&#8482; Analysis</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
 
               {/* ACTION BUTTONS */}
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)", alignItems: "center" }}>
