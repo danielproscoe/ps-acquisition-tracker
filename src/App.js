@@ -974,6 +974,22 @@ const generatePricingReport = (site, iqResult) => {
   const totalDevCost = landCost + hardCost + softCost;
   const yocStab = stabNOI > 0 && totalDevCost > 0 ? ((stabNOI / totalDevCost) * 100).toFixed(1) : "N/A";
 
+  // ── Land Price Suggestion (back-into from NOI) ──
+  const buildCosts = hardCost + softCost;
+  const landTargets = [
+    { label: "Maximum", yoc: 0.07, desc: "Aggressive — floor of PS development underwriting. Tight margin, must execute flawlessly.", color: "#EF4444", tag: "CEILING" },
+    { label: "Strike Price", yoc: 0.085, desc: "Sweet spot — PS's target development hurdle rate. Strong risk-adjusted return.", color: "#C9A84C", tag: "TARGET" },
+    { label: "Minimum", yoc: 0.10, desc: "Conservative — home run territory. Maximum margin of safety, easiest internal approval.", color: "#16A34A", tag: "FLOOR" },
+  ];
+  const landPrices = landTargets.map(t => {
+    const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts) : 0;
+    const perAcre = !isNaN(acres) && acres > 0 && maxLand > 0 ? Math.round(maxLand / acres) : 0;
+    return { ...t, maxLand: Math.max(maxLand, 0), perAcre };
+  });
+  const askVsStrike = landCost > 0 && landPrices[1].maxLand > 0 ? ((landCost / landPrices[1].maxLand - 1) * 100).toFixed(0) : null;
+  const landVerdict = askVsStrike !== null ? (parseFloat(askVsStrike) <= -15 ? "STRONG BUY" : parseFloat(askVsStrike) <= 0 ? "BUY" : parseFloat(askVsStrike) <= 15 ? "NEGOTIATE" : parseFloat(askVsStrike) <= 30 ? "STRETCH" : "PASS") : null;
+  const verdictColor = landVerdict === "STRONG BUY" ? "#16A34A" : landVerdict === "BUY" ? "#22C55E" : landVerdict === "NEGOTIATE" ? "#F59E0B" : landVerdict === "STRETCH" ? "#E87A2E" : landVerdict === "PASS" ? "#EF4444" : "#6B7394";
+
   // ── Unit Mix Estimate ──
   const unitMix = [
     { type: "5x5 Climate", sf: 25, pct: 0.10, rate: null, cat: "climate" },
@@ -1554,6 +1570,122 @@ function toggleExpand(id){
         <div class="drill-row"><span class="drill-label">Sell at Y5 (stabilized)</span><span class="drill-value" style="color:#C9A84C">${fmtM(valuations[1].value)}</span></div>
         <div class="drill-row"><span class="drill-label">Sell at Y7 (ECRI mature)</span><span class="drill-value" style="color:#16A34A">${fmtM(Math.round(stabNOI * Math.pow(1.04, 2) / 0.055))}</span></div>
         <div style="margin-top:6px;font-size:10px;color:#4A5080;font-style:italic">Y7 assumes 4% annual NOI growth from ECRI + market escalation, and 25bps cap compression at maturity.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- LAND PRICE SUGGESTION -->
+<div class="section section-gold expand-trigger" onclick="toggleExpand('landprice')" style="background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6));border-color:rgba(201,168,76,0.3);box-shadow:0 4px 30px rgba(201,168,76,0.12)">
+  <span class="expand-hint">▼ Click to expand <span id="landprice-arrow" class="expand-arrow">▼</span></span>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div>
+      <h2 style="margin-bottom:4px"><span class="gold">Land Acquisition Price Guide</span></h2>
+      <div style="font-size:11px;color:#94A3B8">Reverse-engineered from stabilized NOI — what should we pay for this land?</div>
+    </div>
+    ${landVerdict ? `<div style="display:flex;flex-direction:column;align-items:center">
+      <div class="badge" style="background:${verdictColor}20;color:${verdictColor};border:1px solid ${verdictColor}40;font-size:14px;padding:8px 20px;font-weight:900;letter-spacing:0.08em">${landVerdict}</div>
+      ${askVsStrike ? `<div style="font-size:10px;color:#6B7394;margin-top:4px">Ask is ${parseFloat(askVsStrike) > 0 ? askVsStrike + "% above" : Math.abs(parseFloat(askVsStrike)) + "% below"} strike</div>` : ""}
+    </div>` : ""}
+  </div>
+  <div style="font-size:12px;color:#94A3B8;margin-bottom:20px;padding:12px 16px;background:rgba(15,21,56,0.4);border-radius:10px;border:1px solid rgba(201,168,76,0.08)">
+    <strong style="color:#C9A84C">Formula:</strong> <span class="mono" style="color:#E2E8F0">Max Land Price = (Stabilized NOI ÷ Target YOC%) − Build Costs</span>
+    <div style="margin-top:6px"><strong style="color:#C9A84C">Inputs:</strong> Stabilized NOI = <span class="mono" style="color:#16A34A">${fmtD(stabNOI)}</span> | Build Costs (Hard + Soft) = <span class="mono" style="color:#E87A2E">${fmtD(buildCosts)}</span></div>
+  </div>
+  <div class="grid3" style="margin-bottom:16px">
+    ${landPrices.map(lp => `<div class="metric-box" style="${lp.tag === "TARGET" ? "border-color:rgba(201,168,76,0.35);box-shadow:0 4px 24px rgba(201,168,76,0.12)" : ""}">
+      <div style="display:flex;justify-content:center;margin-bottom:8px"><span class="tag" style="background:${lp.color}20;color:${lp.color}">${lp.tag}</span></div>
+      <div class="label">${lp.label} (${(lp.yoc*100).toFixed(1)}% YOC)</div>
+      <div class="value" style="color:${lp.color};font-size:28px">${lp.maxLand > 0 ? fmtM(lp.maxLand) : "N/A"}</div>
+      ${lp.perAcre > 0 ? `<div style="font-size:12px;color:#6B7394;margin-top:4px;font-family:'Space Mono',monospace">$${lp.perAcre.toLocaleString()}/acre</div>` : ""}
+    </div>`).join("")}
+  </div>
+  ${landCost > 0 ? `<div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.1);margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#6B7394;letter-spacing:0.08em">CURRENT ASKING PRICE</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:#E2E8F0;margin-top:4px">${fmtM(landCost)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:10px;color:#6B7394">vs Strike Price</div>
+        <div class="mono" style="font-size:24px;font-weight:900;color:${verdictColor}">${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "—"}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#6B7394">Suggested Counter</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;height:8px;border-radius:4px;background:rgba(255,255,255,0.06);position:relative;overflow:visible">
+      ${landPrices.map(lp => lp.maxLand > 0 ? `<div style="position:absolute;left:${Math.min(Math.max(Math.round(lp.maxLand / (landPrices[0].maxLand * 1.4) * 100), 5), 95)}%;top:-4px;width:3px;height:16px;background:${lp.color};border-radius:2px" title="${lp.label}: ${fmtM(lp.maxLand)}"></div>` : "").join("")}
+      ${landCost > 0 ? `<div style="position:absolute;left:${Math.min(Math.max(Math.round(landCost / (landPrices[0].maxLand * 1.4) * 100), 5), 95)}%;top:-6px;width:4px;height:20px;background:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,255,255,0.4)" title="Asking: ${fmtM(landCost)}"></div>` : ""}
+      <div style="width:100%;height:100%;border-radius:4px;background:linear-gradient(90deg,#16A34A,#F59E0B,#EF4444)"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:#6B7394">
+      <span>Min (Home Run)</span>
+      <span>Strike (Target)</span>
+      <span>Max (Ceiling)</span>
+    </div>
+  </div>` : ""}
+  <div id="landprice" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">How This Works</div>
+      <div>This model reverse-engineers the maximum land price from the facility's projected performance. Instead of asking "what does this land cost?" — it answers <strong style="color:#C9A84C">"what SHOULD this land cost?"</strong> based on what the storage facility will produce.</div>
+      <div style="margin-top:10px">The formula backs into land price by subtracting known build costs from the total capital budget implied by each yield target:</div>
+      <div style="margin-top:8px;padding:12px;background:rgba(15,21,56,0.5);border-radius:8px;border:1px solid rgba(201,168,76,0.08)">
+        <div class="mono" style="font-size:12px;color:#E2E8F0;line-height:2">
+          <div>Total Dev Budget = Stabilized NOI ÷ Target YOC%</div>
+          <div>Max Land Price = Total Dev Budget − Hard Costs − Soft Costs</div>
+          <div style="margin-top:4px;color:#C9A84C">Strike Example: ${fmtD(stabNOI)} ÷ 8.5% = ${fmtD(Math.round(stabNOI / 0.085))} − ${fmtD(buildCosts)} = <strong>${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Full YOC Sensitivity — Land Price Matrix</div>
+      <table style="font-size:11px">
+        <thead><tr><th>Target YOC</th><th>Total Dev Budget</th><th>Less Build Costs</th><th>Max Land Price</th><th>Per Acre</th><th>Signal</th></tr></thead>
+        <tbody>
+          ${[0.065, 0.07, 0.075, 0.08, 0.085, 0.09, 0.095, 0.10, 0.11, 0.12].map(yoc => {
+            const budget = stabNOI > 0 ? Math.round(stabNOI / yoc) : 0;
+            const maxL = Math.max(budget - buildCosts, 0);
+            const pa = !isNaN(acres) && acres > 0 && maxL > 0 ? Math.round(maxL / acres) : 0;
+            const isStrike = yoc === 0.085;
+            const signal = yoc <= 0.07 ? "Ceiling" : yoc <= 0.08 ? "Aggressive" : yoc <= 0.09 ? "Target" : yoc <= 0.10 ? "Conservative" : "Home Run";
+            const sigColor = yoc <= 0.07 ? "#EF4444" : yoc <= 0.08 ? "#E87A2E" : yoc <= 0.09 ? "#C9A84C" : yoc <= 0.10 ? "#16A34A" : "#16A34A";
+            return `<tr style="${isStrike ? "background:rgba(201,168,76,0.08);border-left:3px solid #C9A84C" : ""}">
+              <td class="mono" style="font-weight:700;${isStrike ? "color:#C9A84C" : ""}">${(yoc*100).toFixed(1)}%${isStrike ? " ◆" : ""}</td>
+              <td class="mono">${budget > 0 ? fmtM(budget) : "N/A"}</td>
+              <td class="mono" style="color:#6B7394">(${fmtD(buildCosts)})</td>
+              <td class="mono" style="font-weight:700;color:${maxL > 0 ? "#E2E8F0" : "#EF4444"}">${maxL > 0 ? fmtM(maxL) : "$0"}</td>
+              <td class="mono">${pa > 0 ? "$" + pa.toLocaleString() : "—"}</td>
+              <td><span class="tag" style="background:${sigColor}20;color:${sigColor}">${signal}</span></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="insight-box">
+        <div class="insight-title">Negotiation Intelligence</div>
+        ${landCost > 0 && landPrices[1].maxLand > 0 ? `<div style="margin-bottom:8px">
+          ${parseFloat(askVsStrike) <= -15 ? `<div style="color:#16A34A;font-weight:700;margin-bottom:6px">The asking price is ${Math.abs(parseFloat(askVsStrike))}% BELOW strike — this is a strong buy. Move fast before competing offers emerge. Consider offering at or near ask to lock it up.</div>` :
+          parseFloat(askVsStrike) <= 0 ? `<div style="color:#22C55E;font-weight:700;margin-bottom:6px">The asking price is at or below strike — this deal pencils at the current ask. Standard LOI at asking price is defensible.</div>` :
+          parseFloat(askVsStrike) <= 15 ? `<div style="color:#F59E0B;font-weight:700;margin-bottom:6px">The asking price is ${askVsStrike}% above strike — negotiate. Counter at ${fmtM(landPrices[1].maxLand)} (strike price) with a ${fmtD(Math.round((landCost - landPrices[1].maxLand) * 0.4 + landPrices[1].maxLand))} fallback position.</div>` :
+          parseFloat(askVsStrike) <= 30 ? `<div style="color:#E87A2E;font-weight:700;margin-bottom:6px">The asking price is ${askVsStrike}% above strike — this is a stretch. Only pursue if the site has exceptional strategic value (location, competition void, growth trajectory) that justifies compressed returns.</div>` :
+          `<div style="color:#EF4444;font-weight:700;margin-bottom:6px">The asking price is ${askVsStrike}% above strike — this deal does not pencil at the current ask. The seller's expectations exceed what this facility can support. Pass or submit a significantly below-ask offer at ${fmtM(landPrices[1].maxLand)} with full justification.</div>`}
+        </div>` : `<div style="color:#6B7394">Asking price not available — use the strike price of ${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"} as the opening offer anchor.</div>`}
+        <div class="drill-row"><span class="drill-label">LOI Opening Offer</span><span class="drill-value" style="color:#16A34A">${landPrices[2].maxLand > 0 ? fmtM(Math.round((landPrices[2].maxLand + landPrices[1].maxLand) / 2)) : "N/A"}</span></div>
+        <div class="drill-row"><span class="drill-label">Walk-Away Price</span><span class="drill-value" style="color:#EF4444">${landPrices[0].maxLand > 0 ? fmtM(landPrices[0].maxLand) : "N/A"}</span></div>
+        <div class="drill-row"><span class="drill-label">Negotiation Range</span><span class="drill-value">${landPrices[2].maxLand > 0 && landPrices[0].maxLand > 0 ? fmtM(landPrices[2].maxLand) + " — " + fmtM(landPrices[0].maxLand) : "N/A"}</span></div>
+      </div>
+      <div class="insight-box">
+        <div class="insight-title">Why These YOC Targets?</div>
+        <div style="font-size:11px;color:#94A3B8;line-height:1.8">
+          <div><strong style="color:#EF4444">7.0% (Max/Ceiling)</strong> — Below PS's typical hurdle. Only justified for irreplaceable locations (freeway visibility, zero competition, top-5 metro growth). Requires EVP+ approval.</div>
+          <div style="margin-top:6px"><strong style="color:#C9A84C">8.5% (Strike/Target)</strong> — PS's development sweet spot. 250-350bps spread over acquisition cap rates. Provides cushion for construction overruns and slower-than-modeled lease-up.</div>
+          <div style="margin-top:6px"><strong style="color:#16A34A">10.0% (Min/Floor)</strong> — Conservative / home run. Maximum margin of safety. Easiest internal approval path. Typically achievable in secondary/tertiary markets with lower land costs.</div>
+        </div>
       </div>
     </div>
   </div>
