@@ -4688,8 +4688,9 @@ export default function App() {
 
               {/* KEY METRICS STRIP — with hover tooltips */}
               {(() => {
-                const askRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
-                const intRaw = parseFloat(String(site.internalPrice || "").replace(/[^0-9.]/g, ""));
+                const parsePrice = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s.replace(/[^0-9.]/g, "")); };
+                const askRaw = parsePrice(site.askingPrice);
+                const intRaw = parsePrice(site.internalPrice);
                 const acRaw = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
                 const popRaw = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
                 const incRaw = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
