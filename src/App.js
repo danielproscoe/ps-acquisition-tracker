@@ -1100,7 +1100,7 @@ const computeSiteScore = (site) => {
   const incRaw = parseNum(site.income3mi);
   const hasDemoData = popRaw > 0 || incRaw > 0;
 
-  // --- 1. DEMOGRAPHICS — POPULATION (25%) §6h calibrated ---
+  // --- 1. DEMOGRAPHICS — POPULATION (16%) §6h calibrated ---
   let popScore = 5;
   if (popRaw > 0) {
     if (popRaw >= 40000) popScore = 10;
@@ -1112,7 +1112,7 @@ const computeSiteScore = (site) => {
   }
   scores.population = popScore;
 
-  // --- 2. DEMOGRAPHICS — HHI (15%) §6h calibrated ---
+  // --- 2. DEMOGRAPHICS — HHI (10%) §6h calibrated ---
   let incScore = 5;
   if (incRaw > 0) {
     if (incRaw >= 90000) incScore = 10;
@@ -1123,7 +1123,7 @@ const computeSiteScore = (site) => {
   }
   scores.income = incScore;
 
-  // --- 2b. GROWTH (15%) — ESRI 5-year population CAGR ---
+  // --- 2b. GROWTH (18%) — ESRI 5-year population CAGR ---
   let growthScore = 5; // default when no ESRI data
   const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
   if (growthRaw !== null && !isNaN(growthRaw)) {
@@ -1136,6 +1136,17 @@ const computeSiteScore = (site) => {
     else { growthScore = 0; flags.push("WARN: 3-mi pop declining > -0.5%/yr"); }
   }
   scores.growth = growthScore;
+
+  // --- Growth corridor exemption — exurban boomtowns (Hockley TX, etc.) ---
+  // If pop is 2,500–5,000 but growth is booming (≥8), don't hard-FAIL.
+  // These are tomorrow's 20K+ suburbs — score low but keep alive.
+  if (popRaw > 0 && popRaw < 5000 && popRaw >= 2500 && growthScore >= 8) {
+    popScore = 2;
+    scores.population = popScore;
+    hardFail = false;
+    flags = flags.filter(f => f !== "FAIL: 3-mi pop under 5,000");
+    flags.push("Growth corridor: pop under 5K but high growth — scored 2 (not FAIL)");
+  }
 
   // --- 2c. HOUSEHOLDS (5%) — 3-mi household count (demand proxy) ---
   let hhScore = 5;
