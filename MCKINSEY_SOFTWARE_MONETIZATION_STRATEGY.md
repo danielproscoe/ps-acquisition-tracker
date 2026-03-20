@@ -48,7 +48,7 @@ Public Storage is not just Dan's biggest client. It is the **proof environment**
 | Deliver scored deal packages | Every submission includes SiteScore™ composite rating, dimension breakdown, source methodology appendix, and research completeness grade | PS begins referencing scores in internal reviews |
 | Negotiate Preferred Vendor Agreement | Formalize the relationship — preferred deal-sourcing partner with technology-differentiated process | Signed agreement |
 | Track PS hit rate by score | Correlate SiteScore™ ratings with PS accept/decline decisions to calibrate the model | Minimum 30 scored submissions with outcome data |
-| Onboard regional managers fully | Daniel Wollent (SW) and Matthew Toussaint (East) operating independently in Storvex™ | Both managers submitting 10+ sites/month through the platform |
+| Build PS regional manager relationships | Daniel Wollent (SW) and Matthew Toussaint (East) are PS employees — they receive Dan's scored deal packages and Market Intelligence Briefs, but do NOT get direct Storvex™ access. Dan's team runs the platform internally and delivers outputs. | Both regional managers actively receiving and relying on Dan's scored submissions for their regions |
 
 **Key deliverable to PS:** A quarterly "Market Intelligence Brief" — scored pipeline summary, regional heat maps, trend analysis — all generated from Storvex™ data. This positions Dan as a strategic advisor, not just a deal source.
 
@@ -425,7 +425,7 @@ No amount of marketing spend can buy what PS deployment gives you for free: proo
 
 ### The Cardinal Rule: Output Access, Not System Access
 
-During Phase 1 and Phase 2, PS receives the **output** of Storvex™ and SiteScore™ — not the software itself. Dan controls the platform. PS experiences the value through scored deal packages, Market Intelligence Briefs, and SiteScore™ ratings embedded in submissions. At no point does PS receive login credentials, source code, algorithm documentation, or direct API access unless and until a formal license agreement is executed.
+During Phase 1 and Phase 2, PS receives the **output** of Storvex™ and SiteScore™ — not the software itself. Dan's team runs the platform internally. PS employees — including regional managers like Daniel Wollent (SW) and Matthew Toussaint (East) — experience the value through scored deal packages, Market Intelligence Briefs, and SiteScore™ ratings embedded in Dan's submissions. At no point do PS employees receive login credentials, source code, algorithm documentation, or direct platform access unless and until a formal license agreement is executed between DJR Real Estate LLC and Public Storage.
 
 This distinction is critical. It preserves Dan's IP position entirely while still delivering maximum value to PS.
 
