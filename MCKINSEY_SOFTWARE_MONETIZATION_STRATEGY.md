@@ -18,11 +18,75 @@ DJR Real Estate LLC has developed two distinct, defensible software assets in th
 | **SiteScore™** | Proprietary 9-dimension scoring engine for site evaluation | Trademark Serial #99712640 |
 | **Underlying Method** | AI-driven site scoring and vetting methodology | Patent Pending App. No. 64/009,393 |
 
-This memorandum presents three monetization pathways, a valuation of intangible assets, and a framework for preserving Dan Roscoe's strategic relationship with Public Storage ("PS") while maximizing revenue from broker channel economics.
+**Central thesis:** Deploy Storvex™ and SiteScore™ inside the PS relationship first. This is not a defensive play — it is the highest-ROI commercialization path available. PS validates the product at institutional scale, generates immediate broker commission revenue, creates a referenceable case study no competitor can match, and locks in the relationship contractually before any external licensing begins. Product proof inside PS *is* the go-to-market strategy.
+
+This memorandum lays out the PS-first execution plan, broker commission economics, external deployment sequencing, and a full valuation of DJR's intangible asset portfolio.
 
 ---
 
-## I. The Two Software Products — Distinct Value Propositions
+## I. The Central Bet: PS-First Deployment
+
+### Why PS First — The Strategic Logic
+
+Public Storage is not just Dan's biggest client. It is the **proof environment** that makes everything else possible:
+
+1. **Scale validation** — PS acquires 50–100+ sites per year across the U.S. Running Storvex™ inside that volume proves the platform at a scale no pilot program could replicate.
+2. **Institutional credibility** — "Built for and proven at the world's largest self-storage REIT" is the single most powerful marketing line DJR will ever have. It is the difference between a startup pitch and a proven enterprise product.
+3. **Revenue while you build** — Unlike a typical SaaS launch where you burn cash acquiring customers, Dan earns broker commissions on every deal that flows through Storvex™ during deployment. The product pays for itself from day one.
+4. **Relationship lock-in** — Once PS acquisition teams rely on Storvex™ deal packages and SiteScore™ rankings, switching costs are high. Dan becomes infrastructure, not a vendor.
+5. **Data moat** — Every deal scored, submitted, and tracked inside PS builds a proprietary dataset of what PS actually buys. That calibration data is a defensible asset no competitor can replicate without the same relationship.
+
+### PS-First Execution Plan
+
+#### Phase 1: Embed (Months 0–6)
+
+**Objective:** Make Storvex™ indispensable to PS acquisition workflow.
+
+| Action | Detail | Success Metric |
+|--------|--------|----------------|
+| Present to PS acquisition leadership | Position as Dan's proprietary institutional methodology — *"Every site I bring you has been vetted through our patent-pending SiteScore™ engine with a 14-point research completeness gate"* | Meeting secured with VP-level or above |
+| Deliver scored deal packages | Every submission includes SiteScore™ composite rating, dimension breakdown, source methodology appendix, and research completeness grade | PS begins referencing scores in internal reviews |
+| Negotiate Preferred Vendor Agreement | Formalize the relationship — preferred deal-sourcing partner with technology-differentiated process | Signed agreement |
+| Track PS hit rate by score | Correlate SiteScore™ ratings with PS accept/decline decisions to calibrate the model | Minimum 30 scored submissions with outcome data |
+| Onboard regional managers fully | Daniel Wollent (SW) and Matthew Toussaint (East) operating independently in Storvex™ | Both managers submitting 10+ sites/month through the platform |
+
+**Key deliverable to PS:** A quarterly "Market Intelligence Brief" — scored pipeline summary, regional heat maps, trend analysis — all generated from Storvex™ data. This positions Dan as a strategic advisor, not just a deal source.
+
+#### Phase 2: Prove (Months 6–18)
+
+**Objective:** Build the performance dataset that proves SiteScore™ predicts deal quality.
+
+| Action | Detail | Success Metric |
+|--------|--------|----------------|
+| Calibration study | Analyze correlation between SiteScore™ ratings and PS acquisition outcomes (accept, LOI, close, decline) | Statistically significant predictive signal (target: sites scoring 7+ close at 2x+ the rate of sites scoring <6) |
+| Expand regional coverage | Add new regions to Storvex™ as Dan's PS footprint grows | 3+ regions active |
+| Build the case study | Document throughput gains, acceptance rate improvement, time-to-submission reduction with hard numbers | Written case study with PS permission to reference (anonymized if needed) |
+| File continuation/updates on patent | Strengthen patent claims with real-world calibration data and performance metrics | Updated patent filing |
+
+**Critical milestone:** By Month 12, Dan should be able to say — with data — *"Sites I score above 7.0 close at twice the rate of sites below 6.0."* That single statistic is the foundation for all external monetization.
+
+#### Phase 3: Deploy Externally (Months 18–36)
+
+**Objective:** Monetize externally with PS relationship secured and product proven.
+
+With the PS relationship contractually locked and a proven performance dataset in hand, Dan opens external channels — **but only in ways that strengthen, never threaten, the PS position:**
+
+| Channel | Why It's Safe | Revenue Model |
+|---------|--------------|---------------|
+| **Brokers** | Brokers using SiteScore™ send Dan higher-quality leads → more PS deals | API at $5–$15/query; free tier (10/mo) to drive adoption |
+| **Lenders** | Neutral parties; lender adoption validates methodology | API license $50K–$100K/yr |
+| **Adjacent verticals** (industrial, flex, cold storage) | Zero PS competitive overlap | Storvex™ SaaS $60K–$180K/yr |
+| **PE firms entering storage** | Non-overlapping markets; Dan can offer consulting + software | Market studies $25K–$75K + SaaS license |
+| **Mid-tier operators** (non-PS markets) | Only in geographies where PS is not actively acquiring | Storvex™ SaaS $24K–$60K/yr |
+
+**What NOT to do in Phase 3:**
+- Do NOT license Storvex™ to Extra Space, CubeSmart, Life Storage, or any Top-10 REIT without PS's explicit blessing
+- Do NOT publish SiteScore™ rankings publicly — the scoring methodology is a trade secret
+- Do NOT let external SaaS clients see PS-specific calibration data
+
+---
+
+## II. The Two Software Products — Distinct Value Propositions
 
 ### Product 1: Storvex™ — The Platform (Enterprise SaaS)
 
@@ -95,43 +159,40 @@ This memorandum presents three monetization pathways, a valuation of intangible 
 
 ---
 
-## II. Dan's Relationship with Public Storage — Strategic Positioning
+## III. Relationship Protection Framework
 
-### Current Positioning
+The PS-first strategy doesn't just preserve the relationship — it makes it stronger. But every external monetization action must still pass the **PS Test:**
 
-Dan Roscoe operates as a **trusted deal-sourcing partner** to Public Storage, the largest self-storage REIT in the world (~$55B market cap, ~3,300 facilities). This relationship is the single most valuable intangible asset in DJR's portfolio and must be protected in any monetization strategy.
+> *"If PS's head of acquisitions saw this tomorrow, would it strengthen or weaken Dan's position?"*
 
-### Relationship Risk Matrix
+### Risk Matrix for External Deployment (Phase 3 Only)
 
-| Monetization Action | Risk to PS Relationship | Mitigation |
-|---------------------|------------------------|------------|
-| License Storvex™ to PS competitors | **HIGH** — PS may view as arming rivals | Offer PS exclusive license or first-right-of-refusal; restrict competitor access for 12–24 months |
-| License SiteScore™ to brokers | **LOW** — Brokers already serve PS | Brokers using SiteScore™ send higher-quality deals to PS via Dan |
-| Sell SiteScore™ API to lenders | **LOW** — Lenders are neutral parties | Lender adoption validates the scoring methodology, strengthening Dan's credibility with PS |
-| White-label Storvex™ for non-storage CRE | **NONE** — Different vertical | Full green light; no competitive overlap |
-| Sell scored deal flow directly to PS | **POSITIVE** — Deepens relationship | Frame Storvex™ as Dan's "institutional process" that ensures only top-scored sites reach PS |
+| Monetization Action | PS Test Result | Verdict |
+|---------------------|---------------|---------|
+| License Storvex™ to PS competitors | **FAIL** — PS views it as arming rivals | Block until explicit PS blessing; offer PS first-right-of-refusal |
+| License SiteScore™ to brokers | **PASS** — Brokers feed Dan's PS pipeline | Green light in Phase 3 |
+| Sell SiteScore™ API to lenders | **PASS** — Neutral parties; validates methodology | Green light in Phase 3 |
+| White-label for non-storage CRE | **PASS** — Different vertical entirely | Green light in Phase 2 |
+| Scored deal packages to PS | **STRENGTHEN** — Dan becomes irreplaceable | This IS Phase 1 |
+| Quarterly Market Intelligence Briefs to PS | **STRENGTHEN** — Positions Dan as strategic advisor | This IS Phase 1 |
 
-### Recommended Strategy: "PS-First" Monetization Sequencing
+### The Contractual Lock: Preferred Vendor Agreement
 
-**Phase 1 (Months 0–6): Deepen the PS Relationship**
-- Present Storvex™ and SiteScore™ to PS acquisition leadership as Dan's proprietary methodology
-- Position scored deal packages as a premium service: *"Every site I bring you has been vetted through our patent-pending SiteScore™ engine"*
-- Negotiate a preferred vendor or exclusive deal-sourcing agreement with PS
-- **Goal:** Establish Dan as PS's highest-quality external deal source, differentiated by technology
+The single most important legal action in this entire strategy is converting the informal PS relationship into a **Preferred Vendor Agreement** before any external deployment:
 
-**Phase 2 (Months 6–18): Monetize the Non-Competitive Channels**
-- License SiteScore™ API to brokers (who then send better deals to Dan → PS)
-- License SiteScore™ to lenders for underwriting (neutral parties)
-- Offer Storvex™ in adjacent verticals (industrial, flex space, cold storage) — no PS conflict
+| Clause | Purpose |
+|--------|---------|
+| Preferred deal-sourcing partner status | Formalizes Dan's position; survives leadership changes at PS |
+| Technology-differentiated process acknowledgment | PS recognizes Storvex™/SiteScore™ as Dan's proprietary methodology |
+| Non-compete carve-out for non-storage verticals | Explicitly permits Dan to license in adjacent verticals |
+| Data ownership | Dan retains ownership of scoring methodology; PS retains ownership of their acquisition decisions |
+| Term and renewal | 3-year initial term with auto-renewal; gives Dan stability to invest in external channels |
 
-**Phase 3 (Months 18–36): Controlled Expansion**
-- With PS relationship secured via agreement, selectively offer Storvex™ to mid-tier operators (non-overlapping markets)
-- Develop a "PS Proximity" data product (anonymized) for market researchers
-- Explore strategic acquisition interest from CRE tech platforms (CoStar, RealPage, Yardi)
+**Why this matters:** Without this agreement, the PS relationship is Dan's biggest asset *and* his biggest vulnerability. One leadership change at PS could unwind everything. The agreement converts reputation capital into contractual capital.
 
 ---
 
-## III. Broker Commission Economics
+## IV. Broker Commission Economics
 
 ### Current Model
 
@@ -168,19 +229,27 @@ Dan sources deals and submits them to PS. The commission structure in self-stora
 
 **Key insight:** The software doesn't replace broker commissions — it is a **force multiplier** on deal volume. Every dollar invested in Storvex™ development pays back through higher throughput of commission-bearing deals.
 
-### Hybrid Revenue Model (Broker Commissions + Software Licensing)
+### PS-First Hybrid Revenue Model
 
-| Revenue Stream | Year 1 | Year 2 | Year 3 |
-|---------------|--------|--------|--------|
+Revenue builds in layers — PS commissions first, external licensing only after proof.
+
+| Revenue Stream | Year 1 (Embed) | Year 2 (Prove) | Year 3 (Deploy) |
+|---------------|----------------|----------------|-----------------|
 | Broker commissions (PS deal flow) | $500,000 | $750,000 | $1,000,000 |
-| SiteScore™ API licensing | $50,000 | $200,000 | $500,000 |
-| Storvex™ SaaS subscriptions | $0 | $120,000 | $480,000 |
-| Market studies / consulting | $75,000 | $150,000 | $200,000 |
-| **Total Revenue** | **$625,000** | **$1,220,000** | **$2,180,000** |
+| PS consulting / Market Intelligence Briefs | $75,000 | $100,000 | $125,000 |
+| SiteScore™ API licensing (Phase 3) | $0 | $50,000 | $500,000 |
+| Storvex™ SaaS — adjacent verticals (Phase 3) | $0 | $0 | $360,000 |
+| Storvex™ SaaS — storage operators (Phase 3) | $0 | $0 | $120,000 |
+| Market studies / PE consulting (Phase 3) | $0 | $75,000 | $200,000 |
+| **Total Revenue** | **$575,000** | **$975,000** | **$2,305,000** |
+
+**Year 1 is not a loss leader.** $575K in broker commissions + PS consulting revenue is a strong standalone business. The software just makes it run faster, smarter, and at higher volume.
+
+**Year 3 inflection point.** External channels open only after PS proof is locked. Revenue nearly quadruples from Year 1, but the PS commission base still accounts for 43% — the relationship remains the foundation.
 
 ---
 
-## IV. Intangible Asset Valuations
+## V. Intangible Asset Valuations
 
 ### Valuation Methodology
 
@@ -315,13 +384,13 @@ Brand value grows as market adoption increases. At maturity (Year 5+), the Storv
 
 ---
 
-## V. Key Recommendations
+## VI. Key Recommendations
 
-### 1. Do Not Sell — License
+### 1. Execute PS-First — This Is the Strategy, Not an Option
+Do not pursue external licensing, SaaS sales, or API monetization until Phase 1 (PS embed) is complete and the Preferred Vendor Agreement is signed. PS deployment is not a stepping stone — it is the primary value creation engine. Broker commissions alone justify the investment. Everything external is upside built on PS-proven credibility.
+
+### 2. Do Not Sell — License
 The combined intangible asset portfolio is worth $3.8M–$17.4M and appreciating. Licensing preserves ownership while generating recurring revenue. An outright sale at this stage would leave significant value on the table.
-
-### 2. Protect the PS Relationship Above All
-Every monetization decision should pass the "PS test": *Would this action damage Dan's standing with Public Storage?* If yes, defer or restructure.
 
 ### 3. Separate the Products for Maximum Flexibility
 Storvex™ (platform) and SiteScore™ (engine) should be marketed, priced, and licensed independently. This allows:
@@ -329,18 +398,30 @@ Storvex™ (platform) and SiteScore™ (engine) should be marketed, priced, and 
 - Keeping Storvex™ exclusive to a smaller set of enterprise clients
 - Different competitive strategies for each product
 
-### 4. Formalize the PS Engagement
-Convert the informal deal-sourcing relationship into a **Preferred Vendor Agreement** with PS. This:
-- Protects Dan's position if PS leadership changes
-- Creates a contractual basis for the relationship's value
-- Enables Dan to reference a "PS partnership" when marketing to other clients
+### 4. Strengthen the Patent with Performance Data
+The current patent application (App. No. 64/009,393) should be updated with a continuation-in-part (CIP) filing after Phase 2, incorporating:
+- Real-world calibration data demonstrating predictive accuracy of the 9-dimension scoring model
+- The PS Proximity dimension as a novel scoring factor (proximity to validated institutional buyer facilities as a market quality signal)
+- Broker intelligence overlay methodology (human-sourced data augmenting algorithmic scoring)
+- The research completeness gate (14-point institutional vetting standard) as a method claim
+- Multi-region pipeline management with role-based scoring and approval workflows
+
+This strengthens the patent from a theoretical method claim to a **data-validated, commercially proven system** — significantly harder to challenge and more valuable in licensing negotiations.
 
 ### 5. Build a Broker Network Effect
 Every broker who uses SiteScore™ becomes a potential deal source for Dan's PS pipeline. The API doesn't compete with Dan — it feeds him. Structure broker API pricing to encourage adoption (free tier for first 10 scores/month).
 
+### 6. Build the "Storvex™ Inside" Narrative
+Once PS deployment is proven, the external marketing message writes itself:
+- *"The same AI scoring engine trusted by the world's largest self-storage REIT"*
+- *"Patent-pending methodology, proven on 500+ site evaluations"*
+- *"Institutional-grade vetting — now available to your team"*
+
+No amount of marketing spend can buy what PS deployment gives you for free: proof at scale.
+
 ---
 
-## VI. Risk Factors
+## VII. Risk Factors
 
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|------------|
