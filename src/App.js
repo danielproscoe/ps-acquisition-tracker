@@ -1464,8 +1464,11 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
             { key: "population", label: "POP" },
             { key: "growth", label: "GRO" },
             { key: "income", label: "INC" },
+            { key: "households", label: "HH" },
+            { key: "homeValue", label: "HV" },
             { key: "pricing", label: "PPA" },
             { key: "zoning", label: "ZN" },
+            { key: "psProximity", label: "PS" },
             { key: "access", label: "ACC" },
             { key: "competition", label: "CP" },
             { key: "marketTier", label: "MKT" },
@@ -1474,9 +1477,9 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
             const pct = Math.max(8, (v / 10) * 100);
             const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
             return (
-              <div key={f.key} title={`${f.label}: ${v}/10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 32 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
-                <div style={{ width: 20, height: 44, borderRadius: 4, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden" }}>
+              <div key={f.key} title={`${f.label}: ${v}/10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 24 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
+                <div style={{ width: 16, height: 40, borderRadius: 4, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 4, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 8px ${c}50` : "none" }} />
                 </div>
                 <div style={{ fontSize: 8, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.02em", lineHeight: 1 }}>{f.label}</div>
