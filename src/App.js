@@ -1029,8 +1029,34 @@ tr:hover td{background:rgba(201,168,76,0.04)}
 .divider{height:2px;background:linear-gradient(90deg,transparent,#C9A84C,#E87A2E,#C9A84C,transparent);margin:32px 0;opacity:0.4}
 .tag{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.04em}
 .footer{text-align:center;padding:24px;color:#6B7394;font-size:10px;border-top:1px solid rgba(201,168,76,0.1);margin-top:40px}
-@media print{body{background:#fff;color:#1a1a2e}.section{border:1px solid #e5e7eb;box-shadow:none;background:#fff}.gold{color:#92700C}.muted{color:#64748B}th{background:#f8f9fa;color:#1a1a2e}td{color:#1a1a2e}}
-</style></head><body><div class="page">
+.expand-panel{max-height:0;overflow:hidden;transition:max-height 0.4s ease,opacity 0.3s ease,padding 0.3s ease;opacity:0;padding:0 20px}
+.expand-panel.open{max-height:2000px;opacity:1;padding:20px}
+.expand-trigger{cursor:pointer;position:relative;transition:all 0.2s}
+.expand-trigger:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(201,168,76,0.12)!important}
+.expand-trigger .expand-hint{position:absolute;top:10px;right:14px;font-size:9px;color:#6B7394;letter-spacing:0.08em;font-weight:600;text-transform:uppercase;opacity:0.6;transition:opacity 0.2s}
+.expand-trigger:hover .expand-hint{opacity:1;color:#C9A84C}
+.expand-arrow{display:inline-block;transition:transform 0.3s;font-size:10px;color:#C9A84C}
+.expand-arrow.open{transform:rotate(180deg)}
+.insight-box{background:linear-gradient(135deg,rgba(201,168,76,0.06),rgba(30,39,97,0.4));border:1px solid rgba(201,168,76,0.15);border-radius:12px;padding:16px;margin-top:14px;font-size:12px;color:#94A3B8;line-height:1.7}
+.insight-box .insight-title{font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.1em;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.insight-box .insight-title::before{content:"◆";font-size:7px}
+.drill-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(201,168,76,0.06);font-size:12px}
+.drill-row:last-child{border-bottom:none}
+.drill-label{color:#6B7394;font-weight:600}
+.drill-value{color:#E2E8F0;font-weight:700;font-family:'Space Mono',monospace}
+.sensitivity-cell{padding:10px 14px;text-align:center;border:1px solid rgba(201,168,76,0.06);font-family:'Space Mono',monospace;font-size:11px;font-weight:700}
+.waterfall-bar{height:28px;border-radius:4px;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:4px;transition:width 0.5s}
+@media print{body{background:#fff;color:#1a1a2e}.section{border:1px solid #e5e7eb;box-shadow:none;background:#fff}.gold{color:#92700C}.muted{color:#64748B}th{background:#f8f9fa;color:#1a1a2e}td{color:#1a1a2e}.expand-panel{max-height:none!important;opacity:1!important;padding:20px!important}}
+</style>
+<script>
+function toggleExpand(id){
+  const p=document.getElementById(id);
+  const a=document.getElementById(id+'-arrow');
+  if(p.classList.contains('open')){p.classList.remove('open');if(a)a.classList.remove('open');}
+  else{p.classList.add('open');if(a)a.classList.add('open');}
+}
+</script>
+</head><body><div class="page">
 
 <!-- HEADER -->
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:24px;border-bottom:2px solid rgba(201,168,76,0.2)">
@@ -1051,7 +1077,8 @@ tr:hover td{background:rgba(201,168,76,0.04)}
 </div>
 
 <!-- EXECUTIVE SUMMARY -->
-<div class="section section-gold" style="background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6))">
+<div class="section section-gold expand-trigger" onclick="toggleExpand('exec')" style="background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6))">
+  <span class="expand-hint">▼ Click to expand <span id="exec-arrow" class="expand-arrow">▼</span></span>
   <h2 class="gold">Executive Summary</h2>
   <div class="grid4" style="margin-bottom:20px">
     <div class="metric-box"><div class="label">Land Cost</div><div class="value gold">${landCost > 0 ? fmtM(landCost) : "TBD"}</div></div>
@@ -1062,10 +1089,50 @@ tr:hover td{background:rgba(201,168,76,0.04)}
   <div class="grid3">
     ${valuations.map(v => `<div class="metric-box"><div class="label">${v.label}</div><div class="value blue">${fmtM(v.value)}</div><div style="font-size:10px;color:#6B7394;margin-top:4px">@ ${(v.rate*100).toFixed(2)}% cap</div></div>`).join("")}
   </div>
+  <div id="exec" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">Investment Thesis</div>
+      ${landCost > 0 && totalDevCost > 0 ? `<div>This ${!isNaN(acres) ? acres.toFixed(1) + "-acre" : ""} ${site.state || ""} site requires a total capital deployment of <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> (${landCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}% land / ${Math.round(hardCost/totalDevCost*100)}% hard / ${Math.round(softCost/totalDevCost*100)}% soft). At stabilization (Year 5), the facility produces <strong style="color:#16A34A">${fmtM(stabNOI)}</strong> NOI, implying a <strong style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : "#F59E0B"}">${yocStab}% yield on cost</strong> — ${parseFloat(yocStab) >= 9 ? "well above" : parseFloat(yocStab) >= 7.5 ? "above" : "near"} PS's typical 8-9% development hurdle rate.</div>` : "<div>Pricing data pending — investment thesis will populate when land cost is confirmed.</div>"}
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Return Waterfall</div>
+      ${(() => {
+        const items = [
+          { label: "Land Acquisition", val: landCost, color: "#C9A84C" },
+          { label: "Hard Costs", val: hardCost, color: "#E87A2E" },
+          { label: "Soft Costs", val: softCost, color: "#F59E0B" },
+        ];
+        const maxVal = totalDevCost || 1;
+        return items.map(it => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="width:120px;font-size:11px;color:#6B7394;font-weight:600;text-align:right">${it.label}</div>
+          <div class="waterfall-bar" style="width:${Math.max(Math.round(it.val/maxVal*400), 40)}px;background:${it.color}">${it.val > 0 ? fmtM(it.val) : "TBD"}</div>
+        </div>`).join("") + `<div style="display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(201,168,76,0.15)">
+          <div style="width:120px;font-size:11px;color:#C9A84C;font-weight:800;text-align:right">TOTAL</div>
+          <div class="waterfall-bar" style="width:400px;background:linear-gradient(90deg,#C9A84C,#E87A2E)">${totalDevCost > 0 ? fmtM(totalDevCost) : "TBD"}</div>
+        </div>`;
+      })()}
+    </div>
+    <div class="grid3" style="margin-top:16px">
+      <div class="insight-box" style="text-align:center">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">5-YEAR CUMULATIVE NOI</div>
+        <div class="mono" style="font-size:20px;font-weight:800;color:#16A34A">${fmtM(yearData.reduce((s,y) => s + y.noi, 0))}</div>
+      </div>
+      <div class="insight-box" style="text-align:center">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">BREAK-EVEN YEAR</div>
+        <div class="mono" style="font-size:20px;font-weight:800;color:#42A5F5">${(() => { let cum = 0; for(let i=0;i<yearData.length;i++){cum+=yearData[i].noi;if(cum>=totalDevCost)return "Year "+(i+1);} return totalDevCost > 0 ? ">5 Yrs" : "TBD"; })()}</div>
+      </div>
+      <div class="insight-box" style="text-align:center">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">VALUE CREATION</div>
+        <div class="mono" style="font-size:20px;font-weight:800;color:#C9A84C">${totalDevCost > 0 ? fmtM(valuations[1].value - totalDevCost) : "TBD"}</div>
+        <div style="font-size:9px;color:#6B7394;margin-top:2px">@ market cap</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- FACILITY PROGRAM -->
-<div class="section">
+<div class="section expand-trigger" onclick="toggleExpand('facility')">
+  <span class="expand-hint">▼ Click to expand <span id="facility-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Facility Program</span></h2>
   <div class="grid4" style="margin-bottom:20px">
     <div class="metric-box"><div class="label">Site Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "TBD"} <span style="font-size:12px;color:#6B7394">ac</span></div></div>
@@ -1085,22 +1152,104 @@ tr:hover td{background:rgba(201,168,76,0.04)}
       <div style="font-size:11px;color:#94A3B8;margin-top:4px">Stabilized rate: $${stabDriveRate.toFixed(2)}/SF/mo</div>
     </div>
   </div>
+  <div id="facility" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">Sizing Methodology</div>
+      <div>PS standard product: ${isMultiStory ? stories + "-story multi-story" : "single-story indoor climate-controlled"} facility on ${!isNaN(acres) ? acres.toFixed(2) : "N/A"} acres. Building footprint calculated at <strong>35% lot coverage</strong> (${footprint.toLocaleString()} SF ground floor), the PS development standard for optimal site utilization while accommodating parking, drive aisles, landscaping, and stormwater.</div>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Site Utilization Breakdown</div>
+      <div style="display:flex;gap:4px;height:32px;border-radius:8px;overflow:hidden;margin-bottom:12px">
+        <div style="width:35%;background:linear-gradient(90deg,#1565C0,#42A5F5);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">Building 35%</div>
+        <div style="width:30%;background:rgba(107,115,148,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#94A3B8">Parking/Drives 30%</div>
+        <div style="width:20%;background:rgba(22,163,74,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#66BB6A">Landscape 20%</div>
+        <div style="width:15%;background:rgba(66,165,245,0.15);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#42A5F5">SW/Other 15%</div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.08em;margin-bottom:8px">CLIMATE-CONTROLLED DEEP DIVE</div>
+        <div class="drill-row"><span class="drill-label">Gross SF Allocation</span><span class="drill-value">${climateSF.toLocaleString()} SF</span></div>
+        <div class="drill-row"><span class="drill-label">Net Rentable (92%)</span><span class="drill-value">${Math.round(climateSF * 0.92).toLocaleString()} SF</span></div>
+        <div class="drill-row"><span class="drill-label">Annual Revenue (Stab.)</span><span class="drill-value" style="color:#42A5F5">${fmtD(yearData[4].climRev)}</span></div>
+        <div class="drill-row"><span class="drill-label">Revenue Per SF</span><span class="drill-value">$${(yearData[4].climRev / climateSF).toFixed(2)}/SF/yr</span></div>
+        <div class="drill-row"><span class="drill-label">HVAC Requirement</span><span class="drill-value">3-phase, ${Math.round(climateSF/1000)*3} ton est.</span></div>
+        <div class="drill-row"><span class="drill-label">Insulation</span><span class="drill-value">R-30 walls, R-38 roof min.</span></div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.08em;margin-bottom:8px">DRIVE-UP DEEP DIVE</div>
+        <div class="drill-row"><span class="drill-label">Gross SF Allocation</span><span class="drill-value">${driveSF.toLocaleString()} SF</span></div>
+        <div class="drill-row"><span class="drill-label">Net Rentable (95%)</span><span class="drill-value">${Math.round(driveSF * 0.95).toLocaleString()} SF</span></div>
+        <div class="drill-row"><span class="drill-label">Annual Revenue (Stab.)</span><span class="drill-value" style="color:#E87A2E">${fmtD(yearData[4].driveRev)}</span></div>
+        <div class="drill-row"><span class="drill-label">Revenue Per SF</span><span class="drill-value">$${(yearData[4].driveRev / driveSF).toFixed(2)}/SF/yr</span></div>
+        <div class="drill-row"><span class="drill-label">Door Size</span><span class="drill-value">8'W x 8'H roll-up standard</span></div>
+        <div class="drill-row"><span class="drill-label">Drive Aisle</span><span class="drill-value">26' minimum (truck access)</span></div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:14px">
+      <div class="insight-title">Why ${Math.round(climatePct*100)}/${Math.round(drivePct*100)} Climate/Drive Split?</div>
+      <div>PS's development playbook targets 70/30 climate-to-drive ratio for new builds. Climate-controlled units command a <strong style="color:#42A5F5">${Math.round((stabClimRate/stabDriveRate - 1) * 100)}% rate premium</strong> over drive-up ($${stabClimRate.toFixed(2)} vs $${stabDriveRate.toFixed(2)}/SF/mo), generating ${Math.round(yearData[4].climRev/(yearData[4].climRev+yearData[4].driveRev)*100)}% of stabilized revenue from ${Math.round(climatePct*100)}% of the space. Higher margins, lower maintenance, better insurance profile.</div>
+    </div>
+  </div>
 </div>
 
 <!-- UNIT MIX -->
-<div class="section">
+<div class="section expand-trigger" onclick="toggleExpand('unitmix')">
+  <span class="expand-hint">▼ Click to expand <span id="unitmix-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Unit Mix & Stabilized Pricing</span></h2>
   <table>
     <thead><tr><th>Unit Type</th><th>Size (SF)</th><th>Units</th><th>Total SF</th><th>Mo. Rate</th><th>Annual Rev</th><th>% of Total</th></tr></thead>
     <tbody>
-      ${unitRows.map(u => `<tr><td style="font-weight:600">${u.type}</td><td class="mono">${u.sf}</td><td class="mono">${u.units}</td><td class="mono">${u.allocSF.toLocaleString()}</td><td class="mono gold">$${u.moRate}</td><td class="mono">${fmtD(u.units * u.moRate * 12 * 0.92)}</td><td class="muted">${(u.pct * 100).toFixed(0)}%</td></tr>`).join("")}
+      ${unitRows.map(u => {
+        const annRev = u.units * u.moRate * 12 * 0.92;
+        const ratePerSF = u.moRate / u.sf;
+        return `<tr><td style="font-weight:600">${u.type}</td><td class="mono">${u.sf}</td><td class="mono">${u.units}</td><td class="mono">${u.allocSF.toLocaleString()}</td><td class="mono gold">$${u.moRate}</td><td class="mono">${fmtD(annRev)}</td><td class="muted">${(u.pct * 100).toFixed(0)}%</td></tr>`;
+      }).join("")}
       <tr style="border-top:2px solid rgba(201,168,76,0.2);font-weight:700"><td>TOTAL</td><td></td><td class="mono">${totalUnits}</td><td class="mono">${totalSF.toLocaleString()}</td><td></td><td class="mono green">${fmtD(yearData[4].totalRev)}</td><td></td></tr>
     </tbody>
   </table>
+  <div id="unitmix" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">Unit Mix Strategy</div>
+      <div>PS's unit mix is optimized for maximum revenue density. <strong>Small units (5x5 to 5x10)</strong> represent ${Math.round(unitRows.filter(u=>u.sf<=50).reduce((s,u)=>s+u.pct,0)*100)}% of inventory but command the highest per-SF rates ($${(unitRows.find(u=>u.sf===25)?.moRate/25).toFixed(2)}/SF/mo for 5x5 climate). <strong>Mid-size (10x10 to 10x15)</strong> are the volume driver at ${Math.round(unitRows.filter(u=>u.sf>=100&&u.sf<=150).reduce((s,u)=>s+u.pct,0)*100)}% of mix — the sweet spot for household movers and small business. <strong>Large units (10x20+)</strong> are limited to ${Math.round(unitRows.filter(u=>u.sf>=200).reduce((s,u)=>s+u.pct,0)*100)}% — high demand but low revenue per SF.</div>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Revenue Per SF by Unit Type</div>
+      ${unitRows.map(u => {
+        const ratePerSF = u.moRate / u.sf;
+        const maxRate = Math.max(...unitRows.map(r => r.moRate / r.sf));
+        const barPct = Math.round(ratePerSF / maxRate * 100);
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+          <div style="width:110px;font-size:10px;color:#6B7394;font-weight:600;text-align:right">${u.type}</div>
+          <div style="flex:1;height:18px;border-radius:4px;background:rgba(255,255,255,0.04);overflow:hidden">
+            <div style="width:${barPct}%;height:100%;border-radius:4px;background:${u.cat === "climate" ? "linear-gradient(90deg,#1565C0,#42A5F5)" : "linear-gradient(90deg,#C65D00,#E87A2E)"};display:flex;align-items:center;padding:0 8px">
+              <span style="font-size:9px;font-weight:700;color:#fff">$${ratePerSF.toFixed(2)}/SF</span>
+            </div>
+          </div>
+          <div style="width:50px;font-size:10px;font-weight:700;color:#C9A84C;font-family:'Space Mono',monospace;text-align:right">$${u.moRate}/mo</div>
+        </div>`;
+      }).join("")}
+    </div>
+    <div class="grid3" style="margin-top:16px">
+      <div class="insight-box" style="text-align:center">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">AVG UNIT SIZE</div>
+        <div class="mono" style="font-size:18px;font-weight:800;color:#fff">${Math.round(totalSF / totalUnits)} SF</div>
+      </div>
+      <div class="insight-box" style="text-align:center">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">AVG MONTHLY RENT</div>
+        <div class="mono" style="font-size:18px;font-weight:800;color:#C9A84C">$${Math.round(unitRows.reduce((s,u) => s + u.moRate * u.units, 0) / totalUnits)}</div>
+      </div>
+      <div class="insight-box" style="text-align:center">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">REVENUE DENSITY</div>
+        <div class="mono" style="font-size:18px;font-weight:800;color:#16A34A">$${(yearData[4].totalRev / totalSF).toFixed(2)}<span style="font-size:10px">/SF/yr</span></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- MARKET RATE INTELLIGENCE -->
-<div class="section">
+<div class="section expand-trigger" onclick="toggleExpand('rates')">
+  <span class="expand-hint">▼ Click to expand <span id="rates-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Market Rate Intelligence</span></h2>
   <div class="grid2" style="margin-bottom:20px">
     <div>
@@ -1129,15 +1278,58 @@ tr:hover td{background:rgba(201,168,76,0.04)}
           <span class="mono" style="font-size:16px;font-weight:800;color:#C9A84C">$${(mktClimateRate * climatePct + mktDriveRate * drivePct).toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></span>
         </div>
       </div>
-      <div style="font-size:10px;color:#4A5080;margin-top:8px;font-style:italic">Rates based on ${incTier} income tier with ${compAdj >= 1 ? "low" : "elevated"} competition adjustment. Annual escalation: ${(annualEsc * 100).toFixed(0)}%.</div>
     </div>
+  </div>
+  <div id="rates" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">Rate Derivation Methodology</div>
+      <div>Rates are derived from a 3-factor model: <strong>(1) Income tier</strong> sets the base — ${incTier} markets ($${incN ? incN.toLocaleString() : "N/A"} HHI) support ${incTier === "premium" ? "premium pricing above $1.40/SF for climate" : incTier === "upper" ? "above-average rates of $1.20-1.40/SF for climate" : incTier === "mid" ? "mid-market rates of $1.00-1.20/SF for climate" : "value rates below $1.00/SF for climate"}. <strong>(2) Competition density</strong> adjusts ±8%: ${compCount} competitors within 3 miles = ${compAdj >= 1.05 ? "rate premium opportunity (low supply)" : compAdj >= 1.0 ? "market-rate pricing" : compAdj >= 0.94 ? "modest rate pressure" : "significant rate compression"}. <strong>(3) Annual escalation</strong> of ${(annualEsc*100).toFixed(0)}% compounds through the 5-year model, reflecting CPI + storage-specific inflation.</div>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Income Tier Rate Matrix</div>
+      <table style="font-size:11px">
+        <thead><tr><th>Tier</th><th>HHI Range</th><th>Climate Base</th><th>Drive-Up Base</th><th style="text-align:center">This Site</th></tr></thead>
+        <tbody>
+          ${[
+            { tier: "Premium", hhi: "$90K+", clim: "$1.45", drive: "$0.85", active: incTier === "premium" },
+            { tier: "Upper", hhi: "$75K–$90K", clim: "$1.25", drive: "$0.72", active: incTier === "upper" },
+            { tier: "Mid", hhi: "$60K–$75K", clim: "$1.10", drive: "$0.62", active: incTier === "mid" },
+            { tier: "Value", hhi: "<$60K", clim: "$0.95", drive: "$0.52", active: incTier === "value" },
+          ].map(t => `<tr style="${t.active ? "background:rgba(201,168,76,0.08);border-left:3px solid #C9A84C" : ""}">
+            <td style="font-weight:700;${t.active ? "color:#C9A84C" : ""}">${t.tier}</td>
+            <td>${t.hhi}</td>
+            <td class="mono">${t.clim}/SF/mo</td>
+            <td class="mono">${t.drive}/SF/mo</td>
+            <td style="text-align:center">${t.active ? '<span class="tag" style="background:#C9A84C20;color:#C9A84C">ACTIVE</span>' : ""}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">5-Year Rate Escalation Trajectory</div>
+      <div style="display:flex;gap:12px">
+        ${yearData.map((y, i) => `<div style="flex:1;text-align:center;background:rgba(15,21,56,0.5);border-radius:8px;padding:10px;border:1px solid rgba(201,168,76,0.06)">
+          <div style="font-size:9px;font-weight:700;color:#6B7394;margin-bottom:4px">Y${y.yr}</div>
+          <div class="mono" style="font-size:13px;font-weight:700;color:#42A5F5">$${y.mktClimFull.toFixed(2)}</div>
+          <div class="mono" style="font-size:11px;color:#E87A2E">$${y.mktDriveFull.toFixed(2)}</div>
+          ${y.climDisc > 0 ? `<div style="font-size:8px;color:#EF4444;margin-top:2px">-${Math.round(y.climDisc*100)}% promo</div>` : `<div style="font-size:8px;color:#16A34A;margin-top:2px">Full rate</div>`}
+        </div>`).join("")}
+      </div>
+    </div>
+    ${site.competitorNames ? `<div class="insight-box" style="margin-top:14px">
+      <div class="insight-title">Competitive Landscape</div>
+      <div><strong>Known Operators (3-mi):</strong> ${site.competitorNames}</div>
+      ${site.nearestCompetitor ? `<div style="margin-top:6px"><strong>Nearest:</strong> ${site.nearestCompetitor}</div>` : ""}
+      ${site.demandSupplySignal ? `<div style="margin-top:6px"><strong>Market Signal:</strong> ${site.demandSupplySignal}</div>` : ""}
+    </div>` : ""}
   </div>
 </div>
 
 <div class="divider"></div>
 
 <!-- 5-YEAR LEASE-UP MODEL -->
-<div class="section section-gold">
+<div class="section section-gold expand-trigger" onclick="toggleExpand('leaseup')">
+  <span class="expand-hint">▼ Click to expand <span id="leaseup-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">5-Year Lease-Up Revenue Model</span></h2>
   <div style="font-size:12px;color:#94A3B8;margin-bottom:20px">PS lease-up strategy: aggressive discounting in Y1 to fill units, gradual ECRI (Existing Customer Rate Increases) through Y3-Y5 to push above street rates.</div>
   <table>
@@ -1158,10 +1350,75 @@ tr:hover td{background:rgba(201,168,76,0.04)}
       }).join("")}
     </tbody>
   </table>
+  <div id="leaseup" class="expand-panel">
+    <div style="margin-top:8px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:12px;text-transform:uppercase">Revenue & NOI Growth Trajectory</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;height:160px;padding:0 20px">
+        ${yearData.map((y, i) => {
+          const maxRev = yearData[4].totalRev;
+          const revH = Math.round(y.totalRev / maxRev * 130);
+          const noiH = Math.round(y.noi / maxRev * 130);
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:9px;font-weight:700;color:#16A34A">${fmtD(y.noi)}</div>
+            <div style="display:flex;gap:2px;align-items:flex-end">
+              <div style="width:20px;height:${revH}px;background:linear-gradient(180deg,#42A5F5,#1565C0);border-radius:4px 4px 0 0;opacity:0.6"></div>
+              <div style="width:20px;height:${noiH}px;background:linear-gradient(180deg,#16A34A,#0D7A2C);border-radius:4px 4px 0 0"></div>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:#C9A84C">Y${y.yr}</div>
+          </div>`;
+        }).join("")}
+      </div>
+      <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:10px">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#42A5F5;opacity:0.6"></div><span style="color:#6B7394">Gross Revenue</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#16A34A"></div><span style="color:#6B7394">NOI</span></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:20px">
+      <div class="insight-box">
+        <div class="insight-title">ECRI Strategy Deep Dive</div>
+        <div style="margin-bottom:8px">PS's <strong>Existing Customer Rate Increase (ECRI)</strong> program is the primary revenue engine post-stabilization. After locking in tenants at promotional rates in Y1:</div>
+        <div class="drill-row"><span class="drill-label">Y1 Tenants by Y3</span><span class="drill-value" style="color:#16A34A">+20-25% above original rate</span></div>
+        <div class="drill-row"><span class="drill-label">Y1 Tenants by Y5</span><span class="drill-value" style="color:#16A34A">+35-45% above original rate</span></div>
+        <div class="drill-row"><span class="drill-label">ECRI Cadence</span><span class="drill-value">Every 6-9 months</span></div>
+        <div class="drill-row"><span class="drill-label">Typical ECRI Amount</span><span class="drill-value">8-12% per increase</span></div>
+        <div class="drill-row"><span class="drill-label">Move-Out Rate Post-ECRI</span><span class="drill-value">~5-8% (low elasticity)</span></div>
+        <div style="margin-top:8px;font-size:11px;color:#94A3B8">Storage tenants have extremely low price elasticity — the hassle cost of moving belongings far exceeds typical rate increases. PS leverages this to push long-tenured customers 20-40% above street rates.</div>
+      </div>
+      <div class="insight-box">
+        <div class="insight-title">Operating Expense Trajectory</div>
+        <div style="margin-bottom:8px">OpEx declines from <strong style="color:#EF4444">${Math.round(yearData[0].opex/yearData[0].totalRev*100)}%</strong> in Y1 to <strong style="color:#16A34A">${Math.round(yearData[4].opex/yearData[4].totalRev*100)}%</strong> at stabilization:</div>
+        ${yearData.map(y => `<div class="drill-row">
+          <span class="drill-label">Year ${y.yr} OpEx Ratio</span>
+          <span class="drill-value" style="color:${y.yr <= 2 ? "#F59E0B" : "#16A34A"}">${Math.round(y.opex/y.totalRev*100)}% (${fmtD(y.opex)})</span>
+        </div>`).join("")}
+        <div style="margin-top:8px;font-size:11px;color:#94A3B8">Y1 OpEx elevated due to marketing spend ($50K+ grand opening), staffing ramp, and fixed costs spread over low occupancy. By Y4-5, marketing is minimal (word-of-mouth + web), and fixed costs are amortized across full occupancy.</div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:14px">
+      <div class="insight-title">Revenue Sensitivity — Occupancy Scenarios</div>
+      <table style="font-size:11px;margin-top:8px">
+        <thead><tr><th>Scenario</th><th>Y5 Occupancy</th><th>Y5 Revenue</th><th>Y5 NOI</th><th>Yield on Cost</th></tr></thead>
+        <tbody>
+          ${[
+            { label: "Bear Case", occ: 0.82, color: "#EF4444" },
+            { label: "Base Case", occ: 0.92, color: "#C9A84C" },
+            { label: "Bull Case", occ: 0.97, color: "#16A34A" },
+          ].map(sc => {
+            const scRev = Math.round((climateSF * sc.occ * yearData[4].climRate + driveSF * sc.occ * yearData[4].driveRate) * 12);
+            const scOpex = Math.round(scRev * 0.35);
+            const scNoi = scRev - scOpex;
+            const scYoc = totalDevCost > 0 ? ((scNoi / totalDevCost) * 100).toFixed(1) : "N/A";
+            return `<tr><td style="font-weight:700;color:${sc.color}">${sc.label}</td><td class="mono">${Math.round(sc.occ*100)}%</td><td class="mono">${fmtD(scRev)}</td><td class="mono" style="color:${sc.color}">${fmtD(scNoi)}</td><td class="mono" style="font-weight:800;color:${sc.color}">${scYoc}%</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- DEVELOPMENT COST STACK -->
-<div class="section">
+<div class="section expand-trigger" onclick="toggleExpand('devcost')">
+  <span class="expand-hint">▼ Click to expand <span id="devcost-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Development Cost Stack</span></h2>
   <div class="grid2">
     <div>
@@ -1190,10 +1447,62 @@ tr:hover td{background:rgba(201,168,76,0.04)}
       </div>
     </div>
   </div>
+  <div id="devcost" class="expand-panel">
+    <div style="margin-top:8px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Hard Cost Breakdown</div>
+      <table style="font-size:11px">
+        <thead><tr><th>Category</th><th>$/SF</th><th>% of Hard</th><th>Total</th></tr></thead>
+        <tbody>
+          ${[
+            { cat: "Sitework & Grading", pct: 0.12 },
+            { cat: "Foundation & Structural", pct: 0.22 },
+            { cat: "Shell & Envelope", pct: 0.18 },
+            { cat: "Interior Build-Out (Corridors, Units, Doors)", pct: 0.20 },
+            { cat: "HVAC (Climate Control)", pct: 0.13 },
+            { cat: "Electrical & Lighting", pct: 0.08 },
+            { cat: "Fire Protection (Sprinklers)", pct: 0.04 },
+            { cat: "Paving, Landscaping & Stormwater", pct: 0.03 },
+          ].map(c => `<tr>
+            <td style="font-weight:600">${c.cat}</td>
+            <td class="mono">$${Math.round(hardCostPerSF * c.pct)}</td>
+            <td class="mono">${Math.round(c.pct*100)}%</td>
+            <td class="mono">${fmtD(Math.round(hardCost * c.pct))}</td>
+          </tr>`).join("")}
+          <tr style="border-top:2px solid rgba(201,168,76,0.15);font-weight:700"><td>TOTAL HARD COSTS</td><td class="mono">$${hardCostPerSF}</td><td class="mono">100%</td><td class="mono" style="color:#E87A2E">${fmtD(hardCost)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Soft Cost Breakdown</div>
+      <table style="font-size:11px">
+        <thead><tr><th>Category</th><th>% of Soft</th><th>Total</th></tr></thead>
+        <tbody>
+          ${[
+            { cat: "Architecture & Engineering", pct: 0.30 },
+            { cat: "Permits & Impact Fees", pct: 0.20 },
+            { cat: "Legal & Title", pct: 0.10 },
+            { cat: "Geotech, Survey, Environmental", pct: 0.12 },
+            { cat: "Construction Management", pct: 0.15 },
+            { cat: "Contingency", pct: 0.13 },
+          ].map(c => `<tr>
+            <td style="font-weight:600">${c.cat}</td>
+            <td class="mono">${Math.round(c.pct*100)}%</td>
+            <td class="mono">${fmtD(Math.round(softCost * c.pct))}</td>
+          </tr>`).join("")}
+          <tr style="border-top:2px solid rgba(201,168,76,0.15);font-weight:700"><td>TOTAL SOFT COSTS</td><td class="mono">100%</td><td class="mono" style="color:#F59E0B">${fmtD(softCost)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="insight-box" style="margin-top:14px">
+      <div class="insight-title">Cost Benchmarking</div>
+      <div>PS ${isMultiStory ? "multi-story" : "single-story"} facilities typically build at <strong>$${hardCostPerSF}/SF hard costs</strong> in the current construction environment (2025-2026 pricing). ${isMultiStory ? "Multi-story adds structural steel, elevator, and fire stair costs (~$30/SF premium over single-story)." : "Single-story is the most cost-efficient construction type — no elevator, no fire stairs, simpler structural."} Soft costs at ${Math.round(softCostPct*100)}% are conservative — actual may range 15-25% depending on jurisdiction complexity and impact fees. ${site.state === "TX" ? "Texas generally has lower soft costs due to fewer regulatory hurdles and no state income tax impact on labor." : ""}</div>
+    </div>
+  </div>
 </div>
 
 <!-- VALUATION SCENARIOS -->
-<div class="section">
+<div class="section expand-trigger" onclick="toggleExpand('valuation')">
+  <span class="expand-hint">▼ Click to expand <span id="valuation-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Stabilized Valuation Scenarios</span></h2>
   <div style="font-size:12px;color:#94A3B8;margin-bottom:16px">Based on Year 5 stabilized NOI of <span class="mono gold" style="font-weight:700">${fmtD(stabNOI)}</span></div>
   <div class="grid3">
@@ -1204,10 +1513,55 @@ tr:hover td{background:rgba(201,168,76,0.04)}
       ${totalDevCost > 0 ? `<div style="font-size:10px;color:${v.value > totalDevCost ? "#16A34A" : "#EF4444"};font-weight:700;margin-top:2px">${((v.value / totalDevCost - 1) * 100).toFixed(0)}% ${v.value > totalDevCost ? "profit" : "loss"} on cost</div>` : ""}
     </div>`).join("")}
   </div>
+  <div id="valuation" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">Valuation Methodology</div>
+      <div>Self-storage valuation uses the <strong>direct capitalization method</strong>: Stabilized NOI ÷ Cap Rate = Value. Cap rates for institutional-quality storage have compressed significantly — PS trades at ~4.5-5.0% implied cap on existing assets. New development projects are underwritten at higher caps (5.0-6.5%) to account for lease-up risk and construction uncertainty.</div>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Cap Rate Sensitivity Grid</div>
+      <table style="font-size:11px">
+        <thead><tr><th>Cap Rate</th><th>Stabilized Value</th><th>Value per SF</th><th>Profit on Cost</th><th>Multiple on Equity</th></tr></thead>
+        <tbody>
+          ${[0.045, 0.050, 0.0525, 0.0575, 0.060, 0.065, 0.070].map(cr => {
+            const val = Math.round(stabNOI / cr);
+            const profit = val - totalDevCost;
+            const multiple = totalDevCost > 0 ? (val / totalDevCost).toFixed(2) : "N/A";
+            const isBase = cr === 0.0575;
+            return `<tr style="${isBase ? "background:rgba(201,168,76,0.08);border-left:3px solid #C9A84C" : ""}">
+              <td class="mono" style="font-weight:700;${isBase ? "color:#C9A84C" : ""}">${(cr*100).toFixed(2)}%${isBase ? " (base)" : ""}</td>
+              <td class="mono" style="font-weight:700">${fmtM(val)}</td>
+              <td class="mono">$${Math.round(val/totalSF)}/SF</td>
+              <td class="mono" style="color:${profit > 0 ? "#16A34A" : "#EF4444"}">${totalDevCost > 0 ? fmtM(profit) : "TBD"}</td>
+              <td class="mono" style="font-weight:700;color:${parseFloat(multiple) >= 1.5 ? "#16A34A" : parseFloat(multiple) >= 1.0 ? "#F59E0B" : "#EF4444"}">${multiple}x</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="insight-box">
+        <div class="insight-title">PS REIT Trading Context</div>
+        <div class="drill-row"><span class="drill-label">PSA Implied Cap</span><span class="drill-value">~4.5-5.0%</span></div>
+        <div class="drill-row"><span class="drill-label">PSA Market Cap</span><span class="drill-value">~$52B</span></div>
+        <div class="drill-row"><span class="drill-label">PS Avg Same-Store Occ.</span><span class="drill-value">~92-94%</span></div>
+        <div class="drill-row"><span class="drill-label">PS Avg Same-Store Rev/SF</span><span class="drill-value">~$23-25/SF/yr</span></div>
+        <div style="margin-top:6px;font-size:10px;color:#4A5080;font-style:italic">Development cap rates 100-200bps above trading cap due to lease-up risk premium.</div>
+      </div>
+      <div class="insight-box">
+        <div class="insight-title">Exit Timing Scenarios</div>
+        <div class="drill-row"><span class="drill-label">Sell at Y3 (75% occ)</span><span class="drill-value">${fmtM(Math.round(yearData[2].noi / 0.06))}</span></div>
+        <div class="drill-row"><span class="drill-label">Sell at Y5 (stabilized)</span><span class="drill-value" style="color:#C9A84C">${fmtM(valuations[1].value)}</span></div>
+        <div class="drill-row"><span class="drill-label">Sell at Y7 (ECRI mature)</span><span class="drill-value" style="color:#16A34A">${fmtM(Math.round(stabNOI * Math.pow(1.04, 2) / 0.055))}</span></div>
+        <div style="margin-top:6px;font-size:10px;color:#4A5080;font-style:italic">Y7 assumes 4% annual NOI growth from ECRI + market escalation, and 25bps cap compression at maturity.</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ASSUMPTIONS & METHODOLOGY -->
-<div class="section" style="opacity:0.85">
+<div class="section expand-trigger" onclick="toggleExpand('assumptions')" style="opacity:0.85">
+  <span class="expand-hint">▼ Click to expand <span id="assumptions-arrow" class="expand-arrow">▼</span></span>
   <h2 class="muted" style="font-size:14px">Assumptions & Methodology</h2>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:11px;color:#94A3B8">
     <div>
@@ -1225,13 +1579,55 @@ tr:hover td{background:rgba(201,168,76,0.04)}
       <div>ECRI strategy applied Y2+ on existing tenants</div>
     </div>
   </div>
-  <div style="margin-top:12px;font-size:10px;color:#4A5080;font-style:italic">This report is generated by Storvex AI-Powered Analytics. Market rates are modeled from demographic inputs, competition density, and income tiers. Actual rates should be validated against local market surveys. All projections are estimates and subject to market conditions.</div>
+  <div id="assumptions" class="expand-panel">
+    <div class="grid2" style="margin-top:12px">
+      <div class="insight-box">
+        <div class="insight-title">Data Sources</div>
+        <div class="drill-row"><span class="drill-label">Demographics</span><span class="drill-value" style="font-size:10px">US Census ACS 5-Year</span></div>
+        <div class="drill-row"><span class="drill-label">Growth Projections</span><span class="drill-value" style="font-size:10px">ESRI 2025→2030</span></div>
+        <div class="drill-row"><span class="drill-label">Construction Costs</span><span class="drill-value" style="font-size:10px">RSMeans 2025 + PS benchmarks</span></div>
+        <div class="drill-row"><span class="drill-label">Market Rates</span><span class="drill-value" style="font-size:10px">Storvex proprietary model</span></div>
+        <div class="drill-row"><span class="drill-label">Cap Rates</span><span class="drill-value" style="font-size:10px">Green Street, REIT filings</span></div>
+        <div class="drill-row"><span class="drill-label">Competition</span><span class="drill-value" style="font-size:10px">Google, SpareFoot, operator sites</span></div>
+      </div>
+      <div class="insight-box">
+        <div class="insight-title">Key Assumptions & Limitations</div>
+        <div style="font-size:11px;line-height:1.8;color:#94A3B8">
+          <div>• Rates modeled from demographic/competition inputs, not surveyed street rates</div>
+          <div>• Occupancy trajectory assumes standard PS marketing budget allocation</div>
+          <div>• Hard costs reflect national averages — regional variance ±15%</div>
+          <div>• No financing costs modeled (PS develops with balance sheet equity)</div>
+          <div>• Environmental, geotech, and entitlement risks not priced in</div>
+          <div>• Tax abatement or TIF incentives not included (upside potential)</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="footer">
-  <div style="font-size:12px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:4px">STORVEX<span style="font-size:8px;vertical-align:super">TM</span></div>
-  <div>Storage Pricing Report | ${site.name} | Generated ${new Date().toLocaleDateString()}</div>
-  <div style="margin-top:4px">Powered by DJR Real Estate LLC | Patent Pending</div>
+<!-- PRINT BUTTON -->
+<div style="text-align:center;margin:24px 0">
+  <button onclick="window.print()" style="padding:14px 40px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#E87A2E);color:#fff;font-size:14px;font-weight:800;border:none;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;box-shadow:0 4px 20px rgba(201,168,76,0.3)">🖨 Print / Save as PDF</button>
+</div>
+
+<div class="footer" style="padding:32px 24px">
+  <div style="font-size:14px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:6px">STORVEX<span style="font-size:9px;vertical-align:super">TM</span></div>
+  <div style="font-size:11px;color:#6B7394;margin-bottom:12px">AI-Powered Storage Site Intelligence & Pricing Analytics</div>
+  <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent);margin:12px auto;max-width:400px"></div>
+  <div style="font-size:10px;color:#4A5080;margin-top:12px;line-height:1.8">
+    <div>Storage Pricing Report — ${site.name} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div style="margin-top:8px;font-weight:600;color:#6B7394">Powered by DJR Real Estate LLC | U.S. Patent Pending — Serial No. 99712640</div>
+    <div style="margin-top:10px;max-width:700px;margin-left:auto;margin-right:auto;color:#3A4060;font-size:9px;line-height:1.7">
+      <strong style="color:#6B7394">CONFIDENTIAL & PROPRIETARY.</strong> This report and its contents are the exclusive property of DJR Real Estate LLC.
+      The Storvex™ platform, SiteScore™ scoring methodology, pricing models, and analytical frameworks contained herein are proprietary
+      trade secrets protected under federal and state law. Unauthorized reproduction, distribution, reverse engineering, or disclosure
+      of this report or any portion thereof is strictly prohibited and may result in civil and criminal penalties. This report is provided
+      for informational purposes only and does not constitute investment advice, an appraisal, or a guarantee of future performance.
+      All projections are forward-looking estimates based on current market data and are subject to change. Recipients should conduct
+      independent due diligence before making investment decisions.
+    </div>
+    <div style="margin-top:10px;color:#3A4060;font-size:9px">© ${new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Storvex™ and SiteScore™ are trademarks of DJR Real Estate LLC.</div>
+  </div>
 </div>
 
 </div></body></html>`;
