@@ -894,6 +894,349 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 </div></body></html>`;
 };
 
+// ─── PRICING REPORT — 5-Year Lease-Up Revenue Model ───
+const generatePricingReport = (site, iqResult) => {
+  const iq = iqResult || computeSiteScore(site);
+  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+  const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s.replace(/[^0-9.]/g, "")); };
+  const askRaw = parseP(site.askingPrice);
+  const intRaw = parseP(site.internalPrice);
+  const landCost = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) ? askRaw : 0);
+  const popN = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
+  const incN = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
+  const hvN = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
+  const growthStr = site.popGrowth3mi || site.growthRate || "";
+  const growthPct = parseFloat(String(growthStr).replace(/[^0-9.\-]/g, "")) || 0;
+  const compCount = site.siteiqData?.competitorCount || 0;
+  const nearestPS = site.siteiqData?.nearestPS || null;
+  const phase = site.phase || "Prospect";
+
+  // ── Facility Sizing Model ──
+  const isMultiStory = !isNaN(acres) && acres < 3.5 && acres >= 2.5;
+  const stories = isMultiStory ? 3 : 1;
+  const footprint = !isNaN(acres) ? Math.round(acres * 43560 * 0.35) : 60000; // 35% coverage
+  const totalSF = footprint * stories;
+  const climatePct = 0.70; // 70% climate-controlled
+  const drivePct = 0.30;
+  const climateSF = Math.round(totalSF * climatePct);
+  const driveSF = Math.round(totalSF * drivePct);
+
+  // ── Market Rate Intelligence ──
+  // Base rates driven by income level and competition
+  const incTier = incN >= 90000 ? "premium" : incN >= 75000 ? "upper" : incN >= 60000 ? "mid" : "value";
+  const baseClimateRate = incTier === "premium" ? 1.45 : incTier === "upper" ? 1.25 : incTier === "mid" ? 1.10 : 0.95; // $/SF/mo
+  const baseDriveRate = incTier === "premium" ? 0.85 : incTier === "upper" ? 0.72 : incTier === "mid" ? 0.62 : 0.52;
+  // Competition adjustment
+  const compAdj = compCount <= 2 ? 1.08 : compCount <= 5 ? 1.00 : compCount <= 8 ? 0.94 : 0.88;
+  const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
+  const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
+
+  // ── 5-Year Lease-Up Model ──
+  // PS strategy: heavy discounts Y1, gradual increases, stabilized by Y4-5
+  const years = [
+    { yr: 1, label: "Year 1 — Launch & Fill", occRate: 0.30, climDisc: 0.35, driveDisc: 0.30, desc: "Grand opening promos. First month free. 50% off first 3 months. Heavy marketing spend." },
+    { yr: 2, label: "Year 2 — Ramp", occRate: 0.55, climDisc: 0.15, driveDisc: 0.12, desc: "Reduce promotions. Begin ECRI (existing customer rate increases) on Y1 tenants. Organic demand building." },
+    { yr: 3, label: "Year 3 — Growth", occRate: 0.75, climDisc: 0.05, driveDisc: 0.05, desc: "Minimal discounting. ECRIs on Y1-Y2 tenants (+8-12%/yr typical). Referral-driven growth." },
+    { yr: 4, label: "Year 4 — Stabilization", occRate: 0.88, climDisc: 0.00, driveDisc: 0.00, desc: "At or near market rate. Existing tenants paying above street rate via accumulated ECRIs." },
+    { yr: 5, label: "Year 5 — Mature", occRate: 0.92, climDisc: 0.00, driveDisc: 0.00, desc: "Fully stabilized. ECRI revenue above street rate. Strategic rate optimization." },
+  ];
+  // Growth escalation: market rates grow 3% annually
+  const annualEsc = 0.03;
+
+  const yearData = years.map((y, i) => {
+    const escMult = Math.pow(1 + annualEsc, i);
+    const climRate = Math.round((mktClimateRate * escMult * (1 - y.climDisc)) * 100) / 100;
+    const driveRate = Math.round((mktDriveRate * escMult * (1 - y.driveDisc)) * 100) / 100;
+    const climRev = Math.round(climateSF * y.occRate * climRate * 12);
+    const driveRev = Math.round(driveSF * y.occRate * driveRate * 12);
+    const totalRev = climRev + driveRev;
+    const opex = Math.round(totalRev * (y.yr === 1 ? 0.45 : y.yr === 2 ? 0.40 : 0.35)); // OpEx ratio declines
+    const noi = totalRev - opex;
+    const mktClimFull = Math.round(mktClimateRate * escMult * 100) / 100;
+    const mktDriveFull = Math.round(mktDriveRate * escMult * 100) / 100;
+    return { ...y, climRate, driveRate, climRev, driveRev, totalRev, opex, noi, mktClimFull, mktDriveFull, escMult };
+  });
+
+  // ── Stabilized Valuation ──
+  const stabNOI = yearData[4].noi;
+  const capRates = [
+    { label: "Conservative (6.5%)", rate: 0.065 },
+    { label: "Market (5.75%)", rate: 0.0575 },
+    { label: "Aggressive (5.0%)", rate: 0.05 },
+  ];
+  const valuations = capRates.map(c => ({ ...c, value: Math.round(stabNOI / c.rate) }));
+
+  // ── Construction Cost Estimate ──
+  const hardCostPerSF = isMultiStory ? 95 : 65; // multi-story costs more
+  const softCostPct = 0.20;
+  const hardCost = totalSF * hardCostPerSF;
+  const softCost = Math.round(hardCost * softCostPct);
+  const totalDevCost = landCost + hardCost + softCost;
+  const yocStab = stabNOI > 0 && totalDevCost > 0 ? ((stabNOI / totalDevCost) * 100).toFixed(1) : "N/A";
+
+  // ── Unit Mix Estimate ──
+  const unitMix = [
+    { type: "5x5 Climate", sf: 25, pct: 0.10, rate: null, cat: "climate" },
+    { type: "5x10 Climate", sf: 50, pct: 0.20, rate: null, cat: "climate" },
+    { type: "10x10 Climate", sf: 100, pct: 0.25, rate: null, cat: "climate" },
+    { type: "10x15 Climate", sf: 150, pct: 0.10, rate: null, cat: "climate" },
+    { type: "10x20 Climate", sf: 200, pct: 0.05, rate: null, cat: "climate" },
+    { type: "10x10 Drive-Up", sf: 100, pct: 0.12, rate: null, cat: "drive" },
+    { type: "10x15 Drive-Up", sf: 150, pct: 0.08, rate: null, cat: "drive" },
+    { type: "10x20 Drive-Up", sf: 200, pct: 0.06, rate: null, cat: "drive" },
+    { type: "10x30 Drive-Up", sf: 300, pct: 0.04, rate: null, cat: "drive" },
+  ];
+  const stabClimRate = yearData[4].climRate;
+  const stabDriveRate = yearData[4].driveRate;
+  const unitRows = unitMix.map(u => {
+    const allocSF = Math.round(totalSF * u.pct);
+    const units = Math.round(allocSF / u.sf);
+    const moRate = u.cat === "climate" ? Math.round(u.sf * stabClimRate) : Math.round(u.sf * stabDriveRate);
+    return { ...u, allocSF, units, moRate };
+  });
+  const totalUnits = unitRows.reduce((s, r) => s + r.units, 0);
+
+  const fmtD = (n) => "$" + Math.round(n).toLocaleString();
+  const fmtM = (n) => n >= 1000000 ? "$" + (n / 1000000).toFixed(2) + "M" : "$" + Math.round(n).toLocaleString();
+  const pctBar = (pct, color) => `<div style="display:flex;align-items:center;gap:8px"><div style="width:120px;height:10px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden"><div style="width:${Math.round(pct*100)}%;height:100%;border-radius:5px;background:${color};transition:width 0.5s"></div></div><span style="font-size:12px;font-weight:700;color:${color}">${Math.round(pct*100)}%</span></div>`;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Pricing Report — ${site.name}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#080B1A 0%,#0F1538 40%,#1E2761 100%);color:#E2E8F0;min-height:100vh;padding:0}
+.page{max-width:1100px;margin:0 auto;padding:40px 30px}
+h1{font-size:28px;font-weight:900;letter-spacing:-0.02em}
+h2{font-size:18px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:16px}
+h3{font-size:14px;font-weight:700;margin-bottom:10px}
+.section{background:rgba(15,21,56,0.6);border:1px solid rgba(201,168,76,0.1);border-radius:16px;padding:28px;margin-bottom:24px;backdrop-filter:blur(12px)}
+.section-gold{border-color:rgba(201,168,76,0.25);box-shadow:0 4px 24px rgba(201,168,76,0.08)}
+.gold{color:#C9A84C} .orange{color:#E87A2E} .green{color:#16A34A} .red{color:#EF4444} .blue{color:#42A5F5} .muted{color:#6B7394}
+.mono{font-family:'Space Mono',monospace}
+.badge{display:inline-block;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.06em}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-box{background:rgba(15,21,56,0.5);border:1px solid rgba(201,168,76,0.08);border-radius:12px;padding:16px;text-align:center}
+.metric-box .label{font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.1em;margin-bottom:6px;text-transform:uppercase}
+.metric-box .value{font-size:22px;font-weight:800;font-family:'Space Mono',monospace}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid rgba(201,168,76,0.15);background:rgba(15,21,56,0.4)}
+td{padding:10px 12px;border-bottom:1px solid rgba(201,168,76,0.06);color:#E2E8F0}
+tr:hover td{background:rgba(201,168,76,0.04)}
+.yr-row{transition:all 0.2s}
+.divider{height:2px;background:linear-gradient(90deg,transparent,#C9A84C,#E87A2E,#C9A84C,transparent);margin:32px 0;opacity:0.4}
+.tag{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.04em}
+.footer{text-align:center;padding:24px;color:#6B7394;font-size:10px;border-top:1px solid rgba(201,168,76,0.1);margin-top:40px}
+@media print{body{background:#fff;color:#1a1a2e}.section{border:1px solid #e5e7eb;box-shadow:none;background:#fff}.gold{color:#92700C}.muted{color:#64748B}th{background:#f8f9fa;color:#1a1a2e}td{color:#1a1a2e}}
+</style></head><body><div class="page">
+
+<!-- HEADER -->
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:24px;border-bottom:2px solid rgba(201,168,76,0.2)">
+  <div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:800;letter-spacing:0.14em;color:#C9A84C">STORVEX</div>
+      <div style="width:1px;height:16px;background:rgba(201,168,76,0.3)"></div>
+      <div style="font-size:11px;font-weight:600;color:#6B7394;letter-spacing:0.08em">STORAGE PRICING REPORT</div>
+    </div>
+    <h1 style="color:#fff;margin-bottom:6px">${site.name}</h1>
+    <div style="font-size:13px;color:#94A3B8">${site.address || ""}${site.city ? ", " + site.city : ""}${site.state ? ", " + site.state : ""}</div>
+  </div>
+  <div style="text-align:right">
+    <div class="badge" style="background:rgba(201,168,76,0.12);color:#C9A84C;border:1px solid rgba(201,168,76,0.25);font-size:12px;padding:6px 16px">${phase}</div>
+    <div style="font-size:11px;color:#6B7394;margin-top:8px">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div style="font-size:10px;color:#4A5080;margin-top:2px">SiteScore: ${iq.score?.toFixed(1) || "N/A"}/10</div>
+  </div>
+</div>
+
+<!-- EXECUTIVE SUMMARY -->
+<div class="section section-gold" style="background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6))">
+  <h2 class="gold">Executive Summary</h2>
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="metric-box"><div class="label">Land Cost</div><div class="value gold">${landCost > 0 ? fmtM(landCost) : "TBD"}</div></div>
+    <div class="metric-box"><div class="label">Total Dev Cost</div><div class="value orange">${totalDevCost > 0 ? fmtM(totalDevCost) : "TBD"}</div></div>
+    <div class="metric-box"><div class="label">Stabilized NOI (Y5)</div><div class="value green">${fmtM(stabNOI)}</div></div>
+    <div class="metric-box"><div class="label">Yield on Cost</div><div class="value" style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : parseFloat(yocStab) >= 7 ? "#F59E0B" : "#EF4444"}">${yocStab}%</div></div>
+  </div>
+  <div class="grid3">
+    ${valuations.map(v => `<div class="metric-box"><div class="label">${v.label}</div><div class="value blue">${fmtM(v.value)}</div><div style="font-size:10px;color:#6B7394;margin-top:4px">@ ${(v.rate*100).toFixed(2)}% cap</div></div>`).join("")}
+  </div>
+</div>
+
+<!-- FACILITY PROGRAM -->
+<div class="section">
+  <h2><span class="gold">Facility Program</span></h2>
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="metric-box"><div class="label">Site Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "TBD"} <span style="font-size:12px;color:#6B7394">ac</span></div></div>
+    <div class="metric-box"><div class="label">Building Type</div><div class="value" style="font-size:16px">${isMultiStory ? stories + "-Story" : "1-Story"}</div></div>
+    <div class="metric-box"><div class="label">Total Rentable SF</div><div class="value">${totalSF.toLocaleString()}</div></div>
+    <div class="metric-box"><div class="label">Est. Unit Count</div><div class="value">${totalUnits.toLocaleString()}</div></div>
+  </div>
+  <div class="grid2">
+    <div style="background:rgba(21,101,192,0.08);border:1px solid rgba(21,101,192,0.2);border-radius:12px;padding:16px">
+      <div style="font-size:11px;font-weight:700;color:#42A5F5;letter-spacing:0.08em;margin-bottom:8px">CLIMATE-CONTROLLED (${Math.round(climatePct*100)}%)</div>
+      <div class="mono" style="font-size:20px;font-weight:800;color:#fff">${climateSF.toLocaleString()} SF</div>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">Stabilized rate: $${stabClimRate.toFixed(2)}/SF/mo</div>
+    </div>
+    <div style="background:rgba(232,122,46,0.08);border:1px solid rgba(232,122,46,0.2);border-radius:12px;padding:16px">
+      <div style="font-size:11px;font-weight:700;color:#E87A2E;letter-spacing:0.08em;margin-bottom:8px">DRIVE-UP (${Math.round(drivePct*100)}%)</div>
+      <div class="mono" style="font-size:20px;font-weight:800;color:#fff">${driveSF.toLocaleString()} SF</div>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">Stabilized rate: $${stabDriveRate.toFixed(2)}/SF/mo</div>
+    </div>
+  </div>
+</div>
+
+<!-- UNIT MIX -->
+<div class="section">
+  <h2><span class="gold">Unit Mix & Stabilized Pricing</span></h2>
+  <table>
+    <thead><tr><th>Unit Type</th><th>Size (SF)</th><th>Units</th><th>Total SF</th><th>Mo. Rate</th><th>Annual Rev</th><th>% of Total</th></tr></thead>
+    <tbody>
+      ${unitRows.map(u => `<tr><td style="font-weight:600">${u.type}</td><td class="mono">${u.sf}</td><td class="mono">${u.units}</td><td class="mono">${u.allocSF.toLocaleString()}</td><td class="mono gold">$${u.moRate}</td><td class="mono">${fmtD(u.units * u.moRate * 12 * 0.92)}</td><td class="muted">${(u.pct * 100).toFixed(0)}%</td></tr>`).join("")}
+      <tr style="border-top:2px solid rgba(201,168,76,0.2);font-weight:700"><td>TOTAL</td><td></td><td class="mono">${totalUnits}</td><td class="mono">${totalSF.toLocaleString()}</td><td></td><td class="mono green">${fmtD(yearData[4].totalRev)}</td><td></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- MARKET RATE INTELLIGENCE -->
+<div class="section">
+  <h2><span class="gold">Market Rate Intelligence</span></h2>
+  <div class="grid2" style="margin-bottom:20px">
+    <div>
+      <h3 class="muted">Rate Drivers</h3>
+      <table style="font-size:12px">
+        <tr><td style="color:#6B7394;width:160px">Income Tier</td><td style="font-weight:700;text-transform:capitalize">${incTier} ${incN ? "($" + incN.toLocaleString() + " HHI)" : ""}</td></tr>
+        <tr><td style="color:#6B7394">Competition (3-mi)</td><td style="font-weight:700">${compCount} facilities ${compCount <= 2 ? '<span class="tag" style="background:#16A34A20;color:#16A34A">LOW — Rate Premium</span>' : compCount <= 5 ? '<span class="tag" style="background:#F59E0B20;color:#F59E0B">MODERATE</span>' : '<span class="tag" style="background:#EF444420;color:#EF4444">HIGH — Rate Pressure</span>'}</td></tr>
+        <tr><td style="color:#6B7394">Population Growth</td><td style="font-weight:700">${growthPct.toFixed(1)}% CAGR ${growthPct >= 2 ? '<span class="tag" style="background:#16A34A20;color:#16A34A">Explosive</span>' : growthPct >= 1 ? '<span class="tag" style="background:#42A5F520;color:#42A5F5">Healthy</span>' : '<span class="tag" style="background:#F59E0B20;color:#F59E0B">Stable</span>'}</td></tr>
+        <tr><td style="color:#6B7394">Competition Adj.</td><td style="font-weight:700;color:${compAdj >= 1 ? "#16A34A" : "#F59E0B"}">${compAdj >= 1 ? "+" : ""}${((compAdj - 1) * 100).toFixed(0)}% to base rate</td></tr>
+        ${site.demandDrivers ? `<tr><td style="color:#6B7394">Demand Drivers</td><td style="font-weight:600;font-size:11px">${site.demandDrivers.substring(0, 150)}${site.demandDrivers.length > 150 ? "..." : ""}</td></tr>` : ""}
+      </table>
+    </div>
+    <div>
+      <h3 class="muted">Blended Market Rates</h3>
+      <div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.08)">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:11px;color:#6B7394">Climate-Controlled</span>
+          <span class="mono" style="font-size:16px;font-weight:800;color:#42A5F5">$${mktClimateRate.toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:11px;color:#6B7394">Drive-Up</span>
+          <span class="mono" style="font-size:16px;font-weight:800;color:#E87A2E">$${mktDriveRate.toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></span>
+        </div>
+        <div style="border-top:1px solid rgba(201,168,76,0.1);padding-top:10px;display:flex;justify-content:space-between">
+          <span style="font-size:11px;color:#6B7394">Blended Avg</span>
+          <span class="mono" style="font-size:16px;font-weight:800;color:#C9A84C">$${(mktClimateRate * climatePct + mktDriveRate * drivePct).toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#4A5080;margin-top:8px;font-style:italic">Rates based on ${incTier} income tier with ${compAdj >= 1 ? "low" : "elevated"} competition adjustment. Annual escalation: ${(annualEsc * 100).toFixed(0)}%.</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- 5-YEAR LEASE-UP MODEL -->
+<div class="section section-gold">
+  <h2><span class="gold">5-Year Lease-Up Revenue Model</span></h2>
+  <div style="font-size:12px;color:#94A3B8;margin-bottom:20px">PS lease-up strategy: aggressive discounting in Y1 to fill units, gradual ECRI (Existing Customer Rate Increases) through Y3-Y5 to push above street rates.</div>
+  <table>
+    <thead><tr><th>Year</th><th>Occupancy</th><th>Climate $/SF</th><th>Drive $/SF</th><th>Gross Revenue</th><th>OpEx (${Math.round(yearData[0].opex/yearData[0].totalRev*100)}%→${Math.round(yearData[4].opex/yearData[4].totalRev*100)}%)</th><th>NOI</th></tr></thead>
+    <tbody>
+      ${yearData.map((y, i) => {
+        const noiColor = y.noi > 0 ? (i >= 3 ? "#16A34A" : "#42A5F5") : "#EF4444";
+        const revGrowth = i > 0 ? Math.round(((y.totalRev - yearData[i-1].totalRev) / yearData[i-1].totalRev) * 100) : 0;
+        return `<tr class="yr-row">
+          <td><div style="font-weight:700;color:#C9A84C">${y.label}</div><div style="font-size:10px;color:#6B7394;margin-top:2px">${y.desc}</div></td>
+          <td>${pctBar(y.occRate, y.occRate >= 0.85 ? "#16A34A" : y.occRate >= 0.60 ? "#F59E0B" : "#EF4444")}</td>
+          <td class="mono"><span style="color:#42A5F5">$${y.climRate.toFixed(2)}</span>${y.climDisc > 0 ? `<div style="font-size:9px;color:#EF4444">-${Math.round(y.climDisc*100)}% disc</div>` : `<div style="font-size:9px;color:#16A34A">Full rate</div>`}</td>
+          <td class="mono"><span style="color:#E87A2E">$${y.driveRate.toFixed(2)}</span>${y.driveDisc > 0 ? `<div style="font-size:9px;color:#EF4444">-${Math.round(y.driveDisc*100)}% disc</div>` : `<div style="font-size:9px;color:#16A34A">Full rate</div>`}</td>
+          <td class="mono" style="font-weight:700">${fmtD(y.totalRev)}${i > 0 ? `<div style="font-size:9px;color:#16A34A">+${revGrowth}% YoY</div>` : ""}</td>
+          <td class="mono" style="color:#F59E0B">(${fmtD(y.opex)})</td>
+          <td class="mono" style="font-weight:800;color:${noiColor}">${fmtD(y.noi)}</td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+</div>
+
+<!-- DEVELOPMENT COST STACK -->
+<div class="section">
+  <h2><span class="gold">Development Cost Stack</span></h2>
+  <div class="grid2">
+    <div>
+      <table>
+        <tr><td style="color:#6B7394;font-weight:600">Land Acquisition</td><td class="mono" style="font-weight:700;text-align:right">${landCost > 0 ? fmtD(landCost) : "TBD"}</td></tr>
+        <tr><td style="color:#6B7394;font-weight:600">Hard Costs (${totalSF.toLocaleString()} SF @ $${hardCostPerSF}/SF)</td><td class="mono" style="font-weight:700;text-align:right">${fmtD(hardCost)}</td></tr>
+        <tr><td style="color:#6B7394;font-weight:600">Soft Costs (${Math.round(softCostPct*100)}%)</td><td class="mono" style="font-weight:700;text-align:right">${fmtD(softCost)}</td></tr>
+        <tr style="border-top:2px solid rgba(201,168,76,0.2)"><td style="font-weight:800;color:#C9A84C">Total Development Cost</td><td class="mono" style="font-weight:800;text-align:right;color:#E87A2E;font-size:16px">${fmtM(totalDevCost)}</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 class="muted">Return Metrics</h3>
+      <div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.08)">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:12px;color:#6B7394">Yield on Cost (Stabilized)</span>
+          <span class="mono" style="font-size:18px;font-weight:800;color:${parseFloat(yocStab) >= 9 ? "#16A34A" : parseFloat(yocStab) >= 7 ? "#F59E0B" : "#EF4444"}">${yocStab}%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:12px;color:#6B7394">Cost Per SF</span>
+          <span class="mono" style="font-size:14px;font-weight:700">${totalDevCost > 0 ? "$" + Math.round(totalDevCost / totalSF).toLocaleString() : "TBD"}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:12px;color:#6B7394">Stabilized Rev/SF/Yr</span>
+          <span class="mono" style="font-size:14px;font-weight:700;color:#16A34A">${yearData[4].totalRev > 0 ? "$" + (yearData[4].totalRev / totalSF).toFixed(2) : "TBD"}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VALUATION SCENARIOS -->
+<div class="section">
+  <h2><span class="gold">Stabilized Valuation Scenarios</span></h2>
+  <div style="font-size:12px;color:#94A3B8;margin-bottom:16px">Based on Year 5 stabilized NOI of <span class="mono gold" style="font-weight:700">${fmtD(stabNOI)}</span></div>
+  <div class="grid3">
+    ${valuations.map((v, i) => `<div class="metric-box" style="${i === 1 ? "border-color:rgba(201,168,76,0.3);box-shadow:0 4px 20px rgba(201,168,76,0.1)" : ""}">
+      <div class="label">${v.label}</div>
+      <div class="value" style="color:${i === 0 ? "#42A5F5" : i === 1 ? "#C9A84C" : "#16A34A"};font-size:26px">${fmtM(v.value)}</div>
+      <div style="font-size:10px;color:#6B7394;margin-top:6px">Spread to cost: ${totalDevCost > 0 ? fmtM(v.value - totalDevCost) : "TBD"}</div>
+      ${totalDevCost > 0 ? `<div style="font-size:10px;color:${v.value > totalDevCost ? "#16A34A" : "#EF4444"};font-weight:700;margin-top:2px">${((v.value / totalDevCost - 1) * 100).toFixed(0)}% ${v.value > totalDevCost ? "profit" : "loss"} on cost</div>` : ""}
+    </div>`).join("")}
+  </div>
+</div>
+
+<!-- ASSUMPTIONS & METHODOLOGY -->
+<div class="section" style="opacity:0.85">
+  <h2 class="muted" style="font-size:14px">Assumptions & Methodology</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:11px;color:#94A3B8">
+    <div>
+      <div style="font-weight:700;color:#6B7394;margin-bottom:6px">Facility</div>
+      <div>Building coverage: 35% of site</div>
+      <div>Climate/drive split: ${Math.round(climatePct*100)}/${Math.round(drivePct*100)}</div>
+      <div>Construction: $${hardCostPerSF}/SF hard + ${Math.round(softCostPct*100)}% soft</div>
+      <div>Product: ${isMultiStory ? stories + "-story multi-story" : "Single-story indoor climate-controlled"}</div>
+    </div>
+    <div>
+      <div style="font-weight:700;color:#6B7394;margin-bottom:6px">Financial</div>
+      <div>Annual rate escalation: ${(annualEsc*100).toFixed(0)}%</div>
+      <div>OpEx ratio: 45% Y1 declining to 35% stabilized</div>
+      <div>Lease-up: 30% Y1, 55% Y2, 75% Y3, 88% Y4, 92% Y5</div>
+      <div>ECRI strategy applied Y2+ on existing tenants</div>
+    </div>
+  </div>
+  <div style="margin-top:12px;font-size:10px;color:#4A5080;font-style:italic">This report is generated by Storvex AI-Powered Analytics. Market rates are modeled from demographic inputs, competition density, and income tiers. Actual rates should be validated against local market surveys. All projections are estimates and subject to market conditions.</div>
+</div>
+
+<div class="footer">
+  <div style="font-size:12px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:4px">STORVEX<span style="font-size:8px;vertical-align:super">TM</span></div>
+  <div>Storage Pricing Report | ${site.name} | Generated ${new Date().toLocaleDateString()}</div>
+  <div style="margin-top:4px">Powered by DJR Real Estate LLC | Patent Pending</div>
+</div>
+
+</div></body></html>`;
+};
+
 // ─── Zoning & Utility Report — merged into generateVettingReport above ───
 const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   const iq = iqResult || {};
@@ -2682,6 +3025,9 @@ export default function App() {
                           const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
                         }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 Storvex Deep Vet Report</button>
                         <button onClick={() => { setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📊 Detailed Property Report</button>
+                        <button onClick={() => {
+                          const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 Storvex Pricing Report</button>
                       </div>
 
                       {/* Summary */}
@@ -4848,6 +5194,9 @@ export default function App() {
                 </>}
                 {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🔗 Property Listing</a>}
                 {flyerDoc && <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(243,124,51,0.12)", color: "#FFB347", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(243,124,51,0.25)", display: "flex", alignItems: "center", gap: 6 }}>📄 View Flyer</a>}
+                <button onClick={() => {
+                  const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(46,125,50,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>💰 Storvex Pricing Report</button>
               </div>
 
               {/* AERIAL VIEW */}
