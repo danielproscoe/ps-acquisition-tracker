@@ -12,6 +12,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
+import "./responsive.css";
 // xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
 // import * as XLSX from "xlsx";  ← moved to dynamic import()
 
@@ -103,6 +104,28 @@ const DOC_TYPES = [
   "Plat",
   "Other",
 ];
+// ─── Shared Constants (audit: extract magic numbers) ───
+const MS_PER_DAY = 86400000;
+const DOM_STALE_THRESHOLD = 365;
+const DOM_WARNING_THRESHOLD = 180;
+const ZONING_LABELS = {
+  "by-right": "BY-RIGHT (Permitted)",
+  "conditional": "CONDITIONAL (SUP/CUP Required)",
+  "rezone-required": "REZONE REQUIRED",
+  "prohibited": "PROHIBITED",
+  "unknown": "UNKNOWN — Research Required",
+};
+const PHASE_STYLES = {
+  "Prospect": { bg: "#DBEAFE", text: "#1E40AF" },
+  "Submitted to PS": { bg: "#DBEAFE", text: "#1E40AF" },
+  "Storvex Approved": { bg: "#E0E7FF", text: "#3730A3" },
+  "LOI": { bg: "#FEF3C7", text: "#92400E" },
+  "PSA Sent": { bg: "#F5D0FE", text: "#86198F" },
+  "Under Contract": { bg: "#DCFCE7", text: "#166534" },
+  "Closed": { bg: "#DCFCE7", text: "#166534" },
+  "Declined": { bg: "#FEE2E2", text: "#991B1B" },
+  "Dead": { bg: "#FEE2E2", text: "#991B1B" },
+};
 
 // ─── Storvex™ Configurable Weight System v2.0 ───
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
@@ -263,6 +286,8 @@ const fetchDemographics = async (coordinates) => {
 // stripEmoji: removes emoji/special Unicode chars that corrupt in plain-text/PDF renders
 const stripEmoji = (str) => String(str || "").replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]|[\u{20E3}]|[\u{E0020}-\u{E007F}]/gu, "").trim();
 const cleanPriority = (p) => { const s = stripEmoji(p); return s || "None"; };
+// HTML entity escaping — prevents XSS in vetting report templates
+const escHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
   const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
@@ -291,7 +316,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   const hasWell = /\bwell\b/i.test(combined);
   const zoningClass = site.zoningClassification || "unknown";
   const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
-  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
+  const zoningLabel = ZONING_LABELS[zoningClass] || zoningClass.toUpperCase();
   const statusPill = (text, color) => `<span style="display:inline-block;padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color}30">${text}</span>`;
   // Flags — merged from both reports
   const flags = [];
@@ -320,8 +345,8 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
   const section = (num, title) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${title}</h2></div>`;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
-  const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{@page{size:letter;margin:0.4in 0.5in}body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.report{box-shadow:none;max-width:100%}table{page-break-inside:avoid}h2{page-break-after:avoid}div[style*="grid"]{page-break-inside:avoid}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
+  const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / MS_PER_DAY)) : null;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${escHtml(site.name) || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{@page{size:letter;margin:0.4in 0.5in}body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.report{box-shadow:none;max-width:100%}table{page-break-inside:avoid}h2{page-break-after:avoid}div[style*="grid"]{page-break-inside:avoid}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
   <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
   <div class="report">
   <!-- HEADER -->
@@ -331,9 +356,9 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       <div>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
           <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#1E2761);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(201,168,76,0.4)"><span style="font-size:16px;font-weight:900;color:#fff;font-family:'Space Mono'">IQ</span></div>
-          <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
+          <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${escHtml(site.name) || "Unnamed Site"}</div></div>
         </div>
-        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${escHtml(site.address)}, ${escHtml(site.city)}, ${escHtml(site.state)} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
       </div>
       <div style="text-align:right">
         <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
@@ -417,9 +442,9 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     <!-- 1. PROPERTY OVERVIEW -->
     ${section("1", "Property Overview")}
     <table>${[
-      row("Name", site.name || "—", { bold: true }),
-      row("Address", `${site.address || "—"}, ${site.city || "—"}, ${site.state || "—"}`),
-      row("Market", site.market || "—"),
+      row("Name", escHtml(site.name) || "—", { bold: true }),
+      row("Address", `${escHtml(site.address) || "—"}, ${escHtml(site.city) || "—"}, ${escHtml(site.state) || "—"}`),
+      row("Market", escHtml(site.market) || "—"),
       row("Acreage", site.acreage || "—"),
       row("Asking Price", site.askingPrice || "—", { bold: true }),
       row("Internal Price", site.internalPrice || "—"),
@@ -434,7 +459,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     ${section("2", "Zoning & Entitlements — Can We Get Indoor Storage Here?")}
     <div style="padding:16px 20px;border-radius:10px;background:${zoningColor}08;border:2px solid ${zoningColor}35;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
+        <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${escHtml(site.zoning) || "Not recorded"}</strong></span>
         ${statusPill(zoningLabel, zoningColor)}
       </div>
       <div style="font-size:12px;color:#64748B;line-height:1.6">${
@@ -545,7 +570,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     <!-- 8. BROKER -->
     ${section("8", "Broker / Seller")}
     <table>${[
-      row("Contact", site.sellerBroker || "Not listed"),
+      row("Contact", escHtml(site.sellerBroker) || "Not listed"),
       row("Date on Market", site.dateOnMarket || "Unknown"),
     ].join("")}</table>
 
@@ -573,7 +598,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 
     <!-- 11. SUMMARY -->
     ${section("11", "Summary & Deal Notes")}
-    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
+    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${escHtml(site.summary) || "No notes"}</div>
 
     ${iq && iq.scores ? (() => {
       const dims = [
@@ -673,189 +698,6 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 </div></body></html>`;
 };
 
-// ─── Zoning & Utility Report — merged into generateVettingReport above ───
-const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
-  const iq = iqResult || {};
-  const iqScore = typeof iq.composite === "number" ? iq.composite : (iq.score || "—");
-  const zoningClass = site.zoningClassification || "unknown";
-  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
-  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
-  const zoningBadgeBg = zoningClass === "by-right" ? "#F0FDF4" : zoningClass === "conditional" ? "#FFFBEB" : zoningClass === "rezone-required" ? "#FEF2F2" : zoningClass === "prohibited" ? "#FEF2F2" : "#F8FAFC";
-  const summary = (site.summary || "").toLowerCase();
-  const zoning = (site.zoning || "").toLowerCase();
-  const combined = zoning + " " + summary;
-
-  // Parse zoning intel from summary
-  const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
-  const hasSUP = /(conditional|sup\b|cup\b|special\s*use)/i.test(combined);
-  const hasRezone = /rezone/i.test(combined);
-  const hasOverlay = /overlay/i.test(combined);
-  const hasFlood = /flood/i.test(combined);
-  const hasUtilities = /(utilit|water|sewer|electric|gas\b)/i.test(combined);
-  const hasSeptic = /septic/i.test(combined);
-  const hasWell = /\bwell\b/i.test(combined);
-
-  // Zoning score from IQ
-  const zoningScore = iq?.scores?.zoning;
-  const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
-
-  const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:200px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
-  const section = (num, title) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#5E35B1,#7C4DFF);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(94,53,177,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${title}</h2></div>`;
-  const statusPill = (text, color) => `<span style="display:inline-block;padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color}30">${text}</span>`;
-
-  const flags = [];
-  if (zoningClass === "unknown") flags.push("Zoning classification not confirmed — verify with local planning");
-  if (zoningClass === "prohibited") flags.push("Storage use PROHIBITED in current zoning district");
-  if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
-  if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
-  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
-  // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
-  if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
-  if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
-  if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
-
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Zoning & Utility Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{@page{size:letter;margin:0.4in 0.5in}body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.report{box-shadow:none;max-width:100%}table{page-break-inside:avoid}h2{page-break-after:avoid}div[style*="grid"]{page-break-inside:avoid}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#5E35B1,#7C4DFF);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(94,53,177,0.4);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(94,53,177,0.5)}.save-btn{position:fixed;bottom:28px;right:200px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(30,39,97,0.4);transition:all 0.2s ease;z-index:9999}.save-btn:hover{transform:translateY(-2px)}</style></head><body>
-  <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
-  <div class="report">
-
-  <!-- HEADER -->
-  <div style="background:linear-gradient(135deg,#1a0a2e 0%,#2d1b69 40%,#5E35B1 100%);padding:36px 40px;position:relative;overflow:hidden">
-    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#7C4DFF,#B388FF,#7C4DFF,transparent)"></div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#7C4DFF,#B388FF);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(124,77,255,0.4)"><span style="font-size:18px;font-weight:900;color:#fff;font-family:'Space Mono'">Z&U</span></div>
-          <div><div style="font-size:10px;color:#B388FF;letter-spacing:0.12em;text-transform:uppercase">Zoning & Utility Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
-        </div>
-        <div style="font-size:12px;color:#B388FF;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${zoningColor}18;border:1px solid ${zoningColor}40">
-          <span style="font-size:11px;font-weight:800;color:${zoningColor};text-transform:uppercase">${zoningLabel}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- KEY METRICS BAR -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
-    ${[
-      { label: "Zoning District", value: site.zoning || "Unknown", color: "#5E35B1" },
-      { label: "Classification", value: zoningLabel.split(" (")[0], color: zoningColor },
-      { label: "Acreage", value: site.acreage ? `${site.acreage} ac` : "TBD", color: "#1E293B" },
-      { label: "Zoning Score", value: zoningScore != null ? `${zoningScore.toFixed(1)}/10` : "—", color: zoningScoreColor },
-    ].map(m => `<div style="padding:16px 20px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">${m.label}</div><div style="font-size:16px;font-weight:800;color:${m.color};font-family:'Space Mono',monospace">${m.value}</div></div>`).join("")}
-  </div>
-
-  <div style="padding:32px 40px">
-
-    <!-- 1. ZONING CLASSIFICATION -->
-    ${section("1", "Zoning Classification")}
-    <div style="padding:16px 20px;border-radius:10px;background:${zoningBadgeBg};border:1px solid ${zoningColor}25;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
-        ${statusPill(zoningLabel, zoningColor)}
-      </div>
-      <div style="font-size:12px;color:#64748B;line-height:1.6">
-        ${zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." : ""}
-        ${zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." : ""}
-        ${zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." : ""}
-        ${zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." : ""}
-        ${zoningClass === "unknown" ? "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding. See Section 3 for next steps." : ""}
-      </div>
-    </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Zoning District", site.zoning || "Not recorded", { bold: true }),
-      row("Classification", zoningLabel, { badge: true, badgeBg: zoningBadgeBg, badgeColor: zoningColor }),
-      row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
-      row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
-    ].join("")}</table>
-
-    <!-- 2. SUPPLEMENTAL STANDARDS -->
-    ${section("2", "Supplemental Standards & Requirements")}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
-      ${[
-        { label: "Facade / Materials", icon: "🏗", text: /facade|material|masonry|brick/i.test(combined) ? "Requirements noted — see summary" : "No specific requirements identified" },
-        { label: "Setbacks", icon: "📐", text: /setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks apply" },
-        { label: "Height Limits", icon: "📏", text: /height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district height limits" },
-        { label: "Screening / Landscape", icon: "🌿", text: /screen|landscape|buffer/i.test(combined) ? "Screening / landscaping required" : "Standard requirements" },
-        { label: "Signage", icon: "🪧", text: /sign/i.test(combined) ? "Signage requirements noted" : "Standard district signage rules" },
-        { label: "Parking", icon: "🅿", text: /parking/i.test(combined) ? "Parking requirements noted" : "Per district standards" },
-      ].map(s => `<div style="padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:14px">${s.icon}</span><span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em">${s.label}</span></div><div style="font-size:12px;color:#64748B">${s.text}</div></div>`).join("")}
-    </div>
-
-    <!-- 3. UTILITY ASSESSMENT -->
-    ${section("3", "Utility Infrastructure")}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      ${[
-        { label: "Water Service", icon: "💧", available: /water|municipal|city\s*water/i.test(combined), issue: hasWell ? "Well water noted" : null, color: /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Sanitary Sewer", icon: "🚿", available: /sewer|sanitary/i.test(combined), issue: hasSeptic ? "Septic system" : null, color: /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#F59E0B" : "#94A3B8" },
-        { label: "Electric Service", icon: "⚡", available: /electric|power/i.test(combined), issue: null, color: /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Natural Gas", icon: "🔥", available: /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Stormwater", icon: "🌧", available: /storm|drainage|detention/i.test(combined), issue: hasFlood ? "Flood zone concern" : null, color: hasFlood ? "#EF4444" : /storm|drainage/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Telecom / Fiber", icon: "📡", available: /fiber|telecom|internet|broadband/i.test(combined), issue: null, color: /fiber|telecom/i.test(combined) ? "#16A34A" : "#94A3B8" },
-      ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.available ? "Available per listing/summary data" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned in listing data — verify with jurisdiction or utility provider"}</div></div>`).join("")}
-    </div>
-
-    <!-- 4. FLOOD ZONE -->
-    ${section("4", "Flood Zone & Environmental")}
-    <div style="padding:14px 18px;border-radius:10px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified in site data" : "No flood zone issues identified"}</span>
-      ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
-    </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("FEMA Flood Zone", hasFlood ? "Flood zone identified — verify FEMA panel" : "Not identified (verify FEMA map)"),
-      row("Environmental Concerns", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
-      row("Wetlands", /wetland/i.test(combined) ? "Wetlands noted — may affect buildable area" : "None identified"),
-      row("Topography", /slope|grade|topo|steep|flat/i.test(combined) ? "Topography notes in summary" : "Not assessed — review aerial imagery"),
-    ].join("")}</table>
-
-    <!-- 5. ACCESS & INFRASTRUCTURE -->
-    ${section("5", "Site Access & Infrastructure")}
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Road Frontage", /frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed"),
-      row("Curb Cuts", /curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "Not confirmed — verify on aerial"),
-      row("Road Type", /highway|arterial|collector|divided|two.?lane/i.test(combined) ? "Road classification noted" : "Not assessed"),
-      row("Visibility", /visib/i.test(combined) ? "Visibility noted" : "Not assessed"),
-      row("Landlocked", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? `<span style="color:#EF4444;font-weight:700">ACCESS CONCERN</span>` : "No landlocked concerns identified"),
-    ].join("")}</table>
-
-    <!-- 6. NEXT STEPS -->
-    ${section("6", "Recommended Next Steps")}
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-      ${[
-        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify storage permissibility" } : null,
-        zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements, and precedent" } : null,
-        zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
-        !hasUtilities ? { pri: "MED", color: "#F59E0B", text: "Confirm utility availability — contact water/sewer provider and electric utility" } : null,
-        hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
-        hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
-        { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
-      ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
-    </div>
-
-    <!-- 7. RED FLAGS -->
-    ${section("7", "Red Flags & Action Items")}
-    ${flags.length === 0
-      ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
-      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
-    }
-
-    <!-- 8. DEAL NOTES -->
-    ${section("8", "Zoning & Utility Notes")}
-    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
-
-  </div>
-
-  <!-- FOOTER -->
-  <div style="background:#1a0a2e;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#7C4DFF">Report generated by <span style="color:#B388FF;font-weight:700">Storvex Acquisition Pipeline 4.0</span> · Patent Pending</div>
-    <div style="font-size:11px;color:#7C4DFF"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
-  </div>
-</div></body></html>`;
-};
 
 // ─── Storvex™ v3 — Calibrated Site Scoring Engine ───
 // Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
@@ -1040,7 +882,7 @@ const computeSiteScore = (site) => {
 
   // --- STALE LISTING PENALTY ---
   if (site.dateOnMarket) {
-    const dom = Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000);
+    const dom = Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / MS_PER_DAY);
     if (dom > 1000) { adjusted = Math.max(0, adjusted - 0.5); flags.push("Stale: " + dom + " DOM"); }
   }
 
@@ -1699,8 +1541,9 @@ export default function App() {
     } catch (err) {
       notify("Demographics fetch failed");
       console.error(err);
+    } finally {
+      setDemoLoading((prev) => ({ ...prev, [site.id]: false }));
     }
-    setDemoLoading((prev) => ({ ...prev, [site.id]: false }));
   };
 
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
@@ -2038,7 +1881,7 @@ export default function App() {
             const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
             return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
           }
-          if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
+          if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / MS_PER_DAY)) : "";
           if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
           return s[c.key] || "";
         })
@@ -2062,7 +1905,7 @@ export default function App() {
           const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
           return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
         }
-        if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
+        if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / MS_PER_DAY)) : "";
         if (c.key === "approvedAt") return s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "";
         return s[c.key] || "";
       })
@@ -2161,7 +2004,7 @@ export default function App() {
               const docs = site.docs ? Object.entries(site.docs) : [];
               const logs = site.activityLog ? Object.values(site.activityLog) : [];
               const mi = msgInputs[site.id] || { from: "Dan R", text: "" };
-              const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+              const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / MS_PER_DAY)) : null;
 
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[site.priority] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
@@ -2335,7 +2178,7 @@ export default function App() {
                               const logs2 = Object.values(site.activityLog || {});
                               const lastLog2 = logs2.length > 0 ? logs2.sort((a, b) => new Date(b.ts || b.date || 0) - new Date(a.ts || a.date || 0))[0] : null;
                               const lastDate2 = lastLog2?.date || site.approvedAt;
-                              const daysAgo2 = lastDate2 ? Math.floor((Date.now() - new Date(lastDate2).getTime()) / 86400000) : null;
+                              const daysAgo2 = lastDate2 ? Math.floor((Date.now() - new Date(lastDate2).getTime()) / MS_PER_DAY) : null;
                               return lastDate2 ? (
                                 <div style={{ fontSize: 9, color: daysAgo2 > 30 ? "#EF4444" : daysAgo2 > 14 ? "#F59E0B" : "#22C55E", fontWeight: 600, textAlign: "right" }}>
                                   ● {daysAgo2 === 0 ? "Today" : daysAgo2 === 1 ? "Yesterday" : daysAgo2 + "d ago"}
@@ -3040,7 +2883,7 @@ export default function App() {
             {(() => {
               const all = [...sw, ...east];
               const now = Date.now();
-              const WEEK = 7 * 86400000;
+              const WEEK = 7 * MS_PER_DAY;
               // Week-over-week trend calculation
               const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < WEEK).length;
               const addedLastWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) >= WEEK && (now - new Date(s.approvedAt).getTime()) < 2 * WEEK).length;
@@ -3137,7 +2980,7 @@ export default function App() {
             {(() => {
               const all = [...sw, ...east];
               const now = Date.now();
-              const week = 7 * 86400000;
+              const week = 7 * MS_PER_DAY;
               const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < week).length;
               const ucCount = all.filter(s => s.phase === "Under Contract").length;
               const loiCount = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
@@ -3173,7 +3016,7 @@ export default function App() {
             {(() => {
               const all = [...sw, ...east];
               const now = Date.now();
-              const DAY = 86400000;
+              const DAY = MS_PER_DAY;
               const WEEK = 7 * DAY;
 
               // --- Recent phase advances (last 30 days) ---
@@ -3479,12 +3322,15 @@ export default function App() {
                         <tr>{["Storvex", "Name", "City", "ST", "Phase", "Ask", "Acres", "3mi Pop", "Broker", "DOM", "Added"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
-                        {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setDetailView({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                        {d.map((s, i) => {
+                          const iqS = getSiteScore(s);
+                          const rowBg = iqS.tier === "gold" ? "rgba(201,168,76,0.08)" : iqS.tier === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)";
+                          return (
+                          <tr key={s.id} onClick={() => { setDetailView({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: rowBg, cursor: "pointer", transition: "background 0.15s", borderLeft: iqS.tier === "gold" ? "3px solid #C9A84C" : iqS.tier === "steel" ? "3px solid #2C3E6B" : "3px solid transparent" }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(232,122,46,0.12)")}
-                            onMouseLeave={(e) => { const t = getSiteScore(s).tier; e.currentTarget.style.background = t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}
                           >
-                            <td style={{ ...td, textAlign: "center" }}><SiteScoreBadge site={s} size="small" iq={getSiteScore(s)} /></td>
+                            <td style={{ ...td, textAlign: "center" }}><SiteScoreBadge site={s} size="small" iq={iqS} /></td>
                             <td style={{ ...td, fontWeight: 600, color: "#E2E8F0" }}>{s.name}</td>
                             <td style={{ ...td, fontWeight: 600 }}>{s.city || "—"}</td>
                             <td style={td}>{s.state || "—"}</td>
@@ -3493,10 +3339,11 @@ export default function App() {
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
                             <td style={td}>{s.sellerBroker || "—"}</td>
-                            <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
+                            {(() => { const dom = s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / MS_PER_DAY)) : null; return <td style={{ ...td, textAlign: "center", fontSize: 12, color: dom != null ? (dom > DOM_STALE_THRESHOLD ? "#EF4444" : dom > DOM_WARNING_THRESHOLD ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{dom != null ? dom + "d" : "—"}</td>; })()}
                             <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "—"}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -3785,7 +3632,7 @@ export default function App() {
           const iqR = computeSiteScore(site);
           const ri = reviewInputs[site.id] || {};
           const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
-          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / MS_PER_DAY)) : null;
           return (
             <div style={{ animation: "fadeIn .3s ease-out", position: "relative", maxWidth: 1100, margin: "0 auto" }}>
               <button onClick={() => setReviewDetailSite(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(232,122,46,0.25)", background: "rgba(232,122,46,0.08)", color: "#E87A2E", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 16 }}>← Back to Review Queue</button>
@@ -3966,7 +3813,7 @@ export default function App() {
           const prevSite = idx > 0 ? allSites[idx - 1] : null;
           const nextSite = idx < allSites.length - 1 ? allSites[idx + 1] : null;
           const iqR = getSiteScore(site);
-          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / MS_PER_DAY)) : null;
           const docs = site.docs ? Object.entries(site.docs) : [];
           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
@@ -3976,13 +3823,16 @@ export default function App() {
             if (e.key === "ArrowRight" && nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
             if (e.key === "Escape") { setDetailView(null); }
           };
-          if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
+          // Attach keydown handler — cleanup on next render via removal before re-attach
+          if (window._detailKeyHandler) { window.removeEventListener("keydown", window._detailKeyHandler); }
+          window._detailKeyHandler = handleDetailKey;
+          window.addEventListener("keydown", handleDetailKey);
 
           return (
             <div style={{ animation: "fadeIn 0.15s ease-out" }}>
               {/* TOP NAV BAR */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                <button onClick={() => { setDetailView(null); window._detailKeyBound = false; navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
+                <button onClick={() => { if (window._detailKeyHandler) { window.removeEventListener("keydown", window._detailKeyHandler); window._detailKeyHandler = null; } setDetailView(null); navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
