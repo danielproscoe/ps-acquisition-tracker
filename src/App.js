@@ -109,15 +109,14 @@ const DOC_TYPES = [
 // Persisted at Firebase path: config/siteiq_weights
 const SITE_SCORE_DEFAULTS = [
   { key: "population", label: "Population", icon: "👥", weight: 0.16, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.18, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "📈", weight: 0.21, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
   { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
   { key: "households", label: "Households", icon: "🏠", weight: 0.05, tip: "3-mile household count (demand proxy)", source: "ESRI / Census ACS", group: "demographics" },
   { key: "homeValue", label: "Home Value", icon: "🏡", weight: 0.05, tip: "Median home value — affluence signal", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.14, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
-  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: 0.10, tip: "Distance to nearest PS location", source: "siteiqData.nearestPS", group: "market" },
+  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.16, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: 0.11, tip: "Distance to nearest PS location", source: "siteiqData.nearestPS", group: "market" },
   { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "competition", label: "Competition", icon: "🏢", weight: 0.05, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+  { key: "competition", label: "Competition", icon: "🏢", weight: 0.07, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
   { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.02, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
 ];
 
@@ -782,8 +781,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
         { key: "income", label: "Income", weight: 0.10 },
         { key: "households", label: "Households", weight: 0.05 },
         { key: "homeValue", label: "Home Value", weight: 0.05 },
-        { key: "pricing", label: "Pricing", weight: 0.08 },
-        { key: "zoning", label: "Zoning", weight: 0.14 },
+        { key: "zoning", label: "Zoning", weight: 0.16 },
         { key: "psProximity", label: "PS Proximity", weight: 0.10 },
         { key: "access", label: "Site Access", weight: 0.07 },
         { key: "competition", label: "Competition", weight: 0.05 },
@@ -2062,23 +2060,7 @@ const computeSiteScore = (site) => {
   }
   scores.psProximity = psProxScore;
 
-  // --- 3a. PRICING (8%) — Price per acre vs. acquisition targets ---
-  // Thresholds: ≤$150K/ac=10, ≤$250K=8, ≤$400K=6, ≤$600K=4, >$600K=2, no data=5
-  let pricingScore = 5; // default when price or acreage missing
-  const priceRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
-  if (!isNaN(priceRaw) && priceRaw > 0 && !isNaN(acres) && acres > 0) {
-    const ppa = priceRaw / acres; // price per acre
-    if (ppa <= 150000) pricingScore = 10;
-    else if (ppa <= 250000) pricingScore = 8;
-    else if (ppa <= 400000) pricingScore = 6;
-    else if (ppa <= 600000) pricingScore = 4;
-    else pricingScore = 2;
-  } else if (!isNaN(priceRaw) && priceRaw > 0 && !isNaN(acres) && acres === 0) {
-    // Price exists but no acreage — can't compute PPA, leave default
-  }
-  scores.pricing = pricingScore;
-
-  // --- 3. ZONING (15%) §6c methodology ---
+  // --- 3. ZONING (16%) §6c methodology ---
   // Prefer structured zoningClassification field; fall back to regex on zoning + summary text
   // SOURCE NOTE: ETJ / unincorporated / no zoning = 10/10 (BEST outcome for storage).
   // Under Texas law (Ch. 231 LGC), counties have no zoning authority. ETJ grants platting control only, NOT use restrictions.
@@ -2153,11 +2135,13 @@ const computeSiteScore = (site) => {
   }
   scores.marketTier = tierScore;
 
-  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, all 11 dimensions ---
+  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, 10 dimensions ---
+  // NOTE: Pricing dimension removed — land valuation now handled by Pricing Report's
+  // Land Acquisition Price Guide (min/strike/max back-calculated from stabilized NOI).
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
     (incScore * getIQWeight("income")) + (hhScore * getIQWeight("households")) +
-    (hvScore * getIQWeight("homeValue")) + (pricingScore * getIQWeight("pricing")) +
+    (hvScore * getIQWeight("homeValue")) +
     (zoningScore * getIQWeight("zoning")) + (psProxScore * getIQWeight("psProximity")) +
     (scores.access * getIQWeight("access")) +
     (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
@@ -2246,7 +2230,6 @@ const computeSiteScore = (site) => {
     { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income") },
     { label: "Households", key: "households", score: scores.households, weight: getIQWeight("households") },
     { label: "Home Value", key: "homeValue", score: scores.homeValue, weight: getIQWeight("homeValue") },
-    { label: "Pricing", key: "pricing", score: scores.pricing, weight: getIQWeight("pricing") },
     { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning") },
     { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity") },
     { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access") },
@@ -2349,7 +2332,6 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
             { key: "income", label: "INC" },
             { key: "households", label: "HH" },
             { key: "homeValue", label: "HV" },
-            { key: "pricing", label: "PPA" },
             { key: "zoning", label: "ZN" },
             { key: "psProximity", label: "PS" },
             { key: "access", label: "ACC" },
@@ -3413,7 +3395,6 @@ export default function App() {
                                 { key: "income", label: "Median HHI (3-mi)", weight: getIQWeight("income"), icon: "💰", tip: "Median household income within 3 miles" },
                                 { key: "households", label: "Households (3-mi)", weight: getIQWeight("households"), icon: "🏠", tip: "Household count — demand proxy" },
                                 { key: "homeValue", label: "Home Value (3-mi)", weight: getIQWeight("homeValue"), icon: "🏡", tip: "Median home value — affluence signal" },
-                                { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs acquisition targets" },
                                 { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
                                 { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest PS — closer = validated market" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
@@ -5302,42 +5283,6 @@ export default function App() {
                               <StorvexAnalysis signal={tier} signalColor={tierC} text={hvRaw >= 350000 ? `Home values averaging $${(hvRaw || 0).toLocaleString()} signal an affluent submarket. Higher home values strongly correlate with storage demand: homeowners accumulate more possessions, invest in climate-sensitive items (furniture, electronics, wine), and are willing to pay premium storage rates. This is a wealth indicator that supports aggressive RevPAF targets.` : hvRaw >= 180000 ? `Middle-market home values at $${(hvRaw || 0).toLocaleString()} indicate a stable residential base. Storage demand will be driven by standard household storage needs (seasonal items, life transitions) rather than premium asset storage. Pricing should target competitive market rates.` : `Home values below $180K suggest a value-oriented market. Storage demand exists but skews toward basic, cost-sensitive solutions. Climate-controlled premium units may see slower absorption. Drive-up and smaller unit mixes perform better in this tier.`} />
                             </div>);
                           }
-                          if (dK === "pricing") {
-                            const tiers = [{ label: "VALUE BUY", max: 150000, color: "#22C55E" }, { label: "COMPETITIVE", max: 250000, color: "#3B82F6" }, { label: "MARKET RATE", max: 400000, color: "#F59E0B" }, { label: "PREMIUM", max: 600000, color: "#E87A2E" }, { label: "ELEVATED", max: Infinity, color: "#EF4444" }];
-                            const tier = tiers.find(t => (pricePerAc || 0) <= t.max) || tiers[4];
-                            const askP = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
-                            const intP = site.internalPrice ? parseFloat(String(site.internalPrice).replace(/[^0-9.]/g, "")) : null;
-                            const acreage = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
-                            return (<div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
-                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tier.color}15` }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PRICE PER ACRE ANALYSIS</div>
-                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1, marginBottom: 8 }}>{pricePerAc ? "$" + pricePerAc.toLocaleString() : "—"}</div>
-                                  <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, background: tier.color + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: tier.color }}>{tier.label}</span></div>
-                                  <div style={{ marginTop: 14 }}>
-                                    {tiers.slice(0, 4).map((t, j) => <MRow key={j} label={t.label + " (<$" + (t.max / 1000) + "K)"} value={"$" + t.max.toLocaleString()} color={t.color} pctOf={(t.max / 600000) * 100} />)}
-                                  </div>
-                                </div>
-                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>DEAL ECONOMICS</div>
-                                  {[
-                                    { label: "Asking Price", val: askP ? "$" + Math.round(askP).toLocaleString() : "—" },
-                                    { label: "Internal Target", val: intP ? "$" + Math.round(intP).toLocaleString() : "—", color: "#E87A2E" },
-                                    { label: "Acreage", val: acreage ? acreage.toFixed(2) + " ac" : "—" },
-                                    { label: "Price / Acre", val: pricePerAc ? "$" + pricePerAc.toLocaleString() : "—" },
-                                    { label: "Price / SF", val: pricePerAc ? "$" + (pricePerAc / 43560).toFixed(2) : "—" },
-                                    { label: "Spread (Ask vs Int)", val: askP && intP ? "$" + Math.round(askP - intP).toLocaleString() + " (" + Math.round((1 - intP / askP) * 100) + "% below)" : "—", color: askP && intP && intP < askP ? "#22C55E" : "#94A3B8" },
-                                  ].map((r, j) => (
-                                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: j < 5 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
-                                      <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.label}</span>
-                                      <span style={{ fontSize: 12, fontWeight: 800, color: r.color || "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{r.val}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                              <StorvexAnalysis signal={tier.label} signalColor={tier.color} text={pricePerAc && pricePerAc <= 250000 ? `At $${pricePerAc.toLocaleString()}/acre, this acquisition is competitively priced for the self-storage development pipeline. Land cost represents roughly 15-25% of total development cost for a climate-controlled facility. ${intP && intP < askP ? `The ${Math.round((1 - intP / askP) * 100)}% spread between asking and internal target provides negotiation room.` : ""} This pricing supports attractive yield-on-cost projections.` : pricePerAc && pricePerAc <= 400000 ? `Market-rate pricing at $${pricePerAc.toLocaleString()}/acre. Manageable for storage development but leaves less margin for cost overruns. The total land basis should be modeled against projected Year 3 NOI to confirm yield-on-cost exceeds 8%.` : `${pricePerAc ? "Elevated pricing at $" + pricePerAc.toLocaleString() + "/acre" : "Pricing data unavailable"}. Higher land costs compress development returns and extend breakeven timelines. Consider aggressive negotiation, seller financing, or ground lease structures to manage basis.`} />
-                            </div>);
-                          }
                           if (dK === "zoning") {
                             const zClass = site.zoningClassification || "unknown";
                             const zColor = zClass === "by-right" ? "#22C55E" : zClass === "conditional" ? "#F59E0B" : zClass === "rezone-required" ? "#EF4444" : "#6B7394";
@@ -5979,37 +5924,6 @@ export default function App() {
                               <SvxBox signal={sizeSignal} sigColor={sizeC} text={acreageVal >= 3.5 && acreageVal <= 5 ? `${acreageVal.toFixed(2)} acres — ideal for PS's preferred one-story, indoor climate-controlled product. Accommodates 80,000-110,000 net rentable SF with parking, landscaping, and stormwater.` : acreageVal > 5 ? `${acreageVal.toFixed(2)} acres — large parcel offers flexibility. Could accommodate PS's standard product with excess land for expansion or outparcel development to offset land basis.` : `${acreageVal.toFixed(2)} acres — suitable for multi-story (3-4 story) climate-controlled facility. Can achieve 70,000-100,000 net rentable SF with vertical construction.`} />
                             </div>);
                           }
-                          if (k === "pricing") {
-                            const askP = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
-                            const tiers = [{ l: "Excellent", max: 150000, c: "#22C55E" }, { l: "Good", max: 250000, c: "#3B82F6" }, { l: "Market", max: 400000, c: "#F59E0B" }, { l: "Premium", max: 600000, c: "#EF4444" }];
-                            const tier = tiers.find(t => (pricePerAcVal || 0) <= t.max) || tiers[3];
-                            return (<div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
-                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tier.c}15` }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PRICE PER ACRE ANALYSIS</div>
-                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1, marginBottom: 8 }}>{pricePerAcVal ? "$" + pricePerAcVal.toLocaleString() : "—"}</div>
-                                  <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, background: tier.c + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: tier.c }}>{tier.l}</span></div>
-                                  <div style={{ marginTop: 14 }}>
-                                    {tiers.map((t, j) => <MR key={j} label={t.l + " (<$" + (t.max / 1000) + "K)"} value={"$" + t.max.toLocaleString()} color={t.c} pctOf={(t.max / 600000) * 100} />)}
-                                  </div>
-                                </div>
-                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>DEAL ECONOMICS</div>
-                                  {[{ l: "Asking Price", v: !isNaN(askP) && askP > 0 ? "$" + Math.round(askP).toLocaleString() : site.askingPrice || "—" },
-                                    { l: "Acreage", v: acreageVal ? acreageVal.toFixed(2) + " ac" : "—" },
-                                    { l: "Price / Acre", v: pricePerAcVal ? "$" + pricePerAcVal.toLocaleString() : "—" },
-                                    { l: "Price / SF", v: pricePerAcVal ? "$" + (pricePerAcVal / 43560).toFixed(2) : "—" },
-                                  ].map((r, j) => (
-                                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: j < 3 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
-                                      <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.l}</span>
-                                      <span style={{ fontSize: 12, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{r.v}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                              <SvxBox signal={tier.l} sigColor={tier.c} text={pricePerAcVal && pricePerAcVal <= 250000 ? `At $${pricePerAcVal.toLocaleString()}/acre, competitively priced for storage development. Land cost ~15-25% of total development cost. Supports attractive yield-on-cost projections.` : pricePerAcVal && pricePerAcVal <= 400000 ? `Market-rate pricing at $${pricePerAcVal.toLocaleString()}/acre. Manageable but leaves less margin. Model against projected Year 3 NOI to confirm 8%+ yield-on-cost.` : `${pricePerAcVal ? "Elevated pricing at $" + pricePerAcVal.toLocaleString() + "/acre" : "Pricing TBD"}. Consider aggressive negotiation, seller financing, or ground lease structures.`} />
-                            </div>);
-                          }
                           if (k === "psProximity") {
                             const proxSig = psDist2 <= 5 ? "VALIDATED SUBMARKET" : psDist2 <= 10 ? "PS ADJACENT" : psDist2 <= 15 ? "MODERATE" : psDist2 <= 25 ? "EDGE" : "REMOTE";
                             const pC = psDist2 <= 5 ? "#22C55E" : psDist2 <= 10 ? "#3B82F6" : psDist2 <= 15 ? "#F59E0B" : "#E87A2E";
@@ -6303,7 +6217,6 @@ export default function App() {
                   { key: "income", label: "Income", icon: "💰", weight: getIQWeight("income") },
                   { key: "households", label: "Households", icon: "🏠", weight: getIQWeight("households") },
                   { key: "homeValue", label: "Home Value", icon: "🏡", weight: getIQWeight("homeValue") },
-                  { key: "pricing", label: "Pricing", icon: "🏷️", weight: getIQWeight("pricing") },
                   { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
                   { key: "psProximity", label: "PS Proximity", icon: "📦", weight: getIQWeight("psProximity") },
                   { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
