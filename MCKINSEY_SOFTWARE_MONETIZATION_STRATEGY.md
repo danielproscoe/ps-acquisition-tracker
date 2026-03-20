@@ -421,7 +421,58 @@ No amount of marketing spend can buy what PS deployment gives you for free: proo
 
 ---
 
-## VII. Risk Factors
+## VII. Software Access & IP Protection Terms — PS Deployment
+
+### The Cardinal Rule: Output Access, Not System Access
+
+During Phase 1 and Phase 2, PS receives the **output** of Storvex™ and SiteScore™ — not the software itself. Dan controls the platform. PS experiences the value through scored deal packages, Market Intelligence Briefs, and SiteScore™ ratings embedded in submissions. At no point does PS receive login credentials, source code, algorithm documentation, or direct API access unless and until a formal license agreement is executed.
+
+This distinction is critical. It preserves Dan's IP position entirely while still delivering maximum value to PS.
+
+### Access Tiers by Phase
+
+| Phase | What PS Receives | What PS Does NOT Receive | Dan's IP Status |
+|-------|-----------------|-------------------------|-----------------|
+| **Phase 1 (Embed)** | Scored deal packages, SiteScore™ ratings, Market Intelligence Briefs, research completeness grades | Platform access, scoring methodology, algorithm weights, source code, database access | Full ownership; no license granted |
+| **Phase 2 (Prove)** | Same as Phase 1 + calibration performance reports (e.g., "sites scoring 7+ close at 2x rate") | Direct system access, raw calibration data, scoring model internals | Full ownership; no license granted |
+| **Phase 3 (Deploy)** | *If PS wants direct platform access:* Storvex™ Enterprise license under formal SaaS agreement | Source code, algorithm weights, modification rights, sublicense rights | Licensed use only; Dan retains full ownership |
+
+### Protective Language for All PS-Facing Materials
+
+Every scored deal package, Market Intelligence Brief, and SiteScore™ output delivered to PS should include the following footer:
+
+> *"This analysis was generated using Storvex™ and SiteScore™, proprietary software systems owned by DJR Real Estate LLC. SiteScore™ methodology is patent pending (App. No. 64/009,393). Storvex™ and SiteScore™ are trademarks of DJR Real Estate LLC. This output is provided for PS internal evaluation purposes only and may not be reproduced, reverse-engineered, or distributed without written consent of DJR Real Estate LLC."*
+
+### If PS Requests Direct Platform Access
+
+This is a **positive signal** — it means the product is working. But it triggers a licensing conversation, not a giveaway. Dan's response framework:
+
+1. **Acknowledge the value:** *"Glad the team is finding the scored packages useful — that's exactly what we built it for."*
+2. **Frame the transition:** *"We do offer direct platform access through our enterprise licensing program. Let me put together a proposal."*
+3. **Negotiate from strength:** At this point, Dan has leverage — PS already depends on the output. The license should include:
+
+| License Term | Purpose |
+|-------------|---------|
+| Annual license fee ($120K–$180K/yr) | Revenue; establishes commercial value of the software |
+| DJR retains all IP, source code, and algorithm ownership | Non-negotiable — this is the foundation of external monetization |
+| PS receives a non-exclusive, non-transferable license to use | PS cannot sublicense, modify, or distribute |
+| Dan continues as preferred deal-sourcing partner | Software access does not replace the broker relationship |
+| Data ownership: PS owns their acquisition decisions; Dan owns scoring methodology and platform data | Clean separation — prevents PS from claiming the algorithm |
+| Termination clause: license terminates if PS brings scoring in-house using substantially similar methodology | Anti-cloning provision — forces PS to license, not replicate |
+| Audit rights | Dan can verify PS is not exceeding license scope |
+| 3-year minimum term with auto-renewal | Stability for both parties |
+
+### What to Do If PS Asks "Can We Just Build This Ourselves?"
+
+This is the scenario the patent filing is designed to address. Dan's response:
+
+1. **They can try** — but the patent-pending status (App. No. 64/009,393) covers the multi-dimensional AI scoring methodology. Any substantially similar system built by PS or a PS vendor could face an infringement claim once the patent is granted.
+2. **It's cheaper to license** — building from scratch costs $400K–$640K (see Section V, Storvex™ Cost Approach) plus ongoing maintenance. Licensing from Dan costs $120K–$180K/yr and includes updates, calibration, and the broker deal flow.
+3. **They'd lose the broker network** — Storvex™ isn't just software; it's the system that powers Dan's deal-sourcing operation. Replacing the software doesn't replace the broker relationships and regional intelligence that feed it.
+
+---
+
+## VIII. Risk Factors
 
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|------------|
