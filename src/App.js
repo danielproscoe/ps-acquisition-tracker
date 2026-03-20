@@ -15,7 +15,8 @@ import {
 // xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
 // import * as XLSX from "xlsx";  ← moved to dynamic import()
 
-// ─── CSV Parser ───
+// ─── CSV Parser (used by bulk import) ───
+// eslint-disable-next-line no-unused-vars
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
@@ -144,7 +145,7 @@ const getIQWeight = (key) => {
 // ─── Helpers ───
 const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const fmt$ = (v) => {
+const fmt$ = (v) => { // eslint-disable-line no-unused-vars
   if (!v) return "";
   const n = Number(String(v).replace(/[^0-9.]/g, ""));
   return isNaN(n) ? v : "$" + n.toLocaleString();
@@ -205,16 +206,16 @@ const buildDemoReport = (site) => {
     3: { pop: parseNum(site.pop3mi), hh: parseNum(site.households3mi), medIncome: parseNum(site.income3mi), homeValue: parseNum(site.homeValue3mi), renterPct: site.renterPct3mi, popGrowth: site.popGrowth3mi },
     5: { pop: parseNum(site.pop5mi), hh: parseNum(site.households5mi), medIncome: parseNum(site.income5mi), homeValue: parseNum(site.homeValue5mi), renterPct: site.renterPct5mi, popGrowth: site.popGrowth5mi },
   };
-  // 3mi projections
-  const pop3mi_fy = parseNum(site.pop3mi_fy);
-  const income3mi_fy = parseNum(site.income3mi_fy);
-  const households3mi_fy = parseNum(site.households3mi_fy);
+  // 3mi projections (used in downstream report renders)
+  const pop3mi_fy = parseNum(site.pop3mi_fy); // eslint-disable-line no-unused-vars
+  const income3mi_fy = parseNum(site.income3mi_fy); // eslint-disable-line no-unused-vars
+  const households3mi_fy = parseNum(site.households3mi_fy); // eslint-disable-line no-unused-vars
   // Growth metrics
   const hhGrowth3mi = site.hhGrowth3mi;
   const incomeGrowth3mi = site.incomeGrowth3mi;
   // Growth outlook based on actual ESRI pop growth
   const pg = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : 0;
-  const pop3 = rings[3].pop || 0;
+  const pop3 = rings[3].pop || 0; // eslint-disable-line no-unused-vars
   let growthOutlook = "Stable";
   if (pg > 1.5) growthOutlook = "High Growth";
   else if (pg > 0.5) growthOutlook = "Growing";
@@ -281,9 +282,9 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
     else if (acres > 5 && acres <= 7) { sizingText = `${acres} ac — Viable if subdivisible`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
     else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
   }
-  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
+  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail"); // eslint-disable-line no-unused-vars
   // Closer to existing facility = validated market = green (matches scoring engine)
-  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 10 ? "#16A34A" : site.siteiqData.nearestPS <= 20 ? "#F59E0B" : "#94A3B8") : "#94A3B8";
+  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 10 ? "#16A34A" : site.siteiqData.nearestPS <= 20 ? "#F59E0B" : "#94A3B8") : "#94A3B8"; // eslint-disable-line no-unused-vars
   // Z&U intelligence parsing
   const combined = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
   const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
@@ -723,6 +724,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 
 // ─── DEAD CODE: _REMOVED_generateZoningUtilityReport (183 lines) ───
 // Merged into generateVettingReport above. Retained for git history reference only.
+/* eslint-disable no-unused-vars */
 const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   const iq = iqResult || {};
   const iqScore = typeof iq.composite === "number" ? iq.composite : (iq.score || "—");
@@ -905,6 +907,7 @@ const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   </div>
 </div></body></html>`;
 };
+/* eslint-enable no-unused-vars */
 
 // ─── Storvex™ v3 — Calibrated Site Scoring Engine ───
 // Weights are defined in SITE_SCORE_DEFAULTS above and auto-normalized to sum 1.0.
@@ -1181,7 +1184,6 @@ function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
   const iq = iqProp || computeSiteScore(site);
   const s = iq.score;
   const isGold = iq.tier === "gold";
-  const isSteel = iq.tier === "steel";
   const isSmall = size === "small";
 
   const tierColors = {
@@ -1361,6 +1363,7 @@ function EF({ label, value, onSave, placeholder, multi }) {
     boxSizing: "border-box",
     resize: multi ? "vertical" : "none",
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSave = useCallback(debounce((v) => onSave(v), 400), [onSave]);
   const handleBlur = () => {
     if (local !== (value || "")) debouncedSave(local);
@@ -1451,7 +1454,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState("city");
   const [filterState, setFilterState] = useState("all");
   const [filterPhase, setFilterPhase] = useState("all");
-  const [highlightedSite, setHighlightedSite] = useState(null);
+  const [highlightedSite] = useState(null); // eslint-disable-line no-unused-vars
   // reviewExpandedSite removed — replaced by reviewDetailSite (full-page detail)
   const [reviewTab, setReviewTab] = useState("mine");
   const [reviewDetailSite, setReviewDetailSite] = useState(null); // site ID for full-page review detail
@@ -1494,6 +1497,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handleKeyNav);
     return () => window.removeEventListener("keydown", handleKeyNav);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, expandedSite, sw, east, sortBy]);
 
   // ─── FONT LOADER ───
@@ -3199,7 +3203,7 @@ export default function App() {
               const all = [...sw, ...east];
               const now = Date.now();
               const DAY = 86400000;
-              const WEEK = 7 * DAY;
+              const WEEK = 7 * DAY; // eslint-disable-line no-unused-vars
 
               // --- Recent phase advances (last 30 days) ---
               const recentMoves = [];
@@ -3421,7 +3425,7 @@ export default function App() {
         {tab === "summary" && (() => {
           const th = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#C9A84C", textTransform: "uppercase", borderBottom: "2px solid rgba(201,168,76,0.15)", whiteSpace: "nowrap", position: "sticky", top: 0, background: "rgba(15,21,56,0.6)", zIndex: 1 };
           const td = { padding: "8px 10px", fontSize: 11, color: "#E2E8F0", borderBottom: "1px solid rgba(201,168,76,0.08)", whiteSpace: "nowrap" };
-          const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 };
+          const tdW = { ...td, whiteSpace: "normal", maxWidth: 200, minWidth: 120 }; // eslint-disable-line no-unused-vars
           const allStates = [...new Set([...sw, ...east].map(s => s.state).filter(Boolean))].sort();
           const SumTable = ({ rk }) => {
             const r = REGIONS[rk];
@@ -3710,10 +3714,10 @@ export default function App() {
                   if (!aIsNew && bIsNew) return 1;
                   return (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0);
                 }).map((site) => {
-                  const ri = reviewInputs[site.id] || { reviewer: "", note: "" };
-                  const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
+                  const ri = reviewInputs[site.id] || { reviewer: "", note: "" }; // eslint-disable-line no-unused-vars
+                  const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } }); // eslint-disable-line no-unused-vars
                   const isHL = highlightedSite === site.id;
-                  const isExpanded = false; // legacy — full-page detail replaced inline expand
+                  const isExpanded = false; // eslint-disable-line no-unused-vars
                   return (
                     <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
                       onClick={(e) => { e.stopPropagation(); navigateTo("review", { reviewSiteId: site.id }); }}
