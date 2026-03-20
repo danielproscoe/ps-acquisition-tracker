@@ -115,17 +115,6 @@ const ZONING_LABELS = {
   "prohibited": "PROHIBITED",
   "unknown": "UNKNOWN — Research Required",
 };
-const PHASE_STYLES = {
-  "Prospect": { bg: "#DBEAFE", text: "#1E40AF" },
-  "Submitted to PS": { bg: "#DBEAFE", text: "#1E40AF" },
-  "Storvex Approved": { bg: "#E0E7FF", text: "#3730A3" },
-  "LOI": { bg: "#FEF3C7", text: "#92400E" },
-  "PSA Sent": { bg: "#F5D0FE", text: "#86198F" },
-  "Under Contract": { bg: "#DCFCE7", text: "#166534" },
-  "Closed": { bg: "#DCFCE7", text: "#166534" },
-  "Declined": { bg: "#FEE2E2", text: "#991B1B" },
-  "Dead": { bg: "#FEE2E2", text: "#991B1B" },
-};
 
 // ─── Storvex™ Configurable Weight System v2.0 ───
 // Immutable defaults. Live config is a deep copy merged with Firebase overrides.
@@ -350,7 +339,7 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
   const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
   const section = (num, title) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${title}</h2></div>`;
-  const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
+  const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${encodeURIComponent(site.coordinates.trim())}` : "#";
   const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / MS_PER_DAY)) : null;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${escHtml(site.name) || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{@page{size:letter;margin:0.4in 0.5in}body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}.report{box-shadow:none;max-width:100%}table{page-break-inside:avoid}h2{page-break-after:avoid}div[style*="grid"]{page-break-inside:avoid}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
   <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
@@ -451,13 +440,13 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       row("Name", escHtml(site.name) || "—", { bold: true }),
       row("Address", `${escHtml(site.address) || "—"}, ${escHtml(site.city) || "—"}, ${escHtml(site.state) || "—"}`),
       row("Market", escHtml(site.market) || "—"),
-      row("Acreage", site.acreage || "—"),
-      row("Asking Price", site.askingPrice || "—", { bold: true }),
-      row("Internal Price", site.internalPrice || "—"),
+      row("Acreage", escHtml(site.acreage) || "—"),
+      row("Asking Price", escHtml(site.askingPrice) || "—", { bold: true }),
+      row("Internal Price", escHtml(site.internalPrice) || "—"),
       row("Phase", site.phase || "Prospect", { badge: true, badgeBg: site.phase === "Under Contract" ? "#DCFCE7" : "#FFF7ED", badgeColor: site.phase === "Under Contract" ? "#166534" : "#9A3412" }),
       row("Priority", cleanPriority(site.priority)),
-      row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none">${site.coordinates} ↗</a>` : "—"),
-      row("Listing", site.listingUrl ? `<a href="${site.listingUrl}" target="_blank" style="color:#F37C33;text-decoration:none">View Listing ↗</a>` : "—"),
+      row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none">${escHtml(site.coordinates)} ↗</a>` : "—"),
+      row("Listing", site.listingUrl ? `<a href="${escHtml(site.listingUrl)}" target="_blank" style="color:#F37C33;text-decoration:none">View Listing ↗</a>` : "—"),
       dom !== null ? row("Days on Market", `${dom} days`, { badge: true, badgeBg: dom > 365 ? "#FEE2E2" : dom > 180 ? "#FEF3C7" : "#DCFCE7", badgeColor: dom > 365 ? "#991B1B" : dom > 180 ? "#92400E" : "#166534" }) : "",
     ].join("")}</table>
 
@@ -477,15 +466,15 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       }</div>
     </div>
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Zoning District", site.zoning || "Not confirmed", { bold: true }),
+      row("Zoning District", escHtml(site.zoning) || "Not confirmed", { bold: true }),
       row("Classification", zoningLabel, { badge: true, badgeBg: zoningColor + "18", badgeColor: zoningColor }),
       row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
       row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
       row("Zoning Score", zoningScore != null ? `<span style="font-weight:900;color:${zoningScoreColor};font-family:'Space Mono',monospace">${zoningScore.toFixed(1)}/10</span>` : "—"),
-      row("Ordinance Source", site.zoningSource || "<em style='color:#94A3B8'>Not yet researched</em>"),
-      row("Planning Contact", site.planningContact || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Ordinance Source", escHtml(site.zoningSource) || "<em style='color:#94A3B8'>Not yet researched</em>"),
+      row("Planning Contact", escHtml(site.planningContact) || "<em style='color:#94A3B8'>Research needed</em>"),
     ].join("")}</table>
-    ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.zoningNotes}</div>` : ""}
+    ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${escHtml(site.zoningNotes)}</div>` : ""}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0F4FF;border-left:3px solid #1E2761;font-size:9px;color:#475569;line-height:1.6">
       <strong style="color:#1E2761;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
       Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
@@ -516,14 +505,14 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.detail ? `<strong style="color:#1E293B">${u.detail}</strong>` : u.available ? "Available per verified research" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned — verify with jurisdiction or utility provider"}</div></div>`).join("")}
     </div>
     <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Water Provider", escHtml(site.waterProvider) || "<em style='color:#94A3B8'>Research needed</em>"),
       row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : "<em style='color:#94A3B8'>Not confirmed — verify with provider</em>"),
-      row("Sewer Provider", site.sewerProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Sewer Provider", escHtml(site.sewerProvider) || "<em style='color:#94A3B8'>Research needed</em>"),
       row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
       row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">3-Phase Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Not available — upgrade needed</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Tap/Impact Fees", site.tapFees || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
+      row("Tap/Impact Fees", escHtml(site.tapFees) || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
     ].join("")}</table>
-    ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${site.utilityNotes}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>&#9888; Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
+    ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${escHtml(site.utilityNotes)}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>&#9888; Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0FFF4;border-left:3px solid #16A34A;font-size:9px;color:#475569;line-height:1.6">
       <strong style="color:#16A34A;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
       Water/sewer provider identified via city utility department website, county records, and state regulatory databases (TCEQ CCN maps for TX, state DEQ/utility commission for other states). Service boundary verified via municipal GIS portals and utility district maps. Tap/impact fees sourced from published jurisdiction fee schedules (commercial/warehouse classification). Electric provider identified via utility service territory maps; 3-phase availability checked against provider service records. Distance to nearest water/sewer main estimated via GIS infrastructure layers where available. Capacity constraints checked against published moratoriums and allocation notices.
@@ -536,13 +525,13 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
       ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
     </div>
     <table>${[
-      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern noted — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
-      row("Terrain", site.terrain || "<em style='color:#94A3B8'>Review Google Earth / county contours</em>"),
+      row("FEMA Flood Zone", escHtml(site.floodZone) || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern noted — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
+      row("Terrain", escHtml(site.terrain) || "<em style='color:#94A3B8'>Review Google Earth / county contours</em>"),
       row("Wetlands", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present — reduces developable area</span>' : site.wetlands === false ? '<span style="color:#16A34A">None identified</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
-      row("Grading Risk", site.gradingRisk || "<em style='color:#94A3B8'>Assess from aerial/contours</em>"),
+      row("Grading Risk", escHtml(site.gradingRisk) || "<em style='color:#94A3B8'>Assess from aerial/contours</em>"),
       row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
     ].join("")}</table>
-    ${site.topoNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.topoNotes}</div>` : ""}
+    ${site.topoNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${escHtml(site.topoNotes)}</div>` : ""}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#FFF7ED;border-left:3px solid #E87A2E;font-size:9px;color:#475569;line-height:1.6">
       <strong style="color:#E87A2E;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
       FEMA flood zone designation sourced from FEMA Flood Map Service Center (msc.fema.gov) — FIRM panel number and zone classification recorded. Topographic assessment via Google Earth elevation profiles, USGS TopoView, and county GIS contour data. Wetlands checked via U.S. Fish & Wildlife Service National Wetlands Inventory (NWI) mapper. Soil data from USDA Web Soil Survey where available. Grading cost estimates based on industry benchmarks: flat-2% = no concern, 2-5% = $50K-$150K, 5-10% = $150K-$400K+, >10% = potentially prohibitive. Environmental screening via EPA NEPAssist and state environmental databases.
@@ -1529,8 +1518,8 @@ export default function App() {
 
   const handleSendToReview = (region, id, site) => {
     const now = new Date().toISOString();
-    const sub = { ...site, status: "pending", region, submittedAt: now, sentBackToReview: true };
-    delete sub.messages; delete sub.docs; delete sub.activityLog;
+    const sub = { ...site, status: "pending", region, submittedAt: now, sentBackToReview: true,
+      messages: site.messages || {}, docs: site.docs || {}, activityLog: site.activityLog || {} };
     fbSet(`submissions/${id}`, sub);
     fbRemove(`${region}/${id}`);
     setExpandedSite(null);
