@@ -647,8 +647,11 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
     isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
-    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts, totalDevCost, yocStab,
+    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts,
+    constructionMonths, constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
+    totalDevCost, yocStab,
     opexDetail, totalOpexDetail, opexRatioDetail, noiDetail,
+    ecriSchedule,
     capRates, valuations,
     landTargets, landPrices, askVsStrike, landVerdict, verdictColor,
     loanLTV, loanRate, loanAmort, equityPct, loanAmount, equityRequired, monthlyLoanRate, numPmts, monthlyPmt, annualDS, dscrStab, cashAfterDS, cashOnCash,
@@ -657,7 +660,7 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
     stabOccSF, revPAF, revPOF, noiPerSF, noiMarginPct, mktAcqCap, devSpread, impliedLandCap,
     estCompSF, totalMktSF, sfPerCapita, sfPerCapitaExcl, demandSignal, demandColor,
     replacementCost, replacementCostPerSF, fullReplacementCost, replacementVsMarket, buildOrBuy,
-    reitBench, pricePerAcre,
+    reitBench, sensitivityMatrix, sourcesAndUses, pricePerAcre,
   } = fin;
   const phase = site.phase || "Prospect";
 
@@ -846,14 +849,18 @@ function toggleMI(id,evt){
       <div id="mi-devcost" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Total Development Cost</div><div class="mi-conf mi-conf-med">Modeled</div></div>
         <div class="mi-body">
-          <strong>SiteScore builds total dev cost from three components:</strong>
-          <div class="mi-formula">Total Dev = Land + Hard Costs + Soft Costs<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)}<br>= <strong style="color:#E87A2E">${fmtD(totalDevCost)}</strong></div>
+          <strong>SiteScore builds total dev cost from four components (PS "Total Development Yield" denominator):</strong>
+          <div class="mi-formula">Total Dev = Land + Hard + Soft + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(carryCosts)}<br>= <strong style="color:#E87A2E">${fmtD(totalDevCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Land Acquisition</span><span class="mi-row-val">${fmtD(landCost)} (${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Hard Costs (${fmtD(hardCostPerSF)}/SF)</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Soft Costs (${Math.round(softCostPct*100)}% of hard)</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Construction Carry (${constructionMonths}mo)</span><span class="mi-row-val">${fmtD(carryCosts)} (${totalDevCost > 0 ? Math.round(carryCosts/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row" style="padding-left:16px;font-size:10px;color:#6B7394"><span class="mi-row-label">— Interest Reserve</span><span class="mi-row-val">${fmtD(constructionInterest)}</span></div>
+          <div class="mi-row" style="padding-left:16px;font-size:10px;color:#6B7394"><span class="mi-row-label">— Property Tax (during constr.)</span><span class="mi-row-val">${fmtD(constructionPropTax)}</span></div>
+          <div class="mi-row" style="padding-left:16px;font-size:10px;color:#6B7394"><span class="mi-row-label">— Builder's Risk Insurance</span><span class="mi-row-val">${fmtD(constructionInsurance)}</span></div>
           <div class="mi-row"><span class="mi-row-label">Cost/SF (all-in)</span><span class="mi-row-val">${totalSF > 0 ? fmtD(totalDevCost/totalSF) + "/SF" : "N/A"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Regional Cost Index</span><span class="mi-row-val">${(costIdx*100).toFixed(0)}% of national avg</span></div>
-          <div class="mi-source">Source: RSMeans/ENR regional construction cost data | Base: $${baseHardPerSF}/SF × ${(costIdx).toFixed(2)} state index</div>
+          <div class="mi-source">Source: RSMeans/ENR regional construction cost data | Base: $${baseHardPerSF}/SF × ${(costIdx).toFixed(2)} state index | Carry: 60% LTC @ 7.5% const. rate</div>
         </div>
       </div></div>
     </div>
@@ -2625,6 +2632,37 @@ function toggleMI(id,evt){
       <div>Exit: ${(exitCapRate*100).toFixed(1)}% cap, Year 10 disposition</div>
     </div>
   </div>
+  <!-- Sensitivity Matrix -->
+  <div style="margin:24px 0">
+    <div style="font-size:12px;font-weight:800;letter-spacing:0.12em;color:#C9A84C;text-transform:uppercase;margin-bottom:12px">Sensitivity Analysis — Rent ±10% × Occupancy ±5pts</div>
+    <table style="width:100%;font-size:11px;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th style="background:#0A0E2A;color:#6B7394;padding:8px;border:1px solid rgba(201,168,76,0.1)"></th>
+          ${sensitivityMatrix.occScenarios.map(o => `<th style="background:#0A0E2A;color:#C9A84C;padding:8px;text-align:center;border:1px solid rgba(201,168,76,0.1);font-weight:700">${o.label}</th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${sensitivityMatrix.grid.map((row, ri) => `<tr>
+          <td style="background:#0A0E2A;color:#C9A84C;padding:8px;font-weight:700;border:1px solid rgba(201,168,76,0.1)">${sensitivityMatrix.rentScenarios[ri].label}</td>
+          ${row.map((cell, ci) => {
+            const isBase = ri === 1 && ci === 1;
+            const bg = isBase ? "rgba(201,168,76,0.12)" : "rgba(15,21,56,0.6)";
+            const yocColor = parseFloat(cell.yoc) >= 9 ? "#16A34A" : parseFloat(cell.yoc) >= 7 ? "#C9A84C" : "#EF4444";
+            const irrColor = parseFloat(cell.irr) >= 15 ? "#16A34A" : parseFloat(cell.irr) >= 10 ? "#C9A84C" : "#EF4444";
+            return `<td style="background:${bg};padding:8px;text-align:center;border:1px solid rgba(201,168,76,0.1);${isBase ? "border:2px solid #C9A84C;" : ""}">
+              <div style="font-size:14px;font-weight:800;color:${yocColor}">${cell.yoc}%</div>
+              <div style="font-size:9px;color:#6B7394;margin-top:2px">YOC</div>
+              <div style="font-size:12px;font-weight:700;color:${irrColor};margin-top:4px">${cell.irr}%</div>
+              <div style="font-size:9px;color:#6B7394">IRR</div>
+            </td>`;
+          }).join("")}
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <div style="font-size:9px;color:#4A5080;margin-top:6px;text-align:center">Base case highlighted. Fixed OpEx held constant; variable OpEx adjusts with revenue. ECRI at 20% Y5 blended lift.</div>
+  </div>
+
   <div id="assumptions" class="expand-panel">
     <div class="grid2" style="margin-top:12px">
       <div class="insight-box">
@@ -2694,8 +2732,11 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
     isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
-    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts, totalDevCost, yocStab,
+    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts,
+    constructionMonths, constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
+    totalDevCost, yocStab,
     opexDetail, totalOpexDetail, opexRatioDetail, noiDetail,
+    ecriSchedule,
     capRates, valuations,
     landTargets, landPrices, askVsStrike, landVerdict, verdictColor,
     loanLTV, loanRate, loanAmort, equityPct, loanAmount, equityRequired, monthlyLoanRate, numPmts, monthlyPmt, annualDS, dscrStab, cashAfterDS, cashOnCash,
@@ -2704,7 +2745,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
     stabOccSF, revPAF, revPOF, noiPerSF, noiMarginPct, mktAcqCap, devSpread, impliedLandCap,
     estCompSF, totalMktSF, sfPerCapita, sfPerCapitaExcl, demandSignal, demandColor,
     replacementCost, replacementCostPerSF, fullReplacementCost, replacementVsMarket, buildOrBuy,
-    reitBench, pricePerAcre,
+    reitBench, sensitivityMatrix, sourcesAndUses, pricePerAcre,
   } = fin;
   const phase = site.phase || "Prospect";
 
@@ -3347,11 +3388,12 @@ function toggleMI(id,evt){
       <div id="mi-fin-total" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Total Development Cost</div><div class="mi-conf mi-conf-med">Modeled</div></div>
         <div class="mi-body">
-          <strong>All-in development cost — the denominator for Yield on Cost, the primary return metric.</strong>
-          <div class="mi-formula">Total Dev = Land + Hard + Soft<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)}<br>= <strong style="color:#1E2761">${fmtD(totalDevCost)}</strong></div>
+          <strong>All-in development cost — PS "Total Development Yield" denominator. Includes construction carry costs.</strong>
+          <div class="mi-formula">Total Dev = Land + Hard + Soft + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(carryCosts)}<br>= <strong style="color:#1E2761">${fmtD(totalDevCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Land</span><span class="mi-row-val">${fmtD(landCost)} (${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Hard Costs</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Soft Costs</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Construction Carry (${constructionMonths}mo)</span><span class="mi-row-val">${fmtD(carryCosts)} (${totalDevCost > 0 ? Math.round(carryCosts/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Cost/SF (All-In)</span><span class="mi-row-val">${totalSF > 0 ? fmtD(totalDevCost/totalSF) + "/SF" : "N/A"}</span></div>
           <div class="mi-source">Source: SiteScore Financial Engine | Land: listing price, Hard: RSMeans-indexed, Soft: 20% standard</div>
         </div>
@@ -3639,6 +3681,76 @@ function toggleMI(id,evt){
       </div></div>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════ SECTION 9: SENSITIVITY ANALYSIS & SOURCES/USES ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">9</span> Sensitivity Analysis & Capital Structure</h2>
+
+  <!-- Sensitivity Matrix -->
+  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Stabilized YOC & IRR Sensitivity — Rent ±10% × Occupancy ±5pts</h3>
+  <table style="width:100%;font-size:11px;border-collapse:collapse;margin-bottom:24px">
+    <thead>
+      <tr>
+        <th style="background:#F8FAFC;color:#64748B;padding:10px;border:1px solid #E2E8F0"></th>
+        ${sensitivityMatrix.occScenarios.map(o => `<th style="background:#F8FAFC;color:#1E2761;padding:10px;text-align:center;border:1px solid #E2E8F0;font-weight:700">${o.label}</th>`).join("")}
+      </tr>
+    </thead>
+    <tbody>
+      ${sensitivityMatrix.grid.map((row, ri) => `<tr>
+        <td style="background:#F8FAFC;color:#1E2761;padding:10px;font-weight:700;border:1px solid #E2E8F0">${sensitivityMatrix.rentScenarios[ri].label}</td>
+        ${row.map((cell, ci) => {
+          const isBase = ri === 1 && ci === 1;
+          const bg = isBase ? "#FFF7ED" : "#FFFFFF";
+          const yocColor = parseFloat(cell.yoc) >= 9 ? "#16A34A" : parseFloat(cell.yoc) >= 7 ? "#D97706" : "#EF4444";
+          const irrColor = parseFloat(cell.irr) >= 15 ? "#16A34A" : parseFloat(cell.irr) >= 10 ? "#D97706" : "#EF4444";
+          return `<td style="background:${bg};padding:10px;text-align:center;border:1px solid #E2E8F0;${isBase ? "border:2px solid #C9A84C;font-weight:700;" : ""}">
+            <div style="font-size:16px;font-weight:800;color:${yocColor}">${cell.yoc}%</div>
+            <div style="font-size:9px;color:#94A3B8;margin-top:2px">YOC</div>
+            <div style="font-size:13px;font-weight:700;color:${irrColor};margin-top:4px">${cell.irr}%</div>
+            <div style="font-size:9px;color:#94A3B8">IRR (10-Yr Levered)</div>
+          </td>`;
+        }).join("")}
+      </tr>`).join("")}
+    </tbody>
+  </table>
+  <div style="font-size:10px;color:#94A3B8;margin-bottom:24px">Base case highlighted (gold border). Fixed operating costs held constant across scenarios; variable costs adjust with revenue. ECRI at 20% Y5 cumulative blended lift. IRR computed via full 10-year DCF rerun per scenario.</div>
+
+  <!-- Sources & Uses -->
+  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Sources & Uses of Capital</h3>
+  <div style="display:flex;gap:24px;margin-bottom:16px">
+    <div style="flex:1">
+      <div style="font-size:11px;font-weight:700;color:#1E2761;letter-spacing:0.06em;margin-bottom:8px;text-transform:uppercase">Sources</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        ${sourcesAndUses.sources.map(s => `<tr>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E293B;font-weight:600">${s.item}</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">${fmtD(s.amount)}</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;color:#64748B;font-family:'Space Mono',monospace">${s.pct}%</td>
+        </tr>`).join("")}
+        <tr style="background:#F0FDF4;font-weight:800">
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E2761">Total Sources</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace;color:#16A34A">${fmtD(sourcesAndUses.totalSources)}</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">100%</td>
+        </tr>
+      </table>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:11px;font-weight:700;color:#1E2761;letter-spacing:0.06em;margin-bottom:8px;text-transform:uppercase">Uses</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        ${sourcesAndUses.uses.map(u => `<tr>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E293B;font-weight:600">${u.item}</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">${fmtD(u.amount)}</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;color:#64748B;font-family:'Space Mono',monospace">${u.pct}%</td>
+        </tr>`).join("")}
+        <tr style="background:#FFF7ED;font-weight:800">
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E2761">Total Uses</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace;color:#E87A2E">${fmtD(sourcesAndUses.totalUses)}</td>
+          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">100%</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  <div style="font-size:10px;color:#94A3B8">Construction financing at 60% LTC, 7.5% rate, ${constructionMonths}-month build. Permanent financing: ${Math.round(loanLTV*100)}% LTV @ ${(loanRate*100).toFixed(2)}% / ${loanAmort}-yr amortization. Working capital reserve: 2% of build costs.</div>
 </div>
 
 <!-- ═══════════════ SECTION 10: RISK ASSESSMENT ═══════════════ -->

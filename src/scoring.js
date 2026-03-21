@@ -338,6 +338,34 @@ export const computeSiteFinancials = (site) => {
   const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
   const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
 
+  // ── Regional Construction Costs (moved before yearData — bottom-up OpEx needs totalDevCost) ──
+  const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94 };
+  const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
+  const baseHardPerSF = isMultiStory ? 95 : 65;
+  const hardCostPerSF = Math.round(baseHardPerSF * costIdx);
+  const softCostPct = 0.20;
+  const hardCost = totalSF * hardCostPerSF;
+  const softCost = Math.round(hardCost * softCostPct);
+  const buildCosts = hardCost + softCost;
+
+  // ── P1: Construction Carry Costs (Pre-Revenue Period) ──
+  // PS uses "Total Development Yield" = Stabilized NOI / (Land + Build + Carry).
+  // Omitting carry inflates IRR by 200-400 bps — REC catches this instantly.
+  const constructionMonths = isMultiStory ? 18 : 14;
+  const constructionYears = constructionMonths / 12;
+  const constLoanLTC = 0.60; // construction LTC (tighter than perm)
+  const constLoanRate = 0.075; // construction rate (higher than perm)
+  const avgDrawPct = 0.55; // avg outstanding balance — S-curve draw schedule
+  const constructionLoan = Math.round(buildCosts * constLoanLTC);
+  const constructionInterest = Math.round(constructionLoan * constLoanRate * constructionYears * avgDrawPct);
+  const constructionPropTax = Math.round(landCost * 0.012 * constructionYears); // land only during construction
+  const constructionInsurance = Math.round(buildCosts * 0.004 * constructionYears); // builder's risk
+  const carryCosts = constructionInterest + constructionPropTax + constructionInsurance;
+  const workingCapital = Math.round(buildCosts * 0.02); // 2% working capital reserve
+
+  // ── Total Development Cost (PS "Total Development Yield" denominator) ──
+  const totalDevCost = landCost + buildCosts + carryCosts;
+
   // ── 5-Year Lease-Up Model ──
   const leaseUpSchedule = [
     { yr: 1, label: "Year 1 — Launch & Fill", occRate: 0.30, climDisc: 0.35, driveDisc: 0.30, desc: "Grand opening promos. First month free. 50% off first 3 months. Heavy marketing spend." },
@@ -348,47 +376,72 @@ export const computeSiteFinancials = (site) => {
   ];
   const annualEsc = 0.03;
 
+  // ── P0: ECRI Revenue Model ──
+  // Existing Customer Rate Increase — PS's #1 revenue lever (38-42% of mature revenue).
+  // After 6-9 months, existing tenants get 8-12% annual rate increases.
+  // ecriSchedule = cumulative blended ECRI premium above street rate by year.
+  const ecriSchedule = [0, 0.05, 0.10, 0.15, 0.20];
+
   const yearData = leaseUpSchedule.map((y, i) => {
     const escMult = Math.pow(1 + annualEsc, i);
     const climRate = Math.round((mktClimateRate * escMult * (1 - y.climDisc)) * 100) / 100;
     const driveRate = Math.round((mktDriveRate * escMult * (1 - y.driveDisc)) * 100) / 100;
-    const climRev = Math.round(climateSF * y.occRate * climRate * 12);
-    const driveRev = Math.round(driveSF * y.occRate * driveRate * 12);
+
+    // ECRI: blended portfolio premium above street rate
+    const ecriMult = 1 + (ecriSchedule[i] || 0.20);
+    const climRev = Math.round(climateSF * y.occRate * climRate * ecriMult * 12);
+    const driveRev = Math.round(driveSF * y.occRate * driveRate * ecriMult * 12);
     const totalRev = climRev + driveRev;
-    const opex = Math.round(totalRev * (y.yr === 1 ? 0.45 : y.yr === 2 ? 0.40 : 0.35));
+
+    // P0: Bottom-up Fixed + Variable OpEx (replaces flat % shortcut)
+    // Fixed costs — independent of occupancy
+    const propTax = Math.round(totalDevCost * 0.012 * Math.pow(1.02, i));
+    const insurance = Math.round(totalSF * 0.45 * Math.pow(1.03, i));
+    const payroll = Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1) * Math.pow(1.03, i));
+    const utilities = Math.round((climateSF * 1.10 + driveSF * 0.25) * Math.pow(1.02, i));
+    const rm = Math.round(totalSF * 0.35 * Math.pow(1.02, i));
+    const reserves = Math.round(totalSF * 0.20);
+    const fixedOpex = propTax + insurance + payroll + utilities + rm + reserves;
+
+    // Variable costs — scale with actual revenue
+    const mgmtFee = Math.round(totalRev * 0.06);
+    const marketing = Math.round(totalRev * (y.yr <= 2 ? 0.05 : 0.03));
+    const ga = Math.round(totalRev * 0.015);
+    const badDebt = Math.round(totalRev * 0.02);
+    const variableOpex = mgmtFee + marketing + ga + badDebt;
+
+    const opex = fixedOpex + variableOpex;
     const noi = totalRev - opex;
+    const opexRatio = totalRev > 0 ? (opex / totalRev * 100).toFixed(1) : "N/A";
     const mktClimFull = Math.round(mktClimateRate * escMult * 100) / 100;
     const mktDriveFull = Math.round(mktDriveRate * escMult * 100) / 100;
-    return { ...y, climRate, driveRate, climRev, driveRev, totalRev, opex, noi, mktClimFull, mktDriveFull, escMult };
+    return {
+      ...y, climRate, driveRate, climRev, driveRev, totalRev, opex, noi,
+      mktClimFull, mktDriveFull, escMult, ecriMult,
+      fixedOpex, variableOpex, opexRatio,
+      opexBreakdown: { propTax, insurance, payroll, utilities, rm, reserves, mgmtFee, marketing, ga, badDebt },
+    };
   });
 
   const stabNOI = yearData[4].noi;
   const stabRev = yearData[4].totalRev;
 
-  // ── Regional Construction Costs ──
-  const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94 };
-  const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
-  const baseHardPerSF = isMultiStory ? 95 : 65;
-  const hardCostPerSF = Math.round(baseHardPerSF * costIdx);
-  const softCostPct = 0.20;
-  const hardCost = totalSF * hardCostPerSF;
-  const softCost = Math.round(hardCost * softCostPct);
-  const buildCosts = hardCost + softCost;
-  const totalDevCost = landCost + buildCosts;
+  // Construction costs + totalDevCost computed above (before yearData — needed for bottom-up OpEx)
   const yocStab = stabNOI > 0 && totalDevCost > 0 ? ((stabNOI / totalDevCost) * 100).toFixed(1) : "N/A";
 
-  // ── Detailed OpEx Breakdown (Stabilized Y5) ──
+  // ── Detailed OpEx Breakdown (Stabilized Y5) — sourced from bottom-up model ──
+  const stabBkdn = yearData[4].opexBreakdown;
   const opexDetail = [
-    { item: "Property Tax", amount: Math.round(totalDevCost * 0.012), note: "Est. 1.2% of total dev cost (varies by jurisdiction)", pctRev: 0 },
-    { item: "Insurance", amount: Math.round(totalSF * 0.45), note: "Property + GL + wind/hail — $0.45/SF (climate-adjusted)", pctRev: 0 },
-    { item: "Management Fee", amount: Math.round(stabRev * 0.06), note: "6% EGI — industry standard for institutional operator", pctRev: 0.06 },
-    { item: "On-Site Payroll", amount: Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1)), note: `${totalSF > 80000 ? "1.5" : "1.0"} FTE @ $65K + 30% benefits/burden`, pctRev: 0 },
-    { item: "Utilities (Electric/HVAC)", amount: Math.round(climateSF * 1.10 + driveSF * 0.25), note: "Climate: $1.10/SF/yr | Drive-up: $0.25/SF/yr", pctRev: 0 },
-    { item: "Repairs & Maintenance", amount: Math.round(totalSF * 0.35), note: "Doors, HVAC service, roofing, painting — $0.35/SF", pctRev: 0 },
-    { item: "Marketing & Digital", amount: Math.round(stabRev * 0.03), note: "3% EGI — SEM, SEO, signage, move-in promos", pctRev: 0.03 },
-    { item: "Administrative / G&A", amount: Math.round(stabRev * 0.015), note: "Software, legal, accounting, credit card fees", pctRev: 0.015 },
-    { item: "Bad Debt & Collections", amount: Math.round(stabRev * 0.02), note: "2% reserve — lien auctions, late payments", pctRev: 0.02 },
-    { item: "Replacement Reserve", amount: Math.round(totalSF * 0.20), note: "$0.20/SF — HVAC replacement, roof, resurfacing", pctRev: 0 },
+    { item: "Property Tax", amount: stabBkdn.propTax, note: "1.2% of dev cost, 2%/yr reassessment escalation", pctRev: 0, type: "fixed" },
+    { item: "Insurance", amount: stabBkdn.insurance, note: "Property + GL — $0.45/SF base, 3%/yr escalation", pctRev: 0, type: "fixed" },
+    { item: "Management Fee", amount: stabBkdn.mgmtFee, note: "6% EGI — institutional operator standard", pctRev: 0.06, type: "variable" },
+    { item: "On-Site Payroll", amount: stabBkdn.payroll, note: `${totalSF > 80000 ? "1.5" : "1.0"} FTE @ $65K + 30% burden, 3%/yr esc`, pctRev: 0, type: "fixed" },
+    { item: "Utilities (Electric/HVAC)", amount: stabBkdn.utilities, note: "Climate: $1.10/SF | Drive-up: $0.25/SF, 2%/yr esc", pctRev: 0, type: "fixed" },
+    { item: "Repairs & Maintenance", amount: stabBkdn.rm, note: "$0.35/SF base, 2%/yr escalation", pctRev: 0, type: "fixed" },
+    { item: "Marketing & Digital", amount: stabBkdn.marketing, note: "3% EGI stabilized (5% during lease-up Y1-Y2)", pctRev: 0.03, type: "variable" },
+    { item: "Administrative / G&A", amount: stabBkdn.ga, note: "1.5% EGI — software, legal, accounting, CC fees", pctRev: 0.015, type: "variable" },
+    { item: "Bad Debt & Collections", amount: stabBkdn.badDebt, note: "2% reserve — lien auctions, late payments", pctRev: 0.02, type: "variable" },
+    { item: "Replacement Reserve", amount: stabBkdn.reserves, note: "$0.20/SF — HVAC, roof, resurfacing", pctRev: 0, type: "fixed" },
   ];
   const totalOpexDetail = opexDetail.reduce((s, o) => s + o.amount, 0);
   const opexRatioDetail = stabRev > 0 ? (totalOpexDetail / stabRev * 100).toFixed(1) : "N/A";
@@ -409,7 +462,7 @@ export const computeSiteFinancials = (site) => {
     { label: "Minimum", yoc: 0.10, color: "#16A34A", tag: "FLOOR" },
   ];
   const landPrices = landTargets.map(t => {
-    const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts) : 0;
+    const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts - carryCosts) : 0;
     const perAcre = !isNaN(acres) && acres > 0 && maxLand > 0 ? Math.round(maxLand / acres) : 0;
     return { ...t, maxLand: Math.max(maxLand, 0), perAcre };
   });
@@ -432,7 +485,7 @@ export const computeSiteFinancials = (site) => {
   const cashAfterDS = noiDetail - annualDS;
   const cashOnCash = equityRequired > 0 ? ((cashAfterDS / equityRequired) * 100).toFixed(1) : "N/A";
 
-  // ── 10-Year DCF & IRR ──
+  // ── 10-Year DCF & IRR (with ECRI + bottom-up OpEx) ──
   const exitCapRate = 0.06;
   const yrDataExt = [];
   for (let i = 0; i < 10; i++) {
@@ -440,13 +493,22 @@ export const computeSiteFinancials = (site) => {
     const occ = i < 5 ? leaseUpSchedule[i].occRate : 0.92;
     const cDisc = i < 5 ? leaseUpSchedule[i].climDisc : 0;
     const dDisc = i < 5 ? leaseUpSchedule[i].driveDisc : 0;
+    const ecriMult = 1 + (ecriSchedule[Math.min(i, 4)] || 0.20);
     const cR = mktClimateRate * esc * (1 - cDisc);
     const dR = mktDriveRate * esc * (1 - dDisc);
-    const rev = Math.round(climateSF * occ * cR * 12) + Math.round(driveSF * occ * dR * 12);
-    const opexPct = i === 0 ? 0.45 : i === 1 ? 0.40 : 0.35;
-    const opex = Math.round(rev * opexPct);
+    const rev = Math.round(climateSF * occ * cR * ecriMult * 12) + Math.round(driveSF * occ * dR * ecriMult * 12);
+    // Bottom-up OpEx (matches yearData methodology)
+    const fixedOp = Math.round(totalDevCost * 0.012 * Math.pow(1.02, i))
+      + Math.round(totalSF * 0.45 * Math.pow(1.03, i))
+      + Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1) * Math.pow(1.03, i))
+      + Math.round((climateSF * 1.10 + driveSF * 0.25) * Math.pow(1.02, i))
+      + Math.round(totalSF * 0.35 * Math.pow(1.02, i))
+      + Math.round(totalSF * 0.20);
+    const varOp = Math.round(rev * 0.06) + Math.round(rev * (i <= 1 ? 0.05 : 0.03))
+      + Math.round(rev * 0.015) + Math.round(rev * 0.02);
+    const opex = fixedOp + varOp;
     const noi = rev - opex;
-    yrDataExt.push({ yr: i + 1, occ, rev, opex, noi, cR, dR });
+    yrDataExt.push({ yr: i + 1, occ, rev, opex, noi, cR, dR, ecriMult });
   }
   const exitValue = Math.round(yrDataExt[9].noi / exitCapRate);
   const exitLoanBal = (() => { let bal = loanAmount; for (let i = 0; i < 120; i++) { bal = bal * (1 + monthlyLoanRate) - monthlyPmt; } return Math.round(Math.max(bal, 0)); })();
@@ -457,6 +519,86 @@ export const computeSiteFinancials = (site) => {
   for (let iter = 0; iter < 100; iter++) { const mid = (irrLow + irrHigh) / 2; if (calcNPV(mid) > 0) irrLow = mid; else irrHigh = mid; }
   const irrPct = ((irrLow + irrHigh) / 2 * 100).toFixed(1);
   const equityMultiple = equityRequired > 0 ? ((irrCashFlows.slice(1).reduce((s, v) => s + v, 0)) / equityRequired).toFixed(2) : "N/A";
+
+  // ── P1: Sensitivity Matrix (3×3: Rent ±10% × Occupancy ±5pts) ──
+  // Required by PS REC — shows downside/upside impact on YOC and IRR
+  const sensitivityMatrix = (() => {
+    const rentScenarios = [
+      { label: "Rent -10%", factor: 0.90 },
+      { label: "Base Case", factor: 1.00 },
+      { label: "Rent +10%", factor: 1.10 },
+    ];
+    const occScenarios = [
+      { label: "Occ -5pts", adj: -0.05 },
+      { label: "Base Case", adj: 0 },
+      { label: "Occ +5pts", adj: 0.05 },
+    ];
+    const stabFixed = yearData[4].fixedOpex;
+    const varPctSum = 0.06 + 0.03 + 0.015 + 0.02; // mgmt + mktg + G&A + bad debt
+    const grid = rentScenarios.map(r => occScenarios.map(o => {
+      const adjOcc = Math.min(0.97, Math.max(0.50, 0.92 + o.adj));
+      const esc4 = Math.pow(1 + annualEsc, 4);
+      const adjClimRate = mktClimateRate * esc4 * r.factor;
+      const adjDriveRate = mktDriveRate * esc4 * r.factor;
+      const ecri5 = 1.20; // Y5 ECRI
+      const adjRev = Math.round((climateSF * adjOcc * adjClimRate * ecri5 * 12) + (driveSF * adjOcc * adjDriveRate * ecri5 * 12));
+      const adjVarOpex = Math.round(adjRev * varPctSum);
+      const adjOpex = stabFixed + adjVarOpex;
+      const adjNOI = adjRev - adjOpex;
+      const adjYOC = totalDevCost > 0 ? ((adjNOI / totalDevCost) * 100).toFixed(1) : "N/A";
+      // IRR sensitivity — recompute 10-year DCF for each scenario
+      const adjCFs = [-equityRequired];
+      for (let yr = 0; yr < 10; yr++) {
+        const e = Math.pow(1 + annualEsc, yr);
+        const oc = yr < 5 ? leaseUpSchedule[yr].occRate + o.adj : adjOcc;
+        const ocCl = Math.min(0.97, Math.max(0.10, oc));
+        const cD = yr < 5 ? leaseUpSchedule[yr].climDisc : 0;
+        const dD = yr < 5 ? leaseUpSchedule[yr].driveDisc : 0;
+        const em = 1 + (ecriSchedule[Math.min(yr, 4)] || 0.20);
+        const yRev = Math.round(climateSF * ocCl * mktClimateRate * e * (1 - cD) * r.factor * em * 12)
+          + Math.round(driveSF * ocCl * mktDriveRate * e * (1 - dD) * r.factor * em * 12);
+        const yFix = Math.round(totalDevCost * 0.012 * Math.pow(1.02, yr))
+          + Math.round(totalSF * 0.45 * Math.pow(1.03, yr))
+          + Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1) * Math.pow(1.03, yr))
+          + Math.round((climateSF * 1.10 + driveSF * 0.25) * Math.pow(1.02, yr))
+          + Math.round(totalSF * 0.35 * Math.pow(1.02, yr))
+          + Math.round(totalSF * 0.20);
+        const yVar = Math.round(yRev * varPctSum);
+        const yNoi = yRev - yFix - yVar;
+        const yCF = yNoi - annualDS;
+        if (yr === 9) {
+          const exitVal = Math.round(yNoi / exitCapRate);
+          const exitBal = exitLoanBal;
+          adjCFs.push(yCF + exitVal - exitBal);
+        } else {
+          adjCFs.push(yCF);
+        }
+      }
+      const npvCalc = (rate) => adjCFs.reduce((npv, cf, t) => npv + cf / Math.pow(1 + rate, t), 0);
+      let lo = -0.1, hi = 0.5;
+      for (let it = 0; it < 80; it++) { const m = (lo + hi) / 2; if (npvCalc(m) > 0) lo = m; else hi = m; }
+      const adjIRR = ((lo + hi) / 2 * 100).toFixed(1);
+      return { rentLabel: r.label, occLabel: o.label, occ: adjOcc, rev: adjRev, noi: adjNOI, yoc: adjYOC, irr: adjIRR };
+    }));
+    return { rentScenarios, occScenarios, grid };
+  })();
+
+  // ── P1: Sources & Uses Table ──
+  const sourcesAndUses = {
+    sources: [
+      { item: "Senior Debt (Construction → Permanent)", amount: loanAmount, pct: totalDevCost > 0 ? (loanAmount / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Sponsor Equity", amount: equityRequired, pct: totalDevCost > 0 ? (equityRequired / totalDevCost * 100).toFixed(1) : "0" },
+    ],
+    uses: [
+      { item: "Land Acquisition", amount: landCost, pct: totalDevCost > 0 ? (landCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Hard Costs (Construction)", amount: hardCost, pct: totalDevCost > 0 ? (hardCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Soft Costs (Design/Permits/Legal)", amount: softCost, pct: totalDevCost > 0 ? (softCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Construction Carry Costs", amount: carryCosts, pct: totalDevCost > 0 ? (carryCosts / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Working Capital Reserve", amount: workingCapital, pct: totalDevCost > 0 ? (workingCapital / totalDevCost * 100).toFixed(1) : "0" },
+    ],
+    totalSources: loanAmount + equityRequired,
+    totalUses: landCost + hardCost + softCost + carryCosts + workingCapital,
+  };
 
   // ── Rate Cross-Validation ──
   const m1Rate = mktClimateRate;
@@ -515,10 +657,15 @@ export const computeSiteFinancials = (site) => {
     leaseUpSchedule, yearData,
     // NOI
     stabNOI, stabRev,
-    // Construction
-    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts, totalDevCost, yocStab,
+    // Construction + Carry
+    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts,
+    constructionMonths, constructionYears, constLoanLTC, constLoanRate, avgDrawPct, constructionLoan,
+    constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
+    totalDevCost, yocStab,
     // OpEx
     opexDetail, totalOpexDetail, opexRatioDetail, noiDetail,
+    // ECRI
+    ecriSchedule,
     // Valuations
     capRates, valuations,
     // Land pricing
@@ -537,6 +684,8 @@ export const computeSiteFinancials = (site) => {
     replacementCost, replacementCostPerSF, fullReplacementCost, replacementVsMarket, buildOrBuy,
     // REIT
     reitBench,
+    // Sensitivity & Sources/Uses
+    sensitivityMatrix, sourcesAndUses,
     // Misc
     pricePerAcre,
   };
