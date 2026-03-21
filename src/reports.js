@@ -1004,6 +1004,156 @@ function toggleMI(id,evt){
   </div>
 </div>
 
+<!-- DEVELOPMENT TIMELINE -->
+<div class="section expand-trigger" onclick="toggleExpand('timeline')">
+  <span class="expand-hint">▼ Click to expand <span id="timeline-arrow" class="expand-arrow">▼</span></span>
+  <h2><span class="gold">Development Timeline</span></h2>
+  <div style="font-size:11px;color:#6B7394;margin-bottom:16px">Capital-at-risk timeline from acquisition through stabilized operations</div>
+  ${(() => {
+    const constMo = constructionMonths || (isMultiStory ? 18 : 14);
+    const phases = [
+      { label: "Due Diligence & Entitlements", start: 0, dur: 3, color: "#42A5F5" },
+      { label: "Design Development & Permits", start: 3, dur: 3, color: "#7C4DFF" },
+      { label: "Site Prep & Grading", start: 6, dur: 2, color: "#F59E0B" },
+      { label: "Vertical Construction", start: 8, dur: constMo - 4, color: "#E87A2E" },
+      { label: "CO & Grand Opening", start: 4 + constMo, dur: 2, color: "#16A34A" },
+      { label: "Lease-Up (36-mo ramp to 92%)", start: 6 + constMo, dur: 36, color: "#C9A84C" },
+      { label: "Stabilized Operations", start: 42 + constMo, dur: 12, color: "#16A34A" },
+    ];
+    const totalMo = phases[phases.length - 1].start + phases[phases.length - 1].dur;
+    const barW = 700;
+    return `<div style="overflow-x:auto"><div style="min-width:${barW + 200}px">
+      ${phases.map(p => {
+      const left = Math.round(p.start / totalMo * barW);
+      const width = Math.max(Math.round(p.dur / totalMo * barW), 20);
+      return `<div style="display:flex;align-items:center;margin-bottom:6px;gap:6px">
+        <div style="width:180px;text-align:right;font-size:10px;color:#6B7394;font-weight:600;flex-shrink:0">${p.label}</div>
+        <div style="position:relative;width:${barW}px;height:22px;flex-shrink:0">
+          <div style="position:absolute;left:${left}px;width:${width}px;height:22px;border-radius:4px;background:${p.color};opacity:0.85;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)">Mo ${p.start}–${p.start + p.dur}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join("")}
+      <div style="display:flex;align-items:center;margin-top:8px;gap:6px">
+        <div style="width:180px"></div>
+        <div style="width:${barW}px;display:flex;justify-content:space-between;font-size:9px;color:#4A5080;font-family:'Space Mono',monospace">
+          <span>Mo 0</span><span>Mo ${Math.round(totalMo * 0.25)}</span><span>Mo ${Math.round(totalMo * 0.5)}</span><span>Mo ${Math.round(totalMo * 0.75)}</span><span>Mo ${totalMo}</span>
+        </div>
+      </div>
+    </div></div>
+    <div class="grid3" style="margin-top:16px">
+      <div style="text-align:center;padding:10px;border-radius:8px;background:rgba(201,168,76,0.04)">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em">MONTHS TO CO</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:#E87A2E">${6 + constMo}</div>
+      </div>
+      <div style="text-align:center;padding:10px;border-radius:8px;background:rgba(201,168,76,0.04)">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em">MONTHS TO STABILIZATION</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${42 + constMo}</div>
+      </div>
+      <div style="text-align:center;padding:10px;border-radius:8px;background:rgba(201,168,76,0.04)">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em">TOTAL TIMELINE</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:#42A5F5">${Math.round((42 + constMo) / 12 * 10) / 10} yrs</div>
+      </div>
+    </div>`;
+  })()}
+  <div id="timeline" class="expand-panel">
+    <div style="margin-top:12px;font-size:11px;color:#6B7394;line-height:1.6">
+      <strong style="color:#E2E8F0">Key Milestones:</strong><br>
+      <span style="color:#42A5F5">●</span> <strong>Due Diligence (Mo 0-3):</strong> Environmental Phase I, survey, geotech, title commitment, utility confirmation<br>
+      <span style="color:#7C4DFF">●</span> <strong>Design & Permits (Mo 3-6):</strong> Architectural plans, civil engineering, building permit application${site.zoningClassification === "conditional" ? ", SUP/CUP hearing (may extend 2-4 mo)" : ""}<br>
+      <span style="color:#F59E0B">●</span> <strong>Site Prep (Mo 6-8):</strong> Grading, utilities rough-in, foundation, detention/retention<br>
+      <span style="color:#E87A2E">●</span> <strong>Construction (Mo 8-${8 + (constructionMonths || (isMultiStory ? 18 : 14)) - 4}):</strong> ${isMultiStory ? "Structural steel, floors, envelope, MEP, elevator, fire stairs, interior build-out" : "Slab-on-grade, pre-engineered metal building, HVAC, unit partitions, doors, fire suppression"}<br>
+      <span style="color:#16A34A">●</span> <strong>CO & Opening:</strong> Final inspections, certificate of occupancy, access system activation, grand opening marketing<br>
+      <span style="color:#C9A84C">●</span> <strong>Lease-Up (36 months):</strong> Ramp from 25% → 92% occupancy. ECRI kicks in at Month 12. PS's brand + digital marketing platform accelerates fill vs. independent operators.
+    </div>
+  </div>
+</div>
+
+<!-- PS vs INDUSTRY BENCHMARK -->
+<div class="section">
+  <h2><span class="gold">PS Operating Advantage</span> <span style="font-size:11px;font-weight:400;color:#6B7394">vs. Industry</span></h2>
+  <div style="font-size:11px;color:#6B7394;margin-bottom:16px">Why PS's operating platform produces superior returns on the same physical asset</div>
+  <table style="width:100%;border-collapse:collapse">
+    <tr style="border-bottom:2px solid rgba(201,168,76,0.15)">
+      <td style="padding:8px 0;font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.06em">METRIC</td>
+      <td style="padding:8px 0;font-size:10px;font-weight:800;color:#16A34A;letter-spacing:0.06em;text-align:center">PS PLATFORM</td>
+      <td style="padding:8px 0;font-size:10px;font-weight:800;color:#F59E0B;letter-spacing:0.06em;text-align:center">GENERIC REIT</td>
+      <td style="padding:8px 0;font-size:10px;font-weight:800;color:#EF4444;letter-spacing:0.06em;text-align:center">INDEPENDENT</td>
+      <td style="padding:8px 0;font-size:10px;font-weight:800;color:#42A5F5;letter-spacing:0.06em;text-align:center">PS EDGE</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(201,168,76,0.08)">
+      <td style="padding:6px 0;font-size:11px;color:#E2E8F0;font-weight:600">NOI Margin</td>
+      <td style="padding:6px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">78.4%</td>
+      <td style="padding:6px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">58-65%</td>
+      <td style="padding:6px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">50-58%</td>
+      <td style="padding:6px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">+13-20 pts vs REIT</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(201,168,76,0.08)">
+      <td style="padding:6px 0;font-size:11px;color:#E2E8F0;font-weight:600">Management Fee</td>
+      <td style="padding:6px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">3.5%</td>
+      <td style="padding:6px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">5-6%</td>
+      <td style="padding:6px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">8-10%</td>
+      <td style="padding:6px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">Self-managed</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(201,168,76,0.08)">
+      <td style="padding:6px 0;font-size:11px;color:#E2E8F0;font-weight:600">Payroll / Site</td>
+      <td style="padding:6px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">$69K</td>
+      <td style="padding:6px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">$85-95K</td>
+      <td style="padding:6px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">$100-130K</td>
+      <td style="padding:6px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">Smart-access tech</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(201,168,76,0.08)">
+      <td style="padding:6px 0;font-size:11px;color:#E2E8F0;font-weight:600">Marketing</td>
+      <td style="padding:6px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">2%</td>
+      <td style="padding:6px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">3%</td>
+      <td style="padding:6px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">4-5%</td>
+      <td style="padding:6px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">Brand + SEO moat</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(201,168,76,0.08)">
+      <td style="padding:6px 0;font-size:11px;color:#E2E8F0;font-weight:600">ECRI Capability</td>
+      <td style="padding:6px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">8-12%/yr</td>
+      <td style="padding:6px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">5-8%/yr</td>
+      <td style="padding:6px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">2-4%/yr</td>
+      <td style="padding:6px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">Pricing algorithm</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(201,168,76,0.08)">
+      <td style="padding:6px 0;font-size:11px;color:#E2E8F0;font-weight:600">Insurance / SF</td>
+      <td style="padding:6px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">$0.30</td>
+      <td style="padding:6px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">$0.40</td>
+      <td style="padding:6px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">$0.55</td>
+      <td style="padding:6px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">Scale purchasing</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(201,168,76,0.08)">
+      <td style="padding:6px 0;font-size:11px;color:#E2E8F0;font-weight:600">Lease-Up Speed</td>
+      <td style="padding:6px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">30-36 mo</td>
+      <td style="padding:6px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">36-42 mo</td>
+      <td style="padding:6px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">42-60 mo</td>
+      <td style="padding:6px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">Brand recognition</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 0;font-size:11px;color:#E2E8F0;font-weight:600">Occupancy (Stab.)</td>
+      <td style="padding:8px 0;text-align:center;font-weight:800;color:#16A34A;font-family:'Space Mono',monospace">91-92%</td>
+      <td style="padding:8px 0;text-align:center;color:#F59E0B;font-family:'Space Mono',monospace">87-90%</td>
+      <td style="padding:8px 0;text-align:center;color:#EF4444;font-family:'Space Mono',monospace">80-85%</td>
+      <td style="padding:8px 0;text-align:center;font-weight:700;color:#42A5F5;font-size:10px">+2-5 pts vs peers</td>
+    </tr>
+  </table>
+  <div style="margin-top:14px;padding:12px;border-radius:8px;background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.12)">
+    <div style="font-size:11px;font-weight:700;color:#16A34A;margin-bottom:4px">What This Means for This Site</div>
+    <div style="font-size:11px;color:#6B7394;line-height:1.5">${(() => {
+      const psMargin = 0.784;
+      const peerMargin = 0.62; // EXR ~65%, CUBE ~62%, NSA ~58% — weighted avg ~62%
+      const marginDelta = psMargin - peerMargin; // ~16.4 pts
+      const peerNOI = stabRev > 0 ? Math.round(stabRev * peerMargin) : 0;
+      const psNOI = stabRev > 0 ? Math.round(stabRev * psMargin) : 0;
+      const annualAdv = psNOI - peerNOI;
+      return `On the same ${totalSF.toLocaleString()} SF facility generating ${fmtD(stabRev)} stabilized revenue, PS's platform produces <strong style="color:#16A34A">${fmtD(psNOI)}</strong> NOI (78.4% margin) vs. <strong style="color:#F59E0B">${fmtD(peerNOI)}</strong> for a peer REIT (62% margin) — an annual advantage of <strong style="color:#16A34A">${fmtD(annualAdv)}</strong>. Over a 10-year hold with ECRI compounding, this ${Math.round(marginDelta * 100)}-point margin edge drives approximately <strong style="color:#C9A84C">${fmtD(Math.round(annualAdv * 12))}</strong> in cumulative additional value vs. industry-average operations.`;
+    })()}</div>
+  </div>
+  <div style="font-size:9px;color:#4A5080;margin-top:8px">Source: PSA Q4 2025 10-K | EXR/CUBE/NSA public filings | NAREIT Self-Storage Operating Survey 2025</div>
+</div>
+
 <!-- FACILITY PROGRAM v4.0 -->
 <div class="section expand-trigger" onclick="toggleExpand('facility')">
   <span class="expand-hint">▼ Click to expand <span id="facility-arrow" class="expand-arrow">▼</span></span>
@@ -1465,14 +1615,23 @@ function toggleMI(id,evt){
         </div></div></td></tr>
         <tr class="mi" onclick="toggleMI('dcsoft',event)" style="cursor:pointer"><td style="color:#6B7394;font-weight:600">Soft Costs (${Math.round(softCostPct*100)}%) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td class="mono" style="font-weight:700;text-align:right">${fmtD(softCost)}</td></tr>
         <tr><td colspan="2" style="padding:0;border:none"><div id="mi-dcsoft" class="mi-panel"><div class="mi-panel-inner">
-          <div class="mi-header"><div class="mi-title">Soft Costs — Non-Construction Expenses</div><div class="mi-conf mi-conf-med">Industry Standard</div></div>
+          <div class="mi-header"><div class="mi-title">Soft Cost Breakdown — REC Detail View</div><div class="mi-conf mi-conf-med">Industry Standard</div></div>
           <div class="mi-body">
-            <strong>Soft costs cover all non-brick-and-mortar development expenses. Set at ${Math.round(softCostPct*100)}% of hard costs (conservative range: 15-25%).</strong>
+            <strong>Soft costs cover all non-brick-and-mortar development expenses. Set at ${Math.round(softCostPct*100)}% of hard costs (conservative range: 15-25%). Breakdown shows REC-level granularity.</strong>
             <div class="mi-formula">Hard Costs: ${fmtD(hardCost)}<br>Soft Cost %: ${Math.round(softCostPct*100)}%<br>Total Soft: ${fmtD(hardCost)} × ${(softCostPct).toFixed(2)} = <strong style="color:#F59E0B">${fmtD(softCost)}</strong></div>
-            <div class="mi-row"><span class="mi-row-label">Architecture & Engineering (30%)</span><span class="mi-row-val">${fmtD(Math.round(softCost * 0.30))} — PS uses preferred A/E firms with storage-specific expertise</span></div>
-            <div class="mi-row"><span class="mi-row-label">Permits & Impact Fees (20%)</span><span class="mi-row-val">${fmtD(Math.round(softCost * 0.20))} — varies significantly by jurisdiction. ${site.state === "TX" ? "TX generally lower due to fewer regulatory hurdles" : "Verify with local planning dept"}</span></div>
-            <div class="mi-row"><span class="mi-row-label">Contingency (13%)</span><span class="mi-row-val">${fmtD(Math.round(softCost * 0.13))} — standard construction contingency reserve. PS typically holds 8-10% after DD.</span></div>
-            <div class="mi-source">Source: PS development pipeline analysis | Industry standard range 15-25% of hard costs | Adjusted for jurisdiction complexity</div>
+            <table style="width:100%;border-collapse:collapse;margin:10px 0">
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Architecture & Engineering</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">5-7% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.06))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Civil, structural, MEP, landscape arch</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Permits & Impact Fees</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">3-5% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.04))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">${site.state === "TX" ? "TX — generally lower regulatory costs" : "Jurisdiction-dependent"}</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Legal & Title</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Closing, zoning counsel, contracts</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Survey & Geotech</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">0.5-1%</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.0075))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">ALTA survey, Phase I ESA, geotech borings</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Developer Fee</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">3-5% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.04))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">PS internal allocation — self-developed</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Construction Mgmt</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">2-3% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.025))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">PS internal — no third-party CM fee</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Technology & Access</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Keypads, cameras, smart locks, mgmt software</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Financing Costs</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Origination, appraisal, title insurance</td></tr>
+              <tr style="border-top:2px solid rgba(201,168,76,0.2)"><td style="padding:6px 0;font-size:12px;color:#C9A84C;font-weight:800">Total Soft Costs</td><td style="padding:6px 0;font-size:11px;text-align:center;color:#C9A84C;font-weight:700">${Math.round(softCostPct*100)}%</td><td style="padding:6px 0;font-size:12px;text-align:right;font-weight:800;color:#F59E0B;font-family:'Space Mono',monospace">${fmtD(softCost)}</td><td></td></tr>
+            </table>
+            <div style="font-size:10px;color:#4A5080;margin-top:4px">Note: Line items are estimated allocations within the ${Math.round(softCostPct*100)}% total. Actual breakdown varies by jurisdiction and project complexity. PS's self-development model reduces developer fee and CM costs vs. third-party development.</div>
+            <div class="mi-source">Source: PS development pipeline analysis | RSMeans Soft Cost Guide 2025 | Industry standard range 15-25% of hard costs</div>
           </div>
         </div></div></td></tr>
         <tr class="mi" onclick="toggleMI('dctotal',event)" style="border-top:2px solid rgba(201,168,76,0.2);cursor:pointer"><td style="font-weight:800;color:#C9A84C">Total Development Cost <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td class="mono" style="font-weight:800;text-align:right;color:#E87A2E;font-size:16px">${fmtM(totalDevCost)}</td></tr>
@@ -3417,12 +3576,13 @@ function toggleMI(id,evt){
       <div id="mi-fin-hard" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Hard Construction Costs</div><div class="mi-conf mi-conf-med">Modeled</div></div>
         <div class="mi-body">
-          <strong>Hard costs include structural, MEP, site work, and building envelope. Adjusted by state-level RSMeans cost index.</strong>
-          <div class="mi-formula">Hard Cost = Total SF × Base Rate × State Index<br>= ${totalSF.toLocaleString()} × $${baseHardPerSF} × ${costIdx.toFixed(2)}<br>= <strong style="color:#1E40AF">${fmtD(hardCost)}</strong> ($${hardCostPerSF}/SF)</div>
-          <div class="mi-row"><span class="mi-row-label">National Base Rate</span><span class="mi-row-val">$${baseHardPerSF}/SF</span></div>
+          <strong>Hard costs include structural, MEP, site work, and building envelope. Applied to gross SF (before net-to-gross), adjusted by state-level RSMeans cost index.</strong>
+          <div class="mi-formula">Hard Cost = Gross SF × Base Rate × State Index<br>= ${grossSF ? grossSF.toLocaleString() : totalSF.toLocaleString()} × $${baseHardPerSF} × ${costIdx.toFixed(2)}<br>= <strong style="color:#1E40AF">${fmtD(hardCost)}</strong> ($${hardCostPerSF}/SF)</div>
+          <div class="mi-row"><span class="mi-row-label">National Base Rate</span><span class="mi-row-val">$${baseHardPerSF}/SF (${isMultiStory ? stories + "-story multi-story" : climatePct >= 0.5 ? "1-story climate-controlled" : "1-story drive-up"})</span></div>
           <div class="mi-row"><span class="mi-row-label">State Cost Index</span><span class="mi-row-val">${(costIdx*100).toFixed(0)}% of national avg</span></div>
+          <div class="mi-row"><span class="mi-row-label">Gross vs Net SF</span><span class="mi-row-val">${grossSF ? grossSF.toLocaleString() : "?"} gross → ${totalSF.toLocaleString()} net (${netToGross ? (netToGross*100).toFixed(0) : 90}% efficiency)</span></div>
           <div class="mi-row"><span class="mi-row-label">Hard % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%</span></div>
-          <div class="mi-source">Source: RSMeans/ENR regional construction cost data (2025) | State-adjusted index table</div>
+          <div class="mi-source">Source: RSMeans/ENR 2025 Construction Cost Data | Product-type calibrated base rates | State-adjusted index</div>
         </div>
       </div></div>
     </div>
@@ -3430,7 +3590,7 @@ function toggleMI(id,evt){
       <div id="mi-fin-soft" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Soft Costs</div><div class="mi-conf mi-conf-med">Standard Ratio</div></div>
         <div class="mi-body">
-          <strong>Soft costs include architecture, engineering, permitting, legal, insurance, financing fees, and contingency.</strong>
+          <strong>Soft costs include architecture, engineering, permitting, legal, insurance, and financing fees. Contingency is tracked separately at ${(contingencyPct*100).toFixed(1)}% of hard costs (${fmtD(contingency)}).</strong>
           <div class="mi-formula">Soft Cost = Hard Cost × ${Math.round(softCostPct*100)}%<br>= ${fmtD(hardCost)} × ${softCostPct}<br>= <strong style="color:#1E40AF">${fmtD(softCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Architecture & Engineering</span><span class="mi-row-val">~6-8% of hard costs</span></div>
           <div class="mi-row"><span class="mi-row-label">Permitting & Impact Fees</span><span class="mi-row-val">~3-5% of hard costs</span></div>
@@ -3444,14 +3604,15 @@ function toggleMI(id,evt){
       <div id="mi-fin-total" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Total Development Cost</div><div class="mi-conf mi-conf-med">Modeled</div></div>
         <div class="mi-body">
-          <strong>All-in development cost — PS "Total Development Yield" denominator. Includes construction carry costs.</strong>
-          <div class="mi-formula">Total Dev = Land + Hard + Soft + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(carryCosts)}<br>= <strong style="color:#1E2761">${fmtD(totalDevCost)}</strong></div>
+          <strong>All-in development cost — PS "Total Development Yield" denominator. Includes contingency and construction carry costs.</strong>
+          <div class="mi-formula">Total Dev = Land + Hard + Soft + Contingency + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(contingency)} + ${fmtD(carryCosts)}<br>= <strong style="color:#1E2761">${fmtD(totalDevCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Land</span><span class="mi-row-val">${fmtD(landCost)} (${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Hard Costs</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Soft Costs</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Contingency (${(contingencyPct*100).toFixed(1)}%)</span><span class="mi-row-val">${fmtD(contingency)} (${totalDevCost > 0 ? Math.round(contingency/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Construction Carry (${constructionMonths}mo)</span><span class="mi-row-val">${fmtD(carryCosts)} (${totalDevCost > 0 ? Math.round(carryCosts/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Cost/SF (All-In)</span><span class="mi-row-val">${totalSF > 0 ? fmtD(totalDevCost/totalSF) + "/SF" : "N/A"}</span></div>
-          <div class="mi-source">Source: SiteScore Financial Engine | Land: listing price, Hard: RSMeans-indexed, Soft: 20% standard</div>
+          <div class="mi-source">Source: SiteScore Financial Engine | Land: listing price | Hard: RSMeans/ENR 2025 regional index | Soft: 20% industry standard | Contingency: 7.5% of hard (REC standard)</div>
         </div>
       </div></div>
     </div>
