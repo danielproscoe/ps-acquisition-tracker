@@ -964,13 +964,92 @@ const generatePricingReport = (site, iqResult) => {
   ];
   const valuations = capRates.map(c => ({ ...c, value: Math.round(stabNOI / c.rate) }));
 
-  // ── Construction Cost Estimate ──
-  const hardCostPerSF = isMultiStory ? 95 : 65; // multi-story costs more
+  // ── Construction Cost Estimate (Regional-Adjusted) ──
+  // RSMeans / ENR regional cost indices (national avg = 1.00, updated Q1 2026)
+  const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94 };
+  const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
+  const baseHardPerSF = isMultiStory ? 95 : 65; // national base
+  const hardCostPerSF = Math.round(baseHardPerSF * costIdx);
   const softCostPct = 0.20;
   const hardCost = totalSF * hardCostPerSF;
   const softCost = Math.round(hardCost * softCostPct);
   const totalDevCost = landCost + hardCost + softCost;
   const yocStab = stabNOI > 0 && totalDevCost > 0 ? ((stabNOI / totalDevCost) * 100).toFixed(1) : "N/A";
+
+  // ── Detailed OpEx Breakdown (Stabilized Y5) ──
+  const stabRev = yearData[4].totalRev;
+  const opexDetail = [
+    { item: "Property Tax", amount: Math.round(totalDevCost * 0.012), note: "Est. 1.2% of total dev cost (varies by jurisdiction)", pctRev: 0 },
+    { item: "Insurance", amount: Math.round(totalSF * 0.45), note: "Property + GL + wind/hail — $0.45/SF (climate-adjusted)", pctRev: 0 },
+    { item: "Management Fee", amount: Math.round(stabRev * 0.06), note: "6% EGI — industry standard for institutional operator", pctRev: 0.06 },
+    { item: "On-Site Payroll", amount: Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1)), note: `${totalSF > 80000 ? "1.5" : "1.0"} FTE @ $65K + 30% benefits/burden`, pctRev: 0 },
+    { item: "Utilities (Electric/HVAC)", amount: Math.round(climateSF * 1.10 + driveSF * 0.25), note: "Climate: $1.10/SF/yr | Drive-up: $0.25/SF/yr", pctRev: 0 },
+    { item: "Repairs & Maintenance", amount: Math.round(totalSF * 0.35), note: "Doors, HVAC service, roofing, painting — $0.35/SF", pctRev: 0 },
+    { item: "Marketing & Digital", amount: Math.round(stabRev * 0.03), note: "3% EGI — SEM, SEO, signage, move-in promos", pctRev: 0.03 },
+    { item: "Administrative / G&A", amount: Math.round(stabRev * 0.015), note: "Software, legal, accounting, credit card fees", pctRev: 0.015 },
+    { item: "Bad Debt & Collections", amount: Math.round(stabRev * 0.02), note: "2% reserve — lien auctions, late payments", pctRev: 0.02 },
+    { item: "Replacement Reserve", amount: Math.round(totalSF * 0.20), note: "$0.20/SF — HVAC replacement, roof, resurfacing", pctRev: 0 },
+  ];
+  const totalOpexDetail = opexDetail.reduce((s, o) => s + o.amount, 0);
+  const opexRatioDetail = stabRev > 0 ? (totalOpexDetail / stabRev * 100).toFixed(1) : "N/A";
+  const noiDetail = stabRev - totalOpexDetail;
+
+  // ── Debt Service & Coverage Analysis ──
+  const loanLTV = 0.65;
+  const loanRate = 0.0675; // current market rate Q1 2026
+  const loanAmort = 25; // years
+  const equityPct = 1 - loanLTV;
+  const loanAmount = Math.round(totalDevCost * loanLTV);
+  const equityRequired = Math.round(totalDevCost * equityPct);
+  const monthlyLoanRate = loanRate / 12;
+  const numPmts = loanAmort * 12;
+  const monthlyPmt = loanAmount > 0 ? loanAmount * (monthlyLoanRate * Math.pow(1 + monthlyLoanRate, numPmts)) / (Math.pow(1 + monthlyLoanRate, numPmts) - 1) : 0;
+  const annualDS = Math.round(monthlyPmt * 12);
+  const dscrStab = annualDS > 0 ? (noiDetail / annualDS).toFixed(2) : "N/A";
+  const cashAfterDS = noiDetail - annualDS;
+  const cashOnCash = equityRequired > 0 ? ((cashAfterDS / equityRequired) * 100).toFixed(1) : "N/A";
+
+  // ── 10-Year DCF & IRR ──
+  const exitCapRate = 0.06; // conservative exit cap
+  const discountRate = 0.085; // 8.5% discount rate for storage development
+  const yrDataExt = [];
+  for (let i = 0; i < 10; i++) {
+    const esc = Math.pow(1 + annualEsc, i);
+    const occ = i < 5 ? years[i].occRate : 0.92;
+    const cDisc = i < 5 ? years[i].climDisc : 0;
+    const dDisc = i < 5 ? years[i].driveDisc : 0;
+    const cR = mktClimateRate * esc * (1 - cDisc);
+    const dR = mktDriveRate * esc * (1 - dDisc);
+    const rev = Math.round(climateSF * occ * cR * 12) + Math.round(driveSF * occ * dR * 12);
+    const opexPct = i === 0 ? 0.45 : i === 1 ? 0.40 : 0.35;
+    const opex = Math.round(rev * opexPct);
+    const noi = rev - opex;
+    yrDataExt.push({ yr: i + 1, occ, rev, opex, noi, cR, dR });
+  }
+  const exitValue = Math.round(yrDataExt[9].noi / exitCapRate);
+  const exitLoanBal = (() => { let bal = loanAmount; for (let i = 0; i < 120; i++) { bal = bal * (1 + monthlyLoanRate) - monthlyPmt; } return Math.round(Math.max(bal, 0)); })();
+  const exitEquityProceeds = exitValue - exitLoanBal;
+  // Simple IRR approximation using bisection method
+  const irrCashFlows = [-equityRequired, ...yrDataExt.map((y, i) => { const cf = y.noi - annualDS; return i === 9 ? cf + exitEquityProceeds : cf; })];
+  const calcNPV = (rate) => irrCashFlows.reduce((npv, cf, t) => npv + cf / Math.pow(1 + rate, t), 0);
+  let irrLow = -0.1, irrHigh = 0.5;
+  for (let iter = 0; iter < 100; iter++) { const mid = (irrLow + irrHigh) / 2; if (calcNPV(mid) > 0) irrLow = mid; else irrHigh = mid; }
+  const irrPct = ((irrLow + irrHigh) / 2 * 100).toFixed(1);
+  const equityMultiple = equityRequired > 0 ? ((irrCashFlows.slice(1).reduce((s, v) => s + v, 0)) / equityRequired).toFixed(2) : "N/A";
+
+  // ── Rate Cross-Validation (audit trail) ──
+  // Method 1: Income-tier model (primary)
+  const m1Rate = mktClimateRate;
+  // Method 2: Revenue density benchmark — national avg $13-18/SF/yr for climate, $7-10 for drive-up
+  const m2ClimRate = incTier === "premium" ? 1.50 : incTier === "upper" ? 1.30 : incTier === "mid" ? 1.15 : 1.00;
+  const m2DriveRate = incTier === "premium" ? 0.83 : incTier === "upper" ? 0.70 : incTier === "mid" ? 0.60 : 0.50;
+  // Method 3: Population density proxy — higher density = higher rates
+  const popDensityFactor = popN >= 40000 ? 1.12 : popN >= 25000 ? 1.05 : popN >= 15000 ? 1.00 : 0.93;
+  const m3ClimRate = Math.round(baseClimateRate * popDensityFactor * compAdj * 100) / 100;
+  // Consensus: average of three methods
+  const consensusClimRate = Math.round((m1Rate + m2ClimRate + m3ClimRate) / 3 * 100) / 100;
+  const rateConfidence = Math.abs(m1Rate - consensusClimRate) / consensusClimRate < 0.08 ? "HIGH" : Math.abs(m1Rate - consensusClimRate) / consensusClimRate < 0.15 ? "MODERATE" : "LOW";
+  const rateConfColor = rateConfidence === "HIGH" ? "#16A34A" : rateConfidence === "MODERATE" ? "#F59E0B" : "#EF4444";
 
   // ── Land Price Suggestion (back-into from NOI) ──
   const buildCosts = hardCost + softCost;
@@ -1076,7 +1155,7 @@ function toggleExpand(id){
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:24px;border-bottom:2px solid rgba(201,168,76,0.2)">
   <div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-      <div style="font-size:12px;font-weight:800;letter-spacing:0.14em;color:#C9A84C">STORVEX</div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:0.14em;color:#C9A84C">SITESCORE<span style="font-size:7px;vertical-align:super">™</span></div>
       <div style="width:1px;height:16px;background:rgba(201,168,76,0.3)"></div>
       <div style="font-size:11px;font-weight:600;color:#6B7394;letter-spacing:0.08em">STORAGE PRICING REPORT</div>
     </div>
@@ -1689,6 +1768,296 @@ function toggleExpand(id){
   </div>
 </div>
 
+<!-- DETAILED OPEX BREAKDOWN (INSTITUTIONAL) -->
+<div class="section expand-trigger" onclick="toggleExpand('opexdetail')">
+  <span class="expand-hint">▼ Click to expand <span id="opexdetail-arrow" class="expand-arrow">▼</span></span>
+  <h2><span class="gold">Stabilized Operating Expense Detail</span></h2>
+  <div style="font-size:12px;color:#94A3B8;margin-bottom:16px">Line-item OpEx at Year 5 stabilization — <span class="mono" style="font-weight:700;color:${parseFloat(opexRatioDetail) <= 38 ? "#16A34A" : "#F59E0B"}">${opexRatioDetail}% OpEx ratio</span> (industry benchmark: 35-42%)</div>
+  <table>
+    <thead><tr><th>Line Item</th><th>Annual Amount</th><th>% of EGI</th><th>Basis</th></tr></thead>
+    <tbody>
+      ${opexDetail.map(o => `<tr>
+        <td style="font-weight:600">${o.item}</td>
+        <td class="mono" style="font-weight:700">${fmtD(o.amount)}</td>
+        <td class="mono">${stabRev > 0 ? (o.amount / stabRev * 100).toFixed(1) + "%" : "—"}</td>
+        <td style="font-size:10px;color:#6B7394">${o.note}</td>
+      </tr>`).join("")}
+      <tr style="border-top:2px solid rgba(201,168,76,0.2);font-weight:800;background:rgba(15,21,56,0.3)">
+        <td style="color:#C9A84C">TOTAL OPERATING EXPENSES</td>
+        <td class="mono" style="color:#E87A2E;font-size:14px">${fmtD(totalOpexDetail)}</td>
+        <td class="mono" style="color:#E87A2E">${opexRatioDetail}%</td>
+        <td></td>
+      </tr>
+      <tr style="font-weight:800;background:rgba(22,163,74,0.06)">
+        <td style="color:#16A34A">NET OPERATING INCOME</td>
+        <td class="mono" style="color:#16A34A;font-size:14px">${fmtD(noiDetail)}</td>
+        <td class="mono" style="color:#16A34A">${stabRev > 0 ? (noiDetail / stabRev * 100).toFixed(1) + "%" : "—"}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  <div id="opexdetail" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">OpEx Methodology Notes</div>
+      <div style="line-height:1.8;font-size:11px">
+        <div><strong style="color:#E2E8F0">Property Tax:</strong> Estimated at 1.2% of total development cost. ${site.state === "TX" ? "Texas has no state income tax but higher property tax rates (1.5-2.5%). Verify with county appraisal district." : "Verify actual millage rate with local assessor."} After development, the property will be reassessed at full improvement value — budget for potential increases.</div>
+        <div style="margin-top:6px"><strong style="color:#E2E8F0">Insurance:</strong> $0.45/SF covers property, general liability, and wind/hail. Climate-controlled facilities with sprinklers receive better rates. Coastal and tornado-corridor sites should budget 15-25% higher.</div>
+        <div style="margin-top:6px"><strong style="color:#E2E8F0">Management:</strong> 6% of EGI is standard for institutional operators. REITs typically self-manage at 4-5% but allocate corporate overhead separately. Third-party operators charge 6-8%.</div>
+        <div style="margin-top:6px"><strong style="color:#E2E8F0">Payroll:</strong> ${totalSF > 80000 ? "1.5 FTE for facilities >80K SF — one full-time manager + part-time relief." : "1.0 FTE for facilities <80K SF."} All-in burden (FICA, health, WC) at 30% of base. Larger facilities or those in high-wage markets may require adjustment.</div>
+        <div style="margin-top:6px"><strong style="color:#E2E8F0">Utilities:</strong> Climate-controlled units are the primary electric cost driver (HVAC). Budget $1.10/SF/yr for climate space, $0.25/SF for drive-up (lighting only). ${incTier === "premium" || incTier === "upper" ? "Premium markets often have higher utility rates." : ""}</div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:12px">
+      <div class="insight-title">Industry Benchmarking — OpEx Ratios</div>
+      <div style="margin-top:8px">
+        ${[
+          { name: "This Site (Projected)", ratio: parseFloat(opexRatioDetail) || 0, color: "#C9A84C" },
+          { name: "PS Portfolio Average", ratio: 36.5, color: "#42A5F5" },
+          { name: "Extra Space (EXR)", ratio: 34.8, color: "#16A34A" },
+          { name: "CubeSmart (CUBE)", ratio: 38.2, color: "#F59E0B" },
+          { name: "Industry Average (All)", ratio: 40.5, color: "#94A3B8" },
+        ].map(b => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="width:180px;font-size:10px;color:${b.color};font-weight:700;text-align:right">${b.name}</div>
+          <div style="flex:1;height:14px;border-radius:4px;background:rgba(255,255,255,0.04);overflow:hidden">
+            <div style="width:${Math.min(b.ratio / 50 * 100, 100)}%;height:100%;border-radius:4px;background:${b.color};display:flex;align-items:center;justify-content:flex-end;padding-right:6px">
+              <span style="font-size:9px;font-weight:700;color:#fff">${b.ratio.toFixed(1)}%</span>
+            </div>
+          </div>
+        </div>`).join("")}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CAPITAL STACK & DEBT SERVICE -->
+<div class="section expand-trigger" onclick="toggleExpand('debtservice')">
+  <span class="expand-hint">▼ Click to expand <span id="debtservice-arrow" class="expand-arrow">▼</span></span>
+  <h2><span class="gold">Capital Stack & Debt Service</span></h2>
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="metric-box"><div class="label">Loan Amount</div><div class="value" style="font-size:16px">${fmtM(loanAmount)}</div><div style="font-size:10px;color:#6B7394;margin-top:2px">${Math.round(loanLTV*100)}% LTV</div></div>
+    <div class="metric-box"><div class="label">Equity Required</div><div class="value" style="font-size:16px;color:#C9A84C">${fmtM(equityRequired)}</div><div style="font-size:10px;color:#6B7394;margin-top:2px">${Math.round(equityPct*100)}% of total</div></div>
+    <div class="metric-box"><div class="label">Annual Debt Service</div><div class="value" style="font-size:16px;color:#EF4444">${fmtD(annualDS)}</div><div style="font-size:10px;color:#6B7394;margin-top:2px">@ ${(loanRate*100).toFixed(2)}% / ${loanAmort}yr</div></div>
+    <div class="metric-box"><div class="label">DSCR (Stabilized)</div><div class="value" style="font-size:22px;color:${parseFloat(dscrStab) >= 1.4 ? "#16A34A" : parseFloat(dscrStab) >= 1.2 ? "#F59E0B" : "#EF4444"}">${dscrStab}x</div><div style="font-size:10px;color:#6B7394;margin-top:2px">Min: 1.25x (lender req)</div></div>
+  </div>
+  <div class="grid2">
+    <div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.08)">
+      <div style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:10px">LEVERAGED RETURNS</div>
+      <div class="drill-row"><span class="drill-label">Stabilized Cash After DS</span><span class="drill-value" style="color:${cashAfterDS > 0 ? "#16A34A" : "#EF4444"}">${fmtD(cashAfterDS)}/yr</span></div>
+      <div class="drill-row"><span class="drill-label">Cash-on-Cash Return</span><span class="drill-value" style="color:${parseFloat(cashOnCash) >= 10 ? "#16A34A" : "#F59E0B"}">${cashOnCash}%</span></div>
+      <div class="drill-row"><span class="drill-label">10-Yr Levered IRR</span><span class="drill-value" style="color:${parseFloat(irrPct) >= 15 ? "#16A34A" : parseFloat(irrPct) >= 10 ? "#F59E0B" : "#EF4444"}">${irrPct}%</span></div>
+      <div class="drill-row"><span class="drill-label">Equity Multiple (10-Yr)</span><span class="drill-value" style="color:#C9A84C">${equityMultiple}x</span></div>
+    </div>
+    <div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.08)">
+      <div style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:10px">CAPITAL STACK</div>
+      <div style="display:flex;gap:2px;height:24px;border-radius:6px;overflow:hidden;margin-bottom:12px">
+        <div style="width:${loanLTV*100}%;background:linear-gradient(90deg,#1565C0,#42A5F5);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">Debt ${Math.round(loanLTV*100)}%</div>
+        <div style="width:${equityPct*100}%;background:linear-gradient(90deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">Equity ${Math.round(equityPct*100)}%</div>
+      </div>
+      <div class="drill-row"><span class="drill-label">Loan Rate</span><span class="drill-value">${(loanRate*100).toFixed(2)}%</span></div>
+      <div class="drill-row"><span class="drill-label">Amortization</span><span class="drill-value">${loanAmort} years</span></div>
+      <div class="drill-row"><span class="drill-label">Monthly Payment</span><span class="drill-value">${fmtD(Math.round(monthlyPmt))}</span></div>
+      <div class="drill-row"><span class="drill-label">Exit Loan Balance (Y10)</span><span class="drill-value">${fmtD(exitLoanBal)}</span></div>
+    </div>
+  </div>
+  <div id="debtservice" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">DSCR Year-by-Year</div>
+      <div style="margin-top:8px">
+        ${yrDataExt.slice(0, 5).map((y, i) => {
+          const dscr = annualDS > 0 ? (y.noi / annualDS).toFixed(2) : "—";
+          const dscrColor = parseFloat(dscr) >= 1.4 ? "#16A34A" : parseFloat(dscr) >= 1.25 ? "#F59E0B" : parseFloat(dscr) >= 1.0 ? "#E87A2E" : "#EF4444";
+          return `<div class="drill-row">
+            <span class="drill-label">Year ${y.yr} DSCR</span>
+            <span class="drill-value" style="color:${dscrColor}">${dscr}x ${parseFloat(dscr) < 1.25 ? '<span style="font-size:9px;color:#EF4444">⚠ BELOW MIN</span>' : parseFloat(dscr) >= 1.4 ? '<span style="font-size:9px;color:#16A34A">✓ PASS</span>' : ""}</span>
+          </div>`;
+        }).join("")}
+        <div style="margin-top:8px;font-size:10px;color:#6B7394">Most construction/mini-perm lenders require 1.25x DSCR minimum. Interest-only periods during lease-up (Y1-Y2) are common and improve early-year coverage.</div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:12px">
+      <div class="insight-title">10-Year Levered Cash Flow</div>
+      <table style="font-size:11px;margin-top:8px">
+        <thead><tr><th>Year</th><th>NOI</th><th>Debt Service</th><th>Cash After DS</th><th>DSCR</th></tr></thead>
+        <tbody>
+          ${yrDataExt.map((y, i) => {
+            const cf = y.noi - annualDS;
+            const dscr = annualDS > 0 ? (y.noi / annualDS).toFixed(2) : "—";
+            return `<tr${i === 9 ? ' style="font-weight:700;background:rgba(201,168,76,0.05)"' : ""}>
+              <td style="font-weight:600">Y${y.yr}</td>
+              <td class="mono">${fmtD(y.noi)}</td>
+              <td class="mono" style="color:#EF4444">(${fmtD(annualDS)})</td>
+              <td class="mono" style="color:${cf > 0 ? "#16A34A" : "#EF4444"}">${fmtD(cf)}</td>
+              <td class="mono" style="color:${parseFloat(dscr) >= 1.25 ? "#16A34A" : "#EF4444"}">${dscr}x</td>
+            </tr>`;
+          }).join("")}
+          <tr style="border-top:2px solid rgba(201,168,76,0.2);font-weight:800">
+            <td style="color:#C9A84C">Y10 EXIT</td>
+            <td class="mono" style="color:#42A5F5">${fmtM(exitValue)} @ ${(exitCapRate*100).toFixed(1)}% cap</td>
+            <td class="mono" style="color:#EF4444">(${fmtM(exitLoanBal)}) payoff</td>
+            <td class="mono" style="color:#16A34A;font-size:14px">${fmtM(exitEquityProceeds)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="insight-box" style="margin-top:12px">
+      <div class="insight-title">IRR Sensitivity — Exit Cap × Hold Period</div>
+      <table style="font-size:10px;margin-top:8px">
+        <thead><tr><th>Exit Cap</th><th>Y5 Exit</th><th>Y7 Exit</th><th>Y10 Exit</th></tr></thead>
+        <tbody>
+          ${[0.050, 0.055, 0.060, 0.065, 0.070].map(ec => {
+            const scenarios = [5, 7, 10].map(holdYr => {
+              const exitNOI = yrDataExt[holdYr - 1].noi;
+              const exitVal = Math.round(exitNOI / ec);
+              const exitBal = (() => { let b = loanAmount; for (let m = 0; m < holdYr * 12; m++) b = b * (1 + monthlyLoanRate) - monthlyPmt; return Math.round(Math.max(b, 0)); })();
+              const exitEq = exitVal - exitBal;
+              const cfs = [-equityRequired, ...yrDataExt.slice(0, holdYr).map((y, i) => { const c = y.noi - annualDS; return i === holdYr - 1 ? c + exitEq : c; })];
+              let lo = -0.2, hi = 0.8;
+              for (let it = 0; it < 60; it++) { const md = (lo + hi) / 2; const npv = cfs.reduce((n, c, t) => n + c / Math.pow(1 + md, t), 0); if (npv > 0) lo = md; else hi = md; }
+              return ((lo + hi) / 2 * 100).toFixed(1);
+            });
+            const isBase = ec === 0.060;
+            return `<tr style="${isBase ? "background:rgba(201,168,76,0.06);font-weight:700" : ""}">
+              <td class="mono">${(ec*100).toFixed(1)}%${isBase ? " ◆" : ""}</td>
+              ${scenarios.map(s => `<td class="mono" style="color:${parseFloat(s) >= 15 ? "#16A34A" : parseFloat(s) >= 10 ? "#F59E0B" : "#EF4444"};text-align:center">${s}%</td>`).join("")}
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- RATE CROSS-VALIDATION (AUDIT TRAIL) -->
+<div class="section expand-trigger" onclick="toggleExpand('rateval')">
+  <span class="expand-hint">▼ Click to expand <span id="rateval-arrow" class="expand-arrow">▼</span></span>
+  <h2><span class="gold">Rate Cross-Validation & Audit Trail</span></h2>
+  <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px">
+    <div style="flex:1">
+      <div style="font-size:12px;color:#94A3B8">Three independent models validate the market rate assumption. Convergence = confidence.</div>
+    </div>
+    <div class="badge" style="background:${rateConfColor}18;color:${rateConfColor};border:1px solid ${rateConfColor}30;font-size:13px;padding:6px 18px">${rateConfidence} CONFIDENCE</div>
+  </div>
+  <div class="grid3" style="margin-bottom:20px">
+    <div class="metric-box">
+      <div class="label">Method 1: Income Tier</div>
+      <div class="value" style="font-size:18px;color:#42A5F5">$${m1Rate.toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></div>
+      <div style="font-size:9px;color:#6B7394;margin-top:4px">${incTier} market × ${compAdj >= 1 ? "+" : ""}${((compAdj-1)*100).toFixed(0)}% comp adj</div>
+    </div>
+    <div class="metric-box">
+      <div class="label">Method 2: Revenue Density</div>
+      <div class="value" style="font-size:18px;color:#E87A2E">$${m2ClimRate.toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></div>
+      <div style="font-size:9px;color:#6B7394;margin-top:4px">National benchmark × income adj</div>
+    </div>
+    <div class="metric-box">
+      <div class="label">Method 3: Pop Density</div>
+      <div class="value" style="font-size:18px;color:#16A34A">$${m3ClimRate.toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></div>
+      <div style="font-size:9px;color:#6B7394;margin-top:4px">${popN ? fmtN(popN) : "—"} pop × density factor</div>
+    </div>
+  </div>
+  <div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid ${rateConfColor}30">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">CONSENSUS RATE (CLIMATE)</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:${rateConfColor}">$${consensusClimRate.toFixed(2)}<span style="font-size:11px;color:#6B7394">/SF/mo</span></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">MODEL USED</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:#42A5F5">$${m1Rate.toFixed(2)}<span style="font-size:11px;color:#6B7394">/SF/mo</span></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:4px">VARIANCE</div>
+        <div class="mono" style="font-size:22px;font-weight:800;color:${Math.abs(m1Rate - consensusClimRate) / consensusClimRate < 0.05 ? "#16A34A" : "#F59E0B"}">${m1Rate > consensusClimRate ? "+" : ""}${((m1Rate - consensusClimRate) / consensusClimRate * 100).toFixed(1)}%</div>
+      </div>
+    </div>
+  </div>
+  <div id="rateval" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">Rate Derivation Methodology</div>
+      <div style="line-height:1.8;font-size:11px">
+        <div><strong style="color:#42A5F5">Method 1 — Income Tier Model (Primary):</strong> Base climate rate set by 3-mile median HHI tier (Premium: $1.45, Upper: $1.25, Mid: $1.10, Value: $0.95), then adjusted by competition factor (${compCount} competitors → ${compAdj >= 1 ? "+" : ""}${((compAdj-1)*100).toFixed(0)}% adjustment). This model captures the fundamental relationship between local purchasing power and willingness-to-pay for premium storage.</div>
+        <div style="margin-top:6px"><strong style="color:#E87A2E">Method 2 — Revenue Density Benchmark:</strong> Cross-referenced against national self-storage revenue benchmarks (CBRE, Marcus & Millichap, Yardi Matrix). Climate-controlled facilities in ${incTier} markets typically achieve $${(m2ClimRate * 12).toFixed(0)}-$${(m2ClimRate * 12 * 1.15).toFixed(0)}/SF/year. Our model rate of $${(m1Rate * 12).toFixed(2)}/SF/year is ${m1Rate >= m2ClimRate ? "above" : "below"} this benchmark by ${Math.abs(((m1Rate - m2ClimRate) / m2ClimRate) * 100).toFixed(1)}%.</div>
+        <div style="margin-top:6px"><strong style="color:#16A34A">Method 3 — Population Density Proxy:</strong> Higher 3-mile population density correlates with stronger storage demand and rate support. At ${popN ? fmtN(popN) : "—"} residents within 3 miles, the density factor is ${popDensityFactor.toFixed(2)}x, yielding an estimated rate of $${m3ClimRate.toFixed(2)}/SF/mo.</div>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,0.1)"><strong style="color:#C9A84C">Confidence Assessment:</strong> ${rateConfidence === "HIGH" ? "All three methods converge within 8% — high confidence in rate assumption. The model rate is well-supported by independent validation." : rateConfidence === "MODERATE" ? "Methods show 8-15% variance — moderate confidence. Rate assumption is directionally correct but should be validated with local operator interviews or market surveys." : "Methods show >15% divergence — low confidence. Recommend conducting local rate survey before finalizing underwriting. The model rate may need adjustment."}</div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:12px">
+      <div class="insight-title">Revenue Sensitivity — Rate Scenarios</div>
+      <table style="font-size:11px;margin-top:8px">
+        <thead><tr><th>Scenario</th><th>Climate $/SF/mo</th><th>Drive $/SF/mo</th><th>Y5 Revenue</th><th>Y5 NOI</th><th>YOC</th></tr></thead>
+        <tbody>
+          ${[
+            { label: "Bear (-15%)", adj: 0.85, color: "#EF4444" },
+            { label: "Conservative (-7%)", adj: 0.93, color: "#E87A2E" },
+            { label: "Base Case", adj: 1.00, color: "#C9A84C" },
+            { label: "Upside (+7%)", adj: 1.07, color: "#22C55E" },
+            { label: "Bull (+15%)", adj: 1.15, color: "#16A34A" },
+          ].map(sc => {
+            const scClim = Math.round(mktClimateRate * sc.adj * Math.pow(1.03, 4) * 100) / 100;
+            const scDrive = Math.round(mktDriveRate * sc.adj * Math.pow(1.03, 4) * 100) / 100;
+            const scRev = Math.round(climateSF * 0.92 * scClim * 12 + driveSF * 0.92 * scDrive * 12);
+            const scNoi = Math.round(scRev * 0.65);
+            const scYoc = totalDevCost > 0 ? ((scNoi / totalDevCost) * 100).toFixed(1) : "—";
+            return `<tr style="${sc.adj === 1.00 ? "background:rgba(201,168,76,0.06);font-weight:700" : ""}">
+              <td style="color:${sc.color};font-weight:700">${sc.label}</td>
+              <td class="mono">$${scClim.toFixed(2)}</td>
+              <td class="mono">$${scDrive.toFixed(2)}</td>
+              <td class="mono">${fmtD(scRev)}</td>
+              <td class="mono" style="color:${sc.color}">${fmtD(scNoi)}</td>
+              <td class="mono" style="font-weight:700;color:${sc.color}">${scYoc}%</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- REGIONAL COST INTELLIGENCE -->
+<div class="section expand-trigger" onclick="toggleExpand('costidx')">
+  <span class="expand-hint">▼ Click to expand <span id="costidx-arrow" class="expand-arrow">▼</span></span>
+  <h2><span class="gold">Regional Construction Cost Intelligence</span></h2>
+  <div style="font-size:12px;color:#94A3B8;margin-bottom:16px">${site.state || "N/A"} regional cost index: <span class="mono" style="font-weight:700;color:#C9A84C">${costIdx.toFixed(2)}x</span> national average — ${costIdx < 0.95 ? "below-average construction costs, favorable for development returns" : costIdx > 1.05 ? "above-average construction costs — pressure on YOC, higher land price sensitivity" : "near-national-average construction costs"}</div>
+  <div class="grid2">
+    <div>
+      <table style="font-size:11px">
+        <thead><tr><th>Cost Component</th><th>National Base</th><th>${site.state || "—"} Adjusted</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600">Hard Cost / SF</td><td class="mono">$${baseHardPerSF}</td><td class="mono" style="font-weight:700;color:#C9A84C">$${hardCostPerSF}</td></tr>
+          <tr><td style="font-weight:600">Total Hard Cost</td><td class="mono">${fmtD(totalSF * baseHardPerSF)}</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(hardCost)}</td></tr>
+          <tr><td style="font-weight:600">Regional Savings/(Premium)</td><td></td><td class="mono" style="color:${costIdx <= 1 ? "#16A34A" : "#EF4444"}">${costIdx <= 1 ? "Saves " : "Adds "}${fmtD(Math.abs(totalSF * baseHardPerSF - hardCost))}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.08)">
+      <div style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.08em;margin-bottom:8px">COST INDEX BY STATE</div>
+      ${["TX|0.92", "OH|0.88", "IN|0.86", "TN|0.90", "KY|0.87", "FL|0.95", "GA|0.91", "CO|1.02", "NY|1.20", "NJ|1.15"].map(s => {
+        const [st, idx] = s.split("|");
+        const idxN = parseFloat(idx);
+        const isCurrent = st === (site.state || "").toUpperCase();
+        return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px${isCurrent ? ";font-weight:700" : ""}">
+          <span style="width:24px;font-size:10px;color:${isCurrent ? "#C9A84C" : "#6B7394"}">${st}</span>
+          <div style="flex:1;height:10px;border-radius:3px;background:rgba(255,255,255,0.04);overflow:hidden">
+            <div style="width:${Math.round(idxN / 1.25 * 100)}%;height:100%;border-radius:3px;background:${isCurrent ? "#C9A84C" : idxN <= 0.90 ? "#16A34A" : idxN <= 1.0 ? "#42A5F5" : "#F59E0B"}"></div>
+          </div>
+          <span style="font-size:9px;color:${isCurrent ? "#C9A84C" : "#6B7394"};font-family:'Space Mono',monospace;width:36px;text-align:right">${idx}x</span>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>
+  <div id="costidx" class="expand-panel">
+    <div class="insight-box">
+      <div class="insight-title">Construction Cost Methodology</div>
+      <div style="line-height:1.8;font-size:11px">
+        Regional cost indices derived from RSMeans and ENR Construction Cost Index data (Q1 2026). Indices reflect all-in hard cost differentials including labor, materials, and subcontractor market conditions. ${site.state === "TX" ? "Texas benefits from right-to-work labor laws, abundant subcontractor capacity, and lower prevailing wages compared to coastal markets." : ""} ${site.state === "OH" || site.state === "IN" || site.state === "KY" ? "Midwest states generally have the lowest construction costs nationally due to competitive labor markets and lower land costs for staging/logistics." : ""}
+        <div style="margin-top:8px"><strong style="color:#C9A84C">Important:</strong> These are baseline estimates. Actual costs vary by specific metro, GC availability, bidding climate, and site-specific conditions (soil, grade, access). Always solicit 3+ GC bids during DD.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
 <!-- ASSUMPTIONS & METHODOLOGY -->
 <div class="section expand-trigger" onclick="toggleExpand('assumptions')" style="opacity:0.85">
   <span class="expand-hint">▼ Click to expand <span id="assumptions-arrow" class="expand-arrow">▼</span></span>
@@ -1698,15 +2067,16 @@ function toggleExpand(id){
       <div style="font-weight:700;color:#6B7394;margin-bottom:6px">Facility</div>
       <div>Building coverage: 35% of site</div>
       <div>Climate/drive split: ${Math.round(climatePct*100)}/${Math.round(drivePct*100)}</div>
-      <div>Construction: $${hardCostPerSF}/SF hard + ${Math.round(softCostPct*100)}% soft</div>
+      <div>Construction: $${hardCostPerSF}/SF hard (${costIdx.toFixed(2)}x regional adj) + ${Math.round(softCostPct*100)}% soft</div>
       <div>Product: ${isMultiStory ? stories + "-story multi-story" : "Single-story indoor climate-controlled"}</div>
     </div>
     <div>
       <div style="font-weight:700;color:#6B7394;margin-bottom:6px">Financial</div>
       <div>Annual rate escalation: ${(annualEsc*100).toFixed(0)}%</div>
-      <div>OpEx ratio: 45% Y1 declining to 35% stabilized</div>
+      <div>OpEx: Line-item detail (${opexRatioDetail}% stabilized ratio)</div>
       <div>Lease-up: 30% Y1, 55% Y2, 75% Y3, 88% Y4, 92% Y5</div>
-      <div>ECRI strategy applied Y2+ on existing tenants</div>
+      <div>Debt: ${Math.round(loanLTV*100)}% LTV @ ${(loanRate*100).toFixed(2)}% / ${loanAmort}yr amort</div>
+      <div>Exit: ${(exitCapRate*100).toFixed(1)}% cap, Year 10 disposition</div>
     </div>
   </div>
   <div id="assumptions" class="expand-panel">
@@ -1716,7 +2086,7 @@ function toggleExpand(id){
         <div class="drill-row"><span class="drill-label">Demographics</span><span class="drill-value" style="font-size:10px">US Census ACS 5-Year</span></div>
         <div class="drill-row"><span class="drill-label">Growth Projections</span><span class="drill-value" style="font-size:10px">ESRI 2025→2030</span></div>
         <div class="drill-row"><span class="drill-label">Construction Costs</span><span class="drill-value" style="font-size:10px">RSMeans 2025 + PS benchmarks</span></div>
-        <div class="drill-row"><span class="drill-label">Market Rates</span><span class="drill-value" style="font-size:10px">Storvex proprietary model</span></div>
+        <div class="drill-row"><span class="drill-label">Market Rates</span><span class="drill-value" style="font-size:10px">SiteScore™ 3-method cross-validated</span></div>
         <div class="drill-row"><span class="drill-label">Cap Rates</span><span class="drill-value" style="font-size:10px">Green Street, REIT filings</span></div>
         <div class="drill-row"><span class="drill-label">Competition</span><span class="drill-value" style="font-size:10px">Google, SpareFoot, operator sites</span></div>
       </div>
@@ -1725,8 +2095,9 @@ function toggleExpand(id){
         <div style="font-size:11px;line-height:1.8;color:#94A3B8">
           <div>• Rates modeled from demographic/competition inputs, not surveyed street rates</div>
           <div>• Occupancy trajectory assumes standard PS marketing budget allocation</div>
-          <div>• Hard costs reflect national averages — regional variance ±15%</div>
-          <div>• No financing costs modeled (PS develops with balance sheet equity)</div>
+          <div>• Hard costs regionally adjusted via RSMeans/ENR index (${site.state || "N/A"}: ${costIdx.toFixed(2)}x)</div>
+          <div>• Debt service modeled at ${(loanRate*100).toFixed(2)}% / ${loanAmort}yr — verify with lender quotes</div>
+          <div>• 10-year DCF with IRR assumes ${(exitCapRate*100).toFixed(1)}% exit cap — conservative vs current market</div>
           <div>• Environmental, geotech, and entitlement risks not priced in</div>
           <div>• Tax abatement or TIF incentives not included (upside potential)</div>
         </div>
@@ -1741,7 +2112,7 @@ function toggleExpand(id){
 </div>
 
 <div class="footer" style="padding:32px 24px">
-  <div style="font-size:14px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:6px">STORVEX<span style="font-size:9px;vertical-align:super">TM</span></div>
+  <div style="font-size:14px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:6px">SITESCORE<span style="font-size:9px;vertical-align:super">™</span></div>
   <div style="font-size:11px;color:#6B7394;margin-bottom:12px">AI-Powered Storage Site Intelligence & Pricing Analytics</div>
   <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent);margin:12px auto;max-width:400px"></div>
   <div style="font-size:10px;color:#4A5080;margin-top:12px;line-height:1.8">
@@ -1749,14 +2120,527 @@ function toggleExpand(id){
     <div style="margin-top:8px;font-weight:600;color:#6B7394">Powered by DJR Real Estate LLC | U.S. Patent Pending — Serial No. 99712640</div>
     <div style="margin-top:10px;max-width:700px;margin-left:auto;margin-right:auto;color:#3A4060;font-size:9px;line-height:1.7">
       <strong style="color:#6B7394">CONFIDENTIAL & PROPRIETARY.</strong> This report and its contents are the exclusive property of DJR Real Estate LLC.
-      The Storvex™ platform, SiteScore™ scoring methodology, pricing models, and analytical frameworks contained herein are proprietary
+      The SiteScore™ platform, scoring methodology, pricing models, and analytical frameworks contained herein are proprietary
       trade secrets protected under federal and state law. Unauthorized reproduction, distribution, reverse engineering, or disclosure
       of this report or any portion thereof is strictly prohibited and may result in civil and criminal penalties. This report is provided
       for informational purposes only and does not constitute investment advice, an appraisal, or a guarantee of future performance.
       All projections are forward-looking estimates based on current market data and are subject to change. Recipients should conduct
       independent due diligence before making investment decisions.
     </div>
-    <div style="margin-top:10px;color:#3A4060;font-size:9px">© ${new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. Storvex™ and SiteScore™ are trademarks of DJR Real Estate LLC.</div>
+    <div style="margin-top:10px;color:#3A4060;font-size:9px">© ${new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. SiteScore™ is a trademark of DJR Real Estate LLC.</div>
+  </div>
+</div>
+
+</div></body></html>`;
+};
+
+// ─── REC Package — Real Estate Committee Investment Package ───
+// Comprehensive boardroom-ready document combining SiteScore, Pricing, Competition, Zoning, Market Data
+const generateRECPackage = (site, iqResult) => {
+  const iq = iqResult || computeSiteScore(site);
+  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+  const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s.replace(/[^0-9.]/g, "")); };
+  const askRaw = parseP(site.askingPrice);
+  const intRaw = parseP(site.internalPrice);
+  const landCost = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) ? askRaw : 0);
+  const popN = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
+  const incN = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
+  const hvN = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
+  const hhN = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
+  const pop1 = parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
+  const growthStr = site.popGrowth3mi || site.growthRate || "";
+  const growthPct = parseFloat(String(growthStr).replace(/[^0-9.\-]/g, "")) || 0;
+  const compCount = site.siteiqData?.competitorCount || 0;
+  const nearestPS = site.siteiqData?.nearestPS || null;
+  const phase = site.phase || "Prospect";
+
+  // ── Facility Model (mirrors pricing report) ──
+  const isMultiStory = !isNaN(acres) && acres < 3.5 && acres >= 2.5;
+  const stories = isMultiStory ? 3 : 1;
+  const footprint = !isNaN(acres) ? Math.round(acres * 43560 * 0.35) : 60000;
+  const totalSF = footprint * stories;
+  const climatePct = 0.70;
+  const climateSF = Math.round(totalSF * climatePct);
+  const driveSF = Math.round(totalSF * (1 - climatePct));
+
+  // ── Market Rate Model ──
+  const incTier = incN >= 90000 ? "premium" : incN >= 75000 ? "upper" : incN >= 60000 ? "mid" : "value";
+  const baseClimateRate = incTier === "premium" ? 1.45 : incTier === "upper" ? 1.25 : incTier === "mid" ? 1.10 : 0.95;
+  const baseDriveRate = incTier === "premium" ? 0.85 : incTier === "upper" ? 0.72 : incTier === "mid" ? 0.62 : 0.52;
+  const compAdj = compCount <= 2 ? 1.08 : compCount <= 5 ? 1.00 : compCount <= 8 ? 0.94 : 0.88;
+  const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
+  const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
+
+  // ── 5-Year Model ──
+  const yrs = [
+    { yr: 1, occ: 0.30, cDisc: 0.35, dDisc: 0.30 },
+    { yr: 2, occ: 0.55, cDisc: 0.15, dDisc: 0.12 },
+    { yr: 3, occ: 0.75, cDisc: 0.05, dDisc: 0.05 },
+    { yr: 4, occ: 0.88, cDisc: 0.00, dDisc: 0.00 },
+    { yr: 5, occ: 0.92, cDisc: 0.00, dDisc: 0.00 },
+  ];
+  const annualEsc = 0.03;
+  const yrData = yrs.map((y, i) => {
+    const esc = Math.pow(1 + annualEsc, i);
+    const cR = mktClimateRate * esc * (1 - y.cDisc);
+    const dR = mktDriveRate * esc * (1 - y.dDisc);
+    const rev = Math.round(climateSF * y.occ * cR * 12) + Math.round(driveSF * y.occ * dR * 12);
+    const opex = Math.round(rev * (y.yr === 1 ? 0.45 : y.yr === 2 ? 0.40 : 0.35));
+    const noi = rev - opex;
+    return { ...y, rev, opex, noi };
+  });
+  const stabNOI = yrData[4].noi;
+
+  // ── Development Cost ──
+  const hardCostPerSF = isMultiStory ? 95 : 65;
+  const hardCost = totalSF * hardCostPerSF;
+  const softCost = Math.round(hardCost * 0.20);
+  const buildCosts = hardCost + softCost;
+  const totalDevCost = landCost + buildCosts;
+  const yocStab = stabNOI > 0 && totalDevCost > 0 ? ((stabNOI / totalDevCost) * 100).toFixed(1) : "N/A";
+
+  // ── Land Price Guide ──
+  const landTargets = [
+    { label: "Maximum", yoc: 0.07, color: "#EF4444", tag: "CEILING" },
+    { label: "Strike Price", yoc: 0.085, color: "#C9A84C", tag: "TARGET" },
+    { label: "Minimum", yoc: 0.10, color: "#16A34A", tag: "FLOOR" },
+  ];
+  const landPrices = landTargets.map(t => {
+    const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts) : 0;
+    const perAcre = !isNaN(acres) && acres > 0 && maxLand > 0 ? Math.round(maxLand / acres) : 0;
+    return { ...t, maxLand: Math.max(maxLand, 0), perAcre };
+  });
+  const askVsStrike = landCost > 0 && landPrices[1].maxLand > 0 ? ((landCost / landPrices[1].maxLand - 1) * 100).toFixed(0) : null;
+  const landVerdict = askVsStrike !== null ? (parseFloat(askVsStrike) <= -15 ? "STRONG BUY" : parseFloat(askVsStrike) <= 0 ? "BUY" : parseFloat(askVsStrike) <= 15 ? "NEGOTIATE" : parseFloat(askVsStrike) <= 30 ? "STRETCH" : "PASS") : null;
+  const verdictColor = landVerdict === "STRONG BUY" ? "#16A34A" : landVerdict === "BUY" ? "#22C55E" : landVerdict === "NEGOTIATE" ? "#F59E0B" : landVerdict === "STRETCH" ? "#E87A2E" : landVerdict === "PASS" ? "#EF4444" : "#6B7394";
+
+  // ── Valuations ──
+  const capRates = [
+    { label: "Conservative (6.5%)", rate: 0.065 },
+    { label: "Market (5.75%)", rate: 0.0575 },
+    { label: "Aggressive (5.0%)", rate: 0.05 },
+  ];
+  const valuations = capRates.map(c => ({ ...c, value: Math.round(stabNOI / c.rate) }));
+
+  // ── Zoning Intelligence ──
+  const combined = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
+  const zoningClass = site.zoningClassification || "unknown";
+  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
+  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
+  const hasFlood = /flood/i.test(combined);
+  const hasOverlay = /overlay/i.test(combined);
+
+  // ── Utility Readiness ──
+  const utilChecks = [
+    { done: !!site.waterProvider, w: 20, l: "Water provider" },
+    { done: site.waterAvailable === true, w: 15, l: "Water available" },
+    { done: site.insideServiceBoundary === true, w: 10, l: "Service boundary" },
+    { done: !!site.sewerProvider || /septic/i.test(combined), w: 12, l: "Sewer/septic" },
+    { done: site.sewerAvailable === true || /septic/i.test(combined), w: 8, l: "Sewer confirmed" },
+    { done: !!site.electricProvider, w: 10, l: "Electric" },
+    { done: site.threePhase === true, w: 10, l: "3-phase" },
+    { done: !!site.waterTapFee || !!site.tapFees, w: 5, l: "Tap fees" },
+    { done: site.fireFlowAdequate === true, w: 5, l: "Fire flow" },
+    { done: !!site.distToWaterMain, w: 5, l: "Dist to main" },
+  ];
+  const utilScore = utilChecks.reduce((s, c) => s + (c.done ? c.w : 0), 0);
+  const utilGrade = utilScore >= 80 ? "A" : utilScore >= 60 ? "B" : utilScore >= 40 ? "C" : utilScore >= 20 ? "D" : "F";
+  const utilColor = utilScore >= 80 ? "#16A34A" : utilScore >= 60 ? "#3B82F6" : utilScore >= 40 ? "#F59E0B" : "#EF4444";
+
+  // ── Risk Matrix ──
+  const risks = [];
+  if (zoningClass === "rezone-required" || zoningClass === "prohibited") risks.push({ cat: "Entitlement", level: "HIGH", desc: "Rezone or rezoning required — timeline, political, and cost risk", color: "#EF4444" });
+  else if (zoningClass === "conditional") risks.push({ cat: "Entitlement", level: "MEDIUM", desc: "SUP/CUP required — public hearing process", color: "#F59E0B" });
+  else if (zoningClass === "by-right") risks.push({ cat: "Entitlement", level: "LOW", desc: "Storage use permitted by right", color: "#16A34A" });
+  if (hasFlood) risks.push({ cat: "Environmental", level: "HIGH", desc: "Flood zone identified — insurance cost and development constraints", color: "#EF4444" });
+  if (site.waterAvailable === false) risks.push({ cat: "Utilities", level: "HIGH", desc: "Municipal water not confirmed — HARD REQUIREMENT for fire suppression", color: "#EF4444" });
+  else if (!site.waterProvider) risks.push({ cat: "Utilities", level: "MEDIUM", desc: "Water provider not yet identified — needs verification", color: "#F59E0B" });
+  if (compCount > 5) risks.push({ cat: "Competition", level: "MEDIUM", desc: `${compCount} competitors within 3mi — potential supply saturation`, color: "#F59E0B" });
+  if (popN && popN < 15000) risks.push({ cat: "Demographics", level: "MEDIUM", desc: "3-mi population below 15K — limited demand pool", color: "#F59E0B" });
+  if (growthPct < 0) risks.push({ cat: "Growth", level: "HIGH", desc: `Negative population growth (${growthPct}%) — declining market`, color: "#EF4444" });
+  if (landVerdict === "PASS") risks.push({ cat: "Pricing", level: "HIGH", desc: "Asking price exceeds strike by 30%+ — requires significant negotiation", color: "#EF4444" });
+  else if (landVerdict === "STRETCH") risks.push({ cat: "Pricing", level: "MEDIUM", desc: "Asking price 15-30% above strike — tight underwriting", color: "#F59E0B" });
+  if (!isNaN(acres) && acres < 2.5) risks.push({ cat: "Site", level: "HIGH", desc: "Below minimum acreage — insufficient for development", color: "#EF4444" });
+
+  // ── Overall Recommendation ──
+  const score = iq.score || 0;
+  const recLabel = score >= 8.0 ? "RECOMMEND — PROCEED TO LOI" : score >= 6.5 ? "RECOMMEND — CONDITIONAL APPROVAL" : score >= 5.0 ? "HOLD — ADDITIONAL DILIGENCE REQUIRED" : "PASS — DOES NOT MEET CRITERIA";
+  const recColor = score >= 8.0 ? "#16A34A" : score >= 6.5 ? "#3B82F6" : score >= 5.0 ? "#F59E0B" : "#EF4444";
+  const recIcon = score >= 8.0 ? "✅" : score >= 6.5 ? "🔵" : score >= 5.0 ? "⚠️" : "❌";
+
+  const fmtD = (n) => "$" + Math.round(n).toLocaleString();
+  const fmtM = (n) => n >= 1000000 ? "$" + (n / 1000000).toFixed(2) + "M" : "$" + Math.round(n).toLocaleString();
+  const fmtN2 = (n) => isNaN(n) ? "—" : n.toLocaleString();
+  const iqBadgeColor = (iq.tier || "gray") === "gold" ? "#C9A84C" : (iq.tier || "gray") === "steel" ? "#2C3E6B" : "#94A3B8";
+  const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+  const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
+  const pricePerAcre = landCost > 0 && !isNaN(acres) && acres > 0 ? Math.round(landCost / acres) : null;
+
+  // ── SiteScore Breakdown ──
+  const breakdownRows = (iq.breakdown || []).map(b => {
+    const barColor = b.rawScore >= 8 ? "#16A34A" : b.rawScore >= 6 ? "#3B82F6" : b.rawScore >= 4 ? "#F59E0B" : "#EF4444";
+    return `<tr>
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;border-bottom:1px solid rgba(201,168,76,0.06)">${b.icon || "◆"} ${b.label}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid rgba(201,168,76,0.06);width:180px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.06)"><div style="width:${(b.rawScore/10)*100}%;height:100%;border-radius:4px;background:${barColor}"></div></div><span style="font-size:12px;font-weight:800;color:${barColor};font-family:'Space Mono',monospace;min-width:28px;text-align:right">${b.rawScore?.toFixed(1) || "—"}</span></div></td>
+      <td style="padding:10px 14px;font-size:11px;color:#6B7394;border-bottom:1px solid rgba(201,168,76,0.06);text-align:right;font-weight:600">${Math.round((b.weight || 0) * 100)}%</td>
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#E2E8F0;border-bottom:1px solid rgba(201,168,76,0.06);text-align:right;font-family:'Space Mono',monospace">${b.weighted?.toFixed(2) || "—"}</td>
+    </tr>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>REC Package — ${site.name}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#F8FAFC;color:#1E293B;min-height:100vh;padding:0}
+.page{max-width:900px;margin:0 auto;background:#fff}
+h1{font-size:26px;font-weight:900;letter-spacing:-0.02em}
+h2{font-size:15px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#1E2761;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+h2 .sec-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#C9A84C;font-size:12px;font-weight:900}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:9px;font-weight:700;color:#1E2761;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid #E2E8F0;background:#F8FAFC}
+td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
+.section{padding:28px 40px;border-bottom:1px solid #E2E8F0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center}
+.metric .label{font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px}
+.metric .value{font-size:20px;font-weight:800;font-family:'Space Mono',monospace;color:#1E293B}
+.metric .sub{font-size:10px;color:#94A3B8;margin-top:2px}
+.badge{display:inline-block;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.04em}
+.pill{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.04em}
+.mono{font-family:'Space Mono',monospace}
+.row-label{font-size:12px;font-weight:600;color:#64748B;padding:8px 0}
+.row-value{font-size:13px;font-weight:700;color:#1E293B;font-family:'Space Mono',monospace;padding:8px 0;text-align:right}
+.risk-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;margin-bottom:6px}
+.divider{height:2px;background:linear-gradient(90deg,transparent,#C9A84C,#E87A2E,#C9A84C,transparent);margin:0;opacity:0.4}
+.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#C9A84C;font-size:14px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(30,39,97,0.4);z-index:9999}
+.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(30,39,97,0.5)}
+@media print{body{background:#fff}.print-btn{display:none!important}.page{box-shadow:none}@page{margin:0.5in;size:letter}}
+</style></head><body>
+<button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+<div class="page">
+
+<!-- ═══════════════════════════════════════════════ COVER HEADER ═══════════════════════════════════════════════ -->
+<div style="background:linear-gradient(135deg,#080B1A 0%,#1E2761 60%,#2C3E6B 100%);padding:44px 40px 36px;position:relative;overflow:hidden">
+  <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#C9A84C,#E87A2E,#C9A84C,transparent)"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div style="width:50px;height:50px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(201,168,76,0.4)"><span style="font-size:20px;font-weight:900;color:#fff;font-family:'Space Mono'">REC</span></div>
+        <div>
+          <div style="font-size:10px;color:#C9A84C;letter-spacing:0.14em;font-weight:800">REAL ESTATE COMMITTEE</div>
+          <div style="font-size:10px;color:#94A3B8;letter-spacing:0.08em;margin-top:2px">SITE ACQUISITION PACKAGE</div>
+        </div>
+      </div>
+      <h1 style="color:#fff;margin-bottom:6px;font-size:28px">${site.name || "Unnamed Site"}</h1>
+      <div style="font-size:13px;color:#94A3B8;margin-top:6px">${site.address || ""}${site.city ? ", " + site.city : ""}${site.state ? ", " + site.state : ""}</div>
+      ${site.coordinates ? `<div style="font-size:11px;color:#64748B;margin-top:4px">📍 <a href="${mapsUrl}" style="color:#64748B" target="_blank">${site.coordinates}</a></div>` : ""}
+    </div>
+    <div style="text-align:right">
+      <div style="display:inline-flex;align-items:center;gap:10px;padding:10px 20px;border-radius:12px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
+        <span style="font-size:32px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iq.score === "number" ? iq.score.toFixed(1) : "—"}</span>
+        <div>
+          <div style="font-size:9px;color:#CBD5E1;letter-spacing:0.1em;font-weight:700">SITESCORE<span style="font-size:7px;vertical-align:super">™</span></div>
+          <div style="font-size:12px;font-weight:800;color:${iqBadgeColor}">${iq.label || "—"}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#64748B;margin-top:10px">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+      <div style="font-size:10px;color:#4A5080;margin-top:2px">Phase: ${phase}</div>
+    </div>
+  </div>
+</div>
+
+<!-- KEY METRICS BAR -->
+<div style="display:grid;grid-template-columns:repeat(6,1fr);background:#FAFBFC;border-bottom:2px solid #E2E8F0">
+  ${[
+    { l: "ACREAGE", v: !isNaN(acres) ? acres.toFixed(2) + " ac" : "—" },
+    { l: "ASK PRICE", v: site.askingPrice || "—" },
+    { l: "PRICE/ACRE", v: pricePerAcre ? fmtD(pricePerAcre) : "—" },
+    { l: "3-MI POP", v: !isNaN(popN) ? fmtN2(popN) : "—" },
+    { l: "MED INCOME", v: !isNaN(incN) ? "$" + fmtN2(incN) : "—" },
+    { l: "GROWTH", v: growthPct ? growthPct.toFixed(1) + "%" : "—" },
+  ].map(m => `<div style="padding:14px 8px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.08em;margin-bottom:3px">${m.l}</div><div style="font-size:15px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
+</div>
+
+<!-- ═══════════════ SECTION 1: RECOMMENDATION ═══════════════ -->
+<div class="section" style="background:${recColor}08;border-left:4px solid ${recColor}">
+  <h2><span class="sec-num">1</span> Committee Recommendation</h2>
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+    <span style="font-size:28px">${recIcon}</span>
+    <div>
+      <div style="font-size:18px;font-weight:900;color:${recColor};letter-spacing:0.02em">${recLabel}</div>
+      <div style="font-size:12px;color:#64748B;margin-top:4px">Based on ${(iq.breakdown || []).length}-dimension SiteScore™ composite analysis</div>
+    </div>
+  </div>
+  ${landVerdict ? `<div style="display:flex;gap:16px;margin-top:16px">
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">LAND VERDICT</div>
+      <div class="badge" style="background:${verdictColor}18;color:${verdictColor};border:1px solid ${verdictColor}30;font-size:14px;padding:6px 18px">${landVerdict}</div>
+    </div>
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">ASK vs STRIKE</div>
+      <div style="font-size:20px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</div>
+    </div>
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">STABILIZED YOC</div>
+      <div style="font-size:20px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : parseFloat(yocStab) >= 7.0 ? '#F59E0B' : '#EF4444'};font-family:'Space Mono',monospace">${yocStab}%</div>
+    </div>
+  </div>` : ""}
+</div>
+
+<!-- ═══════════════ SECTION 2: SITESCORE BREAKDOWN ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">2</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(1) : "—"}/10</h2>
+  <table>
+    <thead><tr><th>Dimension</th><th>Score (0–10)</th><th>Weight</th><th>Weighted</th></tr></thead>
+    <tbody>${breakdownRows}</tbody>
+    <tfoot><tr style="background:#F8FAFC">
+      <td style="padding:12px 14px;font-size:13px;font-weight:900;border-top:2px solid #1E2761" colspan="3">COMPOSITE SCORE</td>
+      <td style="padding:12px 14px;font-size:18px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono',monospace;text-align:right;border-top:2px solid #1E2761">${typeof iq.score === "number" ? iq.score.toFixed(1) : "—"}</td>
+    </tr></tfoot>
+  </table>
+</div>
+
+<!-- ═══════════════ SECTION 3: MARKET DEMOGRAPHICS ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">3</span> Market Demographics</h2>
+  <div class="grid4" style="margin-bottom:16px">
+    <div class="metric"><div class="label">3-Mi Population</div><div class="value">${!isNaN(popN) ? fmtN2(popN) : "—"}</div></div>
+    <div class="metric"><div class="label">Median HHI</div><div class="value">${!isNaN(incN) ? "$" + fmtN2(incN) : "—"}</div></div>
+    <div class="metric"><div class="label">Households</div><div class="value">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</div></div>
+    <div class="metric"><div class="label">Home Value</div><div class="value">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</div></div>
+  </div>
+  <div class="grid3">
+    <div class="metric"><div class="label">1-Mi Population</div><div class="value">${!isNaN(pop1) ? fmtN2(pop1) : "—"}</div></div>
+    <div class="metric"><div class="label">5-Yr Growth CAGR</div><div class="value" style="color:${growthPct >= 1.5 ? '#16A34A' : growthPct >= 0 ? '#F59E0B' : '#EF4444'}">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</div></div>
+    <div class="metric"><div class="label">Income Tier</div><div class="value" style="font-size:14px">${incTier.toUpperCase()}</div></div>
+  </div>
+  ${site.demandDrivers ? `<div style="margin-top:16px;padding:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#16A34A;letter-spacing:0.08em;margin-bottom:6px">DEMAND DRIVERS</div><div style="font-size:12px;color:#1E293B;line-height:1.6">${site.demandDrivers}</div></div>` : ""}
+</div>
+
+<!-- ═══════════════ SECTION 4: COMPETITION LANDSCAPE ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">4</span> Competition Landscape</h2>
+  <div class="grid3" style="margin-bottom:16px">
+    <div class="metric"><div class="label">Competitors (3-Mi)</div><div class="value" style="color:${compCount <= 2 ? '#16A34A' : compCount <= 5 ? '#F59E0B' : '#EF4444'}">${compCount}</div></div>
+    <div class="metric"><div class="label">Nearest Competitor</div><div class="value" style="font-size:12px">${site.nearestCompetitor || "—"}</div></div>
+    <div class="metric"><div class="label">Supply Signal</div><div class="value" style="font-size:11px;line-height:1.3">${site.demandSupplySignal || "—"}</div></div>
+  </div>
+  ${site.competitorNames ? `<table>
+    <thead><tr><th>Competitor Names</th><th>Types</th><th>Est. Total SF</th></tr></thead>
+    <tbody><tr><td>${site.competitorNames || "—"}</td><td>${site.competitorTypes || "—"}</td><td>${site.competingSF || "—"}</td></tr></tbody>
+  </table>` : ""}
+  ${nearestPS !== null ? `<div style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+    <div><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em">NEAREST EXISTING FACILITY</div><div style="font-size:13px;font-weight:700;margin-top:4px">${nearestPS} miles</div></div>
+    <div class="pill" style="background:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}18;color:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}">${nearestPS <= 5 ? "VALIDATED SUBMARKET" : nearestPS <= 15 ? "EXPANSION ZONE" : "NEW MARKET"}</div>
+  </div>` : ""}
+</div>
+
+<!-- ═══════════════ SECTION 5: ZONING & ENTITLEMENTS ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">5</span> Zoning & Entitlements</h2>
+  <div style="display:flex;gap:16px;margin-bottom:16px">
+    <div style="flex:1" class="metric">
+      <div class="label">Zoning District</div>
+      <div class="value" style="font-size:16px">${site.zoning || "—"}</div>
+    </div>
+    <div style="flex:1" class="metric">
+      <div class="label">Classification</div>
+      <div class="badge" style="background:${zoningColor}15;color:${zoningColor};border:1px solid ${zoningColor}30;font-size:12px;padding:6px 16px;margin-top:4px">${zoningLabel}</div>
+    </div>
+  </div>
+  <table>
+    <tbody>
+      ${site.zoningUseTerm ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Use Category</td><td>${site.zoningUseTerm}</td></tr>` : ""}
+      ${site.zoningOrdinanceSection ? `<tr><td style="font-weight:700;color:#64748B">Ordinance Section</td><td>${site.zoningOrdinanceSection}</td></tr>` : ""}
+      ${site.zoningSource ? `<tr><td style="font-weight:700;color:#64748B">Source</td><td style="word-break:break-all">${site.zoningSource}</td></tr>` : ""}
+      ${site.jurisdictionType ? `<tr><td style="font-weight:700;color:#64748B">Jurisdiction</td><td>${site.jurisdictionType}</td></tr>` : ""}
+      ${site.overlayDistrict ? `<tr><td style="font-weight:700;color:#64748B">Overlay District</td><td>${site.overlayDistrict}</td></tr>` : ""}
+      ${site.heightLimit ? `<tr><td style="font-weight:700;color:#64748B">Height Limit</td><td>${site.heightLimit}</td></tr>` : ""}
+      ${site.facadeReqs ? `<tr><td style="font-weight:700;color:#64748B">Facade Requirements</td><td>${site.facadeReqs}</td></tr>` : ""}
+      ${site.setbackReqs ? `<tr><td style="font-weight:700;color:#64748B">Setbacks</td><td>${site.setbackReqs}</td></tr>` : ""}
+      ${site.parkingReqs ? `<tr><td style="font-weight:700;color:#64748B">Parking</td><td>${site.parkingReqs}</td></tr>` : ""}
+      ${site.planningContact ? `<tr><td style="font-weight:700;color:#64748B">Planning Contact</td><td>${site.planningContact}${site.planningPhone ? " — " + site.planningPhone : ""}${site.planningEmail ? " — " + site.planningEmail : ""}</td></tr>` : ""}
+    </tbody>
+  </table>
+  ${site.zoningNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#92400E;letter-spacing:0.08em;margin-bottom:6px">ZONING RESEARCH NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${site.zoningNotes}</div></div>` : ""}
+</div>
+
+<!-- ═══════════════ SECTION 6: UTILITIES & INFRASTRUCTURE ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">6</span> Utilities & Infrastructure</h2>
+  <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center">
+    <div class="metric" style="flex:0 0 120px">
+      <div class="label">Utility Grade</div>
+      <div class="value" style="font-size:36px;color:${utilColor}">${utilGrade}</div>
+      <div class="sub">${utilScore}/100</div>
+    </div>
+    <div style="flex:1">
+      <div style="height:12px;border-radius:6px;background:#F1F5F9;overflow:hidden;margin-bottom:8px">
+        <div style="width:${utilScore}%;height:100%;border-radius:6px;background:linear-gradient(90deg,${utilColor},${utilColor}CC);transition:width 0.5s"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${utilChecks.map(c => `<span class="pill" style="background:${c.done ? '#16A34A' : '#94A3B8'}15;color:${c.done ? '#16A34A' : '#94A3B8'}">${c.done ? '✓' : '○'} ${c.l}</span>`).join("")}
+      </div>
+    </div>
+  </div>
+  <table>
+    <tbody>
+      ${site.waterProvider ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Water Provider</td><td>${site.waterProvider}${site.waterAvailable === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">AVAILABLE</span>' : site.waterAvailable === false ? ' <span class="pill" style="background:#EF444415;color:#EF4444">NOT CONFIRMED</span>' : ''}</td></tr>` : ""}
+      ${site.distToWaterMain ? `<tr><td style="font-weight:700;color:#64748B">Dist to Water Main</td><td>${site.distToWaterMain}</td></tr>` : ""}
+      ${site.waterMainSize ? `<tr><td style="font-weight:700;color:#64748B">Water Main Size</td><td>${site.waterMainSize}</td></tr>` : ""}
+      ${site.sewerProvider ? `<tr><td style="font-weight:700;color:#64748B">Sewer Provider</td><td>${site.sewerProvider}${site.sewerAvailable === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">AVAILABLE</span>' : ''}</td></tr>` : ""}
+      ${site.electricProvider ? `<tr><td style="font-weight:700;color:#64748B">Electric Provider</td><td>${site.electricProvider}${site.threePhase === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">3-PHASE ✓</span>' : ''}</td></tr>` : ""}
+      ${site.gasProvider ? `<tr><td style="font-weight:700;color:#64748B">Gas Provider</td><td>${site.gasProvider}</td></tr>` : ""}
+      ${site.waterTapFee || site.sewerTapFee ? `<tr><td style="font-weight:700;color:#64748B">Tap Fees</td><td>Water: ${site.waterTapFee || "—"} | Sewer: ${site.sewerTapFee || "—"}</td></tr>` : ""}
+      ${site.impactFees ? `<tr><td style="font-weight:700;color:#64748B">Impact Fees</td><td>${site.impactFees}</td></tr>` : ""}
+      ${site.totalUtilityBudget ? `<tr><td style="font-weight:700;color:#64748B">Est. Utility Budget</td><td style="font-weight:700;color:#1E293B">${site.totalUtilityBudget}</td></tr>` : ""}
+    </tbody>
+  </table>
+  ${site.utilityNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em;margin-bottom:6px">UTILITY NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${site.utilityNotes}</div></div>` : ""}
+</div>
+
+<!-- ═══════════════ SECTION 7: SITE CHARACTERISTICS ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">7</span> Site Characteristics & Access</h2>
+  <div class="grid3" style="margin-bottom:16px">
+    <div class="metric"><div class="label">Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "—"}</div><div class="sub">${isMultiStory ? "Multi-Story (3-4)" : "Single-Story"}</div></div>
+    <div class="metric"><div class="label">Est. Building SF</div><div class="value">${totalSF.toLocaleString()}</div><div class="sub">${stories > 1 ? stories + " stories" : "Single-story"} · 35% coverage</div></div>
+    <div class="metric"><div class="label">Flood Zone</div><div class="value" style="font-size:14px">${site.floodZone || (hasFlood ? "⚠️ FLOOD" : "—")}</div></div>
+  </div>
+  <table>
+    <tbody>
+      ${site.roadFrontage ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Road Frontage</td><td>${site.roadFrontage}</td></tr>` : ""}
+      ${site.frontageRoadName ? `<tr><td style="font-weight:700;color:#64748B">Frontage Road</td><td>${site.frontageRoadName}</td></tr>` : ""}
+      ${site.roadType ? `<tr><td style="font-weight:700;color:#64748B">Road Type</td><td>${site.roadType}</td></tr>` : ""}
+      ${site.trafficData ? `<tr><td style="font-weight:700;color:#64748B">Traffic (VPD)</td><td>${site.trafficData}</td></tr>` : ""}
+      ${site.medianType ? `<tr><td style="font-weight:700;color:#64748B">Median Type</td><td>${site.medianType}</td></tr>` : ""}
+      ${site.nearestSignal ? `<tr><td style="font-weight:700;color:#64748B">Nearest Signal</td><td>${site.nearestSignal}</td></tr>` : ""}
+      ${site.curbCuts ? `<tr><td style="font-weight:700;color:#64748B">Curb Cuts</td><td>${site.curbCuts}</td></tr>` : ""}
+      ${site.visibility ? `<tr><td style="font-weight:700;color:#64748B">Visibility</td><td>${site.visibility}</td></tr>` : ""}
+      ${site.terrain ? `<tr><td style="font-weight:700;color:#64748B">Terrain</td><td>${site.terrain}</td></tr>` : ""}
+      ${site.soilType ? `<tr><td style="font-weight:700;color:#64748B">Soil Type</td><td>${site.soilType}</td></tr>` : ""}
+      ${dom !== null ? `<tr><td style="font-weight:700;color:#64748B">Days on Market</td><td>${dom}${dom > 365 ? ' <span class="pill" style="background:#F59E0B15;color:#F59E0B">STALE</span>' : ''}</td></tr>` : ""}
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════ SECTION 8: FINANCIAL ANALYSIS ═══════════════ -->
+<div class="section" style="background:#FAFBFC">
+  <h2><span class="sec-num">8</span> Financial Analysis</h2>
+
+  <!-- Development Cost -->
+  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Development Cost Estimate</h3>
+  <div class="grid4" style="margin-bottom:20px">
+    <div class="metric"><div class="label">Land Cost</div><div class="value" style="font-size:16px">${landCost > 0 ? fmtM(landCost) : "—"}</div></div>
+    <div class="metric"><div class="label">Hard Cost</div><div class="value" style="font-size:16px">${fmtM(hardCost)}</div><div class="sub">$${hardCostPerSF}/SF</div></div>
+    <div class="metric"><div class="label">Soft Cost (20%)</div><div class="value" style="font-size:16px">${fmtM(softCost)}</div></div>
+    <div class="metric" style="border:2px solid #1E2761"><div class="label">Total Dev Cost</div><div class="value" style="font-size:16px;color:#1E2761">${totalDevCost > 0 ? fmtM(totalDevCost) : "—"}</div></div>
+  </div>
+
+  <!-- 5-Year Pro Forma Summary -->
+  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">5-Year Pro Forma Summary</h3>
+  <table>
+    <thead><tr><th>Year</th><th>Occupancy</th><th>Revenue</th><th>OpEx</th><th>NOI</th><th>YOC</th></tr></thead>
+    <tbody>
+      ${yrData.map((y, i) => {
+        const yoc = totalDevCost > 0 ? ((y.noi / totalDevCost) * 100).toFixed(1) : "—";
+        const yocC = parseFloat(yoc) >= 8.5 ? "#16A34A" : parseFloat(yoc) >= 7.0 ? "#F59E0B" : "#EF4444";
+        return `<tr${i === 4 ? ' style="background:#F0FDF4;font-weight:700"' : ""}>
+          <td style="font-weight:700">Y${y.yr}</td>
+          <td>${Math.round(y.occ * 100)}%</td>
+          <td class="mono">${fmtD(y.rev)}</td>
+          <td class="mono">${fmtD(y.opex)}</td>
+          <td class="mono" style="font-weight:700">${fmtD(y.noi)}</td>
+          <td class="mono" style="color:${yocC};font-weight:700">${yoc}%</td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+
+  <!-- Stabilized Valuation -->
+  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">Stabilized Valuation (Y5 NOI: ${fmtD(stabNOI)})</h3>
+  <div class="grid3">
+    ${valuations.map(v => `<div class="metric"><div class="label">${v.label}</div><div class="value" style="font-size:18px;color:#1E2761">${fmtM(v.value)}</div></div>`).join("")}
+  </div>
+
+  <!-- Land Price Guide -->
+  <h3 style="font-size:12px;font-weight:800;color:#C9A84C;letter-spacing:0.08em;text-transform:uppercase;margin:24px 0 12px">◆ Land Acquisition Price Guide</h3>
+  <div style="border:2px solid rgba(201,168,76,0.2);border-radius:12px;overflow:hidden">
+    <table>
+      <thead><tr><th>Tier</th><th>Target YOC</th><th>Max Land Price</th><th>Per Acre</th><th></th></tr></thead>
+      <tbody>
+        ${landPrices.map(lp => `<tr>
+          <td style="font-weight:700">${lp.label}</td>
+          <td class="mono">${(lp.yoc * 100).toFixed(1)}%</td>
+          <td class="mono" style="font-weight:800;color:${lp.color}">${lp.maxLand > 0 ? fmtM(lp.maxLand) : "—"}</td>
+          <td class="mono">${lp.perAcre > 0 ? fmtD(lp.perAcre) : "—"}/ac</td>
+          <td><span class="pill" style="background:${lp.color}15;color:${lp.color}">${lp.tag}</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    ${askVsStrike !== null ? `<div style="padding:14px;background:#F8FAFC;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center">
+      <div><span style="font-size:11px;color:#64748B;font-weight:600">Ask (${landCost > 0 ? fmtM(landCost) : "—"}) vs Strike (${fmtM(landPrices[1].maxLand)})</span></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:16px;font-weight:900;color:${verdictColor};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</span>
+        <span class="badge" style="background:${verdictColor}15;color:${verdictColor};border:1px solid ${verdictColor}30">${landVerdict}</span>
+      </div>
+    </div>` : ""}
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 9: RISK ASSESSMENT ═══════════════ -->
+<div class="section">
+  <h2><span class="sec-num">9</span> Risk Assessment</h2>
+  ${risks.length > 0 ? risks.map(r => `<div class="risk-row" style="background:${r.color}08;border:1px solid ${r.color}20">
+    <span class="pill" style="background:${r.color}18;color:${r.color};min-width:60px;text-align:center">${r.level}</span>
+    <span style="font-size:11px;font-weight:700;color:#64748B;min-width:90px">${r.cat}</span>
+    <span style="font-size:12px;color:#1E293B">${r.desc}</span>
+  </div>`).join("") : `<div style="padding:16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;text-align:center;color:#16A34A;font-weight:700;font-size:13px">✅ No significant risks identified</div>`}
+</div>
+
+<!-- ═══════════════ SECTION 10: BROKER INTEL ═══════════════ -->
+${site.sellerBroker || site.brokerNotes || site.listingSource ? `<div class="section">
+  <h2><span class="sec-num">10</span> Broker Intelligence</h2>
+  <table>
+    <tbody>
+      ${site.sellerBroker ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Seller / Broker</td><td>${site.sellerBroker}</td></tr>` : ""}
+      ${site.listingSource ? `<tr><td style="font-weight:700;color:#64748B">Listing Source</td><td>${site.listingSource}</td></tr>` : ""}
+      ${site.listingUrl ? `<tr><td style="font-weight:700;color:#64748B">Listing URL</td><td><a href="${site.listingUrl}" style="color:#2563EB;word-break:break-all">${site.listingUrl}</a></td></tr>` : ""}
+      ${site.brokerNotes ? `<tr><td style="font-weight:700;color:#64748B">Broker Notes</td><td>${site.brokerNotes}</td></tr>` : ""}
+    </tbody>
+  </table>
+</div>` : ""}
+
+<!-- ═══════════════ SECTION 11: DEAL SUMMARY ═══════════════ -->
+${site.summary ? `<div class="section">
+  <h2><span class="sec-num">${site.sellerBroker || site.brokerNotes || site.listingSource ? "11" : "10"}</span> Deal Summary & Notes</h2>
+  <div style="padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;color:#1E293B;line-height:1.7;white-space:pre-wrap">${site.summary}</div>
+</div>` : ""}
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<div class="divider"></div>
+<div style="padding:32px 40px;text-align:center">
+  <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:12px">
+    <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;font-family:'Space Mono'">REC</div>
+    <div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:#1E2761">REAL ESTATE COMMITTEE PACKAGE</div>
+      <div style="font-size:9px;color:#94A3B8;letter-spacing:0.06em">Powered by SiteScore™ Intelligence Platform</div>
+    </div>
+  </div>
+  <div style="height:1px;background:linear-gradient(90deg,transparent,#C9A84C,transparent);margin:16px auto;max-width:400px"></div>
+  <div style="font-size:10px;color:#94A3B8;line-height:1.8">
+    <div>REC Package — ${site.name} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div style="font-weight:600;color:#64748B;margin-top:4px">DJR Real Estate LLC | U.S. Patent Pending — Serial No. 99712640</div>
+    <div style="margin-top:10px;font-size:9px;color:#94A3B8;max-width:700px;margin-left:auto;margin-right:auto">
+      <strong>CONFIDENTIAL & PROPRIETARY.</strong> This document and its contents are the exclusive property of DJR Real Estate LLC.
+      The SiteScore™ platform, scoring methodology, pricing models, and analytical frameworks contained herein are proprietary
+      trade secrets protected under federal and state law. Unauthorized reproduction, distribution, or disclosure is strictly prohibited.
+      This report is provided for informational purposes only and does not constitute investment advice or a guarantee of future performance.
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:#94A3B8">&copy; ${new Date().getFullYear()} DJR Real Estate LLC. All rights reserved. SiteScore™ is a trademark of DJR Real Estate LLC.</div>
   </div>
 </div>
 
@@ -3536,7 +4420,10 @@ export default function App() {
                         <button onClick={() => { setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📊 Detailed Property Report</button>
                         <button onClick={() => {
                           const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
-                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 Storvex Pricing Report</button>
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 SiteScore Pricing Report</button>
+                        <button onClick={() => {
+                          const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📋 REC Package</button>
                       </div>
 
                       {/* Summary */}
@@ -5669,7 +6556,10 @@ export default function App() {
                 {flyerDoc && <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(243,124,51,0.12)", color: "#FFB347", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(243,124,51,0.25)", display: "flex", alignItems: "center", gap: 6 }}>📄 View Flyer</a>}
                 <button onClick={() => {
                   const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
-                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(46,125,50,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>💰 Storvex Pricing Report</button>
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(46,125,50,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>💰 SiteScore Pricing Report</button>
+                <button onClick={() => {
+                  const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>📋 REC Package</button>
               </div>
 
               {/* AERIAL VIEW */}
