@@ -52,7 +52,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   scores.income = incScore;
 
-  // --- 2b. GROWTH (18%) — ESRI 5-year population CAGR ---
+  // --- 2b. GROWTH (21%) — ESRI 5-year population CAGR ---
   let growthScore = 5; // default when no ESRI data
   const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
   if (growthRaw !== null && !isNaN(growthRaw)) {

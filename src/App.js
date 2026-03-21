@@ -742,6 +742,15 @@ function AppInner() {
     };
     fbSet(`${routeTo}/${id}`, t);
     fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now });
+    // Log to scoring calibration — approved sites help calibrate model accuracy
+    const iqR = computeSiteScore(site);
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site.name || "", action: "approved_by_ps",
+      siteScore: iqR ? iqR.composite : null,
+      classification: iqR ? iqR.classification : null,
+      address: site.address || "", state: site.state || "",
+      ts: now, by: ri.reviewer || "PS", routedTo: routeTo,
+    });
     notify(`PS Approved → ${routeLabel} tracker`);
   };
 
@@ -767,14 +776,97 @@ function AppInner() {
     notify(`Recommended ${p.length} sites (awaiting PS approval)`);
   };
 
-  const handleDecline = (id) => {
+  const DECLINE_REASONS = [
+    "Zoning — prohibited or rezone too risky",
+    "Demographics — population or income too low",
+    "Pricing — asking price too high",
+    "Competition — market oversaturated",
+    "Access — landlocked or poor ingress/egress",
+    "Utilities — no water or sewer access",
+    "Environmental — flood zone, wetlands, contamination",
+    "Size — too small or too large",
+    "Location — too far from nearest PS",
+    "Duplicate — already in pipeline",
+    "PS Feedback — declined by PS stakeholder",
+    "Other",
+  ];
+
+  // Dan declines a site from his review queue (never sent to PS)
+  const handleDecline = (id, declineReason) => {
     const ri = reviewInputs[id] || {};
-    fbUpdate(`submissions/${id}`, { status: "declined", reviewedBy: ri.reviewer || "Dan R", reviewNote: ri.note || "" });
-    notify("Declined.");
+    const site = subs.find(s => s.id === id);
+    const iqR = site ? computeSiteScore(site) : null;
+    const reason = declineReason || ri.declineReason || "Other";
+    fbUpdate(`submissions/${id}`, {
+      status: "declined",
+      reviewedBy: ri.reviewer || "Dan R",
+      reviewNote: ri.note || "",
+      declineReason: reason,
+      declinedAt: new Date().toISOString(),
+      siteScoreAtDecline: iqR ? iqR.composite : null,
+      classificationAtDecline: iqR ? iqR.classification : null,
+    });
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site?.name || "", action: "declined_by_dan",
+      reason, siteScore: iqR ? iqR.composite : null,
+      classification: iqR ? iqR.classification : null,
+      address: site?.address || "", state: site?.state || "",
+      ts: new Date().toISOString(), by: "Dan R",
+    });
+    notify("Declined — " + reason);
+  };
+
+  // PS (DW/MT/Brian) rejects a site — routes BACK to Dan's queue with feedback
+  const handlePSReject = (id) => {
+    const ri = reviewInputs[id] || {};
+    const site = subs.find(s => s.id === id);
+    const iqR = site ? computeSiteScore(site) : null;
+    const reason = ri.declineReason || "PS Feedback — declined by PS stakeholder";
+    const feedback = ri.psFeedback || ri.note || "";
+    const rejectedBy = ri.reviewer || "PS";
+    fbUpdate(`submissions/${id}`, {
+      status: "ps-rejected",
+      psRejectedBy: rejectedBy,
+      psRejectReason: reason,
+      psFeedback: feedback,
+      psRejectedAt: new Date().toISOString(),
+      siteScoreAtDecline: iqR ? iqR.composite : null,
+      classificationAtDecline: iqR ? iqR.classification : null,
+    });
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site?.name || "", action: "rejected_by_ps",
+      reason, feedback, siteScore: iqR ? iqR.composite : null,
+      classification: iqR ? iqR.classification : null,
+      address: site?.address || "", state: site?.state || "",
+      ts: new Date().toISOString(), by: rejectedBy,
+    });
+    notify(`PS Rejected by ${rejectedBy} — routed back to Dan for review`);
+  };
+
+  // Dan permanently kills a site after reading PS feedback — address logged to never-resubmit
+  const handleDiscard = (id) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) { fbRemove(`submissions/${id}`); return; }
+    // Log to killed sites registry — prevents re-submission
+    fbPush("config/killed_sites", {
+      siteId: id,
+      name: site.name || "",
+      address: site.address || "",
+      city: site.city || "",
+      state: site.state || "",
+      coordinates: site.coordinates || "",
+      declineReason: site.psRejectReason || site.declineReason || "Discarded",
+      psFeedback: site.psFeedback || "",
+      psRejectedBy: site.psRejectedBy || "",
+      siteScore: site.siteScoreAtDecline || null,
+      killedAt: new Date().toISOString(),
+    });
+    fbRemove(`submissions/${id}`);
+    notify(`${site.name || "Site"} permanently discarded — will not be re-submitted.`);
   };
 
   const handleClearDeclined = () => {
-    subs.filter((s) => s.status === "declined").forEach((s) => fbRemove(`submissions/${s.id}`));
+    subs.filter((s) => s.status === "declined").forEach((s) => handleDiscard(s.id));
   };
 
   // ─── DOCUMENT UPLOAD (Firebase Storage) ───
@@ -938,7 +1030,7 @@ function AppInner() {
   if (!authReady || !loaded) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 40%, #0F1538 100%)", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ width: 48, height: 48, border: "3px solid rgba(232,122,46,0.15)", borderTopColor: "#E87A2E", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(232,122,46,0.2)" }} />
+        <div style={{ width: 48, height: 48, border: "3px solid rgba(201,168,76,0.15)", borderTopColor: "#C9A84C", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(201,168,76,0.2)" }} />
         <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
           {!authReady ? "Authenticating…" : "Initializing SiteScore — AI-Powered Land Engine"}
         </div>
@@ -1043,7 +1135,7 @@ function AppInner() {
                                 <SiteScoreBadge site={site} iq={getSiteScore(site)} />
                                 <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "#6B7394", fontWeight: 600, letterSpacing: "0.06em", whiteSpace: "nowrap", opacity: 0.7 }}>CLICK FOR DETAIL</div>
                               </div>
-                              {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
+                              {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
                             </div>
                             {/* Key Metrics Strip — Larger */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
@@ -1106,7 +1198,7 @@ function AppInner() {
                                             <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, ${scoreColor(v)}88, ${scoreColor(v)})`, borderRadius: 4, transition: "width 0.5s ease" }} />
                                           </div>
                                           <div style={{ textAlign: "right", fontSize: 10, color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>×{d.weight.toFixed(2)}</div>
-                                          <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#FBBF24", fontFamily: "'Space Mono', monospace" }}>{weighted}</div>
+                                          <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{weighted}</div>
                                         </div>
                                       );
                                     })}
@@ -1114,7 +1206,7 @@ function AppInner() {
                                       <div style={{ fontSize: 10, color: "#6B7394", fontWeight: 600 }}>
                                         {iqD.flags && iqD.flags.length > 0 && iqD.flags.map((f, i) => <span key={i} style={{ display: "inline-block", fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>{f}</span>)}
                                       </div>
-                                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#FBBF24", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(1)}</span> / 10</div>
+                                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(1)}</span> / 10</div>
                                     </div>
                                   </div>
                                 </div>
@@ -1205,14 +1297,14 @@ function AppInner() {
                         </>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Property Listing</a>}
                         <button onClick={() => {
-                          const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
-                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 Storevex Deep Vet Report</button>
+                          try { const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 Storvex Deep Vet Report</button>
                         <button onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📊 Detailed Property Report</button>
                         <button onClick={() => {
-                          const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
-                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 Storevex Pricing Report</button>
+                          try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 Storvex Pricing Report</button>
                         <button onClick={() => {
-                          const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
+                          try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                         }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📋 REC Package</button>
                       </div>
 
@@ -1402,7 +1494,7 @@ function AppInner() {
                         const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: "0.06em" };
                         const metricCell = { padding: "7px 12px", fontWeight: 700, color: "#E2E8F0", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
                         const valCell = { padding: "7px 12px", textAlign: "right", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', monospace", borderBottom: "1px solid rgba(255,255,255,.08)" };
-                        const goldVal = { ...valCell, color: "#FBBF24" };
+                        const goldVal = { ...valCell, color: "#C9A84C" };
                         const whiteVal = { ...valCell, color: "#E2E8F0" };
                         return (
                           <div style={{ borderRadius: 14, marginBottom: 14, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,.15)" }}>
@@ -1424,7 +1516,7 @@ function AppInner() {
                                   <tr>
                                     <th style={{ ...hdrCell, textAlign: "left", width: "30%" }}></th>
                                     <th style={hdrCell}>1-MILE</th>
-                                    <th style={{ ...hdrCell, background: "rgba(251,191,36,.08)", borderRadius: "8px 8px 0 0" }}>3-MILE</th>
+                                    <th style={{ ...hdrCell, background: "rgba(201,168,76,.08)", borderRadius: "8px 8px 0 0" }}>3-MILE</th>
                                     <th style={hdrCell}>5-MILE</th>
                                   </tr>
                                 </thead>
@@ -1432,37 +1524,37 @@ function AppInner() {
                                   <tr>
                                     <td style={metricCell}>Population</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.pop)}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.pop)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.pop)}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.pop)}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Median HHI</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.medIncome, "$")}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.medIncome, "$")}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.medIncome, "$")}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.medIncome, "$")}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Households</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.hh)}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.hh)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.hh)}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.hh)}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Median Home Value</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.homeValue, "$")}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.homeValue, "$")}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.homeValue, "$")}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.homeValue, "$")}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Renter %</td>
                                     <td style={whiteVal}>{r[1]?.renterPct || "—"}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{r[3]?.renterPct || "—"}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{r[3]?.renterPct || "—"}</td>
                                     <td style={whiteVal}>{r[5]?.renterPct || "—"}</td>
                                   </tr>
                                   <tr>
                                     <td style={{ ...metricCell, borderBottom: "none" }}>Pop Growth (CAGR)</td>
                                     <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[1]?.popGrowth) }}>{fmtGrowth(r[1]?.popGrowth)}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{fmtGrowth(r[3]?.popGrowth)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{fmtGrowth(r[3]?.popGrowth)}</td>
                                     <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[5]?.popGrowth) }}>{fmtGrowth(r[5]?.popGrowth)}</td>
                                   </tr>
                                 </tbody>
@@ -1470,8 +1562,8 @@ function AppInner() {
                             </div>
                             {/* 2030 Projections Strip */}
                             {(dr.pop3mi_fy || dr.income3mi_fy) && (
-                              <div style={{ background: "linear-gradient(135deg,#0F172A,#1a1a2e)", padding: "10px 16px", borderTop: "1px solid rgba(251,191,36,.15)" }}>
-                                <div style={{ fontSize: 9, fontWeight: 800, color: "#FBBF24", letterSpacing: "0.1em", marginBottom: 6 }}>2030 FIVE-YEAR PROJECTIONS (3-MILE)</div>
+                              <div style={{ background: "linear-gradient(135deg,#0F172A,#1a1a2e)", padding: "10px 16px", borderTop: "1px solid rgba(201,168,76,.15)" }}>
+                                <div style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em", marginBottom: 6 }}>2030 FIVE-YEAR PROJECTIONS (3-MILE)</div>
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                                   {[
                                     { label: "Population", val: dr.pop3mi_fy, growth: dr.popGrowth3mi },
@@ -1571,6 +1663,7 @@ function AppInner() {
                             <option>Dan R</option>
                             <option>Daniel Wollent</option>
                             <option>Matthew Toussaint</option>
+                            <option>Brian Karis</option>
                           </select>
                           <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendMsg(regionKey, site.id); } }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 13, outline: "none", fontFamily: "'Inter', sans-serif" }} />
                           <button type="button" onClick={(e) => { e.preventDefault(); handleSendMsg(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
@@ -1786,7 +1879,7 @@ function AppInner() {
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${kpi.color}40, transparent)`, opacity: 0.8 }} />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 1 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
-                    <span style={{ fontSize: 18, opacity: 0.4, filter: "grayscale(0.3)" }}>{kpi.icon}</span>
+                    <span style={{ fontSize: 18, opacity: 0.7, filter: "grayscale(0.15)" }}>{kpi.icon}</span>
                   </div>
                   <div className="kpi-number" style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginTop: 8, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", position: "relative", zIndex: 1, textShadow: `0 0 30px ${kpi.color}30` }}>{kpi.value}</div>
                   <div style={{ fontSize: 10, color: kpi.color, marginTop: 6, fontWeight: 700, letterSpacing: "0.02em", position: "relative", zIndex: 1 }}>{kpi.sub}</div>
@@ -2345,12 +2438,12 @@ function AppInner() {
             <SortBar />
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined" || site.status === "ps-rejected";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
               });
-              const emptyLabels = { mine: "No sites pending your review. Auto-scans run daily — new sites will appear here.", dw: "No sites awaiting Daniel Wollent's approval.", mt: "No sites awaiting Matthew Toussaint's approval." };
+              const emptyLabels = { mine: "No sites pending your review. PS-rejected sites with feedback will appear here automatically.", dw: "No sites awaiting Daniel Wollent's approval.", mt: "No sites awaiting Matthew Toussaint's approval." };
               if (filtered.length === 0 && (reviewTab !== "mine" || [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length === 0)) return (
                 <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>{reviewTab === "mine" ? "📋" : reviewTab === "dw" ? "◆" : "●"}</div>
@@ -2362,7 +2455,7 @@ function AppInner() {
             })()}
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined" || site.status === "ps-rejected";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
@@ -2371,7 +2464,7 @@ function AppInner() {
               return (
               <div style={{ display: "grid", gap: 10 }}>
                 {sortData(subs).filter(site => {
-                  if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
+                  if (reviewTab === "mine") return site.status === "pending" || site.status === "declined" || site.status === "ps-rejected";
                   if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                   if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                   return true;
@@ -2388,7 +2481,7 @@ function AppInner() {
                   const isHL = highlightedSite === site.id;
                   const isExpanded = false; // legacy — full-page detail replaced inline expand
                   return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
+                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : site.status === "ps-rejected" ? "rgba(220,38,38,0.06)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : site.status === "ps-rejected" ? "0 0 0 1px rgba(220,38,38,0.3)" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${site.status === "ps-rejected" ? "#EF4444" : REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
                       onClick={(e) => { e.stopPropagation(); navigateTo("review", { reviewSiteId: site.id }); }}
                       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,168,76,0.15), 0 0 0 1px rgba(201,168,76,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
@@ -2398,9 +2491,18 @@ function AppInner() {
                         <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{site.name}</span>
                         <SiteScoreBadge site={site} size="small" />
                         <Badge status={site.status} />
+                        {site.status === "ps-rejected" && <span style={{ fontSize: 10, fontWeight: 800, color: "#DC2626", background: "rgba(220,38,38,0.12)", padding: "2px 10px", borderRadius: 5, border: "1px solid rgba(220,38,38,0.25)", textTransform: "uppercase", letterSpacing: "0.06em" }}>PS Rejected — {site.psRejectedBy || "PS"}</span>}
                         {site.status === "pending" && <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
                       </div>
                       <div style={{ fontSize: 12, color: "#6B7394", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
+                      {/* PS Rejection Feedback Banner */}
+                      {site.status === "ps-rejected" && (site.psFeedback || site.psRejectReason) && (
+                        <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: 8, padding: "8px 12px", marginTop: 6, marginBottom: 4 }}>
+                          {site.psRejectReason && <div style={{ fontSize: 11, fontWeight: 700, color: "#DC2626", marginBottom: 4 }}>Reason: {site.psRejectReason}</div>}
+                          {site.psFeedback && <div style={{ fontSize: 11, color: "#FCA5A5", lineHeight: 1.5 }}>Feedback: "{site.psFeedback}"</div>}
+                          <button onClick={(e) => { e.stopPropagation(); handleDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard Permanently</button>
+                        </div>
+                      )}
                       {/* Links */}
                       <div style={{ display: "flex", gap: 6, marginTop: 4, marginBottom: 4, flexWrap: "wrap" }}>
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(232,122,46,0.1)", color: "#E87A2E", fontSize: 10, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.15)" }}>🔗 Listing</a>}
@@ -2510,7 +2612,7 @@ function AppInner() {
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
                 {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)" }}>🗺 Google Maps</a>}
                 {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a>}
-                <button onClick={() => { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 Storevex Deep Vet Report</button>
+                <button onClick={() => { try { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); } }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 Storvex Deep Vet Report</button>
               </div>
 
               {/* ── ACTIVITY TIMELINE ── */}
@@ -2519,6 +2621,7 @@ function AppInner() {
                 if (site.submittedAt) events.push({ ts: site.submittedAt, action: "Site entered review queue", by: "System", icon: "📥", color: "#F59E0B" });
                 if (site.recommendedAt) events.push({ ts: site.recommendedAt, action: `Dan R. approved & routed to ${REGIONS[site.routedTo || site.region]?.label || "—"}`, by: site.recommendedBy || "Dan R.", icon: "✓", color: "#C9A84C" });
                 if (site.approvedAt && site.approvedBy) events.push({ ts: site.approvedAt, action: `PS approved → moved to tracker`, by: site.approvedBy, icon: "⚡", color: "#16A34A" });
+                if (site.psRejectedAt) events.push({ ts: site.psRejectedAt, action: `PS rejected — ${site.psRejectReason || "no reason given"}${site.psFeedback ? `: "${site.psFeedback}"` : ""}`, by: site.psRejectedBy || "PS", icon: "✗", color: "#DC2626" });
                 // Pull from activityLog if it exists
                 if (site.activityLog) {
                   Object.values(site.activityLog).forEach(log => {
@@ -2563,9 +2666,13 @@ function AppInner() {
                       </select>
                       <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 200, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 13, outline: "none", background: "rgba(255,255,255,0.05)", color: "#E2E8F0" }} />
                     </div>
-                    <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleRecommend(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(201,168,76,0.3)", letterSpacing: "0.04em" }}>✓ Approve & Route</button>
-                      <button onClick={() => { handleDecline(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                      <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.2)", fontSize: 12, background: "rgba(220,38,38,0.04)", cursor: "pointer", minWidth: 200, color: "#FCA5A5" }}>
+                        <option value="">Decline reason…</option>
+                        {DECLINE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button onClick={() => { handleDecline(site.id, ri.declineReason); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
                     </div>
                   </div>
                 )}
@@ -2576,15 +2683,42 @@ function AppInner() {
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#16A34A", background: "#DCFCE7", padding: "4px 12px", borderRadius: 8 }}>Dan R. Approved</span>
                       <span style={{ fontSize: 12, color: "#94A3B8" }}>→ {REGIONS[site.routedTo || site.region]?.label || "Unassigned"}</span>
                     </div>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                       <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(22,163,74,0.3)", fontSize: 13, background: "rgba(22,163,74,0.08)", cursor: "pointer", minWidth: 180, fontWeight: 700, color: "#16A34A" }}>
                         <option value="">Approver…</option>
                         <option>Daniel Wollent</option>
                         <option>Matthew Toussaint</option>
+                        <option>Brian Karis</option>
                         <option>Jarrod</option>
                       </select>
                       <button onClick={() => { handlePSApprove(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#16A34A,#15803D)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(22,163,74,0.3)", letterSpacing: "0.04em" }}>⚡ Approve → Tracker</button>
-                      <button onClick={() => { handleDecline(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                    </div>
+                    {/* PS Rejection Section — reason + feedback routes back to Dan */}
+                    <div style={{ borderTop: "1px solid rgba(220,38,38,0.15)", paddingTop: 12, marginTop: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>PS Rejection (routes back to Dan with feedback)</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                        <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.25)", fontSize: 12, background: "rgba(220,38,38,0.05)", cursor: "pointer", minWidth: 220, color: "#FCA5A5" }}>
+                          <option value="">Rejection reason…</option>
+                          {DECLINE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <input value={ri.psFeedback || ""} onChange={(e) => setRI("psFeedback", e.target.value)} placeholder="PS feedback — what did they say?" style={{ flex: 1, minWidth: 200, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", fontSize: 12, outline: "none", background: "rgba(220,38,38,0.04)", color: "#FCA5A5" }} />
+                      </div>
+                      <button onClick={() => { if (!ri.reviewer) { notify("Select who rejected (DW, MT, Brian, or Jarrod)"); return; } handlePSReject(site.id); setReviewDetailSite(null); }} style={{ padding: "10px 22px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.1)", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✗ PS Reject → Route Back to Dan</button>
+                    </div>
+                  </div>
+                )}
+
+                {site.status === "ps-rejected" && (
+                  <div>
+                    <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#DC2626", marginBottom: 8 }}>PS Rejected by {site.psRejectedBy || "PS"}</div>
+                      {site.psRejectReason && <div style={{ fontSize: 12, color: "#FCA5A5", marginBottom: 6 }}><strong>Reason:</strong> {site.psRejectReason}</div>}
+                      {site.psFeedback && <div style={{ fontSize: 12, color: "#FCA5A5", marginBottom: 6, lineHeight: 1.5, fontStyle: "italic" }}>"{site.psFeedback}"</div>}
+                      {site.psRejectedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>Rejected: {new Date(site.psRejectedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => { handleDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard Permanently</button>
+                      <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending" }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
                     </div>
                   </div>
                 )}
@@ -2641,7 +2775,7 @@ function AppInner() {
                     <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 6 }}>{site.name}</div>
                     <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 12 }}>{site.address}, {site.city}, {site.state}</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)" }}>{site.market}</span>}
+                      {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,.2)" }}>{site.market}</span>}
                       <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
                       {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                     </div>
@@ -3252,8 +3386,8 @@ function AppInner() {
               {/* ACTION BUTTONS */}
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)", alignItems: "center" }}>
                 <button onClick={() => {
-                  const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
-                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 Storevex Deep Vet Report</button>
+                  try { const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 Storvex Deep Vet Report</button>
                 {site.coordinates && <>
                   <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🗺 Google Maps</a>
                   <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🌍 Google Earth</a>
@@ -3261,10 +3395,10 @@ function AppInner() {
                 {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🔗 Property Listing</a>}
                 {flyerDoc && <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(243,124,51,0.12)", color: "#FFB347", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(243,124,51,0.25)", display: "flex", alignItems: "center", gap: 6 }}>📄 View Flyer</a>}
                 <button onClick={() => {
-                  const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
-                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(46,125,50,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>💰 Storevex Pricing Report</button>
+                  try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(46,125,50,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>💰 Storvex Pricing Report</button>
                 <button onClick={() => {
-                  const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
+                  try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                 }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>📋 REC Package</button>
               </div>
 
@@ -3840,12 +3974,12 @@ function AppInner() {
                             <div><div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{d.label}</div><div style={{ fontSize: 8, color: "#6B7394" }}>{(d.weight * 100).toFixed(0)}% weight</div></div>
                             <div style={{ textAlign: "right", fontSize: 15, fontWeight: 900, color: sc2(v2), fontFamily: "'Space Mono'" }}>{v2}</div>
                             <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct2}%`, background: `linear-gradient(90deg, ${sc2(v2)}88, ${sc2(v2)})`, borderRadius: 4 }} /></div>
-                            <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#FBBF24", fontFamily: "'Space Mono'" }}>{(v2 * d.weight).toFixed(2)}</div>
+                            <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono'" }}>{(v2 * d.weight).toFixed(2)}</div>
                           </div>
                         );
                       })}
                       <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 4px 4px", borderTop: "2px solid rgba(243,124,51,.2)", marginTop: 4 }}>
-                        <span style={{ fontSize: 10, color: "#94A3B8" }}>COMPOSITE: <span style={{ color: "#FBBF24", fontWeight: 900, fontSize: 14, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span> / 10</span>
+                        <span style={{ fontSize: 10, color: "#94A3B8" }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 14, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span> / 10</span>
                       </div>
                     </div>
                   </div>

@@ -37,6 +37,7 @@ export const STATUS_COLORS = {
   recommended: { bg: "#E0E7FF", text: "#3730A3", dot: "#6366F1", label: "Dan R. Approved" },
   approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50", label: "⚡ Approved to Tracker" },
   declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350", label: "Declined" },
+  "ps-rejected": { bg: "#FEE2E2", text: "#991B1B", dot: "#DC2626", label: "PS Rejected" },
   tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33", label: "In Tracker" },
 };
 export const PHASES = [

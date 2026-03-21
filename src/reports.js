@@ -1661,7 +1661,16 @@ function toggleMI(id,evt){
       </div>
       <div style="text-align:right">
         <div style="font-size:10px;color:#6B7394">Suggested Counter</div>
-        <div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</div>
+        ${(() => {
+          const minLand = landPrices[2]?.maxLand || 0;
+          const strikeLand = landPrices[1]?.maxLand || 0;
+          const maxLand = landPrices[0]?.maxLand || 0;
+          if (landCost <= 0 || strikeLand <= 0) return `<div class="mono" style="font-size:22px;font-weight:800;color:#6B7394">N/A</div>`;
+          if (landCost <= minLand) return `<div class="mono" style="font-size:18px;font-weight:800;color:#16A34A">BUY AT ASKING</div><div style="font-size:9px;color:#16A34A;margin-top:2px">Below floor — home run</div>`;
+          if (landCost <= strikeLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#16A34A">${fmtM(landCost)}</div><div style="font-size:9px;color:#16A34A;margin-top:2px">At/below strike — buy at asking</div>`;
+          if (landCost <= maxLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${fmtM(strikeLand)}</div><div style="font-size:9px;color:#F59E0B;margin-top:2px">Counter to strike price</div>`;
+          return `<div class="mono" style="font-size:22px;font-weight:800;color:#EF4444">${fmtM(maxLand)}</div><div style="font-size:9px;color:#EF4444;margin-top:2px">Above ceiling — counter to max or pass</div>`;
+        })()}
       </div>
     </div>
     <div style="margin-top:12px;height:8px;border-radius:4px;background:rgba(255,255,255,0.06);position:relative;overflow:visible">
