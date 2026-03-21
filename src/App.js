@@ -1226,7 +1226,8 @@ h3{font-size:14px;font-weight:700;margin-bottom:10px}
 .gold{color:#C9A84C} .orange{color:#E87A2E} .green{color:#16A34A} .red{color:#EF4444} .blue{color:#42A5F5} .muted{color:#6B7394}
 .mono{font-family:'Space Mono',monospace}
 .badge{display:inline-block;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.06em}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;overflow:hidden}
+.grid2>div{overflow:hidden;min-width:0}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .metric-box{background:rgba(15,21,56,0.5);border:1px solid rgba(201,168,76,0.08);border-radius:12px;padding:16px;text-align:center}
@@ -1673,7 +1674,7 @@ function toggleMI(id,evt){
     <div>
       <h3 class="muted">Rate Drivers</h3>
       <table style="font-size:12px">
-        <tr class="mi" onclick="toggleMI('rdinctier',event)" style="cursor:pointer"><td style="color:#6B7394;width:160px">Income Tier <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td style="font-weight:700;text-transform:capitalize">${incTier} ${incN ? "($" + incN.toLocaleString() + " HHI)" : ""}</td></tr>
+        <tr class="mi" onclick="toggleMI('rdinctier',event)" style="cursor:pointer"><td style="color:#6B7394;width:130px;white-space:nowrap">Income Tier <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td style="font-weight:700;text-transform:capitalize;font-size:11px">${incTier} ${incN ? "($" + incN.toLocaleString() + " HHI)" : ""}</td></tr>
         <tr><td colspan="2" style="padding:0;border:none"><div id="mi-rdinctier" class="mi-panel"><div class="mi-panel-inner">
           <div class="mi-header"><div class="mi-title">Income Tier Classification</div><div class="mi-conf mi-conf-high">Census ACS</div></div>
           <div class="mi-body">
@@ -3292,7 +3293,8 @@ table{width:100%;border-collapse:collapse}
 th{padding:10px 14px;text-align:left;font-size:9px;font-weight:700;color:#1E2761;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid #E2E8F0;background:#F8FAFC}
 td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 .section{padding:28px 40px;border-bottom:1px solid #E2E8F0}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;overflow:hidden}
+.grid2>div{overflow:hidden;min-width:0}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .metric{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center}
