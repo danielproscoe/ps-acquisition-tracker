@@ -930,11 +930,13 @@ const computeSiteFinancials = (site) => {
   const nearestPS = site.siteiqData?.nearestPS || null;
 
   // ── Facility Sizing Model ──
+  // Multi-story (2.5–3.5 ac): 3-story, higher climate ratio (smaller footprint = maximize rentable SF)
+  // One-story (3.5+ ac): PS suburban format — 65/35 climate/drive-up per Killeen TX site sketch (Option A, Dec 2024)
   const isMultiStory = !isNaN(acres) && acres < 3.5 && acres >= 2.5;
   const stories = isMultiStory ? 3 : 1;
-  const footprint = !isNaN(acres) ? Math.round(acres * 43560 * 0.35) : 60000;
+  const footprint = !isNaN(acres) ? Math.round(acres * 43560 * 0.35) : 60000; // 35% coverage confirmed by Killeen sketch
   const totalSF = footprint * stories;
-  const climatePct = 0.70;
+  const climatePct = isMultiStory ? 0.75 : 0.65; // Multi-story: 75% climate (vertical = all indoor). One-story: 65% per PS Killeen layout
   const climateSF = Math.round(totalSF * climatePct);
   const driveSF = Math.round(totalSF * (1 - climatePct));
 
