@@ -6739,9 +6739,8 @@ function AppInner() {
             {/* ═══ PIPELINE FUNNEL — Interactive ═══ */}
             {(() => {
               const all = [...sw, ...east];
-              const pending = subs.filter(s => s.status === "pending").length;
               const funnelStages = [
-                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
+                { label: "Review Queue", count: pendingN, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
                 { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
                 { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
                 { label: "SiteScore Approved", count: all.filter(s => s.phase === "SiteScore Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "SiteScore Approved" }) },
