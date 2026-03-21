@@ -4,7 +4,8 @@
 // Firebase Realtime Database — live shared data across all 3 users
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { db, storage } from "./firebase";
+import { db, storage, auth } from "./firebase";
+import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import {
   ref as storageRef,
@@ -19,6 +20,7 @@ import {
   parseCSV, uid, fmt$, fmtN, fmtPrice, mapsLink, earthLink,
   debounce, safeNum, escapeHtml, buildDemoReport, fetchDemographics,
   stripEmoji, cleanPriority,
+  sanitizeString, isValidCoordinates, isValidState, isValidPrice, isValidAcreage,
   REGIONS, STATUS_COLORS, PHASES, PHASE_MIGRATION, PRIORITIES, PRIORITY_COLORS,
   MSG_COLORS, DOC_TYPES, SITE_SCORE_DEFAULTS, STYLES,
   normalizeSiteScoreWeights,
@@ -29,6 +31,8 @@ import {
   generatePricingReport as _generatePricingReport,
   generateRECPackage as _generateRECPackage,
 } from './reports';
+import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF } from './components';
+import './App.css';
 
 // ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
 let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
@@ -43,6 +47,8 @@ const computeSiteScore = (site) => _computeSiteScore(site, SITE_SCORE_CONFIG);
 const generateVettingReport = (site, psD, iq) => _generateVettingReport(site, psD, iq, SITE_SCORE_CONFIG);
 const generatePricingReport = (site, iq) => _generatePricingReport(site, iq, SITE_SCORE_CONFIG);
 const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG);
+// SiteScoreBadge wrapper — auto-injects computeSiteScore so call sites stay clean
+const SiteScoreBadge = (props) => <_SiteScoreBadge {...props} computeSiteScore={computeSiteScore} />;
 
 // ─── Seed Data REMOVED (v3) ───
 const DW_SEED = [];
@@ -73,243 +79,9 @@ class ErrorBoundary extends React.PureComponent {
   }
 }
 
-// ─── SiteScore Badge Component ───
-function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
-  const iq = iqProp || computeSiteScore(site);
-  const s = iq.score;
-  const isGold = iq.tier === "gold";
-  const isSteel = iq.tier === "steel";
-  const isSmall = size === "small";
-
-  const tierColors = {
-    gold: { bg: "linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)", glow: "0 0 24px rgba(201,168,76,0.5), 0 0 48px rgba(201,168,76,0.2), 0 0 4px rgba(255,215,0,0.8)", text: "#0a0a0a", ring: "#C9A84C", labelBg: "linear-gradient(135deg, #FFFBEB, #FFF8ED)" },
-    steel: { bg: "linear-gradient(135deg, #1a1a2e, #2C3E6B, #1a1a2e)", glow: "0 2px 12px rgba(44,62,107,0.35), 0 0 2px rgba(243,124,51,0.2)", text: "#fff", ring: "#F37C33", labelBg: "linear-gradient(135deg, #E8EAF6, #F0F2FF)" },
-    gray: { bg: "linear-gradient(135deg, #3a3a4a, #4a4a5a, #3a3a4a)", glow: "0 2px 8px rgba(0,0,0,0.2)", text: "#94A3B8", ring: "#64748B", labelBg: "rgba(15,21,56,0.3)" },
-  };
-  const tc = tierColors[iq.tier];
-
-  if (isSmall) {
-    return (
-      <span style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "3px 10px", borderRadius: 8,
-        background: typeof tc.labelBg === "string" && tc.labelBg.startsWith("linear") ? tc.labelBg : tc.labelBg,
-        border: `1px solid ${tc.ring}28`,
-        fontSize: 11, fontWeight: 700, color: iq.tier === "gold" ? "#D45500" : iq.tier === "steel" ? "#1E2761" : "#64748B",
-        fontFamily: "'Space Mono', monospace",
-        transition: "all 0.3s ease",
-        boxShadow: iq.tier === "gold" ? "0 0 8px rgba(243,124,51,0.15)" : "none",
-      }}>
-        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: "inherit", opacity: 0.85 }}>S</span>
-        {s.toFixed(1)}
-        {iq.classification && <span style={{ width: 6, height: 6, borderRadius: "50%", background: iq.classColor, flexShrink: 0 }} title={iq.classification} />}
-      </span>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-      {/* Score Circle */}
-      <div style={{
-        position: "relative",
-        width: 68, height: 68, borderRadius: "50%",
-        background: tc.bg,
-        boxShadow: tc.glow,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-        ...(isGold ? { animation: "sitescore-glow 2s ease-in-out infinite alternate" } : {}),
-      }}>
-        {isGold && <><div style={{
-          position: "absolute", inset: -4, borderRadius: "50%",
-          border: "2px solid #F37C33",
-          opacity: 0.6,
-          animation: "sitescore-ring 2s ease-in-out infinite alternate",
-        }} /><div style={{
-          position: "absolute", inset: -8, borderRadius: "50%",
-          border: "1px solid rgba(243,124,51,0.2)",
-          opacity: 0.3,
-          animation: "sitescore-ring 3s ease-in-out infinite alternate",
-        }} /></>}
-        <div style={{ textAlign: "center", lineHeight: 1 }}>
-          <div style={{ fontSize: 24, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
-        </div>
-      </div>
-      {/* Label + Breakdown */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{
-            fontSize: 12, fontWeight: 800, letterSpacing: "0.12em",
-            color: iq.tier === "gold" ? "#D45500" : iq.tier === "steel" ? "#1E2761" : "#64748B",
-            textTransform: "uppercase",
-            padding: "4px 10px", borderRadius: 6,
-            background: typeof tc.labelBg === "string" && tc.labelBg.startsWith("linear") ? tc.labelBg : tc.labelBg,
-            boxShadow: iq.tier === "gold" ? "0 0 12px rgba(243,124,51,0.12)" : "none",
-          }}>{iq.label}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#CBD5E1", letterSpacing: "0.08em" }}>SiteScore<span style={{ fontSize: 8, verticalAlign: "super" }}>™</span></span>
-          {iq.classification && <span style={{ fontSize: 10, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "2px 7px", borderRadius: 4, letterSpacing: "0.06em" }}>{iq.classification}</span>}
-        </div>
-        {iq.flags && iq.flags.length > 0 && (
-          <div style={{ display: "flex", gap: 3, marginTop: 2, flexWrap: "wrap" }}>
-            {iq.flags.map((f, i) => (
-              <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>
-            ))}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "flex-end", height: 64 }}>
-          {[
-            { key: "population", label: "POP" },
-            { key: "growth", label: "GRO" },
-            { key: "income", label: "INC" },
-            { key: "households", label: "HH" },
-            { key: "homeValue", label: "HV" },
-            { key: "zoning", label: "ZN" },
-            { key: "psProximity", label: "PS" },
-            { key: "access", label: "ACC" },
-            { key: "competition", label: "CP" },
-            { key: "marketTier", label: "MKT" },
-          ].map((f) => {
-            const v = iq.scores[f.key] || 0;
-            const pct = Math.max(8, (v / 10) * 100);
-            const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
-            return (
-              <div key={f.key} title={`${f.label}: ${v}/10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 24 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
-                <div style={{ width: 16, height: 40, borderRadius: 4, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 4, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 8px ${c}50` : "none" }} />
-                </div>
-                <div style={{ fontSize: 8, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.02em", lineHeight: 1 }}>{f.label}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Components ───
-function Badge({ status }) {
-  const s = STATUS_COLORS[status] || STATUS_COLORS.pending;
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        background: s.bg,
-        color: s.text,
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: s.dot,
-        }}
-      />
-      {s.label || status}
-    </span>
-  );
-}
-
-function normalizePriority(p) {
-  if (!p) return p;
-  const map = { hot: "🔥 Hot", warm: "🟡 Warm", cold: "🔵 Cold", none: "⚪ None" };
-  const key = p.replace(/^[^a-zA-Z]+/, "").trim().toLowerCase();
-  return map[key] || p;
-}
-
-function PriorityBadge({ priority }) {
-  const p = normalizePriority(priority);
-  const c = PRIORITY_COLORS[p] || "#CBD5E1";
-  return p && p !== "⚪ None" ? (
-    <span
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: c,
-        background: c + "18",
-        padding: "2px 8px",
-        borderRadius: 6,
-      }}
-    >
-      {p}
-    </span>
-  ) : null;
-}
-
-function EF({ label, value, onSave, placeholder, multi }) {
-  const [local, setLocal] = useState(value || "");
-  const prevValue = useRef(value);
-  useEffect(() => {
-    if (value !== prevValue.current) {
-      setLocal(value || "");
-      prevValue.current = value;
-    }
-  }, [value]);
-  const st = {
-    width: "100%",
-    padding: multi ? "8px 10px" : "6px 10px",
-    borderRadius: 8,
-    border: "1px solid rgba(201,168,76,0.12)",
-    fontSize: 13,
-    fontFamily: "'Inter', sans-serif",
-    background: "rgba(15,21,56,0.5)",
-    color: "#E2E8F0",
-    outline: "none",
-    boxSizing: "border-box",
-    resize: multi ? "vertical" : "none",
-  };
-  const debouncedSave = useCallback(debounce((v) => onSave(v), 400), [onSave]);
-  const handleBlur = () => {
-    if (local !== (value || "")) debouncedSave(local);
-  };
-  return (
-    <div>
-      {label && (
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: "#6B7394",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            marginBottom: 3,
-          }}
-        >
-          {label}
-        </div>
-      )}
-      {multi ? (
-        <textarea
-          style={{ ...st, minHeight: 60 }}
-          value={local}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-        />
-      ) : (
-        <input
-          style={st}
-          value={local}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-        />
-      )}
-    </div>
-  );
-}
-
 // ═══ MAIN APP ═══
 function AppInner() {
+  const [authReady, setAuthReady] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [subs, setSubs] = useState([]);
   const [east, setEast] = useState([]);
@@ -441,8 +213,25 @@ function AppInner() {
     document.head.appendChild(link);
   }, []);
 
-  // ─── FIREBASE REAL-TIME LISTENERS ───
+  // ─── FIREBASE AUTH — anonymous sign-in (satisfies "auth != null" security rules) ───
   useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setAuthReady(true);
+      } else {
+        signInAnonymously(auth).catch((err) => {
+          console.error("Anonymous auth failed:", err);
+          // Fall through — setAuthReady(true) so app renders with degraded access
+          setAuthReady(true);
+        });
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // ─── FIREBASE REAL-TIME LISTENERS (wait for auth) ───
+  useEffect(() => {
+    if (!authReady) return;
     const subsRef = ref(db, "submissions");
     const eastRef = ref(db, "east");
     const swRef = ref(db, "southwest");
@@ -490,7 +279,7 @@ function AppInner() {
       unsubSeed();
       unsubIQ();
     };
-  }, []);
+  }, [authReady]);
 
   // ─── PHASE MIGRATION — one-time remap of legacy phases ───
   const [migrated, setMigrated] = useState(false);
@@ -590,14 +379,28 @@ function AppInner() {
     setTimeout(() => setToast(null), 2800);
   };
 
-  // ─── FIREBASE WRITE HELPERS ───
-  const fbSet = (path, value) => set(ref(db, path), value);
-  const fbUpdate = (path, value) => update(ref(db, path), value);
-  const fbPush = (path, value) => push(ref(db, path), value);
-  const fbRemove = (path) => remove(ref(db, path));
+  // ─── FIREBASE WRITE HELPERS (with path validation) ───
+  const fbSet = (path, value) => {
+    if (typeof path !== "string" || !path) { console.error("fbSet: invalid path", path); return Promise.resolve(); }
+    return set(ref(db, path), value);
+  };
+  const fbUpdate = (path, value) => {
+    if (typeof path !== "string" || !path) { console.error("fbUpdate: invalid path", path); return Promise.resolve(); }
+    return update(ref(db, path), value);
+  };
+  const fbPush = (path, value) => {
+    if (typeof path !== "string" || !path) { console.error("fbPush: invalid path", path); return Promise.resolve(); }
+    return push(ref(db, path), value);
+  };
+  const fbRemove = (path) => {
+    if (typeof path !== "string" || !path) { console.error("fbRemove: invalid path", path); return Promise.resolve(); }
+    return remove(ref(db, path));
+  };
 
   const updateSiteField = (region, id, field, value) => {
-    fbUpdate(`${region}/${id}`, { [field]: value });
+    // Sanitize string values on write
+    const cleanVal = typeof value === "string" ? sanitizeString(value) : value;
+    fbUpdate(`${region}/${id}`, { [field]: cleanVal });
     // --- Pipeline Velocity: Track phase transitions ---
     if (field === "phase") {
       const site = [...sw, ...east].find(s => s.id === id);
@@ -619,12 +422,13 @@ function AppInner() {
   };
 
   const saveField = (region, id, field, value) => {
+    const cleanVal = typeof value === "string" ? sanitizeString(value) : value;
     const logEntry = {
-      action: `${field} updated`,
+      action: `${sanitizeString(field)} updated`,
       ts: new Date().toISOString(),
       by: "User",
     };
-    fbUpdate(`${region}/${id}`, { [field]: value });
+    fbUpdate(`${region}/${id}`, { [field]: cleanVal });
     fbPush(`${region}/${id}/activityLog`, logEntry);
   };
 
@@ -802,28 +606,40 @@ function AppInner() {
 
   // ─── SUBMIT ───
   const handleSubmit = async () => {
+    // Required field validation
     if (!form.name || !form.address || !form.city || !form.state) {
       notify("Fill name, address, city, state.");
       return;
     }
+    // Field-level validation
+    if (!isValidState(form.state)) { notify("Invalid state abbreviation."); return; }
+    if (form.coordinates && !isValidCoordinates(form.coordinates)) { notify("Invalid coordinates format. Use: lat, lng"); return; }
+    if (form.askingPrice && !isValidPrice(form.askingPrice)) { notify("Invalid asking price."); return; }
+    if (form.acreage && !isValidAcreage(form.acreage)) { notify("Invalid acreage value."); return; }
+    if (!REGIONS[form.region]) { notify("Invalid region."); return; }
+
     const now = new Date().toISOString();
     const id = uid();
     const site = {
-      ...form,
+      name: sanitizeString(form.name),
+      address: sanitizeString(form.address),
+      city: sanitizeString(form.city),
+      state: sanitizeString(form.state).toUpperCase().slice(0, 2),
+      region: form.region,
       id,
       submittedAt: now,
       phase: "Prospect",
-      askingPrice: form.askingPrice || "",
+      askingPrice: sanitizeString(form.askingPrice),
       internalPrice: "",
       income3mi: "",
       pop3mi: "",
-      sellerBroker: form.sellerBroker || "",
-      summary: form.notes || "",
-      coordinates: form.coordinates || "",
-      listingUrl: form.listingUrl || "",
+      sellerBroker: sanitizeString(form.sellerBroker),
+      summary: sanitizeString(form.notes),
+      coordinates: sanitizeString(form.coordinates),
+      listingUrl: sanitizeString(form.listingUrl),
       dateOnMarket: "",
-      acreage: form.acreage || "",
-      zoning: form.zoning || "",
+      acreage: sanitizeString(form.acreage),
+      zoning: sanitizeString(form.zoning),
       market: "",
       priority: "⚪ None",
       messages: {},
@@ -1119,11 +935,13 @@ function AppInner() {
   const assignedReviewN = [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length;
   const pendingN = pendingSubsN + assignedReviewN;
 
-  if (!loaded) return (
+  if (!authReady || !loaded) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 40%, #0F1538 100%)", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: 48, height: 48, border: "3px solid rgba(232,122,46,0.15)", borderTopColor: "#E87A2E", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(232,122,46,0.2)" }} />
-        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Initializing SiteScore — AI-Powered Land Engine</div>
+        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          {!authReady ? "Authenticating…" : "Initializing SiteScore — AI-Powered Land Engine"}
+        </div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -1814,91 +1632,7 @@ function AppInner() {
         <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent 20%, rgba(201,168,76,0.03) 50%, transparent 80%)", animation: "scanLine 12s linear infinite" }} />
       </div>
       {transitioning && <div className="tab-transition-overlay" />}
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes tabSweep { 0% { transform: scaleX(0); opacity: 0; } 40% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
-        @keyframes tabFadeOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.97) translateY(-8px); } }
-        @keyframes tabFadeIn { 0% { opacity: 0; transform: scale(0.97) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-        .tab-transition-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; pointer-events: none; }
-        .tab-transition-overlay::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent); transform-origin: left; animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; box-shadow: 0 0 20px rgba(232,122,46,0.5), 0 0 40px rgba(232,122,46,0.2); }
-        .tab-transition-overlay::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(232,122,46,0.04) 0%, rgba(15,21,56,0.3) 50%, rgba(10,14,42,0.5) 100%); animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .funnel-bar { cursor: pointer; position: relative; overflow: hidden; }
-        .funnel-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); transform: translateX(-100%); transition: transform 0.4s ease; }
-        .funnel-bar:hover::after { transform: translateX(100%); }
-        .funnel-bar:hover { filter: brightness(1.15); box-shadow: 0 4px 16px rgba(0,0,0,0.15); transform: scale(1.02); }
-        .funnel-bar:active { transform: scale(0.98); }
-        @keyframes slideDown { from { max-height: 0; opacity: 0; transform: scaleY(0.95); } to { max-height: 2000px; opacity: 1; transform: scaleY(1); } }
-        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        @keyframes sitescore-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
-        @keyframes sitescore-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
-        @keyframes sitescore-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(140deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(320deg); } 100% { transform: rotate(360deg); } }
-        @keyframes turbine-pulse { 0%, 100% { filter: drop-shadow(0 0 6px rgba(57,255,20,0.3)) drop-shadow(0 0 12px rgba(0,229,255,0.15)); } 25% { filter: drop-shadow(0 0 14px rgba(57,255,20,0.7)) drop-shadow(0 0 28px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(232,122,46,0.2)); } 50% { filter: drop-shadow(0 0 8px rgba(57,255,20,0.4)) drop-shadow(0 0 16px rgba(0,229,255,0.2)); } 75% { filter: drop-shadow(0 0 18px rgba(232,122,46,0.5)) drop-shadow(0 0 32px rgba(201,168,76,0.3)) drop-shadow(0 0 48px rgba(57,255,20,0.15)); } }
-        @keyframes lightning-arc { 0% { opacity: 0; transform: scaleX(0); } 5% { opacity: 1; transform: scaleX(1); } 10% { opacity: 0.3; } 15% { opacity: 0.8; } 20% { opacity: 0; transform: scaleX(1); } 100% { opacity: 0; } }
-        @keyframes toastSlide { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
-        @keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); } 70% { box-shadow: 0 0 0 14px rgba(201,168,76,0); } 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); } }
-        @keyframes countUp { from { opacity: 0; transform: scale(0.3) translateY(10px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
-        /* FIRE: Ember float particles */
-        @keyframes emberFloat { 0% { transform: translateY(0) translateX(0) scale(1); opacity: 0.7; } 50% { transform: translateY(-20px) translateX(8px) scale(0.6); opacity: 0.4; } 100% { transform: translateY(-40px) translateX(-5px) scale(0.2); opacity: 0; } }
-        @keyframes fireGlow { 0% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } 50% { box-shadow: 0 0 30px rgba(201,168,76,0.25), 0 0 80px rgba(30,39,97,0.12); } 100% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } }
-        @keyframes fireEdge { 0% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } 50% { border-image-source: linear-gradient(180deg, #FFD700, #C9A84C, #1E2761); } 100% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } }
-        @keyframes headerEmber { 0% { background-position: 0% 100%; } 100% { background-position: 100% 0%; } }
-        @keyframes tabSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes modalIn { from { opacity: 0; transform: scale(0.92) translateY(20px); backdrop-filter: blur(0); } to { opacity: 1; transform: scale(1) translateY(0); backdrop-filter: blur(4px); } }
-        @keyframes kpiPulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-        @keyframes cardReveal { from { opacity: 0; transform: translateY(12px) scale(0.97); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
-        @keyframes glowLine { 0% { left: -40%; } 100% { left: 140%; } }
-        @keyframes navUnderlineFire { 0% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 0% 50%; } 100% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 100% 50%; } }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        * { box-sizing: border-box; }
-        input, select, textarea, button { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        select option { background: #1a1a2e; color: #E2E8F0; }
-        select option:checked { background: #E87A2E; color: #fff; }
-        /* UPGRADED: Card hover with fire-edge glow */
-        .site-card { transition: all 0.4s cubic-bezier(0.4,0,0.2,1); position: relative; }
-        .site-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 16px; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; box-shadow: 0 0 0 1px rgba(243,124,51,0.15), 0 8px 32px rgba(243,124,51,0.08); z-index: 0; }
-        .site-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(232,122,46,0.25), 0 0 40px rgba(232,122,46,0.06) !important; }
-        .site-card:hover::before { opacity: 1; }
-        .site-card-open { transform: none !important; }
-        .site-card-open:hover { transform: none !important; }
-        /* UPGRADED: Smooth expand with fire accent */
-        .card-expand { animation: slideDown 0.18s cubic-bezier(0.22,1,0.36,1); overflow: hidden; transform-origin: top; }
-        /* UPGRADED: Nav underline with fire gradient */
-        .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #1E2761, #E87A2E, #C9A84C, #E87A2E, #1E2761); background-size: 300% 100%; animation: navUnderlineFire 1.5s ease infinite; border-radius: 3px; box-shadow: 0 0 16px rgba(232,122,46,0.5); }
-        /* Sort pill glow */
-        .sort-active { box-shadow: 0 0 0 2px rgba(243,124,51,0.25), 0 0 12px rgba(243,124,51,0.08); }
-        /* UPGRADED: Scrollbar with fire accent */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(15,21,56,0.4); }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #E87A2E, #C9A84C); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #FFB347, #E87A2E); }
-        /* UPGRADED: KPI number with fire entrance */
-        .kpi-number { animation: countUp 0.6s cubic-bezier(0.4,0,0.2,1); }
-        /* Tab content transition */
-        .tab-content { animation: tabSlide 0.4s cubic-bezier(0.4,0,0.2,1); }
-        /* Card staggered reveal */
-        .card-reveal { animation: cardReveal 0.2s cubic-bezier(0.22,1,0.36,1) backwards; }
-        /* Electric glow on interactive elements */
-        button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.08s; }
-        /* KPI cards electric pulse */
-        .kpi-electric { animation: kpiElectric 4s ease-in-out infinite; }
-        .kpi-electric:hover { box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 30px rgba(57,255,20,0.08), 0 0 60px rgba(232,122,46,0.06) !important; }
-        /* Site card electric hover */
-        .site-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(57,255,20,0.12), 0 0 30px rgba(232,122,46,0.06) !important; transition: all 0.15s cubic-bezier(0.22,1,0.36,1) !important; }
-        /* Frosted glass card style — dark mode */
-        .glass-card { background: rgba(15,21,56,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(201,168,76,0.08); }
-        /* AI LIGHTNING DATA STREAMS */
-        @keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.8; transform: translateY(80vh) scale(1); } 50% { opacity: 0.4; } 90% { opacity: 0.2; } 100% { transform: translateY(-20px) scale(0.2); opacity: 0; } }
-        @keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
-        @keyframes nodePulse { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 0.8; transform: scale(1.5); } 50% { opacity: 0.3; transform: scale(1); } 70% { opacity: 0.6; transform: scale(1.3); } 100% { opacity: 0; transform: scale(0.5); } }
-        @keyframes logoAutoSpin { 0% { transform: rotate(0deg); } 50% { transform: rotate(1800deg); } 100% { transform: rotate(3600deg); } }
-        @keyframes logoClickSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(1080deg) scale(1.15); } 100% { transform: rotate(2160deg) scale(1); } }
-        .logo-auto-spin { animation: logoAutoSpin 8s ease-in-out infinite; }
-        .logo-click-spin { animation: logoClickSpin 1.2s cubic-bezier(0.2, 0, 0, 1) !important; }
-        .logo-spin-container:hover { box-shadow: 0 4px 30px rgba(232,122,46,0.4), 0 0 0 2px rgba(201,168,76,0.25) !important; }
-        @keyframes kpiElectric { 0% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } 50% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(57,255,20,0.05); } 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } }
-        @keyframes speedStreak { 0% { transform: translateX(-100%) scaleY(0.5); opacity: 0; } 30% { opacity: 0.8; transform: translateX(0) scaleY(1); } 100% { transform: translateX(200%) scaleY(0.5); opacity: 0; } }
-      `}</style>
+      {/* Styles moved to App.css — only inline overrides below */}
 
       {/* Toast */}
       {toast && (

@@ -260,3 +260,41 @@ export const fetchDemographics = async (coordinates) => {
 // stripEmoji: removes emoji/special Unicode chars that corrupt in plain-text/PDF renders
 export const stripEmoji = (str) => String(str || "").replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]|[\u{20E3}]|[\u{E0020}-\u{E007F}]/gu, "").trim();
 export const cleanPriority = (p) => { const s = stripEmoji(p); return s || "None"; };
+
+// ─── Input Validation & Sanitization ───
+// Strips dangerous characters from free-text fields to prevent injection via Firebase
+export const sanitizeString = (str) => {
+  if (typeof str !== "string") return "";
+  // Remove null bytes and control characters (except newlines/tabs for notes)
+  return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim().slice(0, 5000);
+};
+
+// Validate a Firebase path segment — no dots, brackets, slashes, or control chars
+export const isValidFirebasePath = (p) => typeof p === "string" && p.length > 0 && !/[.#$\[\]\/\x00-\x1F]/.test(p);
+
+// Validate coordinates format (lat,lng)
+export const isValidCoordinates = (c) => {
+  if (!c) return true; // optional field
+  const m = String(c).match(/^(-?\d{1,3}\.?\d*),\s*(-?\d{1,3}\.?\d*)$/);
+  if (!m) return false;
+  const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+  return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+};
+
+// Validate US state abbreviation
+const US_STATES = new Set(["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC","PR","VI","GU"]);
+export const isValidState = (s) => US_STATES.has(String(s).toUpperCase().trim());
+
+// Validate asking price (positive number or empty)
+export const isValidPrice = (p) => {
+  if (!p) return true; // optional
+  const n = parseFloat(String(p).replace(/[$,]/g, ""));
+  return !isNaN(n) && n >= 0 && n < 1e10;
+};
+
+// Validate acreage (positive number or empty)
+export const isValidAcreage = (a) => {
+  if (!a) return true; // optional
+  const n = parseFloat(String(a).replace(/[,]/g, ""));
+  return !isNaN(n) && n > 0 && n < 100000;
+};
