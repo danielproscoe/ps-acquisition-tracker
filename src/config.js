@@ -1,28 +1,29 @@
 // src/config.js -- Shared constants for PS Acquisition Tracker
 // Addresses audit finding ARCH-05: Extract constants to shared config
 
-// ---- SiteIQ v2.0 Scoring Weights (must match computeSiteIQ in App.js) ----
+// ---- SiteScore v3.0 Scoring Weights (must match SITE_SCORE_DEFAULTS in App.js) ----
   export const SITEIQ_WEIGHTS = {
-        zoning: 0.22,
-        psProximity: 0.18,
-        population: 0.08,
-        income: 0.07,
-        growth: 0.10,
-        competition: 0.15,
-        pricing: 0.05,
-        demand: 0.05,
-        siteAccess: 0.10
+        population: 0.16,
+        growth: 0.21,
+        income: 0.10,
+        households: 0.05,
+        homeValue: 0.05,
+        zoning: 0.16,
+        psProximity: 0.11,
+        access: 0.07,
+        competition: 0.07,
+        marketTier: 0.02
   };
 
-// ---- SiteIQ Classification Thresholds ----
+// ---- SiteScore Classification Thresholds ----
 export const SITEIQ_THRESHOLDS = {
-  GREEN: 7.5,    // auto-advance to Firebase
-  YELLOW: 5.5,   // present for Dan's review
-  ORANGE: 3.0,   // flagged
-  RED: 0         // auto-pass (below 3.0)
+  GREEN: 8.0,    // auto-advance to Firebase
+  YELLOW: 6.0,   // present for Dan's review
+  ORANGE: 4.0,   // flagged
+  RED: 0         // auto-pass (below 4.0)
 };
 
-// ---- SiteIQ Tier Labels ----
+// ---- SiteScore Tier Labels ----
 export const SITEIQ_TIERS = [
   { min: 9, label: 'ELITE', badge: 'gold' },
   { min: 8, label: 'PRIME', badge: 'gold' },
@@ -36,19 +37,19 @@ export const SITEIQ_TIERS = [
 export const HARD_FAIL = {
   minPop3mi: 5000,
   minIncome3mi: 55000,
-  minPsDistance: 2.5
+  maxPsDistance: 35
 };
 
-// ---- Phase Definitions ----
-export const PHASES = ['Prospect', 'LOI Sent', 'LOI Signed', 'Under Contract'];
+// ---- Phase Definitions (must match App.js) ----
+export const PHASES = ['Prospect', 'Submitted to PS', 'SiteScore Approved', 'LOI', 'PSA Sent', 'Under Contract', 'Closed', 'Declined', 'Dead'];
 
-// ---- Phase Bonuses (applied after weighted sum) ----
+// ---- Phase Bonuses (applied after weighted sum, must match App.js) ----
 export const PHASE_BONUSES = {
   'Under Contract': 0.3,
-  'DD': 0.3,
   'Closed': 0.3,
-  'LOI Signed': 0.2,
-  'LOI Sent': 0.1
+  'PSA Sent': 0.2,
+  'LOI': 0.15,
+  'SiteScore Approved': 0.1
 };
 
 // ---- Market Tier Scores ----
