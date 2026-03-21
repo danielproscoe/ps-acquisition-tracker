@@ -8,6 +8,8 @@ import { computeSiteScore, computeSiteFinancials } from './scoring';
 
 export const generateVettingReport = (site, nearestPSDistance, iqResult, siteScoreConfig) => {
   try {
+  // XSS protection — escape all user-supplied text before HTML interpolation
+  const h = escapeHtml;
   const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
   const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
@@ -22,7 +24,8 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
     else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
   }
   const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
-  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS >= 5 ? "#16A34A" : site.siteiqData.nearestPS >= 2.5 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+  // PS proximity color: closer = better (market validation). >35mi = FAIL. No minimum distance.
+  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS > 35 ? "#EF4444" : site.siteiqData.nearestPS <= 15 ? "#16A34A" : "#F59E0B") : "#94A3B8";
   // Z&U intelligence parsing
   const combined = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
   const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
@@ -103,9 +106,9 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
       <div>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
           <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#2E9E6B,#1E2761);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(46,158,107,0.4)"><span style="font-size:22px;font-weight:900;color:#fff;font-family:'Space Mono';letter-spacing:-0.02em">S</span></div>
-          <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
+          <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${h(site.name) || "Unnamed Site"}</div></div>
         </div>
-        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${h(site.address) || ""}, ${h(site.city) || ""}, ${h(site.state) || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
       </div>
       <div style="text-align:right">
         <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
@@ -245,7 +248,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
       row("Planning Phone", site.planningPhone || "<em style='color:#94A3B8'>—</em>"),
       row("Planning Email", site.planningEmail || "<em style='color:#94A3B8'>—</em>"),
     ].filter(Boolean).join("")}</table>
-    ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.zoningNotes}</div>` : ""}
+    ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${h(site.zoningNotes)}</div>` : ""}
     <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0F4FF;border-left:3px solid #1E2761;font-size:9px;color:#475569;line-height:1.6">
       <strong style="color:#1E2761;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
       Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
@@ -515,7 +518,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
 
     <!-- 12. SUMMARY -->
     ${section("12", "Summary & Deal Notes", "")}
-    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
+    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${h(site.summary) || "No notes"}</div>
 
     ${iq && iq.scores ? (() => {
       const dims = [
@@ -641,6 +644,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
 
 export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
   try {
+  const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
   const fin = computeSiteFinancials(site);
   const { acres, landCost, popN, incN, hvN, growthPct, compCount, nearestPS, incTier,
@@ -703,7 +707,7 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
   const pctBar = (pct, color) => `<div style="display:flex;align-items:center;gap:8px"><div style="width:120px;height:10px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden"><div style="width:${Math.round(pct*100)}%;height:100%;border-radius:5px;background:${color};transition:width 0.5s"></div></div><span style="font-size:12px;font-weight:700;color:${color}">${Math.round(pct*100)}%</span></div>`;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Storevex Pricing Report — ${site.name}</title>
+<title>Storevex Pricing Report — ${h(site.name)}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -816,8 +820,8 @@ function toggleMI(id,evt){
       <div style="font-size:11px;font-weight:600;color:#6B7394;letter-spacing:0.08em">INTERACTIVE PRICING INTELLIGENCE</div>
       <span class="version-badge">v4.0</span>
     </div>
-    <h1 style="color:#fff;margin-bottom:6px">${site.name}</h1>
-    <div style="font-size:13px;color:#94A3B8">${site.address || ""}${site.city ? ", " + site.city : ""}${site.state ? ", " + site.state : ""}</div>
+    <h1 style="color:#fff;margin-bottom:6px">${h(site.name)}</h1>
+    <div style="font-size:13px;color:#94A3B8">${h(site.address || "")}${site.city ? ", " + h(site.city) : ""}${site.state ? ", " + h(site.state) : ""}</div>
     <div style="margin-top:10px;font-size:10px;color:#6B7394;display:flex;align-items:center;gap:8px">
       <span style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.15);padding:2px 8px;border-radius:4px;color:#C9A84C;font-weight:700;letter-spacing:0.06em">CLICK ANY METRIC</span>
       <span>for full source methodology and derivation intelligence</span>
@@ -844,7 +848,7 @@ function toggleMI(id,evt){
           <div class="mi-row"><span class="mi-row-label">Land as % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%</span></div>
           <div class="mi-row"><span class="mi-row-label">Industry Benchmark</span><span class="mi-row-val">15-25% of total dev cost</span></div>
           <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${landCost/totalDevCost < 0.25 ? "#16A34A" : "#F59E0B"}">${landCost/totalDevCost < 0.15 ? "Favorable" : landCost/totalDevCost < 0.25 ? "Market Rate" : "Premium"}</span></div>` : "Land cost not yet confirmed. This metric will populate when pricing is received from the broker or listing platform."}
-          <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet listing"} | Verified: ${new Date().toLocaleDateString()}</div>
+          <div class="mi-source">Source: ${h(site.listingSource || "Crexi/LoopNet listing")} | Verified: ${new Date().toLocaleDateString()}</div>
         </div>
       </div></div>
     </div>
@@ -1391,12 +1395,12 @@ function toggleMI(id,evt){
             <div class="mi-row"><span class="mi-row-label">0-1 competitors</span><span class="mi-row-val">+8% premium (supply scarcity)</span></div>
             <div class="mi-row"><span class="mi-row-label">2-3 competitors</span><span class="mi-row-val">0% (market equilibrium)</span></div>
             <div class="mi-row"><span class="mi-row-label">4+ competitors</span><span class="mi-row-val">-3% to -6% (rate pressure)</span></div>
-            <div class="mi-source">Source: Google Maps, SpareFoot, operator websites | 3-mile radius scan | ${site.competitorNames || "Competitors surveyed"}</div>
+            <div class="mi-source">Source: Google Maps, SpareFoot, operator websites | 3-mile radius scan | ${h(site.competitorNames || "Competitors surveyed")}</div>
           </div>
         </div></div></td></tr>
         <tr><td style="color:#6B7394">Population Growth</td><td style="font-weight:700">${growthPct.toFixed(1)}% CAGR ${growthPct >= 2 ? '<span class="tag" style="background:#16A34A20;color:#16A34A">Explosive</span>' : growthPct >= 1 ? '<span class="tag" style="background:#42A5F520;color:#42A5F5">Healthy</span>' : '<span class="tag" style="background:#F59E0B20;color:#F59E0B">Stable</span>'}</td></tr>
         <tr><td style="color:#6B7394">Competition Adj.</td><td style="font-weight:700;color:${compAdj >= 1 ? "#16A34A" : "#F59E0B"}">${compAdj >= 1 ? "+" : ""}${((compAdj - 1) * 100).toFixed(0)}% to base rate</td></tr>
-        ${site.demandDrivers ? `<tr><td style="color:#6B7394">Demand Drivers</td><td style="font-weight:600;font-size:11px">${site.demandDrivers.substring(0, 150)}${site.demandDrivers.length > 150 ? "..." : ""}</td></tr>` : ""}
+        ${site.demandDrivers ? `<tr><td style="color:#6B7394">Demand Drivers</td><td style="font-weight:600;font-size:11px">${h(site.demandDrivers.substring(0, 150))}${site.demandDrivers.length > 150 ? "..." : ""}</td></tr>` : ""}
       </table>
     </div>
     <div>
@@ -1474,9 +1478,9 @@ function toggleMI(id,evt){
     </div>
     ${site.competitorNames ? `<div class="insight-box" style="margin-top:14px">
       <div class="insight-title">Competitive Landscape</div>
-      <div><strong>Known Operators (3-mi):</strong> ${site.competitorNames}</div>
-      ${site.nearestCompetitor ? `<div style="margin-top:6px"><strong>Nearest:</strong> ${site.nearestCompetitor}</div>` : ""}
-      ${site.demandSupplySignal ? `<div style="margin-top:6px"><strong>Market Signal:</strong> ${site.demandSupplySignal}</div>` : ""}
+      <div><strong>Known Operators (3-mi):</strong> ${h(site.competitorNames)}</div>
+      ${site.nearestCompetitor ? `<div style="margin-top:6px"><strong>Nearest:</strong> ${h(site.nearestCompetitor)}</div>` : ""}
+      ${site.demandSupplySignal ? `<div style="margin-top:6px"><strong>Market Signal:</strong> ${h(site.demandSupplySignal)}</div>` : ""}
     </div>` : ""}
   </div>
 </div>
@@ -2912,7 +2916,7 @@ function toggleMI(id,evt){
   <div style="font-size:11px;color:#6B7394;margin-bottom:12px">AI-Powered Storage Site Intelligence & Pricing Analytics</div>
   <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent);margin:12px auto;max-width:400px"></div>
   <div style="font-size:10px;color:#4A5080;margin-top:12px;line-height:1.8">
-    <div>Storevex Pricing Report — ${site.name} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div>Storevex Pricing Report — ${h(site.name)} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
     <div style="margin-top:8px;font-weight:600;color:#6B7394">Powered by DJR Real Estate LLC | U.S. Patent Pending — Serial No. 99712640</div>
     <div style="margin-top:10px;max-width:700px;margin-left:auto;margin-right:auto;color:#3A4060;font-size:9px;line-height:1.7">
       <strong style="color:#6B7394">CONFIDENTIAL & PROPRIETARY.</strong> This report and its contents are the exclusive property of DJR Real Estate LLC.
@@ -2938,6 +2942,7 @@ function toggleMI(id,evt){
 // Comprehensive boardroom-ready document combining SiteScore, Pricing, Competition, Zoning, Market Data
 export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
   try {
+  const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
   const fin = computeSiteFinancials(site);
   const { acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
@@ -3030,7 +3035,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
   }).join("");
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>REC Package — ${site.name}</title>
+<title>REC Package — ${h(site.name)}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -3109,8 +3114,8 @@ function toggleMI(id,evt){
           <div style="font-size:10px;color:#94A3B8;letter-spacing:0.08em;margin-top:2px">SITE ACQUISITION PACKAGE</div>
         </div>
       </div>
-      <h1 style="color:#fff;margin-bottom:6px;font-size:28px">${site.name || "Unnamed Site"}</h1>
-      <div style="font-size:13px;color:#94A3B8;margin-top:6px">${site.address || ""}${site.city ? ", " + site.city : ""}${site.state ? ", " + site.state : ""}</div>
+      <h1 style="color:#fff;margin-bottom:6px;font-size:28px">${h(site.name || "Unnamed Site")}</h1>
+      <div style="font-size:13px;color:#94A3B8;margin-top:6px">${h(site.address || "")}${site.city ? ", " + h(site.city) : ""}${site.state ? ", " + h(site.state) : ""}</div>
       ${site.coordinates ? `<div style="font-size:11px;color:#64748B;margin-top:4px">📍 <a href="${mapsUrl}" style="color:#64748B" target="_blank">${site.coordinates}</a></div>` : ""}
     </div>
     <div style="text-align:right">
@@ -3314,7 +3319,7 @@ function toggleMI(id,evt){
       </div></div>
     </div>
   </div>
-  ${site.demandDrivers ? `<div style="margin-top:16px;padding:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#16A34A;letter-spacing:0.08em;margin-bottom:6px">DEMAND DRIVERS</div><div style="font-size:12px;color:#1E293B;line-height:1.6">${site.demandDrivers}</div></div>` : ""}
+  ${site.demandDrivers ? `<div style="margin-top:16px;padding:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#16A34A;letter-spacing:0.08em;margin-bottom:6px">DEMAND DRIVERS</div><div style="font-size:12px;color:#1E293B;line-height:1.6">${h(site.demandDrivers)}</div></div>` : ""}
 </div>
 
 <!-- ═══════════════ SECTION 4: COMPETITION LANDSCAPE ═══════════════ -->
@@ -3340,9 +3345,9 @@ function toggleMI(id,evt){
         <div class="mi-header"><div class="mi-title">Nearest Competing Facility</div><div class="mi-conf mi-conf-med">Verified</div></div>
         <div class="mi-body">
           <strong>Closest competing self-storage facility to the subject site. Proximity validates market demand but also indicates direct overlap.</strong>
-          <div class="mi-row"><span class="mi-row-label">Nearest Facility</span><span class="mi-row-val">${site.nearestCompetitor || "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Competitor Types</span><span class="mi-row-val">${site.competitorTypes || "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Operators in Market</span><span class="mi-row-val">${site.competitorNames || "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Nearest Facility</span><span class="mi-row-val">${h(site.nearestCompetitor || "—")}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Competitor Types</span><span class="mi-row-val">${h(site.competitorTypes || "—")}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Operators in Market</span><span class="mi-row-val">${h(site.competitorNames || "—")}</span></div>
           <div class="mi-row"><span class="mi-row-label">≤0.5 mi</span><span class="mi-row-val">Direct overlap — validates demand but competitive</span></div>
           <div class="mi-row"><span class="mi-row-label">0.5-2.0 mi</span><span class="mi-row-val">Ideal — market validation without cannibalization</span></div>
           <div class="mi-row"><span class="mi-row-label">2.0+ mi</span><span class="mi-row-val">Low overlap — potential underserved catchment</span></div>
@@ -3366,7 +3371,7 @@ function toggleMI(id,evt){
   </div>
   ${site.competitorNames ? `<table>
     <thead><tr><th>Competitor Names</th><th>Types</th><th>Est. Total SF</th></tr></thead>
-    <tbody><tr><td>${site.competitorNames || "—"}</td><td>${site.competitorTypes || "—"}</td><td>${site.competingSF || "—"}</td></tr></tbody>
+    <tbody><tr><td>${h(site.competitorNames || "—")}</td><td>${h(site.competitorTypes || "—")}</td><td>${h(site.competingSF || "—")}</td></tr></tbody>
   </table>` : ""}
   ${nearestPS !== null ? `<div class="mi" onclick="toggleMI('comp-nearps',event)" style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
     <div><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em">NEAREST EXISTING FACILITY</div><div style="font-size:13px;font-weight:700;margin-top:4px">${nearestPS} miles</div></div>
@@ -3439,7 +3444,7 @@ function toggleMI(id,evt){
       ${site.planningContact ? `<tr><td style="font-weight:700;color:#64748B">Planning Contact</td><td>${site.planningContact}${site.planningPhone ? " — " + site.planningPhone : ""}${site.planningEmail ? " — " + site.planningEmail : ""}</td></tr>` : ""}
     </tbody>
   </table>
-  ${site.zoningNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#92400E;letter-spacing:0.08em;margin-bottom:6px">ZONING RESEARCH NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${site.zoningNotes}</div></div>` : ""}
+  ${site.zoningNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#92400E;letter-spacing:0.08em;margin-bottom:6px">ZONING RESEARCH NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${h(site.zoningNotes)}</div></div>` : ""}
 </div>
 
 <!-- ═══════════════ SECTION 6: UTILITIES & INFRASTRUCTURE ═══════════════ -->
@@ -3486,7 +3491,7 @@ function toggleMI(id,evt){
       ${site.totalUtilityBudget ? `<tr><td style="font-weight:700;color:#64748B">Est. Utility Budget</td><td style="font-weight:700;color:#1E293B">${site.totalUtilityBudget}</td></tr>` : ""}
     </tbody>
   </table>
-  ${site.utilityNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em;margin-bottom:6px">UTILITY NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${site.utilityNotes}</div></div>` : ""}
+  ${site.utilityNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em;margin-bottom:6px">UTILITY NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${h(site.utilityNotes)}</div></div>` : ""}
 </div>
 
 <!-- ═══════════════ SECTION 7: SITE CHARACTERISTICS ═══════════════ -->
@@ -3985,10 +3990,10 @@ ${site.sellerBroker || site.brokerNotes || site.listingSource ? `<div class="sec
   <h2><span class="sec-num">11</span> Broker Intelligence</h2>
   <table>
     <tbody>
-      ${site.sellerBroker ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Seller / Broker</td><td>${site.sellerBroker}</td></tr>` : ""}
-      ${site.listingSource ? `<tr><td style="font-weight:700;color:#64748B">Listing Source</td><td>${site.listingSource}</td></tr>` : ""}
-      ${site.listingUrl ? `<tr><td style="font-weight:700;color:#64748B">Listing URL</td><td><a href="${site.listingUrl}" style="color:#2563EB;word-break:break-all">${site.listingUrl}</a></td></tr>` : ""}
-      ${site.brokerNotes ? `<tr><td style="font-weight:700;color:#64748B">Broker Notes</td><td>${site.brokerNotes}</td></tr>` : ""}
+      ${site.sellerBroker ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Seller / Broker</td><td>${h(site.sellerBroker)}</td></tr>` : ""}
+      ${site.listingSource ? `<tr><td style="font-weight:700;color:#64748B">Listing Source</td><td>${h(site.listingSource)}</td></tr>` : ""}
+      ${site.listingUrl ? `<tr><td style="font-weight:700;color:#64748B">Listing URL</td><td><a href="${h(site.listingUrl)}" style="color:#2563EB;word-break:break-all">${h(site.listingUrl)}</a></td></tr>` : ""}
+      ${site.brokerNotes ? `<tr><td style="font-weight:700;color:#64748B">Broker Notes</td><td>${h(site.brokerNotes)}</td></tr>` : ""}
     </tbody>
   </table>
 </div>` : ""}
@@ -3996,7 +4001,7 @@ ${site.sellerBroker || site.brokerNotes || site.listingSource ? `<div class="sec
 <!-- ═══════════════ SECTION 12: DEAL SUMMARY ═══════════════ -->
 ${site.summary ? `<div class="section">
   <h2><span class="sec-num">${site.sellerBroker || site.brokerNotes || site.listingSource ? "12" : "11"}</span> Deal Summary & Notes</h2>
-  <div style="padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;color:#1E293B;line-height:1.7;white-space:pre-wrap">${site.summary}</div>
+  <div style="padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;color:#1E293B;line-height:1.7;white-space:pre-wrap">${h(site.summary)}</div>
 </div>` : ""}
 
 <!-- ═══════════════ FOOTER ═══════════════ -->
@@ -4011,7 +4016,7 @@ ${site.summary ? `<div class="section">
   </div>
   <div style="height:1px;background:linear-gradient(90deg,transparent,#C9A84C,transparent);margin:16px auto;max-width:400px"></div>
   <div style="font-size:10px;color:#94A3B8;line-height:1.8">
-    <div>REC Package — ${site.name} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div>REC Package — ${h(site.name)} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
     <div style="font-weight:600;color:#64748B;margin-top:4px">DJR Real Estate LLC | U.S. Patent Pending — Serial No. 99712640</div>
     <div style="margin-top:10px;font-size:9px;color:#94A3B8;max-width:700px;margin-left:auto;margin-right:auto">
       <strong>CONFIDENTIAL & PROPRIETARY.</strong> This document and its contents are the exclusive property of DJR Real Estate LLC.

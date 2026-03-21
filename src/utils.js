@@ -123,8 +123,10 @@ export const getIQWeight = (config, key) => {
 };
 
 // ─── Helpers ───
-export const uid = () =>
-  Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+export const uid = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+};
 export const fmt$ = (v) => {
   if (!v) return "";
   const n = Number(String(v).replace(/[^0-9.]/g, ""));

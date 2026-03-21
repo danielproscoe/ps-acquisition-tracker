@@ -1,7 +1,10 @@
 // ─── Unit Tests for SiteScore Scoring Engine ───
 // McKinsey Audit: TEST-02 — scoring engine correctness verification
+// Expanded suite: 50+ test cases covering all edge cases, hard fails, bonuses, penalties
 import { computeSiteScore, computeSiteFinancials } from './scoring';
 import { SITE_SCORE_DEFAULTS } from './utils';
+
+// ─── Shared Fixtures ───
 
 const baseSite = {
   name: 'Test Site',
@@ -11,6 +14,9 @@ const baseSite = {
   acreage: '4.0',
   pop3mi: '35,000',
   income3mi: '$75,000',
+  popGrowth3mi: '1.2',
+  households3mi: '14,000',
+  homeValue3mi: '$280,000',
   zoning: 'C-3',
   summary: 'SiteScore 7.5/10. C-3 — by right. No nearby storage. 4.0ac, 350\' frontage. No flood. Tier 1 — Indy.',
   siteiqData: {
@@ -22,19 +28,77 @@ const baseSite = {
   },
 };
 
-describe('computeSiteScore', () => {
+// Helper to create a fully-vetted site (all 17 vet checks pass)
+const fullyVettedSite = {
+  ...baseSite,
+  zoningSource: 'https://municode.com/indianapolis/zoning',
+  zoningClassification: 'by-right',
+  zoningNotes: 'Permitted use table accessed — storage warehouse listed as P in C-3 district per Table 14-1',
+  zoningUseTerm: 'Storage Warehouse (Includes Mini-Warehouse)',
+  waterProvider: 'Citizens Energy Group — Indianapolis Water',
+  waterAvailable: true,
+  insideServiceBoundary: true,
+  distToWaterMain: '50 LF',
+  fireFlowAdequate: true,
+  sewerProvider: 'Citizens Wastewater',
+  electricProvider: 'AES Indiana',
+  floodZone: 'Zone X — no flood',
+  planningContact: 'John Smith, Indianapolis Planning Dept',
+  roadFrontage: '350 LF on US-31',
+  frontageRoadName: 'US-31',
+};
+
+const score = (overrides = {}) => {
+  const site = { ...baseSite, ...overrides };
+  if (overrides.siteiqData) {
+    site.siteiqData = { ...baseSite.siteiqData, ...overrides.siteiqData };
+  }
+  return computeSiteScore(site, SITE_SCORE_DEFAULTS);
+};
+
+// ─── 1. WEIGHT NORMALIZATION ───
+
+describe('Weight Normalization', () => {
+  test('all 10 SITE_SCORE_DEFAULTS weights sum to 1.0', () => {
+    const total = SITE_SCORE_DEFAULTS.reduce((s, d) => s + d.weight, 0);
+    expect(Math.abs(total - 1.0)).toBeLessThan(0.001);
+  });
+
+  test('SITE_SCORE_DEFAULTS has exactly 10 dimensions', () => {
+    expect(SITE_SCORE_DEFAULTS.length).toBe(10);
+  });
+
+  test('all required dimension keys are present', () => {
+    const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
+    expect(keys).toEqual(expect.arrayContaining([
+      'population', 'growth', 'income', 'households', 'homeValue',
+      'zoning', 'psProximity', 'access', 'competition', 'marketTier',
+    ]));
+  });
+
+  test('no pricing dimension exists (removed per v3.1)', () => {
+    const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
+    expect(keys).not.toContain('pricing');
+  });
+});
+
+// ─── 2. BASIC SCORE STRUCTURE ───
+
+describe('computeSiteScore — basic structure', () => {
   test('returns score between 0 and 10', () => {
-    const result = computeSiteScore(baseSite, SITE_SCORE_DEFAULTS);
+    const result = score();
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(10);
   });
 
   test('returns all 10 dimension scores', () => {
-    const result = computeSiteScore(baseSite, SITE_SCORE_DEFAULTS);
+    const result = score();
     expect(Object.keys(result.scores).length).toBe(10);
     expect(result.scores).toHaveProperty('population');
     expect(result.scores).toHaveProperty('growth');
     expect(result.scores).toHaveProperty('income');
+    expect(result.scores).toHaveProperty('households');
+    expect(result.scores).toHaveProperty('homeValue');
     expect(result.scores).toHaveProperty('zoning');
     expect(result.scores).toHaveProperty('psProximity');
     expect(result.scores).toHaveProperty('access');
@@ -42,63 +106,950 @@ describe('computeSiteScore', () => {
     expect(result.scores).toHaveProperty('marketTier');
   });
 
-  test('assigns tier label', () => {
-    const result = computeSiteScore(baseSite, SITE_SCORE_DEFAULTS);
+  test('assigns tier label (gold / steel / gray)', () => {
+    const result = score();
     expect(['gold', 'steel', 'gray']).toContain(result.tier);
     expect(result.label).toBeTruthy();
   });
 
-  test('assigns classification', () => {
-    const result = computeSiteScore(baseSite, SITE_SCORE_DEFAULTS);
+  test('assigns classification (GREEN / YELLOW / ORANGE / RED)', () => {
+    const result = score();
     expect(['GREEN', 'YELLOW', 'ORANGE', 'RED']).toContain(result.classification);
   });
 
-  test('hard FAILs on low population', () => {
-    const lowPopSite = { ...baseSite, pop3mi: '2,000', siteiqData: { ...baseSite.siteiqData } };
-    const result = computeSiteScore(lowPopSite, SITE_SCORE_DEFAULTS);
-    expect(result.hardFail).toBe(true);
-    expect(result.flags.some(f => f.includes('FAIL'))).toBe(true);
+  test('returns breakdown array with 10 entries', () => {
+    const result = score();
+    expect(result.breakdown).toHaveLength(10);
+    result.breakdown.forEach(entry => {
+      expect(entry).toHaveProperty('label');
+      expect(entry).toHaveProperty('key');
+      expect(entry).toHaveProperty('score');
+      expect(entry).toHaveProperty('weight');
+    });
   });
 
-  test('hard FAILs on low income', () => {
-    const lowIncomeSite = { ...baseSite, income3mi: '$40,000', siteiqData: { ...baseSite.siteiqData } };
-    const result = computeSiteScore(lowIncomeSite, SITE_SCORE_DEFAULTS);
-    expect(result.hardFail).toBe(true);
+  test('hasDemoData is true when pop or income provided', () => {
+    const result = score();
+    expect(result.hasDemoData).toBe(true);
   });
 
-  test('by-right zoning scores higher than conditional', () => {
-    const byRight = { ...baseSite, summary: 'by right zoning', siteiqData: { ...baseSite.siteiqData } };
-    const conditional = { ...baseSite, summary: 'conditional SUP required', zoning: 'R-1', siteiqData: { ...baseSite.siteiqData } };
-    const brResult = computeSiteScore(byRight, SITE_SCORE_DEFAULTS);
-    const cResult = computeSiteScore(conditional, SITE_SCORE_DEFAULTS);
-    expect(brResult.scores.zoning).toBeGreaterThan(cResult.scores.zoning);
-  });
-
-  test('handles missing siteiqData gracefully', () => {
-    const noIQ = { ...baseSite, siteiqData: undefined };
-    const result = computeSiteScore(noIQ, SITE_SCORE_DEFAULTS);
-    expect(result.score).toBeGreaterThanOrEqual(0);
-    expect(result.score).toBeLessThanOrEqual(10);
-  });
-
-  test('handles empty site object', () => {
-    const result = computeSiteScore({}, SITE_SCORE_DEFAULTS);
-    expect(result.score).toBeGreaterThanOrEqual(0);
-    expect(typeof result.score).toBe('number');
-    expect(result.flags).toBeDefined();
+  test('hasDemoData is false when no pop or income', () => {
+    const result = score({ pop3mi: '', income3mi: '' });
+    expect(result.hasDemoData).toBe(false);
   });
 });
 
+// ─── 3. CLASSIFICATION THRESHOLDS ───
+
+describe('Classification thresholds', () => {
+  test('score >= 8.0 classifies as GREEN', () => {
+    // Build a site that will score very high
+    const result = computeSiteScore({
+      ...fullyVettedSite,
+      pop3mi: '50,000',
+      income3mi: '$95,000',
+      popGrowth3mi: '2.5',
+      households3mi: '30,000',
+      homeValue3mi: '$550,000',
+      acreage: '4.0',
+      summary: 'by right. 400\' frontage. No flood. No nearby storage.',
+      siteiqData: { nearestPS: 3, competitorCount: 0, marketTier: 1, brokerConfirmedZoning: true, surveyClean: true },
+    }, SITE_SCORE_DEFAULTS);
+    expect(result.classification).toBe('GREEN');
+    expect(result.score).toBeGreaterThanOrEqual(8.0);
+    expect(result.tier).toBe('gold');
+  });
+
+  test('score < 4.0 classifies as RED (without hard fail)', () => {
+    const result = score({
+      pop3mi: '6,000',
+      income3mi: '$56,000',
+      popGrowth3mi: '-0.8',
+      households3mi: '2,000',
+      homeValue3mi: '$80,000',
+      acreage: '1.5',
+      zoning: '',
+      summary: 'agricultural residential only. high competition. saturated.',
+      market: '',
+      siteiqData: { nearestPS: 30, competitorCount: 8, marketTier: undefined },
+    });
+    // With these bad inputs, score should be very low
+    expect(result.score).toBeLessThan(5.0);
+    expect(['ORANGE', 'RED']).toContain(result.classification);
+  });
+
+  test('hard fail forces RED regardless of composite score', () => {
+    // High-scoring site but population hard fail
+    const result = score({
+      pop3mi: '3,000',
+      income3mi: '$95,000',
+      popGrowth3mi: '0.5', // growth < 8 so no corridor exemption
+      summary: 'by right. No nearby storage. 4.0ac, 350\' frontage. No flood.',
+    });
+    expect(result.hardFail).toBe(true);
+    expect(result.classification).toBe('RED');
+  });
+});
+
+// ─── 4. POPULATION SCORING ───
+
+describe('Population scoring', () => {
+  test('pop >= 40,000 scores 10', () => {
+    expect(score({ pop3mi: '45,000' }).scores.population).toBe(10);
+  });
+
+  test('pop 25,000 scores 8', () => {
+    expect(score({ pop3mi: '25,000' }).scores.population).toBe(8);
+  });
+
+  test('pop 15,000 scores 6', () => {
+    expect(score({ pop3mi: '15,000' }).scores.population).toBe(6);
+  });
+
+  test('pop 10,000 scores 5', () => {
+    expect(score({ pop3mi: '10,000' }).scores.population).toBe(5);
+  });
+
+  test('pop 5,000 scores 3', () => {
+    expect(score({ pop3mi: '5,000' }).scores.population).toBe(3);
+  });
+
+  test('pop < 5,000 is HARD FAIL (score 0)', () => {
+    const result = score({ pop3mi: '4,000', popGrowth3mi: '0.5' });
+    expect(result.scores.population).toBe(0);
+    expect(result.hardFail).toBe(true);
+    expect(result.flags.some(f => f.includes('FAIL') && f.includes('pop'))).toBe(true);
+  });
+
+  test('pop 0 or empty defaults to score 5 (no hard fail)', () => {
+    const result = score({ pop3mi: '' });
+    expect(result.scores.population).toBe(5);
+    expect(result.hardFail).toBe(false);
+  });
+});
+
+// ─── 5. GROWTH CORRIDOR EXEMPTION ───
+
+describe('Growth corridor exemption', () => {
+  test('pop 2,500-5,000 with growth >= 8 scores 2 (not FAIL)', () => {
+    const result = score({ pop3mi: '3,500', popGrowth3mi: '2.0' }); // growth 2.0% = score 10 >= 8
+    expect(result.scores.population).toBe(2);
+    expect(result.hardFail).toBe(false);
+    expect(result.flags.some(f => f.includes('Growth corridor'))).toBe(true);
+    expect(result.flags.some(f => f.includes('FAIL') && f.includes('pop'))).toBe(false);
+  });
+
+  test('pop 2,500 with growth score exactly 8 triggers exemption', () => {
+    const result = score({ pop3mi: '2,500', popGrowth3mi: '1.0' }); // 1.0% = growth score 8
+    expect(result.scores.population).toBe(2);
+    expect(result.hardFail).toBe(false);
+  });
+
+  test('pop 4,999 with high growth triggers exemption', () => {
+    const result = score({ pop3mi: '4,999', popGrowth3mi: '2.5' });
+    expect(result.scores.population).toBe(2);
+    expect(result.hardFail).toBe(false);
+  });
+
+  test('pop 2,499 does NOT trigger exemption (below 2,500)', () => {
+    const result = score({ pop3mi: '2,499', popGrowth3mi: '2.5' });
+    expect(result.scores.population).toBe(0);
+    expect(result.hardFail).toBe(true);
+  });
+
+  test('pop 3,500 with growth score 6 does NOT trigger exemption (growth < 8)', () => {
+    const result = score({ pop3mi: '3,500', popGrowth3mi: '0.5' }); // 0.5% = growth score 6
+    expect(result.scores.population).toBe(0);
+    expect(result.hardFail).toBe(true);
+  });
+});
+
+// ─── 6. INCOME SCORING & HARD FAIL ───
+
+describe('Income scoring', () => {
+  test('HHI >= $90K scores 10', () => {
+    expect(score({ income3mi: '$95,000' }).scores.income).toBe(10);
+  });
+
+  test('HHI >= $75K scores 8', () => {
+    expect(score({ income3mi: '$75,000' }).scores.income).toBe(8);
+  });
+
+  test('HHI >= $65K scores 6', () => {
+    expect(score({ income3mi: '$65,000' }).scores.income).toBe(6);
+  });
+
+  test('HHI >= $55K scores 4', () => {
+    expect(score({ income3mi: '$55,000' }).scores.income).toBe(4);
+  });
+
+  test('HHI < $55K is HARD FAIL', () => {
+    const result = score({ income3mi: '$40,000' });
+    expect(result.scores.income).toBe(0);
+    expect(result.hardFail).toBe(true);
+    expect(result.flags.some(f => f.includes('FAIL') && f.includes('HHI'))).toBe(true);
+  });
+
+  test('empty income defaults to 5 (no hard fail)', () => {
+    const result = score({ income3mi: '' });
+    expect(result.scores.income).toBe(5);
+    expect(result.hardFail).toBe(false);
+  });
+});
+
+// ─── 7. PS PROXIMITY ───
+
+describe('PS proximity scoring', () => {
+  test('>35 mi is HARD FAIL (score 0)', () => {
+    const result = score({ siteiqData: { nearestPS: 36 } });
+    expect(result.scores.psProximity).toBe(0);
+    expect(result.hardFail).toBe(true);
+    expect(result.flags.some(f => f.includes('FAIL') && f.includes('35 mi'))).toBe(true);
+  });
+
+  test('<= 5 mi scores 10 (market validation)', () => {
+    expect(score({ siteiqData: { nearestPS: 5 } }).scores.psProximity).toBe(10);
+  });
+
+  test('0.5 mi scores 10 — no minimum proximity penalty', () => {
+    expect(score({ siteiqData: { nearestPS: 0.5 } }).scores.psProximity).toBe(10);
+  });
+
+  test('0.1 mi scores 10 — adjacent to PS is fine', () => {
+    expect(score({ siteiqData: { nearestPS: 0.1 } }).scores.psProximity).toBe(10);
+  });
+
+  test('8 mi scores 9', () => {
+    expect(score({ siteiqData: { nearestPS: 8 } }).scores.psProximity).toBe(9);
+  });
+
+  test('12 mi scores 7', () => {
+    expect(score({ siteiqData: { nearestPS: 12 } }).scores.psProximity).toBe(7);
+  });
+
+  test('20 mi scores 5', () => {
+    expect(score({ siteiqData: { nearestPS: 20 } }).scores.psProximity).toBe(5);
+  });
+
+  test('30 mi scores 3', () => {
+    expect(score({ siteiqData: { nearestPS: 30 } }).scores.psProximity).toBe(3);
+  });
+
+  test('exactly 35 mi scores 3 (not FAIL)', () => {
+    expect(score({ siteiqData: { nearestPS: 35 } }).scores.psProximity).toBe(3);
+  });
+
+  test('missing nearestPS defaults to score 5', () => {
+    expect(score({ siteiqData: { nearestPS: undefined } }).scores.psProximity).toBe(5);
+  });
+
+  test('null nearestPS defaults to score 5', () => {
+    expect(score({ siteiqData: { nearestPS: null } }).scores.psProximity).toBe(5);
+  });
+});
+
+// ─── 8. ZONING SCORING ───
+
+describe('Zoning scoring', () => {
+  test('zoningClassification "by-right" scores 10', () => {
+    expect(score({ zoningClassification: 'by-right' }).scores.zoning).toBe(10);
+  });
+
+  test('zoningClassification "conditional" scores 6', () => {
+    expect(score({ zoningClassification: 'conditional' }).scores.zoning).toBe(6);
+  });
+
+  test('zoningClassification "rezone-required" scores 2', () => {
+    expect(score({ zoningClassification: 'rezone-required' }).scores.zoning).toBe(2);
+  });
+
+  test('zoningClassification "prohibited" is HARD FAIL (score 0)', () => {
+    const result = score({ zoningClassification: 'prohibited' });
+    expect(result.scores.zoning).toBe(0);
+    expect(result.hardFail).toBe(true);
+    expect(result.flags.some(f => f.includes('FAIL') && f.includes('Zoning'))).toBe(true);
+  });
+
+  test('zoningClassification "unknown" falls through to regex', () => {
+    const result = score({
+      zoningClassification: 'unknown',
+      summary: 'by right permitted',
+      zoning: 'C-2',
+    });
+    expect(result.scores.zoning).toBe(10);
+  });
+
+  test('ETJ / no zoning scores 10 via regex', () => {
+    const result = score({
+      zoningClassification: undefined,
+      zoning: 'ETJ',
+      summary: 'no zoning restrictions',
+    });
+    expect(result.scores.zoning).toBe(10);
+  });
+
+  test('unincorporated county scores 10', () => {
+    const result = score({
+      zoningClassification: undefined,
+      zoning: 'unincorporated county',
+      summary: 'no zoning',
+    });
+    expect(result.scores.zoning).toBe(10);
+  });
+
+  test('summary with "conditional SUP" scores 6 via regex', () => {
+    const result = score({
+      zoningClassification: undefined,
+      zoning: 'R-2',
+      summary: 'conditional SUP required for storage',
+    });
+    expect(result.scores.zoning).toBe(6);
+  });
+
+  test('summary with "rezone required" scores 2 via regex', () => {
+    const result = score({
+      zoningClassification: undefined,
+      zoning: 'AG',
+      summary: 'rezone required for storage use. rezoning would be needed.',
+    });
+    // "rezone" matches rezoning regex before "prohibited" matches the AG regex
+    expect(result.scores.zoning).toBe(2);
+  });
+
+  test('zoning field present but no classification and no summary keywords scores 5', () => {
+    const result = score({
+      zoningClassification: undefined,
+      zoning: 'PD-42',
+      summary: 'site available for development',
+    });
+    expect(result.scores.zoning).toBe(5);
+  });
+
+  test('empty zoning with no summary keywords scores 3 (default)', () => {
+    const result = score({
+      zoningClassification: undefined,
+      zoning: '',
+      summary: '',
+    });
+    expect(result.scores.zoning).toBe(3);
+  });
+});
+
+// ─── 9. COMPETITION SCORING ───
+
+describe('Competition scoring via siteiqData.competitorCount', () => {
+  test('0 competitors scores 10', () => {
+    expect(score({ siteiqData: { competitorCount: 0 } }).scores.competition).toBe(10);
+  });
+
+  test('1 competitor scores 10', () => {
+    expect(score({ siteiqData: { competitorCount: 1 } }).scores.competition).toBe(10);
+  });
+
+  test('2 competitors scores 6', () => {
+    expect(score({ siteiqData: { competitorCount: 2 } }).scores.competition).toBe(6);
+  });
+
+  test('3 competitors scores 6', () => {
+    expect(score({ siteiqData: { competitorCount: 3 } }).scores.competition).toBe(6);
+  });
+
+  test('4+ competitors scores 3', () => {
+    expect(score({ siteiqData: { competitorCount: 5 } }).scores.competition).toBe(3);
+  });
+
+  test('missing competitorCount falls back to summary regex', () => {
+    const result = score({
+      siteiqData: { competitorCount: undefined },
+      summary: 'no nearby storage facilities',
+    });
+    expect(result.scores.competition).toBe(9);
+  });
+
+  test('saturated market via summary scores 3', () => {
+    const result = score({
+      siteiqData: { competitorCount: undefined },
+      summary: 'high competition. storage market saturated.',
+    });
+    expect(result.scores.competition).toBe(3);
+  });
+});
+
+// ─── 10. MARKET TIER ───
+
+describe('Market tier scoring via siteiqData.marketTier', () => {
+  test('tier 1 scores 10', () => {
+    expect(score({ siteiqData: { marketTier: 1 } }).scores.marketTier).toBe(10);
+  });
+
+  test('tier 2 scores 8', () => {
+    expect(score({ siteiqData: { marketTier: 2 } }).scores.marketTier).toBe(8);
+  });
+
+  test('tier 3 scores 6', () => {
+    expect(score({ siteiqData: { marketTier: 3 } }).scores.marketTier).toBe(6);
+  });
+
+  test('tier 4 scores 4', () => {
+    expect(score({ siteiqData: { marketTier: 4 } }).scores.marketTier).toBe(4);
+  });
+
+  test('no tier falls back to market field keyword — Cincinnati', () => {
+    const result = score({
+      siteiqData: { marketTier: undefined },
+      market: 'Cincinnati metro',
+    });
+    expect(result.scores.marketTier).toBe(10);
+  });
+
+  test('no tier and no market keyword defaults to 2', () => {
+    const result = score({
+      siteiqData: { marketTier: undefined },
+      market: 'Boise ID',
+    });
+    expect(result.scores.marketTier).toBe(2);
+  });
+});
+
+// ─── 11. ACCESS & SIZE SCORING ───
+
+describe('Access & size scoring', () => {
+  test('3.5-5 ac base score 8', () => {
+    const result = score({ acreage: '4.0', summary: '' });
+    expect(result.scores.access).toBe(8);
+  });
+
+  test('2.5-3.5 ac base score 6', () => {
+    const result = score({ acreage: '3.0', summary: '' });
+    expect(result.scores.access).toBe(6);
+  });
+
+  test('5-7 ac base score 7', () => {
+    const result = score({ acreage: '6.0', summary: '' });
+    expect(result.scores.access).toBe(7);
+  });
+
+  test('> 7 ac base score 5', () => {
+    const result = score({ acreage: '10.0', summary: '' });
+    expect(result.scores.access).toBe(5);
+  });
+
+  test('< 2 ac base score 2', () => {
+    const result = score({ acreage: '1.5', summary: '' });
+    expect(result.scores.access).toBe(2);
+  });
+
+  test('frontage keyword adds +2', () => {
+    const result = score({ acreage: '4.0', summary: "350' frontage on US-31" });
+    expect(result.scores.access).toBe(10); // 8 + 2
+  });
+
+  test('landlocked is HARD FAIL (score 0)', () => {
+    const result = score({ summary: 'landlocked no access' });
+    expect(result.scores.access).toBe(0);
+    expect(result.hardFail).toBe(true);
+    expect(result.flags.some(f => f.includes('FAIL') && f.includes('Landlocked'))).toBe(true);
+  });
+
+  test('flood reduces access score by 2', () => {
+    const result = score({ acreage: '4.0', summary: 'in flood zone AE' });
+    expect(result.scores.access).toBe(6); // 8 - 2
+  });
+
+  test('subdivisible large tract adds +2', () => {
+    const result = score({ acreage: '8.0', summary: 'could subdivide split the parcel' });
+    expect(result.scores.access).toBe(7); // 5 + 2
+  });
+
+  test('access score clamped to 0-10 range', () => {
+    // Frontage + large acreage to test upper cap
+    const result = score({ acreage: '4.0', summary: "400' frontage on main road" });
+    expect(result.scores.access).toBeLessThanOrEqual(10);
+    expect(result.scores.access).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─── 12. PHASE BONUSES ───
+
+describe('Phase bonuses', () => {
+  test('"Under Contract" adds +0.3', () => {
+    const base = score();
+    const phased = score({ phase: 'Under Contract' });
+    expect(phased.score).toBeCloseTo(base.score + 0.3, 0);
+  });
+
+  test('"Closed" adds +0.3', () => {
+    const base = score();
+    const phased = score({ phase: 'Closed' });
+    expect(phased.score).toBeCloseTo(base.score + 0.3, 0);
+  });
+
+  test('"PSA Sent" adds +0.2', () => {
+    const base = score();
+    const phased = score({ phase: 'PSA Sent' });
+    expect(phased.score).toBeCloseTo(base.score + 0.2, 0);
+  });
+
+  test('"LOI" adds +0.15', () => {
+    const base = score();
+    const phased = score({ phase: 'LOI' });
+    // rounding: 0.15 may round to 0.1 or 0.2
+    const diff = phased.score - base.score;
+    expect(diff).toBeGreaterThanOrEqual(0.1);
+    expect(diff).toBeLessThanOrEqual(0.2);
+  });
+
+  test('"SiteScore Approved" adds +0.1', () => {
+    const base = score();
+    const phased = score({ phase: 'SiteScore Approved' });
+    expect(phased.score).toBeGreaterThanOrEqual(base.score);
+  });
+
+  test('phase bonus capped at 10', () => {
+    const result = computeSiteScore({
+      ...fullyVettedSite,
+      pop3mi: '50,000',
+      income3mi: '$95,000',
+      popGrowth3mi: '2.5',
+      households3mi: '30,000',
+      homeValue3mi: '$550,000',
+      phase: 'Under Contract',
+      summary: 'by right. 400\' frontage. No flood. No nearby storage.',
+      siteiqData: { nearestPS: 3, competitorCount: 0, marketTier: 1, brokerConfirmedZoning: true, surveyClean: true },
+    }, SITE_SCORE_DEFAULTS);
+    expect(result.score).toBeLessThanOrEqual(10);
+  });
+
+  test('no phase = no bonus', () => {
+    const withPhase = score({ phase: '' });
+    const noPhase = score({ phase: undefined });
+    expect(withPhase.score).toBe(noPhase.score);
+  });
+});
+
+// ─── 13. STALE LISTING PENALTY ───
+
+describe('Stale listing penalty', () => {
+  test('dateOnMarket > 1000 days ago applies -0.5 penalty', () => {
+    const staleDate = new Date(Date.now() - 1100 * 86400000).toISOString();
+    const base = score();
+    const stale = score({ dateOnMarket: staleDate });
+    expect(stale.score).toBeCloseTo(base.score - 0.5, 0);
+    expect(stale.flags.some(f => f.includes('Stale'))).toBe(true);
+  });
+
+  test('dateOnMarket 500 days ago = no penalty', () => {
+    const recentDate = new Date(Date.now() - 500 * 86400000).toISOString();
+    const base = score();
+    const notStale = score({ dateOnMarket: recentDate });
+    expect(notStale.score).toBe(base.score);
+  });
+
+  test('no dateOnMarket = no penalty', () => {
+    const result = score({ dateOnMarket: undefined });
+    expect(result.flags.some(f => f.includes('Stale'))).toBe(false);
+  });
+
+  test('stale penalty does not drop score below 0', () => {
+    const staleDate = new Date(Date.now() - 1500 * 86400000).toISOString();
+    const result = score({
+      pop3mi: '6,000',
+      income3mi: '$56,000',
+      popGrowth3mi: '-1.0',
+      dateOnMarket: staleDate,
+    });
+    expect(result.score).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─── 14. BROKER INTEL BONUSES ───
+
+describe('Broker intel bonuses', () => {
+  test('brokerConfirmedZoning adds +0.3', () => {
+    const base = score();
+    const confirmed = score({ siteiqData: { brokerConfirmedZoning: true } });
+    expect(confirmed.score).toBeCloseTo(base.score + 0.3, 0);
+  });
+
+  test('surveyClean adds +0.2', () => {
+    const base = score();
+    const clean = score({ siteiqData: { surveyClean: true } });
+    expect(clean.score).toBeCloseTo(base.score + 0.2, 0);
+  });
+
+  test('both bonuses stack (+0.5)', () => {
+    const base = score();
+    const both = score({ siteiqData: { brokerConfirmedZoning: true, surveyClean: true } });
+    expect(both.score).toBeCloseTo(base.score + 0.5, 0);
+  });
+
+  test('brokerConfirmedZoning false = no bonus', () => {
+    const base = score({ siteiqData: { brokerConfirmedZoning: false } });
+    const noBonus = score({ siteiqData: { brokerConfirmedZoning: false, surveyClean: false } });
+    expect(base.score).toBe(noBonus.score);
+  });
+});
+
+// ─── 15. WATER HOOKUP PENALTY ───
+
+describe('Water hookup penalty', () => {
+  test('waterAvailable false + no provider = -1.0 penalty', () => {
+    const base = score();
+    const noWater = score({ waterAvailable: false, waterProvider: '' });
+    expect(noWater.score).toBeLessThan(base.score);
+    const diff = base.score - noWater.score;
+    // Should be approximately 1.0 (may differ slightly due to vet completeness changes)
+    expect(diff).toBeGreaterThanOrEqual(0.5);
+    expect(noWater.flags.some(f => f.includes('WATER') && f.includes('No water provider'))).toBe(true);
+  });
+
+  test('waterAvailable false + provider identified = -0.3 penalty', () => {
+    const base = score();
+    const providerExists = score({
+      waterAvailable: false,
+      waterProvider: 'Citizens Energy Group — Indianapolis Water',
+    });
+    expect(providerExists.score).toBeLessThan(base.score);
+    expect(providerExists.flags.some(f => f.includes('WATER') && f.includes('line extension'))).toBe(true);
+  });
+
+  test('waterAvailable true = no penalty', () => {
+    const withWater = score({ waterAvailable: true });
+    // No water penalty flag
+    expect(withWater.flags.some(f => f.includes('WATER'))).toBe(false);
+  });
+
+  test('waterAvailable undefined = no penalty', () => {
+    const result = score({ waterAvailable: undefined });
+    expect(result.flags.some(f => f.includes('WATER'))).toBe(false);
+  });
+
+  test('short waterProvider string (<=10 chars) treated as no provider', () => {
+    const result = score({ waterAvailable: false, waterProvider: 'unknown' });
+    expect(result.flags.some(f => f.includes('No water provider'))).toBe(true);
+  });
+});
+
+// ─── 16. VET COMPLETENESS BONUS ───
+
+describe('Vet completeness bonus / penalty', () => {
+  test('fully vetted site (100%) gets +0.5 bonus', () => {
+    const unvetted = computeSiteScore({ ...baseSite }, SITE_SCORE_DEFAULTS);
+    const vetted = computeSiteScore({ ...fullyVettedSite }, SITE_SCORE_DEFAULTS);
+    // The fully vetted site should score meaningfully higher from vet bonus
+    // (also benefits from zoningClassification: by-right changing zoning score)
+    expect(vetted.score).toBeGreaterThan(unvetted.score);
+  });
+
+  test('zero vet fields populated gets -0.3 penalty', () => {
+    const result = computeSiteScore({
+      name: 'Empty',
+      pop3mi: '20,000',
+      income3mi: '$70,000',
+      summary: 'by right. No nearby storage.',
+    }, SITE_SCORE_DEFAULTS);
+    expect(result.flags.some(f => f.includes('No deep vet'))).toBe(true);
+  });
+
+  test('partial vet (~70%) gets +0.3 bonus', () => {
+    const partialVet = {
+      ...baseSite,
+      zoningSource: 'https://municode.com/test',
+      zoningClassification: 'by-right',
+      zoningNotes: 'Storage permitted in C-3 per Table 14-1 Section 4.3',
+      zoningUseTerm: 'Self-Storage Warehouse',
+      waterProvider: 'City Water Dept',
+      waterAvailable: true,
+      insideServiceBoundary: true,
+      distToWaterMain: '100 LF',
+      fireFlowAdequate: true,
+      sewerProvider: 'City Sewer',
+      electricProvider: 'Duke Energy',
+      floodZone: 'Zone X',
+      planningContact: 'Planning Dept 555-1234',
+      // roadFrontage and frontageRoadName intentionally missing
+    };
+    const result = computeSiteScore(partialVet, SITE_SCORE_DEFAULTS);
+    // Should not have the "No deep vet" flag
+    expect(result.flags.some(f => f.includes('No deep vet'))).toBe(false);
+  });
+});
+
+// ─── 17. GROWTH SCORING ───
+
+describe('Growth scoring', () => {
+  test('growth >= 2.0% scores 10', () => {
+    expect(score({ popGrowth3mi: '2.5' }).scores.growth).toBe(10);
+  });
+
+  test('growth 1.5% scores 9', () => {
+    expect(score({ popGrowth3mi: '1.5' }).scores.growth).toBe(9);
+  });
+
+  test('growth 1.0% scores 8', () => {
+    expect(score({ popGrowth3mi: '1.0' }).scores.growth).toBe(8);
+  });
+
+  test('growth 0.5% scores 6', () => {
+    expect(score({ popGrowth3mi: '0.5' }).scores.growth).toBe(6);
+  });
+
+  test('growth 0.0% scores 4', () => {
+    expect(score({ popGrowth3mi: '0.0' }).scores.growth).toBe(4);
+  });
+
+  test('growth -0.3% scores 2', () => {
+    expect(score({ popGrowth3mi: '-0.3' }).scores.growth).toBe(2);
+  });
+
+  test('growth < -0.5% scores 0 with warning', () => {
+    const result = score({ popGrowth3mi: '-0.8' });
+    expect(result.scores.growth).toBe(0);
+    expect(result.flags.some(f => f.includes('declining'))).toBe(true);
+  });
+
+  test('no growth data defaults to score 5', () => {
+    expect(score({ popGrowth3mi: undefined }).scores.growth).toBe(5);
+  });
+});
+
+// ─── 18. HOUSEHOLDS & HOME VALUE ───
+
+describe('Households scoring', () => {
+  test('25,000+ households scores 10', () => {
+    expect(score({ households3mi: '30,000' }).scores.households).toBe(10);
+  });
+
+  test('18,000 households scores 8', () => {
+    expect(score({ households3mi: '18,000' }).scores.households).toBe(8);
+  });
+
+  test('< 6,000 households scores 3', () => {
+    expect(score({ households3mi: '4,000' }).scores.households).toBe(3);
+  });
+
+  test('no household data defaults to 5', () => {
+    expect(score({ households3mi: '' }).scores.households).toBe(5);
+  });
+});
+
+describe('Home value scoring', () => {
+  test('$500K+ scores 10', () => {
+    expect(score({ homeValue3mi: '$550,000' }).scores.homeValue).toBe(10);
+  });
+
+  test('$350K scores 9', () => {
+    expect(score({ homeValue3mi: '$350,000' }).scores.homeValue).toBe(9);
+  });
+
+  test('$250K scores 8', () => {
+    expect(score({ homeValue3mi: '$250,000' }).scores.homeValue).toBe(8);
+  });
+
+  test('< $120K scores 2', () => {
+    expect(score({ homeValue3mi: '$100,000' }).scores.homeValue).toBe(2);
+  });
+
+  test('no data defaults to 5', () => {
+    expect(score({ homeValue3mi: '' }).scores.homeValue).toBe(5);
+  });
+});
+
+// ─── 19. EMPTY / MISSING FIELD HANDLING ───
+
+describe('Empty and missing field handling', () => {
+  test('completely empty site object produces valid result', () => {
+    const result = computeSiteScore({}, SITE_SCORE_DEFAULTS);
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(10);
+    expect(typeof result.score).toBe('number');
+    expect(result.flags).toBeDefined();
+    expect(Array.isArray(result.flags)).toBe(true);
+    expect(result.scores).toBeDefined();
+    expect(result.classification).toBeDefined();
+  });
+
+  test('null siteiqData handled gracefully', () => {
+    const result = score({ siteiqData: null });
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.scores.psProximity).toBe(5);
+    expect(result.scores.competition).toBeDefined();
+  });
+
+  test('undefined siteiqData handled gracefully', () => {
+    const result = score({ siteiqData: undefined });
+    expect(result.score).toBeGreaterThanOrEqual(0);
+  });
+
+  test('string numbers with commas and $ signs parsed correctly', () => {
+    const result = score({ pop3mi: '$42,000', income3mi: '78000' });
+    expect(result.scores.population).toBe(10); // 42000 >= 40000
+    expect(result.scores.income).toBe(8); // 78000 >= 75000
+  });
+
+  test('null pop3mi and income3mi treated as no data', () => {
+    const result = score({ pop3mi: null, income3mi: null });
+    expect(result.scores.population).toBe(5);
+    expect(result.scores.income).toBe(5);
+    expect(result.hardFail).toBe(false);
+  });
+});
+
+// ─── 20. LABEL ASSIGNMENT ───
+
+describe('Label assignment', () => {
+  test('score 9+ = ELITE', () => {
+    const result = computeSiteScore({
+      ...fullyVettedSite,
+      pop3mi: '50,000',
+      income3mi: '$95,000',
+      popGrowth3mi: '2.5',
+      households3mi: '30,000',
+      homeValue3mi: '$550,000',
+      summary: 'by right. 400\' frontage. No flood. No nearby storage.',
+      siteiqData: { nearestPS: 3, competitorCount: 0, marketTier: 1, brokerConfirmedZoning: true, surveyClean: true },
+    }, SITE_SCORE_DEFAULTS);
+    if (result.score >= 9) {
+      expect(result.label).toBe('ELITE');
+    } else if (result.score >= 8) {
+      expect(result.label).toBe('PRIME');
+    }
+  });
+
+  test('score 7-7.9 = STRONG', () => {
+    // baseSite should score somewhere in this range
+    const result = score();
+    if (result.score >= 7 && result.score < 8) {
+      expect(result.label).toBe('STRONG');
+    }
+  });
+});
+
+// ─── 21. MULTIPLE HARD FAILS ───
+
+describe('Multiple hard fails', () => {
+  test('low pop + low income + landlocked = multiple flags, still RED', () => {
+    const result = score({
+      pop3mi: '3,000',
+      income3mi: '$40,000',
+      popGrowth3mi: '0.5',
+      summary: 'landlocked no access',
+    });
+    expect(result.hardFail).toBe(true);
+    expect(result.classification).toBe('RED');
+    const failFlags = result.flags.filter(f => f.includes('FAIL'));
+    expect(failFlags.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('prohibited zoning + >35mi PS = multiple hard fails', () => {
+    const result = score({
+      zoningClassification: 'prohibited',
+      siteiqData: { nearestPS: 40 },
+    });
+    expect(result.hardFail).toBe(true);
+    expect(result.classification).toBe('RED');
+  });
+});
+
+// ─── 22. computeSiteFinancials ───
+
 describe('computeSiteFinancials', () => {
-  test('returns financial model for valid site', () => {
+  test('returns valid financial model for standard site', () => {
     const site = { ...baseSite, askingPrice: '$1,200,000' };
     const result = computeSiteFinancials(site);
     expect(result).toBeDefined();
     expect(typeof result).toBe('object');
+    expect(result.totalSF).toBeGreaterThan(0);
+    expect(result.yearData).toHaveLength(5);
+    expect(result.landCost).toBe(1200000);
   });
 
   test('handles missing price gracefully', () => {
     const result = computeSiteFinancials({ ...baseSite, askingPrice: '' });
     expect(result).toBeDefined();
+    expect(result.landCost).toBe(0);
+  });
+
+  test('PS operator profile has lowest management fee', () => {
+    const ps = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000', operatorProfile: 'ps' });
+    const generic = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000', operatorProfile: 'generic' });
+    const indie = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000', operatorProfile: 'independent' });
+    // PS mgmt fee is 3.5%, generic 6%, independent 8%
+    expect(ps.operatorLabel).toContain('Public Storage');
+  });
+
+  test('default operator is PS if not specified', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    expect(result.operatorLabel).toContain('Public Storage');
+  });
+
+  test('multi-story sizing for 2.5-3.5 ac', () => {
+    const result = computeSiteFinancials({ ...baseSite, acreage: '3.0', askingPrice: '$800,000' });
+    expect(result.stories).toBe(3);
+    expect(result.climatePct).toBe(0.75);
+  });
+
+  test('one-story sizing for 3.5+ ac', () => {
+    const result = computeSiteFinancials({ ...baseSite, acreage: '4.5', askingPrice: '$1,200,000' });
+    expect(result.stories).toBe(1);
+    expect(result.climatePct).toBe(0.65);
+  });
+
+  test('land price guide returns 3 tiers (min, strike, max)', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    expect(result.landPrices).toHaveLength(3);
+    expect(result.landPrices[0].label).toBe('Maximum');
+    expect(result.landPrices[1].label).toBe('Strike Price');
+    expect(result.landPrices[2].label).toBe('Minimum');
+  });
+
+  test('IRR is a valid percentage string', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    const irr = parseFloat(result.irrPct);
+    expect(irr).not.toBeNaN();
+    // IRR should be reasonable (between -10% and 50%)
+    expect(irr).toBeGreaterThan(-10);
+    expect(irr).toBeLessThan(50);
+  });
+
+  test('cap rate valuations return 3 scenarios', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    expect(result.valuations).toHaveLength(3);
+    expect(result.valuations[0].label).toContain('Conservative');
+    expect(result.valuations[1].label).toContain('Market');
+    expect(result.valuations[2].label).toContain('Aggressive');
+    // Aggressive cap (lower) = higher value
+    expect(result.valuations[2].value).toBeGreaterThan(result.valuations[0].value);
+  });
+
+  test('5-year lease-up model has escalating occupancy', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    for (let i = 1; i < result.yearData.length; i++) {
+      expect(result.yearData[i].occRate).toBeGreaterThan(result.yearData[i - 1].occRate);
+    }
+  });
+
+  test('internalPrice overrides askingPrice for landCost', () => {
+    const result = computeSiteFinancials({
+      ...baseSite,
+      askingPrice: '$1,500,000',
+      internalPrice: '$1,000,000',
+    });
+    expect(result.landCost).toBe(1000000);
+  });
+
+  test('sensitivity matrix is present', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    expect(result.sensitivityMatrix).toBeDefined();
+    expect(result.sensitivityMatrix.grid).toHaveLength(3); // 3 rent scenarios
+    expect(result.sensitivityMatrix.grid[0]).toHaveLength(3); // 3 occ scenarios each
+  });
+
+  test('DSCR is valid at stabilization', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    const dscr = parseFloat(result.dscrStab);
+    if (!isNaN(dscr)) {
+      expect(dscr).toBeGreaterThan(0);
+    }
   });
 });

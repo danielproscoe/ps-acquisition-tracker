@@ -3,14 +3,23 @@ import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
 
+// Firebase credentials loaded from environment variables (.env)
+// SECURITY: Never hardcode credentials — they are set via Vercel env vars in production
+//           and via .env locally (not committed to git)
+const requiredVars = ['REACT_APP_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_DATABASE_URL', 'REACT_APP_FIREBASE_PROJECT_ID'];
+const missing = requiredVars.filter(v => !process.env[v]);
+if (missing.length > 0) {
+  console.error(`Missing required Firebase env vars: ${missing.join(', ')}. Check .env file.`);
+}
+
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyAjfLspo0mesgOSFR3r0kFfAv_7cnD8yZk",
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "ps-pipeline-engine---djr---v1.firebaseapp.com",
-  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL || "https://ps-pipeline-engine---djr---v1-default-rtdb.firebaseio.com",
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "ps-pipeline-engine---djr---v1",
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "ps-pipeline-engine---djr---v1.firebasestorage.app",
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "863337910082",
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:863337910082:web:4cd6c9d38093a5177202db"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);

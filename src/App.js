@@ -50,9 +50,9 @@ const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCOR
 // SiteScoreBadge wrapper — auto-injects computeSiteScore so call sites stay clean
 const SiteScoreBadge = (props) => <_SiteScoreBadge {...props} computeSiteScore={computeSiteScore} />;
 
-// ─── Seed Data REMOVED (v3) ───
-const DW_SEED = [];
-const MT_SEED = [];
+// ─── Module-scope sort orders (stable, never change) ───
+const PRIORITY_ORDER = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
+const PHASE_ORDER = Object.fromEntries(PHASES.map((p, i) => [p, i]));
 
 // ─── Error Boundary — prevents total app crash on report/render errors ───
 class ErrorBoundary extends React.PureComponent {
@@ -159,8 +159,8 @@ function AppInner() {
   const [highlightedSite, setHighlightedSite] = useState(null);
   // reviewExpandedSite removed — replaced by reviewDetailSite (full-page detail)
   const [reviewTab, setReviewTab] = useState("mine");
+  const [configVersion, setConfigVersion] = useState(0); // Triggers re-render when SiteScore weights change
   const [shareLink, setShareLink] = useState(null);
-  const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
   const [showSiteScoreDetail, setShowSiteScoreDetail] = useState({});
@@ -235,12 +235,6 @@ function AppInner() {
     const subsRef = ref(db, "submissions");
     const eastRef = ref(db, "east");
     const swRef = ref(db, "southwest");
-    const metaRef = ref(db, "meta/seeded");
-
-    const unsubSeed = onValue(metaRef, (snap) => {
-      setSeeded(!!snap.val());
-    });
-
     // SiteScore weight config listener — merges Firebase overrides into live config
     const iqRef = ref(db, "config/siteiq_weights");
     const unsubIQ = onValue(iqRef, (snap) => {
@@ -252,6 +246,7 @@ function AppInner() {
         });
         SITE_SCORE_CONFIG = normalizeSiteScoreWeights(merged);
         setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
+        setConfigVersion(v => v + 1); // Invalidate siteScoreCache after weight change
       }
     });
 
@@ -276,7 +271,6 @@ function AppInner() {
       unsubSubs();
       unsubEast();
       unsubSw();
-      unsubSeed();
       unsubIQ();
     };
   }, [authReady]);
@@ -304,48 +298,6 @@ function AppInner() {
     });
     setMigrated(true);
   }, [loaded, sw, east, subs, migrated]);
-
-  // ─── SEED ON FIRST LOAD ───
-  useEffect(() => {
-    if (!loaded || seeded) return;
-    const now = new Date().toISOString();
-    const make = (d, reg) => ({
-      ...d,
-      region: reg,
-      id: uid(),
-      status: "tracking",
-      submittedAt: now,
-      approvedAt: now,
-      phase: "Prospect",
-      acreage: d.acreage || "",
-      zoning: d.zoning || "",
-      askingPrice: d.askingPrice || "",
-      internalPrice: d.internalPrice || "",
-      income3mi: d.income3mi || "",
-      pop3mi: d.pop3mi || "",
-      sellerBroker: d.sellerBroker || "",
-      summary: d.summary || "",
-      coordinates: d.coordinates || "",
-      market: d.market || "",
-      priority: "⚪ None",
-      messages: {},
-      activityLog: {},
-      docs: {},
-    });
-    const dwSites = DW_SEED.map((d) => make(d, "southwest"));
-    const mtSites = MT_SEED.map((d) => make(d, "east"));
-    const updates = {};
-    dwSites.forEach((s) => {
-      updates[`southwest/${s.id}`] = s;
-    });
-    mtSites.forEach((s) => {
-      updates[`east/${s.id}`] = s;
-    });
-    updates["meta/seeded"] = true;
-    import("firebase/database").then(({ ref: fbRef, update: fbUpdate }) => {
-      fbUpdate(ref(db, "/"), updates).catch(console.error);
-    });
-  }, [loaded, seeded]);
 
   // ─── ALERT for pending sites ───
   useEffect(() => {
@@ -527,8 +479,10 @@ function AppInner() {
     setFlyerFile(file);
     // Preview
     if (file.type.startsWith("image/")) {
+      if (flyerPreview) URL.revokeObjectURL(flyerPreview); // Prevent blob URL memory leak
       setFlyerPreview(URL.createObjectURL(file));
     } else {
+      if (flyerPreview) URL.revokeObjectURL(flyerPreview);
       setFlyerPreview(null);
     }
     try {
@@ -680,6 +634,7 @@ function AppInner() {
     }
     setForm(emptyForm);
     setFlyerFile(null);
+    if (flyerPreview) URL.revokeObjectURL(flyerPreview);
     setFlyerPreview(null);
     setAttachments([]);
     if (flyerRef.current) flyerRef.current.value = "";
@@ -746,7 +701,7 @@ function AppInner() {
     const iqR = computeSiteScore(site);
     fbPush("config/scoring_calibration", {
       siteId: id, siteName: site.name || "", action: "approved_by_ps",
-      siteScore: iqR ? iqR.composite : null,
+      siteScore: iqR ? iqR.score : null,
       classification: iqR ? iqR.classification : null,
       address: site.address || "", state: site.state || "",
       ts: now, by: ri.reviewer || "PS", routedTo: routeTo,
@@ -770,10 +725,12 @@ function AppInner() {
       updates[`submissions/${s.id}/recommendedBy`] = "Dan R.";
       updates[`submissions/${s.id}/recommendedAt`] = now;
     });
-    import("firebase/database").then(({ ref: fbRef, update: fbUpd }) => {
-      fbUpd(ref(db, "/"), updates);
+    update(ref(db, "/"), updates).then(() => {
+      notify(`Recommended ${p.length} sites (awaiting PS approval)`);
+    }).catch((err) => {
+      console.error(err);
+      notify(`Error saving recommendations: ${err.message}`);
     });
-    notify(`Recommended ${p.length} sites (awaiting PS approval)`);
   };
 
   const DECLINE_REASONS = [
@@ -808,7 +765,7 @@ function AppInner() {
     });
     fbPush("config/scoring_calibration", {
       siteId: id, siteName: site?.name || "", action: "declined_by_dan",
-      reason, siteScore: iqR ? iqR.composite : null,
+      reason, siteScore: iqR ? iqR.score : null,
       classification: iqR ? iqR.classification : null,
       address: site?.address || "", state: site?.state || "",
       ts: new Date().toISOString(), by: "Dan R",
@@ -835,7 +792,7 @@ function AppInner() {
     });
     fbPush("config/scoring_calibration", {
       siteId: id, siteName: site?.name || "", action: "rejected_by_ps",
-      reason, feedback, siteScore: iqR ? iqR.composite : null,
+      reason, feedback, siteScore: iqR ? iqR.score : null,
       classification: iqR ? iqR.classification : null,
       address: site?.address || "", state: site?.state || "",
       ts: new Date().toISOString(), by: rejectedBy,
@@ -866,7 +823,29 @@ function AppInner() {
   };
 
   const handleClearDeclined = () => {
-    subs.filter((s) => s.status === "declined").forEach((s) => handleDiscard(s.id));
+    const declined = subs.filter((s) => s.status === "declined");
+    if (!declined.length) return;
+    const batchUpdates = {};
+    const now = new Date().toISOString();
+    declined.forEach((site) => {
+      // Log to killed sites registry
+      const killId = uid();
+      batchUpdates[`config/killed_sites/${killId}`] = {
+        siteId: site.id, name: site.name || "", address: site.address || "",
+        city: site.city || "", state: site.state || "", coordinates: site.coordinates || "",
+        declineReason: site.psRejectReason || site.declineReason || "Discarded",
+        psFeedback: site.psFeedback || "", psRejectedBy: site.psRejectedBy || "",
+        siteScore: site.siteScoreAtDecline || null, killedAt: now,
+      };
+      // Remove from submissions
+      batchUpdates[`submissions/${site.id}`] = null;
+    });
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`${declined.length} declined site${declined.length !== 1 ? "s" : ""} permanently discarded.`);
+    }).catch((err) => {
+      console.error(err);
+      notify(`Error discarding sites: ${err.message}`);
+    });
   };
 
   // ─── DOCUMENT UPLOAD (Firebase Storage) ───
@@ -986,9 +965,6 @@ function AppInner() {
     { key: "priority", label: "Priority" },
     { key: "phase", label: "Phase" },
   ];
-  const priorityOrder = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
-  // Phase sort: pipeline flow order (Incoming → ... → Closed, Dead last)
-  const phaseOrder = Object.fromEntries(PHASES.map((p, i) => [p, i]));
   const sortData = (arr) => {
     const sorted = [...arr];
     switch (sortBy) {
@@ -996,19 +972,20 @@ function AppInner() {
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
       case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
       case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
-      case "priority": return sorted.sort((a, b) => (priorityOrder[normalizePriority(a.priority)] ?? 9) - (priorityOrder[normalizePriority(b.priority)] ?? 9));
-      case "phase": return sorted.sort((a, b) => (phaseOrder[a.phase] ?? 9) - (phaseOrder[b.phase] ?? 9));
+      case "priority": return sorted.sort((a, b) => (PRIORITY_ORDER[normalizePriority(a.priority)] ?? 9) - (PRIORITY_ORDER[normalizePriority(b.priority)] ?? 9));
+      case "phase": return sorted.sort((a, b) => (PHASE_ORDER[a.phase] ?? 9) - (PHASE_ORDER[b.phase] ?? 9));
       default: return sorted.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }
   };
 
   // ─── MEMOIZED SiteScore CACHE ───
   // Computes SiteScore once per site when data changes. Eliminates ~188 redundant calls per render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const siteScoreCache = useMemo(() => {
     const cache = new Map();
     [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteScore(s)); });
     return cache;
-  }, [sw, east]);
+  }, [sw, east, configVersion]);
   const getSiteScore = (site) => siteScoreCache.get(site.id) || computeSiteScore(site);
 
   const SortBar = () => (
@@ -1744,6 +1721,7 @@ function AppInner() {
           const normalized = iqWeights.map(d => ({ ...d, weight: d.weight / totalW }));
           SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
           normalizeSiteScoreWeights(SITE_SCORE_CONFIG);
+          setConfigVersion(v => v + 1); // Invalidate siteScoreCache
           fbSet("config/siteiq_weights", {
             dimensions: normalized.map(d => ({ key: d.key, weight: Math.round(d.weight * 1000) / 1000 })),
             updatedAt: new Date().toISOString(),

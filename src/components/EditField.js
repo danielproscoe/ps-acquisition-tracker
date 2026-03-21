@@ -1,7 +1,6 @@
 // ─── EditField (EF) — Reusable inline edit component ───
 // Extracted from App.js for modular component architecture
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { debounce } from "../utils";
+import React, { useState, useEffect, useRef } from "react";
 
 export default function EF({ label, value, onSave, placeholder, multi }) {
   const [local, setLocal] = useState(value || "");
@@ -25,10 +24,8 @@ export default function EF({ label, value, onSave, placeholder, multi }) {
     boxSizing: "border-box",
     resize: multi ? "vertical" : "none",
   };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSave = useCallback(debounce((v) => onSave(v), 400), [onSave]);
   const handleBlur = () => {
-    if (local !== (value || "")) debouncedSave(local);
+    if (local !== (value || "")) onSave(local);
   };
   return (
     <div>
