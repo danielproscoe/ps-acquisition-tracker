@@ -3645,9 +3645,40 @@ function AppInner() {
   const [sw, setSw] = useState([]);
   const [tab, setTab] = useState("dashboard");
   const [transitioning, setTransitioning] = useState(false);
+  const isPopState = useRef(false); // prevents pushState during popstate handling
+
+  // ─── Browser History Integration — back/forward button support ───
+  const pushNav = useCallback((navState) => {
+    if (!isPopState.current) {
+      window.history.pushState(navState, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Set initial history state
+    window.history.replaceState({ tab: "dashboard", detailView: null, reviewDetailSite: null }, "", window.location.pathname);
+    const onPopState = (e) => {
+      const st = e.state;
+      if (!st) return;
+      isPopState.current = true;
+      setTransitioning(true);
+      setTimeout(() => {
+        setTab(st.tab || "dashboard");
+        setDetailView(st.detailView || null);
+        setReviewDetailSite(st.reviewDetailSite || null);
+        setExpandedSite(null);
+        setFilterPhase("all");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => { setTransitioning(false); isPopState.current = false; }, 350);
+      }, 100);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const navigateTo = useCallback((newTab, opts = {}) => {
-    if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setTab("review"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    if (newTab === tab && !opts.force) { if (detailView) { setDetailView(null); window.scrollTo({ top: 0, behavior: "smooth" }); return; } if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
+    if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setTab("review"); pushNav({ tab: "review", detailView: null, reviewDetailSite: opts.reviewSiteId }); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (newTab === tab && !opts.force) { if (detailView) { setDetailView(null); pushNav({ tab, detailView: null, reviewDetailSite: null }); window.scrollTo({ top: 0, behavior: "smooth" }); return; } if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
     setTransitioning(true);
     setTimeout(() => {
       setTab(newTab);
@@ -3656,13 +3687,15 @@ function AppInner() {
       if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
       if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } else { setExpandedSite(null); }
       if (newTab === "review") setShowNewAlert(false);
+      pushNav({ tab: newTab, detailView: null, reviewDetailSite: null });
       window.scrollTo({ top: 0, behavior: "smooth" });
       setTimeout(() => setTransitioning(false), 350);
     }, 280);
-  }, [tab]);
+  }, [tab, detailView, pushNav]);
   const [toast, setToast] = useState(null);
   const [expandedSite, setExpandedSite] = useState(null);
   const [detailView, setDetailView] = useState(null); // { regionKey, siteId }
+  const goToDetail = useCallback((dv) => { setDetailView(dv); if (dv) pushNav({ tab, detailView: dv, reviewDetailSite: null }); }, [tab, pushNav]);
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
@@ -4454,10 +4487,10 @@ function AppInner() {
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
-                  <div onClick={() => { setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <div onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span onClick={(e) => { e.stopPropagation(); setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
+                        <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
                         <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
@@ -4482,7 +4515,7 @@ function AppInner() {
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
                       </div>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(21,101,192,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(21,101,192,0.3)"; }}>📊 Detail</button>
+                    <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(21,101,192,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(21,101,192,0.3)"; }}>📊 Detail</button>
                     <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
                   </div>
 
@@ -4685,7 +4718,7 @@ function AppInner() {
                         <button onClick={() => {
                           const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
                         }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 SiteScore Deep Vet Report</button>
-                        <button onClick={() => { setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📊 Detailed Property Report</button>
+                        <button onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📊 Detailed Property Report</button>
                         <button onClick={() => {
                           const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
                         }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 SiteScore Pricing Report</button>
@@ -5549,7 +5582,7 @@ function AppInner() {
                       </div>
                       <div style={{ maxHeight: 160, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(243,124,51,0.3) transparent" }}>
                         {recentMoves.slice(0, 10).map((m, idx) => (
-                          <div key={m.name + idx + m.date} onClick={() => { setDetailView({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", borderRadius: 6, transition: "all 0.2s ease" }}
+                          <div key={m.name + idx + m.date} onClick={() => { goToDetail({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", borderRadius: 6, transition: "all 0.2s ease" }}
                             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.paddingLeft = "8px"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "0"; }}
                           >
@@ -5659,7 +5692,7 @@ function AppInner() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setDetailView({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => { goToDetail({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(232,122,46,0.12)")}
                             onMouseLeave={(e) => { const t = getSiteScore(s).tier; e.currentTarget.style.background = t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
                           >
@@ -5885,7 +5918,7 @@ function AppInner() {
                                 <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                                   {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(232,122,46,0.1)", color: "#E87A2E", fontSize: 11, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.2)" }}>🔗 Listing</a>}
                                   {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(21,101,192,0.1)", color: "#42A5F5", fontSize: 11, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.2)" }}>📍 Map</a>}
-                                  <button onClick={() => { setDetailView({ regionKey: site._region, siteId: site.id }); setTab(site._region); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>View Full Detail →</button>
+                                  <button onClick={() => { goToDetail({ regionKey: site._region, siteId: site.id }); setTab(site._region); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>View Full Detail →</button>
                                 </div>
                               </div>
                               {/* Action buttons — right side */}
@@ -6175,8 +6208,8 @@ function AppInner() {
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
           // Keyboard nav for detail view
           const handleDetailKey = (e) => {
-            if (e.key === "ArrowLeft" && prevSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "ArrowRight" && nextSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowLeft" && prevSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowRight" && nextSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
             if (e.key === "Escape") { setDetailView(null); }
           };
           if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
@@ -6187,9 +6220,9 @@ function AppInner() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
                 <button onClick={() => { setDetailView(null); window._detailKeyBound = false; navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
+                  <button disabled={!prevSite} onClick={() => { if (prevSite) { goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
-                  <button disabled={!nextSite} onClick={() => { if (nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!nextSite)}>Next →</button>
+                  <button disabled={!nextSite} onClick={() => { if (nextSite) { goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!nextSite)}>Next →</button>
                 </div>
                 <span style={{ fontSize: 9, color: "#4A5080", fontWeight: 500 }}>← → keys · Esc back</span>
               </div>
@@ -7416,9 +7449,9 @@ function AppInner() {
 
               {/* BOTTOM NAV */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 0", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
-                <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!prevSite), padding: "12px 24px" }}>← {prevSite ? prevSite.name : "Start"}</button>
+                <button disabled={!prevSite} onClick={() => { if (prevSite) { goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!prevSite), padding: "12px 24px" }}>← {prevSite ? prevSite.name : "Start"}</button>
                 <button onClick={() => { setDetailView(null); navigateTo(dv.regionKey); }} style={{ padding: "12px 24px", borderRadius: 10, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↩ Back to Tracker</button>
-                <button disabled={!nextSite} onClick={() => { if (nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!nextSite), padding: "12px 24px" }}>{nextSite ? nextSite.name : "End"} →</button>
+                <button disabled={!nextSite} onClick={() => { if (nextSite) { goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!nextSite), padding: "12px 24px" }}>{nextSite ? nextSite.name : "End"} →</button>
               </div>
             </div>
           );
