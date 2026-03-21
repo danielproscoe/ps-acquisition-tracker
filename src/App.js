@@ -2654,12 +2654,14 @@ const generateRECPackage = (site, iqResult) => {
 
   // ── SiteScore Breakdown ──
   const breakdownRows = (iq.breakdown || []).map(b => {
-    const barColor = b.rawScore >= 8 ? "#16A34A" : b.rawScore >= 6 ? "#3B82F6" : b.rawScore >= 4 ? "#F59E0B" : "#EF4444";
+    const dimScore = b.score || 0;
+    const dimWeighted = dimScore * (b.weight || 0);
+    const barColor = dimScore >= 8 ? "#16A34A" : dimScore >= 6 ? "#3B82F6" : dimScore >= 4 ? "#F59E0B" : "#EF4444";
     return `<tr>
       <td style="padding:10px 14px;font-size:12px;font-weight:700;border-bottom:1px solid rgba(201,168,76,0.06)">${b.icon || "◆"} ${b.label}</td>
-      <td style="padding:10px 14px;border-bottom:1px solid rgba(201,168,76,0.06);width:180px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.06)"><div style="width:${(b.rawScore/10)*100}%;height:100%;border-radius:4px;background:${barColor}"></div></div><span style="font-size:12px;font-weight:800;color:${barColor};font-family:'Space Mono',monospace;min-width:28px;text-align:right">${b.rawScore?.toFixed(1) || "—"}</span></div></td>
+      <td style="padding:10px 14px;border-bottom:1px solid rgba(201,168,76,0.06);width:180px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.06)"><div style="width:${(dimScore/10)*100}%;height:100%;border-radius:4px;background:${barColor}"></div></div><span style="font-size:12px;font-weight:800;color:${barColor};font-family:'Space Mono',monospace;min-width:28px;text-align:right">${dimScore.toFixed(1)}</span></div></td>
       <td style="padding:10px 14px;font-size:11px;color:#6B7394;border-bottom:1px solid rgba(201,168,76,0.06);text-align:right;font-weight:600">${Math.round((b.weight || 0) * 100)}%</td>
-      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#E2E8F0;border-bottom:1px solid rgba(201,168,76,0.06);text-align:right;font-family:'Space Mono',monospace">${b.weighted?.toFixed(2) || "—"}</td>
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#E2E8F0;border-bottom:1px solid rgba(201,168,76,0.06);text-align:right;font-family:'Space Mono',monospace">${dimWeighted.toFixed(2)}</td>
     </tr>`;
   }).join("");
 
@@ -3074,9 +3076,10 @@ ${site.summary ? `<div class="section">
   }
 };
 
-// ─── SiteScore™ v3.1 — 11-Dimension Calibrated Scoring Engine ───
+// ─── SiteScore™ v3.1 — 10-Dimension Calibrated Scoring Engine ───
 // Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
-// Weights: Pop 16%, Growth 18%, HHI 10%, Households 5%, HomeValue 5%, Pricing 8%, Zoning 14%, PS Proximity 10%, Access 7%, Competition 5%, Market 2%
+// Default weights: Pop 16%, Growth 21%, HHI 10%, Households 5%, HomeValue 5%, Zoning 16%, PS Proximity 11%, Access 7%, Competition 7%, Market 2%
+// Pricing removed — land valuation handled by Pricing Report's Land Acquisition Price Guide.
 // Hard FAIL: pop <5K, HHI <$55K, landlocked, >35mi from nearest PS
 const computeSiteScore = (site) => {
   const scores = {};
@@ -3215,7 +3218,7 @@ const computeSiteScore = (site) => {
   }
   scores.zoning = zoningScore;
 
-  // --- 5. ACCESS & VISIBILITY (10%) ---
+  // --- 5. ACCESS & VISIBILITY (7%) ---
   let accessScore = 5;
   if (!isNaN(acres) && acres > 0) {
     if (acres >= 3.5 && acres <= 5) accessScore = 8;
@@ -3245,7 +3248,7 @@ const computeSiteScore = (site) => {
   }
   scores.competition = compScore;
 
-  // --- 7. MARKET TIER (10%) ---
+  // --- 7. MARKET TIER (2%) ---
   let tierScore = 2;
   const tier = site.siteiqData?.marketTier;
   if (tier === 1) tierScore = 10;
@@ -3263,8 +3266,6 @@ const computeSiteScore = (site) => {
   scores.marketTier = tierScore;
 
   // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, 10 dimensions ---
-  // NOTE: Pricing dimension removed — land valuation now handled by Pricing Report's
-  // Land Acquisition Price Guide (min/strike/max back-calculated from stabilized NOI).
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
     (incScore * getIQWeight("income")) + (hhScore * getIQWeight("households")) +
