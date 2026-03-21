@@ -1725,6 +1725,9 @@ function AppInner() {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div className="logo-spin-container" onClick={(e) => { e.currentTarget.querySelector('.logo-img')?.classList.remove('logo-click-spin'); void e.currentTarget.querySelector('.logo-img')?.offsetWidth; e.currentTarget.querySelector('.logo-img')?.classList.add('logo-click-spin'); }} style={{ width: 48, height: 48, borderRadius: 12, cursor: "pointer", position: "relative", boxShadow: "0 4px 20px rgba(232,122,46,0.25), 0 0 0 1px rgba(201,168,76,0.15)", flexShrink: 0 }}>
                 <img className="logo-img logo-auto-spin" src="/storvex-logo.png" alt="SiteScore" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} />
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 18, height: 18, borderRadius: "50%", background: "#0a0e2a", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                  <span style={{ fontSize: 7, fontWeight: 900, color: "#fff", letterSpacing: "0.5px", fontFamily: "'Inter', sans-serif", lineHeight: 1 }}>AI</span>
+                </div>
               </div>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>STORVEX</div>
