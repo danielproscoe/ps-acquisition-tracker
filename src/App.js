@@ -937,8 +937,9 @@ const computeSiteFinancials = (site) => {
   const footprint = !isNaN(acres) ? Math.round(acres * 43560 * 0.35) : 60000; // 35% coverage confirmed by Killeen sketch
   const totalSF = footprint * stories;
   const climatePct = isMultiStory ? 0.75 : 0.65; // Multi-story: 75% climate (vertical = all indoor). One-story: 65% per PS Killeen layout
+  const drivePct = 1 - climatePct;
   const climateSF = Math.round(totalSF * climatePct);
-  const driveSF = Math.round(totalSF * (1 - climatePct));
+  const driveSF = Math.round(totalSF * drivePct);
 
   // ── Market Rate Intelligence ──
   const incTier = incN >= 90000 ? "premium" : incN >= 75000 ? "upper" : incN >= 60000 ? "mid" : "value";
@@ -1118,7 +1119,7 @@ const computeSiteFinancials = (site) => {
     // Inputs
     acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
     // Facility
-    isMultiStory, stories, footprint, totalSF, climatePct, climateSF, driveSF,
+    isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
     // Rates
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     // Year data
@@ -1158,7 +1159,7 @@ const generatePricingReport = (site, iqResult) => {
   const iq = iqResult || computeSiteScore(site);
   const fin = computeSiteFinancials(site);
   const { acres, landCost, popN, incN, hvN, growthPct, compCount, nearestPS, incTier,
-    isMultiStory, stories, footprint, totalSF, climatePct, climateSF, driveSF,
+    isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts, totalDevCost, yocStab,
@@ -2581,7 +2582,7 @@ const generateRECPackage = (site, iqResult) => {
   const iq = iqResult || computeSiteScore(site);
   const fin = computeSiteFinancials(site);
   const { acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
-    isMultiStory, stories, footprint, totalSF, climatePct, climateSF, driveSF,
+    isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts, totalDevCost, yocStab,
