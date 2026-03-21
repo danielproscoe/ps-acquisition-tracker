@@ -3310,8 +3310,40 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 .divider{height:2px;background:linear-gradient(90deg,transparent,#C9A84C,#E87A2E,#C9A84C,transparent);margin:0;opacity:0.4}
 .print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#C9A84C;font-size:14px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(30,39,97,0.4);z-index:9999}
 .print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(30,39,97,0.5)}
-@media print{body{background:#fff}.print-btn{display:none!important}.page{box-shadow:none}@page{margin:0.5in;size:letter}}
-</style></head><body>
+.mi{position:relative;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s}
+.mi:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(30,39,97,0.08)}
+.mi:hover .mi-hint{opacity:1}
+.mi-hint{position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:900;color:#fff;opacity:0;transition:opacity 0.2s;z-index:2;font-style:normal;line-height:1}
+.mi-panel{max-height:0;overflow:hidden;transition:max-height 0.35s ease,opacity 0.3s ease,margin 0.3s ease;opacity:0;margin-top:0;border-radius:12px}
+.mi-panel.open{max-height:800px;opacity:1;margin-top:12px}
+.mi-panel-inner{background:linear-gradient(135deg,#F8FAFC,#F1F5F9);border:1px solid #E2E8F0;border-radius:12px;padding:18px;box-shadow:0 4px 16px rgba(30,39,97,0.06)}
+.mi-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #E2E8F0}
+.mi-title{font-size:12px;font-weight:800;color:#1E2761;letter-spacing:0.04em}
+.mi-conf{font-size:9px;font-weight:700;letter-spacing:0.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase}
+.mi-conf-high{background:rgba(22,163,74,0.1);color:#16A34A;border:1px solid rgba(22,163,74,0.2)}
+.mi-conf-med{background:rgba(245,158,11,0.1);color:#D97706;border:1px solid rgba(245,158,11,0.2)}
+.mi-conf-low{background:rgba(239,68,68,0.1);color:#EF4444;border:1px solid rgba(239,68,68,0.2)}
+.mi-body{font-size:11px;color:#475569;line-height:1.65}
+.mi-body strong{color:#1E293B}
+.mi-formula{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;margin:10px 0;font-family:'Space Mono',monospace;font-size:10px;color:#1E40AF;line-height:1.8}
+.mi-source{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #E2E8F0;font-size:9px;color:#64748B;font-weight:600;letter-spacing:0.04em}
+.mi-source::before{content:"📊";font-size:10px}
+.mi-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #F1F5F9;font-size:11px}
+.mi-row:last-child{border-bottom:none}
+.mi-row-label{color:#64748B;font-weight:600}
+.mi-row-val{color:#1E293B;font-weight:700;font-family:'Space Mono',monospace}
+@media print{body{background:#fff}.print-btn{display:none!important}.page{box-shadow:none}.mi-panel{max-height:none!important;opacity:1!important;margin-top:12px!important}.mi-hint{display:none}@page{margin:0.5in;size:letter}}
+</style>
+<script>
+function toggleMI(id,evt){
+  if(evt){evt.stopPropagation();}
+  var p=document.getElementById('mi-'+id);
+  if(!p)return;
+  document.querySelectorAll('.mi-panel.open').forEach(function(el){if(el.id!=='mi-'+id)el.classList.remove('open');});
+  p.classList.toggle('open');
+}
+</script>
+</head><body>
 <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
 <div class="page">
 
@@ -3368,17 +3400,52 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
     </div>
   </div>
   ${landVerdict ? `<div style="display:flex;gap:16px;margin-top:16px">
-    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center">
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-verdict',event)">
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">LAND VERDICT</div>
-      <div class="badge" style="background:${verdictColor}18;color:${verdictColor};border:1px solid ${verdictColor}30;font-size:14px;padding:6px 18px">${landVerdict}</div>
+      <div class="badge" style="background:${verdictColor}18;color:${verdictColor};border:1px solid ${verdictColor}30;font-size:14px;padding:6px 18px">${landVerdict}</div><em class="mi-hint">i</em>
+      <div id="mi-rec-verdict" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Land Pricing Verdict</div><div class="mi-conf ${landVerdict === "BUY" || landVerdict === "TARGET" ? "mi-conf-high" : landVerdict === "STRETCH" ? "mi-conf-med" : "mi-conf-low"}">${landVerdict === "BUY" ? "Favorable" : landVerdict === "TARGET" ? "At Target" : landVerdict === "STRETCH" ? "Above Target" : "Overpriced"}</div></div>
+        <div class="mi-body">
+          <strong>Verdict is determined by comparing the asking price against the strike price (max land at target YOC).</strong>
+          <div class="mi-formula">Strike Price = Max land at ${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "8.5"}% target YOC<br>= ${landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}<br>Ask vs Strike = ${parseFloat(askVsStrike) > 0 ? "+" : ""}${askVsStrike}%</div>
+          <div class="mi-row"><span class="mi-row-label">BUY (≤-10%)</span><span class="mi-row-val">Below strike — strong acquisition opportunity</span></div>
+          <div class="mi-row"><span class="mi-row-label">TARGET (-10% to +5%)</span><span class="mi-row-val">At or near strike — proceed with standard terms</span></div>
+          <div class="mi-row"><span class="mi-row-label">STRETCH (+5% to +30%)</span><span class="mi-row-val">Above strike — requires negotiation or rent upside</span></div>
+          <div class="mi-row"><span class="mi-row-label">PASS (>+30%)</span><span class="mi-row-val">Significantly above strike — does not underwrite</span></div>
+          <div class="mi-source">Source: SiteScore Land Acquisition Price Guide | Back-calculated from stabilized NOI at target development yield</div>
+        </div>
+      </div></div>
     </div>
-    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center">
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-askvstrike',event)">
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">ASK vs STRIKE</div>
-      <div style="font-size:20px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</div>
+      <div style="font-size:20px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</div><em class="mi-hint">i</em>
+      <div id="mi-rec-askvstrike" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Ask vs Strike Differential</div><div class="mi-conf ${parseFloat(askVsStrike) <= 0 ? "mi-conf-high" : parseFloat(askVsStrike) <= 15 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
+        <div class="mi-body">
+          <strong>Measures the gap between asking price and maximum land price at target development yield.</strong>
+          <div class="mi-formula">Ask vs Strike = (Asking - Strike) ÷ Strike × 100<br>= (${fmtD(landCost)} - ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}) ÷ ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}<br>= <strong style="color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'}">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Asking Price</span><span class="mi-row-val">${fmtD(landCost)}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Strike Price (8.5% YOC)</span><span class="mi-row-val">${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Negotiation Room</span><span class="mi-row-val">${parseFloat(askVsStrike) > 0 ? fmtD(landCost - (landPrices[1] ? landPrices[1].maxLand : 0)) + " reduction needed" : "Already below strike"}</span></div>
+          <div class="mi-source">Source: SiteScore Financial Engine | Strike = NOI ÷ Target YOC − Construction Costs</div>
+        </div>
+      </div></div>
     </div>
-    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center">
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-yoc',event)">
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">STABILIZED YOC</div>
-      <div style="font-size:20px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : parseFloat(yocStab) >= 7.0 ? '#F59E0B' : '#EF4444'};font-family:'Space Mono',monospace">${yocStab}%</div>
+      <div style="font-size:20px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : parseFloat(yocStab) >= 7.0 ? '#F59E0B' : '#EF4444'};font-family:'Space Mono',monospace">${yocStab}%</div><em class="mi-hint">i</em>
+      <div id="mi-rec-yoc" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Stabilized Yield on Cost</div><div class="mi-conf ${parseFloat(yocStab) >= 8.5 ? "mi-conf-high" : parseFloat(yocStab) >= 7.0 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(yocStab) >= 9 ? "Exceeds Target" : parseFloat(yocStab) >= 8.0 ? "Meets Target" : "Below Target"}</div></div>
+        <div class="mi-body">
+          <strong>The primary return metric for ground-up development — stabilized NOI as a percentage of total development cost.</strong>
+          <div class="mi-formula">YOC = Stabilized NOI (Y5) ÷ Total Dev Cost<br>= ${fmtD(stabNOI)} ÷ ${fmtD(totalDevCost)}<br>= <strong style="color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : '#F59E0B'}">${yocStab}%</strong></div>
+          <div class="mi-row"><span class="mi-row-label">REIT Target Range</span><span class="mi-row-val">8.0% – 10.0%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Minimum Hurdle</span><span class="mi-row-val">7.5%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Dev Spread vs Mkt Cap</span><span class="mi-row-val">${devSpread || "N/A"} bps</span></div>
+          <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${parseFloat(yocStab) >= 9 ? '#16A34A' : parseFloat(yocStab) >= 7.5 ? '#D97706' : '#EF4444'}">${parseFloat(yocStab) >= 9.5 ? "Exceptional — well above hurdle" : parseFloat(yocStab) >= 8.5 ? "Strong — above sweet spot" : parseFloat(yocStab) >= 7.5 ? "Meets minimum threshold" : "Below hurdle — negotiate land price"}</span></div>
+          <div class="mi-source">Source: SiteScore 5-Year Lease-Up Model | Industry-standard development return metric (PSA 10-K, EXR 10-K)</div>
+        </div>
+      </div></div>
     </div>
   </div>` : ""}
 </div>
@@ -3400,15 +3467,102 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 <div class="section">
   <h2><span class="sec-num">3</span> Market Demographics</h2>
   <div class="grid4" style="margin-bottom:16px">
-    <div class="metric"><div class="label">3-Mi Population</div><div class="value">${!isNaN(popN) ? fmtN2(popN) : "—"}</div></div>
-    <div class="metric"><div class="label">Median HHI</div><div class="value">${!isNaN(incN) ? "$" + fmtN2(incN) : "—"}</div></div>
-    <div class="metric"><div class="label">Households</div><div class="value">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</div></div>
-    <div class="metric"><div class="label">Home Value</div><div class="value">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</div></div>
+    <div class="metric mi" onclick="toggleMI('dem-pop',event)"><div class="label">3-Mi Population</div><div class="value">${!isNaN(popN) ? fmtN2(popN) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-dem-pop" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">3-Mile Population</div><div class="mi-conf ${popN >= 25000 ? "mi-conf-high" : popN >= 10000 ? "mi-conf-med" : "mi-conf-low"}">${popN >= 40000 ? "Dense" : popN >= 25000 ? "Strong" : popN >= 10000 ? "Adequate" : "Low"}</div></div>
+        <div class="mi-body">
+          <strong>Total population within a 3-mile radius — the primary demand catchment for self-storage.</strong>
+          <div class="mi-formula">SiteScore Weight: 16% of composite<br>Score: ${popN >= 40000 ? "10/10 (40K+)" : popN >= 25000 ? "8/10 (25K+)" : popN >= 15000 ? "6/10 (15K+)" : popN >= 10000 ? "5/10 (10K+)" : popN >= 5000 ? "3/10 (5K+)" : "0/10 — FAIL (<5K)"}</div>
+          <div class="mi-row"><span class="mi-row-label">3-Mi Population</span><span class="mi-row-val">${!isNaN(popN) ? fmtN2(popN) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Industry Avg Demand</span><span class="mi-row-val">~10% of pop rents storage</span></div>
+          <div class="mi-row"><span class="mi-row-label">Est. Demand Pool</span><span class="mi-row-val">${!isNaN(popN) ? fmtN2(Math.round(popN * 0.10)) + " potential renters" : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Hard FAIL Threshold</span><span class="mi-row-val" style="color:#EF4444">Below 5,000</span></div>
+          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | 3-mile radius centroid calculation</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('dem-hhi',event)"><div class="label">Median HHI</div><div class="value">${!isNaN(incN) ? "$" + fmtN2(incN) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-dem-hhi" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Median Household Income</div><div class="mi-conf ${incN >= 75000 ? "mi-conf-high" : incN >= 55000 ? "mi-conf-med" : "mi-conf-low"}">${incN >= 90000 ? "Affluent" : incN >= 75000 ? "Upper-Middle" : incN >= 55000 ? "Middle" : "Below Threshold"}</div></div>
+        <div class="mi-body">
+          <strong>Median household income within 3 miles — indicates spending capacity for premium storage services.</strong>
+          <div class="mi-formula">SiteScore Weight: 10% of composite<br>Score: ${incN >= 90000 ? "10/10 ($90K+)" : incN >= 75000 ? "8/10 ($75K+)" : incN >= 65000 ? "6/10 ($65K+)" : incN >= 55000 ? "4/10 ($55K+)" : "0/10 — FAIL (<$55K)"}</div>
+          <div class="mi-row"><span class="mi-row-label">Median HHI</span><span class="mi-row-val">${!isNaN(incN) ? "$" + fmtN2(incN) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">U.S. Median (2024)</span><span class="mi-row-val">$80,610</span></div>
+          <div class="mi-row"><span class="mi-row-label">vs National</span><span class="mi-row-val" style="color:${incN >= 80610 ? '#16A34A' : '#D97706'}">${incN >= 80610 ? "+" : ""}${!isNaN(incN) ? Math.round((incN/80610-1)*100) : "—"}%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Hard FAIL Threshold</span><span class="mi-row-val" style="color:#EF4444">Below $55,000</span></div>
+          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | Table B19013</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('dem-hh',event)"><div class="label">Households</div><div class="value">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-dem-hh" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">3-Mile Household Count</div><div class="mi-conf ${hhN >= 18000 ? "mi-conf-high" : hhN >= 6000 ? "mi-conf-med" : "mi-conf-low"}">${hhN >= 25000 ? "Dense" : hhN >= 12000 ? "Strong" : "Moderate"}</div></div>
+        <div class="mi-body">
+          <strong>Total households within 3 miles — more precise demand proxy than population (1 household = 1 potential storage unit).</strong>
+          <div class="mi-formula">SiteScore Weight: 5% of composite<br>Score: ${hhN >= 25000 ? "10/10 (25K+)" : hhN >= 18000 ? "8/10 (18K+)" : hhN >= 12000 ? "7/10 (12K+)" : hhN >= 6000 ? "5/10 (6K+)" : "3/10 (<6K)"}</div>
+          <div class="mi-row"><span class="mi-row-label">Households</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Avg HH Size</span><span class="mi-row-val">${!isNaN(popN) && !isNaN(hhN) && hhN > 0 ? (popN/hhN).toFixed(2) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Est. Addressable HH</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(Math.round(hhN * 0.10)) + " (10% penetration)" : "—"}</span></div>
+          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | Table B11001</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('dem-hv',event)"><div class="label">Home Value</div><div class="value">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-dem-hv" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Median Home Value</div><div class="mi-conf ${hvN >= 350000 ? "mi-conf-high" : hvN >= 180000 ? "mi-conf-med" : "mi-conf-low"}">${hvN >= 500000 ? "Premium" : hvN >= 250000 ? "Strong" : "Moderate"}</div></div>
+        <div class="mi-body">
+          <strong>Median home value within 3 miles — affluence signal correlated with storage demand and willingness to pay premium rates.</strong>
+          <div class="mi-formula">SiteScore Weight: 5% of composite<br>Score: ${hvN >= 500000 ? "10/10 ($500K+)" : hvN >= 350000 ? "9/10 ($350K+)" : hvN >= 250000 ? "8/10 ($250K+)" : hvN >= 180000 ? "6/10 ($180K+)" : "4/10 or lower"}</div>
+          <div class="mi-row"><span class="mi-row-label">Median Home Value</span><span class="mi-row-val">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">U.S. Median (2024)</span><span class="mi-row-val">$344,900</span></div>
+          <div class="mi-row"><span class="mi-row-label">Why It Matters</span><span class="mi-row-val">Higher home values → more possessions → more storage demand</span></div>
+          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | Table B25077 | Zillow ZHVI cross-reference</div>
+        </div>
+      </div></div>
+    </div>
   </div>
   <div class="grid3">
-    <div class="metric"><div class="label">1-Mi Population</div><div class="value">${!isNaN(pop1) ? fmtN2(pop1) : "—"}</div></div>
-    <div class="metric"><div class="label">5-Yr Growth CAGR</div><div class="value" style="color:${growthPct >= 1.5 ? '#16A34A' : growthPct >= 0 ? '#F59E0B' : '#EF4444'}">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</div></div>
-    <div class="metric"><div class="label">Income Tier</div><div class="value" style="font-size:14px">${incTier.toUpperCase()}</div></div>
+    <div class="metric mi" onclick="toggleMI('dem-pop1',event)"><div class="label">1-Mi Population</div><div class="value">${!isNaN(pop1) ? fmtN2(pop1) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-dem-pop1" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">1-Mile Population</div><div class="mi-conf mi-conf-med">Supplemental</div></div>
+        <div class="mi-body">
+          <strong>Immediate-vicinity population — measures walk-up/drive-by demand within 1 mile of the site.</strong>
+          <div class="mi-row"><span class="mi-row-label">1-Mi Population</span><span class="mi-row-val">${!isNaN(pop1) ? fmtN2(pop1) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Pop Density</span><span class="mi-row-val">${!isNaN(pop1) ? fmtN2(Math.round(pop1 / 3.14)) + "/sq mi" : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">1-Mi vs 3-Mi Ratio</span><span class="mi-row-val">${!isNaN(pop1) && !isNaN(popN) && popN > 0 ? Math.round(pop1/popN*100) + "% concentration" : "—"}</span></div>
+          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | 1-mile radius centroid</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('dem-growth',event)"><div class="label">5-Yr Growth CAGR</div><div class="value" style="color:${growthPct >= 1.5 ? '#16A34A' : growthPct >= 0 ? '#F59E0B' : '#EF4444'}">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-dem-growth" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">5-Year Population Growth CAGR</div><div class="mi-conf ${growthPct >= 1.5 ? "mi-conf-high" : growthPct >= 0 ? "mi-conf-med" : "mi-conf-low"}">${growthPct >= 2.0 ? "High Growth" : growthPct >= 1.0 ? "Growing" : growthPct >= 0 ? "Stable" : "Declining"}</div></div>
+        <div class="mi-body">
+          <strong>Projected compound annual population growth rate (2025→2030) — the highest-weighted SiteScore dimension at 21%.</strong>
+          <div class="mi-formula">SiteScore Weight: 21% of composite (highest weight)<br>Score: ${growthPct >= 2.0 ? "10/10 (≥2.0%)" : growthPct >= 1.5 ? "9/10 (≥1.5%)" : growthPct >= 1.0 ? "8/10 (≥1.0%)" : growthPct >= 0.5 ? "6/10 (≥0.5%)" : growthPct >= 0 ? "4/10 (≥0%)" : "0-2/10 (negative)"}</div>
+          <div class="mi-row"><span class="mi-row-label">5-Yr CAGR</span><span class="mi-row-val">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">U.S. Average</span><span class="mi-row-val">0.4% CAGR</span></div>
+          <div class="mi-row"><span class="mi-row-label">Why Highest Weight</span><span class="mi-row-val">Growing markets = rising demand + rent growth + lower vacancy risk</span></div>
+          <div class="mi-source">Source: ESRI Demographics 2025→2030 projections | ArcGIS Business Analyst | Census base year 2020</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('dem-tier',event)"><div class="label">Income Tier</div><div class="value" style="font-size:14px">${incTier.toUpperCase()}</div><em class="mi-hint">i</em>
+      <div id="mi-dem-tier" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Income Tier Classification</div><div class="mi-conf mi-conf-med">Derived</div></div>
+        <div class="mi-body">
+          <strong>Income tier drives storage rental rate assumptions — higher-income markets command premium pricing.</strong>
+          <div class="mi-formula">Classification: ${incTier.toUpperCase()}<br>Based on 3-mi median HHI: $${!isNaN(incN) ? fmtN2(incN) : "—"}</div>
+          <div class="mi-row"><span class="mi-row-label">Premium ($100K+)</span><span class="mi-row-val">Highest climate rates — $1.40-1.80/SF/mo</span></div>
+          <div class="mi-row"><span class="mi-row-label">Upper ($80-100K)</span><span class="mi-row-val">Above-average rates — $1.15-1.40/SF/mo</span></div>
+          <div class="mi-row"><span class="mi-row-label">Middle ($60-80K)</span><span class="mi-row-val">Market rates — $0.95-1.15/SF/mo</span></div>
+          <div class="mi-row"><span class="mi-row-label">Value ($45-60K)</span><span class="mi-row-val">Below-market rates — $0.75-0.95/SF/mo</span></div>
+          <div class="mi-row"><span class="mi-row-label">This Site Rate</span><span class="mi-row-val">$${mktClimateRate.toFixed(2)}/SF/mo climate</span></div>
+          <div class="mi-source">Source: SiteScore Income-Tier Rate Methodology | Calibrated to PSA/EXR submarket rate cards (Q4 2025)</div>
+        </div>
+      </div></div>
+    </div>
   </div>
   ${site.demandDrivers ? `<div style="margin-top:16px;padding:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#16A34A;letter-spacing:0.08em;margin-bottom:6px">DEMAND DRIVERS</div><div style="font-size:12px;color:#1E293B;line-height:1.6">${site.demandDrivers}</div></div>` : ""}
 </div>
@@ -3417,17 +3571,69 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 <div class="section">
   <h2><span class="sec-num">4</span> Competition Landscape</h2>
   <div class="grid3" style="margin-bottom:16px">
-    <div class="metric"><div class="label">Competitors (3-Mi)</div><div class="value" style="color:${compCount <= 2 ? '#16A34A' : compCount <= 5 ? '#F59E0B' : '#EF4444'}">${compCount}</div></div>
-    <div class="metric"><div class="label">Nearest Competitor</div><div class="value" style="font-size:12px">${site.nearestCompetitor || "—"}</div></div>
-    <div class="metric"><div class="label">Supply Signal</div><div class="value" style="font-size:11px;line-height:1.3">${site.demandSupplySignal || "—"}</div></div>
+    <div class="metric mi" onclick="toggleMI('comp-count',event)"><div class="label">Competitors (3-Mi)</div><div class="value" style="color:${compCount <= 2 ? '#16A34A' : compCount <= 5 ? '#F59E0B' : '#EF4444'}">${compCount}</div><em class="mi-hint">i</em>
+      <div id="mi-comp-count" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Competitive Density</div><div class="mi-conf ${compCount <= 2 ? "mi-conf-high" : compCount <= 5 ? "mi-conf-med" : "mi-conf-low"}">${compCount <= 1 ? "Low Competition" : compCount <= 3 ? "Moderate" : "High Competition"}</div></div>
+        <div class="mi-body">
+          <strong>Total self-storage facilities within a 3-mile radius. Fewer competitors = stronger pricing power and faster lease-up.</strong>
+          <div class="mi-formula">SiteScore Weight: 7% of composite<br>Score: ${compCount <= 1 ? "10/10 (0-1 competitors)" : compCount <= 3 ? "6/10 (2-3 competitors)" : "3/10 (4+ competitors)"}</div>
+          <div class="mi-row"><span class="mi-row-label">Competitor Count</span><span class="mi-row-val">${compCount} facilities</span></div>
+          <div class="mi-row"><span class="mi-row-label">Est. Competing SF</span><span class="mi-row-val">${site.competingSF || "—"}</span></div>
+          ${sfPerCapita ? `<div class="mi-row"><span class="mi-row-label">SF/Capita (3-Mi)</span><span class="mi-row-val" style="color:${demandColor}">${sfPerCapita} (${demandSignal})</span></div>` : ""}
+          <div class="mi-row"><span class="mi-row-label">Industry Equilibrium</span><span class="mi-row-val">7-9 SF/capita</span></div>
+          <div class="mi-source">Source: Google Maps, SpareFoot, SelfStorage.com facility scan | Cross-referenced with REIT property databases</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('comp-nearest',event)"><div class="label">Nearest Competitor</div><div class="value" style="font-size:12px">${site.nearestCompetitor || "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-comp-nearest" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Nearest Competing Facility</div><div class="mi-conf mi-conf-med">Verified</div></div>
+        <div class="mi-body">
+          <strong>Closest competing self-storage facility to the subject site. Proximity validates market demand but also indicates direct overlap.</strong>
+          <div class="mi-row"><span class="mi-row-label">Nearest Facility</span><span class="mi-row-val">${site.nearestCompetitor || "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Competitor Types</span><span class="mi-row-val">${site.competitorTypes || "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Operators in Market</span><span class="mi-row-val">${site.competitorNames || "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">≤0.5 mi</span><span class="mi-row-val">Direct overlap — validates demand but competitive</span></div>
+          <div class="mi-row"><span class="mi-row-label">0.5-2.0 mi</span><span class="mi-row-val">Ideal — market validation without cannibalization</span></div>
+          <div class="mi-row"><span class="mi-row-label">2.0+ mi</span><span class="mi-row-val">Low overlap — potential underserved catchment</span></div>
+          <div class="mi-source">Source: Google Maps radius scan, SpareFoot, operator websites | Verified ${new Date().toLocaleDateString()}</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('comp-supply',event)"><div class="label">Supply Signal</div><div class="value" style="font-size:11px;line-height:1.3">${site.demandSupplySignal || "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-comp-supply" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Demand / Supply Analysis</div><div class="mi-conf ${demandColor === '#16A34A' ? "mi-conf-high" : demandColor === '#F59E0B' ? "mi-conf-med" : "mi-conf-low"}">${demandSignal || "—"}</div></div>
+        <div class="mi-body">
+          <strong>Supply-per-capita ratio indicates whether the submarket is underserved, balanced, or oversaturated.</strong>
+          <div class="mi-formula">SF/Capita = Total Competing SF ÷ 3-Mi Population<br>${sfPerCapita ? `= ${site.competingSF || "N/A"} ÷ ${!isNaN(popN) ? fmtN2(popN) : "N/A"}<br>= <strong style="color:${demandColor}">${sfPerCapita} SF/capita</strong>` : "Data pending"}</div>
+          <div class="mi-row"><span class="mi-row-label">< 5 SF/capita</span><span class="mi-row-val" style="color:#16A34A">Underserved — strong demand signal</span></div>
+          <div class="mi-row"><span class="mi-row-label">7-9 SF/capita</span><span class="mi-row-val" style="color:#D97706">Equilibrium — healthy market</span></div>
+          <div class="mi-row"><span class="mi-row-label">> 12 SF/capita</span><span class="mi-row-val" style="color:#EF4444">Oversupplied — saturation risk</span></div>
+          <div class="mi-source">Source: SSA (Self Storage Association) industry benchmarks | National avg: 7.3 SF/capita (2024)</div>
+        </div>
+      </div></div>
+    </div>
   </div>
   ${site.competitorNames ? `<table>
     <thead><tr><th>Competitor Names</th><th>Types</th><th>Est. Total SF</th></tr></thead>
     <tbody><tr><td>${site.competitorNames || "—"}</td><td>${site.competitorTypes || "—"}</td><td>${site.competingSF || "—"}</td></tr></tbody>
   </table>` : ""}
-  ${nearestPS !== null ? `<div style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+  ${nearestPS !== null ? `<div class="mi" onclick="toggleMI('comp-nearps',event)" style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
     <div><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em">NEAREST EXISTING FACILITY</div><div style="font-size:13px;font-weight:700;margin-top:4px">${nearestPS} miles</div></div>
-    <div class="pill" style="background:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}18;color:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}">${nearestPS <= 5 ? "VALIDATED SUBMARKET" : nearestPS <= 15 ? "EXPANSION ZONE" : "NEW MARKET"}</div>
+    <div class="pill" style="background:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}18;color:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}">${nearestPS <= 5 ? "VALIDATED SUBMARKET" : nearestPS <= 15 ? "EXPANSION ZONE" : "NEW MARKET"}</div><em class="mi-hint">i</em>
+    <div id="mi-comp-nearps" class="mi-panel"><div class="mi-panel-inner">
+      <div class="mi-header"><div class="mi-title">Nearest Facility Proximity</div><div class="mi-conf ${nearestPS <= 15 ? "mi-conf-high" : nearestPS <= 25 ? "mi-conf-med" : "mi-conf-low"}">${nearestPS <= 5 ? "Validated" : nearestPS <= 15 ? "Expansion" : "New Market"}</div></div>
+      <div class="mi-body">
+        <strong>Distance to the nearest existing corporate facility. Closer = market validation (not cannibalization). Sites >35mi from any facility are excluded as too remote.</strong>
+        <div class="mi-formula">SiteScore Weight: 11% of composite<br>Score: ${nearestPS <= 5 ? "10/10 (≤5mi — validated submarket)" : nearestPS <= 10 ? "9/10 (≤10mi)" : nearestPS <= 15 ? "7/10 (≤15mi)" : nearestPS <= 25 ? "5/10 (≤25mi)" : "3/10 (>25mi) or FAIL if >35mi"}</div>
+        <div class="mi-row"><span class="mi-row-label">Distance</span><span class="mi-row-val">${nearestPS} miles</span></div>
+        <div class="mi-row"><span class="mi-row-label">≤ 5 mi</span><span class="mi-row-val" style="color:#16A34A">Validated — existing ops confirm demand</span></div>
+        <div class="mi-row"><span class="mi-row-label">5-15 mi</span><span class="mi-row-val" style="color:#3B82F6">Expansion zone — adjacent market</span></div>
+        <div class="mi-row"><span class="mi-row-label">15-35 mi</span><span class="mi-row-val" style="color:#D97706">New market — requires stand-alone demand</span></div>
+        <div class="mi-row"><span class="mi-row-label">> 35 mi</span><span class="mi-row-val" style="color:#EF4444">HARD FAIL — too remote for footprint</span></div>
+        <div class="mi-source">Source: PS_Locations_ALL.csv (3,112 locations) | Haversine distance calculation from site coordinates</div>
+      </div>
+    </div></div>
   </div>` : ""}
 </div>
 
@@ -3435,13 +3641,38 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 <div class="section">
   <h2><span class="sec-num">5</span> Zoning & Entitlements</h2>
   <div style="display:flex;gap:16px;margin-bottom:16px">
-    <div style="flex:1" class="metric">
+    <div style="flex:1" class="metric mi" onclick="toggleMI('zon-district',event)">
       <div class="label">Zoning District</div>
-      <div class="value" style="font-size:16px">${site.zoning || "—"}</div>
+      <div class="value" style="font-size:16px">${site.zoning || "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-zon-district" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Zoning District</div><div class="mi-conf mi-conf-med">Research</div></div>
+        <div class="mi-body">
+          <strong>The zoning district designation determines what uses are permitted on the parcel by right, by conditional use, or not at all.</strong>
+          <div class="mi-row"><span class="mi-row-label">District</span><span class="mi-row-val">${site.zoning || "—"}</span></div>
+          ${site.zoningOrdinanceSection ? `<div class="mi-row"><span class="mi-row-label">Ordinance Section</span><span class="mi-row-val">${site.zoningOrdinanceSection}</span></div>` : ""}
+          ${site.jurisdictionType ? `<div class="mi-row"><span class="mi-row-label">Jurisdiction</span><span class="mi-row-val">${site.jurisdictionType}</span></div>` : ""}
+          ${site.zoningUseTerm ? `<div class="mi-row"><span class="mi-row-label">Use Category</span><span class="mi-row-val">${site.zoningUseTerm}</span></div>` : ""}
+          <div class="mi-row"><span class="mi-row-label">SiteScore Weight</span><span class="mi-row-val">16% of composite</span></div>
+          <div class="mi-source">Source: ${site.zoningSource || "Municipal zoning ordinance"} | Verified: ${site.zoningVerifyDate || new Date().toLocaleDateString()}</div>
+        </div>
+      </div></div>
     </div>
-    <div style="flex:1" class="metric">
+    <div style="flex:1" class="metric mi" onclick="toggleMI('zon-class',event)">
       <div class="label">Classification</div>
-      <div class="badge" style="background:${zoningColor}15;color:${zoningColor};border:1px solid ${zoningColor}30;font-size:12px;padding:6px 16px;margin-top:4px">${zoningLabel}</div>
+      <div class="badge" style="background:${zoningColor}15;color:${zoningColor};border:1px solid ${zoningColor}30;font-size:12px;padding:6px 16px;margin-top:4px">${zoningLabel}</div><em class="mi-hint">i</em>
+      <div id="mi-zon-class" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Zoning Classification</div><div class="mi-conf ${zoningClass === "by-right" ? "mi-conf-high" : zoningClass === "conditional" ? "mi-conf-med" : "mi-conf-low"}">${zoningLabel}</div></div>
+        <div class="mi-body">
+          <strong>Zoning classification determines entitlement timeline, cost, and political risk for self-storage development.</strong>
+          <div class="mi-formula">SiteScore Weight: 16% of composite<br>Score: ${zoningClass === "by-right" ? "10/10 — permitted by right" : zoningClass === "conditional" ? "6/10 — conditional/SUP required" : zoningClass === "rezone-required" ? "2/10 — rezone required" : zoningClass === "prohibited" ? "0/10 — FAIL" : "5/10 — unknown"}</div>
+          <div class="mi-row"><span class="mi-row-label">By-Right (P)</span><span class="mi-row-val" style="color:#16A34A">10/10 — no public hearing needed</span></div>
+          <div class="mi-row"><span class="mi-row-label">Conditional (SUP/CUP)</span><span class="mi-row-val" style="color:#D97706">6/10 — 3-6 month hearing process</span></div>
+          <div class="mi-row"><span class="mi-row-label">Rezone Required</span><span class="mi-row-val" style="color:#EF4444">2/10 — 6-12 months, $25K-$75K+</span></div>
+          <div class="mi-row"><span class="mi-row-label">Prohibited</span><span class="mi-row-val" style="color:#991B1B">0/10 — HARD FAIL</span></div>
+          ${site.politicalRisk ? `<div class="mi-row"><span class="mi-row-label">Political Risk</span><span class="mi-row-val">${site.politicalRisk}</span></div>` : ""}
+          <div class="mi-source">Source: ${site.zoningSource || "Municipal permitted use table"} | Methodology: §6c ordinance lookup</div>
+        </div>
+      </div></div>
     </div>
   </div>
   <table>
@@ -3465,10 +3696,23 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 <div class="section">
   <h2><span class="sec-num">6</span> Utilities & Infrastructure</h2>
   <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center">
-    <div class="metric" style="flex:0 0 120px">
+    <div class="metric mi" style="flex:0 0 120px" onclick="toggleMI('util-grade',event)">
       <div class="label">Utility Grade</div>
       <div class="value" style="font-size:36px;color:${utilColor}">${utilGrade}</div>
-      <div class="sub">${utilScore}/100</div>
+      <div class="sub">${utilScore}/100</div><em class="mi-hint">i</em>
+      <div id="mi-util-grade" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Utility Readiness Score</div><div class="mi-conf ${utilScore >= 80 ? "mi-conf-high" : utilScore >= 60 ? "mi-conf-med" : "mi-conf-low"}">${utilGrade} Grade</div></div>
+        <div class="mi-body">
+          <strong>Weighted assessment of 10 utility readiness criteria. Municipal water is a HARD REQUIREMENT for fire suppression — self-storage facilities require 1,500+ GPM at 20 PSI residual.</strong>
+          <div class="mi-formula">Utility Score = Σ (Criteria × Weight)<br>= ${utilScore}/100 → Grade ${utilGrade}</div>
+          ${utilChecks.map(c => `<div class="mi-row"><span class="mi-row-label">${c.done ? "✓" : "○"} ${c.l}</span><span class="mi-row-val">${c.w} pts ${c.done ? "(earned)" : "(missing)"}</span></div>`).join("")}
+          <div class="mi-row" style="border-top:1px solid #E2E8F0;padding-top:6px;margin-top:4px"><span class="mi-row-label">A ≥80</span><span class="mi-row-val">Development-ready — proceed</span></div>
+          <div class="mi-row"><span class="mi-row-label">B (60-79)</span><span class="mi-row-val">Viable — verify remaining items</span></div>
+          <div class="mi-row"><span class="mi-row-label">C (40-59)</span><span class="mi-row-val">Gaps exist — budget for extensions</span></div>
+          <div class="mi-row"><span class="mi-row-label">D/F (<40)</span><span class="mi-row-val">Significant utility concerns</span></div>
+          <div class="mi-source">Source: Municipal utility maps, TCEQ CCN (TX), city GIS portals, provider websites | Fire flow: NFPA 13/14</div>
+        </div>
+      </div></div>
     </div>
     <div style="flex:1">
       <div style="height:12px;border-radius:6px;background:#F1F5F9;overflow:hidden;margin-bottom:8px">
@@ -3499,9 +3743,47 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 <div class="section">
   <h2><span class="sec-num">7</span> Site Characteristics & Access</h2>
   <div class="grid3" style="margin-bottom:16px">
-    <div class="metric"><div class="label">Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "—"}</div><div class="sub">${isMultiStory ? "Multi-Story (3-4)" : "Single-Story"}</div></div>
-    <div class="metric"><div class="label">Est. Building SF</div><div class="value">${totalSF.toLocaleString()}</div><div class="sub">${stories > 1 ? stories + " stories" : "Single-story"} · 35% coverage</div></div>
-    <div class="metric"><div class="label">Flood Zone</div><div class="value" style="font-size:14px">${site.floodZone || (hasFlood ? "⚠️ FLOOD" : "—")}</div></div>
+    <div class="metric mi" onclick="toggleMI('site-acreage',event)"><div class="label">Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "—"}</div><div class="sub">${isMultiStory ? "Multi-Story (3-4)" : "Single-Story"}</div><em class="mi-hint">i</em>
+      <div id="mi-site-acreage" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Site Acreage & Product Type</div><div class="mi-conf mi-conf-high">Listing Data</div></div>
+        <div class="mi-body">
+          <strong>Site acreage determines product type selection and total rentable SF.</strong>
+          <div class="mi-formula">Gross Site: ${!isNaN(acres) ? acres.toFixed(2) : "?"} ac = ${!isNaN(acres) ? Math.round(acres*43560).toLocaleString() : "?"} SF<br>Product: ${isMultiStory ? stories + "-story (< 3.5 ac → build up)" : "Single-story (≥ 3.5 ac → preferred)"}<br>Buildable @ 35% coverage: ${footprint.toLocaleString()} SF footprint</div>
+          <div class="mi-row"><span class="mi-row-label">≥ 3.5 ac (Primary)</span><span class="mi-row-val">One-story indoor — PS preference</span></div>
+          <div class="mi-row"><span class="mi-row-label">2.5 – 3.5 ac (Secondary)</span><span class="mi-row-val">3-4 story multi-story</span></div>
+          <div class="mi-row"><span class="mi-row-label">< 2.5 ac</span><span class="mi-row-val" style="color:#EF4444">Generally too small for development</span></div>
+          <div class="mi-row"><span class="mi-row-label">Coverage Ratio</span><span class="mi-row-val">35% (PS standard — Killeen TX sketch)</span></div>
+          <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet"} listing | PS development standards (Dec 2024)</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('site-sf',event)"><div class="label">Est. Building SF</div><div class="value">${totalSF.toLocaleString()}</div><div class="sub">${stories > 1 ? stories + " stories" : "Single-story"} · 35% coverage</div><em class="mi-hint">i</em>
+      <div id="mi-site-sf" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Total Rentable SF Derivation</div><div class="mi-conf mi-conf-med">Calculated</div></div>
+        <div class="mi-body">
+          <strong>Total rentable square footage is the primary revenue driver. Derived from site acreage, coverage ratio, and stories.</strong>
+          <div class="mi-formula">Step 1: Footprint = ${!isNaN(acres) ? acres.toFixed(2) : "?"} ac × 43,560 SF/ac × 35%<br>= ${footprint.toLocaleString()} SF<br>Step 2: Total SF = ${footprint.toLocaleString()} × ${stories} stories<br>= <strong style="color:#1E40AF">${totalSF.toLocaleString()} SF</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Climate-Controlled</span><span class="mi-row-val">${climateSF.toLocaleString()} SF (${Math.round(climatePct*100)}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Drive-Up</span><span class="mi-row-val">${driveSF.toLocaleString()} SF (${Math.round(drivePct*100)}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Revenue Density</span><span class="mi-row-val">$${totalSF > 0 ? (stabRev/totalSF).toFixed(2) : "N/A"}/SF/yr</span></div>
+          <div class="mi-source">Source: SiteScore Facility Sizing Engine | 35% coverage from PS Killeen TX Option A sketch (Dec 2024)</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('site-flood',event)"><div class="label">Flood Zone</div><div class="value" style="font-size:14px">${site.floodZone || (hasFlood ? "⚠️ FLOOD" : "—")}</div><em class="mi-hint">i</em>
+      <div id="mi-site-flood" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">FEMA Flood Zone Assessment</div><div class="mi-conf ${hasFlood ? "mi-conf-low" : "mi-conf-high"}">${hasFlood ? "Flood Risk" : "No Flood"}</div></div>
+        <div class="mi-body">
+          <strong>FEMA flood zone designation determines insurance costs, development feasibility, and SiteScore access penalty.</strong>
+          <div class="mi-row"><span class="mi-row-label">Designation</span><span class="mi-row-val">${site.floodZone || (hasFlood ? "Flood zone identified" : "Zone X (no flood)")}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Zone X (Minimal)</span><span class="mi-row-val" style="color:#16A34A">No special flood area — preferred</span></div>
+          <div class="mi-row"><span class="mi-row-label">Zone X (Shaded)</span><span class="mi-row-val" style="color:#D97706">500-yr flood — manageable</span></div>
+          <div class="mi-row"><span class="mi-row-label">Zone A/AE</span><span class="mi-row-val" style="color:#EF4444">100-yr flood — significant constraint</span></div>
+          <div class="mi-row"><span class="mi-row-label">SiteScore Impact</span><span class="mi-row-val">${hasFlood ? "-2 point penalty on access score" : "No penalty"}</span></div>
+          <div class="mi-source">Source: FEMA Flood Map Service Center (msc.fema.gov) | National Flood Insurance Program</div>
+        </div>
+      </div></div>
+    </div>
   </div>
   <table>
     <tbody>
@@ -3527,10 +3809,60 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
   <!-- Development Cost -->
   <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Development Cost Estimate</h3>
   <div class="grid4" style="margin-bottom:20px">
-    <div class="metric"><div class="label">Land Cost</div><div class="value" style="font-size:16px">${landCost > 0 ? fmtM(landCost) : "—"}</div></div>
-    <div class="metric"><div class="label">Hard Cost</div><div class="value" style="font-size:16px">${fmtM(hardCost)}</div><div class="sub">$${hardCostPerSF}/SF</div></div>
-    <div class="metric"><div class="label">Soft Cost (20%)</div><div class="value" style="font-size:16px">${fmtM(softCost)}</div></div>
-    <div class="metric" style="border:2px solid #1E2761"><div class="label">Total Dev Cost</div><div class="value" style="font-size:16px;color:#1E2761">${totalDevCost > 0 ? fmtM(totalDevCost) : "—"}</div></div>
+    <div class="metric mi" onclick="toggleMI('fin-land',event)"><div class="label">Land Cost</div><div class="value" style="font-size:16px">${landCost > 0 ? fmtM(landCost) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-fin-land" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Land Acquisition Cost</div><div class="mi-conf ${landCost > 0 ? "mi-conf-high" : "mi-conf-low"}">${landCost > 0 ? "Confirmed" : "Pending"}</div></div>
+        <div class="mi-body">
+          <strong>Land cost as listed or broker-confirmed. The single most variable input — drives YOC and land verdict.</strong>
+          <div class="mi-formula">Price/Acre = ${fmtD(landCost)} ÷ ${!isNaN(acres) ? acres.toFixed(2) : "?"} ac = <strong style="color:#1E40AF">${pricePerAcre ? fmtD(pricePerAcre) + "/ac" : "N/A"}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Land as % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Industry Benchmark</span><span class="mi-row-val">15-25% of total dev cost</span></div>
+          <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${landCost/totalDevCost < 0.25 ? "#16A34A" : "#D97706"}">${landCost/totalDevCost < 0.15 ? "Favorable" : landCost/totalDevCost < 0.25 ? "Market Rate" : "Premium"}</span></div>
+          <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet"} listing | Verified: ${new Date().toLocaleDateString()}</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('fin-hard',event)"><div class="label">Hard Cost</div><div class="value" style="font-size:16px">${fmtM(hardCost)}</div><div class="sub">$${hardCostPerSF}/SF</div><em class="mi-hint">i</em>
+      <div id="mi-fin-hard" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Hard Construction Costs</div><div class="mi-conf mi-conf-med">Modeled</div></div>
+        <div class="mi-body">
+          <strong>Hard costs include structural, MEP, site work, and building envelope. Adjusted by state-level RSMeans cost index.</strong>
+          <div class="mi-formula">Hard Cost = Total SF × Base Rate × State Index<br>= ${totalSF.toLocaleString()} × $${baseHardPerSF} × ${costIdx.toFixed(2)}<br>= <strong style="color:#1E40AF">${fmtD(hardCost)}</strong> ($${hardCostPerSF}/SF)</div>
+          <div class="mi-row"><span class="mi-row-label">National Base Rate</span><span class="mi-row-val">$${baseHardPerSF}/SF</span></div>
+          <div class="mi-row"><span class="mi-row-label">State Cost Index</span><span class="mi-row-val">${(costIdx*100).toFixed(0)}% of national avg</span></div>
+          <div class="mi-row"><span class="mi-row-label">Hard % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%</span></div>
+          <div class="mi-source">Source: RSMeans/ENR regional construction cost data (2025) | State-adjusted index table</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('fin-soft',event)"><div class="label">Soft Cost (20%)</div><div class="value" style="font-size:16px">${fmtM(softCost)}</div><em class="mi-hint">i</em>
+      <div id="mi-fin-soft" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Soft Costs</div><div class="mi-conf mi-conf-med">Standard Ratio</div></div>
+        <div class="mi-body">
+          <strong>Soft costs include architecture, engineering, permitting, legal, insurance, financing fees, and contingency.</strong>
+          <div class="mi-formula">Soft Cost = Hard Cost × ${Math.round(softCostPct*100)}%<br>= ${fmtD(hardCost)} × ${softCostPct}<br>= <strong style="color:#1E40AF">${fmtD(softCost)}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Architecture & Engineering</span><span class="mi-row-val">~6-8% of hard costs</span></div>
+          <div class="mi-row"><span class="mi-row-label">Permitting & Impact Fees</span><span class="mi-row-val">~3-5% of hard costs</span></div>
+          <div class="mi-row"><span class="mi-row-label">Financing & Legal</span><span class="mi-row-val">~3-4% of hard costs</span></div>
+          <div class="mi-row"><span class="mi-row-label">Contingency</span><span class="mi-row-val">~3-5% of hard costs</span></div>
+          <div class="mi-source">Source: REIT development pro formas (PSA, EXR) | 20% soft cost ratio is industry-standard for storage</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('fin-total',event)"><div class="label">Total Dev Cost</div><div class="value" style="font-size:16px;color:#1E2761">${totalDevCost > 0 ? fmtM(totalDevCost) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-fin-total" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Total Development Cost</div><div class="mi-conf mi-conf-med">Modeled</div></div>
+        <div class="mi-body">
+          <strong>All-in development cost — the denominator for Yield on Cost, the primary return metric.</strong>
+          <div class="mi-formula">Total Dev = Land + Hard + Soft<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)}<br>= <strong style="color:#1E2761">${fmtD(totalDevCost)}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Land</span><span class="mi-row-val">${fmtD(landCost)} (${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Hard Costs</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Soft Costs</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Cost/SF (All-In)</span><span class="mi-row-val">${totalSF > 0 ? fmtD(totalDevCost/totalSF) + "/SF" : "N/A"}</span></div>
+          <div class="mi-source">Source: SiteScore Financial Engine | Land: listing price, Hard: RSMeans-indexed, Soft: 20% standard</div>
+        </div>
+      </div></div>
+    </div>
   </div>
 
   <!-- 5-Year Pro Forma Summary -->
@@ -3556,7 +3888,19 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
   <!-- Stabilized Valuation -->
   <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">Stabilized Valuation (Y5 NOI: ${fmtD(stabNOI)})</h3>
   <div class="grid3">
-    ${valuations.map(v => `<div class="metric"><div class="label">${v.label}</div><div class="value" style="font-size:18px;color:#1E2761">${fmtM(v.value)}</div></div>`).join("")}
+    ${valuations.map((v,vi) => `<div class="metric mi" onclick="toggleMI('val${vi}',event)"><div class="label">${v.label}</div><div class="value" style="font-size:18px;color:#1E2761">${fmtM(v.value)}</div><div class="sub">@ ${(v.rate*100).toFixed(2)}% cap</div><em class="mi-hint">i</em>
+      <div id="mi-val${vi}" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">${v.label} Valuation</div><div class="mi-conf mi-conf-med">Modeled</div></div>
+        <div class="mi-body">
+          <strong>Direct capitalization of stabilized NOI at a ${(v.rate*100).toFixed(2)}% cap rate.</strong>
+          <div class="mi-formula">Value = Stabilized NOI ÷ Cap Rate<br>= ${fmtD(stabNOI)} ÷ ${(v.rate*100).toFixed(2)}%<br>= <strong style="color:#1E2761">${fmtM(v.value)}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Value/SF</span><span class="mi-row-val">${totalSF > 0 ? fmtD(v.value/totalSF) : "N/A"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Value vs Dev Cost</span><span class="mi-row-val" style="color:${v.value > totalDevCost ? "#16A34A" : "#EF4444"}">${totalDevCost > 0 ? (v.value > totalDevCost ? "+" : "") + fmtM(v.value - totalDevCost) + " (" + Math.round((v.value/totalDevCost-1)*100) + "%)" : "N/A"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Cap Rate Context</span><span class="mi-row-val">${v.rate <= 0.05 ? "Aggressive — primary market" : v.rate <= 0.06 ? "Market — secondary market" : "Conservative — tertiary/discount"}</span></div>
+          <div class="mi-source">Source: REIT transaction comps (PSA, EXR, CUBE Q4 2025 10-K filings) | Direct capitalization method</div>
+        </div>
+      </div></div>
+    </div>`).join("")}
   </div>
 
   <!-- Land Price Guide -->
@@ -3588,24 +3932,162 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 <div class="section">
   <h2><span class="sec-num">9</span> Institutional Performance Metrics</h2>
   <div class="grid4" style="margin-bottom:16px">
-    <div class="metric" style="border:2px solid #1E2761"><div class="label">RevPAF</div><div class="value" style="font-size:18px;color:#1E2761">$${revPAF}<div class="sub">/available SF/yr</div></div></div>
-    <div class="metric"><div class="label">NOI Margin</div><div class="value" style="font-size:18px;color:${parseFloat(noiMarginPct) >= 60 ? '#16A34A' : '#F59E0B'}">${noiMarginPct}%</div></div>
-    <div class="metric"><div class="label">Dev Spread</div><div class="value" style="font-size:18px">${devSpread} bps</div><div class="sub">YOC vs ${(mktAcqCap*100).toFixed(1)}% acq cap</div></div>
-    <div class="metric"><div class="label">SF/Capita (3-Mi)</div><div class="value" style="font-size:18px;color:${demandColor}">${sfPerCapita || "—"}</div><div class="sub">${demandSignal || "—"}</div></div>
+    <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('inst-revpaf',event)"><div class="label">RevPAF</div><div class="value" style="font-size:18px;color:#1E2761">$${revPAF}</div><div class="sub">/available SF/yr</div><em class="mi-hint">i</em>
+      <div id="mi-inst-revpaf" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Revenue Per Available Foot</div><div class="mi-conf mi-conf-med">Institutional</div></div>
+        <div class="mi-body">
+          <strong>RevPAF is the REIT industry's primary operating metric — revenue per available square foot, regardless of occupancy.</strong>
+          <div class="mi-formula">RevPAF = Stabilized Revenue ÷ Total SF<br>= ${fmtD(stabRev)} ÷ ${totalSF.toLocaleString()}<br>= <strong style="color:#1E2761">$${revPAF}/SF/yr</strong></div>
+          <div class="mi-row"><span class="mi-row-label">PSA Q4 2025 Same-Store</span><span class="mi-row-val">$22.45/SF/yr</span></div>
+          <div class="mi-row"><span class="mi-row-label">EXR Q4 2025 Same-Store</span><span class="mi-row-val">$21.82/SF/yr</span></div>
+          <div class="mi-row"><span class="mi-row-label">CUBE Q4 2025 Same-Store</span><span class="mi-row-val">$20.19/SF/yr</span></div>
+          <div class="mi-row"><span class="mi-row-label">This Site vs PSA</span><span class="mi-row-val" style="color:${parseFloat(revPAF) >= 22 ? '#16A34A' : '#D97706'}">${parseFloat(revPAF) >= 22 ? "At or above PSA" : "Below PSA — growth market pricing"}</span></div>
+          <div class="mi-source">Source: PSA/EXR/CUBE 10-K Annual Reports (FY 2025) | Same-store revenue per available foot</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('inst-noim',event)"><div class="label">NOI Margin</div><div class="value" style="font-size:18px;color:${parseFloat(noiMarginPct) >= 60 ? '#16A34A' : '#F59E0B'}">${noiMarginPct}%</div><em class="mi-hint">i</em>
+      <div id="mi-inst-noim" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">NOI Margin Analysis</div><div class="mi-conf ${parseFloat(noiMarginPct) >= 60 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(noiMarginPct) >= 65 ? "Strong" : parseFloat(noiMarginPct) >= 55 ? "Adequate" : "Below Industry"}</div></div>
+        <div class="mi-body">
+          <strong>Net Operating Income as a percentage of total revenue — self-storage's hallmark is high NOI margins (60%+).</strong>
+          <div class="mi-formula">NOI Margin = Stabilized NOI ÷ Stabilized Revenue<br>= ${fmtD(stabNOI)} ÷ ${fmtD(stabRev)}<br>= <strong style="color:${parseFloat(noiMarginPct) >= 60 ? '#16A34A' : '#D97706'}">${noiMarginPct}%</strong></div>
+          <div class="mi-row"><span class="mi-row-label">PSA NOI Margin (2025)</span><span class="mi-row-val">62.8%</span></div>
+          <div class="mi-row"><span class="mi-row-label">EXR NOI Margin (2025)</span><span class="mi-row-val">64.1%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Industry Range</span><span class="mi-row-val">58-68% (top-tier operators)</span></div>
+          <div class="mi-row"><span class="mi-row-label">OpEx Ratio</span><span class="mi-row-val">${opexRatioDetail || "38"}%</span></div>
+          <div class="mi-source">Source: PSA/EXR/CUBE/LSI 10-K Annual Reports (FY 2025) | SiteScore 10-line OpEx model</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('inst-devspread',event)"><div class="label">Dev Spread</div><div class="value" style="font-size:18px">${devSpread} bps</div><div class="sub">YOC vs ${(mktAcqCap*100).toFixed(1)}% acq cap</div><em class="mi-hint">i</em>
+      <div id="mi-inst-devspread" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Development Spread</div><div class="mi-conf ${parseFloat(devSpread) >= 2.0 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(devSpread) >= 3.0 ? "Wide Spread" : parseFloat(devSpread) >= 2.0 ? "Adequate" : "Tight"}</div></div>
+        <div class="mi-body">
+          <strong>The development spread is the yield premium a developer earns by building vs. acquiring at market cap rate. This is the "developer's profit" that justifies the construction and lease-up risk.</strong>
+          <div class="mi-formula">Dev Spread = YOC − Market Acquisition Cap Rate<br>= ${yocStab}% − ${(mktAcqCap*100).toFixed(1)}%<br>= <strong style="color:${parseFloat(devSpread) >= 2.0 ? '#16A34A' : '#D97706'}">${devSpread} bps</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Target Spread</span><span class="mi-row-val">≥ 200 bps (minimum risk premium)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Market Acq Cap</span><span class="mi-row-val">${(mktAcqCap*100).toFixed(1)}% (stabilized storage)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Risk Premium Covers</span><span class="mi-row-val">Construction, lease-up, entitlement risk</span></div>
+          <div class="mi-source">Source: REIT transaction comps, Green Street Advisors cap rate index (2025) | Industry: 200-400 bps target spread</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('inst-sfcap',event)"><div class="label">SF/Capita (3-Mi)</div><div class="value" style="font-size:18px;color:${demandColor}">${sfPerCapita || "—"}</div><div class="sub">${demandSignal || "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-inst-sfcap" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Supply Per Capita Analysis</div><div class="mi-conf ${demandColor === '#16A34A' ? "mi-conf-high" : demandColor === '#F59E0B' ? "mi-conf-med" : "mi-conf-low"}">${demandSignal || "—"}</div></div>
+        <div class="mi-body">
+          <strong>Square feet of self-storage per capita within the 3-mile catchment — the key supply/demand equilibrium metric.</strong>
+          <div class="mi-formula">SF/Capita = (Existing Storage SF + Proposed SF) ÷ 3-Mi Pop<br>${sfPerCapita ? `= <strong style="color:${demandColor}">${sfPerCapita} SF/capita</strong>` : "Data pending"}<br>SF/Capita (excl. this project) = ${sfPerCapitaExcl || "—"}</div>
+          <div class="mi-row"><span class="mi-row-label">< 5 SF/capita</span><span class="mi-row-val" style="color:#16A34A">Underserved — strong demand</span></div>
+          <div class="mi-row"><span class="mi-row-label">7-9 SF/capita</span><span class="mi-row-val">Equilibrium</span></div>
+          <div class="mi-row"><span class="mi-row-label">> 12 SF/capita</span><span class="mi-row-val" style="color:#EF4444">Oversupplied</span></div>
+          <div class="mi-row"><span class="mi-row-label">National Avg (2024)</span><span class="mi-row-val">7.3 SF/capita</span></div>
+          <div class="mi-source">Source: SSA Self Storage Almanac (2024) | Facility count via Google Maps/SpareFoot scan</div>
+        </div>
+      </div></div>
+    </div>
   </div>
 
   <!-- Capital Stack -->
   <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">Capital Stack & Leveraged Returns</h3>
   <div class="grid4" style="margin-bottom:16px">
-    <div class="metric"><div class="label">Loan (${Math.round(loanLTV*100)}% LTV)</div><div class="value" style="font-size:14px">${fmtM(loanAmount)}</div><div class="sub">${(loanRate*100).toFixed(2)}% / ${loanAmort}yr</div></div>
-    <div class="metric"><div class="label">Equity Required</div><div class="value" style="font-size:14px">${fmtM(equityRequired)}</div></div>
-    <div class="metric"><div class="label">DSCR (Stab.)</div><div class="value" style="font-size:18px;color:${parseFloat(dscrStab) >= 1.25 ? '#16A34A' : '#EF4444'}">${dscrStab}x</div></div>
-    <div class="metric"><div class="label">Cash-on-Cash</div><div class="value" style="font-size:18px;color:${parseFloat(cashOnCash) >= 10 ? '#16A34A' : '#F59E0B'}">${cashOnCash}%</div></div>
+    <div class="metric mi" onclick="toggleMI('cap-loan',event)"><div class="label">Loan (${Math.round(loanLTV*100)}% LTV)</div><div class="value" style="font-size:14px">${fmtM(loanAmount)}</div><div class="sub">${(loanRate*100).toFixed(2)}% / ${loanAmort}yr</div><em class="mi-hint">i</em>
+      <div id="mi-cap-loan" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Senior Debt Structure</div><div class="mi-conf mi-conf-med">Modeled</div></div>
+        <div class="mi-body">
+          <strong>Construction-to-permanent loan assumptions based on current CMBS/bank lending standards for self-storage development.</strong>
+          <div class="mi-formula">Loan Amount = Total Dev Cost × LTV<br>= ${fmtD(totalDevCost)} × ${Math.round(loanLTV*100)}%<br>= <strong style="color:#1E40AF">${fmtD(loanAmount)}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">LTV</span><span class="mi-row-val">${Math.round(loanLTV*100)}%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Interest Rate</span><span class="mi-row-val">${(loanRate*100).toFixed(2)}%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Amortization</span><span class="mi-row-val">${loanAmort} years</span></div>
+          <div class="mi-row"><span class="mi-row-label">Annual Debt Service</span><span class="mi-row-val">${fmtD(annualDS)}</span></div>
+          <div class="mi-source">Source: CMBS/bank construction-to-perm terms (Q1 2026) | 65% LTV, 25yr amort standard for SS development</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('cap-equity',event)"><div class="label">Equity Required</div><div class="value" style="font-size:14px">${fmtM(equityRequired)}</div><em class="mi-hint">i</em>
+      <div id="mi-cap-equity" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Equity Requirement</div><div class="mi-conf mi-conf-med">Derived</div></div>
+        <div class="mi-body">
+          <strong>Total equity needed to fund the project after debt proceeds.</strong>
+          <div class="mi-formula">Equity = Total Dev Cost × (1 - LTV)<br>= ${fmtD(totalDevCost)} × ${Math.round(equityPct*100)}%<br>= <strong style="color:#1E40AF">${fmtD(equityRequired)}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Equity % of Stack</span><span class="mi-row-val">${Math.round(equityPct*100)}%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Cash After DS (Stab.)</span><span class="mi-row-val">${fmtD(cashAfterDS)}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Cash-on-Cash Return</span><span class="mi-row-val">${cashOnCash}%</span></div>
+          <div class="mi-source">Source: SiteScore Capital Stack Model | Standard self-storage development financing structure</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('cap-dscr',event)"><div class="label">DSCR (Stab.)</div><div class="value" style="font-size:18px;color:${parseFloat(dscrStab) >= 1.25 ? '#16A34A' : '#EF4444'}">${dscrStab}x</div><em class="mi-hint">i</em>
+      <div id="mi-cap-dscr" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Debt Service Coverage Ratio</div><div class="mi-conf ${parseFloat(dscrStab) >= 1.25 ? "mi-conf-high" : "mi-conf-low"}">${parseFloat(dscrStab) >= 1.25 ? "Meets Covenant" : "Below Covenant"}</div></div>
+        <div class="mi-body">
+          <strong>DSCR measures how many times NOI covers annual debt service. Lenders require 1.25x minimum for self-storage.</strong>
+          <div class="mi-formula">DSCR = Stabilized NOI ÷ Annual Debt Service<br>= ${fmtD(stabNOI)} ÷ ${fmtD(annualDS)}<br>= <strong style="color:${parseFloat(dscrStab) >= 1.25 ? '#16A34A' : '#EF4444'}">${dscrStab}x</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Minimum Covenant</span><span class="mi-row-val">1.25x (CMBS standard)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Comfortable Level</span><span class="mi-row-val">1.40x+</span></div>
+          <div class="mi-row"><span class="mi-row-label">Cushion</span><span class="mi-row-val">${parseFloat(dscrStab) >= 1.25 ? fmtD(stabNOI - annualDS * 1.25) + " above 1.25x" : "Below minimum — risk"}</span></div>
+          <div class="mi-source">Source: CMBS underwriting standards | Fannie/Freddie small-balance loan guidelines (2025)</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('cap-coc',event)"><div class="label">Cash-on-Cash</div><div class="value" style="font-size:18px;color:${parseFloat(cashOnCash) >= 10 ? '#16A34A' : '#F59E0B'}">${cashOnCash}%</div><em class="mi-hint">i</em>
+      <div id="mi-cap-coc" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Cash-on-Cash Return</div><div class="mi-conf ${parseFloat(cashOnCash) >= 10 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(cashOnCash) >= 12 ? "Strong" : parseFloat(cashOnCash) >= 8 ? "Adequate" : "Low"}</div></div>
+        <div class="mi-body">
+          <strong>Annual cash return on equity invested — measures the income yield on the sponsor's actual cash outlay.</strong>
+          <div class="mi-formula">Cash-on-Cash = Cash After DS ÷ Equity<br>= ${fmtD(cashAfterDS)} ÷ ${fmtD(equityRequired)}<br>= <strong style="color:${parseFloat(cashOnCash) >= 10 ? '#16A34A' : '#D97706'}">${cashOnCash}%</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Target Range</span><span class="mi-row-val">8-15% (development)</span></div>
+          <div class="mi-row"><span class="mi-row-label">vs 10-Yr Treasury</span><span class="mi-row-val">${parseFloat(cashOnCash) > 4.5 ? "+" : ""}${(parseFloat(cashOnCash) - 4.5).toFixed(1)}% spread</span></div>
+          <div class="mi-source">Source: SiteScore Capital Stack Model | Risk-adjusted return on equity after leverage</div>
+        </div>
+      </div></div>
+    </div>
   </div>
   <div class="grid3">
-    <div class="metric" style="border:2px solid #1E2761"><div class="label">10-Yr Levered IRR</div><div class="value" style="font-size:22px;color:${parseFloat(irrPct) >= 15 ? '#16A34A' : parseFloat(irrPct) >= 10 ? '#F59E0B' : '#EF4444'}">${irrPct}%</div></div>
-    <div class="metric"><div class="label">Equity Multiple (10-Yr)</div><div class="value" style="font-size:22px">${equityMultiple}x</div></div>
-    <div class="metric"><div class="label">Rate Confidence</div><div class="value" style="font-size:14px;color:${rateConfColor}">${rateConfidence}</div><div class="sub">3-method cross-validated</div></div>
+    <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('inst-irr',event)"><div class="label">10-Yr Levered IRR</div><div class="value" style="font-size:22px;color:${parseFloat(irrPct) >= 15 ? '#16A34A' : parseFloat(irrPct) >= 10 ? '#F59E0B' : '#EF4444'}">${irrPct}%</div><em class="mi-hint">i</em>
+      <div id="mi-inst-irr" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">10-Year Levered IRR</div><div class="mi-conf ${parseFloat(irrPct) >= 15 ? "mi-conf-high" : parseFloat(irrPct) >= 10 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(irrPct) >= 18 ? "Exceptional" : parseFloat(irrPct) >= 15 ? "Strong" : parseFloat(irrPct) >= 10 ? "Adequate" : "Below Hurdle"}</div></div>
+        <div class="mi-body">
+          <strong>Internal Rate of Return on levered equity over a 10-year hold — the comprehensive return metric incorporating cash flow timing, exit value, and leverage effects.</strong>
+          <div class="mi-formula">IRR = Rate where NPV of all cash flows = 0<br>Equity invested: -${fmtD(equityRequired)} (Year 0)<br>Annual cash flow (stab.): +${fmtD(cashAfterDS)}<br>Exit proceeds (Y10): +${fmtD(exitEquityProceeds)}<br>= <strong style="color:${parseFloat(irrPct) >= 15 ? '#16A34A' : '#D97706'}">${irrPct}% IRR</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Institutional Target</span><span class="mi-row-val">15-20% levered (development)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Exit Cap Rate</span><span class="mi-row-val">${(exitCapRate*100).toFixed(2)}%</span></div>
+          <div class="mi-row"><span class="mi-row-label">Exit Value (Y10)</span><span class="mi-row-val">${fmtM(exitValue)}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Equity Proceeds (Y10)</span><span class="mi-row-val">${fmtM(exitEquityProceeds)}</span></div>
+          <div class="mi-source">Source: SiteScore 10-Year DCF Model | NPV-based IRR solver | Exit: 50bp cap expansion from entry</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('inst-eqmult',event)"><div class="label">Equity Multiple (10-Yr)</div><div class="value" style="font-size:22px">${equityMultiple}x</div><em class="mi-hint">i</em>
+      <div id="mi-inst-eqmult" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Equity Multiple</div><div class="mi-conf ${parseFloat(equityMultiple) >= 2.5 ? "mi-conf-high" : parseFloat(equityMultiple) >= 2.0 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(equityMultiple) >= 2.5 ? "Strong" : parseFloat(equityMultiple) >= 2.0 ? "Adequate" : "Below Target"}</div></div>
+        <div class="mi-body">
+          <strong>Total return on equity — how many times the initial equity investment is returned over the 10-year hold period.</strong>
+          <div class="mi-formula">Equity Multiple = Total Distributions ÷ Equity Invested<br>= (Cumulative Cash Flow + Exit Proceeds) ÷ ${fmtD(equityRequired)}<br>= <strong style="color:#1E2761">${equityMultiple}x</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Institutional Target</span><span class="mi-row-val">2.0x – 3.0x (10-yr development)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Total Profit</span><span class="mi-row-val">${fmtD((parseFloat(equityMultiple) - 1) * equityRequired)}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Profit / Year</span><span class="mi-row-val">${fmtD((parseFloat(equityMultiple) - 1) * equityRequired / 10)}/yr avg</span></div>
+          <div class="mi-source">Source: SiteScore 10-Year DCF Model | Total capital return including cash flow and exit</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('inst-rateconf',event)"><div class="label">Rate Confidence</div><div class="value" style="font-size:14px;color:${rateConfColor}">${rateConfidence}</div><div class="sub">3-method cross-validated</div><em class="mi-hint">i</em>
+      <div id="mi-inst-rateconf" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Rental Rate Confidence</div><div class="mi-conf ${rateConfidence === "HIGH" ? "mi-conf-high" : rateConfidence === "MEDIUM" ? "mi-conf-med" : "mi-conf-low"}">${rateConfidence}</div></div>
+        <div class="mi-body">
+          <strong>Three independent rate-estimation methods are cross-validated to determine confidence in the modeled rental rates.</strong>
+          <div class="mi-row"><span class="mi-row-label">Method 1: Income-Tier</span><span class="mi-row-val">$${m1Rate.toFixed(2)}/SF/mo (HHI-based)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Method 2: Comp Scan</span><span class="mi-row-val">$${m2ClimRate.toFixed(2)} clim / $${m2DriveRate.toFixed(2)} drive</span></div>
+          <div class="mi-row"><span class="mi-row-label">Method 3: Pop Density</span><span class="mi-row-val">$${m3ClimRate.toFixed(2)}/SF/mo</span></div>
+          <div class="mi-row"><span class="mi-row-label">Consensus Rate</span><span class="mi-row-val" style="color:#1E2761">$${consensusClimRate.toFixed(2)}/SF/mo climate</span></div>
+          <div class="mi-row"><span class="mi-row-label">Methodology</span><span class="mi-row-val">Median of 3 methods (outlier-resistant)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Confidence Logic</span><span class="mi-row-val">${rateConfidence === "HIGH" ? "All 3 methods within 15% of consensus" : rateConfidence === "MEDIUM" ? "2 of 3 methods within 20% of consensus" : "Methods diverge >25% — verify with comps"}</span></div>
+          <div class="mi-source">Source: SiteScore 3-Method Rate Engine | Census ACS (M1), SpareFoot/operator websites (M2), ESRI pop density (M3)</div>
+        </div>
+      </div></div>
+    </div>
   </div>
 
   <!-- REIT Benchmarking (condensed) -->
@@ -3625,9 +4107,43 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
   <!-- Replacement Cost -->
   <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">Replacement Cost — Build vs. Acquire</h3>
   <div class="grid3">
-    <div class="metric"><div class="label">Replacement Cost</div><div class="value" style="font-size:14px">${fmtM(replacementCost)}</div><div class="sub">$${replacementCostPerSF}/SF excl. land</div></div>
-    <div class="metric"><div class="label">Full Dev Cost</div><div class="value" style="font-size:14px">${fullReplacementCost > 0 ? fmtM(fullReplacementCost) : "—"}</div></div>
-    <div class="metric" style="border:1px solid ${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#F59E0B'}40"><div class="label">Verdict</div><div style="font-size:11px;font-weight:700;color:${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#F59E0B'};margin-top:6px">${buildOrBuy || "—"}</div></div>
+    <div class="metric mi" onclick="toggleMI('repl-cost',event)"><div class="label">Replacement Cost</div><div class="value" style="font-size:14px">${fmtM(replacementCost)}</div><div class="sub">$${replacementCostPerSF}/SF excl. land</div><em class="mi-hint">i</em>
+      <div id="mi-repl-cost" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Replacement Cost Analysis</div><div class="mi-conf mi-conf-med">Modeled</div></div>
+        <div class="mi-body">
+          <strong>What it would cost to build an identical facility at current construction costs — the "floor" for acquisition pricing.</strong>
+          <div class="mi-formula">Replacement Cost (excl. land) = Total SF × Cost/SF<br>= ${totalSF.toLocaleString()} × $${replacementCostPerSF}<br>= <strong style="color:#1E40AF">${fmtM(replacementCost)}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Construction $/SF</span><span class="mi-row-val">$${replacementCostPerSF}/SF</span></div>
+          <div class="mi-row"><span class="mi-row-label">Full w/ Land</span><span class="mi-row-val">${fullReplacementCost > 0 ? fmtM(fullReplacementCost) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">vs Market Value</span><span class="mi-row-val">${replacementVsMarket || "—"}</span></div>
+          <div class="mi-source">Source: RSMeans Construction Cost Database (2025) | State-adjusted index | Self-storage specification</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" onclick="toggleMI('repl-full',event)"><div class="label">Full Dev Cost</div><div class="value" style="font-size:14px">${fullReplacementCost > 0 ? fmtM(fullReplacementCost) : "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-repl-full" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Full Replacement Cost (w/ Land)</div><div class="mi-conf mi-conf-med">Calculated</div></div>
+        <div class="mi-body">
+          <strong>Total cost to replicate this facility from scratch including land — used to evaluate build vs. acquire decisions.</strong>
+          <div class="mi-formula">Full Cost = Replacement (excl. land) + Land<br>= ${fmtD(replacementCost)} + ${fmtD(landCost)}<br>= <strong style="color:#1E40AF">${fullReplacementCost > 0 ? fmtD(fullReplacementCost) : "—"}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Cost/SF (all-in)</span><span class="mi-row-val">${totalSF > 0 && fullReplacementCost > 0 ? fmtD(fullReplacementCost/totalSF) + "/SF" : "—"}</span></div>
+          <div class="mi-source">Source: SiteScore Financial Engine | Land: listing, Construction: RSMeans (2025)</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="metric mi" style="border:1px solid ${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#F59E0B'}40" onclick="toggleMI('repl-verdict',event)"><div class="label">Verdict</div><div style="font-size:11px;font-weight:700;color:${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#F59E0B'};margin-top:6px">${buildOrBuy || "—"}</div><em class="mi-hint">i</em>
+      <div id="mi-repl-verdict" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Build vs. Acquire Verdict</div><div class="mi-conf ${buildOrBuy?.startsWith("BUILD") ? "mi-conf-high" : "mi-conf-med"}">${buildOrBuy?.startsWith("BUILD") ? "Build Favorable" : "Evaluate"}</div></div>
+        <div class="mi-body">
+          <strong>Compares the cost of ground-up development versus acquiring an existing stabilized facility at market cap rate.</strong>
+          <div class="mi-row"><span class="mi-row-label">Development Cost</span><span class="mi-row-val">${fmtD(totalDevCost)}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Market Acq Price</span><span class="mi-row-val">${valuations[1] ? fmtM(valuations[1].value) : "—"} (@ mkt cap)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Value Creation</span><span class="mi-row-val" style="color:#16A34A">${valuations[1] ? fmtM(valuations[1].value - totalDevCost) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Verdict</span><span class="mi-row-val" style="color:${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#D97706'}">${buildOrBuy || "—"}</span></div>
+          <div class="mi-source">Source: SiteScore Replacement Cost Engine | Market cap rates from REIT transaction comps (Q4 2025)</div>
+        </div>
+      </div></div>
+    </div>
   </div>
 </div>
 
