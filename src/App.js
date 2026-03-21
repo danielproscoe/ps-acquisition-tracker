@@ -2650,8 +2650,6 @@ const generateRECPackage = (site, iqResult) => {
   const iqBadgeColor = (iq.tier || "gray") === "gold" ? "#C9A84C" : (iq.tier || "gray") === "steel" ? "#2C3E6B" : "#94A3B8";
   const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
-  const pricePerAcre = landCost > 0 && !isNaN(acres) && acres > 0 ? Math.round(landCost / acres) : null;
-
   // ── SiteScore Breakdown ──
   const breakdownRows = (iq.breakdown || []).map(b => {
     const dimScore = b.score || 0;
