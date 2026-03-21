@@ -4260,6 +4260,12 @@ function AppInner() {
   const [tab, setTab] = useState("dashboard");
   const [transitioning, setTransitioning] = useState(false);
   const isPopState = useRef(false); // prevents pushState during popstate handling
+  const [toast, setToast] = useState(null);
+  const [expandedSite, setExpandedSite] = useState(null);
+  const [detailView, setDetailView] = useState(null); // { regionKey, siteId }
+  const [showNewAlert, setShowNewAlert] = useState(false);
+  const [filterPhase, setFilterPhase] = useState("all");
+  const [reviewDetailSite, setReviewDetailSite] = useState(null); // site ID for full-page review detail
 
   // ─── Browser History Integration — back/forward button support ───
   const pushNav = useCallback((navState) => {
@@ -4306,11 +4312,7 @@ function AppInner() {
       setTimeout(() => setTransitioning(false), 350);
     }, 280);
   }, [tab, detailView, pushNav]);
-  const [toast, setToast] = useState(null);
-  const [expandedSite, setExpandedSite] = useState(null);
-  const [detailView, setDetailView] = useState(null); // { regionKey, siteId }
   const goToDetail = useCallback((dv) => { setDetailView(dv); if (dv) pushNav({ tab, detailView: dv, reviewDetailSite: null }); }, [tab, pushNav]);
-  const [showNewAlert, setShowNewAlert] = useState(false);
   const [newSiteCount, setNewSiteCount] = useState(0);
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
@@ -4325,11 +4327,9 @@ function AppInner() {
   const [msgInputs, setMsgInputs] = useState({});
   const [sortBy, setSortBy] = useState("city");
   const [filterState, setFilterState] = useState("all");
-  const [filterPhase, setFilterPhase] = useState("all");
   const [highlightedSite, setHighlightedSite] = useState(null);
   // reviewExpandedSite removed — replaced by reviewDetailSite (full-page detail)
   const [reviewTab, setReviewTab] = useState("mine");
-  const [reviewDetailSite, setReviewDetailSite] = useState(null); // site ID for full-page review detail
   const [shareLink, setShareLink] = useState(null);
   const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
