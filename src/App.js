@@ -1376,7 +1376,7 @@ function toggleMI(id,evt){
         <div class="mi-header"><div class="mi-title">Stabilized NOI Derivation</div><div class="mi-conf mi-conf-med">Projected</div></div>
         <div class="mi-body">
           <strong>Year 5 stabilized Net Operating Income — the critical metric for valuation.</strong>
-          <div class="mi-formula">Stabilized NOI = Stabilized Revenue × (1 - OpEx Ratio)<br>= ${fmtD(stabRev)} × (1 - ${opexRatioDetail ? (opexRatioDetail*100).toFixed(1) : "38"}%)<br>= <strong style="color:#16A34A">${fmtD(stabNOI)}</strong></div>
+          <div class="mi-formula">Stabilized NOI = Stabilized Revenue × (1 - OpEx Ratio)<br>= ${fmtD(stabRev)} × (1 - ${opexRatioDetail || "38"}%)<br>= <strong style="color:#16A34A">${fmtD(stabNOI)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Stabilized Revenue (Y5)</span><span class="mi-row-val">${fmtD(stabRev)}</span></div>
           <div class="mi-row"><span class="mi-row-label">Stabilized Occupancy</span><span class="mi-row-val">92% (industry standard)</span></div>
           <div class="mi-row"><span class="mi-row-label">Total OpEx</span><span class="mi-row-val">${fmtD(stabRev - stabNOI)}</span></div>
@@ -1395,7 +1395,7 @@ function toggleMI(id,evt){
           <div class="mi-formula">YOC = Stabilized NOI ÷ Total Development Cost<br>= ${fmtD(stabNOI)} ÷ ${fmtD(totalDevCost)}<br>= <strong style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : "#F59E0B"}">${yocStab}%</strong></div>
           <div class="mi-row"><span class="mi-row-label">PS Target Range</span><span class="mi-row-val">8.0% - 10.0%</span></div>
           <div class="mi-row"><span class="mi-row-label">PS Minimum Hurdle</span><span class="mi-row-val">7.5%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Development Spread</span><span class="mi-row-val" style="color:${devSpread >= 200 ? "#16A34A" : "#F59E0B"}">${devSpread || "N/A"} bps vs market cap</span></div>
+          <div class="mi-row"><span class="mi-row-label">Development Spread</span><span class="mi-row-val" style="color:${parseFloat(devSpread) >= 2.0 ? "#16A34A" : "#F59E0B"}">${devSpread || "N/A"} bps vs market cap</span></div>
           <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : parseFloat(yocStab) >= 7.5 ? "#F59E0B" : "#EF4444"}">${parseFloat(yocStab) >= 9.5 ? "Exceptional — well above PS hurdle" : parseFloat(yocStab) >= 8.5 ? "Strong — above PS sweet spot" : parseFloat(yocStab) >= 7.5 ? "Meets PS minimum development threshold" : "Below PS hurdle — negotiate land price down"}</span></div>
           <div class="mi-source">Source: SiteScore Financial Engine | Formula: Industry-standard development return metric used by all REIT developers</div>
         </div>
@@ -2054,9 +2054,9 @@ function toggleMI(id,evt){
         <div class="mi-header"><div class="mi-title">${v.label} — Valuation Derivation</div><div class="mi-conf mi-conf-${i === 1 ? "high" : "med"}">${i === 1 ? "Base Case" : i === 0 ? "Conservative" : "Aggressive"}</div></div>
         <div class="mi-body">
           <strong>Direct capitalization: Stabilized NOI ÷ Cap Rate = Market Value.</strong>
-          <div class="mi-formula">NOI: ${fmtD(stabNOI)}<br>Cap Rate: ${(v.cap*100).toFixed(2)}%<br>Value: ${fmtD(stabNOI)} ÷ ${(v.cap*100).toFixed(2)}% = <strong style="color:${i === 0 ? "#42A5F5" : i === 1 ? "#C9A84C" : "#16A34A"}">${fmtM(v.value)}</strong><br>${totalDevCost > 0 ? `Value Created: ${fmtM(v.value)} − ${fmtM(totalDevCost)} = <strong style="color:${v.value > totalDevCost ? "#16A34A" : "#EF4444"}">${fmtM(v.value - totalDevCost)}</strong> (${((v.value/totalDevCost-1)*100).toFixed(0)}%)` : ""}</div>
+          <div class="mi-formula">NOI: ${fmtD(stabNOI)}<br>Cap Rate: ${(v.rate*100).toFixed(2)}%<br>Value: ${fmtD(stabNOI)} ÷ ${(v.rate*100).toFixed(2)}% = <strong style="color:${i === 0 ? "#42A5F5" : i === 1 ? "#C9A84C" : "#16A34A"}">${fmtM(v.value)}</strong><br>${totalDevCost > 0 ? `Value Created: ${fmtM(v.value)} − ${fmtM(totalDevCost)} = <strong style="color:${v.value > totalDevCost ? "#16A34A" : "#EF4444"}">${fmtM(v.value - totalDevCost)}</strong> (${((v.value/totalDevCost-1)*100).toFixed(0)}%)` : ""}</div>
           <div class="mi-row"><span class="mi-row-label">Cap Rate Source</span><span class="mi-row-val">${i === 0 ? "Conservative exit — typical for secondary markets or buyers pricing in lease-up risk" : i === 1 ? "Base case — aligned with current storage transaction market (CBRE Q1 2026 cap rate survey: 5.25-6.00%)" : "Aggressive — achievable for institutional-quality assets in primary markets with 93%+ occupancy"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">PS Context</span><span class="mi-row-val">PSA trades at ~4.5-5.0% implied cap on existing portfolio. New development is underwritten at ${(v.cap*100).toFixed(1)}% to price in construction + lease-up uncertainty. ${i === 1 ? "This base case reflects institutional consensus for stabilized storage assets." : ""}</span></div>
+          <div class="mi-row"><span class="mi-row-label">PS Context</span><span class="mi-row-val">PSA trades at ~4.5-5.0% implied cap on existing portfolio. New development is underwritten at ${(v.rate*100).toFixed(1)}% to price in construction + lease-up uncertainty. ${i === 1 ? "This base case reflects institutional consensus for stabilized storage assets." : ""}</span></div>
           <div class="mi-source">Source: Green Street Advisors | CBRE Self-Storage Cap Rate Survey Q1 2026 | REIT implied caps from 10-K filings</div>
         </div>
       </div></div>
