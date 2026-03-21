@@ -318,13 +318,52 @@ export const computeSiteFinancials = (site) => {
   const compCount = site.siteiqData?.competitorCount || 0;
   const nearestPS = site.siteiqData?.nearestPS || null;
 
+  // ── Operator Profile — PS vs. Generic vs. Independent ──
+  // PS operates at 78.4% NOI margin (Q4 2025) due to self-management, scale economies,
+  // national brand, and centralized operations across 3,112 locations.
+  // Generic/independent operators run at 58-66% NOI margins.
+  const operatorProfile = site.operatorProfile || 'ps';
+  const opProfiles = {
+    ps: {
+      label: "Public Storage Operating Platform",
+      propTaxRate: 0.010, insurancePerSF: 0.30, mgmtFeePct: 0.035,
+      basePayroll: 55000, payrollBurden: 1.25, baseFTE: 1.0,
+      climateUtilPerSF: 0.85, driveUtilPerSF: 0.20,
+      rmPerSF: 0.25, marketingPct: 0.02, marketingLeaseUpPct: 0.04,
+      gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
+      noiMarginBenchmark: "78.4% (PSA Q4 2025)"
+    },
+    generic: {
+      label: "Institutional Operator (Industry Average)",
+      propTaxRate: 0.012, insurancePerSF: 0.45, mgmtFeePct: 0.06,
+      basePayroll: 65000, payrollBurden: 1.30, baseFTE: 1.0,
+      climateUtilPerSF: 1.10, driveUtilPerSF: 0.25,
+      rmPerSF: 0.35, marketingPct: 0.03, marketingLeaseUpPct: 0.05,
+      gaPct: 0.015, badDebtPct: 0.02, reservePerSF: 0.20,
+      noiMarginBenchmark: "62-66% (industry average)"
+    },
+    independent: {
+      label: "Independent / Mom-and-Pop Operator",
+      propTaxRate: 0.012, insurancePerSF: 0.50, mgmtFeePct: 0.08,
+      basePayroll: 55000, payrollBurden: 1.35, baseFTE: 1.5,
+      climateUtilPerSF: 1.20, driveUtilPerSF: 0.30,
+      rmPerSF: 0.40, marketingPct: 0.04, marketingLeaseUpPct: 0.06,
+      gaPct: 0.020, badDebtPct: 0.025, reservePerSF: 0.25,
+      noiMarginBenchmark: "55-60% (independent operators)"
+    }
+  };
+  const op = opProfiles[operatorProfile] || opProfiles.ps;
+
   // ── Facility Sizing Model ──
   // Multi-story (2.5–3.5 ac): 3-story, higher climate ratio (smaller footprint = maximize rentable SF)
   // One-story (3.5+ ac): PS suburban format — 65/35 climate/drive-up per Killeen TX site sketch (Option A, Dec 2024)
   const isMultiStory = !isNaN(acres) && acres < 3.5 && acres >= 2.5;
   const stories = isMultiStory ? 3 : 1;
   const footprint = !isNaN(acres) ? Math.round(acres * 43560 * 0.35) : 60000; // 35% coverage confirmed by Killeen sketch
-  const totalSF = footprint * stories;
+  const grossSF = footprint * stories;
+  // Net-to-gross efficiency: 90% — corridors, office, hallways, mechanical reduce leasable space
+  const netToGross = 0.90;
+  const totalSF = Math.round(grossSF * netToGross);
   const climatePct = isMultiStory ? 0.75 : 0.65; // Multi-story: 75% climate (vertical = all indoor). One-story: 65% per PS Killeen layout
   const drivePct = 1 - climatePct;
   const climateSF = Math.round(totalSF * climatePct);
@@ -338,15 +377,24 @@ export const computeSiteFinancials = (site) => {
   const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
   const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
 
-  // ── Regional Construction Costs (moved before yearData — bottom-up OpEx needs totalDevCost) ──
+  // ── Regional Construction Costs — Recalibrated to 2025 RSMeans/ENR Data ──
+  // Prior: $65/SF one-story, $95/SF multi-story (overstated vs. industry actuals)
+  // Recalibrated per Bain Review 2026-03-21 to match PS's actual construction costs.
+  // Sources: RSMeans 2025, ENR, SteelCo Buildings, HomeGuide, Cushman & Wakefield H1 2025
   const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94 };
   const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
-  const baseHardPerSF = isMultiStory ? 95 : 65;
+  // Product-type matrix: climate-controlled vs. drive-up only, one-story vs. multi-story
+  const baseHardPerSF = isMultiStory
+    ? (stories <= 3 ? 68 : stories <= 4 ? 78 : 95)   // Multi-story: $68/SF (3-story), $78 (4), $95 (5+)
+    : (climatePct >= 0.5 ? 45 : 28);                   // One-story: $45/SF climate-controlled, $28 drive-up only
   const hardCostPerSF = Math.round(baseHardPerSF * costIdx);
   const softCostPct = 0.20;
-  const hardCost = totalSF * hardCostPerSF;
+  const hardCost = grossSF * hardCostPerSF; // Hard costs on gross SF (corridors, mechanical still built)
   const softCost = Math.round(hardCost * softCostPct);
-  const buildCosts = hardCost + softCost;
+  // Construction contingency — 7.5% of hard costs (industry standard, required by REC)
+  const contingencyPct = 0.075;
+  const contingency = Math.round(hardCost * contingencyPct);
+  const buildCosts = hardCost + softCost + contingency;
 
   // ── P1: Construction Carry Costs (Pre-Revenue Period) ──
   // PS uses "Total Development Yield" = Stabilized NOI / (Land + Build + Carry).
@@ -364,6 +412,7 @@ export const computeSiteFinancials = (site) => {
   const workingCapital = Math.round(buildCosts * 0.02); // 2% working capital reserve
 
   // ── Total Development Cost (PS "Total Development Yield" denominator) ──
+  // buildCosts now includes hard + soft + contingency (7.5%)
   const totalDevCost = landCost + buildCosts + carryCosts;
 
   // ── 5-Year Lease-Up Model ──
@@ -380,7 +429,10 @@ export const computeSiteFinancials = (site) => {
   // Existing Customer Rate Increase — PS's #1 revenue lever (38-42% of mature revenue).
   // After 6-9 months, existing tenants get 8-12% annual rate increases.
   // ecriSchedule = cumulative blended ECRI premium above street rate by year.
-  const ecriSchedule = [0, 0.05, 0.10, 0.15, 0.20];
+  // Recalibrated 2026-03-21: Prior schedule (0/5/10/15/20%) understated PS's actual ECRI lift.
+  // PS applies 8-12% annual increases; by Y5 a Y1 tenant has received 3-4 increases.
+  // New schedule reflects ~32% cumulative ECRI by Y5, consistent with 38-42% of mature revenue from ECRI.
+  const ecriSchedule = [0, 0.06, 0.14, 0.24, 0.32];
 
   const yearData = leaseUpSchedule.map((y, i) => {
     const escMult = Math.pow(1 + annualEsc, i);
@@ -393,21 +445,23 @@ export const computeSiteFinancials = (site) => {
     const driveRev = Math.round(driveSF * y.occRate * driveRate * ecriMult * 12);
     const totalRev = climRev + driveRev;
 
-    // P0: Bottom-up Fixed + Variable OpEx (replaces flat % shortcut)
+    // P0: Bottom-up Fixed + Variable OpEx — driven by operator profile (PS / generic / independent)
+    // PS profile: 78.4% NOI margin (self-managed, scale economies, centralized ops, smart-access tech)
+    // Generic profile: 62-66% NOI margin (3rd-party management, standard staffing)
     // Fixed costs — independent of occupancy
-    const propTax = Math.round(totalDevCost * 0.012 * Math.pow(1.02, i));
-    const insurance = Math.round(totalSF * 0.45 * Math.pow(1.03, i));
-    const payroll = Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1) * Math.pow(1.03, i));
-    const utilities = Math.round((climateSF * 1.10 + driveSF * 0.25) * Math.pow(1.02, i));
-    const rm = Math.round(totalSF * 0.35 * Math.pow(1.02, i));
-    const reserves = Math.round(totalSF * 0.20);
+    const propTax = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, i));
+    const insurance = Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, i));
+    const payroll = Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, i));
+    const utilities = Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, i));
+    const rm = Math.round(totalSF * op.rmPerSF * Math.pow(1.02, i));
+    const reserves = Math.round(totalSF * op.reservePerSF);
     const fixedOpex = propTax + insurance + payroll + utilities + rm + reserves;
 
     // Variable costs — scale with actual revenue
-    const mgmtFee = Math.round(totalRev * 0.06);
-    const marketing = Math.round(totalRev * (y.yr <= 2 ? 0.05 : 0.03));
-    const ga = Math.round(totalRev * 0.015);
-    const badDebt = Math.round(totalRev * 0.02);
+    const mgmtFee = Math.round(totalRev * op.mgmtFeePct);
+    const marketing = Math.round(totalRev * (y.yr <= 2 ? op.marketingLeaseUpPct : op.marketingPct));
+    const ga = Math.round(totalRev * op.gaPct);
+    const badDebt = Math.round(totalRev * op.badDebtPct);
     const variableOpex = mgmtFee + marketing + ga + badDebt;
 
     const opex = fixedOpex + variableOpex;
@@ -432,16 +486,16 @@ export const computeSiteFinancials = (site) => {
   // ── Detailed OpEx Breakdown (Stabilized Y5) — sourced from bottom-up model ──
   const stabBkdn = yearData[4].opexBreakdown;
   const opexDetail = [
-    { item: "Property Tax", amount: stabBkdn.propTax, note: "1.2% of dev cost, 2%/yr reassessment escalation", pctRev: 0, type: "fixed" },
-    { item: "Insurance", amount: stabBkdn.insurance, note: "Property + GL — $0.45/SF base, 3%/yr escalation", pctRev: 0, type: "fixed" },
-    { item: "Management Fee", amount: stabBkdn.mgmtFee, note: "6% EGI — institutional operator standard", pctRev: 0.06, type: "variable" },
-    { item: "On-Site Payroll", amount: stabBkdn.payroll, note: `${totalSF > 80000 ? "1.5" : "1.0"} FTE @ $65K + 30% burden, 3%/yr esc`, pctRev: 0, type: "fixed" },
-    { item: "Utilities (Electric/HVAC)", amount: stabBkdn.utilities, note: "Climate: $1.10/SF | Drive-up: $0.25/SF, 2%/yr esc", pctRev: 0, type: "fixed" },
-    { item: "Repairs & Maintenance", amount: stabBkdn.rm, note: "$0.35/SF base, 2%/yr escalation", pctRev: 0, type: "fixed" },
-    { item: "Marketing & Digital", amount: stabBkdn.marketing, note: "3% EGI stabilized (5% during lease-up Y1-Y2)", pctRev: 0.03, type: "variable" },
-    { item: "Administrative / G&A", amount: stabBkdn.ga, note: "1.5% EGI — software, legal, accounting, CC fees", pctRev: 0.015, type: "variable" },
-    { item: "Bad Debt & Collections", amount: stabBkdn.badDebt, note: "2% reserve — lien auctions, late payments", pctRev: 0.02, type: "variable" },
-    { item: "Replacement Reserve", amount: stabBkdn.reserves, note: "$0.20/SF — HVAC, roof, resurfacing", pctRev: 0, type: "fixed" },
+    { item: "Property Tax", amount: stabBkdn.propTax, note: `${(op.propTaxRate*100).toFixed(1)}% of dev cost, 2%/yr reassessment escalation`, pctRev: 0, type: "fixed" },
+    { item: "Insurance", amount: stabBkdn.insurance, note: `Property + GL — $${op.insurancePerSF.toFixed(2)}/SF base, 3%/yr escalation${operatorProfile === 'ps' ? ' (PS captive insurance program)' : ''}`, pctRev: 0, type: "fixed" },
+    { item: "Management Fee", amount: stabBkdn.mgmtFee, note: `${(op.mgmtFeePct*100).toFixed(1)}% EGI — ${operatorProfile === 'ps' ? 'PS internal allocation (self-managed, no external fee)' : 'institutional operator standard'}`, pctRev: op.mgmtFeePct, type: "variable" },
+    { item: "On-Site Payroll", amount: stabBkdn.payroll, note: `${totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE} FTE @ $${(op.basePayroll/1000).toFixed(0)}K + ${Math.round((op.payrollBurden-1)*100)}% burden, 3%/yr esc${operatorProfile === 'ps' ? ' (smart-access tech reduces staffing)' : ''}`, pctRev: 0, type: "fixed" },
+    { item: "Utilities (Electric/HVAC)", amount: stabBkdn.utilities, note: `Climate: $${op.climateUtilPerSF.toFixed(2)}/SF | Drive-up: $${op.driveUtilPerSF.toFixed(2)}/SF, 2%/yr esc${operatorProfile === 'ps' ? ' (centralized HVAC monitoring)' : ''}`, pctRev: 0, type: "fixed" },
+    { item: "Repairs & Maintenance", amount: stabBkdn.rm, note: `$${op.rmPerSF.toFixed(2)}/SF base, 2%/yr escalation${operatorProfile === 'ps' ? ' (scale procurement)' : ''}`, pctRev: 0, type: "fixed" },
+    { item: "Marketing & Digital", amount: stabBkdn.marketing, note: `${(op.marketingPct*100).toFixed(0)}% EGI stabilized (${(op.marketingLeaseUpPct*100).toFixed(0)}% during lease-up Y1-Y2)${operatorProfile === 'ps' ? ' — national brand reduces per-facility spend' : ''}`, pctRev: op.marketingPct, type: "variable" },
+    { item: "Administrative / G&A", amount: stabBkdn.ga, note: `${(op.gaPct*100).toFixed(1)}% EGI — software, legal, accounting, CC fees${operatorProfile === 'ps' ? ' (centralized across 3,112 locations)' : ''}`, pctRev: op.gaPct, type: "variable" },
+    { item: "Bad Debt & Collections", amount: stabBkdn.badDebt, note: `${(op.badDebtPct*100).toFixed(1)}% reserve — lien auctions, late payments${operatorProfile === 'ps' ? ' (automated lien system)' : ''}`, pctRev: op.badDebtPct, type: "variable" },
+    { item: "Replacement Reserve", amount: stabBkdn.reserves, note: `$${op.reservePerSF.toFixed(2)}/SF — HVAC, roof, resurfacing${operatorProfile === 'ps' ? ' (bulk replacement purchasing)' : ''}`, pctRev: 0, type: "fixed" },
   ];
   const totalOpexDetail = opexDetail.reduce((s, o) => s + o.amount, 0);
   const opexRatioDetail = stabRev > 0 ? (totalOpexDetail / stabRev * 100).toFixed(1) : "N/A";
@@ -497,15 +551,15 @@ export const computeSiteFinancials = (site) => {
     const cR = mktClimateRate * esc * (1 - cDisc);
     const dR = mktDriveRate * esc * (1 - dDisc);
     const rev = Math.round(climateSF * occ * cR * ecriMult * 12) + Math.round(driveSF * occ * dR * ecriMult * 12);
-    // Bottom-up OpEx (matches yearData methodology)
-    const fixedOp = Math.round(totalDevCost * 0.012 * Math.pow(1.02, i))
-      + Math.round(totalSF * 0.45 * Math.pow(1.03, i))
-      + Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1) * Math.pow(1.03, i))
-      + Math.round((climateSF * 1.10 + driveSF * 0.25) * Math.pow(1.02, i))
-      + Math.round(totalSF * 0.35 * Math.pow(1.02, i))
-      + Math.round(totalSF * 0.20);
-    const varOp = Math.round(rev * 0.06) + Math.round(rev * (i <= 1 ? 0.05 : 0.03))
-      + Math.round(rev * 0.015) + Math.round(rev * 0.02);
+    // Bottom-up OpEx (matches yearData methodology — uses operator profile)
+    const fixedOp = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, i))
+      + Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, i))
+      + Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, i))
+      + Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, i))
+      + Math.round(totalSF * op.rmPerSF * Math.pow(1.02, i))
+      + Math.round(totalSF * op.reservePerSF);
+    const varOp = Math.round(rev * op.mgmtFeePct) + Math.round(rev * (i <= 1 ? op.marketingLeaseUpPct : op.marketingPct))
+      + Math.round(rev * op.gaPct) + Math.round(rev * op.badDebtPct);
     const opex = fixedOp + varOp;
     const noi = rev - opex;
     yrDataExt.push({ yr: i + 1, occ, rev, opex, noi, cR, dR, ecriMult });
@@ -534,13 +588,13 @@ export const computeSiteFinancials = (site) => {
       { label: "Occ +5pts", adj: 0.05 },
     ];
     const stabFixed = yearData[4].fixedOpex;
-    const varPctSum = 0.06 + 0.03 + 0.015 + 0.02; // mgmt + mktg + G&A + bad debt
+    const varPctSum = op.mgmtFeePct + op.marketingPct + op.gaPct + op.badDebtPct;
     const grid = rentScenarios.map(r => occScenarios.map(o => {
       const adjOcc = Math.min(0.97, Math.max(0.50, 0.92 + o.adj));
       const esc4 = Math.pow(1 + annualEsc, 4);
       const adjClimRate = mktClimateRate * esc4 * r.factor;
       const adjDriveRate = mktDriveRate * esc4 * r.factor;
-      const ecri5 = 1.20; // Y5 ECRI
+      const ecri5 = 1 + (ecriSchedule[4] || 0.32); // Y5 ECRI from calibrated schedule
       const adjRev = Math.round((climateSF * adjOcc * adjClimRate * ecri5 * 12) + (driveSF * adjOcc * adjDriveRate * ecri5 * 12));
       const adjVarOpex = Math.round(adjRev * varPctSum);
       const adjOpex = stabFixed + adjVarOpex;
@@ -557,12 +611,12 @@ export const computeSiteFinancials = (site) => {
         const em = 1 + (ecriSchedule[Math.min(yr, 4)] || 0.20);
         const yRev = Math.round(climateSF * ocCl * mktClimateRate * e * (1 - cD) * r.factor * em * 12)
           + Math.round(driveSF * ocCl * mktDriveRate * e * (1 - dD) * r.factor * em * 12);
-        const yFix = Math.round(totalDevCost * 0.012 * Math.pow(1.02, yr))
-          + Math.round(totalSF * 0.45 * Math.pow(1.03, yr))
-          + Math.round(65000 * 1.30 * (totalSF > 80000 ? 1.5 : 1) * Math.pow(1.03, yr))
-          + Math.round((climateSF * 1.10 + driveSF * 0.25) * Math.pow(1.02, yr))
-          + Math.round(totalSF * 0.35 * Math.pow(1.02, yr))
-          + Math.round(totalSF * 0.20);
+        const yFix = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, yr))
+          + Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, yr))
+          + Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, yr))
+          + Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, yr))
+          + Math.round(totalSF * op.rmPerSF * Math.pow(1.02, yr))
+          + Math.round(totalSF * op.reservePerSF);
         const yVar = Math.round(yRev * varPctSum);
         const yNoi = yRev - yFix - yVar;
         const yCF = yNoi - annualDS;
@@ -593,11 +647,12 @@ export const computeSiteFinancials = (site) => {
       { item: "Land Acquisition", amount: landCost, pct: totalDevCost > 0 ? (landCost / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Hard Costs (Construction)", amount: hardCost, pct: totalDevCost > 0 ? (hardCost / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Soft Costs (Design/Permits/Legal)", amount: softCost, pct: totalDevCost > 0 ? (softCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Construction Contingency (7.5%)", amount: contingency, pct: totalDevCost > 0 ? (contingency / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Construction Carry Costs", amount: carryCosts, pct: totalDevCost > 0 ? (carryCosts / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Working Capital Reserve", amount: workingCapital, pct: totalDevCost > 0 ? (workingCapital / totalDevCost * 100).toFixed(1) : "0" },
     ],
     totalSources: loanAmount + equityRequired,
-    totalUses: landCost + hardCost + softCost + carryCosts + workingCapital,
+    totalUses: landCost + hardCost + softCost + contingency + carryCosts + workingCapital,
   };
 
   // ── Rate Cross-Validation ──
@@ -635,22 +690,70 @@ export const computeSiteFinancials = (site) => {
   const replacementVsMarket = valuations[1].value > 0 && fullReplacementCost > 0 ? ((fullReplacementCost / valuations[1].value - 1) * 100).toFixed(0) : null;
   const buildOrBuy = replacementVsMarket !== null ? (parseFloat(replacementVsMarket) < -20 ? "BUILD — significant cost advantage" : parseFloat(replacementVsMarket) < 0 ? "BUILD — modest cost advantage" : parseFloat(replacementVsMarket) < 20 ? "NEUTRAL — similar cost to acquire stabilized" : "ACQUIRE — cheaper to buy existing") : null;
 
-  // ── REIT Benchmarks ──
+  // ── REIT Benchmarks — Updated Q4 2025 ──
   const reitBench = [
-    { ticker: "PSA", name: "Public Storage", revPAF: 24.50, noiMargin: 63.5, sameStoreGrowth: 3.1, avgOcc: 92.5, impliedCap: 4.8, stores: 3112, avgSF: 87000, ecriLift: 38 },
+    { ticker: "PSA", name: "Public Storage", revPAF: 22.53, noiMargin: 78.4, sameStoreGrowth: -0.7, avgOcc: 91.6, impliedCap: 4.8, stores: 3112, avgSF: 87000, ecriLift: 38 },
     { ticker: "EXR", name: "Extra Space", revPAF: 22.80, noiMargin: 65.2, sameStoreGrowth: 2.8, avgOcc: 93.5, impliedCap: 5.2, stores: 3800, avgSF: 72000, ecriLift: 42 },
     { ticker: "CUBE", name: "CubeSmart", revPAF: 20.10, noiMargin: 61.8, sameStoreGrowth: 2.5, avgOcc: 92.0, impliedCap: 5.5, stores: 1500, avgSF: 65000, ecriLift: 35 },
     { ticker: "NSA", name: "National Storage", revPAF: 17.50, noiMargin: 58.0, sameStoreGrowth: 2.2, avgOcc: 90.5, impliedCap: 6.0, stores: 1100, avgSF: 58000, ecriLift: 30 },
     { ticker: "LSI", name: "Life Storage", revPAF: 19.20, noiMargin: 60.0, sameStoreGrowth: 2.4, avgOcc: 91.5, impliedCap: 5.4, stores: 1200, avgSF: 68000, ecriLift: 33 },
   ];
 
+  // ── Phase 2: Institutional Board Metrics (Bain Review 2026-03-21) ──
+
+  // Unlevered IRR — isolates asset quality from capital structure
+  const unleveredCFs = [-totalDevCost, ...yrDataExt.map((y, i) => i === 9 ? y.noi + exitValue : y.noi)];
+  let uIrrLow = -0.1, uIrrHigh = 0.5;
+  for (let iter = 0; iter < 100; iter++) {
+    const mid = (uIrrLow + uIrrHigh) / 2;
+    const npv = unleveredCFs.reduce((s, cf, t) => s + cf / Math.pow(1 + mid, t), 0);
+    if (npv > 0) uIrrLow = mid; else uIrrHigh = mid;
+  }
+  const unleveredIRR = ((uIrrLow + uIrrHigh) / 2 * 100).toFixed(1);
+
+  // NPV at PS's WACC (9.26%) — definitive go/no-go: positive = creates shareholder value
+  const psWACC = 0.0926;
+  const npvAtWACC = Math.round(unleveredCFs.reduce((npv, cf, t) => npv + cf / Math.pow(1 + psWACC, t), 0));
+
+  // Debt Yield — lender risk metric, independent of cap rates and interest rates
+  const debtYield = loanAmount > 0 ? ((stabNOI / loanAmount) * 100).toFixed(1) : "N/A";
+
+  // Profit on Cost — value creation metric: how much stabilized value exceeds total development cost
+  const profitOnCost = totalDevCost > 0 && valuations[1].value > 0
+    ? ((valuations[1].value - totalDevCost) / totalDevCost * 100).toFixed(1)
+    : "N/A";
+
+  // Multi-Scenario Exit Cap — Bull/Base/Bear
+  const exitScenarios = [
+    { label: "Bull (5.25%)", rate: 0.0525 },
+    { label: "Base (6.00%)", rate: 0.06 },
+    { label: "Bear (7.00%)", rate: 0.07 },
+  ].map(s => {
+    const eVal = Math.round(yrDataExt[9].noi / s.rate);
+    const eProceeds = eVal - exitLoanBal;
+    const cfs = [-equityRequired, ...yrDataExt.map((y, i) => {
+      const cf = y.noi - annualDS;
+      return i === 9 ? cf + eProceeds : cf;
+    })];
+    let lo = -0.1, hi = 0.5;
+    for (let it = 0; it < 100; it++) {
+      const m = (lo + hi) / 2;
+      const npv = cfs.reduce((n, c, t) => n + c / Math.pow(1 + m, t), 0);
+      if (npv > 0) lo = m; else hi = m;
+    }
+    const poc = totalDevCost > 0 ? ((eVal - totalDevCost) / totalDevCost * 100).toFixed(1) : "N/A";
+    return { ...s, exitValue: eVal, equityProceeds: eProceeds, irr: ((lo + hi) / 2 * 100).toFixed(1), profitOnCost: poc };
+  });
+
   const pricePerAcre = landCost > 0 && !isNaN(acres) && acres > 0 ? Math.round(landCost / acres) : null;
 
   return {
     // Inputs
     acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
+    // Operator profile
+    operatorProfile, operatorLabel: op.label, noiMarginBenchmark: op.noiMarginBenchmark,
     // Facility
-    isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
+    isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
     // Rates
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     // Year data
@@ -658,7 +761,8 @@ export const computeSiteFinancials = (site) => {
     // NOI
     stabNOI, stabRev,
     // Construction + Carry
-    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts,
+    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
+    contingencyPct, contingency, buildCosts,
     constructionMonths, constructionYears, constLoanLTC, constLoanRate, avgDrawPct, constructionLoan,
     constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
     totalDevCost, yocStab,
@@ -686,6 +790,8 @@ export const computeSiteFinancials = (site) => {
     reitBench,
     // Sensitivity & Sources/Uses
     sensitivityMatrix, sourcesAndUses,
+    // Phase 2: Institutional Board Metrics
+    unleveredIRR, psWACC, npvAtWACC, debtYield, profitOnCost, exitScenarios,
     // Misc
     pricePerAcre,
   };

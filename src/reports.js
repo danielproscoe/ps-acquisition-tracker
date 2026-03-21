@@ -644,10 +644,12 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
   const fin = computeSiteFinancials(site);
   const { acres, landCost, popN, incN, hvN, growthPct, compCount, nearestPS, incTier,
-    isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
+    operatorProfile, operatorLabel, noiMarginBenchmark,
+    isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
-    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts,
+    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
+    contingencyPct, contingency, buildCosts,
     constructionMonths, constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
     totalDevCost, yocStab,
     opexDetail, totalOpexDetail, opexRatioDetail, noiDetail,
@@ -661,6 +663,7 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
     estCompSF, totalMktSF, sfPerCapita, sfPerCapitaExcl, demandSignal, demandColor,
     replacementCost, replacementCostPerSF, fullReplacementCost, replacementVsMarket, buildOrBuy,
     reitBench, sensitivityMatrix, sourcesAndUses, pricePerAcre,
+    unleveredIRR, psWACC, npvAtWACC, debtYield, profitOnCost, exitScenarios,
   } = fin;
   const phase = site.phase || "Prospect";
 
@@ -849,18 +852,20 @@ function toggleMI(id,evt){
       <div id="mi-devcost" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Total Development Cost</div><div class="mi-conf mi-conf-med">Modeled</div></div>
         <div class="mi-body">
-          <strong>SiteScore builds total dev cost from four components (PS "Total Development Yield" denominator):</strong>
-          <div class="mi-formula">Total Dev = Land + Hard + Soft + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(carryCosts)}<br>= <strong style="color:#E87A2E">${fmtD(totalDevCost)}</strong></div>
+          <strong>Storvex builds total dev cost from five components (PS "Total Development Yield" denominator):</strong>
+          <div class="mi-formula">Total Dev = Land + Hard + Soft + Contingency + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(contingency)} + ${fmtD(carryCosts)}<br>= <strong style="color:#E87A2E">${fmtD(totalDevCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Land Acquisition</span><span class="mi-row-val">${fmtD(landCost)} (${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Hard Costs (${fmtD(hardCostPerSF)}/SF)</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Hard Costs ($${hardCostPerSF}/SF on ${grossSF ? grossSF.toLocaleString() : "?"} gross SF)</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Soft Costs (${Math.round(softCostPct*100)}% of hard)</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Construction Contingency (${(contingencyPct*100).toFixed(1)}%)</span><span class="mi-row-val">${fmtD(contingency)} (${totalDevCost > 0 ? Math.round(contingency/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Construction Carry (${constructionMonths}mo)</span><span class="mi-row-val">${fmtD(carryCosts)} (${totalDevCost > 0 ? Math.round(carryCosts/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row" style="padding-left:16px;font-size:10px;color:#6B7394"><span class="mi-row-label">— Interest Reserve</span><span class="mi-row-val">${fmtD(constructionInterest)}</span></div>
           <div class="mi-row" style="padding-left:16px;font-size:10px;color:#6B7394"><span class="mi-row-label">— Property Tax (during constr.)</span><span class="mi-row-val">${fmtD(constructionPropTax)}</span></div>
           <div class="mi-row" style="padding-left:16px;font-size:10px;color:#6B7394"><span class="mi-row-label">— Builder's Risk Insurance</span><span class="mi-row-val">${fmtD(constructionInsurance)}</span></div>
           <div class="mi-row"><span class="mi-row-label">Cost/SF (all-in)</span><span class="mi-row-val">${totalSF > 0 ? fmtD(totalDevCost/totalSF) + "/SF" : "N/A"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Regional Cost Index</span><span class="mi-row-val">${(costIdx*100).toFixed(0)}% of national avg</span></div>
-          <div class="mi-source">Source: RSMeans/ENR regional construction cost data | Base: $${baseHardPerSF}/SF × ${(costIdx).toFixed(2)} state index | Carry: 60% LTC @ 7.5% const. rate</div>
+          <div class="mi-row"><span class="mi-row-label">Operator Profile</span><span class="mi-row-val">${operatorLabel || "Public Storage Operating Platform"}</span></div>
+          <div class="mi-source">Source: RSMeans/ENR 2025 regional construction cost data | Base: $${baseHardPerSF}/SF × ${(costIdx).toFixed(2)} state index | Carry: 60% LTC @ 7.5% const. rate | Contingency: 7.5% industry standard</div>
         </div>
       </div></div>
     </div>
@@ -875,8 +880,10 @@ function toggleMI(id,evt){
           <div class="mi-row"><span class="mi-row-label">Total OpEx</span><span class="mi-row-val">${fmtD(stabRev - stabNOI)}</span></div>
           <div class="mi-row"><span class="mi-row-label">NOI Margin</span><span class="mi-row-val">${noiMarginPct || Math.round(stabNOI/stabRev*100)}%</span></div>
           <div class="mi-row"><span class="mi-row-label">NOI/SF</span><span class="mi-row-val">$${noiPerSF || (totalSF > 0 ? (stabNOI/totalSF).toFixed(2) : "N/A")}</span></div>
-          <div class="mi-row"><span class="mi-row-label">PS Benchmark NOI Margin</span><span class="mi-row-val">62-66% (Q4 2025)</span></div>
-          <div class="mi-source">Source: SiteScore 5-Year Lease-Up Model | Rates: Income-tier methodology | OpEx: 10-line institutional detail</div>
+          <div class="mi-row"><span class="mi-row-label">PS Actual NOI Margin</span><span class="mi-row-val">78.4% (PSA Q4 2025 — self-managed, scale economies)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Operator Profile</span><span class="mi-row-val">${operatorLabel || "Public Storage Operating Platform"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Net-to-Gross</span><span class="mi-row-val">${netToGross ? (netToGross*100).toFixed(0) + "% (gross " + (grossSF ? grossSF.toLocaleString() : "?") + " SF → net " + totalSF.toLocaleString() + " SF)" : "N/A"}</span></div>
+          <div class="mi-source">Source: Storvex 5-Year Lease-Up Model | Rates: Income-tier methodology | OpEx: 10-line PS-calibrated detail (Bain Review 2026-03-21)</div>
         </div>
       </div></div>
     </div>
@@ -910,10 +917,55 @@ function toggleMI(id,evt){
       </div></div>
     </div>`).join("")}
   </div>
+  <!-- BOARD METRICS PANEL — Bain Review 2026-03-21 -->
+  <div style="margin-top:16px;padding:16px;border-radius:12px;background:rgba(15,21,56,0.6);border:1px solid rgba(201,168,76,0.15)">
+    <div style="font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;margin-bottom:12px;text-transform:uppercase">Board Review Metrics</div>
+    <div class="grid3" style="gap:12px">
+      <div style="text-align:center;padding:12px;border-radius:8px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.1)">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em;margin-bottom:4px">DEV SPREAD</div>
+        <div class="mono" style="font-size:18px;font-weight:800;color:${parseFloat(devSpread) >= 2.0 ? "#16A34A" : "#F59E0B"}">${devSpread}<span style="font-size:10px;color:#6B7394"> bps</span></div>
+        <div style="font-size:9px;color:#6B7394;margin-top:2px">≥150 bps = justified</div>
+      </div>
+      <div style="text-align:center;padding:12px;border-radius:8px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.1)">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em;margin-bottom:4px">PROFIT ON COST</div>
+        <div class="mono" style="font-size:18px;font-weight:800;color:${parseFloat(profitOnCost) >= 20 ? "#16A34A" : "#F59E0B"}">${profitOnCost}%</div>
+        <div style="font-size:9px;color:#6B7394;margin-top:2px">value creation</div>
+      </div>
+      <div style="text-align:center;padding:12px;border-radius:8px;background:${npvAtWACC >= 0 ? "rgba(22,163,74,0.08)" : "rgba(239,68,68,0.08)"};border:1px solid ${npvAtWACC >= 0 ? "rgba(22,163,74,0.2)" : "rgba(239,68,68,0.2)"}">
+        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em;margin-bottom:4px">NPV @ WACC</div>
+        <div class="mono" style="font-size:18px;font-weight:800;color:${npvAtWACC >= 0 ? "#16A34A" : "#EF4444"}">${fmtM(npvAtWACC)}</div>
+        <div style="font-size:9px;color:#6B7394;margin-top:2px">@ PS 9.26% WACC</div>
+      </div>
+    </div>
+    <div class="grid4" style="gap:8px;margin-top:10px">
+      <div style="text-align:center;padding:8px;border-radius:6px;background:rgba(201,168,76,0.04)">
+        <div style="font-size:8px;font-weight:700;color:#6B7394;letter-spacing:0.06em">UNLEVERED IRR</div>
+        <div class="mono" style="font-size:14px;font-weight:800;color:${parseFloat(unleveredIRR) >= 10 ? "#16A34A" : "#F59E0B"}">${unleveredIRR}%</div>
+      </div>
+      <div style="text-align:center;padding:8px;border-radius:6px;background:rgba(201,168,76,0.04)">
+        <div style="font-size:8px;font-weight:700;color:#6B7394;letter-spacing:0.06em">LEVERED IRR</div>
+        <div class="mono" style="font-size:14px;font-weight:800;color:${parseFloat(irrPct) >= 15 ? "#16A34A" : "#F59E0B"}">${irrPct}%</div>
+      </div>
+      <div style="text-align:center;padding:8px;border-radius:6px;background:rgba(201,168,76,0.04)">
+        <div style="font-size:8px;font-weight:700;color:#6B7394;letter-spacing:0.06em">DEBT YIELD</div>
+        <div class="mono" style="font-size:14px;font-weight:800;color:${parseFloat(debtYield) >= 10 ? "#16A34A" : "#F59E0B"}">${debtYield}%</div>
+      </div>
+      <div style="text-align:center;padding:8px;border-radius:6px;background:rgba(201,168,76,0.04)">
+        <div style="font-size:8px;font-weight:700;color:#6B7394;letter-spacing:0.06em">EQUITY MULTIPLE</div>
+        <div class="mono" style="font-size:14px;font-weight:800;color:${parseFloat(equityMultiple) >= 2.0 ? "#16A34A" : "#F59E0B"}">${equityMultiple}x</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <span style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em">EXIT SCENARIOS:</span>
+      ${exitScenarios ? exitScenarios.map(s => `<span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.1);color:${parseFloat(s.irr) >= 15 ? "#16A34A" : parseFloat(s.irr) >= 10 ? "#C9A84C" : "#EF4444"}">${s.label}: ${s.irr}% IRR</span>`).join("") : ""}
+    </div>
+    <div style="font-size:9px;color:#4A5080;margin-top:8px">Operating Profile: ${operatorLabel || "Public Storage"} | NOI Margin Benchmark: ${noiMarginBenchmark || "78.4% (PSA Q4 2025)"}</div>
+  </div>
+
   <div id="exec" class="expand-panel">
     <div class="insight-box">
       <div class="insight-title">Investment Thesis</div>
-      ${landCost > 0 && totalDevCost > 0 ? `<div>This ${!isNaN(acres) ? acres.toFixed(1) + "-acre" : ""} ${site.state || ""} site requires a total capital deployment of <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> (${landCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}% land / ${Math.round(hardCost/totalDevCost*100)}% hard / ${Math.round(softCost/totalDevCost*100)}% soft). At stabilization (Year 5), the facility produces <strong style="color:#16A34A">${fmtM(stabNOI)}</strong> NOI, implying a <strong style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : "#F59E0B"}">${yocStab}% yield on cost</strong> — ${parseFloat(yocStab) >= 9 ? "well above" : parseFloat(yocStab) >= 7.5 ? "above" : "near"} PS's typical 8-9% development hurdle rate.</div>` : "<div>Pricing data pending — investment thesis will populate when land cost is confirmed.</div>"}
+      ${landCost > 0 && totalDevCost > 0 ? `<div>This ${!isNaN(acres) ? acres.toFixed(1) + "-acre" : ""} ${site.state || ""} site requires a total capital deployment of <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> (${landCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}% land / ${Math.round(hardCost/totalDevCost*100)}% hard / ${Math.round(softCost/totalDevCost*100)}% soft / ${contingency > 0 ? Math.round(contingency/totalDevCost*100) : 0}% contingency). At stabilization (Year 5), the facility produces <strong style="color:#16A34A">${fmtM(stabNOI)}</strong> NOI at a <strong>${noiMarginPct}% margin</strong> (PS benchmark: 78.4%), implying a <strong style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : "#F59E0B"}">${yocStab}% yield on cost</strong> — ${parseFloat(yocStab) >= 9 ? "well above" : parseFloat(yocStab) >= 7.5 ? "above" : "near"} PS's ~8% development hurdle. Development spread of <strong>${devSpread} bps</strong> over the ${(mktAcqCap*100).toFixed(1)}% acquisition cap rate ${parseFloat(devSpread) >= 1.5 ? "justifies" : "may not justify"} construction risk. NPV at PS's 9.26% WACC: <strong style="color:${npvAtWACC >= 0 ? "#16A34A" : "#EF4444"}">${fmtM(npvAtWACC)}</strong> — ${npvAtWACC >= 0 ? "creates shareholder value" : "does not exceed cost of capital"}.</div>` : "<div>Pricing data pending — investment thesis will populate when land cost is confirmed.</div>"}
     </div>
     <div style="margin-top:16px">
       <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Return Waterfall</div>
@@ -922,6 +974,7 @@ function toggleMI(id,evt){
           { label: "Land Acquisition", val: landCost, color: "#C9A84C" },
           { label: "Hard Costs", val: hardCost, color: "#E87A2E" },
           { label: "Soft Costs", val: softCost, color: "#F59E0B" },
+          { label: "Contingency (7.5%)", val: contingency, color: "#94A3B8" },
         ];
         const maxVal = totalDevCost || 1;
         return items.map(it => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
@@ -961,7 +1014,7 @@ function toggleMI(id,evt){
         <div class="mi-header"><div class="mi-title">Site Acreage</div><div class="mi-conf mi-conf-high">Listing Data</div></div>
         <div class="mi-body">
           <strong>Acreage sourced from listing platform.</strong> Drives all facility sizing calculations.
-          <div class="mi-formula">Gross Site = ${!isNaN(acres) ? acres.toFixed(2) : "?"} acres = ${!isNaN(acres) ? Math.round(acres*43560).toLocaleString() : "?"} SF<br>Buildable (35% coverage) = ${footprint.toLocaleString()} SF</div>
+          <div class="mi-formula">Gross Site = ${!isNaN(acres) ? acres.toFixed(2) : "?"} acres = ${!isNaN(acres) ? Math.round(acres*43560).toLocaleString() : "?"} SF<br>Buildable (35% coverage) = ${footprint.toLocaleString()} SF<br>Gross Building SF = ${grossSF ? grossSF.toLocaleString() : "?"} SF<br>Net Rentable (${netToGross ? (netToGross*100).toFixed(0) : 90}% efficiency) = ${totalSF.toLocaleString()} SF</div>
           <div class="mi-row"><span class="mi-row-label">PS Size Classification</span><span class="mi-row-val">${acres >= 3.5 ? "Primary (one-story preferred)" : acres >= 2.5 ? "Secondary (multi-story candidate)" : "Undersized"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Coverage Ratio</span><span class="mi-row-val">35% (PS standard — Killeen TX sketch)</span></div>
           <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet"} listing | Verify with survey when available</div>
@@ -2729,10 +2782,12 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
   const fin = computeSiteFinancials(site);
   const { acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
-    isMultiStory, stories, footprint, totalSF, climatePct, drivePct, climateSF, driveSF,
+    operatorProfile, operatorLabel, noiMarginBenchmark,
+    isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
-    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost, buildCosts,
+    stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
+    contingencyPct, contingency, buildCosts,
     constructionMonths, constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
     totalDevCost, yocStab,
     opexDetail, totalOpexDetail, opexRatioDetail, noiDetail,
@@ -2746,6 +2801,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
     estCompSF, totalMktSF, sfPerCapita, sfPerCapitaExcl, demandSignal, demandColor,
     replacementCost, replacementCostPerSF, fullReplacementCost, replacementVsMarket, buildOrBuy,
     reitBench, sensitivityMatrix, sourcesAndUses, pricePerAcre,
+    unleveredIRR, psWACC, npvAtWACC, debtYield, profitOnCost, exitScenarios,
   } = fin;
   const phase = site.phase || "Prospect";
 
