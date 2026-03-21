@@ -1212,7 +1212,7 @@ const generatePricingReport = (site, iqResult) => {
   const pctBar = (pct, color) => `<div style="display:flex;align-items:center;gap:8px"><div style="width:120px;height:10px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden"><div style="width:${Math.round(pct*100)}%;height:100%;border-radius:5px;background:${color};transition:width 0.5s"></div></div><span style="font-size:12px;font-weight:700;color:${color}">${Math.round(pct*100)}%</span></div>`;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Pricing Report — ${site.name}</title>
+<title>Storevex Pricing Report — ${site.name}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1319,7 +1319,7 @@ function toggleMI(id,evt){
 <div class="header-v4" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding:24px 28px;border-radius:16px;background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.5));border:1px solid rgba(201,168,76,0.2)">
   <div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:900;letter-spacing:0.14em;color:#C9A84C">SITESCORE<span style="font-size:7px;vertical-align:super">™</span></div>
+      <div style="font-size:13px;font-weight:900;letter-spacing:0.14em;color:#C9A84C">STOREVEX<span style="font-size:7px;vertical-align:super">™</span></div>
       <div style="width:1px;height:16px;background:rgba(201,168,76,0.3)"></div>
       <div style="font-size:11px;font-weight:600;color:#6B7394;letter-spacing:0.08em">INTERACTIVE PRICING INTELLIGENCE</div>
       <span class="version-badge">v4.0</span>
@@ -3167,7 +3167,7 @@ function toggleMI(id,evt){
   <div style="font-size:11px;color:#6B7394;margin-bottom:12px">AI-Powered Storage Site Intelligence & Pricing Analytics</div>
   <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent);margin:12px auto;max-width:400px"></div>
   <div style="font-size:10px;color:#4A5080;margin-top:12px;line-height:1.8">
-    <div>Storage Pricing Report — ${site.name} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div>Storevex Pricing Report — ${site.name} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
     <div style="margin-top:8px;font-weight:600;color:#6B7394">Powered by DJR Real Estate LLC | U.S. Patent Pending — Serial No. 99712640</div>
     <div style="margin-top:10px;max-width:700px;margin-left:auto;margin-right:auto;color:#3A4060;font-size:9px;line-height:1.7">
       <strong style="color:#6B7394">CONFIDENTIAL & PROPRIETARY.</strong> This report and its contents are the exclusive property of DJR Real Estate LLC.
@@ -5335,7 +5335,7 @@ function AppInner() {
                         <button onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📊 Detailed Property Report</button>
                         <button onClick={() => {
                           const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
-                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 SiteScore Pricing Report</button>
+                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>💰 Storevex Pricing Report</button>
                         <button onClick={() => {
                           const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
                         }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>📋 REC Package</button>
@@ -7471,7 +7471,7 @@ function AppInner() {
                 {flyerDoc && <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(243,124,51,0.12)", color: "#FFB347", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(243,124,51,0.25)", display: "flex", alignItems: "center", gap: 6 }}>📄 View Flyer</a>}
                 <button onClick={() => {
                   const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
-                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(46,125,50,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>💰 SiteScore Pricing Report</button>
+                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(46,125,50,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>💰 Storevex Pricing Report</button>
                 <button onClick={() => {
                   const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank");
                 }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>📋 REC Package</button>
