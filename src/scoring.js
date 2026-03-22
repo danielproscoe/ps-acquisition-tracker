@@ -75,7 +75,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     hardFail = false;
     const failIdx = flags.indexOf("FAIL: 3-mi pop under 5,000");
     if (failIdx !== -1) flags.splice(failIdx, 1);
-    flags.push("Growth corridor: pop under 5K but high growth — scored 2 (not FAIL)");
+    flags.push("Growth corridor exemption: pop under 5K but high growth — scored 2");
   }
 
   // --- 2c. HOUSEHOLDS (5%) — 3-mi household count (demand proxy) ---

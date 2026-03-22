@@ -235,8 +235,8 @@ describe('Growth corridor exemption', () => {
     const result = score({ pop3mi: '3,500', popGrowth3mi: '2.0' }); // growth 2.0% = score 10 >= 8
     expect(result.scores.population).toBe(2);
     expect(result.hardFail).toBe(false);
-    expect(result.flags.some(f => f.includes('Growth corridor'))).toBe(true);
-    expect(result.flags.some(f => f.includes('FAIL') && f.includes('pop'))).toBe(false);
+    expect(result.flags.some(f => f.includes('Growth corridor exemption'))).toBe(true);
+    expect(result.flags.some(f => f.startsWith('FAIL') && f.includes('pop'))).toBe(false);
   });
 
   test('pop 2,500 with growth score exactly 8 triggers exemption', () => {
@@ -593,10 +593,9 @@ describe('Phase bonuses', () => {
   test('"LOI" adds +0.15', () => {
     const base = score();
     const phased = score({ phase: 'LOI' });
-    // rounding: 0.15 may round to 0.1 or 0.2
     const diff = phased.score - base.score;
-    expect(diff).toBeGreaterThanOrEqual(0.1);
-    expect(diff).toBeLessThanOrEqual(0.2);
+    // floating point: 0.15 rounds to 0.1 or 0.2 — use toBeCloseTo for precision
+    expect(diff).toBeCloseTo(0.15, 0);
   });
 
   test('"SiteScore Approved" adds +0.1', () => {
