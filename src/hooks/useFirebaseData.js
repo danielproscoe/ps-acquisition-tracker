@@ -53,12 +53,32 @@ export function useFirebaseData({ onWeightsChange }) {
   useEffect(() => { onWeightsChangeRef.current = onWeightsChange; }, [onWeightsChange]);
 
   // ─── FIREBASE REAL-TIME LISTENERS (wait for auth) ───
+  // Track which data sources have delivered their first snapshot so we can
+  // hold off rendering until ALL data is ready (prevents 3-frame flicker).
+  const initialLoadRef = useRef({ subs: false, east: false, sw: false });
+
   useEffect(() => {
     if (!authReady) return;
+    initialLoadRef.current = { subs: false, east: false, sw: false };
+
     const subsRef = ref(db, "submissions");
     const eastRef = ref(db, "east");
     const swRef = ref(db, "southwest");
     const iqRef = ref(db, "config/siteiq_weights");
+
+    // Pending initial data — buffer updates until all 3 data listeners fire.
+    const pendingRef = { subs: [], east: [], sw: [] };
+
+    const maybeFlush = () => {
+      const il = initialLoadRef.current;
+      if (il.subs && il.east && il.sw) {
+        // All 3 have reported — flush in a single synchronous block (React 18 batches these)
+        setIfChanged(setSubs, pendingRef.subs);
+        setIfChanged(setEast, pendingRef.east);
+        setIfChanged(setSw, pendingRef.sw);
+        setLoaded(true);
+      }
+    };
 
     const unsubIQ = onValue(iqRef, (snap) => {
       const val = snap.val();
@@ -68,7 +88,6 @@ export function useFirebaseData({ onWeightsChange }) {
           return { ...d, weight: override ? override.weight : d.weight };
         });
         const normalized = normalizeSiteScoreWeights(merged);
-        // Notify App.js to update its module-scope SITE_SCORE_CONFIG
         if (onWeightsChangeRef.current) onWeightsChangeRef.current(normalized);
         setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
         setConfigVersion(v => v + 1);
@@ -78,18 +97,35 @@ export function useFirebaseData({ onWeightsChange }) {
     const unsubSubs = onValue(subsRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setIfChanged(setSubs, arr);
+      if (!initialLoadRef.current.subs) {
+        initialLoadRef.current.subs = true;
+        pendingRef.subs = arr;
+        maybeFlush();
+      } else {
+        setIfChanged(setSubs, arr);
+      }
     });
     const unsubEast = onValue(eastRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setIfChanged(setEast, arr);
-      setLoaded(true);
+      if (!initialLoadRef.current.east) {
+        initialLoadRef.current.east = true;
+        pendingRef.east = arr;
+        maybeFlush();
+      } else {
+        setIfChanged(setEast, arr);
+      }
     });
     const unsubSw = onValue(swRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setIfChanged(setSw, arr);
+      if (!initialLoadRef.current.sw) {
+        initialLoadRef.current.sw = true;
+        pendingRef.sw = arr;
+        maybeFlush();
+      } else {
+        setIfChanged(setSw, arr);
+      }
     });
 
     return () => {
