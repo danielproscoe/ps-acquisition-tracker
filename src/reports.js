@@ -1033,7 +1033,12 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig, valuation
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
-    contingencyPct, contingency, buildCosts,
+    contingencyPct, contingency, buildCosts, totalHardCost, totalHardPerSF,
+    siteAreaSF, baseSiteWorkPerSF, siteWorkCost,
+    baseFireSuppressionPerSF, fireSuppressionCost,
+    baseInteriorPerSF, interiorBuildoutCost,
+    baseTechPerSF, technologyCost,
+    utilityInfraBase, baseUtilityPerSF, utilityInfraCost,
     constructionMonths, constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
     totalDevCost, yocStab,
     opexDetail, totalOpexDetail, opexRatioDetail, noiDetail,
@@ -1298,10 +1303,15 @@ function updateCustomCap(val){
         <div class="mi-header"><div class="mi-title">Total Development Cost</div><div class="mi-conf mi-conf-med">Modeled</div></div>
         <div class="mi-body">
           <strong>Storvex builds total dev cost from five components (PS "Total Development Yield" denominator):</strong>
-          <div class="mi-formula">Total Dev = Land + Hard + Soft + Contingency + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(contingency)} + ${fmtD(carryCosts)}<br>= <strong style="color:#E87A2E">${fmtD(totalDevCost)}</strong></div>
+          <div class="mi-formula">Total Dev = Land + All Hard Costs + Soft + Contingency + Carry<br>= ${fmtD(landCost)} + ${fmtD(totalHardCost)} + ${fmtD(softCost)} + ${fmtD(contingency)} + ${fmtD(carryCosts)}<br>= <strong style="color:#E87A2E">${fmtD(totalDevCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Land Acquisition</span><span class="mi-row-val">${fmtD(landCost)} (${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Hard Costs ($${hardCostPerSF}/SF on ${grossSF ? grossSF.toLocaleString() : "?"} gross SF)</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Soft Costs (${Math.round(softCostPct*100)}% of hard)</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Building Shell & HVAC ($${hardCostPerSF}/SF)</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Site Development ($${baseSiteWorkPerSF}/SF site)</span><span class="mi-row-val">${fmtD(siteWorkCost)} (${totalDevCost > 0 ? Math.round(siteWorkCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Fire Suppression ($${baseFireSuppressionPerSF}/SF)</span><span class="mi-row-val">${fmtD(fireSuppressionCost)} (${totalDevCost > 0 ? Math.round(fireSuppressionCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Interior Buildout ($${baseInteriorPerSF}/SF net)</span><span class="mi-row-val">${fmtD(interiorBuildoutCost)} (${totalDevCost > 0 ? Math.round(interiorBuildoutCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Technology & Security ($${baseTechPerSF}/SF)</span><span class="mi-row-val">${fmtD(technologyCost)} (${totalDevCost > 0 ? Math.round(technologyCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Utility Infrastructure</span><span class="mi-row-val">${fmtD(utilityInfraCost)} (${totalDevCost > 0 ? Math.round(utilityInfraCost/totalDevCost*100) : 0}%)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Soft Costs (${Math.round(softCostPct*100)}% of all hard)</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Construction Contingency (${(contingencyPct*100).toFixed(1)}%)</span><span class="mi-row-val">${fmtD(contingency)} (${totalDevCost > 0 ? Math.round(contingency/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Construction Carry (${constructionMonths}mo)</span><span class="mi-row-val">${fmtD(carryCosts)} (${totalDevCost > 0 ? Math.round(carryCosts/totalDevCost*100) : 0}%)</span></div>
           <div class="mi-row" style="padding-left:16px;font-size:10px;color:#6B7394"><span class="mi-row-label">— Interest Reserve</span><span class="mi-row-val">${fmtD(constructionInterest)}</span></div>
@@ -1417,9 +1427,11 @@ function updateCustomCap(val){
       ${(() => {
         const items = [
           { label: "Land Acquisition", val: landCost, color: "#C9A84C" },
-          { label: "Hard Costs", val: hardCost, color: "#E87A2E" },
-          { label: "Soft Costs", val: softCost, color: "#F59E0B" },
-          { label: "Contingency (7.5%)", val: contingency, color: "#94A3B8" },
+          { label: "Building Shell", val: hardCost, color: "#E87A2E" },
+          { label: "Site Development", val: siteWorkCost, color: "#D97706" },
+          { label: "Fire / Interior", val: fireSuppressionCost + interiorBuildoutCost, color: "#B45309" },
+          { label: "Tech / Utility", val: technologyCost + utilityInfraCost, color: "#92400E" },
+          { label: "Soft + Contingency", val: softCost + contingency, color: "#F59E0B" },
         ];
         const maxVal = totalDevCost || 1;
         return items.map(it => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
@@ -2133,33 +2145,39 @@ function updateCustomCap(val){
             <div class="mi-source">Source: Broker listing (Crexi/LoopNet/CoStar) | SiteScore™ reverse-engineered from stabilized NOI</div>
           </div>
         </div></div></td></tr>
-        <tr class="mi" onclick="toggleMI('dchard',event)" style="cursor:pointer"><td style="color:#6B7394;font-weight:600">Hard Costs (${totalSF.toLocaleString()} SF @ $${hardCostPerSF}/SF) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td class="mono" style="font-weight:700;text-align:right">${fmtD(hardCost)}</td></tr>
+        <tr class="mi" onclick="toggleMI('dchard',event)" style="cursor:pointer"><td style="color:#6B7394;font-weight:600">All Hard Costs (${grossSF ? grossSF.toLocaleString() : totalSF.toLocaleString()} GSF @ $${totalHardPerSF}/SF) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td class="mono" style="font-weight:700;text-align:right">${fmtD(totalHardCost)}</td></tr>
         <tr><td colspan="2" style="padding:0;border:none"><div id="mi-dchard" class="mi-panel"><div class="mi-panel-inner">
-          <div class="mi-header"><div class="mi-title">Hard Construction Costs</div><div class="mi-conf mi-conf-high">RSMeans + PS Benchmarks</div></div>
+          <div class="mi-header"><div class="mi-title">Hard Cost Breakdown — Full Development Stack</div><div class="mi-conf mi-conf-high">PS Killeen Calibrated</div></div>
           <div class="mi-body">
-            <strong>Regionally adjusted hard cost estimate for ${isMultiStory ? stories + "-story multi-story" : "single-story indoor"} climate-controlled self-storage.</strong>
-            <div class="mi-formula">National Base Rate: $${baseHardPerSF}/SF<br>Regional Index (${site.state || "N/A"}): ${costIdx.toFixed(2)}x<br>Adjusted Rate: $${baseHardPerSF} × ${costIdx.toFixed(2)} = $${hardCostPerSF}/SF<br>Total: ${totalSF.toLocaleString()} SF × $${hardCostPerSF} = <strong style="color:#E87A2E">${fmtD(hardCost)}</strong></div>
-            <div class="mi-row"><span class="mi-row-label">What's Included</span><span class="mi-row-val">Sitework & grading (12%), foundation & structural (22%), shell & envelope (18%), interior build-out (20%), HVAC (13%), electrical (8%), fire suppression (4%), paving & landscaping (3%)</span></div>
-            <div class="mi-row"><span class="mi-row-label">PS Development Context</span><span class="mi-row-val">PS builds at $${hardCostPerSF}/SF in ${site.state || "this region"} (2025-2026 GC pricing). ${isMultiStory ? "Multi-story adds ~$30/SF premium for structural steel, elevator shafts, and fire stairs." : "Single-story is PS's most cost-efficient product type — no elevator, no fire stairs, simpler structural requirements."} PS has built 40+ facilities in the last 24 months at similar per-SF costs.</span></div>
-            <div class="mi-row"><span class="mi-row-label">Cost Risk</span><span class="mi-row-val">${costIdx < 0.95 ? "Below-average construction market — favorable GC pricing likely. Consider locking in GMP early." : costIdx > 1.05 ? "Above-average market — labor and material costs elevated. Build 5-8% contingency into hard cost line." : "Near-average market — standard construction risk profile."}</span></div>
-            <div class="mi-source">Source: RSMeans 2025 Construction Cost Data | ENR Construction Cost Index Q1 2026 | PS development benchmarks (10-K disclosure)</div>
+            <strong>All-in hard costs for ${isMultiStory ? stories + "-story multi-story" : "single-story indoor"} climate-controlled self-storage. Calibrated against PS Killeen TX closing (Dec 2025, $11.65M actual).</strong>
+            <table style="width:100%;border-collapse:collapse;margin:10px 0">
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Building Shell & HVAC</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${hardCostPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"}</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(hardCost)}</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Site Development</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${baseSiteWorkPerSF}/SF × ${siteAreaSF.toLocaleString()} site SF</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(siteWorkCost)}</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Fire Suppression</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${baseFireSuppressionPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"}</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(fireSuppressionCost)}</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Interior Buildout</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${baseInteriorPerSF}/SF × ${totalSF.toLocaleString()} net SF</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(interiorBuildoutCost)}</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Technology & Security</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${baseTechPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"}</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(technologyCost)}</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Utility Infrastructure</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${utilityInfraBase.toLocaleString()} base + $${baseUtilityPerSF}/SF</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(utilityInfraCost)}</td></tr>
+              <tr style="border-top:2px solid rgba(201,168,76,0.2)"><td style="padding:6px 0;font-size:12px;color:#C9A84C;font-weight:800">Total Hard Costs</td><td class="mono" style="padding:6px 0;font-size:11px;text-align:center;color:#C9A84C;font-weight:700">$${totalHardPerSF}/SF all-in</td><td class="mono" style="padding:6px 0;font-size:12px;text-align:right;font-weight:800;color:#E87A2E">${fmtD(totalHardCost)}</td></tr>
+            </table>
+            <div class="mi-row"><span class="mi-row-label">Regional Index</span><span class="mi-row-val">${site.state || "N/A"}: ${costIdx.toFixed(2)}x — ${costIdx < 0.95 ? "below-average market, favorable GC pricing" : costIdx > 1.05 ? "above-average market, elevated costs" : "near national average"}</span></div>
+            <div class="mi-row"><span class="mi-row-label">PS Calibration</span><span class="mi-row-val">Killeen TX closing (Dec 2025): $11.65M dev cost on 98K GSF = $119/SF all-in. Model produces $${totalHardPerSF}/SF — ${Math.abs(totalHardPerSF - 119) <= 15 ? "within calibration range" : "review rates"}.</span></div>
+            <div class="mi-source">Source: RSMeans 2025 | PS Killeen TX settlement statement (ORNTIC 303884/TX24380) | ENR Q1 2026</div>
           </div>
         </div></div></td></tr>
         <tr class="mi" onclick="toggleMI('dcsoft',event)" style="cursor:pointer"><td style="color:#6B7394;font-weight:600">Soft Costs (${Math.round(softCostPct*100)}%) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td class="mono" style="font-weight:700;text-align:right">${fmtD(softCost)}</td></tr>
         <tr><td colspan="2" style="padding:0;border:none"><div id="mi-dcsoft" class="mi-panel"><div class="mi-panel-inner">
           <div class="mi-header"><div class="mi-title">Soft Cost Breakdown — REC Detail View</div><div class="mi-conf mi-conf-med">Industry Standard</div></div>
           <div class="mi-body">
-            <strong>Soft costs cover all non-brick-and-mortar development expenses. Set at ${Math.round(softCostPct*100)}% of hard costs (conservative range: 15-25%). Breakdown shows REC-level granularity.</strong>
-            <div class="mi-formula">Hard Costs: ${fmtD(hardCost)}<br>Soft Cost %: ${Math.round(softCostPct*100)}%<br>Total Soft: ${fmtD(hardCost)} × ${(softCostPct).toFixed(2)} = <strong style="color:#F59E0B">${fmtD(softCost)}</strong></div>
+            <strong>Soft costs cover all non-construction development expenses. Set at ${Math.round(softCostPct*100)}% of total hard costs (conservative range: 15-25%). Breakdown shows REC-level granularity.</strong>
+            <div class="mi-formula">Total Hard Costs: ${fmtD(totalHardCost)}<br>Soft Cost %: ${Math.round(softCostPct*100)}%<br>Total Soft: ${fmtD(totalHardCost)} × ${(softCostPct).toFixed(2)} = <strong style="color:#F59E0B">${fmtD(softCost)}</strong></div>
             <table style="width:100%;border-collapse:collapse;margin:10px 0">
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Architecture & Engineering</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">5-7% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.06))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Civil, structural, MEP, landscape arch</td></tr>
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Permits & Impact Fees</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">3-5% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.04))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">${site.state === "TX" ? "TX — generally lower regulatory costs" : "Jurisdiction-dependent"}</td></tr>
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Legal & Title</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Closing, zoning counsel, contracts</td></tr>
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Survey & Geotech</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">0.5-1%</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.0075))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">ALTA survey, Phase I ESA, geotech borings</td></tr>
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Developer Fee</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">3-5% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.04))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">PS internal allocation — self-developed</td></tr>
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Construction Mgmt</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">2-3% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.025))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">PS internal — no third-party CM fee</td></tr>
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Technology & Access</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Keypads, cameras, smart locks, mgmt software</td></tr>
-              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Financing Costs</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(hardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Origination, appraisal, title insurance</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Architecture & Engineering</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">5-7% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(totalHardCost * 0.06))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Civil, structural, MEP, landscape arch</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Permits & Impact Fees</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">3-5% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(totalHardCost * 0.04))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">${site.state === "TX" ? "TX — generally lower regulatory costs" : "Jurisdiction-dependent"}</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Legal & Title</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(totalHardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Closing, zoning counsel, contracts</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Survey & Geotech</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">0.5-1%</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(totalHardCost * 0.0075))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">ALTA survey, Phase I ESA, geotech borings</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Developer Fee</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">3-5% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(totalHardCost * 0.04))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">PS internal allocation — self-developed</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Construction Mgmt</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">2-3% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(totalHardCost * 0.025))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">PS internal — no third-party CM fee</td></tr>
+              <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Financing Costs</td><td style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">1-2% of hard</td><td style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0;font-family:'Space Mono',monospace">${fmtD(Math.round(totalHardCost * 0.015))}</td><td style="padding:5px 0;font-size:10px;color:#4A5080;padding-left:8px">Origination, appraisal, title insurance</td></tr>
               <tr style="border-top:2px solid rgba(201,168,76,0.2)"><td style="padding:6px 0;font-size:12px;color:#C9A84C;font-weight:800">Total Soft Costs</td><td style="padding:6px 0;font-size:11px;text-align:center;color:#C9A84C;font-weight:700">${Math.round(softCostPct*100)}%</td><td style="padding:6px 0;font-size:12px;text-align:right;font-weight:800;color:#F59E0B;font-family:'Space Mono',monospace">${fmtD(softCost)}</td><td></td></tr>
             </table>
             <div style="font-size:10px;color:#4A5080;margin-top:4px">Note: Line items are estimated allocations within the ${Math.round(softCostPct*100)}% total. Actual breakdown varies by jurisdiction and project complexity. PS's self-development model reduces developer fee and CM costs vs. third-party development.</div>
@@ -2170,8 +2188,8 @@ function updateCustomCap(val){
         <tr><td colspan="2" style="padding:0;border:none"><div id="mi-dctotal" class="mi-panel"><div class="mi-panel-inner">
           <div class="mi-header"><div class="mi-title">Total Capital Required</div><div class="mi-conf mi-conf-high">Computed</div></div>
           <div class="mi-body">
-            <strong>All-in development cost = Land + Hard Costs + Soft Costs. This is the denominator in the Yield on Cost calculation — the single metric PS uses to evaluate development projects.</strong>
-            <div class="mi-formula">Land: ${landCost > 0 ? fmtD(landCost) : "TBD"}<br>Hard Costs: ${fmtD(hardCost)}<br>Soft Costs: ${fmtD(softCost)}<br>────────────<br>Total: <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> ($${totalDevCost > 0 ? Math.round(totalDevCost/totalSF).toLocaleString() : "—"}/SF all-in)</div>
+            <strong>All-in development cost = Land + Total Hard Costs + Soft Costs + Contingency + Carry. This is the denominator in the Yield on Cost calculation — the single metric PS uses to evaluate development projects.</strong>
+            <div class="mi-formula">Land: ${landCost > 0 ? fmtD(landCost) : "TBD"}<br>Total Hard Costs: ${fmtD(totalHardCost)} ($${totalHardPerSF}/SF)<br>Soft Costs (${Math.round(softCostPct*100)}%): ${fmtD(softCost)}<br>Contingency (${(contingencyPct*100).toFixed(1)}%): ${fmtD(contingency)}<br>Carry (${constructionMonths}mo): ${fmtD(carryCosts)}<br>────────────<br>Total: <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> ($${totalDevCost > 0 ? Math.round(totalDevCost/totalSF).toLocaleString() : "—"}/SF all-in)</div>
             <div class="mi-row"><span class="mi-row-label">Yield on Cost</span><span class="mi-row-val">${yocStab}% — ${parseFloat(yocStab) >= 9 ? "EXCEEDS PS hurdle rate (8.0-9.0%). Strong internal approval signal." : parseFloat(yocStab) >= 8 ? "MEETS PS hurdle rate. Standard approval path." : parseFloat(yocStab) >= 7 ? "BELOW PS hurdle — requires exceptional location or strategic rationale." : "BELOW institutional minimum — does not pencil without significant cost reduction or NOI increase."}</span></div>
             <div class="mi-row"><span class="mi-row-label">Why This Matters to PS</span><span class="mi-row-val">PS's Real Estate Committee (REC) evaluates every development project primarily on YOC. The development spread (YOC minus acquisition cap rate of ~${(mktAcqCap*100).toFixed(1)}%) must justify the 18-24 month construction period and lease-up risk. This project's ${devSpread}-point spread ${parseFloat(devSpread) >= 2.5 ? "clearly justifies development" : parseFloat(devSpread) >= 1.5 ? "is acceptable for development" : "is marginal — acquisition may be more efficient"}.</span></div>
             <div class="mi-source">Source: SiteScore™ cost engine | Land from broker listing | Hard costs from RSMeans regional index | Soft costs at ${Math.round(softCostPct*100)}% industry standard</div>
@@ -3540,7 +3558,12 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
     leaseUpSchedule, yearData, stabNOI, stabRev,
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
-    contingencyPct, contingency, buildCosts,
+    contingencyPct, contingency, buildCosts, totalHardCost, totalHardPerSF,
+    siteAreaSF, baseSiteWorkPerSF, siteWorkCost,
+    baseFireSuppressionPerSF, fireSuppressionCost,
+    baseInteriorPerSF, interiorBuildoutCost,
+    baseTechPerSF, technologyCost,
+    utilityInfraBase, baseUtilityPerSF, utilityInfraCost,
     constructionMonths, constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
     totalDevCost, yocStab,
     opexDetail, totalOpexDetail, opexRatioDetail, noiDetail,
@@ -4202,17 +4225,26 @@ function toggleMI(id,evt){
         </div>
       </div></div>
     </div>
-    <div class="metric mi" onclick="toggleMI('fin-hard',event)"><div class="label">Hard Cost</div><div class="value" style="font-size:16px">${fmtM(hardCost)}</div><div class="sub">$${hardCostPerSF}/SF</div><em class="mi-hint">i</em>
+    <div class="metric mi" onclick="toggleMI('fin-hard',event)"><div class="label">Total Hard Cost</div><div class="value" style="font-size:16px">${fmtM(totalHardCost)}</div><div class="sub">$${totalHardPerSF}/SF all-in</div><em class="mi-hint">i</em>
       <div id="mi-fin-hard" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Hard Construction Costs</div><div class="mi-conf mi-conf-med">Modeled</div></div>
+        <div class="mi-header"><div class="mi-title">Full Hard Cost Stack — PS Killeen Calibrated</div><div class="mi-conf mi-conf-high">Killeen Benchmarked</div></div>
         <div class="mi-body">
-          <strong>Hard costs include structural, MEP, site work, and building envelope. Applied to gross SF (before net-to-gross), adjusted by state-level RSMeans cost index.</strong>
-          <div class="mi-formula">Hard Cost = Gross SF × Base Rate × State Index<br>= ${grossSF ? grossSF.toLocaleString() : totalSF.toLocaleString()} × $${baseHardPerSF} × ${costIdx.toFixed(2)}<br>= <strong style="color:#1E40AF">${fmtD(hardCost)}</strong> ($${hardCostPerSF}/SF)</div>
-          <div class="mi-row"><span class="mi-row-label">National Base Rate</span><span class="mi-row-val">$${baseHardPerSF}/SF (${isMultiStory ? stories + "-story multi-story" : climatePct >= 0.5 ? "1-story climate-controlled" : "1-story drive-up"})</span></div>
-          <div class="mi-row"><span class="mi-row-label">State Cost Index</span><span class="mi-row-val">${(costIdx*100).toFixed(0)}% of national avg</span></div>
+          <strong>All-in hard costs: building shell, site development, fire suppression, interior buildout, technology, and utility infrastructure. Regionally adjusted. Calibrated to PS Killeen TX closing ($119/SF actual).</strong>
+          <div class="mi-formula">
+            Building Shell & HVAC: $${hardCostPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} = ${fmtD(hardCost)}<br>
+            Site Development: $${baseSiteWorkPerSF}/SF × ${siteAreaSF.toLocaleString()} site SF = ${fmtD(siteWorkCost)}<br>
+            Fire Suppression: $${baseFireSuppressionPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} = ${fmtD(fireSuppressionCost)}<br>
+            Interior Buildout: $${baseInteriorPerSF}/SF × ${totalSF.toLocaleString()} net SF = ${fmtD(interiorBuildoutCost)}<br>
+            Technology & Security: $${baseTechPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} = ${fmtD(technologyCost)}<br>
+            Utility Infrastructure: $${utilityInfraBase.toLocaleString()} + $${baseUtilityPerSF}/SF = ${fmtD(utilityInfraCost)}<br>
+            ────────────<br>
+            <strong style="color:#1E40AF">${fmtD(totalHardCost)}</strong> ($${totalHardPerSF}/SF all-in)
+          </div>
+          <div class="mi-row"><span class="mi-row-label">State Cost Index (${site.state || "N/A"})</span><span class="mi-row-val">${costIdx.toFixed(2)}x — ${costIdx < 0.95 ? "below national avg" : costIdx > 1.05 ? "above national avg" : "near national avg"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Gross vs Net SF</span><span class="mi-row-val">${grossSF ? grossSF.toLocaleString() : "?"} gross → ${totalSF.toLocaleString()} net (${netToGross ? (netToGross*100).toFixed(0) : 90}% efficiency)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Hard % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%</span></div>
-          <div class="mi-source">Source: RSMeans/ENR 2025 Construction Cost Data | Product-type calibrated base rates | State-adjusted index</div>
+          <div class="mi-row"><span class="mi-row-label">Hard % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(totalHardCost/totalDevCost*100) : 0}%</span></div>
+          <div class="mi-row"><span class="mi-row-label">PS Benchmark</span><span class="mi-row-val">Killeen TX: $119/SF all-in on 98K GSF. Model: $${totalHardPerSF}/SF. ${Math.abs(totalHardPerSF - 119) <= 15 ? "Within calibration range." : "Review assumptions."}</span></div>
+          <div class="mi-source">Source: RSMeans 2025 | PS Killeen TX closing (ORNTIC 303884/TX24380) | ENR Q1 2026</div>
         </div>
       </div></div>
     </div>
@@ -4220,8 +4252,8 @@ function toggleMI(id,evt){
       <div id="mi-fin-soft" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Soft Costs</div><div class="mi-conf mi-conf-med">Standard Ratio</div></div>
         <div class="mi-body">
-          <strong>Soft costs include architecture, engineering, permitting, legal, insurance, and financing fees. Contingency is tracked separately at ${(contingencyPct*100).toFixed(1)}% of hard costs (${fmtD(contingency)}).</strong>
-          <div class="mi-formula">Soft Cost = Hard Cost × ${Math.round(softCostPct*100)}%<br>= ${fmtD(hardCost)} × ${softCostPct}<br>= <strong style="color:#1E40AF">${fmtD(softCost)}</strong></div>
+          <strong>Soft costs include architecture, engineering, permitting, legal, insurance, and financing fees. Contingency tracked separately at ${(contingencyPct*100).toFixed(1)}% of total hard costs (${fmtD(contingency)}).</strong>
+          <div class="mi-formula">Soft Cost = Total Hard Cost × ${Math.round(softCostPct*100)}%<br>= ${fmtD(totalHardCost)} × ${softCostPct}<br>= <strong style="color:#1E40AF">${fmtD(softCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Architecture & Engineering</span><span class="mi-row-val">~6-8% of hard costs</span></div>
           <div class="mi-row"><span class="mi-row-label">Permitting & Impact Fees</span><span class="mi-row-val">~3-5% of hard costs</span></div>
           <div class="mi-row"><span class="mi-row-label">Financing & Legal</span><span class="mi-row-val">~3-4% of hard costs</span></div>

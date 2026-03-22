@@ -48,13 +48,20 @@ export const STORVEX_DEFAULTS = {
   ecriY4: 0.24,
   ecriY5: 0.32,
 
-  // ── Construction Costs ──
-  hardCostOneStoryClimate: 45,  // $/SF
-  hardCostOneStoryDrive: 28,    // $/SF
+  // ── Construction Costs (Recalibrated 2026-03-22 per PS Killeen closing) ──
+  hardCostOneStoryClimate: 45,  // $/SF — building shell + HVAC only
+  hardCostOneStoryDrive: 28,    // $/SF — drive-up shell only
   hardCostMultiStory3: 68,      // $/SF 3-story
   hardCostMultiStory4: 78,      // $/SF 4-story
-  softCostPct: 0.20,            // 20% of hard costs
-  contingencyPct: 0.075,        // 7.5% of hard costs
+  siteWorkPerSFOneStory: 8,     // $/SF of total site area — grading, paving, stormwater, landscaping
+  siteWorkPerSFMulti: 10,       // $/SF multi-story (tighter sites)
+  fireSuppressionPerSF: 5.50,   // $/SF gross — full sprinkler, alarm, standpipe (NFPA 13/72)
+  interiorBuildoutPerSF: 15,    // $/SF net — unit partitions, roll-up doors, locks, office
+  technologyPerSF: 3.50,        // $/SF gross — access control, cameras, smart-entry, IT
+  utilityInfraBase: 75000,      // Flat base — tap fees, hookup regardless of size
+  utilityInfraPerSF: 2.00,      // $/SF gross — capacity sizing (fire line, electric, sewer)
+  softCostPct: 0.20,            // 20% of TOTAL hard costs (all 6 categories)
+  contingencyPct: 0.075,        // 7.5% of TOTAL hard costs
 
   // ── Construction Carry ──
   constructionMonthsOneStory: 14,
@@ -173,14 +180,21 @@ const SECTIONS = [
     id: 'construction',
     label: 'Construction Costs',
     icon: '🔨',
-    description: 'Hard costs, soft costs, contingency — RSMeans calibrated',
+    description: 'Full dev cost stack — PS Killeen calibrated ($119/SF actual)',
     inputs: [
-      { key: 'hardCostOneStoryClimate', label: '1-Story Climate ($/SF)', type: 'dollar', step: 1, min: 20, max: 100, unit: '$/SF' },
-      { key: 'hardCostOneStoryDrive', label: '1-Story Drive-Up ($/SF)', type: 'dollar', step: 1, min: 10, max: 60, unit: '$/SF' },
-      { key: 'hardCostMultiStory3', label: '3-Story ($/SF)', type: 'dollar', step: 1, min: 40, max: 140, unit: '$/SF' },
-      { key: 'hardCostMultiStory4', label: '4-Story ($/SF)', type: 'dollar', step: 1, min: 50, max: 160, unit: '$/SF' },
-      { key: 'softCostPct', label: 'Soft Costs (% of Hard)', type: 'pct', step: 0.01, min: 0.10, max: 0.35, tip: 'Design, permits, legal, environmental' },
-      { key: 'contingencyPct', label: 'Contingency (% of Hard)', type: 'pct', step: 0.005, min: 0.03, max: 0.15, tip: 'Industry standard: 7.5%. Required by REC.' },
+      { key: 'hardCostOneStoryClimate', label: '1-Story Shell+HVAC ($/SF)', type: 'dollar', step: 1, min: 20, max: 100, unit: '$/SF', tip: 'Building shell & HVAC only. PS benchmark: $45/SF national' },
+      { key: 'hardCostOneStoryDrive', label: '1-Story Drive-Up Shell ($/SF)', type: 'dollar', step: 1, min: 10, max: 60, unit: '$/SF' },
+      { key: 'hardCostMultiStory3', label: '3-Story Shell ($/SF)', type: 'dollar', step: 1, min: 40, max: 140, unit: '$/SF' },
+      { key: 'hardCostMultiStory4', label: '4-Story Shell ($/SF)', type: 'dollar', step: 1, min: 50, max: 160, unit: '$/SF' },
+      { key: 'siteWorkPerSFOneStory', label: 'Site Dev 1-Story ($/SF site)', type: 'dollar', step: 0.5, min: 3, max: 20, unit: '$/SF', tip: 'Grading, paving, stormwater, landscaping, fencing — per SF of total site area' },
+      { key: 'siteWorkPerSFMulti', label: 'Site Dev Multi-Story ($/SF site)', type: 'dollar', step: 0.5, min: 4, max: 25, unit: '$/SF' },
+      { key: 'fireSuppressionPerSF', label: 'Fire Suppression ($/SF)', type: 'rate', step: 0.25, min: 2.00, max: 10.00, unit: '$/SF', tip: 'Full sprinkler (NFPA 13), fire alarm, standpipe, FDC' },
+      { key: 'interiorBuildoutPerSF', label: 'Interior Buildout ($/SF net)', type: 'dollar', step: 0.5, min: 5, max: 30, unit: '$/SF', tip: 'Unit partitions, roll-up doors, locks, corridor finish, office' },
+      { key: 'technologyPerSF', label: 'Technology & Security ($/SF)', type: 'rate', step: 0.25, min: 1.00, max: 8.00, unit: '$/SF', tip: 'Access control, cameras, smart-entry, IoT, IT infrastructure' },
+      { key: 'utilityInfraBase', label: 'Utility Base Cost ($)', type: 'dollar', step: 5000, min: 25000, max: 200000, unit: '$', tip: 'Flat hookup costs: water/sewer taps, electric service, gas' },
+      { key: 'utilityInfraPerSF', label: 'Utility Per-SF ($/SF)', type: 'rate', step: 0.25, min: 0.50, max: 5.00, unit: '$/SF', tip: 'Capacity sizing: fire line, transformer, sewer main' },
+      { key: 'softCostPct', label: 'Soft Costs (% of All Hard)', type: 'pct', step: 0.01, min: 0.10, max: 0.35, tip: 'A&E, permits, legal, survey, dev fee — applied to TOTAL hard costs' },
+      { key: 'contingencyPct', label: 'Contingency (% of All Hard)', type: 'pct', step: 0.005, min: 0.03, max: 0.15, tip: 'Industry standard: 7.5%. Required by PS REC.' },
     ]
   },
   {

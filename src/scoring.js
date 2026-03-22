@@ -429,24 +429,79 @@ export const computeSiteFinancials = (site, overrides = {}) => {
   const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
   const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
 
-  // ── Regional Construction Costs — Recalibrated to 2025 RSMeans/ENR Data ──
-  // Prior: $65/SF one-story, $95/SF multi-story (overstated vs. industry actuals)
-  // Recalibrated per Bain Review 2026-03-21 to match PS's actual construction costs.
-  // Sources: RSMeans 2025, ENR, SteelCo Buildings, HomeGuide, Cushman & Wakefield H1 2025
+  // ── Regional Construction Costs — Recalibrated 2026-03-22 ──
+  // PRIOR MODEL (pre-2026-03-22): Only included building shell + HVAC at $45/SF.
+  // Produced ~$5.4M on Killeen TX (98K GSF) vs. PS actual closing of $11.65M dev cost.
+  // Underestimated by ~54% because it omitted: site work, fire suppression, interior
+  // buildout (unit partitions/doors), technology, and utility infrastructure.
+  //
+  // RECALIBRATED: Full development cost stack matching PS's actual Killeen TX closing
+  // (3007 E Stan Schlueter, Dec 2025, ORNTIC File 303884/TX24380).
+  // PS actual: $11,654,895 dev cost (excl land) on ~98K GSF = ~$119/SF all-in.
+  // New model produces ~$11.1M = ~$113/SF — within 5% of PS actuals (delta = PS internal overhead).
+  // Sources: RSMeans 2025, ENR, SteelCo, PS Killeen closing settlement statement.
   const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94 };
   const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
-  // Product-type matrix: climate-controlled vs. drive-up only, one-story vs. multi-story
+
+  // ── 1. Building Shell + HVAC (vertical construction) ──
+  // Pre-engineered metal building, HVAC for climate-controlled units, roofing, exterior envelope
   const baseHardPerSF = isMultiStory
     ? (stories <= 3 ? O('hardCostMultiStory3', 68) : stories <= 4 ? O('hardCostMultiStory4', 78) : 95)
     : (climatePct >= 0.5 ? O('hardCostOneStoryClimate', 45) : O('hardCostOneStoryDrive', 28));
   const hardCostPerSF = Math.round(baseHardPerSF * costIdx);
+  const hardCost = grossSF * hardCostPerSF; // Building shell + HVAC on gross SF
+
+  // ── 2. Site Development (horizontal construction) ──
+  // Grading/earthwork, paving (drives + parking + loading), stormwater detention,
+  // landscaping, fencing, perimeter screening, monument signage, curb cuts/access
+  // Calculated on total site area SF — covers everything outside the building footprint.
+  // One-story: $8/SF (larger, flatter sites); Multi-story: $10/SF (tighter, more vertical work)
+  const siteAreaSF = !isNaN(acres) ? Math.round(acres * 43560) : Math.round(grossSF / 0.35);
+  const baseSiteWorkPerSF = isMultiStory ? O('siteWorkPerSFMulti', 10) : O('siteWorkPerSFOneStory', 8);
+  const siteWorkCost = Math.round(siteAreaSF * baseSiteWorkPerSF * costIdx);
+
+  // ── 3. Fire Suppression ──
+  // Full sprinkler system (NFPA 13), fire alarm (NFPA 72), standpipe, FDC, hydrant connections.
+  // Storage buildings require sprinklers per IBC — non-negotiable for any commercial storage.
+  // $5.50/SF of gross building SF (includes design, installation, testing, backflow preventer)
+  const baseFireSuppressionPerSF = O('fireSuppressionPerSF', 5.50);
+  const fireSuppressionCost = Math.round(grossSF * baseFireSuppressionPerSF * costIdx);
+
+  // ── 4. Interior Buildout ──
+  // Unit partition walls (metal studs + metal panel), roll-up doors (one per unit),
+  // unit latches/locks, corridor finishes, office buildout (reception, restroom, break room),
+  // interior signage, unit numbering. Calculated on net rentable SF (totalSF).
+  // ~$15/SF covers: partitions ($4/SF) + doors ($8/SF @ ~1 door per 100 SF) + finish ($3/SF)
+  const baseInteriorPerSF = O('interiorBuildoutPerSF', 15);
+  const interiorBuildoutCost = Math.round(totalSF * baseInteriorPerSF * costIdx);
+
+  // ── 5. Technology & Security ──
+  // Access control keypads (gate + building entries), security cameras (40-80 per facility),
+  // smart-entry/IoT sensors, property management software, IT network infrastructure,
+  // kiosk rental stations. PS runs a heavily tech-enabled platform.
+  const baseTechPerSF = O('technologyPerSF', 3.50);
+  const technologyCost = Math.round(grossSF * baseTechPerSF * costIdx);
+
+  // ── 6. Utility Infrastructure ──
+  // Water/sewer hookups, fire suppression water line (6"+ dedicated), 3-phase electric
+  // service upgrade, gas service, telecom/fiber. Base cost covers tap fees + hookup
+  // regardless of building size; per-SF covers capacity sizing (larger buildings need
+  // bigger mains, more electric capacity, larger fire line).
+  const utilityInfraBase = O('utilityInfraBase', 75000);
+  const baseUtilityPerSF = O('utilityInfraPerSF', 2.00);
+  const utilityInfraCost = Math.round((utilityInfraBase + grossSF * baseUtilityPerSF) * costIdx);
+
+  // ── Total Hard Cost (all 6 categories) ──
+  const totalHardCost = hardCost + siteWorkCost + fireSuppressionCost + interiorBuildoutCost + technologyCost + utilityInfraCost;
+  const totalHardPerSF = grossSF > 0 ? Math.round(totalHardCost / grossSF) : 0;
+
+  // ── Soft Costs & Contingency (applied to TOTAL hard cost, not just shell) ──
   const softCostPct = O('softCostPct', 0.20);
-  const hardCost = grossSF * hardCostPerSF; // Hard costs on gross SF (corridors, mechanical still built)
-  const softCost = Math.round(hardCost * softCostPct);
-  // Construction contingency — 7.5% of hard costs (industry standard, required by REC)
+  const softCost = Math.round(totalHardCost * softCostPct);
+  // Construction contingency — 7.5% of total hard costs (industry standard, required by REC)
   const contingencyPct = O('contingencyPct', 0.075);
-  const contingency = Math.round(hardCost * contingencyPct);
-  const buildCosts = hardCost + softCost + contingency;
+  const contingency = Math.round(totalHardCost * contingencyPct);
+  const buildCosts = totalHardCost + softCost + contingency;
 
   // ── P1: Construction Carry Costs (Pre-Revenue Period) ──
   // PS uses "Total Development Yield" = Stabilized NOI / (Land + Build + Carry).
@@ -697,14 +752,19 @@ export const computeSiteFinancials = (site, overrides = {}) => {
     ],
     uses: [
       { item: "Land Acquisition", amount: landCost, pct: totalDevCost > 0 ? (landCost / totalDevCost * 100).toFixed(1) : "0" },
-      { item: "Hard Costs (Construction)", amount: hardCost, pct: totalDevCost > 0 ? (hardCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Building Shell & HVAC", amount: hardCost, pct: totalDevCost > 0 ? (hardCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Site Development", amount: siteWorkCost, pct: totalDevCost > 0 ? (siteWorkCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Fire Suppression", amount: fireSuppressionCost, pct: totalDevCost > 0 ? (fireSuppressionCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Interior Buildout", amount: interiorBuildoutCost, pct: totalDevCost > 0 ? (interiorBuildoutCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Technology & Security", amount: technologyCost, pct: totalDevCost > 0 ? (technologyCost / totalDevCost * 100).toFixed(1) : "0" },
+      { item: "Utility Infrastructure", amount: utilityInfraCost, pct: totalDevCost > 0 ? (utilityInfraCost / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Soft Costs (Design/Permits/Legal)", amount: softCost, pct: totalDevCost > 0 ? (softCost / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Construction Contingency (7.5%)", amount: contingency, pct: totalDevCost > 0 ? (contingency / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Construction Carry Costs", amount: carryCosts, pct: totalDevCost > 0 ? (carryCosts / totalDevCost * 100).toFixed(1) : "0" },
       { item: "Working Capital Reserve", amount: workingCapital, pct: totalDevCost > 0 ? (workingCapital / totalDevCost * 100).toFixed(1) : "0" },
     ],
     totalSources: loanAmount + equityRequired,
-    totalUses: landCost + hardCost + softCost + contingency + carryCosts + workingCapital,
+    totalUses: landCost + totalHardCost + softCost + contingency + carryCosts + workingCapital,
   };
 
   // ── Rate Cross-Validation ──
@@ -814,7 +874,12 @@ export const computeSiteFinancials = (site, overrides = {}) => {
     stabNOI, stabRev,
     // Construction + Carry
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
-    contingencyPct, contingency, buildCosts,
+    contingencyPct, contingency, buildCosts, totalHardCost, totalHardPerSF,
+    siteAreaSF, baseSiteWorkPerSF, siteWorkCost,
+    baseFireSuppressionPerSF, fireSuppressionCost,
+    baseInteriorPerSF, interiorBuildoutCost,
+    baseTechPerSF, technologyCost,
+    utilityInfraBase, baseUtilityPerSF, utilityInfraCost,
     constructionMonths, constructionYears, constLoanLTC, constLoanRate, avgDrawPct, constructionLoan,
     constructionInterest, constructionPropTax, constructionInsurance, carryCosts, workingCapital,
     totalDevCost, yocStab,
