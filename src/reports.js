@@ -53,7 +53,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
   if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
+  if (site.waterAvailable === false) flags.push("WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
   // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
@@ -73,6 +73,10 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const utilScore = utilChecks.reduce((sum, c) => sum + (c.done ? c.weight : 0), 0);
   const utilGrade = utilScore >= 80 ? "A" : utilScore >= 60 ? "B" : utilScore >= 40 ? "C" : utilScore >= 20 ? "D" : "F";
   const utilGradeColor = utilScore >= 80 ? "#16A34A" : utilScore >= 60 ? "#3B82F6" : utilScore >= 40 ? "#F59E0B" : "#EF4444";
+  // Water hookup status
+  const waterHookup = site.waterHookupStatus || (site.insideServiceBoundary === true ? "by-right" : site.insideServiceBoundary === false ? "by-request" : site.waterProvider ? "unknown" : "unknown");
+  const waterHookupLabel = { "by-right": "BY-RIGHT", "by-request": "BY-REQUEST", "no-provider": "NO PROVIDER", "unknown": "UNKNOWN" }[waterHookup] || "UNKNOWN";
+  const waterHookupColor = waterHookup === "by-right" ? "#16A34A" : waterHookup === "by-request" ? "#F59E0B" : waterHookup === "no-provider" ? "#EF4444" : "#94A3B8";
   // Water hookup cost estimator
   const distFt = site.distToWaterMain ? parseFloat(String(site.distToWaterMain).replace(/[^0-9.]/g, "")) : null;
   const waterTapN = site.waterTapFee ? parseFloat(String(site.waterTapFee).replace(/[^0-9.]/g, "")) : null;
@@ -92,45 +96,237 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const iqBadgeColor = iqTier === "gold" ? "#C9A84C" : iqTier === "steel" ? "#2C3E6B" : "#94A3B8";
   const zoningScore = iq?.scores?.zoning;
   const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
+  // Competition data for executive summary
+  const cc = site.siteiqData?.competitorCount;
+  const compColor = cc !== undefined && cc !== null ? (cc <= 1 ? "#16A34A" : cc <= 3 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+  const compLabel = cc !== undefined && cc !== null ? (cc === 0 ? "NO COMPETITORS" : cc === 1 ? "1 COMPETITOR" : cc + " COMPETITORS") : "NOT ASSESSED";
+  const satLevel = cc !== undefined && cc !== null ? (cc === 0 ? "Unserved Market" : cc <= 2 ? "Low Saturation" : cc <= 4 ? "Moderate Saturation" : "High Saturation") : "Unknown";
+  // Demographics for exec summary
+  const hhN = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
+  const hvN = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
+  const pop1 = parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
+  const growthPct = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
+  const growthColor = growthPct !== null ? (growthPct >= 1.5 ? "#16A34A" : growthPct >= 0.5 ? "#3B82F6" : growthPct >= 0 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+  // Key strength / risk for exec summary
+  const keyStrength = iqScore >= 8 ? "Elite composite score — strong fundamentals across all dimensions" : zoningClass === "by-right" && popN >= 25000 ? "Permitted zoning + strong demographics" : popN >= 40000 ? "Exceptional population density within 3-mi radius" : growthPct >= 2.0 ? "High-growth corridor with strong projected demand" : zoningClass === "by-right" ? "Storage permitted by-right — no entitlement risk" : "Evaluate on case-by-case basis";
+  const keyRisk = zoningClass === "prohibited" ? "Storage explicitly prohibited — rezone is only path" : zoningClass === "unknown" ? "Zoning not verified — cannot confirm storage permissibility" : zoningClass === "rezone-required" ? "Rezone required — political risk and 4-12 month timeline" : waterHookup === "no-provider" ? "No municipal water provider identified — fire code blocker" : hasFlood ? "Flood zone present — insurance cost and development constraints" : popN < 10000 && popN > 0 ? "Low population density — demand may not support facility" : flags.length > 0 ? flags[0] : "No critical risks identified";
+  // Recommendation for exec summary
+  const recommendation = iqScore >= 8.0 ? "AUTO-ADVANCE — Site meets all thresholds for review queue." : iqScore >= 6.0 ? "PRESENT FOR REVIEW — Strong candidate with noted concerns." : iqScore >= 4.0 ? "FLAGGED — Below target thresholds. Recommend pass unless override." : typeof iqScore === "number" ? "AUTO-PASS — Below minimum thresholds." : "INSUFFICIENT DATA — Complete research before scoring.";
+  const recColor = iqScore >= 8.0 ? "#16A34A" : iqScore >= 6.0 ? "#F59E0B" : typeof iqScore === "number" ? "#EF4444" : "#94A3B8";
+  // SF/capita competition gauge
+  const sfCapitaMatch = (site.demandSupplySignal || "").match(/([\d.]+)\s*SF\/capita/i);
+  const sfCapita = sfCapitaMatch ? parseFloat(sfCapitaMatch[1]) : null;
+  const sfCapitaColor = sfCapita !== null ? (sfCapita < 5 ? "#16A34A" : sfCapita <= 9 ? "#3B82F6" : "#EF4444") : "#94A3B8";
+  const sfCapitaLabel = sfCapita !== null ? (sfCapita < 5 ? "Underserved" : sfCapita <= 9 ? "Equilibrium" : "Oversupplied") : "Unknown";
+
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
-  const section = (num, title, icon) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${icon} ${title}</h2></div>`;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
   const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
-  <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
-  <div class="report">
+
+  // Section ID generator for TOC anchors
+  const sectionId = (num) => `sec-${num}`;
+  const section = (num, title) => `<div id="${sectionId(num)}" class="report-section" style="scroll-margin-top:20px;margin:32px 0 16px;padding-bottom:8px;border-bottom:2px solid #1E2761;position:relative">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;font-weight:900;box-shadow:0 2px 10px rgba(243,124,51,0.35);flex-shrink:0">${num}</div>
+      <h2 style="margin:0;font-size:17px;font-weight:800;color:#1E2761;letter-spacing:0.01em;line-height:1.3">${title}</h2>
+    </div>
+  </div>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F0F2F5;color:#1E293B;padding:0}
+@media print{
+  body{background:#fff}
+  .no-print{display:none!important}
+  .report-wrapper{box-shadow:none!important;margin:0!important}
+  .report-section{page-break-inside:avoid}
+  .toc-sidebar{display:none!important}
+  .quick-actions{display:none!important}
+}
+.report-wrapper{max-width:860px;margin:0 auto;background:#fff;box-shadow:0 8px 40px rgba(30,39,97,0.12),0 0 0 1px rgba(30,39,97,0.04);border-radius:0 0 8px 8px;position:relative}
+table{width:100%;border-collapse:collapse}
+
+/* Collapsible methodology sections */
+details.method-box{margin-top:10px;border-radius:8px;overflow:hidden;border:1px solid #E2E8F0}
+details.method-box summary{padding:10px 16px;cursor:pointer;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;background:#FAFBFC;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+details.method-box summary::-webkit-details-marker{display:none}
+details.method-box summary::before{content:'\\25B6';font-size:8px;color:#94A3B8;transition:transform 0.2s ease;display:inline-block}
+details.method-box[open] summary::before{transform:rotate(90deg)}
+details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569;line-height:1.6;background:#FAFBFC;border-top:1px solid #E2E8F0}
+
+/* Card hover */
+.hover-card{transition:transform 0.15s ease,box-shadow 0.15s ease}
+.hover-card:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+
+/* Quick actions floating panel */
+.quick-actions{position:fixed;bottom:28px;right:28px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.quick-actions button{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:none;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:all 0.2s ease}
+.quick-actions button:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,0.2)}
+.qa-print{background:linear-gradient(135deg,#F37C33,#D45500);color:#fff}
+.qa-jump{background:#fff;color:#1E2761;border:1px solid #E2E8F0!important}
+
+/* TOC sidebar */
+.toc-sidebar{position:fixed;left:max(12px, calc(50% - 480px));top:50%;transform:translateY(-50%);width:180px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);padding:16px;z-index:999;border:1px solid #E2E8F0}
+.toc-sidebar .toc-title{font-size:9px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px}
+.toc-sidebar a{display:block;padding:5px 8px;font-size:10px;color:#64748B;text-decoration:none;border-radius:6px;font-weight:600;transition:all 0.15s ease;line-height:1.3;margin-bottom:2px}
+.toc-sidebar a:hover,.toc-sidebar a.active{background:#F37C3312;color:#F37C33}
+
+/* Circular gauge */
+.gauge-ring{position:relative;width:90px;height:90px;display:inline-block}
+.gauge-ring svg{transform:rotate(-90deg)}
+.gauge-ring .gauge-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+
+/* Zoning Decision Tree */
+.z-tree{display:flex;align-items:center;gap:0;margin:16px 0;overflow-x:auto}
+.z-tree-node{padding:10px 16px;border-radius:10px;text-align:center;min-width:100px;position:relative;flex-shrink:0}
+.z-tree-arrow{width:32px;height:2px;background:#CBD5E1;position:relative;flex-shrink:0}
+.z-tree-arrow::after{content:'';position:absolute;right:0;top:-4px;border:5px solid transparent;border-left:6px solid #CBD5E1}
+
+/* SF/capita gauge bar */
+.sf-gauge{height:10px;border-radius:5px;background:linear-gradient(90deg,#16A34A 0%,#16A34A 33%,#3B82F6 33%,#3B82F6 60%,#EF4444 60%,#EF4444 100%);position:relative;margin:8px 0}
+.sf-gauge-marker{position:absolute;top:-4px;width:4px;height:18px;background:#1E293B;border-radius:2px;transform:translateX(-50%)}
+
+@media (max-width:1200px){.toc-sidebar{display:none}}
+</style></head><body>
+
+<!-- TOC Sidebar -->
+<nav class="toc-sidebar no-print" id="tocNav">
+  <div class="toc-title">Contents</div>
+  <a href="#sec-E" onclick="document.getElementById('sec-E').scrollIntoView({behavior:'smooth'});return false">Executive Summary</a>
+  <a href="#sec-R" onclick="document.getElementById('sec-R').scrollIntoView({behavior:'smooth'});return false">Research Gate</a>
+  <a href="#sec-1" onclick="document.getElementById('sec-1').scrollIntoView({behavior:'smooth'});return false">Property Overview</a>
+  <a href="#sec-2" onclick="document.getElementById('sec-2').scrollIntoView({behavior:'smooth'});return false">Zoning</a>
+  <a href="#sec-3" onclick="document.getElementById('sec-3').scrollIntoView({behavior:'smooth'});return false">Utilities & Water</a>
+  <a href="#sec-4" onclick="document.getElementById('sec-4').scrollIntoView({behavior:'smooth'});return false">Topography</a>
+  <a href="#sec-5" onclick="document.getElementById('sec-5').scrollIntoView({behavior:'smooth'});return false">Site Access</a>
+  <a href="#sec-6" onclick="document.getElementById('sec-6').scrollIntoView({behavior:'smooth'});return false">Demographics</a>
+  <a href="#sec-7" onclick="document.getElementById('sec-7').scrollIntoView({behavior:'smooth'});return false">Competition</a>
+  <a href="#sec-8" onclick="document.getElementById('sec-8').scrollIntoView({behavior:'smooth'});return false">Site Sizing</a>
+  <a href="#sec-S" onclick="document.getElementById('sec-S').scrollIntoView({behavior:'smooth'});return false">SiteScore</a>
+</nav>
+
+<!-- Quick Actions -->
+<div class="quick-actions no-print">
+  <button class="qa-print" onclick="window.print()">Print / Save PDF</button>
+  <button class="qa-jump" onclick="document.getElementById('sec-2').scrollIntoView({behavior:'smooth'})">Zoning</button>
+  <button class="qa-jump" onclick="document.getElementById('sec-3').scrollIntoView({behavior:'smooth'})">Water</button>
+  <button class="qa-jump" onclick="document.getElementById('sec-7').scrollIntoView({behavior:'smooth'})">Competition</button>
+</div>
+
+<div class="report-wrapper">
   <!-- HEADER -->
-  <div style="background:linear-gradient(135deg,#0A0A0C 0%,#1E2761 60%,#2C3E6B 100%);padding:36px 40px;position:relative;overflow:hidden">
-    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#F37C33,#FFB347,#F37C33,transparent)"></div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+  <div style="background:linear-gradient(135deg,#0A0A0C 0%,#1E2761 50%,#2C3E6B 100%);padding:40px 44px 32px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 80% 20%,rgba(201,168,76,0.06) 0%,transparent 60%)"></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#C9A84C,#F37C33,#C9A84C,transparent)"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
       <div>
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#2E9E6B,#1E2761);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(46,158,107,0.4)"><span style="font-size:22px;font-weight:900;color:#fff;font-family:'Space Mono';letter-spacing:-0.02em">S</span></div>
-          <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${h(site.name) || "Unnamed Site"}</div></div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+          <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#C9A84C,#A08530);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(201,168,76,0.4)"><span style="font-size:24px;font-weight:900;color:#fff;font-family:'Space Mono';letter-spacing:-0.02em">S</span></div>
+          <div><div style="font-size:10px;color:#C9A84C;letter-spacing:0.14em;text-transform:uppercase;font-weight:700">Site Vetting Report</div><div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:4px">${h(site.name) || "Unnamed Site"}</div></div>
         </div>
-        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${h(site.address) || ""}, ${h(site.city) || ""}, ${h(site.state) || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${h(site.address) || ""}, ${h(site.city) || ""}, ${h(site.state) || ""}</div>
+        <div style="font-size:10px;color:#64748B;margin-top:4px">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} &nbsp;|&nbsp; ${site.market ? h(site.market) : ""}</div>
       </div>
       <div style="text-align:right">
-        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
-          <span style="font-size:28px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</span>
-          <div><div style="font-size:9px;color:#CBD5E1;letter-spacing:0.1em;font-weight:700">SITESCORE<span style="font-size:7px;vertical-align:super">™</span></div><div style="font-size:11px;font-weight:800;color:${iqBadgeColor}">${iqLabel}</div></div>
+        <div style="display:inline-flex;align-items:center;gap:10px;padding:12px 20px;border-radius:14px;background:${iqBadgeColor}15;border:2px solid ${iqBadgeColor}35;backdrop-filter:blur(4px)">
+          <span style="font-size:32px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</span>
+          <div><div style="font-size:9px;color:#CBD5E1;letter-spacing:0.1em;font-weight:700">SITESCORE<span style="font-size:7px;vertical-align:super">&trade;</span></div><div style="font-size:12px;font-weight:800;color:${iqBadgeColor};margin-top:2px">${iqLabel}</div></div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- KEY METRICS BAR -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);background:linear-gradient(180deg,#FAFBFC,#F5F7FA);border-bottom:2px solid #E2E8F0">
     ${[
       { l: "ACREAGE", v: site.acreage ? site.acreage + " ac" : "—" },
       { l: "ASKING PRICE", v: site.askingPrice || "—" },
-      { l: "3-MI POP", v: site.pop3mi ? fmtN(site.pop3mi) : "—" },
-      { l: "3-MI MED INC", v: site.income3mi ? ("$" + fmtN(site.income3mi)) : "—" },
-    ].map(m => `<div style="padding:16px 12px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">${m.l}</div><div style="font-size:16px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
+      { l: "3-MI POP", v: popN > 0 ? fmtN(popN) : "—" },
+      { l: "3-MI MED INC", v: incN > 0 ? ("$" + fmtN(incN)) : "—" },
+      { l: "NEAREST PS", v: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi" : "—" },
+    ].map(m => `<div style="padding:16px 10px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.08em;margin-bottom:5px">${m.l}</div><div style="font-size:15px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
   </div>
 
-  <div style="padding:24px 40px 40px">
+  <div style="padding:28px 44px 44px">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SECTION 0: EXECUTIVE SUMMARY -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div id="${sectionId("E")}" class="report-section" style="scroll-margin-top:20px;margin:0 0 28px;padding:28px 28px 24px;border-radius:14px;background:linear-gradient(135deg,#0F1235 0%,#1E2761 60%,#2C3E6B 100%);border:2px solid #C9A84C30;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#C9A84C,transparent)"></div>
+      <div style="position:absolute;bottom:0;right:0;width:200px;height:200px;background:radial-gradient(circle,rgba(201,168,76,0.04) 0%,transparent 70%)"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="width:28px;height:28px;border-radius:8px;background:#C9A84C20;border:1px solid #C9A84C40;display:flex;align-items:center;justify-content:center"><span style="font-size:12px;font-weight:900;color:#C9A84C">E</span></div>
+        <div style="font-size:14px;font-weight:800;color:#C9A84C;letter-spacing:0.06em;text-transform:uppercase">Executive Summary</div>
+        <div style="flex:1;height:1px;background:#C9A84C20;margin-left:8px"></div>
+      </div>
+
+      <!-- Score + Classification row -->
+      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;margin-bottom:20px">
+        <div style="text-align:center;padding:8px 20px">
+          <div style="font-size:42px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono',monospace;line-height:1">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</div>
+          <div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-top:4px">${iqLabel}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div style="padding:10px 14px;border-radius:10px;background:${zoningColor}12;border:1px solid ${zoningColor}30">
+            <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">ZONING</div>
+            <div style="font-size:12px;font-weight:800;color:${zoningColor}">${zoningClass === "by-right" ? "Permitted" : zoningClass === "conditional" ? "SUP/CUP" : zoningClass === "rezone-required" ? "Rezone" : zoningClass === "prohibited" ? "Prohibited" : "Unknown"}</div>
+            ${site.zoning ? `<div style="font-size:9px;color:#CBD5E1;margin-top:2px">${h(site.zoning)}</div>` : ""}
+          </div>
+          <div style="padding:10px 14px;border-radius:10px;background:${waterHookupColor}12;border:1px solid ${waterHookupColor}30">
+            <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">WATER HOOKUP</div>
+            <div style="font-size:12px;font-weight:800;color:${waterHookupColor}">${waterHookupLabel}</div>
+            ${site.waterProvider ? `<div style="font-size:9px;color:#CBD5E1;margin-top:2px">${h(site.waterProvider)}</div>` : ""}
+          </div>
+          <div style="padding:10px 14px;border-radius:10px;background:${compColor}12;border:1px solid ${compColor}30">
+            <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">COMPETITION</div>
+            <div style="font-size:12px;font-weight:800;color:${compColor}">${compLabel}</div>
+            <div style="font-size:9px;color:#CBD5E1;margin-top:2px">${satLevel}</div>
+          </div>
+        </div>
+        <div style="text-align:center;padding:8px 16px;border-radius:10px;background:${recColor}12;border:1px solid ${recColor}30">
+          <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">VERDICT</div>
+          <div style="font-size:11px;font-weight:800;color:${recColor};line-height:1.3">${iqScore >= 8.0 ? "GREEN" : iqScore >= 6.0 ? "YELLOW" : iqScore >= 4.0 ? "ORANGE" : typeof iqScore === "number" ? "RED" : "TBD"}</div>
+        </div>
+      </div>
+
+      <!-- Demographics snapshot + PS Proximity -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:18px">
+        ${[
+          { l: "3-MI POPULATION", v: popN > 0 ? fmtN(popN) : "—", c: popN >= 25000 ? "#16A34A" : popN >= 10000 ? "#3B82F6" : "#F59E0B" },
+          { l: "MEDIAN HHI", v: incN > 0 ? "$" + fmtN(incN) : "—", c: incN >= 75000 ? "#16A34A" : incN >= 55000 ? "#3B82F6" : "#F59E0B" },
+          { l: "5-YR GROWTH", v: growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(1) + "%" : "—", c: growthColor },
+          { l: "PS PROXIMITY", v: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi" : "—", c: psColor },
+        ].map(k => `<div style="text-align:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06)">
+          <div style="font-size:7px;font-weight:700;color:#64748B;letter-spacing:0.06em">${k.l}</div>
+          <div style="font-size:16px;font-weight:900;color:${k.c};font-family:'Space Mono',monospace;margin-top:4px">${k.v}</div>
+        </div>`).join("")}
+      </div>
+
+      <!-- Key strength / key risk -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div style="padding:10px 14px;border-radius:8px;background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.15)">
+          <div style="font-size:8px;font-weight:700;color:#16A34A;letter-spacing:0.06em;margin-bottom:4px">KEY STRENGTH</div>
+          <div style="font-size:11px;color:#D1FAE5;line-height:1.4">${keyStrength}</div>
+        </div>
+        <div style="padding:10px 14px;border-radius:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15)">
+          <div style="font-size:8px;font-weight:700;color:#EF4444;letter-spacing:0.06em;margin-bottom:4px">KEY RISK</div>
+          <div style="font-size:11px;color:#FEE2E2;line-height:1.4">${keyRisk}</div>
+        </div>
+      </div>
+
+      <!-- Recommendation -->
+      <div style="padding:10px 16px;border-radius:8px;background:${recColor}10;border:1px solid ${recColor}25;display:flex;align-items:center;gap:10px">
+        <div style="width:6px;height:6px;border-radius:50%;background:${recColor};flex-shrink:0"></div>
+        <div style="font-size:11px;font-weight:700;color:${recColor};letter-spacing:0.02em">${recommendation}</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
     <!-- RESEARCH COMPLETENESS GATE -->
+    <!-- ═══════════════════════════════════════════════ -->
     ${(() => {
       const checks = [
         { label: "Zoning District Identified", done: !!site.zoning, category: "ZONING" },
@@ -164,42 +360,44 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
       const catSummary = (cat) => { const items = checks.filter(c => c.category === cat); const d = items.filter(c => c.done).length; return { done: d, total: items.length, pct: Math.round((d / items.length) * 100) }; };
       const z = catSummary("ZONING"); const u = catSummary("UTILITY"); const t = catSummary("TOPO");
       return `
-    <div style="margin-bottom:24px;border-radius:12px;overflow:hidden;border:2px solid ${gradeColor}30">
-      <div style="background:linear-gradient(135deg,#0A0A0C,#1E2761);padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:48px;height:48px;border-radius:10px;background:${gradeColor}15;border:2px solid ${gradeColor}40;display:flex;align-items:center;justify-content:center">
+    <div id="${sectionId("R")}" style="margin-bottom:28px;border-radius:14px;overflow:hidden;border:2px solid ${gradeColor}30;scroll-margin-top:20px" class="report-section">
+      <div style="background:linear-gradient(135deg,#0A0A0C,#1E2761);padding:18px 22px;display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:52px;height:52px;border-radius:12px;background:${gradeColor}12;border:2px solid ${gradeColor}35;display:flex;align-items:center;justify-content:center">
             <span style="font-size:20px;font-weight:900;color:${gradeColor};font-family:'Space Mono',monospace">${pct}%</span>
           </div>
           <div>
             <div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:0.02em">Research Completeness</div>
-            <div style="font-size:10px;color:#94A3B8;margin-top:2px">Institutional-grade due diligence &mdash; ${done}/${total} items verified against primary sources</div>
+            <div style="font-size:10px;color:#94A3B8;margin-top:2px">${done}/${total} items verified against primary sources</div>
           </div>
         </div>
-        <span style="padding:6px 16px;border-radius:8px;font-size:12px;font-weight:800;background:${gradeColor}18;color:${gradeColor};border:1px solid ${gradeColor}30;letter-spacing:0.06em">${grade}</span>
+        <span style="padding:6px 18px;border-radius:8px;font-size:12px;font-weight:800;background:${gradeColor}18;color:${gradeColor};border:1px solid ${gradeColor}30;letter-spacing:0.06em">${grade}</span>
       </div>
-      <div style="background:#FAFBFC;padding:14px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="background:#FAFBFC;padding:16px 22px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
         ${[
           { label: "Zoning & Entitlements", ...z, color: "#1E2761" },
           { label: "Utilities & Water", ...u, color: "#16A34A" },
           { label: "Topography & Flood", ...t, color: "#E87A2E" },
-        ].map(c => `<div style="text-align:center;padding:12px;border-radius:8px;background:#fff;border:1px solid #E2E8F0">
-          <div style="font-size:9px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${c.label}</div>
-          <div style="width:100%;height:6px;border-radius:3px;background:#E2E8F0;overflow:hidden;margin-bottom:4px"><div style="width:${c.pct}%;height:100%;border-radius:3px;background:${c.pct === 100 ? "#16A34A" : c.pct >= 60 ? "#F59E0B" : "#EF4444"};transition:width 0.5s"></div></div>
-          <div style="font-size:11px;font-weight:700;color:${c.pct === 100 ? "#16A34A" : "#64748B"}">${c.done}/${c.total}</div>
+        ].map(c => `<div class="hover-card" style="text-align:center;padding:14px;border-radius:10px;background:#fff;border:1px solid #E2E8F0">
+          <div style="font-size:9px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">${c.label}</div>
+          <div style="width:100%;height:8px;border-radius:4px;background:#E2E8F0;overflow:hidden;margin-bottom:6px"><div style="width:${c.pct}%;height:100%;border-radius:4px;background:${c.pct === 100 ? "#16A34A" : c.pct >= 60 ? "#F59E0B" : "#EF4444"};transition:width 0.5s"></div></div>
+          <div style="font-size:12px;font-weight:800;color:${c.pct === 100 ? "#16A34A" : "#64748B"}">${c.done}/${c.total}</div>
         </div>`).join("")}
       </div>
-      ${pct < 100 ? `<div style="background:#FEF2F2;padding:10px 20px;border-top:1px solid #FECACA">
-        <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:4px">&#9888; OUTSTANDING RESEARCH ITEMS:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px">${checks.filter(c => !c.done).map(c => `<span style="font-size:9px;font-weight:600;color:#991B1B;background:#FEE2E2;padding:2px 8px;border-radius:4px">${c.label}</span>`).join("")}</div>
-      </div>` : `<div style="background:#F0FDF4;padding:10px 20px;border-top:1px solid #BBF7D0;text-align:center">
-        <span style="font-size:11px;font-weight:700;color:#166534">&#10003; ALL RESEARCH ITEMS VERIFIED &mdash; REPORT IS INSTITUTIONAL-GRADE</span>
+      ${pct < 100 ? `<div style="background:#FEF2F2;padding:12px 22px;border-top:1px solid #FECACA">
+        <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:6px">OUTSTANDING RESEARCH ITEMS:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${checks.filter(c => !c.done).map(c => `<span style="font-size:9px;font-weight:600;color:#991B1B;background:#FEE2E2;padding:3px 10px;border-radius:5px">${c.label}</span>`).join("")}</div>
+      </div>` : `<div style="background:#F0FDF4;padding:12px 22px;border-top:1px solid #BBF7D0;text-align:center">
+        <span style="font-size:11px;font-weight:700;color:#166534">ALL RESEARCH ITEMS VERIFIED — REPORT IS INSTITUTIONAL-GRADE</span>
       </div>`}
     </div>`;
     })()}
 
+    <!-- ═══════════════════════════════════════════════ -->
     <!-- 1. PROPERTY OVERVIEW -->
-    ${section("1", "Property Overview", "")}
-    <table>${[
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("1", "Property Overview")}
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Name", site.name || "—", { bold: true }),
       row("Address", `${site.address || "—"}, ${site.city || "—"}, ${site.state || "—"}`),
       row("Market", site.market || "—"),
@@ -208,434 +406,591 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
       row("Internal Price", site.internalPrice || "—"),
       row("Phase", site.phase || "Prospect", { badge: true, badgeBg: site.phase === "Under Contract" ? "#DCFCE7" : "#FFF7ED", badgeColor: site.phase === "Under Contract" ? "#166534" : "#9A3412" }),
       row("Priority", cleanPriority(site.priority)),
-      row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none">${site.coordinates} ↗</a>` : "—"),
-      row("Listing", site.listingUrl ? `<a href="${site.listingUrl}" target="_blank" style="color:#F37C33;text-decoration:none">View Listing ↗</a>` : "—"),
+      row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none;font-weight:600">${site.coordinates} &#8599;</a>` : "—"),
+      row("Listing", site.listingUrl ? `<a href="${site.listingUrl}" target="_blank" style="color:#F37C33;text-decoration:none;font-weight:600">View Listing &#8599;</a>` : "—"),
       dom !== null ? row("Days on Market", `${dom} days`, { badge: true, badgeBg: dom > 365 ? "#FEE2E2" : dom > 180 ? "#FEF3C7" : "#DCFCE7", badgeColor: dom > 365 ? "#991B1B" : dom > 180 ? "#92400E" : "#166534" }) : "",
     ].join("")}</table>
 
-    <!-- 2. ZONING & ENTITLEMENTS — HARD VET -->
-    ${section("2", "Zoning & Entitlements — Can We Get Indoor Storage Here?", "")}
-    <div style="padding:16px 20px;border-radius:10px;background:${zoningColor}08;border:2px solid ${zoningColor}35;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
-        ${statusPill(zoningLabel, zoningColor)}
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 2. ZONING & ENTITLEMENTS — DEEP DIVE -->
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("2", "Zoning & Entitlements")}
+
+    <!-- Zoning Verdict Card -->
+    <div class="hover-card" style="padding:20px 24px;border-radius:14px;background:${zoningColor}06;border:2px solid ${zoningColor}30;margin-bottom:18px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;width:4px;height:100%;background:${zoningColor}"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Zoning Verdict</div>
+          <span style="font-size:18px;font-weight:900;color:${zoningColor}">${zoningLabel}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.06em">DISTRICT</div>
+          <div style="font-size:16px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace;margin-top:2px">${h(site.zoning) || "TBD"}</div>
+        </div>
       </div>
-      <div style="font-size:12px;color:#64748B;line-height:1.6">${
+      ${site.zoningOrdinanceSection ? `<div style="font-size:10px;color:#64748B;margin-top:6px">Ordinance: <strong style="color:#1E293B">${h(site.zoningOrdinanceSection)}</strong>${site.zoningSource ? ` | <a href="${h(site.zoningSource)}" target="_blank" style="color:#F37C33;text-decoration:none">Source &#8599;</a>` : ""}</div>` : ""}
+      ${site.zoningUseTerm ? `<div style="font-size:10px;color:#64748B;margin-top:4px">Use Category: <strong style="color:#1E293B">${h(site.zoningUseTerm)}</strong></div>` : ""}
+      <div style="font-size:11px;color:#64748B;line-height:1.6;margin-top:10px">${
         zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." :
-        zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." :
-        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." :
+        zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2-6 months. Factor SUP costs (~$15K-$50K) and uncertainty into underwriting." :
+        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4-12 month timeline, significant cost ($25K-$75K+)." :
         zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." :
         "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding."
       }</div>
     </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+
+    <!-- Zoning Decision Tree -->
+    <div style="margin-bottom:18px;padding:16px 20px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0">
+      <div style="font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Zoning Decision Tree</div>
+      <div class="z-tree">
+        <div class="z-tree-node" style="background:#1E276110;border:2px solid #1E276130"><div style="font-size:8px;font-weight:700;color:#94A3B8;margin-bottom:2px">DISTRICT</div><div style="font-size:12px;font-weight:800;color:#1E2761">${h(site.zoning) || "?"}</div></div>
+        <div class="z-tree-arrow"></div>
+        <div class="z-tree-node" style="background:${site.zoningUseTerm ? "#16A34A" : "#94A3B8"}10;border:2px solid ${site.zoningUseTerm ? "#16A34A" : "#94A3B8"}30"><div style="font-size:8px;font-weight:700;color:#94A3B8;margin-bottom:2px">USE TABLE</div><div style="font-size:10px;font-weight:700;color:${site.zoningUseTerm ? "#16A34A" : "#94A3B8"}">${site.zoningUseTerm ? "Found" : "Pending"}</div></div>
+        <div class="z-tree-arrow"></div>
+        <div class="z-tree-node" style="background:${site.zoningUseTerm ? "#16A34A" : "#94A3B8"}10;border:2px solid ${site.zoningUseTerm ? "#16A34A" : "#94A3B8"}30"><div style="font-size:8px;font-weight:700;color:#94A3B8;margin-bottom:2px">STORAGE ROW</div><div style="font-size:9px;font-weight:700;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${site.zoningUseTerm ? h(site.zoningUseTerm) : "—"}</div></div>
+        <div class="z-tree-arrow"></div>
+        <div class="z-tree-node" style="background:${zoningColor}12;border:2px solid ${zoningColor}40"><div style="font-size:8px;font-weight:700;color:#94A3B8;margin-bottom:2px">RESULT</div><div style="font-size:12px;font-weight:900;color:${zoningColor}">${zoningClass === "by-right" ? "P" : zoningClass === "conditional" ? "C" : zoningClass === "rezone-required" ? "—" : zoningClass === "prohibited" ? "X" : "?"}</div></div>
+      </div>
+    </div>
+
+    <!-- Zoning detail table -->
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Zoning District", site.zoning || "Not confirmed", { bold: true }),
       row("Classification", zoningLabel, { badge: true, badgeBg: zoningColor + "18", badgeColor: zoningColor }),
       row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
       row("Exact Use Category", site.zoningUseTerm || "<em style='color:#94A3B8'>Extract from permitted use table</em>"),
-      row("Overlay Districts", site.overlayDistrict || (hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified")),
+      row("Overlay Districts", site.overlayDistrict || (hasOverlay ? "Yes — additional standards apply" : "None identified")),
       row("Jurisdiction Type", site.jurisdictionType || "<em style='color:#94A3B8'>City / Township / Unincorporated County</em>"),
       row("Ordinance Section", site.zoningOrdinanceSection || "<em style='color:#94A3B8'>Section & chapter reference needed</em>"),
-      row("Ordinance Source", site.zoningSource || "<em style='color:#94A3B8'>Not yet researched</em>"),
+      row("Ordinance Source", site.zoningSource ? `<a href="${h(site.zoningSource)}" target="_blank" style="color:#F37C33;text-decoration:none">${h(site.zoningSource).substring(0,60)}... &#8599;</a>` : "<em style='color:#94A3B8'>Not yet researched</em>"),
       row("Verification Date", site.zoningVerifyDate || "<em style='color:#94A3B8'>Not verified</em>"),
       row("Zoning Score", zoningScore != null ? `<span style="font-weight:900;color:${zoningScoreColor};font-family:'Space Mono',monospace">${zoningScore.toFixed(1)}/10</span>` : "—"),
-      site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Timeline", site.supTimeline || "<em style='color:#F59E0B'>Typically 2–6 months — confirm with planning</em>") : "",
-      site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Est. Cost", site.supCost || "<em style='color:#F59E0B'>$15K–$50K typical — confirm with local attorney</em>") : "",
-      site.zoningClass === "conditional" || hasSUP ? row("Political Risk", site.politicalRisk || "<em style='color:#94A3B8'>Check recent similar applications</em>") : "",
-      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Timeline", site.rezoneTimeline || "<em style='color:#EF4444'>4–12 months typical</em>") : "",
-      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Est. Cost", site.rezoneCost || "<em style='color:#EF4444'>$25K–$75K+ typical</em>") : "",
+      site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Timeline", site.supTimeline || "<em style='color:#F59E0B'>Typically 2-6 months</em>") : "",
+      site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Est. Cost", site.supCost || "<em style='color:#F59E0B'>$15K-$50K typical</em>") : "",
+      site.zoningClass === "conditional" || hasSUP ? row("Political Risk", site.politicalRisk || "<em style='color:#94A3B8'>Check recent applications</em>") : "",
+      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Timeline", site.rezoneTimeline || "<em style='color:#EF4444'>4-12 months typical</em>") : "",
+      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Est. Cost", site.rezoneCost || "<em style='color:#EF4444'>$25K-$75K+ typical</em>") : "",
       row("Planning Contact", site.planningContact || "<em style='color:#94A3B8'>Research needed</em>"),
       row("Planning Phone", site.planningPhone || "<em style='color:#94A3B8'>—</em>"),
       row("Planning Email", site.planningEmail || "<em style='color:#94A3B8'>—</em>"),
     ].filter(Boolean).join("")}</table>
-    ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${h(site.zoningNotes)}</div>` : ""}
-    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0F4FF;border-left:3px solid #1E2761;font-size:9px;color:#475569;line-height:1.6">
-      <strong style="color:#1E2761;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
-    </div>
-    <!-- Entitlement Risk Matrix -->
-    ${(zoningClass === "conditional" || zoningClass === "rezone-required" || hasSUP || hasRezone) ? `
-    <div style="margin-top:16px;padding:16px 20px;border-radius:10px;background:#FEF3C7;border:2px solid #F59E0B40">
-      <div style="font-size:11px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">&#9888; Entitlement Risk Assessment</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-        <div style="text-align:center;padding:10px;border-radius:8px;background:#fff;border:1px solid #FDE68A">
-          <div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em">Timeline</div>
-          <div style="font-size:16px;font-weight:900;color:#D97706;margin-top:4px">${site.supTimeline || site.rezoneTimeline || (hasSUP ? "2–6 mo" : "4–12 mo")}</div>
-        </div>
-        <div style="text-align:center;padding:10px;border-radius:8px;background:#fff;border:1px solid #FDE68A">
-          <div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em">Est. Cost</div>
-          <div style="font-size:16px;font-weight:900;color:#D97706;margin-top:4px">${site.supCost || site.rezoneCost || (hasSUP ? "$15–50K" : "$25–75K+")}</div>
-        </div>
-        <div style="text-align:center;padding:10px;border-radius:8px;background:#fff;border:1px solid #FDE68A">
-          <div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em">Political Risk</div>
-          <div style="font-size:16px;font-weight:900;color:#D97706;margin-top:4px">${site.politicalRisk || "Assess"}</div>
-        </div>
-      </div>
-      ${site.recentApprovals ? `<div style="font-size:11px;color:#78350F;margin-top:10px;line-height:1.5"><strong>Recent Similar Applications:</strong> ${site.recentApprovals}</div>` : `<div style="font-size:10px;color:#92400E;margin-top:8px;font-style:italic">Check jurisdiction for recent storage/warehouse approvals or denials — establishes political precedent.</div>`}
+
+    <!-- Zoning Notes (formatted paragraphs) -->
+    ${site.zoningNotes ? `<div style="margin-top:14px;padding:16px 20px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0">
+      <div style="font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Zoning Research Notes</div>
+      <div style="font-size:12px;line-height:1.8;color:#475569">${h(site.zoningNotes).replace(/\n/g, '<br/>')}</div>
     </div>` : ""}
-    <!-- Supplemental Standards Grid -->
-    <div style="margin-top:16px"><div style="font-size:11px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Supplemental Standards</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-      ${[
-        { label: "Facade / Materials", icon: "&#127959;", text: site.facadeReqs || (/facade|material|masonry|brick/i.test(combined) ? "Requirements noted — see summary" : "No specific requirements identified") },
-        { label: "Setbacks", icon: "&#128208;", text: site.setbackReqs || (/setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks apply") },
-        { label: "Height Limits", icon: "&#128207;", text: site.heightLimit || (/height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district height limits") },
-        { label: "Screening / Landscape", icon: "&#127807;", text: site.screeningReqs || (/screen|landscape|buffer/i.test(combined) ? "Screening / landscaping required" : "Standard requirements") },
-        { label: "Signage", icon: "&#129707;", text: site.signageReqs || (/sign/i.test(combined) ? "Signage requirements noted" : "Standard district signage rules") },
-        { label: "Parking", icon: "&#127359;", text: site.parkingReqs || (/parking/i.test(combined) ? "Parking requirements noted" : "Per district standards") },
-      ].map(s => `<div style="padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:14px">${s.icon}</span><span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em">${s.label}</span></div><div style="font-size:12px;color:#64748B">${s.text}</div></div>`).join("")}
-    </div></div>
 
-    <!-- 3. UTILITIES & WATER — HARD VET -->
-    ${section("3", "Utilities & Water — Can We Hook Up?", "")}
-    <!-- Utility Readiness Score -->
-    <div style="display:flex;gap:16px;margin-bottom:16px">
-      <div style="flex:1;padding:16px 20px;border-radius:10px;background:${utilGradeColor}08;border:2px solid ${utilGradeColor}30;text-align:center">
-        <div style="font-size:9px;font-weight:800;color:${utilGradeColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Utility Readiness</div>
-        <div style="font-size:36px;font-weight:900;color:${utilGradeColor};font-family:'Space Mono',monospace;line-height:1">${utilGrade}</div>
-        <div style="font-size:11px;color:#64748B;margin-top:4px">${utilScore}/100 points</div>
-        <div style="margin-top:8px;height:6px;border-radius:3px;background:#E2E8F0;overflow:hidden"><div style="height:100%;width:${utilScore}%;border-radius:3px;background:${utilGradeColor};transition:width 0.5s ease"></div></div>
+    <!-- Entitlement Risk Matrix / Timeline -->
+    ${(zoningClass === "conditional" || zoningClass === "rezone-required" || hasSUP || hasRezone) ? `
+    <div style="margin-top:18px;padding:18px 22px;border-radius:14px;background:#FEF3C7;border:2px solid #F59E0B30">
+      <div style="font-size:11px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Entitlement Risk Assessment</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
+        ${[
+          { l: "Timeline", v: site.supTimeline || site.rezoneTimeline || (hasSUP ? "2-6 mo" : "4-12 mo") },
+          { l: "Est. Cost", v: site.supCost || site.rezoneCost || (hasSUP ? "$15-50K" : "$25-75K+") },
+          { l: "Political Risk", v: site.politicalRisk || "Assess" },
+        ].map(x => `<div class="hover-card" style="text-align:center;padding:12px;border-radius:10px;background:#fff;border:1px solid #FDE68A">
+          <div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em">${x.l}</div>
+          <div style="font-size:17px;font-weight:900;color:#D97706;margin-top:6px">${x.v}</div>
+        </div>`).join("")}
       </div>
-      ${totalUtilLow > 0 || totalUtilHigh > 0 ? `<div style="flex:1;padding:16px 20px;border-radius:10px;background:#FEF3C7;border:2px solid #FDE68A;text-align:center">
-        <div style="font-size:9px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Est. Utility Budget</div>
-        <div style="font-size:22px;font-weight:900;color:#D97706;font-family:'Space Mono',monospace;line-height:1">$${totalUtilLow > 0 ? (totalUtilLow/1000).toFixed(0) + "K" : "—"} – $${totalUtilHigh > 0 ? (totalUtilHigh/1000).toFixed(0) + "K" : "—"}</div>
-        <div style="font-size:10px;color:#78350F;margin-top:6px;line-height:1.4">${waterTapN ? "Water tap: $" + (waterTapN/1000).toFixed(0) + "K" : ""}${sewerTapN ? " | Sewer tap: $" + (sewerTapN/1000).toFixed(0) + "K" : ""}${extensionLow ? " | Extension: $" + (extensionLow/1000).toFixed(0) + "K–$" + (extensionHigh/1000).toFixed(0) + "K" : ""}${impactN ? " | Impact: $" + (impactN/1000).toFixed(0) + "K" : ""}</div>
-      </div>` : `<div style="flex:1;padding:16px 20px;border-radius:10px;background:#F8FAFC;border:2px solid #E2E8F0;text-align:center">
-        <div style="font-size:9px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Est. Utility Budget</div>
-        <div style="font-size:18px;font-weight:700;color:#94A3B8;margin-top:8px">Pending Data</div>
-        <div style="font-size:10px;color:#94A3B8;margin-top:6px">Add tap fees & distance to main for auto-estimate</div>
-      </div>`}
-    </div>
-    <!-- Readiness Checklist -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:16px;padding:12px 16px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-      ${utilChecks.map(c => `<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><span style="font-size:12px">${c.done ? "&#9989;" : "&#11036;"}</span><span style="font-size:10px;color:${c.done ? "#16A34A" : "#94A3B8"};font-weight:${c.done ? 600 : 400}">${c.label}</span></div>`).join("")}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      ${[
-        { label: "Water Service", icon: "&#128167;", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#EF4444" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
-        { label: "Sanitary Sewer", icon: "&#128703;", available: !!site.sewerProvider || site.sewerAvailable === true || /sewer|sanitary/i.test(combined) || hasSeptic, issue: site.sewerAvailable === false && !hasSeptic ? "Not available" : null, color: site.sewerAvailable === true ? "#16A34A" : !!site.sewerProvider ? "#16A34A" : /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#16A34A" : site.sewerAvailable === false ? "#F59E0B" : "#94A3B8", detail: site.sewerProvider || (hasSeptic ? "Septic — viable for storage (low wastewater)" : null) },
-        { label: "Electric Service", icon: "&#9889;", available: !!site.electricProvider || site.threePhase === true || /electric|power/i.test(combined), issue: site.threePhase === false ? "No 3-phase" : null, color: site.threePhase === true ? "#16A34A" : !!site.electricProvider ? "#16A34A" : /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.electricProvider ? (site.electricProvider + (site.threePhase === true ? " — 3-Phase ✓" : "")) : null },
-        { label: "Natural Gas", icon: "&#128293;", available: !!site.gasProvider || /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: !!site.gasProvider ? "#16A34A" : /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.gasProvider || null },
-        { label: "Stormwater", icon: "&#127783;", available: /storm|drainage|detention/i.test(combined), issue: hasFlood ? "Flood zone concern" : null, color: hasFlood ? "#EF4444" : /storm|drainage/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
-        { label: "Telecom / Fiber", icon: "&#128225;", available: /fiber|telecom|internet|broadband/i.test(combined), issue: null, color: /fiber|telecom/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
-      ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.detail ? `<strong style="color:#1E293B">${u.detail}</strong>` : u.available ? "Available per verified research" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned — verify with jurisdiction or utility provider"}</div></div>`).join("")}
-    </div>
-    <div style="font-size:11px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Water & Sewer Infrastructure</div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : "<em style='color:#94A3B8'>Not confirmed — verify with provider</em>"),
-      row("Inside Service Boundary", site.insideServiceBoundary === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.insideServiceBoundary === false ? '<span style="color:#EF4444;font-weight:700">NO — outside boundary</span>' : "<em style='color:#94A3B8'>Verify via utility service area map</em>"),
-      row("Distance to Water Main", site.distToWaterMain || "<em style='color:#94A3B8'>Verify via GIS / utility maps</em>"),
-      row("Water Main Size", site.waterMainSize || "<em style='color:#94A3B8'>Request from provider — min 6\" for fire flow</em>"),
-      row("Fire Flow Adequate", site.fireFlowAdequate === true ? '<span style="color:#16A34A;font-weight:700">YES — meets fire code</span>' : site.fireFlowAdequate === false ? '<span style="color:#EF4444;font-weight:700">NO — hydrant/main upgrade needed</span>' : "<em style='color:#94A3B8'>Confirm 1,500+ GPM at 20 PSI for commercial</em>"),
-      row("Nearest Fire Hydrant", site.nearestHydrant || "<em style='color:#94A3B8'>Check aerial / Google Street View</em>"),
-      row("Sewer Provider", site.sewerProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false && hasSeptic ? '<span style="color:#16A34A;font-weight:700">Septic — viable for storage</span>' : site.sewerAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — septic may be viable</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Distance to Sewer Main", site.distToSewerMain || "<em style='color:#94A3B8'>Verify via GIS / utility maps</em>"),
-      row("Capacity / Moratorium", site.utilityCapacity || "<em style='color:#94A3B8'>Check for allocation limits or moratoriums</em>"),
-    ].join("")}</table>
-    <div style="font-size:11px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin:16px 0 8px">Power, Gas & Telecom</div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Electric Provider", site.electricProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("3-Phase Power", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Not available — upgrade needed ($15K–$40K typical)</span>' : "<em style='color:#94A3B8'>Required for HVAC on climate-controlled units</em>"),
-      row("Natural Gas", site.gasProvider || (/\bgas\b/i.test(combined) ? "Available per site data" : "<em style='color:#94A3B8'>Verify — needed for heating in climate-controlled</em>")),
-      row("Fiber / Telecom", site.telecomProvider || (/fiber|telecom/i.test(combined) ? "Available" : "<em style='color:#94A3B8'>Needed for smart-access, security systems</em>")),
-    ].join("")}</table>
-    <div style="font-size:11px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin:16px 0 8px">Fees & Cost Estimates</div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Water Tap Fee", site.waterTapFee || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
-      row("Sewer Tap Fee", site.sewerTapFee || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
-      row("Impact Fees", site.impactFees || "<em style='color:#94A3B8'>Check for transportation / drainage impact fees</em>"),
-      row("Line Extension Est.", site.lineExtensionCost || (site.distToWaterMain ? "<em style='color:#F59E0B'>Estimate at $50–$150/LF based on distance</em>" : "<em style='color:#94A3B8'>Depends on distance to main</em>")),
-      row("Total Utility Budget Est.", site.totalUtilityBudget || "<em style='color:#94A3B8'>Sum tap fees + impact fees + extension costs</em>"),
-    ].join("")}</table>
-    ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${site.utilityNotes}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>&#9888; Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
-    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0FFF4;border-left:3px solid #16A34A;font-size:9px;color:#475569;line-height:1.6">
-      <strong style="color:#16A34A;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      Water/sewer provider identified via city utility department website, county records, and state regulatory databases (TCEQ CCN maps for TX, state DEQ/utility commission for other states). Service boundary verified via municipal GIS portals and utility district maps. Tap/impact fees sourced from published jurisdiction fee schedules (commercial/warehouse classification). Electric provider identified via utility service territory maps; 3-phase availability checked against provider service records. Distance to nearest water/sewer main estimated via GIS infrastructure layers where available. Capacity constraints checked against published moratoriums and allocation notices.
+      <!-- Zoning Timeline Bar -->
+      <div style="padding:12px 16px;border-radius:8px;background:#fff;border:1px solid #FDE68A">
+        <div style="font-size:8px;font-weight:700;color:#92400E;letter-spacing:0.06em;margin-bottom:8px">APPROVAL TIMELINE</div>
+        <div style="display:flex;align-items:center;gap:0">
+          ${["Application", "Public Hearing", "Decision", "Permit"].map((step, i) => `<div style="flex:1;text-align:center;position:relative">
+            <div style="width:24px;height:24px;border-radius:50%;background:${i === 0 ? "#D97706" : "#FDE68A"};border:2px solid #D97706;margin:0 auto;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;font-weight:900;color:${i === 0 ? "#fff" : "#D97706"}">${i + 1}</span></div>
+            <div style="font-size:8px;font-weight:600;color:#78350F;margin-top:4px">${step}</div>
+            ${i < 3 ? `<div style="position:absolute;top:12px;left:50%;width:100%;height:2px;background:#FDE68A;z-index:0"></div>` : ""}
+          </div>`).join("")}
+        </div>
+      </div>
+      ${site.recentApprovals ? `<div style="font-size:11px;color:#78350F;margin-top:10px;line-height:1.5"><strong>Recent Applications:</strong> ${h(site.recentApprovals)}</div>` : ""}
+    </div>` : ""}
+
+    <!-- Supplemental Standards -->
+    <details class="method-box" style="margin-top:16px">
+      <summary>Supplemental Standards</summary>
+      <div class="method-content" style="padding:0!important">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:14px">
+          ${[
+            { label: "Facade / Materials", text: site.facadeReqs || (/facade|material|masonry|brick/i.test(combined) ? "Requirements noted" : "No specific requirements") },
+            { label: "Setbacks", text: site.setbackReqs || (/setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks") },
+            { label: "Height Limits", text: site.heightLimit || (/height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district limits") },
+            { label: "Screening / Landscape", text: site.screeningReqs || (/screen|landscape|buffer/i.test(combined) ? "Screening required" : "Standard requirements") },
+            { label: "Signage", text: site.signageReqs || (/sign/i.test(combined) ? "Signage requirements noted" : "Standard signage rules") },
+            { label: "Parking", text: site.parkingReqs || (/parking/i.test(combined) ? "Parking requirements noted" : "Per district standards") },
+          ].map(s => `<div style="padding:10px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
+            <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px">${s.label}</div>
+            <div style="font-size:11px;color:#64748B">${s.text}</div>
+          </div>`).join("")}
+        </div>
+      </div>
+    </details>
+
+    <details class="method-box">
+      <summary>Research Methodology — Zoning</summary>
+      <div class="method-content">
+        Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 3. UTILITIES & WATER — DEEP DIVE -->
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("3", "Utilities & Water")}
+
+    <!-- Water Hookup Decision Card -->
+    <div class="hover-card" style="padding:20px 24px;border-radius:14px;background:${waterHookupColor}06;border:2px solid ${waterHookupColor}30;margin-bottom:18px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;width:4px;height:100%;background:${waterHookupColor}"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Water Hookup Status</div>
+          <span style="font-size:18px;font-weight:900;color:${waterHookupColor}">${waterHookupLabel}</span>
+          <div style="font-size:11px;color:#64748B;margin-top:4px">${
+            waterHookup === "by-right" ? "Site is inside the provider's service boundary — entitled to a water tap." :
+            waterHookup === "by-request" ? "Extension or annexation agreement needed — contact provider." :
+            waterHookup === "no-provider" ? "No municipal water provider identified — critical blocker." :
+            "Water hookup status not yet determined — research required."
+          }</div>
+        </div>
+        <div style="text-align:center">
+          <!-- Circular Gauge for Utility Readiness -->
+          <div class="gauge-ring">
+            <svg width="90" height="90" viewBox="0 0 90 90">
+              <circle cx="45" cy="45" r="38" fill="none" stroke="#E2E8F0" stroke-width="6"/>
+              <circle cx="45" cy="45" r="38" fill="none" stroke="${utilGradeColor}" stroke-width="6"
+                stroke-dasharray="${Math.round(238.76 * utilScore / 100)} 238.76"
+                stroke-linecap="round"/>
+            </svg>
+            <div class="gauge-text">
+              <div style="font-size:22px;font-weight:900;color:${utilGradeColor};font-family:'Space Mono',monospace;line-height:1">${utilGrade}</div>
+              <div style="font-size:8px;color:#94A3B8;font-weight:600">${utilScore}/100</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- Who To Call card -->
+    ${(site.waterProvider || site.waterContact || site.planningPhone) ? `<div class="hover-card" style="padding:16px 20px;border-radius:12px;background:#F0F9FF;border:2px solid #BAE6FD;margin-bottom:18px">
+      <div style="font-size:9px;font-weight:800;color:#0369A1;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Who To Call — Water Hookup</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:10px;color:#64748B;margin-bottom:2px">Provider</div>
+          <div style="font-size:13px;font-weight:700;color:#1E293B">${h(site.waterProvider) || "TBD"}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#64748B;margin-bottom:2px">Contact</div>
+          <div style="font-size:13px;font-weight:700;color:#1E293B">${site.waterContact ? h(site.waterContact) : (site.planningContact ? h(site.planningContact) : "Research needed")}</div>
+        </div>
+      </div>
+      ${site.planningPhone ? `<div style="margin-top:8px;font-size:11px;color:#0369A1;font-weight:600">Phone: ${h(site.planningPhone)}${site.planningEmail ? " | Email: " + h(site.planningEmail) : ""}</div>` : ""}
+      <div style="margin-top:8px;padding:8px 12px;border-radius:6px;background:#E0F2FE;font-size:10px;color:#075985;line-height:1.4"><strong>Request:</strong> Commercial water tap for a climate-controlled self-storage facility (${site.acreage || "~4"} acres, ~80,000 SF building)</div>
+    </div>` : ""}
+
+    <!-- Utility Budget Waterfall -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+      ${totalUtilLow > 0 || totalUtilHigh > 0 ? `<div class="hover-card" style="padding:18px 22px;border-radius:12px;background:#FEF3C7;border:2px solid #FDE68A;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Est. Utility Budget</div>
+        <div style="font-size:24px;font-weight:900;color:#D97706;font-family:'Space Mono',monospace;line-height:1">$${totalUtilLow > 0 ? (totalUtilLow/1000).toFixed(0) + "K" : "—"} – $${totalUtilHigh > 0 ? (totalUtilHigh/1000).toFixed(0) + "K" : "—"}</div>
+        <!-- Cost breakdown bars -->
+        <div style="margin-top:12px;text-align:left">
+          ${[
+            { label: "Water Tap", val: waterTapN, color: "#0284C7" },
+            { label: "Sewer Tap", val: sewerTapN, color: "#059669" },
+            { label: "Impact Fees", val: impactN, color: "#7C3AED" },
+            { label: "Line Extension", val: extensionLow ? (extensionLow + extensionHigh) / 2 : null, color: "#D97706" },
+          ].filter(x => x.val).map(x => {
+            const maxVal = Math.max(waterTapN || 0, sewerTapN || 0, impactN || 0, extensionHigh || 0);
+            const barW = maxVal > 0 ? Math.max(8, (x.val / maxVal) * 100) : 0;
+            return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:9px;font-weight:600;color:#78350F">${x.label}</span><span style="font-size:9px;font-weight:700;color:#78350F">$${(x.val/1000).toFixed(0)}K</span></div><div style="height:6px;border-radius:3px;background:#FDE68A"><div style="height:100%;width:${barW}%;border-radius:3px;background:${x.color}"></div></div></div>`;
+          }).join("")}
+        </div>
+      </div>` : `<div class="hover-card" style="padding:18px 22px;border-radius:12px;background:#F8FAFC;border:2px solid #E2E8F0;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Est. Utility Budget</div>
+        <div style="font-size:18px;font-weight:700;color:#94A3B8;margin-top:12px">Pending Data</div>
+        <div style="font-size:10px;color:#94A3B8;margin-top:6px">Add tap fees & distance to main</div>
+      </div>`}
+      <!-- Readiness Checklist -->
+      <div style="padding:14px 18px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0">
+        <div style="font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Readiness Checklist</div>
+        ${utilChecks.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><div style="width:16px;height:16px;border-radius:4px;background:${c.done ? "#16A34A" : "#E2E8F0"};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:9px;color:#fff;font-weight:900">${c.done ? "&#10003;" : ""}</span></div><span style="font-size:10px;color:${c.done ? "#1E293B" : "#94A3B8"};font-weight:${c.done ? 600 : 400}">${c.label}</span></div>`).join("")}
+      </div>
+    </div>
+
+    <!-- Utility cards grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+      ${[
+        { label: "Water Service", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#EF4444" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
+        { label: "Sanitary Sewer", available: !!site.sewerProvider || site.sewerAvailable === true || /sewer|sanitary/i.test(combined) || hasSeptic, issue: site.sewerAvailable === false && !hasSeptic ? "Not available" : null, color: site.sewerAvailable === true ? "#16A34A" : !!site.sewerProvider ? "#16A34A" : /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#16A34A" : site.sewerAvailable === false ? "#F59E0B" : "#94A3B8", detail: site.sewerProvider || (hasSeptic ? "Septic — viable for storage" : null) },
+        { label: "Electric Service", available: !!site.electricProvider || site.threePhase === true || /electric|power/i.test(combined), issue: site.threePhase === false ? "No 3-phase" : null, color: site.threePhase === true ? "#16A34A" : !!site.electricProvider ? "#16A34A" : /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.electricProvider ? (site.electricProvider + (site.threePhase === true ? " — 3-Phase" : "")) : null },
+        { label: "Natural Gas", available: !!site.gasProvider || /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: !!site.gasProvider ? "#16A34A" : /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.gasProvider || null },
+      ].map(u => `<div class="hover-card" style="padding:14px 16px;border-radius:12px;background:${u.color}06;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B">${u.detail ? `<strong style="color:#1E293B">${u.detail}</strong>` : u.available ? "Available per verified research" : u.issue ? u.issue : "Verify with provider"}</div></div>`).join("")}
+    </div>
+
+    <!-- Water & Sewer Infrastructure table -->
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
+      row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
+      row("Inside Service Boundary", site.insideServiceBoundary === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.insideServiceBoundary === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : "<em style='color:#94A3B8'>Verify via utility map</em>"),
+      row("Distance to Water Main", site.distToWaterMain || "<em style='color:#94A3B8'>Verify via GIS</em>"),
+      row("Water Main Size", site.waterMainSize || "<em style='color:#94A3B8'>Min 6\" for fire flow</em>"),
+      row("Fire Flow Adequate", site.fireFlowAdequate === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.fireFlowAdequate === false ? '<span style="color:#EF4444;font-weight:700">NO — upgrade needed</span>' : "<em style='color:#94A3B8'>Confirm 1,500+ GPM</em>"),
+      row("Sewer Provider", site.sewerProvider || "<em style='color:#94A3B8'>Research needed</em>"),
+      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false && hasSeptic ? '<span style="color:#16A34A;font-weight:700">Septic — viable</span>' : site.sewerAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — septic may work</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
+      row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Upgrade needed ($15K-$40K)</span>' : "<em style='color:#94A3B8'>Required for HVAC</em>"),
+      row("Capacity / Moratorium", site.utilityCapacity || "<em style='color:#94A3B8'>Check for limits</em>"),
+    ].join("")}</table>
+
+    <!-- Fee table -->
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-top:14px">${[
+      row("Water Tap Fee", site.waterTapFee || "<em style='color:#94A3B8'>Check fee schedule</em>"),
+      row("Sewer Tap Fee", site.sewerTapFee || "<em style='color:#94A3B8'>Check fee schedule</em>"),
+      row("Impact Fees", site.impactFees || "<em style='color:#94A3B8'>Check impact fees</em>"),
+      row("Line Extension Est.", site.lineExtensionCost || (site.distToWaterMain ? "<em style='color:#F59E0B'>Est. $50-$150/LF</em>" : "<em style='color:#94A3B8'>Depends on distance</em>")),
+      row("Total Utility Budget", site.totalUtilityBudget || "<em style='color:#94A3B8'>Sum all costs</em>"),
+    ].join("")}</table>
+
+    ${site.utilityNotes ? `<div style="margin-top:14px;padding:16px 20px;border-radius:12px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${h(site.utilityNotes).replace(/\n/g, '<br/>')}</div>` : ""}
+
+    <details class="method-box">
+      <summary>Research Methodology — Utilities</summary>
+      <div class="method-content">
+        Water/sewer provider identified via city utility department website, county records, and state regulatory databases (TCEQ CCN maps for TX, state DEQ/utility commission for other states). Service boundary verified via municipal GIS portals and utility district maps. Tap/impact fees sourced from published jurisdiction fee schedules (commercial/warehouse classification). Electric provider identified via utility service territory maps; 3-phase availability checked against provider service records. Distance to nearest water/sewer main estimated via GIS infrastructure layers where available.
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
     <!-- 4. TOPOGRAPHY & FLOOD -->
-    ${section("4", "Topography & Flood Assessment", "")}
-    <div style="padding:14px 18px;border-radius:10px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified in site data" : "No flood zone issues identified"}</span>
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("4", "Topography & Flood Assessment")}
+    <div class="hover-card" style="padding:14px 18px;border-radius:12px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified" : "No flood zone issues identified"}</span>
       ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
     </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern noted — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
+      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
       row("FIRM Panel #", site.firmPanel || "<em style='color:#94A3B8'>Locate at msc.fema.gov</em>"),
-      row("Terrain", site.terrain || "<em style='color:#94A3B8'>Review Google Earth / county contours</em>"),
+      row("Terrain", site.terrain || "<em style='color:#94A3B8'>Review Google Earth</em>"),
       row("Grade Change", site.gradeChange || "<em style='color:#94A3B8'>Estimate via elevation profile</em>"),
       row("Drainage Direction", site.drainageDirection || "<em style='color:#94A3B8'>Assess from contours</em>"),
-      row("Grading Risk", site.gradingRisk || "<em style='color:#94A3B8'>Assess from aerial/contours</em>"),
-      row("Est. Grading Cost", site.gradingCost || (site.gradingRisk === "High" ? '<span style="color:#EF4444;font-weight:700">$150K–$400K+ estimated</span>' : site.gradingRisk === "Medium" ? '<span style="color:#F59E0B">$50K–$150K estimated</span>' : "<em style='color:#94A3B8'>Based on grade assessment</em>")),
-      row("Wetlands (NWI)", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present — reduces developable area</span>' : site.wetlands === false ? '<span style="color:#16A34A">None identified per NWI</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
-      row("Wetland Area", site.wetlandArea || (site.wetlands === true ? "<em style='color:#EF4444'>Measure from NWI overlay</em>" : "—")),
+      row("Grading Risk", site.gradingRisk || "<em style='color:#94A3B8'>Assess from aerial</em>"),
+      row("Est. Grading Cost", site.gradingCost || (site.gradingRisk === "High" ? '<span style="color:#EF4444;font-weight:700">$150K-$400K+</span>' : site.gradingRisk === "Medium" ? '<span style="color:#F59E0B">$50K-$150K</span>' : "<em style='color:#94A3B8'>Based on grade</em>")),
+      row("Wetlands (NWI)", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present</span>' : site.wetlands === false ? '<span style="color:#16A34A">None per NWI</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
       row("Soil Type", site.soilType || "<em style='color:#94A3B8'>Check USDA Web Soil Survey</em>"),
-      row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
-      row("Stormwater / Detention", site.stormwater || (/detention|stormwater/i.test(combined) ? "Requirements noted" : "<em style='color:#94A3B8'>Check local stormwater ordinance</em>")),
+      row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Issues noted — see summary" : "None identified"),
     ].join("")}</table>
-    ${site.topoNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.topoNotes}</div>` : ""}
-    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#FFF7ED;border-left:3px solid #E87A2E;font-size:9px;color:#475569;line-height:1.6">
-      <strong style="color:#E87A2E;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      FEMA flood zone designation sourced from FEMA Flood Map Service Center (msc.fema.gov) — FIRM panel number and zone classification recorded. Topographic assessment via Google Earth elevation profiles, USGS TopoView, and county GIS contour data. Wetlands checked via U.S. Fish & Wildlife Service National Wetlands Inventory (NWI) mapper. Soil data from USDA Web Soil Survey where available. Grading cost estimates based on industry benchmarks: flat-2% = no concern, 2-5% = $50K-$150K, 5-10% = $150K-$400K+, >10% = potentially prohibitive. Environmental screening via EPA NEPAssist and state environmental databases.
-    </div>
+    ${site.topoNotes ? `<div style="margin-top:14px;padding:16px 20px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${h(site.topoNotes).replace(/\n/g, '<br/>')}</div>` : ""}
+    <details class="method-box">
+      <summary>Research Methodology — Topography</summary>
+      <div class="method-content">
+        FEMA flood zone designation sourced from FEMA Flood Map Service Center (msc.fema.gov). Topographic assessment via Google Earth elevation profiles, USGS TopoView, and county GIS contour data. Wetlands checked via USFWS National Wetlands Inventory (NWI) mapper. Soil data from USDA Web Soil Survey. Grading cost estimates: flat-2% = no concern, 2-5% = $50K-$150K, 5-10% = $150K-$400K+, >10% = potentially prohibitive.
+      </div>
+    </details>
 
+    <!-- ═══════════════════════════════════════════════ -->
     <!-- 5. SITE ACCESS & INFRASTRUCTURE -->
-    ${section("5", "Site Access & Infrastructure", "")}
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("5", "Site Access & Infrastructure")}
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Road Frontage", site.roadFrontage || (/frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed")),
-      row("Frontage Road Name", site.frontageRoadName || "<em style='color:#94A3B8'>Identify from aerial / listing</em>"),
-      row("Road Type", site.roadType || (/highway|arterial|collector|divided|two.?lane/i.test(combined) ? "Road classification noted — see summary" : "<em style='color:#94A3B8'>Assess: arterial / collector / local / highway</em>")),
-      row("Speed Limit / Traffic", site.trafficData || "<em style='color:#94A3B8'>Check DOT traffic counts</em>"),
-      row("Median / Turn Restrictions", site.medianType || "<em style='color:#94A3B8'>Divided highway = restricted left turns (flag for storage)</em>"),
-      row("Signalized Intersection", site.nearestSignal || "<em style='color:#94A3B8'>Nearest signal — affects trailer access</em>"),
-      row("Curb Cuts / Driveways", site.curbCuts || (/curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "<em style='color:#94A3B8'>Verify on aerial — new cuts need permitting</em>")),
-      row("Driveway Grade", site.drivewayGrade || "<em style='color:#94A3B8'>Steep grades = problem for trailers/trucks</em>"),
-      row("Visibility from Road", site.visibility || (/visib/i.test(combined) ? "Visibility noted" : "<em style='color:#94A3B8'>Signage visibility is key for storage operators</em>")),
-      row("Decel / Turn Lane", site.decelLane || "<em style='color:#94A3B8'>May be required by DOT for high-speed roads</em>"),
-      row("Landlocked Risk", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN — verify road frontage</span>' : '<span style="color:#16A34A">No landlocked concerns</span>'),
+      row("Frontage Road Name", site.frontageRoadName || "<em style='color:#94A3B8'>Identify from aerial</em>"),
+      row("Road Type", site.roadType || "<em style='color:#94A3B8'>Arterial / collector / local / highway</em>"),
+      row("Traffic Data (VPD)", site.trafficData || "<em style='color:#94A3B8'>Check DOT traffic counts</em>"),
+      row("Median / Turn Restrictions", site.medianType || "<em style='color:#94A3B8'>Divided = restricted left turns</em>"),
+      row("Nearest Signal", site.nearestSignal || "<em style='color:#94A3B8'>Affects trailer access</em>"),
+      row("Curb Cuts", site.curbCuts || "<em style='color:#94A3B8'>Verify on aerial</em>"),
+      row("Driveway Grade", site.drivewayGrade || "<em style='color:#94A3B8'>Steep = problem for trailers</em>"),
+      row("Visibility", site.visibility || "<em style='color:#94A3B8'>Key for storage signage</em>"),
+      row("Decel / Turn Lane", site.decelLane || "<em style='color:#94A3B8'>May be required by DOT</em>"),
+      row("Landlocked Risk", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN</span>' : '<span style="color:#16A34A">No concerns</span>'),
     ].join("")}</table>
 
+    <!-- ═══════════════════════════════════════════════ -->
     <!-- 6. DEMOGRAPHICS — FULL DEPTH -->
-    ${section("6", "Demographics & Demand Drivers", "")}
-    ${(() => {
-      const hhN = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
-      const hvN = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
-      const pop1 = parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
-      const growthPct = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
-      const growthColor = growthPct !== null ? (growthPct >= 1.5 ? "#16A34A" : growthPct >= 0.5 ? "#3B82F6" : growthPct >= 0 ? "#F59E0B" : "#EF4444") : "#94A3B8";
-      return `
-    <!-- Demo KPI Cards -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("6", "Demographics & Demand Drivers")}
+    <!-- KPI Cards — larger and more impactful -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
       ${[
         { label: "Population (3-mi)", val: popN > 0 ? fmtN(popN) : "—", color: popN >= 25000 ? "#16A34A" : popN >= 10000 ? "#3B82F6" : popN > 0 ? "#F59E0B" : "#94A3B8", sub: pop1 > 0 ? "1-mi: " + fmtN(pop1) : null },
         { label: "Median HHI", val: incN > 0 ? "$" + fmtN(incN) : "—", color: incN >= 75000 ? "#16A34A" : incN >= 55000 ? "#3B82F6" : incN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
         { label: "Households", val: hhN > 0 ? fmtN(hhN) : "—", color: hhN >= 18000 ? "#16A34A" : hhN >= 6000 ? "#3B82F6" : hhN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
         { label: "Home Value", val: hvN > 0 ? "$" + fmtN(hvN) : "—", color: hvN >= 250000 ? "#16A34A" : hvN >= 120000 ? "#3B82F6" : hvN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
-      ].map(k => `<div style="padding:12px 14px;border-radius:10px;background:${k.color}08;border:1px solid ${k.color}20;text-align:center">
-        <div style="font-size:9px;font-weight:800;color:${k.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${k.label}</div>
-        <div style="font-size:20px;font-weight:900;color:${k.color};font-family:'Space Mono',monospace;line-height:1.2">${k.val}</div>
-        ${k.sub ? `<div style="font-size:9px;color:#64748B;margin-top:4px">${k.sub}</div>` : ""}
+      ].map(k => `<div class="hover-card" style="padding:16px;border-radius:12px;background:${k.color}06;border:2px solid ${k.color}20;text-align:center">
+        <div style="font-size:8px;font-weight:800;color:${k.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${k.label}</div>
+        <div style="font-size:22px;font-weight:900;color:${k.color};font-family:'Space Mono',monospace;line-height:1.1">${k.val}</div>
+        ${k.sub ? `<div style="font-size:9px;color:#64748B;margin-top:6px">${k.sub}</div>` : ""}
       </div>`).join("")}
     </div>
-    <!-- Growth Trend -->
-    <div style="padding:12px 18px;border-radius:10px;background:${growthColor}08;border:1px solid ${growthColor}20;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+
+    <!-- Growth Trend with arrow -->
+    <div class="hover-card" style="padding:16px 22px;border-radius:12px;background:${growthColor}06;border:2px solid ${growthColor}20;display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
       <div>
         <div style="font-size:9px;font-weight:800;color:${growthColor};text-transform:uppercase;letter-spacing:0.06em">5-Year Population Growth (CAGR)</div>
-        <div style="font-size:11px;color:#64748B;margin-top:2px">ESRI 2025 → 2030 projection</div>
+        <div style="font-size:11px;color:#64748B;margin-top:2px">ESRI 2025 &#8594; 2030 projection</div>
       </div>
-      <div style="font-size:24px;font-weight:900;color:${growthColor};font-family:'Space Mono',monospace">${growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(1) + "%" : "—"}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${growthPct !== null ? `<span style="font-size:18px;color:${growthColor}">${growthPct >= 0 ? "&#9650;" : "&#9660;"}</span>` : ""}
+        <span style="font-size:28px;font-weight:900;color:${growthColor};font-family:'Space Mono',monospace">${growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(1) + "%" : "—"}</span>
+      </div>
     </div>
-    ${demoScore ? `<div style="padding:10px 18px;border-radius:8px;background:${demoColor}08;border:1px solid ${demoColor}20;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-size:12px;font-weight:700;color:#1E293B">Demographic Gate</span>${statusPill(demoScore, demoColor)}</div>` : ""}
-    <!-- Full Demographics Table -->
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+
+    ${demoScore ? `<div style="padding:10px 18px;border-radius:10px;background:${demoColor}08;border:1px solid ${demoColor}20;display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><span style="font-size:12px;font-weight:700;color:#1E293B">Demographic Gate</span>${statusPill(demoScore, demoColor)}</div>` : ""}
+
+    <!-- Growth Story / Demand Drivers card -->
+    ${site.demandDrivers ? `<div class="hover-card" style="padding:16px 20px;border-radius:12px;background:linear-gradient(135deg,#F0F4FF,#F8FAFC);border:2px solid #1E276120;margin-bottom:18px">
+      <div style="font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Demand Drivers</div>
+      <div style="font-size:12px;color:#475569;line-height:1.7">${h(site.demandDrivers)}</div>
+    </div>` : ""}
+
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Population (3-mi)", popN > 0 ? fmtN(popN) : "<em style='color:#94A3B8'>Not available</em>"),
       row("Population (1-mi)", pop1 > 0 ? fmtN(pop1) : "<em style='color:#94A3B8'>Not available</em>"),
       row("Median HHI", incN > 0 ? "$" + fmtN(incN) : "<em style='color:#94A3B8'>Not available</em>"),
       row("Households (3-mi)", hhN > 0 ? fmtN(hhN) : "<em style='color:#94A3B8'>Census ACS needed</em>"),
       row("Median Home Value", hvN > 0 ? "$" + fmtN(hvN) : "<em style='color:#94A3B8'>Census ACS needed</em>"),
       row("5-Yr Pop Growth", growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR" : "<em style='color:#94A3B8'>ESRI data needed</em>"),
-      row("Renter %", site.renterPct3mi ? site.renterPct3mi + "%" : "<em style='color:#94A3B8'>Higher renter % = more storage demand</em>"),
-      row("Demand Drivers", site.demandDrivers || "<em style='color:#94A3B8'>Major employers, new housing, military bases, universities</em>"),
-    ].join("")}</table>`;
-    })()}
+      row("Renter %", site.renterPct3mi ? site.renterPct3mi + "%" : "<em style='color:#94A3B8'>Higher = more demand</em>"),
+      row("Demand Drivers", site.demandDrivers || "<em style='color:#94A3B8'>Employers, housing, military, universities</em>"),
+    ].join("")}</table>
 
+    <!-- ═══════════════════════════════════════════════ -->
     <!-- 7. COMPETITION LANDSCAPE -->
-    ${section("7", "Competition Landscape (3-Mile Radius)", "")}
-    ${(() => {
-      const cc = site.siteiqData?.competitorCount;
-      const compColor = cc !== undefined && cc !== null ? (cc <= 1 ? "#16A34A" : cc <= 3 ? "#F59E0B" : "#EF4444") : "#94A3B8";
-      const compLabel = cc !== undefined && cc !== null ? (cc === 0 ? "NO COMPETITORS" : cc === 1 ? "1 COMPETITOR" : cc + " COMPETITORS") : "NOT ASSESSED";
-      const satLevel = cc !== undefined && cc !== null ? (cc === 0 ? "Unserved Market" : cc <= 2 ? "Low Saturation" : cc <= 4 ? "Moderate Saturation" : "High Saturation") : "Unknown";
-      return `
-    <div style="display:flex;gap:16px;margin-bottom:16px">
-      <div style="flex:1;padding:16px 20px;border-radius:10px;background:${compColor}08;border:2px solid ${compColor}30;text-align:center">
-        <div style="font-size:9px;font-weight:800;color:${compColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Competitor Count (3-mi)</div>
-        <div style="font-size:36px;font-weight:900;color:${compColor};font-family:'Space Mono',monospace;line-height:1">${cc !== undefined && cc !== null ? cc : "?"}</div>
-        <div style="font-size:11px;color:#64748B;margin-top:6px">${satLevel}</div>
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("7", "Competition Landscape (3-Mile Radius)")}
+
+    <!-- Competition Density Visual Card -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px">
+      <div class="hover-card" style="padding:18px;border-radius:14px;background:${compColor}06;border:2px solid ${compColor}25;text-align:center">
+        <div style="font-size:8px;font-weight:800;color:${compColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Competitors (3-mi)</div>
+        <div style="font-size:40px;font-weight:900;color:${compColor};font-family:'Space Mono',monospace;line-height:1">${cc !== undefined && cc !== null ? cc : "?"}</div>
+        <!-- Dot indicators -->
+        ${cc !== undefined && cc !== null && cc > 0 && cc <= 10 ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:4px">${Array.from({length: cc}).map(() => `<div style="width:8px;height:8px;border-radius:50%;background:${compColor}"></div>`).join("")}</div>` : ""}
+        <div style="font-size:10px;color:#64748B;margin-top:8px;font-weight:600">${satLevel}</div>
       </div>
-      <div style="flex:1;padding:16px 20px;border-radius:10px;background:#F8FAFC;border:2px solid #E2E8F0;text-align:center">
-        <div style="font-size:9px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Nearest PS Location</div>
-        <div style="font-size:22px;font-weight:900;color:#1E2761;font-family:'Space Mono',monospace;line-height:1">${site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi" : "—"}</div>
-        <div style="font-size:11px;color:#64748B;margin-top:6px">${site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 5 ? "Validated submarket" : site.siteiqData.nearestPS <= 15 ? "Expansion zone" : site.siteiqData.nearestPS <= 35 ? "Frontier market" : "Too remote") : "Run proximity check"}</div>
+      <div class="hover-card" style="padding:18px;border-radius:14px;background:#1E276108;border:2px solid #1E276120;text-align:center">
+        <div style="font-size:8px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Nearest PS</div>
+        <div style="font-size:28px;font-weight:900;color:#1E2761;font-family:'Space Mono',monospace;line-height:1">${site.siteiqData?.nearestPS ? site.siteiqData.nearestPS : "—"}<span style="font-size:14px;color:#64748B"> mi</span></div>
+        <div style="font-size:10px;color:#64748B;margin-top:8px;font-weight:600">${site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 5 ? "Validated submarket" : site.siteiqData.nearestPS <= 15 ? "Expansion zone" : site.siteiqData.nearestPS <= 35 ? "Frontier market" : "Too remote") : "Run proximity check"}</div>
+      </div>
+      <!-- SF/capita gauge -->
+      <div class="hover-card" style="padding:18px;border-radius:14px;background:${sfCapitaColor}06;border:2px solid ${sfCapitaColor}25;text-align:center">
+        <div style="font-size:8px;font-weight:800;color:${sfCapitaColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">SF / Capita</div>
+        <div style="font-size:28px;font-weight:900;color:${sfCapitaColor};font-family:'Space Mono',monospace;line-height:1">${sfCapita !== null ? sfCapita.toFixed(1) : "—"}</div>
+        ${sfCapita !== null ? `<div class="sf-gauge"><div class="sf-gauge-marker" style="left:${Math.min(100, Math.max(0, (sfCapita / 15) * 100))}%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:7px;color:#94A3B8;font-weight:600"><span>Under</span><span>Equilib.</span><span>Over</span></div>` : ""}
+        <div style="font-size:10px;color:#64748B;margin-top:6px;font-weight:600">${sfCapitaLabel}</div>
       </div>
     </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Competitor Count", compLabel, { badge: true, badgeBg: compColor + "18", badgeColor: compColor }),
-      row("Saturation Level", satLevel),
-      row("Nearest PS Facility", site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi — " + (site.siteiqData.nearestPS <= 10 ? "market validated, demand proven" : "expansion opportunity") : "<em style='color:#94A3B8'>Run §6b proximity check</em>"),
-      row("Known Operators", site.competitorNames || "<em style='color:#94A3B8'>List operators within 3 mi (Extra Space, CubeSmart, Life Storage, etc.)</em>"),
-      row("Nearest Competitor", site.nearestCompetitor || "<em style='color:#94A3B8'>Name, distance, and facility type</em>"),
-      row("Competitor Facility Types", site.competitorTypes || "<em style='color:#94A3B8'>Climate-controlled, drive-up, multi-story, etc.</em>"),
-      row("Est. Competing SF", site.competingSF || "<em style='color:#94A3B8'>Estimate total competitive supply within 3 mi</em>"),
-      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand potential</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#EF4444;font-weight:700">Saturated — verify occupancy rates</span>' : "<em style='color:#94A3B8'>Research occupancy rates of nearby facilities</em>")),
-    ].join("")}</table>
-    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#FFF7ED;border-left:3px solid #E87A2E;font-size:9px;color:#475569;line-height:1.6">
-      <strong style="color:#E87A2E;font-size:9px;letter-spacing:0.05em">COMPETITION METHODOLOGY</strong><br/>
-      Competitor scan via Google Maps, SpareFoot, SelfStorage.com, and operator websites within 3-mile radius. Operator names, facility types, and estimated SF recorded. Occupancy data sourced from operator quarterly filings (public REITs: PSA, EXR, CUBE, LSI, NSA) and local market surveys. Demand/supply assessment based on population-to-storage-SF ratio (industry benchmark: 7-9 SF per capita = equilibrium, &lt;5 SF = underserved, &gt;12 SF = oversupplied).
-    </div>`;
-    })()}
 
+    <!-- Competitor table -->
+    ${site.competitorNames ? `<div style="margin-bottom:18px;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0">
+      <div style="background:#FAFBFC;padding:10px 16px;font-size:10px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #E2E8F0">Known Competitors</div>
+      <table>
+        <thead><tr style="background:#FAFBFC">${["Operator", "Distance", "Type", "Est. SF"].map(h2 => `<th style="padding:8px 14px;font-size:9px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;text-align:left;border-bottom:1px solid #E2E8F0">${h2}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${(site.competitorNames || "").split(",").map((name, i) => {
+            const trimmed = name.trim();
+            if (!trimmed) return "";
+            return `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}">
+              <td style="padding:8px 14px;font-size:12px;font-weight:600;color:#1E293B">${h(trimmed)}</td>
+              <td style="padding:8px 14px;font-size:11px;color:#64748B">${i === 0 && site.nearestCompetitor ? h(site.nearestCompetitor).split("—")[0] || "—" : "—"}</td>
+              <td style="padding:8px 14px;font-size:11px;color:#64748B">${site.competitorTypes ? (site.competitorTypes.split(",")[i] || "").trim() || "—" : "—"}</td>
+              <td style="padding:8px 14px;font-size:11px;color:#64748B">${i === 0 && site.competingSF ? h(site.competingSF) : "—"}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>` : ""}
+
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
+      row("Competitor Count", compLabel, { badge: true, badgeBg: compColor + "18", badgeColor: compColor }),
+      row("Known Operators", site.competitorNames || "<em style='color:#94A3B8'>List operators within 3 mi</em>"),
+      row("Nearest Competitor", site.nearestCompetitor || "<em style='color:#94A3B8'>Name, distance, type</em>"),
+      row("Est. Competing SF", site.competingSF || "<em style='color:#94A3B8'>Estimate total supply</em>"),
+      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#EF4444;font-weight:700">Saturated — verify occupancy</span>' : "<em style='color:#94A3B8'>Research occupancy rates</em>")),
+    ].join("")}</table>
+    <details class="method-box">
+      <summary>Research Methodology — Competition</summary>
+      <div class="method-content">
+        Competitor scan via Google Maps, SpareFoot, SelfStorage.com, and operator websites within 3-mile radius. Operator names, facility types, and estimated SF recorded. Occupancy data sourced from operator quarterly filings (PSA, EXR, CUBE, LSI, NSA). Demand/supply assessment based on population-to-storage-SF ratio (7-9 SF/capita = equilibrium, &lt;5 = underserved, &gt;12 = oversupplied).
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
     <!-- 8. SITE SIZING -->
-    ${section("8", "Site Sizing Assessment", "")}
-    <div style="padding:14px 18px;border-radius:10px;background:${sizingColor}0A;border:1px solid ${sizingColor}25;display:flex;justify-content:space-between;align-items:center">
+    <!-- ═══════════════════════════════════════════════ -->
+    ${section("8", "Site Sizing Assessment")}
+    <div class="hover-card" style="padding:16px 20px;border-radius:12px;background:${sizingColor}08;border:2px solid ${sizingColor}25;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px;font-weight:600;color:#1E293B">${sizingText}</span>
-      <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
+      <span style="padding:4px 14px;border-radius:8px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
     </div>
 
     <!-- 9. BROKER -->
-    ${section("9", "Broker / Seller", "")}
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
+    ${section("9", "Broker / Seller")}
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Contact", site.sellerBroker || "Not listed"),
-      row("Date on Market", site.dateOnMarket || "Unknown"),
-      row("Days on Market", site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) + " days" : "Unknown"),
+      row("Days on Market", dom !== null ? dom + " days" : "Unknown"),
       row("Listing Source", site.listingSource || "<em style='color:#94A3B8'>Crexi / LoopNet / CoStar</em>"),
-      row("Broker Notes", site.brokerNotes || "<em style='color:#94A3B8'>Seller motivation, timeline, pricing signals</em>"),
+      row("Broker Notes", site.brokerNotes || "<em style='color:#94A3B8'>Seller motivation, pricing signals</em>"),
     ].join("")}</table>
 
     <!-- 10. RECOMMENDED NEXT STEPS -->
-    ${section("10", "Recommended Next Steps", "")}
+    ${section("10", "Recommended Next Steps")}
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
       ${[
-        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify indoor storage permissibility" } : null,
-        zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements, and precedent" } : null,
-        zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
-        !hasUtilities ? { pri: "HIGH", color: "#EF4444", text: "Confirm water & sewer availability — contact provider and verify service boundary" } : null,
-        hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
-        hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
-        { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
-      ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
+        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table and verify storage permissibility" } : null,
+        zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements" } : null,
+        zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate" } : null,
+        !hasUtilities ? { pri: "HIGH", color: "#EF4444", text: "Confirm water & sewer — contact provider and verify service boundary" } : null,
+        hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate insurance cost" } : null,
+        hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay standards — facade, signage, landscaping" } : null,
+        { pri: "LOW", color: "#3B82F6", text: "Verify all tap fees and connection costs" },
+      ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:10px;background:${s.color}06;border:1px solid ${s.color}15"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}12;padding:3px 10px;border-radius:6px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
     </div>
 
     <!-- 11. RED FLAGS -->
-    ${section("11", "Red Flags & Action Items", "")}
+    ${section("11", "Red Flags & Action Items")}
     ${flags.length === 0
-      ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
-      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
+      ? `<div style="padding:16px 20px;border-radius:12px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
+      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:10px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px;flex-shrink:0">&#9888;</span> ${f}</div>`).join("")}</div>`
     }
 
     <!-- 12. SUMMARY -->
-    ${section("12", "Summary & Deal Notes", "")}
-    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${h(site.summary) || "No notes"}</div>
+    ${section("12", "Summary & Deal Notes")}
+    <div style="padding:18px 22px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.8;color:#475569">${h(site.summary || "No notes").replace(/\n/g, '<br/>')}</div>
 
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SITESCORE SCORECARD -->
+    <!-- ═══════════════════════════════════════════════ -->
     ${iq && iq.scores ? (() => {
       const dims = [
         { key: "population", label: "Population", weight: 0.16 },
-        { key: "growth", label: "Growth", weight: 0.18 },
+        { key: "growth", label: "Growth", weight: 0.21 },
         { key: "income", label: "Income", weight: 0.10 },
         { key: "households", label: "Households", weight: 0.05 },
         { key: "homeValue", label: "Home Value", weight: 0.05 },
         { key: "zoning", label: "Zoning", weight: 0.16 },
-        { key: "psProximity", label: "PS Proximity", weight: 0.10 },
+        { key: "psProximity", label: "PS Proximity", weight: 0.11 },
         { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "competition", label: "Competition", weight: 0.05 },
+        { key: "competition", label: "Competition", weight: 0.07 },
         { key: "marketTier", label: "Market Tier", weight: 0.02 },
       ];
+      const weightedSum = dims.reduce((s, d) => s + ((iq.scores[d.key] || 0) * d.weight), 0);
+      const adjustments = typeof iqScore === "number" ? (iqScore - weightedSum).toFixed(2) : "0.00";
       return `
-    <!-- SITESCORE SCORECARD -->
-    ${section("S", "SiteScore™ Scorecard", "")}
-    <!-- Visual Bar Chart -->
-    <div style="display:flex;gap:8px;align-items:flex-end;height:140px;padding:20px 0 0;margin-bottom:16px">
+    ${section("S", "SiteScore&trade; Scorecard")}
+    <!-- Visual Bar Chart with labels -->
+    <div style="display:flex;gap:6px;align-items:flex-end;height:160px;padding:20px 0 0;margin-bottom:20px">
       ${dims.map(d => {
         const v = iq.scores[d.key] || 0;
         const pct = Math.max(5, (v / 10) * 100);
         const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
         return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-          <div style="font-size:14px;font-weight:900;color:${c};font-family:'Space Mono',monospace">${v.toFixed ? v.toFixed(1) : v}</div>
-          <div style="width:100%;height:80px;border-radius:6px;background:#F1F5F9;position:relative;overflow:hidden">
-            <div style="position:absolute;bottom:0;left:0;right:0;height:${pct}%;border-radius:6px;background:linear-gradient(180deg,${c},${c}88);transition:height 0.5s"></div>
+          <div style="font-size:13px;font-weight:900;color:${c};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : v}</div>
+          <div style="width:100%;height:90px;border-radius:8px;background:#F1F5F9;position:relative;overflow:hidden">
+            <div style="position:absolute;bottom:0;left:0;right:0;height:${pct}%;border-radius:8px;background:linear-gradient(180deg,${c},${c}80);transition:height 0.5s"></div>
+            <div style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);font-size:7px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3)">${(d.weight * 100).toFixed(0)}%</div>
           </div>
-          <div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.02em;text-align:center;line-height:1.2">${d.label}</div>
+          <div style="font-size:7px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.01em;text-align:center;line-height:1.2">${d.label}</div>
         </div>`;
       }).join("")}
     </div>
+
+    <!-- Radar Chart (CSS-only) -->
+    <div style="display:flex;justify-content:center;margin-bottom:20px">
+      <div style="position:relative;width:240px;height:240px">
+        <!-- Grid rings -->
+        ${[100, 75, 50, 25].map(r => `<div style="position:absolute;top:${50 - r/2}%;left:${50 - r/2}%;width:${r}%;height:${r}%;border:1px solid #E2E8F020;border-radius:50%"></div>`).join("")}
+        <!-- Radar polygon via SVG -->
+        <svg viewBox="0 0 240 240" style="width:100%;height:100%">
+          <polygon points="${dims.map((d, i) => {
+            const v = (iq.scores[d.key] || 0) / 10;
+            const angle = (Math.PI * 2 * i / dims.length) - Math.PI / 2;
+            const r = v * 100;
+            return `${120 + r * Math.cos(angle)},${120 + r * Math.sin(angle)}`;
+          }).join(" ")}" fill="#F37C3320" stroke="#F37C33" stroke-width="2"/>
+          ${dims.map((d, i) => {
+            const angle = (Math.PI * 2 * i / dims.length) - Math.PI / 2;
+            const lx = 120 + 115 * Math.cos(angle);
+            const ly = 120 + 115 * Math.sin(angle);
+            return `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central" style="font-size:7px;font-weight:700;fill:#64748B;font-family:'DM Sans',sans-serif">${d.label.substring(0, 6)}</text>`;
+          }).join("")}
+        </svg>
+      </div>
+    </div>
+
     <!-- Detail Table -->
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">
-      <thead><tr style="background:#FAFBFC">${["Dimension", "Score", "Weight", "Weighted"].map(h => `<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;text-align:left;border-bottom:2px solid #E2E8F0">${h}</th>`).join("")}</tr></thead>
-      <tbody>${dims.map((d, i) => { const v = iq.scores[d.key] || 0; return `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 12px;font-size:12px;font-weight:600;color:#1E293B">${d.label}</td><td style="padding:8px 12px;font-size:13px;font-weight:800;color:${v >= 7 ? "#16A34A" : v >= 4 ? "#F59E0B" : "#EF4444"};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : "—"}</td><td style="padding:8px 12px;font-size:11px;color:#94A3B8">${(d.weight * 100).toFixed(0)}%</td><td style="padding:8px 12px;font-size:12px;font-weight:700;color:#475569">${(v * d.weight).toFixed(2)}</td></tr>`; }).join("")}
-      <tr style="background:#1E2761"><td colspan="3" style="padding:10px 12px;font-size:12px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.04em">Composite Score</td><td style="padding:10px 12px;font-size:18px;font-weight:900;color:#F37C33;font-family:'Space Mono',monospace">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</td></tr>
+    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">
+      <thead><tr style="background:linear-gradient(135deg,#FAFBFC,#F5F7FA)">${["Dimension", "Score", "Weight", "Weighted"].map(hdr => `<th style="padding:10px 14px;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;text-align:left;border-bottom:2px solid #E2E8F0">${hdr}</th>`).join("")}</tr></thead>
+      <tbody>${dims.map((d, i) => { const v = iq.scores[d.key] || 0; return `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:10px 14px;font-size:12px;font-weight:600;color:#1E293B">${d.label}</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:${v >= 7 ? "#16A34A" : v >= 4 ? "#F59E0B" : "#EF4444"};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : "—"}</td><td style="padding:10px 14px;font-size:11px;color:#94A3B8">${(d.weight * 100).toFixed(0)}%</td><td style="padding:10px 14px;font-size:12px;font-weight:700;color:#475569">${(v * d.weight).toFixed(2)}</td></tr>`; }).join("")}
+      <!-- Subtotal row -->
+      <tr style="background:#F5F7FA;border-top:2px solid #E2E8F0"><td colspan="3" style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Weighted Sum</td><td style="padding:10px 14px;font-size:14px;font-weight:800;color:#475569;font-family:'Space Mono',monospace">${weightedSum.toFixed(2)}</td></tr>
+      ${parseFloat(adjustments) !== 0 ? `<tr style="background:#FFF7ED"><td colspan="3" style="padding:8px 14px;font-size:10px;font-weight:600;color:#92400E">Adjustments (bonuses/penalties)</td><td style="padding:8px 14px;font-size:12px;font-weight:700;color:#D97706;font-family:'Space Mono',monospace">${parseFloat(adjustments) >= 0 ? "+" : ""}${adjustments}</td></tr>` : ""}
+      <tr style="background:linear-gradient(135deg,#1E2761,#2C3E6B)"><td colspan="3" style="padding:12px 14px;font-size:13px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.04em">Composite Score</td><td style="padding:12px 14px;font-size:22px;font-weight:900;color:#F37C33;font-family:'Space Mono',monospace">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</td></tr>
       </tbody></table>`;
     })() : ""}
   </div>
 
+  <!-- ═══════════════════════════════════════════════ -->
   <!-- SOURCES & METHODOLOGY APPENDIX -->
-  <div style="padding:28px 40px 20px;border-top:2px solid #1E2761">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#1E2761,#2C3E6B);display:flex;align-items:center;justify-content:center;font-size:11px;color:#C9A84C;font-weight:900">&#167;</div>
-      <h2 style="margin:0;font-size:14px;font-weight:800;color:#1E2761;letter-spacing:0.02em">Sources &amp; Methodology</h2>
+  <!-- ═══════════════════════════════════════════════ -->
+  <div style="padding:28px 44px 24px;border-top:3px solid #1E2761">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#1E2761,#2C3E6B);display:flex;align-items:center;justify-content:center;font-size:12px;color:#C9A84C;font-weight:900">&#167;</div>
+      <h2 style="margin:0;font-size:15px;font-weight:800;color:#1E2761;letter-spacing:0.02em">Sources &amp; Methodology</h2>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Zoning &amp; Entitlements</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; Municipal zoning ordinance (ecode360, Municode, American Legal, Code Publishing)<br/>
-          &bull; Permitted use table — exact district column verified<br/>
-          &bull; Overlay district maps via jurisdiction GIS portal<br/>
-          &bull; Planning department direct contact for confirmation
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Utilities &amp; Water</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; City/county utility department + published fee schedules<br/>
-          &bull; TCEQ CCN maps (TX) / state utility commission databases<br/>
-          &bull; Municipal GIS infrastructure layers (water/sewer mains)<br/>
-          &bull; Electric utility service territory maps — 3-phase verification
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#E87A2E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Topography &amp; Environmental</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; FEMA Flood Map Service Center (msc.fema.gov) — FIRM panels<br/>
-          &bull; Google Earth elevation profiles + USGS TopoView<br/>
-          &bull; National Wetlands Inventory (NWI) mapper — USFWS<br/>
-          &bull; USDA Web Soil Survey + EPA NEPAssist screening
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#DC2626;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Competition &amp; Market</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; Google Maps, SpareFoot, SelfStorage.com facility scan (3-mi radius)<br/>
-          &bull; Public REIT filings: PSA, EXR, CUBE, LSI, NSA occupancy data<br/>
-          &bull; Population-to-SF ratio benchmarking (7&ndash;9 SF/capita = equilibrium)<br/>
-          &bull; Operator identification + facility type classification
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#7C3AED;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Site Access &amp; Infrastructure</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; Aerial imagery review (Google Earth, county GIS) for frontage + curb cuts<br/>
-          &bull; State DOT traffic count maps — VPD on frontage road<br/>
-          &bull; Speed limits, median type, nearest signalized intersection<br/>
-          &bull; Driveway grade assessment, decel lane requirements
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#2C3E6B;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Demographics &amp; Scoring</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; Licensed ESRI 2025 estimates + 2030 five-year projections<br/>
-          &bull; U.S. Census Bureau ACS 5-Year (population, HHI, households)<br/>
-          &bull; SiteScore&trade; composite scoring: 11 weighted dimensions, 0&ndash;10 scale<br/>
-          &bull; PS proximity: Haversine distance against 3,400+ owned/managed locations<br/>
-          &bull; Households &amp; home value: demand proxy + affluence signal
-        </div>
-      </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px">
+      ${[
+        { title: "Zoning & Entitlements", color: "#1E2761", items: ["Municipal ordinance (ecode360, Municode, American Legal)", "Permitted use table — district column verified", "Overlay district maps via GIS portal", "Planning department direct contact"] },
+        { title: "Utilities & Water", color: "#16A34A", items: ["City/county utility dept + fee schedules", "TCEQ CCN maps (TX) / state commissions", "Municipal GIS infrastructure layers", "Electric utility territory maps — 3-phase"] },
+        { title: "Topography", color: "#E87A2E", items: ["FEMA Flood Map Service Center", "Google Earth + USGS TopoView", "National Wetlands Inventory (NWI)", "USDA Web Soil Survey"] },
+        { title: "Competition", color: "#DC2626", items: ["Google Maps, SpareFoot, SelfStorage.com", "Public REIT filings (PSA, EXR, CUBE)", "Population-to-SF benchmarking", "Operator identification"] },
+        { title: "Site Access", color: "#7C3AED", items: ["Aerial imagery (Google Earth, county GIS)", "State DOT traffic count maps", "Speed limits, median type, signals", "Driveway grade, decel lane assessment"] },
+        { title: "Demographics", color: "#2C3E6B", items: ["Licensed ESRI 2025 + 2030 projections", "Census Bureau ACS 5-Year", "SiteScore(TM) composite scoring", "PS proximity: Haversine vs 3,400+ locations"] },
+      ].map(s => `<div style="padding:14px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0">
+        <div style="font-size:9px;font-weight:800;color:${s.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">${s.title}</div>
+        <div style="font-size:8px;color:#64748B;line-height:1.6">${s.items.map(i => `&#8226; ${i}`).join("<br/>")}</div>
+      </div>`).join("")}
     </div>
-    <div style="padding:10px 14px;border-radius:6px;background:#0A0A0C;font-size:8px;color:#64748B;line-height:1.6;text-align:center">
+    <div style="padding:12px 16px;border-radius:8px;background:#0A0A0C;font-size:8px;color:#64748B;line-height:1.6;text-align:center">
       This report was generated by SiteScore&trade;, a proprietary AI-powered acquisition intelligence platform developed by DJR Real Estate LLC.
-      All zoning, utility, and environmental findings are sourced from primary municipal records, federal databases, and licensed data providers.
+      All findings are sourced from primary municipal records, federal databases, and licensed data providers.
       Findings should be independently verified prior to capital commitment. Report date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
     </div>
   </div>
 
   <!-- FOOTER -->
-  <div style="background:#0A0A0C;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">SiteScore&trade;</span> · Patent Pending · Serial No. 99712640</div>
-    <div style="font-size:11px;color:#64748B"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential &nbsp;|&nbsp; AI-Powered Site Intelligence</div>
+  <div style="background:#0A0A0C;padding:22px 44px;display:flex;justify-content:space-between;align-items:center;border-radius:0 0 8px 8px">
+    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">SiteScore&trade;</span> &middot; Patent Pending &middot; Serial No. 99712640</div>
+    <div style="font-size:11px;color:#64748B"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
   </div>
-</div></body></html>`;
+</div>
+
+<script>
+// TOC active section highlighting
+(function(){
+  var toc = document.getElementById('tocNav');
+  if (!toc) return;
+  var links = toc.querySelectorAll('a');
+  var observer = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active')});
+        var id = e.target.id;
+        var active = toc.querySelector('a[href="#'+id+'"]');
+        if(active) active.classList.add('active');
+      }
+    });
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('.report-section[id]').forEach(function(s){observer.observe(s)});
+})();
+</script>
+</body></html>`;
   } catch (err) {
     console.error("Report generation error:", err);
     return `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;padding:40px;background:#0A0E2A;color:#fff;text-align:center"><h1 style="color:#C9A84C">Report Generation Error</h1><p style="color:#94A3B8">${escapeHtml(err.message)}</p><p style="color:#64748B;font-size:12px">Check the browser console for details. Try refreshing the site data.</p></body></html>`;
