@@ -804,9 +804,27 @@ function toggleMI(id,evt){
   if(evt){evt.stopPropagation();}
   const p=document.getElementById('mi-'+id);
   if(!p)return;
-  // Close all other MI panels first
   document.querySelectorAll('.mi-panel.open').forEach(el=>{if(el.id!=='mi-'+id)el.classList.remove('open');});
   p.classList.toggle('open');
+}
+function updateCustomCap(val){
+  val=parseFloat(val);if(isNaN(val)||val<=0)return;
+  var c=document.getElementById('custom-cap-container');
+  var noi=parseFloat(c.dataset.stabNoi),dc=parseFloat(c.dataset.totalDevCost),sf=parseFloat(c.dataset.totalSf);
+  document.getElementById('cap-slider').value=val;
+  document.getElementById('cap-input').value=val;
+  if(!noi||noi<=0){return;}
+  var v=Math.round(noi/(val/100));
+  var fmt=function(n){return n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(0)+'K':'$'+n;};
+  document.getElementById('cc-value').textContent=fmt(v);
+  document.getElementById('cc-value').style.color=v>dc?'#C9A84C':'#EF4444';
+  if(dc>0){
+    var sp=v-dc;document.getElementById('cc-spread').textContent=fmt(sp);
+    document.getElementById('cc-spread').style.color=sp>0?'#16A34A':'#EF4444';
+    var pct=((v/dc-1)*100).toFixed(0);document.getElementById('cc-profit').textContent=pct+'%';
+    document.getElementById('cc-profit').style.color=parseFloat(pct)>0?'#16A34A':'#EF4444';
+  }
+  if(sf>0){document.getElementById('cc-persf').textContent='$'+Math.round(v/sf);}
 }
 </script>
 </head><body><div class="page">
@@ -1772,6 +1790,42 @@ function toggleMI(id,evt){
       </div></div>
     </div>`).join("")}
   </div>
+
+  <!-- CUSTOM CAP RATE INPUT -->
+  <div data-stab-noi="${stabNOI}" data-total-dev-cost="${totalDevCost}" data-total-sf="${totalSF}" id="custom-cap-container" style="margin-top:20px;padding:20px 24px;background:linear-gradient(135deg,rgba(15,21,56,0.6),rgba(30,39,97,0.4));border-radius:14px;border:1px solid rgba(201,168,76,0.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+      <div>
+        <div style="font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">Custom Cap Rate</div>
+        <div style="font-size:11px;color:#6B7394">Adjust to model your own exit cap scenario</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <input type="range" id="cap-slider" min="3.5" max="9.0" step="0.25" value="5.75" oninput="updateCustomCap(this.value)" style="width:200px;accent-color:#C9A84C;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:4px;background:rgba(15,21,56,0.8);border:1px solid rgba(201,168,76,0.3);border-radius:8px;padding:6px 10px">
+          <input type="number" id="cap-input" min="3.5" max="9.0" step="0.25" value="5.75" oninput="updateCustomCap(this.value)" onclick="event.stopPropagation()" style="width:50px;background:transparent;border:none;color:#C9A84C;font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;text-align:right;outline:none">
+          <span style="color:#6B7394;font-size:14px;font-weight:700">%</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px">
+      <div style="text-align:center">
+        <div style="font-size:9px;color:#6B7394;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Valuation</div>
+        <div id="cc-value" class="mono" style="font-size:22px;font-weight:900;color:#C9A84C">${stabNOI > 0 ? fmtM(Math.round(stabNOI / 0.0575)) : "N/A"}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:#6B7394;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Spread to Cost</div>
+        <div id="cc-spread" class="mono" style="font-size:22px;font-weight:900;color:#16A34A">${totalDevCost > 0 && stabNOI > 0 ? fmtM(Math.round(stabNOI / 0.0575) - totalDevCost) : "TBD"}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:#6B7394;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Profit on Cost</div>
+        <div id="cc-profit" class="mono" style="font-size:22px;font-weight:900;color:#16A34A">${totalDevCost > 0 && stabNOI > 0 ? ((Math.round(stabNOI / 0.0575) / totalDevCost - 1) * 100).toFixed(0) + "%" : "TBD"}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:#6B7394;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Value / SF</div>
+        <div id="cc-persf" class="mono" style="font-size:22px;font-weight:900;color:#E2E8F0">${totalSF > 0 && stabNOI > 0 ? "$" + Math.round(Math.round(stabNOI / 0.0575) / totalSF) : "TBD"}</div>
+      </div>
+    </div>
+  </div>
+
   <div id="valuation" class="expand-panel">
     <div class="insight-box">
       <div class="insight-title">Valuation Methodology</div>
@@ -3023,12 +3077,13 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
   const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
   // ── SiteScore Breakdown ──
-  const breakdownRows = (iq.breakdown || []).map(b => {
+  const breakdownRows = (iq.breakdown || []).map((b, bi) => {
     const dimScore = b.score || 0;
     const dimWeighted = dimScore * (b.weight || 0);
     const barColor = dimScore >= 8 ? "#16A34A" : dimScore >= 6 ? "#3B82F6" : dimScore >= 4 ? "#F59E0B" : "#EF4444";
+    const reason = b.reason || "";
     return `<tr>
-      <td style="padding:10px 14px;font-size:12px;font-weight:700;border-bottom:1px solid rgba(201,168,76,0.06)">${b.icon || "◆"} ${b.label}</td>
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;border-bottom:1px solid rgba(201,168,76,0.06)"><span style="display:inline-flex;align-items:center;gap:6px">${b.icon || "◆"} ${b.label}${reason ? `<span class="dim-info" onclick="event.stopPropagation();var t=document.getElementById('dt${bi}');t.style.display=t.style.display==='block'?'none':'block'" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:rgba(201,168,76,0.12);color:#C9A84C;font-size:8px;font-weight:800;cursor:pointer;font-style:italic;font-family:Georgia,serif;flex-shrink:0;border:1px solid rgba(201,168,76,0.2)">i</span>` : ""}</span>${reason ? `<div id="dt${bi}" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(30,39,97,0.06);border-radius:6px;border-left:3px solid ${barColor};font-size:10px;font-weight:500;color:#4A5080;line-height:1.5">${reason}</div>` : ""}</td>
       <td style="padding:10px 14px;border-bottom:1px solid rgba(201,168,76,0.06);width:180px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.06)"><div style="width:${(dimScore/10)*100}%;height:100%;border-radius:4px;background:${barColor}"></div></div><span style="font-size:12px;font-weight:800;color:${barColor};font-family:'Space Mono',monospace;min-width:28px;text-align:right">${dimScore.toFixed(1)}</span></div></td>
       <td style="padding:10px 14px;font-size:11px;color:#6B7394;border-bottom:1px solid rgba(201,168,76,0.06);text-align:right;font-weight:600">${Math.round((b.weight || 0) * 100)}%</td>
       <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#E2E8F0;border-bottom:1px solid rgba(201,168,76,0.06);text-align:right;font-family:'Space Mono',monospace">${dimWeighted.toFixed(2)}</td>

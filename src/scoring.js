@@ -289,17 +289,31 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   else if (final >= 4.0) { classification = "ORANGE"; classColor = "#EA580C"; }
   else { classification = "RED"; classColor = "#DC2626"; }
 
+  // Build scoring explanations for each dimension
+  const popExplain = popRaw > 0 ? `3-mi pop: ${popRaw.toLocaleString()} → ${popRaw >= 40000 ? "40K+ = 10" : popRaw >= 25000 ? "25K+ = 8" : popRaw >= 15000 ? "15K+ = 6" : popRaw >= 10000 ? "10K+ = 5" : popRaw >= 5000 ? "5K+ = 3" : "<5K = FAIL"}` : "No data — default 5";
+  const growthExplain = growthRaw !== null ? `5-yr CAGR: ${growthRaw.toFixed(1)}% → ${growthRaw >= 2.0 ? "≥2.0% = 10" : growthRaw >= 1.5 ? "≥1.5% = 9" : growthRaw >= 1.0 ? "≥1.0% = 8" : growthRaw >= 0.5 ? "≥0.5% = 6" : growthRaw >= 0.0 ? "≥0% = 4" : growthRaw >= -0.5 ? "declining = 2" : "<-0.5% = 0"}` : "No ESRI data — default 5";
+  const incExplain = incRaw > 0 ? `3-mi HHI: $${incRaw.toLocaleString()} → ${incRaw >= 90000 ? "$90K+ = 10" : incRaw >= 75000 ? "$75K+ = 8" : incRaw >= 65000 ? "$65K+ = 6" : incRaw >= 55000 ? "$55K+ = 4" : "<$55K = FAIL"}` : "No data — default 5";
+  const hhExplain = hhRaw > 0 ? `3-mi HH: ${hhRaw.toLocaleString()} → ${hhRaw >= 25000 ? "25K+ = 10" : hhRaw >= 18000 ? "18K+ = 8" : hhRaw >= 12000 ? "12K+ = 7" : hhRaw >= 6000 ? "6K+ = 5" : "<6K = 3"}` : "No data — default 5";
+  const hvExplain = hvRaw > 0 ? `3-mi home value: $${hvRaw.toLocaleString()} → ${hvRaw >= 500000 ? "$500K+ = 10" : hvRaw >= 350000 ? "$350K+ = 9" : hvRaw >= 250000 ? "$250K+ = 8" : hvRaw >= 180000 ? "$180K+ = 6" : hvRaw >= 120000 ? "$120K+ = 4" : "<$120K = 2"}` : "No data — default 5";
+  const psDist = nearestPS !== undefined && nearestPS !== null ? parseFloat(String(nearestPS)) : NaN;
+  const psExplain = !isNaN(psDist) ? `Nearest PS: ${psDist.toFixed(1)} mi → ${psDist <= 5 ? "≤5mi = 10" : psDist <= 10 ? "≤10mi = 9" : psDist <= 15 ? "≤15mi = 7" : psDist <= 25 ? "≤25mi = 5" : psDist <= 35 ? "≤35mi = 3" : ">35mi = FAIL"}` : "No data — default 5";
+  const zoningExplain = zClass && zClass !== "unknown" ? `Classification: ${zClass} → ${zClass === "by-right" ? "10" : zClass === "conditional" ? "6" : zClass === "rezone-required" ? "2" : "0"}` : (zoningScore === 5 ? "Unverified — capped at 5" : `Regex-matched: score ${zoningScore}`);
+  const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
+  const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
+  const compExplain = compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount <= 1 ? "0-1 = 10" : compCount <= 3 ? "2-3 = 6" : "4+ = 3"}` : "Keyword-based estimate";
+  const tierExplain = tier ? `Tier ${tier} market → ${tier === 1 ? "10" : tier === 2 ? "8" : tier === 3 ? "6" : "4"}` : "Market keyword match";
+
   const breakdown = [
-    { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population") },
-    { label: "Growth", key: "growth", score: scores.growth, weight: getIQWeight("growth") },
-    { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income") },
-    { label: "Households", key: "households", score: scores.households, weight: getIQWeight("households") },
-    { label: "Home Value", key: "homeValue", score: scores.homeValue, weight: getIQWeight("homeValue") },
-    { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning") },
-    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity") },
-    { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access") },
-    { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition") },
-    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier") },
+    { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population"), reason: popExplain },
+    { label: "Growth", key: "growth", score: scores.growth, weight: getIQWeight("growth"), reason: growthExplain },
+    { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income"), reason: incExplain },
+    { label: "Households", key: "households", score: scores.households, weight: getIQWeight("households"), reason: hhExplain },
+    { label: "Home Value", key: "homeValue", score: scores.homeValue, weight: getIQWeight("homeValue"), reason: hvExplain },
+    { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning"), reason: zoningExplain },
+    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity"), reason: psExplain },
+    { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access"), reason: accessExplain },
+    { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition"), reason: compExplain },
+    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier"), reason: tierExplain },
   ];
   return {
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor, breakdown,
