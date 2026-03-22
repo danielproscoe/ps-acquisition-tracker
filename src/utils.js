@@ -134,7 +134,14 @@ export const fmt$ = (v) => {
 };
 export const fmtN = (v) => {
   if (v == null || v === "") return "";
-  const n = Number(String(v).replace(/[^0-9.]/g, ""));
+  const s = String(v);
+  // If already a clean number, format it
+  const d = Number(s);
+  if (!isNaN(d) && isFinite(d)) return Math.round(d).toLocaleString();
+  // Extract first number (with commas) from text like "43,000 (est.)"
+  const m = s.match(/[\d,]+/);
+  if (!m) return v;
+  const n = parseInt(m[0].replace(/,/g, ""), 10);
   return isNaN(n) ? v : n.toLocaleString();
 };
 export const fmtPrice = (v) => {

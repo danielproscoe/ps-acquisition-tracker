@@ -19,7 +19,18 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const combinedText = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
 
   // --- HELPERS ---
-  const parseNum = (v) => { const n = parseInt(String(v || "").replace(/[^0-9]/g, ""), 10); return isNaN(n) ? 0 : n; };
+  const parseNum = (v) => {
+    if (v == null || v === "") return 0;
+    const s = String(v);
+    // If it's already a clean number, use it directly
+    const direct = Number(s);
+    if (!isNaN(direct) && isFinite(direct)) return Math.round(direct);
+    // Extract first number (with commas) from text like "43,000 (est.)" or "$103,000"
+    const m = s.match(/[\d,]+/);
+    if (!m) return 0;
+    const n = parseInt(m[0].replace(/,/g, ""), 10);
+    return isNaN(n) ? 0 : n;
+  };
   let acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
   if (isNaN(acres) || acres === 0) {
     const acMatch = (site.askingPrice || "").match(/([\d,.]+)\s*(?:\+\/-)?\s*(?:acres?|ac\b)/i);
@@ -333,11 +344,18 @@ export const computeSiteFinancials = (site) => {
   const askRaw = parseP(site.askingPrice);
   const intRaw = parseP(site.internalPrice);
   const landCost = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) ? askRaw : 0);
-  const popN = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10) || 0;
-  const incN = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10) || 0;
-  const hvN = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10) || 0;
-  const hhN = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10) || 0;
-  const pop1 = parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10) || 0;
+  const safeInt = (v) => {
+    if (v == null || v === "") return 0;
+    const s = String(v);
+    const d = Number(s); if (!isNaN(d) && isFinite(d)) return Math.round(d);
+    const m = s.match(/[\d,]+/); if (!m) return 0;
+    return parseInt(m[0].replace(/,/g, ""), 10) || 0;
+  };
+  const popN = safeInt(site.pop3mi);
+  const incN = safeInt(site.income3mi);
+  const hvN = safeInt(site.homeValue3mi);
+  const hhN = safeInt(site.households3mi);
+  const pop1 = safeInt(site.pop1mi);
   const growthStr = site.popGrowth3mi || site.growthRate || "";
   const growthPct = parseFloat(String(growthStr).replace(/[^0-9.\-]/g, "")) || 0;
   const compCount = site.siteiqData?.competitorCount || 0;
