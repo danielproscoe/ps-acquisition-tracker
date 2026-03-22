@@ -268,8 +268,13 @@ export const fetchDemographics = async (coordinates) => {
 
 // ─── Vetting Report Generator ───
 // stripEmoji: removes emoji/special Unicode chars that corrupt in plain-text/PDF renders
-export const stripEmoji = (str) => String(str || "").replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]|[\u{20E3}]|[\u{E0020}-\u{E007F}]/gu, "").trim();
-export const cleanPriority = (p) => { const s = stripEmoji(p); return s || "None"; };
+export const stripEmoji = (str) => String(str || "").replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]|[\u{20E3}]|[\u{E0020}-\u{E007F}]|[\u{1F300}-\u{1F9FF}]/gu, "").replace(/^[^\w]+/, "").trim();
+export const cleanPriority = (p) => {
+  if (!p) return "None";
+  const s = stripEmoji(p);
+  // Also handle cases where emoji renders as ?? or other garbage
+  return s.replace(/^\?\?+\s*/, "").replace(/^[^a-zA-Z]+/, "").trim() || "None";
+};
 
 // ─── Input Validation & Sanitization ───
 // Strips dangerous characters from free-text fields to prevent injection via Firebase
