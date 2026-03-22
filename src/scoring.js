@@ -157,12 +157,17 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     else if (prohibited.test(combinedText)) { zoningScore = 0; hardFail = true; flags.push("FAIL: Zoning prohibits storage"); }
     else if ((site.zoning || "").trim()) zoningScore = 5;
   }
-  // §6h Scoring Integrity Rule #4: Zoning capped at 5 (UNKNOWN) unless the actual
-  // permitted use table from the jurisdiction's ordinance was directly accessed.
-  // Broker confirmation alone never earns above 5. The ordinance is the answer.
-  if (zoningScore > 5 && !site.zoningTableAccessed) {
+  // §6h Scoring Integrity Rule #4: Zoning capped at 5 (UNKNOWN) unless verified.
+  // "Verified" means EITHER:
+  //   (a) zoningTableAccessed is true (we opened the ordinance), OR
+  //   (b) zoningClassification was explicitly set (by-right, conditional, etc.) — this IS our verification
+  //   (c) Site is ETJ/unincorporated/no-zoning — no ordinance exists to access
+  // The cap only applies to regex-matched scores from the fallback path (no explicit classification set).
+  const explicitClassSet = zClass && zClass !== "unknown";
+  const isNoZoning = /(no\s*zoning|unincorporated|\bETJ\b)/i.test(combinedText);
+  if (zoningScore > 5 && !site.zoningTableAccessed && !explicitClassSet && !isNoZoning) {
     zoningScore = 5;
-    flags.push("Zoning capped at 5 — ordinance not independently verified (set zoningTableAccessed to unlock)");
+    flags.push("Zoning capped at 5 — ordinance not independently verified (set zoningClassification or zoningTableAccessed to unlock)");
   }
   scores.zoning = zoningScore;
 
@@ -313,8 +318,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const psDist = nearestPS !== undefined && nearestPS !== null ? parseFloat(String(nearestPS)) : NaN;
   const psExplain = !isNaN(psDist) ? `Nearest PS: ${psDist.toFixed(1)} mi → ${psDist <= 5 ? "≤5mi = 10" : psDist <= 10 ? "≤10mi = 9" : psDist <= 15 ? "≤15mi = 7" : psDist <= 25 ? "≤25mi = 5" : psDist <= 35 ? "≤35mi = 3" : ">35mi = FAIL"}` : "No data — default 5";
   const zoningBaseLabel = zClass === "by-right" ? "10" : zClass === "conditional" ? "6" : zClass === "rezone-required" ? "2" : "0";
-  const zoningWasCapped = zClass && zClass !== "unknown" && scores.zoning < parseFloat(zoningBaseLabel) && !site.zoningTableAccessed;
-  const zoningExplain = zClass && zClass !== "unknown" ? `Classification: ${zClass}${zoningWasCapped ? ` (base ${zoningBaseLabel}) → CAPPED at ${scores.zoning} — ordinance not verified` : ` → ${zoningBaseLabel}`}` : (zoningScore === 5 ? "Unverified — capped at 5" : `Regex-matched: score ${zoningScore}`);
+  const zoningExplain = zClass && zClass !== "unknown" ? `Classification: ${zClass} → ${scores.zoning}` : (scores.zoning === 5 ? "Unverified — capped at 5 (set zoningClassification to unlock)" : isNoZoning ? `ETJ/no-zoning → ${scores.zoning}` : `Regex-matched: score ${scores.zoning}`);
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
   const compExplain = compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount === 0 ? "0 = 10" : compCount === 1 ? "1 = 9" : compCount === 2 ? "2 = 7" : compCount === 3 ? "3 = 6" : compCount <= 5 ? "4-5 = 4" : compCount <= 8 ? "6-8 = 3" : "9+ = 2"}` : "Keyword-based estimate";
