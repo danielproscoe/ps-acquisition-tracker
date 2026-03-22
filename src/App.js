@@ -33,12 +33,16 @@ import {
 import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF } from './components';
 import { SortBar, SORT_OPTIONS } from './components/SortBar';
 import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
+import ValuationInputs from './components/ValuationInputs';
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { useNavigation } from './hooks/useNavigation';
 import './App.css';
 
 // ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
 let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
+
+// ─── Mutable Valuation Overrides (merged from Firebase config/valuation_overrides at runtime) ───
+let VALUATION_OVERRIDES = {};
 
 const getIQWeight = (key) => {
   const dim = SITE_SCORE_CONFIG.find(d => d.key === key);
@@ -48,8 +52,8 @@ const getIQWeight = (key) => {
 // ─── Wrappers — pass mutable config automatically so call sites don't change ───
 const computeSiteScore = (site) => _computeSiteScore(site, SITE_SCORE_CONFIG);
 const generateVettingReport = (site, psD, iq) => _generateVettingReport(site, psD, iq, SITE_SCORE_CONFIG);
-const generatePricingReport = (site, iq) => _generatePricingReport(site, iq, SITE_SCORE_CONFIG);
-const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG);
+const generatePricingReport = (site, iq) => _generatePricingReport(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES);
+const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES);
 // SiteScoreBadge wrapper — auto-injects computeSiteScore so call sites stay clean
 const SiteScoreBadge = (props) => <_SiteScoreBadge {...props} computeSiteScore={computeSiteScore} />;
 
@@ -143,6 +147,19 @@ function AppInner() {
   const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
   const [demoRowExpanded, setDemoRowExpanded] = useState(null); // which demographics row is expanded (key string)
   const [hoveredMetric, setHoveredMetric] = useState(null); // which key metric box tooltip is showing
+  const [valuationOverrides, setValuationOverrides] = useState({}); // Valuation Inputs page overrides
+
+  // ─── LOAD VALUATION OVERRIDES FROM FIREBASE ───
+  useEffect(() => {
+    if (!loaded) return;
+    const { onValue, ref: dbRef } = require("firebase/database");
+    const unsub = onValue(dbRef(db, "config/valuation_overrides"), (snap) => {
+      const val = snap.val() || {};
+      setValuationOverrides(val);
+      VALUATION_OVERRIDES = val; // Sync module-level mutable for report wrappers
+    });
+    return () => unsub();
+  }, [loaded]);
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
   useEffect(() => {
@@ -1671,6 +1688,7 @@ function AppInner() {
             { key: "east", label: "Matthew Toussaint" },
             { key: "submit", label: "Submit Site" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
+            { key: "inputs", label: "⚡ Inputs" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#E87A2E"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 16px rgba(232,122,46,0.4)"; } }}
@@ -3819,6 +3837,15 @@ function AppInner() {
             </div>
           );
         })()}
+
+        {/* ═══ VALUATION INPUTS ═══ */}
+        {tab === "inputs" && (
+          <ValuationInputs
+            overrides={valuationOverrides}
+            onSave={(newOverrides) => { setValuationOverrides(newOverrides); VALUATION_OVERRIDES = newOverrides; }}
+            fbSet={fbSet}
+          />
+        )}
 
         {/* ═══ TRACKERS ═══ */}
         {(tab === "southwest" || tab === "east") && !detailView && <TrackerCards regionKey={tab} />}

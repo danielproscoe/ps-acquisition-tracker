@@ -1022,11 +1022,11 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
   }
 };
 
-export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
+export const generatePricingReport = (site, iqResult, siteScoreConfig, valuationOverrides) => {
   try {
   const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
-  const fin = computeSiteFinancials(site);
+  const fin = computeSiteFinancials(site, valuationOverrides || {});
   const { acres, landCost, popN, incN, hvN, growthPct, compCount, nearestPS, incTier,
     operatorProfile, operatorLabel, noiMarginBenchmark,
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
@@ -3529,11 +3529,11 @@ function updateCustomCap(val){
 
 // ─── REC Package — Real Estate Committee Investment Package ───
 // Comprehensive boardroom-ready document combining SiteScore, Pricing, Competition, Zoning, Market Data
-export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
+export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOverrides) => {
   try {
   const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
-  const fin = computeSiteFinancials(site);
+  const fin = computeSiteFinancials(site, valuationOverrides || {});
   const { acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
     operatorProfile, operatorLabel, noiMarginBenchmark,
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,

@@ -344,7 +344,10 @@ export const computeSiteScore = (site, siteScoreConfig) => {
 };
 
 // ─── Financial Model — Full Development Pro Forma ───
-export const computeSiteFinancials = (site) => {
+// Accepts optional `overrides` from ValuationInputs page (Firebase config/valuation_overrides)
+// Any key in overrides replaces the hardcoded engine default for that calculation run.
+export const computeSiteFinancials = (site, overrides = {}) => {
+  const O = (key, fallback) => overrides[key] !== undefined ? overrides[key] : fallback;
   const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s.replace(/[^0-9.]/g, "")); };
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
   const askRaw = parseP(site.askingPrice);
@@ -375,11 +378,11 @@ export const computeSiteFinancials = (site) => {
   const opProfiles = {
     ps: {
       label: "Public Storage Operating Platform",
-      propTaxRate: 0.010, insurancePerSF: 0.30, mgmtFeePct: 0.035,
-      basePayroll: 55000, payrollBurden: 1.25, baseFTE: 1.0,
-      climateUtilPerSF: 0.85, driveUtilPerSF: 0.20,
-      rmPerSF: 0.25, marketingPct: 0.02, marketingLeaseUpPct: 0.04,
-      gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
+      propTaxRate: O('propTaxRate', 0.010), insurancePerSF: O('insurancePerSF', 0.30), mgmtFeePct: O('mgmtFeePct', 0.035),
+      basePayroll: O('basePayroll', 55000), payrollBurden: O('payrollBurden', 1.25), baseFTE: O('baseFTE', 1.0),
+      climateUtilPerSF: O('climateUtilPerSF', 0.85), driveUtilPerSF: O('driveUtilPerSF', 0.20),
+      rmPerSF: O('rmPerSF', 0.25), marketingPct: O('marketingPct', 0.02), marketingLeaseUpPct: O('marketingLeaseUpPct', 0.04),
+      gaPct: O('gaPct', 0.010), badDebtPct: O('badDebtPct', 0.015), reservePerSF: O('reservePerSF', 0.15),
       noiMarginBenchmark: "78.4% (PSA Q4 2025)"
     },
     generic: {
@@ -406,22 +409,22 @@ export const computeSiteFinancials = (site) => {
   // ── Facility Sizing Model ──
   // Multi-story (2.5–3.5 ac): 3-story, higher climate ratio (smaller footprint = maximize rentable SF)
   // One-story (3.5+ ac): PS suburban format — 65/35 climate/drive-up per Killeen TX site sketch (Option A, Dec 2024)
-  const isMultiStory = !isNaN(acres) && acres < 3.5 && acres >= 2.5;
-  const stories = isMultiStory ? 3 : 1;
-  const footprint = !isNaN(acres) ? Math.round(acres * 43560 * 0.35) : 60000; // 35% coverage confirmed by Killeen sketch
+  const isMultiStory = !isNaN(acres) && acres < O('multiStoryThreshold', 3.5) && acres >= 2.5;
+  const stories = isMultiStory ? O('multiStoryFloors', 3) : 1;
+  const footprint = !isNaN(acres) ? Math.round(acres * 43560 * O('coverageRatio', 0.35)) : 60000;
   const grossSF = footprint * stories;
-  // Net-to-gross efficiency: 90% — corridors, office, hallways, mechanical reduce leasable space
-  const netToGross = 0.90;
+  // Net-to-gross efficiency — corridors, office, hallways, mechanical reduce leasable space
+  const netToGross = O('netToGross', 0.90);
   const totalSF = Math.round(grossSF * netToGross);
-  const climatePct = isMultiStory ? 0.75 : 0.65; // Multi-story: 75% climate (vertical = all indoor). One-story: 65% per PS Killeen layout
+  const climatePct = isMultiStory ? O('climatePctMultiStory', 0.75) : O('climatePctOneStory', 0.65);
   const drivePct = 1 - climatePct;
   const climateSF = Math.round(totalSF * climatePct);
   const driveSF = Math.round(totalSF * drivePct);
 
   // ── Market Rate Intelligence ──
   const incTier = incN >= 90000 ? "premium" : incN >= 75000 ? "upper" : incN >= 60000 ? "mid" : "value";
-  const baseClimateRate = incTier === "premium" ? 1.45 : incTier === "upper" ? 1.25 : incTier === "mid" ? 1.10 : 0.95;
-  const baseDriveRate = incTier === "premium" ? 0.85 : incTier === "upper" ? 0.72 : incTier === "mid" ? 0.62 : 0.52;
+  const baseClimateRate = incTier === "premium" ? O('climateRatePremium', 1.45) : incTier === "upper" ? O('climateRateUpper', 1.25) : incTier === "mid" ? O('climateRateMid', 1.10) : O('climateRateValue', 0.95);
+  const baseDriveRate = incTier === "premium" ? O('driveRatePremium', 0.85) : incTier === "upper" ? O('driveRateUpper', 0.72) : incTier === "mid" ? O('driveRateMid', 0.62) : O('driveRateValue', 0.52);
   const compAdj = compCount <= 2 ? 1.08 : compCount <= 5 ? 1.00 : compCount <= 8 ? 0.94 : 0.88;
   const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
   const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
@@ -434,31 +437,31 @@ export const computeSiteFinancials = (site) => {
   const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
   // Product-type matrix: climate-controlled vs. drive-up only, one-story vs. multi-story
   const baseHardPerSF = isMultiStory
-    ? (stories <= 3 ? 68 : stories <= 4 ? 78 : 95)   // Multi-story: $68/SF (3-story), $78 (4), $95 (5+)
-    : (climatePct >= 0.5 ? 45 : 28);                   // One-story: $45/SF climate-controlled, $28 drive-up only
+    ? (stories <= 3 ? O('hardCostMultiStory3', 68) : stories <= 4 ? O('hardCostMultiStory4', 78) : 95)
+    : (climatePct >= 0.5 ? O('hardCostOneStoryClimate', 45) : O('hardCostOneStoryDrive', 28));
   const hardCostPerSF = Math.round(baseHardPerSF * costIdx);
-  const softCostPct = 0.20;
+  const softCostPct = O('softCostPct', 0.20);
   const hardCost = grossSF * hardCostPerSF; // Hard costs on gross SF (corridors, mechanical still built)
   const softCost = Math.round(hardCost * softCostPct);
   // Construction contingency — 7.5% of hard costs (industry standard, required by REC)
-  const contingencyPct = 0.075;
+  const contingencyPct = O('contingencyPct', 0.075);
   const contingency = Math.round(hardCost * contingencyPct);
   const buildCosts = hardCost + softCost + contingency;
 
   // ── P1: Construction Carry Costs (Pre-Revenue Period) ──
   // PS uses "Total Development Yield" = Stabilized NOI / (Land + Build + Carry).
   // Omitting carry inflates IRR by 200-400 bps — REC catches this instantly.
-  const constructionMonths = isMultiStory ? 18 : 14;
+  const constructionMonths = isMultiStory ? O('constructionMonthsMultiStory', 18) : O('constructionMonthsOneStory', 14);
   const constructionYears = constructionMonths / 12;
-  const constLoanLTC = 0.60; // construction LTC (tighter than perm)
-  const constLoanRate = 0.075; // construction rate (higher than perm)
-  const avgDrawPct = 0.55; // avg outstanding balance — S-curve draw schedule
+  const constLoanLTC = O('constLoanLTC', 0.60);
+  const constLoanRate = O('constLoanRate', 0.075);
+  const avgDrawPct = O('avgDrawPct', 0.55);
   const constructionLoan = Math.round(buildCosts * constLoanLTC);
   const constructionInterest = Math.round(constructionLoan * constLoanRate * constructionYears * avgDrawPct);
   const constructionPropTax = Math.round(landCost * 0.012 * constructionYears); // land only during construction
   const constructionInsurance = Math.round(buildCosts * 0.004 * constructionYears); // builder's risk
   const carryCosts = constructionInterest + constructionPropTax + constructionInsurance;
-  const workingCapital = Math.round(buildCosts * 0.02); // 2% working capital reserve
+  const workingCapital = Math.round(buildCosts * O('workingCapitalPct', 0.02));
 
   // ── Total Development Cost (PS "Total Development Yield" denominator) ──
   // buildCosts now includes hard + soft + contingency (7.5%)
@@ -466,13 +469,13 @@ export const computeSiteFinancials = (site) => {
 
   // ── 5-Year Lease-Up Model ──
   const leaseUpSchedule = [
-    { yr: 1, label: "Year 1 — Launch & Fill", occRate: 0.30, climDisc: 0.35, driveDisc: 0.30, desc: "Grand opening promos. First month free. 50% off first 3 months. Heavy marketing spend." },
-    { yr: 2, label: "Year 2 — Ramp", occRate: 0.55, climDisc: 0.15, driveDisc: 0.12, desc: "Reduce promotions. Begin ECRI on Y1 tenants. Organic demand building." },
-    { yr: 3, label: "Year 3 — Growth", occRate: 0.75, climDisc: 0.05, driveDisc: 0.05, desc: "Minimal discounting. ECRIs on Y1-Y2 tenants (+8-12%/yr typical)." },
-    { yr: 4, label: "Year 4 — Stabilization", occRate: 0.88, climDisc: 0.00, driveDisc: 0.00, desc: "At or near market rate. ECRIs pushing above street rate." },
-    { yr: 5, label: "Year 5 — Mature", occRate: 0.92, climDisc: 0.00, driveDisc: 0.00, desc: "Fully stabilized. ECRI revenue above street rate." },
+    { yr: 1, label: "Year 1 — Launch & Fill", occRate: O('leaseUpY1Occ', 0.30), climDisc: O('leaseUpY1ClimDisc', 0.35), driveDisc: O('leaseUpY1DriveDisc', 0.30), desc: "Grand opening promos. First month free. 50% off first 3 months. Heavy marketing spend." },
+    { yr: 2, label: "Year 2 — Ramp", occRate: O('leaseUpY2Occ', 0.55), climDisc: O('leaseUpY2ClimDisc', 0.15), driveDisc: O('leaseUpY2DriveDisc', 0.12), desc: "Reduce promotions. Begin ECRI on Y1 tenants. Organic demand building." },
+    { yr: 3, label: "Year 3 — Growth", occRate: O('leaseUpY3Occ', 0.75), climDisc: O('leaseUpY3ClimDisc', 0.05), driveDisc: O('leaseUpY3DriveDisc', 0.05), desc: "Minimal discounting. ECRIs on Y1-Y2 tenants (+8-12%/yr typical)." },
+    { yr: 4, label: "Year 4 — Stabilization", occRate: O('leaseUpY4Occ', 0.88), climDisc: 0.00, driveDisc: 0.00, desc: "At or near market rate. ECRIs pushing above street rate." },
+    { yr: 5, label: "Year 5 — Mature", occRate: O('leaseUpY5Occ', 0.92), climDisc: 0.00, driveDisc: 0.00, desc: "Fully stabilized. ECRI revenue above street rate." },
   ];
-  const annualEsc = 0.03;
+  const annualEsc = O('annualEscalation', 0.03);
 
   // ── P0: ECRI Revenue Model ──
   // Existing Customer Rate Increase — PS's #1 revenue lever (38-42% of mature revenue).
@@ -481,7 +484,7 @@ export const computeSiteFinancials = (site) => {
   // Recalibrated 2026-03-21: Prior schedule (0/5/10/15/20%) understated PS's actual ECRI lift.
   // PS applies 8-12% annual increases; by Y5 a Y1 tenant has received 3-4 increases.
   // New schedule reflects ~32% cumulative ECRI by Y5, consistent with 38-42% of mature revenue from ECRI.
-  const ecriSchedule = [0, 0.06, 0.14, 0.24, 0.32];
+  const ecriSchedule = [O('ecriY1', 0), O('ecriY2', 0.06), O('ecriY3', 0.14), O('ecriY4', 0.24), O('ecriY5', 0.32)];
 
   const yearData = leaseUpSchedule.map((y, i) => {
     const escMult = Math.pow(1 + annualEsc, i);
@@ -552,17 +555,17 @@ export const computeSiteFinancials = (site) => {
 
   // ── Valuations ──
   const capRates = [
-    { label: "Conservative (6.5%)", rate: 0.065 },
-    { label: "Market (5.75%)", rate: 0.0575 },
-    { label: "Aggressive (5.0%)", rate: 0.05 },
+    { label: `Conservative (${(O('capRateConservative', 0.065) * 100).toFixed(1)}%)`, rate: O('capRateConservative', 0.065) },
+    { label: `Market (${(O('capRateMarket', 0.0575) * 100).toFixed(2)}%)`, rate: O('capRateMarket', 0.0575) },
+    { label: `Aggressive (${(O('capRateAggressive', 0.05) * 100).toFixed(1)}%)`, rate: O('capRateAggressive', 0.05) },
   ];
   const valuations = capRates.map(c => ({ ...c, value: Math.round(stabNOI / c.rate) }));
 
   // ── Land Price Guide ──
   const landTargets = [
-    { label: "Maximum", yoc: 0.07, color: "#EF4444", tag: "CEILING" },
-    { label: "Strike Price", yoc: 0.085, color: "#C9A84C", tag: "TARGET" },
-    { label: "Minimum", yoc: 0.10, color: "#16A34A", tag: "FLOOR" },
+    { label: "Maximum", yoc: O('yocMax', 0.07), color: "#EF4444", tag: "CEILING" },
+    { label: "Strike Price", yoc: O('yocStrike', 0.085), color: "#C9A84C", tag: "TARGET" },
+    { label: "Minimum", yoc: O('yocMin', 0.10), color: "#16A34A", tag: "FLOOR" },
   ];
   const landPrices = landTargets.map(t => {
     const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts - carryCosts) : 0;
@@ -574,9 +577,9 @@ export const computeSiteFinancials = (site) => {
   const verdictColor = landVerdict === "STRONG BUY" ? "#16A34A" : landVerdict === "BUY" ? "#22C55E" : landVerdict === "NEGOTIATE" ? "#F59E0B" : landVerdict === "STRETCH" ? "#E87A2E" : landVerdict === "PASS" ? "#EF4444" : "#6B7394";
 
   // ── Debt Service & Capital Stack ──
-  const loanLTV = 0.65;
-  const loanRate = 0.0675;
-  const loanAmort = 25;
+  const loanLTV = O('loanLTV', 0.65);
+  const loanRate = O('loanRate', 0.0675);
+  const loanAmort = O('loanAmort', 25);
   const equityPct = 1 - loanLTV;
   const loanAmount = Math.round(totalDevCost * loanLTV);
   const equityRequired = Math.round(totalDevCost * equityPct);
@@ -589,7 +592,7 @@ export const computeSiteFinancials = (site) => {
   const cashOnCash = equityRequired > 0 ? ((cashAfterDS / equityRequired) * 100).toFixed(1) : "N/A";
 
   // ── 10-Year DCF & IRR (with ECRI + bottom-up OpEx) ──
-  const exitCapRate = 0.06;
+  const exitCapRate = O('exitCapRate', 0.06);
   const yrDataExt = [];
   for (let i = 0; i < 10; i++) {
     const esc = Math.pow(1 + annualEsc, i);
