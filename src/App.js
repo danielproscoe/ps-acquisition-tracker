@@ -4,9 +4,8 @@
 // Firebase Realtime Database — live shared data across all 3 users
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { db, storage, auth } from "./firebase";
-import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { ref, onValue, set, push, remove, update } from "firebase/database";
+import { db, storage } from "./firebase";
+import { ref, update } from "firebase/database";
 import {
   ref as storageRef,
   uploadBytes,
@@ -32,6 +31,10 @@ import {
   generateRECPackage as _generateRECPackage,
 } from './reports';
 import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF } from './components';
+import { SortBar, SORT_OPTIONS } from './components/SortBar';
+import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
+import { useFirebaseData } from './hooks/useFirebaseData';
+import { useNavigation } from './hooks/useNavigation';
 import './App.css';
 
 // ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
@@ -81,67 +84,37 @@ class ErrorBoundary extends React.PureComponent {
 
 // ═══ MAIN APP ═══
 function AppInner() {
-  const [authReady, setAuthReady] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [subs, setSubs] = useState([]);
-  const [east, setEast] = useState([]);
-  const [sw, setSw] = useState([]);
-  const [tab, setTab] = useState("dashboard");
-  const [transitioning, setTransitioning] = useState(false);
-  const isPopState = useRef(false); // prevents pushState during popstate handling
+  // UI-only state that stays in AppInner
   const [toast, setToast] = useState(null);
   const [expandedSite, setExpandedSite] = useState(null);
-  const [detailView, setDetailView] = useState(null); // { regionKey, siteId }
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [filterPhase, setFilterPhase] = useState("all");
-  const [reviewDetailSite, setReviewDetailSite] = useState(null); // site ID for full-page review detail
 
-  // ─── Browser History Integration — back/forward button support ───
-  const pushNav = useCallback((navState) => {
-    if (!isPopState.current) {
-      window.history.pushState(navState, "", window.location.pathname);
-    }
-  }, []);
+  // ─── FIREBASE DATA HOOK ───
+  const {
+    authReady, loaded,
+    subs, setSubs,
+    east, setEast,
+    sw, setSw,
+    configVersion, setConfigVersion,
+    iqWeights, setIqWeights,
+    fbSet, fbUpdate, fbPush, fbRemove,
+  } = useFirebaseData({
+    onWeightsChange: (normalized) => {
+      SITE_SCORE_CONFIG = normalizeSiteScoreWeights(normalized);
+    },
+  });
 
-  useEffect(() => {
-    // Set initial history state
-    window.history.replaceState({ tab: "dashboard", detailView: null, reviewDetailSite: null }, "", window.location.pathname);
-    const onPopState = (e) => {
-      const st = e.state;
-      if (!st) return;
-      isPopState.current = true;
-      setTransitioning(true);
-      setTimeout(() => {
-        setTab(st.tab || "dashboard");
-        setDetailView(st.detailView || null);
-        setReviewDetailSite(st.reviewDetailSite || null);
-        setExpandedSite(null);
-        setFilterPhase("all");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        setTimeout(() => { setTransitioning(false); isPopState.current = false; }, 350);
-      }, 100);
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
-  const navigateTo = useCallback((newTab, opts = {}) => {
-    if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setTab("review"); pushNav({ tab: "review", detailView: null, reviewDetailSite: opts.reviewSiteId }); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    if (newTab === tab && !opts.force) { if (detailView) { setDetailView(null); pushNav({ tab, detailView: null, reviewDetailSite: null }); window.scrollTo({ top: 0, behavior: "smooth" }); return; } if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
-    setTransitioning(true);
-    setTimeout(() => {
-      setTab(newTab);
-      setDetailView(null);
-      if (newTab !== "review") setReviewDetailSite(null);
-      if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
-      if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } else { setExpandedSite(null); }
-      if (newTab === "review") setShowNewAlert(false);
-      pushNav({ tab: newTab, detailView: null, reviewDetailSite: null });
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => setTransitioning(false), 350);
-    }, 280);
-  }, [tab, detailView, pushNav]);
-  const goToDetail = useCallback((dv) => { setDetailView(dv); if (dv) pushNav({ tab, detailView: dv, reviewDetailSite: null }); }, [tab, pushNav]);
+  // ─── NAVIGATION HOOK ───
+  const {
+    tab, setTab,
+    transitioning, setTransitioning,
+    detailView, setDetailView,
+    reviewDetailSite, setReviewDetailSite,
+    pushNav,
+    navigateTo,
+    goToDetail,
+  } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
   const [newSiteCount, setNewSiteCount] = useState(0);
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
@@ -159,7 +132,6 @@ function AppInner() {
   const [highlightedSite, setHighlightedSite] = useState(null);
   // reviewExpandedSite removed — replaced by reviewDetailSite (full-page detail)
   const [reviewTab, setReviewTab] = useState("mine");
-  const [configVersion, setConfigVersion] = useState(0); // Triggers re-render when SiteScore weights change
   const [shareLink, setShareLink] = useState(null);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
@@ -171,7 +143,6 @@ function AppInner() {
   const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
   const [demoRowExpanded, setDemoRowExpanded] = useState(null); // which demographics row is expanded (key string)
   const [hoveredMetric, setHoveredMetric] = useState(null); // which key metric box tooltip is showing
-  const [iqWeights, setIqWeights] = useState(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
   useEffect(() => {
@@ -213,67 +184,7 @@ function AppInner() {
     document.head.appendChild(link);
   }, []);
 
-  // ─── FIREBASE AUTH — anonymous sign-in (satisfies "auth != null" security rules) ───
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setAuthReady(true);
-      } else {
-        signInAnonymously(auth).catch((err) => {
-          console.error("Anonymous auth failed:", err);
-          // Fall through — setAuthReady(true) so app renders with degraded access
-          setAuthReady(true);
-        });
-      }
-    });
-    return () => unsub();
-  }, []);
-
-  // ─── FIREBASE REAL-TIME LISTENERS (wait for auth) ───
-  useEffect(() => {
-    if (!authReady) return;
-    const subsRef = ref(db, "submissions");
-    const eastRef = ref(db, "east");
-    const swRef = ref(db, "southwest");
-    // SiteScore weight config listener — merges Firebase overrides into live config
-    const iqRef = ref(db, "config/siteiq_weights");
-    const unsubIQ = onValue(iqRef, (snap) => {
-      const val = snap.val();
-      if (val?.dimensions) {
-        const merged = SITE_SCORE_DEFAULTS.map(d => {
-          const override = val.dimensions.find(o => o.key === d.key);
-          return { ...d, weight: override ? override.weight : d.weight };
-        });
-        SITE_SCORE_CONFIG = normalizeSiteScoreWeights(merged);
-        setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
-        setConfigVersion(v => v + 1); // Invalidate siteScoreCache after weight change
-      }
-    });
-
-    const unsubSubs = onValue(subsRef, (snap) => {
-      const val = snap.val();
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setSubs(arr);
-    });
-    const unsubEast = onValue(eastRef, (snap) => {
-      const val = snap.val();
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setEast(arr);
-      setLoaded(true);
-    });
-    const unsubSw = onValue(swRef, (snap) => {
-      const val = snap.val();
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setSw(arr);
-    });
-
-    return () => {
-      unsubSubs();
-      unsubEast();
-      unsubSw();
-      unsubIQ();
-    };
-  }, [authReady]);
+  // Auth and Firebase listeners are now in useFirebaseData hook
 
   // ─── PHASE MIGRATION — one-time remap of legacy phases ───
   const [migrated, setMigrated] = useState(false);
@@ -331,22 +242,21 @@ function AppInner() {
     setTimeout(() => setToast(null), 2800);
   };
 
-  // ─── FIREBASE WRITE HELPERS (with path validation) ───
-  const fbSet = (path, value) => {
-    if (typeof path !== "string" || !path) { console.error("fbSet: invalid path", path); return Promise.resolve(); }
-    return set(ref(db, path), value);
-  };
-  const fbUpdate = (path, value) => {
-    if (typeof path !== "string" || !path) { console.error("fbUpdate: invalid path", path); return Promise.resolve(); }
-    return update(ref(db, path), value);
-  };
-  const fbPush = (path, value) => {
-    if (typeof path !== "string" || !path) { console.error("fbPush: invalid path", path); return Promise.resolve(); }
-    return push(ref(db, path), value);
-  };
-  const fbRemove = (path) => {
-    if (typeof path !== "string" || !path) { console.error("fbRemove: invalid path", path); return Promise.resolve(); }
-    return remove(ref(db, path));
+  const handleSaveWeights = () => {
+    const totalW = iqWeights.reduce((s, d) => s + d.weight, 0);
+    if (totalW <= 0) { setToast("Error: weights sum to zero — cannot save"); return; }
+    const normalized = iqWeights.map(d => ({ ...d, weight: d.weight / totalW }));
+    SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
+    normalizeSiteScoreWeights(SITE_SCORE_CONFIG);
+    setConfigVersion(v => v + 1); // Invalidate siteScoreCache
+    fbSet("config/siteiq_weights", {
+      dimensions: normalized.map(d => ({ key: d.key, weight: Math.round(d.weight * 1000) / 1000 })),
+      updatedAt: new Date().toISOString(),
+      updatedBy: "Dashboard",
+      version: "2.0",
+    });
+    setShowIQConfig(false);
+    notify("SiteScore weights saved & applied");
   };
 
   const updateSiteField = (region, id, field, value) => {
@@ -988,15 +898,6 @@ function AppInner() {
   }, [sw, east, configVersion]);
   const getSiteScore = (site) => siteScoreCache.get(site.id) || computeSiteScore(site);
 
-  const SortBar = () => (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7394" }}>Sort:</span>
-      {SORT_OPTIONS.map((o) => (
-        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #E87A2E" : "1px solid rgba(201,168,76,0.12)", background: sortBy === o.key ? "rgba(232,122,46,0.12)" : "rgba(15,21,56,0.4)", color: sortBy === o.key ? "#E87A2E" : "#6B7394", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter'", transition: "all 0.15s" }}>{o.label}</button>
-      ))}
-    </div>
-  );
-
   // ─── STYLES ───
   const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 14, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", outline: "none", boxSizing: "border-box" };
   const navBtn = (key) => ({ padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', sans-serif", transition: "all 0.15s cubic-bezier(0.22,1,0.36,1)", background: tab === key ? "rgba(232,122,46,0.15)" : "transparent", color: tab === key ? "#E87A2E" : "#6B7394", whiteSpace: "nowrap", boxShadow: tab === key ? "0 0 16px rgba(232,122,46,0.12), inset 0 0 0 1px rgba(232,122,46,0.2)" : "none" });
@@ -1029,7 +930,7 @@ function AppInner() {
           <span style={{ fontSize: 13, color: "#94A3B8" }}>({data.length})</span>
           {data.some(s => s.phase === "Dead" || s.phase === "Declined") && <button onClick={() => { if (window.confirm("Remove all Dead/Declined sites from this tracker?")) { data.filter(s => s.phase === "Dead" || s.phase === "Declined").forEach(s => handleRemove(regionKey, s.id)); } }} style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🗑 Remove Dead ({data.filter(s => s.phase === "Dead" || s.phase === "Declined").length})</button>}
         </div>
-        <SortBar />
+        <SortBar sortBy={sortBy} setSortBy={setSortBy} />
         {data.length === 0 ? (
           <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 40, textAlign: "center", color: "#6B7394", border: "1px solid rgba(201,168,76,0.06)" }}>No sites yet.</div>
         ) : (
@@ -1710,70 +1611,14 @@ function AppInner() {
       )}
 
       {/* SiteScore Weight Config Modal */}
-      {showIQConfig && (() => {
-        const totalW = iqWeights.reduce((s, d) => s + d.weight, 0);
-        const totalPct = Math.round(totalW * 100);
-        const adjustWeight = (key, delta) => {
-          setIqWeights(prev => prev.map(d => d.key === key ? { ...d, weight: Math.max(0, Math.min(1, Math.round((d.weight + delta) * 100) / 100)) } : d));
-        };
-        const handleSaveWeights = () => {
-          if (totalW <= 0) { setToast("Error: weights sum to zero — cannot save"); return; }
-          const normalized = iqWeights.map(d => ({ ...d, weight: d.weight / totalW }));
-          SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
-          normalizeSiteScoreWeights(SITE_SCORE_CONFIG);
-          setConfigVersion(v => v + 1); // Invalidate siteScoreCache
-          fbSet("config/siteiq_weights", {
-            dimensions: normalized.map(d => ({ key: d.key, weight: Math.round(d.weight * 1000) / 1000 })),
-            updatedAt: new Date().toISOString(),
-            updatedBy: "Dashboard",
-            version: "2.0",
-          });
-          setShowIQConfig(false);
-          notify("SiteScore weights saved & applied");
-        };
-        const handleResetDefaults = () => {
-          setIqWeights(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
-        };
-        return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "modalIn 0.35s cubic-bezier(0.4,0,0.2,1)" }} onClick={() => setShowIQConfig(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 20, maxWidth: 500, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(243,124,51,0.1), 0 0 60px rgba(243,124,51,0.06)", overflow: "hidden", animation: "cardReveal 0.4s cubic-bezier(0.4,0,0.2,1)" }}>
-              <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 50%, #1a1520 100%)", padding: "22px 26px", color: "#fff", position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761, transparent)", opacity: 0.6 }} />
-                <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>⚙️ SiteScore™ Weight Configuration</div>
-                <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 5 }}>Adjust dimension weights. Changes apply to all users in real-time.</div>
-              </div>
-              <div style={{ padding: "16px 24px" }}>
-                {iqWeights.map(dim => (
-                  <div key={dim.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                    <span style={{ fontSize: 16, width: 24 }}>{dim.icon}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#E2E8F0" }}>{dim.label}</div>
-                      <div style={{ fontSize: 10, color: "#94A3B8" }}>{dim.tip}</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <button onClick={() => adjustWeight(dim.key, -0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>−</button>
-                      <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono', monospace", width: 48, textAlign: "center", color: dim.weight > 0.15 ? "#F37C33" : dim.weight > 0.05 ? "#E2E8F0" : "#94A3B8" }}>{Math.round(dim.weight * 100)}%</div>
-                      <button onClick={() => adjustWeight(dim.key, 0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>+</button>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: "10px 0", borderTop: "2px solid rgba(201,168,76,0.1)" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: totalPct === 100 ? "#16A34A" : totalPct > 100 ? "#DC2626" : "#D97706" }}>Total: {totalPct}% {totalPct === 100 ? "✓" : totalPct > 100 ? "(will normalize)" : "(will normalize)"}</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8, padding: "16px 24px", borderTop: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)" }}>
-                <button onClick={handleResetDefaults} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Reset Defaults</button>
-                <div style={{ flex: 1 }} />
-                <button onClick={() => setShowIQConfig(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-                <button onClick={handleSaveWeights} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#C9A84C 0%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 6px 24px rgba(243,124,51,0.45), 0 0 0 2px rgba(243,124,51,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(243,124,51,0.35), 0 0 0 1px rgba(243,124,51,0.1)"; e.currentTarget.style.transform = "translateY(0)"; }}
-                >Apply & Save</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <SiteScoreConfigModal
+        show={showIQConfig}
+        onClose={() => setShowIQConfig(false)}
+        iqWeights={iqWeights}
+        setIqWeights={setIqWeights}
+        onSave={handleSaveWeights}
+        SITE_SCORE_DEFAULTS={SITE_SCORE_DEFAULTS}
+      />
 
       {/* New site alert */}
       {showNewAlert && (
@@ -2196,7 +2041,7 @@ function AppInner() {
             <div style={{ animation: "fadeIn .3s ease-out" }}>
               <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#E2E8F0" }}>📊 Summary</h2>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
-              <SortBar />
+              <SortBar sortBy={sortBy} setSortBy={setSortBy} />
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Filter:</span>
                   <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", color: "#94A3B8", background: filterState !== "all" ? "#FFF7ED" : "rgba(15,21,56,0.5)" }}>
@@ -2413,7 +2258,7 @@ function AppInner() {
               );
             })()}
 
-            <SortBar />
+            <SortBar sortBy={sortBy} setSortBy={setSortBy} />
             {(() => {
               const filtered = subs.filter(site => {
                 if (reviewTab === "mine") return site.status === "pending" || site.status === "declined" || site.status === "ps-rejected";

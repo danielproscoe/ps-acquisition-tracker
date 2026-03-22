@@ -704,7 +704,7 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig) => {
 
   const fmtD = (n) => "$" + Math.round(n).toLocaleString();
   const fmtM = (n) => n >= 1000000 ? "$" + (n / 1000000).toFixed(2) + "M" : "$" + Math.round(n).toLocaleString();
-  const pctBar = (pct, color) => `<div style="display:flex;align-items:center;gap:8px"><div style="width:120px;height:10px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden"><div style="width:${Math.round(pct*100)}%;height:100%;border-radius:5px;background:${color};transition:width 0.5s"></div></div><span style="font-size:12px;font-weight:700;color:${color}">${Math.round(pct*100)}%</span></div>`;
+  const pctBar = (pct, color) => `<div style="display:flex;align-items:center;gap:6px"><div style="width:80px;height:10px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden"><div style="width:${Math.round(pct*100)}%;height:100%;border-radius:5px;background:${color};transition:width 0.5s"></div></div><span style="font-size:12px;font-weight:700;color:${color}">${Math.round(pct*100)}%</span></div>`;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Storevex Pricing Report — ${h(site.name)}</title>
@@ -1492,14 +1492,15 @@ function toggleMI(id,evt){
   <span class="expand-hint">▼ Click to expand <span id="leaseup-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">5-Year Lease-Up Revenue Model</span></h2>
   <div style="font-size:12px;color:#94A3B8;margin-bottom:20px">PS lease-up strategy: aggressive discounting in Y1 to fill units, gradual ECRI (Existing Customer Rate Increases) through Y3-Y5 to push above street rates.</div>
-  <table>
+  <table style="table-layout:fixed;width:100%">
+    <colgroup><col style="width:22%"><col style="width:14%"><col style="width:10%"><col style="width:10%"><col style="width:16%"><col style="width:14%"><col style="width:14%"></colgroup>
     <thead><tr><th>Year</th><th>Occupancy</th><th>Climate $/SF</th><th>Drive $/SF</th><th>Gross Revenue</th><th>OpEx (${Math.round(yearData[0].opex/yearData[0].totalRev*100)}%→${Math.round(yearData[4].opex/yearData[4].totalRev*100)}%)</th><th>NOI</th></tr></thead>
     <tbody>
       ${yearData.map((y, i) => {
         const noiColor = y.noi > 0 ? (i >= 3 ? "#16A34A" : "#42A5F5") : "#EF4444";
         const revGrowth = i > 0 ? Math.round(((y.totalRev - yearData[i-1].totalRev) / yearData[i-1].totalRev) * 100) : 0;
         return `<tr class="yr-row mi" onclick="toggleMI('ly${i}',event)" style="cursor:pointer">
-          <td><div style="font-weight:700;color:#C9A84C">${y.label} <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></div><div style="font-size:10px;color:#6B7394;margin-top:2px">${y.desc}</div></td>
+          <td style="overflow:hidden"><div style="font-weight:700;color:#C9A84C">${y.label} <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></div><div style="font-size:10px;color:#6B7394;margin-top:2px;line-height:1.3">${y.desc}</div></td>
           <td>${pctBar(y.occRate, y.occRate >= 0.85 ? "#16A34A" : y.occRate >= 0.60 ? "#F59E0B" : "#EF4444")}</td>
           <td class="mono"><span style="color:#42A5F5">$${y.climRate.toFixed(2)}</span>${y.climDisc > 0 ? `<div style="font-size:9px;color:#EF4444">-${Math.round(y.climDisc*100)}% disc</div>` : `<div style="font-size:9px;color:#16A34A">Full rate</div>`}</td>
           <td class="mono"><span style="color:#E87A2E">$${y.driveRate.toFixed(2)}</span>${y.driveDisc > 0 ? `<div style="font-size:9px;color:#EF4444">-${Math.round(y.driveDisc*100)}% disc</div>` : `<div style="font-size:9px;color:#16A34A">Full rate</div>`}</td>
@@ -3011,7 +3012,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig) => {
 
   // ── Overall Recommendation ──
   const score = iq.score || 0;
-  const recLabel = score >= 8.0 ? "RECOMMEND — PROCEED TO LOI" : score >= 6.5 ? "RECOMMEND — CONDITIONAL APPROVAL" : score >= 5.0 ? "HOLD — ADDITIONAL DILIGENCE REQUIRED" : "PASS — DOES NOT MEET CRITERIA";
+  const recLabel = score >= 8.0 ? "STORVEX RECOMMENDATION: APPROVED" : score >= 6.5 ? "STORVEX RECOMMENDATION: CONDITIONAL" : score >= 5.0 ? "STORVEX RECOMMENDATION: HOLD — DILIGENCE REQUIRED" : "STORVEX RECOMMENDATION: PASS";
   const recColor = score >= 8.0 ? "#16A34A" : score >= 6.5 ? "#3B82F6" : score >= 5.0 ? "#F59E0B" : "#EF4444";
   const recIcon = score >= 8.0 ? "✅" : score >= 6.5 ? "🔵" : score >= 5.0 ? "⚠️" : "❌";
 
@@ -3146,12 +3147,12 @@ function toggleMI(id,evt){
 
 <!-- ═══════════════ SECTION 1: RECOMMENDATION ═══════════════ -->
 <div class="section" style="background:${recColor}08;border-left:4px solid ${recColor}">
-  <h2><span class="sec-num">1</span> Committee Recommendation</h2>
+  <h2><span class="sec-num">1</span> Storvex Recommendation</h2>
   <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
     <span style="font-size:28px">${recIcon}</span>
     <div>
       <div style="font-size:18px;font-weight:900;color:${recColor};letter-spacing:0.02em">${recLabel}</div>
-      <div style="font-size:12px;color:#64748B;margin-top:4px">Based on ${(iq.breakdown || []).length}-dimension SiteScore™ composite analysis</div>
+      <div style="font-size:12px;color:#64748B;margin-top:4px">Storvex ${(iq.breakdown || []).length}-dimension composite analysis — SiteScore™ ${iq.score?.toFixed(1) || "—"}/10</div>
     </div>
   </div>
   ${landVerdict ? `<div style="display:flex;gap:16px;margin-top:16px">
