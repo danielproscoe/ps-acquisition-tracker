@@ -68,26 +68,24 @@ export function useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert
       }
       return;
     }
-    setTransitioning(true);
-    setTimeout(() => {
-      setTab(newTab);
-      setDetailView(null);
-      if (newTab !== "review") setReviewDetailSite(null);
-      if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
-      if (opts.siteId) {
-        setExpandedSite(opts.siteId);
-        setTimeout(() => {
-          const el = document.getElementById(`site-${opts.siteId}`);
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 120);
-      } else {
-        setExpandedSite(null);
-      }
-      if (newTab === "review") setShowNewAlert(false);
-      pushNav({ tab: newTab, detailView: null, reviewDetailSite: null });
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => setTransitioning(false), 350);
-    }, 280);
+    // Instant tab switch — all state updates in one synchronous block
+    // (React 18 createRoot batches these into a single render)
+    setTab(newTab);
+    setDetailView(null);
+    if (newTab !== "review") setReviewDetailSite(null);
+    if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
+    if (opts.siteId) {
+      setExpandedSite(opts.siteId);
+      setTimeout(() => {
+        const el = document.getElementById(`site-${opts.siteId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+    } else {
+      setExpandedSite(null);
+    }
+    if (newTab === "review") setShowNewAlert(false);
+    pushNav({ tab: newTab, detailView: null, reviewDetailSite: null });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [tab, detailView, pushNav, setExpandedSite, setFilterPhase, setShowNewAlert]);
 
   const goToDetail = useCallback((dv) => {
