@@ -1443,52 +1443,138 @@ function updateCustomCap(val){
 <div id="sec-P2" class="section expand-trigger" onclick="toggleExpand('timeline')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="timeline-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Development Timeline</span></h2>
-  <div style="font-size:11px;color:#6B7394;margin-bottom:16px">Capital-at-risk timeline from acquisition through stabilized operations</div>
+  <div style="font-size:11px;color:#6B7394;margin-bottom:20px">Capital-at-risk timeline from acquisition through stabilized operations</div>
   ${(() => {
     const constMo = constructionMonths || (isMultiStory ? 18 : 14);
     const phases = [
-      { label: "Due Diligence & Entitlements", start: 0, dur: 3, color: "#42A5F5" },
-      { label: "Design Development & Permits", start: 3, dur: 3, color: "#7C4DFF" },
-      { label: "Site Prep & Grading", start: 6, dur: 2, color: "#F59E0B" },
-      { label: "Vertical Construction", start: 8, dur: constMo - 4, color: "#E87A2E" },
-      { label: "CO & Grand Opening", start: 4 + constMo, dur: 2, color: "#16A34A" },
-      { label: "Lease-Up (36-mo ramp to 92%)", start: 6 + constMo, dur: 36, color: "#C9A84C" },
-      { label: "Stabilized Operations", start: 42 + constMo, dur: 12, color: "#16A34A" },
+      { label: "Due Diligence & Entitlements", abbr: "DD", start: 0, dur: 3, color: "#42A5F5", icon: "◆" },
+      { label: "Design Development & Permits", abbr: "Design", start: 3, dur: 3, color: "#7C4DFF", icon: "◆" },
+      { label: "Site Prep & Grading", abbr: "Site Prep", start: 6, dur: 2, color: "#F59E0B", icon: "◆" },
+      { label: "Vertical Construction", abbr: "Construction", start: 8, dur: constMo - 4, color: "#E87A2E", icon: "◆" },
+      { label: "CO & Grand Opening", abbr: "CO", start: 4 + constMo, dur: 2, color: "#16A34A", icon: "★" },
+      { label: "Lease-Up (36-mo ramp to 92%)", abbr: "Lease-Up", start: 6 + constMo, dur: 36, color: "#C9A84C", icon: "◆" },
+      { label: "Stabilized Operations", abbr: "Stabilized", start: 42 + constMo, dur: 12, color: "#16A34A", icon: "★" },
     ];
     const totalMo = phases[phases.length - 1].start + phases[phases.length - 1].dur;
-    const barW = 700;
-    return `<div style="overflow-x:auto"><div style="min-width:${barW + 200}px">
-      ${phases.map(p => {
+    const barW = 680;
+    const labelW = 200;
+    // Year markers
+    const yearMarkers = [];
+    for (let y = 0; y <= Math.ceil(totalMo / 12); y++) {
+      yearMarkers.push(y * 12);
+    }
+    // Phase groupings
+    const preDevEnd = 6;
+    const constructionEnd = 6 + constMo;
+    const leaseUpEnd = 42 + constMo;
+    return `<div style="overflow-x:auto"><div style="min-width:${barW + labelW + 40}px">
+      <!-- Phase group headers -->
+      <div style="display:flex;align-items:flex-end;gap:0;margin-bottom:4px;padding-left:${labelW + 12}px">
+        <div style="width:${Math.round(preDevEnd / totalMo * barW)}px;text-align:center;border-bottom:2px solid rgba(66,165,245,0.4);padding-bottom:4px;margin-right:2px">
+          <span style="font-size:8px;font-weight:800;letter-spacing:0.1em;color:rgba(66,165,245,0.7)">PRE-DEVELOPMENT</span>
+        </div>
+        <div style="width:${Math.round((constructionEnd - preDevEnd) / totalMo * barW)}px;text-align:center;border-bottom:2px solid rgba(232,122,46,0.4);padding-bottom:4px;margin-right:2px">
+          <span style="font-size:8px;font-weight:800;letter-spacing:0.1em;color:rgba(232,122,46,0.7)">CONSTRUCTION</span>
+        </div>
+        <div style="width:${Math.round((leaseUpEnd - constructionEnd) / totalMo * barW)}px;text-align:center;border-bottom:2px solid rgba(201,168,76,0.4);padding-bottom:4px;margin-right:2px">
+          <span style="font-size:8px;font-weight:800;letter-spacing:0.1em;color:rgba(201,168,76,0.7)">LEASE-UP</span>
+        </div>
+        <div style="flex:1;text-align:center;border-bottom:2px solid rgba(22,163,74,0.4);padding-bottom:4px">
+          <span style="font-size:8px;font-weight:800;letter-spacing:0.1em;color:rgba(22,163,74,0.7)">STABILIZED</span>
+        </div>
+      </div>
+
+      <!-- Year gridline labels -->
+      <div style="display:flex;align-items:center;margin-bottom:2px">
+        <div style="width:${labelW}px;flex-shrink:0"></div>
+        <div style="position:relative;width:${barW}px;height:14px;flex-shrink:0">
+          ${yearMarkers.filter(m => m <= totalMo).map(m => {
+            const x = Math.round(m / totalMo * barW);
+            return `<span style="position:absolute;left:${x}px;transform:translateX(-50%);font-size:8px;font-weight:700;letter-spacing:0.08em;color:#4A5080;font-family:'Space Mono',monospace">${m === 0 ? 'START' : 'YR ' + (m / 12)}</span>`;
+          }).join("")}
+        </div>
+      </div>
+
+      <!-- Gantt rows -->
+      ${phases.map((p, i) => {
       const left = Math.round(p.start / totalMo * barW);
-      const width = Math.max(Math.round(p.dur / totalMo * barW), 20);
-      return `<div style="display:flex;align-items:center;margin-bottom:6px;gap:6px">
-        <div style="width:180px;text-align:right;font-size:10px;color:#6B7394;font-weight:600;flex-shrink:0">${p.label}</div>
-        <div style="position:relative;width:${barW}px;height:22px;flex-shrink:0">
-          <div style="position:absolute;left:${left}px;width:${width}px;height:22px;border-radius:4px;background:${p.color};opacity:0.85;display:flex;align-items:center;justify-content:center">
-            <span style="font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)">Mo ${p.start}–${p.start + p.dur}</span>
+      const width = Math.max(Math.round(p.dur / totalMo * barW), 24);
+      const isLong = width > 60;
+      return `<div style="display:flex;align-items:center;margin-bottom:0;gap:12px;position:relative">
+        <!-- Row label -->
+        <div style="width:${labelW}px;text-align:right;font-size:10px;color:#94A3B8;font-weight:500;flex-shrink:0;padding:8px 0;line-height:1.3;${i === 0 ? 'border-top:1px solid rgba(201,168,76,0.06)' : ''};border-bottom:1px solid rgba(201,168,76,0.06)">
+          <span style="color:#E2E8F0;font-weight:700">${p.label}</span>
+        </div>
+        <!-- Bar area with gridlines -->
+        <div style="position:relative;width:${barW}px;height:36px;flex-shrink:0;${i === 0 ? 'border-top:1px solid rgba(201,168,76,0.06)' : ''};border-bottom:1px solid rgba(201,168,76,0.06)">
+          <!-- Year gridlines -->
+          ${yearMarkers.filter(m => m > 0 && m <= totalMo).map(m => {
+            const x = Math.round(m / totalMo * barW);
+            return `<div style="position:absolute;left:${x}px;top:0;bottom:0;width:1px;background:rgba(201,168,76,0.08)"></div>`;
+          }).join("")}
+          <!-- Bar -->
+          <div style="position:absolute;left:${left}px;top:6px;width:${width}px;height:24px;border-radius:3px;background:linear-gradient(135deg,${p.color},${p.color}dd);box-shadow:0 2px 8px ${p.color}33;display:flex;align-items:center;${isLong ? 'justify-content:space-between;padding:0 8px' : 'justify-content:center'}">
+            ${isLong ? `<span style="font-size:8px;font-weight:600;color:rgba(255,255,255,0.7);font-family:'Space Mono',monospace">Mo ${p.start}</span><span style="font-size:8px;font-weight:600;color:rgba(255,255,255,0.7);font-family:'Space Mono',monospace">Mo ${p.start + p.dur}</span>` : `<span style="font-size:8px;font-weight:700;color:#fff;font-family:'Space Mono',monospace">${p.dur}mo</span>`}
           </div>
         </div>
       </div>`;
     }).join("")}
-      <div style="display:flex;align-items:center;margin-top:8px;gap:6px">
-        <div style="width:180px"></div>
-        <div style="width:${barW}px;display:flex;justify-content:space-between;font-size:9px;color:#4A5080;font-family:'Space Mono',monospace">
-          <span>Mo 0</span><span>Mo ${Math.round(totalMo * 0.25)}</span><span>Mo ${Math.round(totalMo * 0.5)}</span><span>Mo ${Math.round(totalMo * 0.75)}</span><span>Mo ${totalMo}</span>
+
+      <!-- Bottom axis -->
+      <div style="display:flex;align-items:flex-start;margin-top:0;gap:12px">
+        <div style="width:${labelW}px;flex-shrink:0"></div>
+        <div style="position:relative;width:${barW}px;height:20px;flex-shrink:0;border-top:2px solid rgba(201,168,76,0.15)">
+          ${yearMarkers.filter(m => m <= totalMo).map(m => {
+            const x = Math.round(m / totalMo * barW);
+            return `<span style="position:absolute;left:${x}px;top:4px;transform:translateX(-50%);font-size:8px;font-weight:600;color:#4A5080;font-family:'Space Mono',monospace">${m}</span>`;
+          }).join("")}
+          <span style="position:absolute;right:0;top:4px;font-size:7px;color:#4A5080;letter-spacing:0.06em">MONTHS</span>
+        </div>
+      </div>
+
+      <!-- Milestone diamonds -->
+      <div style="display:flex;align-items:center;margin-top:12px;gap:12px">
+        <div style="width:${labelW}px;flex-shrink:0;text-align:right">
+          <span style="font-size:8px;font-weight:700;letter-spacing:0.08em;color:#4A5080">KEY MILESTONES</span>
+        </div>
+        <div style="position:relative;width:${barW}px;height:24px;flex-shrink:0">
+          ${[
+            { mo: 0, label: "Close", color: "#42A5F5" },
+            { mo: 6, label: "Break Ground", color: "#F59E0B" },
+            { mo: 4 + constMo, label: "CO", color: "#16A34A" },
+            { mo: 42 + constMo, label: "Stabilized", color: "#C9A84C" },
+          ].map(m => {
+            const x = Math.round(m.mo / totalMo * barW);
+            return `<div style="position:absolute;left:${x}px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center">
+              <div style="width:8px;height:8px;background:${m.color};transform:rotate(45deg);box-shadow:0 0 6px ${m.color}55"></div>
+              <span style="font-size:7px;font-weight:700;color:${m.color};margin-top:3px;white-space:nowrap;letter-spacing:0.04em">${m.label}</span>
+            </div>`;
+          }).join("")}
         </div>
       </div>
     </div></div>
-    <div class="grid3" style="margin-top:16px">
-      <div style="text-align:center;padding:10px;border-radius:8px;background:rgba(201,168,76,0.04)">
-        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em">MONTHS TO CO</div>
-        <div class="mono" style="font-size:22px;font-weight:800;color:#E87A2E">${6 + constMo}</div>
+
+    <!-- KPI Cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px">
+      <div style="text-align:center;padding:14px 10px;border-radius:8px;background:linear-gradient(135deg,rgba(66,165,245,0.06),rgba(66,165,245,0.02));border:1px solid rgba(66,165,245,0.12)">
+        <div style="font-size:8px;font-weight:800;color:#42A5F5;letter-spacing:0.1em;margin-bottom:6px">PRE-DEV</div>
+        <div class="mono" style="font-size:24px;font-weight:800;color:#42A5F5">6</div>
+        <div style="font-size:8px;color:#6B7394;margin-top:2px">months</div>
       </div>
-      <div style="text-align:center;padding:10px;border-radius:8px;background:rgba(201,168,76,0.04)">
-        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em">MONTHS TO STABILIZATION</div>
-        <div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${42 + constMo}</div>
+      <div style="text-align:center;padding:14px 10px;border-radius:8px;background:linear-gradient(135deg,rgba(232,122,46,0.06),rgba(232,122,46,0.02));border:1px solid rgba(232,122,46,0.12)">
+        <div style="font-size:8px;font-weight:800;color:#E87A2E;letter-spacing:0.1em;margin-bottom:6px">CONSTRUCTION</div>
+        <div class="mono" style="font-size:24px;font-weight:800;color:#E87A2E">${constMo}</div>
+        <div style="font-size:8px;color:#6B7394;margin-top:2px">months</div>
       </div>
-      <div style="text-align:center;padding:10px;border-radius:8px;background:rgba(201,168,76,0.04)">
-        <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em">TOTAL TIMELINE</div>
-        <div class="mono" style="font-size:22px;font-weight:800;color:#42A5F5">${Math.round((42 + constMo) / 12 * 10) / 10} yrs</div>
+      <div style="text-align:center;padding:14px 10px;border-radius:8px;background:linear-gradient(135deg,rgba(201,168,76,0.06),rgba(201,168,76,0.02));border:1px solid rgba(201,168,76,0.12)">
+        <div style="font-size:8px;font-weight:800;color:#C9A84C;letter-spacing:0.1em;margin-bottom:6px">STABILIZATION</div>
+        <div class="mono" style="font-size:24px;font-weight:800;color:#C9A84C">${42 + constMo}</div>
+        <div style="font-size:8px;color:#6B7394;margin-top:2px">months from close</div>
+      </div>
+      <div style="text-align:center;padding:14px 10px;border-radius:8px;background:linear-gradient(135deg,rgba(22,163,74,0.06),rgba(22,163,74,0.02));border:1px solid rgba(22,163,74,0.12)">
+        <div style="font-size:8px;font-weight:800;color:#16A34A;letter-spacing:0.1em;margin-bottom:6px">TOTAL TIMELINE</div>
+        <div class="mono" style="font-size:24px;font-weight:800;color:#16A34A">${(Math.round((42 + constMo) / 12 * 10) / 10).toFixed(1)}</div>
+        <div style="font-size:8px;color:#6B7394;margin-top:2px">years</div>
       </div>
     </div>`;
   })()}
