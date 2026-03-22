@@ -2448,7 +2448,7 @@ function updateCustomCap(val){
         <div class="mi-header"><div class="mi-title">${lp.label} — ${lp.tag} Price</div><div class="mi-conf mi-conf-high">Computed</div></div>
         <div class="mi-body">
           <div class="mi-formula">Target YOC: ${(lp.yoc*100).toFixed(1)}%<br>Total Budget: ${fmtD(stabNOI)} ÷ ${(lp.yoc*100).toFixed(1)}% = ${fmtD(Math.round(stabNOI/lp.yoc))}<br>Less Build Costs: (${fmtD(buildCosts)})<br>Max Land: <strong style="color:${lp.color}">${lp.maxLand > 0 ? fmtM(lp.maxLand) : "$0"}</strong>${lp.perAcre > 0 ? ` ($${lp.perAcre.toLocaleString()}/ac)` : ""}</div>
-          <div class="mi-row"><span class="mi-row-label">When to Use</span><span class="mi-row-val">${lpIdx === 0 ? "CEILING — absolute maximum. Only for strategic/irreplaceable sites where PS has no alternative. Requires EVP approval and strategic justification." : lpIdx === 1 ? "TARGET — PS's development sweet spot. 250-350bps spread over acquisition cap. Standard REC approval path." : "FLOOR — home run pricing. Maximum margin of safety. Easiest internal approval. Typical in secondary/tertiary markets."}</span></div>
+          <div class="mi-row"><span class="mi-row-label">When to Use</span><span class="mi-row-val">${lpIdx === 0 ? "WALK AWAY — absolute maximum. Only for strategic/irreplaceable sites where PS has no alternative. Requires EVP approval and strategic justification." : lpIdx === 1 ? "STRIKE — PS's development sweet spot. 250-350bps spread over acquisition cap. Standard REC approval path." : "HOME RUN — exceptional pricing. Maximum margin of safety. Deal-of-the-year territory."}</span></div>
           <div class="mi-source">Source: SiteScore™ reverse-engineering | NOI: ${fmtD(stabNOI)} | Build costs: ${fmtD(buildCosts)}</div>
         </div>
       </div></div>
@@ -2471,10 +2471,10 @@ function updateCustomCap(val){
           const strikeLand = landPrices[1]?.maxLand || 0;
           const maxLand = landPrices[0]?.maxLand || 0;
           if (landCost <= 0 || strikeLand <= 0) return `<div class="mono" style="font-size:22px;font-weight:800;color:#6B7394">N/A</div>`;
-          if (landCost <= minLand) return `<div class="mono" style="font-size:18px;font-weight:800;color:#16A34A">BUY AT ASKING</div><div style="font-size:9px;color:#16A34A;margin-top:2px">Below floor — home run</div>`;
+          if (landCost <= minLand) return `<div class="mono" style="font-size:18px;font-weight:800;color:#16A34A">BUY AT ASKING</div><div style="font-size:9px;color:#16A34A;margin-top:2px">Home run pricing — move fast</div>`;
           if (landCost <= strikeLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#16A34A">${fmtM(landCost)}</div><div style="font-size:9px;color:#16A34A;margin-top:2px">At/below strike — buy at asking</div>`;
           if (landCost <= maxLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${fmtM(strikeLand)}</div><div style="font-size:9px;color:#F59E0B;margin-top:2px">Counter to strike price</div>`;
-          return `<div class="mono" style="font-size:22px;font-weight:800;color:#EF4444">${fmtM(maxLand)}</div><div style="font-size:9px;color:#EF4444;margin-top:2px">Above ceiling — counter to max or pass</div>`;
+          return `<div class="mono" style="font-size:22px;font-weight:800;color:#EF4444">${fmtM(maxLand)}</div><div style="font-size:9px;color:#EF4444;margin-top:2px">Above walk-away — counter to max or pass</div>`;
         })()}
       </div>
     </div>
@@ -2484,9 +2484,9 @@ function updateCustomCap(val){
       <div style="width:100%;height:100%;border-radius:4px;background:linear-gradient(90deg,#16A34A,#F59E0B,#EF4444)"></div>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:#6B7394">
-      <span>Min (Home Run)</span>
-      <span>Strike (Target)</span>
-      <span>Max (Ceiling)</span>
+      <span>Home Run</span>
+      <span>Strike</span>
+      <span>Walk Away</span>
     </div>
   </div>` : ""}
   <div id="landprice" class="expand-panel">
@@ -2498,7 +2498,7 @@ function updateCustomCap(val){
         <div class="mono" style="font-size:12px;color:#E2E8F0;line-height:2">
           <div>Total Dev Budget = Stabilized NOI ÷ Target YOC%</div>
           <div>Max Land Price = Total Dev Budget − Hard Costs − Soft Costs</div>
-          <div style="margin-top:4px;color:#C9A84C">Strike Example: ${fmtD(stabNOI)} ÷ 8.5% = ${fmtD(Math.round(stabNOI / 0.085))} − ${fmtD(buildCosts)} = <strong>${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</strong></div>
+          <div style="margin-top:4px;color:#C9A84C">Strike Example: ${fmtD(stabNOI)} ÷ 9.0% = ${fmtD(Math.round(stabNOI / 0.09))} − ${fmtD(buildCosts)} = <strong>${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</strong></div>
         </div>
       </div>
     </div>
@@ -2512,7 +2512,7 @@ function updateCustomCap(val){
             const maxL = Math.max(budget - buildCosts, 0);
             const pa = !isNaN(acres) && acres > 0 && maxL > 0 ? Math.round(maxL / acres) : 0;
             const isStrike = yoc === 0.085;
-            const signal = yoc <= 0.07 ? "Ceiling" : yoc <= 0.08 ? "Aggressive" : yoc <= 0.09 ? "Target" : yoc <= 0.10 ? "Conservative" : "Home Run";
+            const signal = yoc <= 0.07 ? "Too Aggressive" : yoc <= 0.075 ? "Walk Away" : yoc <= 0.085 ? "Aggressive" : yoc <= 0.095 ? "Strike Zone" : yoc <= 0.105 ? "Conservative" : "Home Run";
             const sigColor = yoc <= 0.07 ? "#EF4444" : yoc <= 0.08 ? "#E87A2E" : yoc <= 0.09 ? "#C9A84C" : yoc <= 0.10 ? "#16A34A" : "#16A34A";
             return `<tr style="${isStrike ? "background:rgba(201,168,76,0.08);border-left:3px solid #C9A84C" : ""}">
               <td class="mono" style="font-weight:700;${isStrike ? "color:#C9A84C" : ""}">${(yoc*100).toFixed(1)}%${isStrike ? " ◆" : ""}</td>

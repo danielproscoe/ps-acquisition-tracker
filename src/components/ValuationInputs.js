@@ -92,10 +92,10 @@ export const STORVEX_DEFAULTS = {
   capRateMarket: 0.0575,
   capRateAggressive: 0.05,
 
-  // ── Land Pricing YOC Targets ──
-  yocMax: 0.07,                 // Maximum (ceiling)
-  yocStrike: 0.085,             // Strike price (target)
-  yocMin: 0.10,                 // Minimum (floor)
+  // ── Land Pricing YOC Targets (REIT-tight, recalibrated 2026-03-22) ──
+  yocMax: 0.075,                // Walk Away — PS minimum for strategic sites
+  yocStrike: 0.09,              // Strike Price — standard REC approval zone
+  yocMin: 0.105,                // Home Run — exceptional deal territory
 
   // ── Capital Stack ──
   loanLTV: 0.65,
