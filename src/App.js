@@ -875,7 +875,18 @@ function AppInner() {
     { key: "priority", label: "Priority" },
     { key: "phase", label: "Phase" },
   ];
-  const sortData = (arr) => {
+  // ─── MEMOIZED SiteScore CACHE ───
+  // Computes SiteScore once per site when data changes. Eliminates ~188 redundant calls per render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const siteScoreCache = useMemo(() => {
+    const cache = new Map();
+    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteScore(s)); });
+    return cache;
+  }, [sw, east, configVersion]);
+  const getSiteScore = useCallback((site) => siteScoreCache.get(site.id) || computeSiteScore(site), [siteScoreCache]);
+
+  // ─── MEMOIZED SORT — stabilized to prevent re-sort on every render ───
+  const sortData = useCallback((arr) => {
     const sorted = [...arr];
     switch (sortBy) {
       case "sitescore": return sorted.sort((a, b) => getSiteScore(b).score - getSiteScore(a).score);
@@ -886,17 +897,7 @@ function AppInner() {
       case "phase": return sorted.sort((a, b) => (PHASE_ORDER[a.phase] ?? 9) - (PHASE_ORDER[b.phase] ?? 9));
       default: return sorted.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }
-  };
-
-  // ─── MEMOIZED SiteScore CACHE ───
-  // Computes SiteScore once per site when data changes. Eliminates ~188 redundant calls per render.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const siteScoreCache = useMemo(() => {
-    const cache = new Map();
-    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteScore(s)); });
-    return cache;
-  }, [sw, east, configVersion]);
-  const getSiteScore = (site) => siteScoreCache.get(site.id) || computeSiteScore(site);
+  }, [sortBy, getSiteScore]);
 
   // ─── STYLES ───
   const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 14, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", outline: "none", boxSizing: "border-box" };

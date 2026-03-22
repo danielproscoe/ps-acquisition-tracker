@@ -1,11 +1,23 @@
 // src/hooks/useFirebaseData.js
 // Firebase auth, real-time listeners, and write helpers extracted from App.js
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { db, auth } from "../firebase";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { ref, onValue, set, push, remove, update } from "firebase/database";
 import { SITE_SCORE_DEFAULTS, normalizeSiteScoreWeights } from "../utils";
+
+// Deep-compare two arrays of site objects by serializing to JSON.
+// Prevents unnecessary re-renders when Firebase pushes identical data.
+function setIfChanged(setter, newArr) {
+  setter(prev => {
+    if (prev.length !== newArr.length) return newArr;
+    // Fast path: compare serialized JSON
+    const prevJson = JSON.stringify(prev);
+    const newJson = JSON.stringify(newArr);
+    return prevJson === newJson ? prev : newArr;
+  });
+}
 
 // SITE_SCORE_CONFIG is module-scope in App.js and mutated here via the listener.
 // The hook receives a setter callback so App.js can keep SITE_SCORE_CONFIG in sync.
@@ -35,6 +47,11 @@ export function useFirebaseData({ onWeightsChange }) {
     return () => unsub();
   }, []);
 
+  // Stable ref for the weights callback — avoids tearing down Firebase listeners
+  // every time AppInner re-renders (which was the primary cause of flicker).
+  const onWeightsChangeRef = useRef(onWeightsChange);
+  useEffect(() => { onWeightsChangeRef.current = onWeightsChange; }, [onWeightsChange]);
+
   // ─── FIREBASE REAL-TIME LISTENERS (wait for auth) ───
   useEffect(() => {
     if (!authReady) return;
@@ -52,7 +69,7 @@ export function useFirebaseData({ onWeightsChange }) {
         });
         const normalized = normalizeSiteScoreWeights(merged);
         // Notify App.js to update its module-scope SITE_SCORE_CONFIG
-        if (onWeightsChange) onWeightsChange(normalized);
+        if (onWeightsChangeRef.current) onWeightsChangeRef.current(normalized);
         setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
         setConfigVersion(v => v + 1);
       }
@@ -61,18 +78,18 @@ export function useFirebaseData({ onWeightsChange }) {
     const unsubSubs = onValue(subsRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setSubs(arr);
+      setIfChanged(setSubs, arr);
     });
     const unsubEast = onValue(eastRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setEast(arr);
+      setIfChanged(setEast, arr);
       setLoaded(true);
     });
     const unsubSw = onValue(swRef, (snap) => {
       const val = snap.val();
       const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setSw(arr);
+      setIfChanged(setSw, arr);
     });
 
     return () => {
@@ -81,25 +98,25 @@ export function useFirebaseData({ onWeightsChange }) {
       unsubSw();
       unsubIQ();
     };
-  }, [authReady, onWeightsChange]);
+  }, [authReady]); // onWeightsChange stabilized via ref — no longer a dependency
 
-  // ─── FIREBASE WRITE HELPERS (with path validation) ───
-  const fbSet = (path, value) => {
+  // ─── FIREBASE WRITE HELPERS (with path validation, stable references) ───
+  const fbSet = useCallback((path, value) => {
     if (typeof path !== "string" || !path) { console.error("fbSet: invalid path", path); return Promise.resolve(); }
     return set(ref(db, path), value);
-  };
-  const fbUpdate = (path, value) => {
+  }, []);
+  const fbUpdate = useCallback((path, value) => {
     if (typeof path !== "string" || !path) { console.error("fbUpdate: invalid path", path); return Promise.resolve(); }
     return update(ref(db, path), value);
-  };
-  const fbPush = (path, value) => {
+  }, []);
+  const fbPush = useCallback((path, value) => {
     if (typeof path !== "string" || !path) { console.error("fbPush: invalid path", path); return Promise.resolve(); }
     return push(ref(db, path), value);
-  };
-  const fbRemove = (path) => {
+  }, []);
+  const fbRemove = useCallback((path) => {
     if (typeof path !== "string" || !path) { console.error("fbRemove: invalid path", path); return Promise.resolve(); }
     return remove(ref(db, path));
-  };
+  }, []);
 
   return {
     authReady,
