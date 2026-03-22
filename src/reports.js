@@ -896,55 +896,65 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       const adjustments = typeof iqScore === "number" ? (iqScore - weightedSum).toFixed(2) : "0.00";
       return `
     ${section("S", "SiteScore&trade; Scorecard")}
-    <!-- Visual Bar Chart with labels -->
-    <div style="display:flex;gap:6px;align-items:flex-end;height:160px;padding:20px 0 0;margin-bottom:20px">
-      ${dims.map(d => {
-        const v = iq.scores[d.key] || 0;
-        const pct = Math.max(5, (v / 10) * 100);
-        const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-          <div style="font-size:13px;font-weight:900;color:${c};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : v}</div>
-          <div style="width:100%;height:90px;border-radius:8px;background:#F1F5F9;position:relative;overflow:hidden">
-            <div style="position:absolute;bottom:0;left:0;right:0;height:${pct}%;border-radius:8px;background:linear-gradient(180deg,${c},${c}80);transition:height 0.5s"></div>
-            <div style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);font-size:7px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3)">${(d.weight * 100).toFixed(0)}%</div>
+
+    <!-- Composite Score Hero -->
+    <div style="display:flex;align-items:center;gap:24px;margin-bottom:24px;padding:20px 24px;border-radius:12px;background:linear-gradient(135deg,#1E2761,#2C3E6B);border:1px solid rgba(201,168,76,0.2)">
+      <div style="text-align:center;min-width:100px">
+        <div style="font-size:42px;font-weight:900;color:#C9A84C;font-family:'Space Mono',monospace;line-height:1">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</div>
+        <div style="font-size:8px;font-weight:700;letter-spacing:0.1em;color:#6B7394;margin-top:4px">COMPOSITE</div>
+      </div>
+      <div style="width:1px;height:50px;background:rgba(201,168,76,0.2)"></div>
+      <div style="flex:1;display:flex;gap:8px;flex-wrap:wrap">
+        ${(() => {
+          const cls = typeof iqScore === "number" ? (iqScore >= 8 ? { label: "PRIME", color: "#16A34A", bg: "rgba(22,163,74,0.12)" } : iqScore >= 6 ? { label: "VIABLE", color: "#F59E0B", bg: "rgba(245,158,11,0.12)" } : iqScore >= 4 ? { label: "MARGINAL", color: "#E87A2E", bg: "rgba(232,122,46,0.12)" } : { label: "WEAK", color: "#EF4444", bg: "rgba(239,68,68,0.12)" }) : { label: "—", color: "#6B7394", bg: "rgba(107,115,148,0.12)" };
+          const strong = dims.filter(d => (iq.scores[d.key] || 0) >= 8).map(d => d.label);
+          const weak = dims.filter(d => (iq.scores[d.key] || 0) < 5 && (iq.scores[d.key] || 0) > 0).map(d => d.label);
+          return `<div style="padding:6px 14px;border-radius:6px;background:${cls.bg};border:1px solid ${cls.color}40">
+            <span style="font-size:12px;font-weight:800;color:${cls.color};letter-spacing:0.06em">${cls.label}</span>
           </div>
-          <div style="font-size:7px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.01em;text-align:center;line-height:1.2">${d.label}</div>
+          ${strong.length ? `<div style="padding:6px 12px;border-radius:6px;background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.15)"><span style="font-size:9px;font-weight:600;color:#16A34A">STRENGTHS:</span> <span style="font-size:9px;color:#94A3B8">${strong.join(", ")}</span></div>` : ""}
+          ${weak.length ? `<div style="padding:6px 12px;border-radius:6px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15)"><span style="font-size:9px;font-weight:600;color:#EF4444">CONCERNS:</span> <span style="font-size:9px;color:#94A3B8">${weak.join(", ")}</span></div>` : ""}`;
+        })()}
+      </div>
+    </div>
+
+    <!-- Horizontal Bar Scorecard -->
+    <div style="margin-bottom:4px">
+      ${dims.map((d, i) => {
+        const v = iq.scores[d.key] || 0;
+        const pct = Math.max(3, (v / 10) * 100);
+        const c = v >= 8 ? "#16A34A" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
+        const wc = (v * d.weight).toFixed(2);
+        return `<div style="display:grid;grid-template-columns:130px 1fr 50px 55px;align-items:center;gap:12px;padding:7px 0;${i < dims.length - 1 ? "border-bottom:1px solid #E2E8F015" : ""}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;font-weight:600;color:#E2E8F0">${d.label}</span>
+            <span style="font-size:8px;color:#4A5080;font-family:'Space Mono',monospace">${(d.weight * 100).toFixed(0)}%</span>
+          </div>
+          <div style="height:18px;border-radius:4px;background:rgba(255,255,255,0.04);overflow:hidden;position:relative">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;border-radius:4px;background:linear-gradient(90deg,${c}cc,${c});transition:width 0.5s"></div>
+            ${[2,4,6,8].map(tick => `<div style="position:absolute;left:${tick*10}%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.04)"></div>`).join("")}
+          </div>
+          <div style="text-align:right;font-size:14px;font-weight:800;color:${c};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : "—"}</div>
+          <div style="text-align:right;font-size:10px;color:#6B7394;font-family:'Space Mono',monospace">${wc}</div>
         </div>`;
       }).join("")}
     </div>
 
-    <!-- Radar Chart (CSS-only) -->
-    <div style="display:flex;justify-content:center;margin-bottom:20px">
-      <div style="position:relative;width:240px;height:240px">
-        <!-- Grid rings -->
-        ${[100, 75, 50, 25].map(r => `<div style="position:absolute;top:${50 - r/2}%;left:${50 - r/2}%;width:${r}%;height:${r}%;border:1px solid #E2E8F020;border-radius:50%"></div>`).join("")}
-        <!-- Radar polygon via SVG -->
-        <svg viewBox="0 0 240 240" style="width:100%;height:100%">
-          <polygon points="${dims.map((d, i) => {
-            const v = (iq.scores[d.key] || 0) / 10;
-            const angle = (Math.PI * 2 * i / dims.length) - Math.PI / 2;
-            const r = v * 100;
-            return `${120 + r * Math.cos(angle)},${120 + r * Math.sin(angle)}`;
-          }).join(" ")}" fill="#F37C3320" stroke="#F37C33" stroke-width="2"/>
-          ${dims.map((d, i) => {
-            const angle = (Math.PI * 2 * i / dims.length) - Math.PI / 2;
-            const lx = 120 + 115 * Math.cos(angle);
-            const ly = 120 + 115 * Math.sin(angle);
-            return `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central" style="font-size:7px;font-weight:700;fill:#64748B;font-family:'DM Sans',sans-serif">${d.label.substring(0, 6)}</text>`;
-          }).join("")}
-        </svg>
+    <!-- Footer: Weighted Sum + Adjustments + Composite -->
+    <div style="margin-top:8px;padding:12px 16px;border-radius:8px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.1)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <span style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.04em">WEIGHTED SUM</span>
+          <span style="font-size:13px;font-weight:800;color:#E2E8F0;font-family:'Space Mono',monospace;margin-left:8px">${weightedSum.toFixed(2)}</span>
+          ${parseFloat(adjustments) !== 0 ? `<span style="font-size:10px;color:#6B7394;margin-left:12px">+</span><span style="font-size:10px;font-weight:600;color:#D97706;margin-left:4px">adj ${parseFloat(adjustments) >= 0 ? "+" : ""}${adjustments}</span>` : ""}
+        </div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <span style="font-size:10px;font-weight:700;color:#6B7394;letter-spacing:0.04em">FINAL</span>
+          <span style="font-size:20px;font-weight:900;color:#C9A84C;font-family:'Space Mono',monospace">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</span>
+          <span style="font-size:9px;color:#6B7394">/ 10</span>
+        </div>
       </div>
-    </div>
-
-    <!-- Detail Table -->
-    <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">
-      <thead><tr style="background:linear-gradient(135deg,#FAFBFC,#F5F7FA)">${["Dimension", "Score", "Weight", "Weighted"].map(hdr => `<th style="padding:10px 14px;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;text-align:left;border-bottom:2px solid #E2E8F0">${hdr}</th>`).join("")}</tr></thead>
-      <tbody>${dims.map((d, i) => { const v = iq.scores[d.key] || 0; return `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:10px 14px;font-size:12px;font-weight:600;color:#1E293B">${d.label}</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:${v >= 7 ? "#16A34A" : v >= 4 ? "#F59E0B" : "#EF4444"};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : "—"}</td><td style="padding:10px 14px;font-size:11px;color:#94A3B8">${(d.weight * 100).toFixed(0)}%</td><td style="padding:10px 14px;font-size:12px;font-weight:700;color:#475569">${(v * d.weight).toFixed(2)}</td></tr>`; }).join("")}
-      <!-- Subtotal row -->
-      <tr style="background:#F5F7FA;border-top:2px solid #E2E8F0"><td colspan="3" style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Weighted Sum</td><td style="padding:10px 14px;font-size:14px;font-weight:800;color:#475569;font-family:'Space Mono',monospace">${weightedSum.toFixed(2)}</td></tr>
-      ${parseFloat(adjustments) !== 0 ? `<tr style="background:#FFF7ED"><td colspan="3" style="padding:8px 14px;font-size:10px;font-weight:600;color:#92400E">Adjustments (bonuses/penalties)</td><td style="padding:8px 14px;font-size:12px;font-weight:700;color:#D97706;font-family:'Space Mono',monospace">${parseFloat(adjustments) >= 0 ? "+" : ""}${adjustments}</td></tr>` : ""}
-      <tr style="background:linear-gradient(135deg,#1E2761,#2C3E6B)"><td colspan="3" style="padding:12px 14px;font-size:13px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.04em">Composite Score</td><td style="padding:12px 14px;font-size:22px;font-weight:900;color:#F37C33;font-family:'Space Mono',monospace">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</td></tr>
-      </tbody></table>`;
+    </div>`;
     })() : ""}
   </div>
 
