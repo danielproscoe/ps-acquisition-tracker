@@ -3364,7 +3364,7 @@ function updateCustomCap(val){
     <div class="mi-header"><div class="mi-title">Regional Cost Index — ${site.state || "N/A"} at ${costIdx.toFixed(2)}x</div><div class="mi-conf mi-conf-high">RSMeans / ENR</div></div>
     <div class="mi-body">
       <strong>Construction costs vary 30%+ across US markets. SiteScore™ applies state-level cost indices to adjust the national base rate, ensuring accurate per-site hard cost projections.</strong>
-      <div class="mi-formula">National Base: $${baseHardPerSF}/SF<br>${site.state || "N/A"} Index: ${costIdx.toFixed(2)}x<br>Adjusted: $${baseHardPerSF} × ${costIdx.toFixed(2)} = <strong style="color:#C9A84C">$${hardCostPerSF}/SF</strong><br>Impact on ${totalSF.toLocaleString()} SF: ${costIdx < 1 ? "Saves " + fmtD(Math.abs(totalSF * baseHardPerSF - hardCost)) + " vs national avg" : "Adds " + fmtD(Math.abs(totalSF * baseHardPerSF - hardCost)) + " vs national avg"}</div>
+      <div class="mi-formula">All-In Hard Cost: <strong style="color:#C9A84C">$${totalHardPerSF}/SF</strong> (shell $${hardCostPerSF} + site $${baseSiteWorkPerSF} + fire $${baseFireSuppressionPerSF.toFixed(1)} + interior $${baseInteriorPerSF} + tech $${baseTechPerSF.toFixed(1)} + utility)<br>${site.state || "N/A"} Index: ${costIdx.toFixed(2)}x<br>Total Hard: <strong style="color:#E87A2E">${fmtD(totalHardCost)}</strong> on ${grossSF ? grossSF.toLocaleString() : totalSF.toLocaleString()} GSF</div>
       <div class="mi-row"><span class="mi-row-label">Data Source</span><span class="mi-row-val">RSMeans 2025 Construction Cost Data (Gordian) + ENR Construction Cost Index Q1 2026. Indices reflect labor rates, material costs, and subcontractor market conditions by state. Updated quarterly.</span></div>
       <div class="mi-row"><span class="mi-row-label">PS Development Impact</span><span class="mi-row-val">${costIdx < 0.95 ? "Below-average market — PS gets more facility per dollar deployed. Lower cost markets like " + (site.state || "this state") + " are where development spreads are widest and YOC targets easiest to achieve." : costIdx > 1.05 ? "Above-average market — cost pressure requires stronger revenue (higher rates) or lower land costs to maintain target YOC. PS must model aggressively on rate assumptions or negotiate harder on land." : "Average market — standard cost assumptions apply. Development viability depends primarily on land pricing and local rates."}</span></div>
       <div class="mi-source">Source: RSMeans 2025 (Gordian) | ENR Construction Cost Index Q1 2026 | PS development pipeline actual vs. budget analysis</div>
@@ -3373,11 +3373,15 @@ function updateCustomCap(val){
   <div class="grid2">
     <div>
       <table style="font-size:11px">
-        <thead><tr><th>Cost Component</th><th>National Base</th><th>${site.state || "—"} Adjusted</th></tr></thead>
+        <thead><tr><th>Cost Component</th><th>Rate</th><th>${site.state || "—"} Adjusted</th></tr></thead>
         <tbody>
-          <tr><td style="font-weight:600">Hard Cost / SF</td><td class="mono">$${baseHardPerSF}</td><td class="mono" style="font-weight:700;color:#C9A84C">$${hardCostPerSF}</td></tr>
-          <tr><td style="font-weight:600">Total Hard Cost</td><td class="mono">${fmtD(totalSF * baseHardPerSF)}</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(hardCost)}</td></tr>
-          <tr><td style="font-weight:600">Regional Savings/(Premium)</td><td></td><td class="mono" style="color:${costIdx <= 1 ? "#16A34A" : "#EF4444"}">${costIdx <= 1 ? "Saves " : "Adds "}${fmtD(Math.abs(totalSF * baseHardPerSF - hardCost))}</td></tr>
+          <tr><td style="font-weight:600">Building Shell & HVAC</td><td class="mono">$${hardCostPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} GSF</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(hardCost)}</td></tr>
+          <tr><td style="font-weight:600">Site Development</td><td class="mono">$${baseSiteWorkPerSF}/SF × ${siteAreaSF.toLocaleString()} site SF</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(siteWorkCost)}</td></tr>
+          <tr><td style="font-weight:600">Fire Suppression</td><td class="mono">$${baseFireSuppressionPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} GSF</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(fireSuppressionCost)}</td></tr>
+          <tr><td style="font-weight:600">Interior Buildout</td><td class="mono">$${baseInteriorPerSF}/SF × ${totalSF.toLocaleString()} net SF</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(interiorBuildoutCost)}</td></tr>
+          <tr><td style="font-weight:600">Technology & Security</td><td class="mono">$${baseTechPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} GSF</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(technologyCost)}</td></tr>
+          <tr><td style="font-weight:600">Utility Infrastructure</td><td class="mono">$${utilityInfraBase.toLocaleString()} + $${baseUtilityPerSF}/SF</td><td class="mono" style="font-weight:700;color:#C9A84C">${fmtD(utilityInfraCost)}</td></tr>
+          <tr style="border-top:2px solid rgba(201,168,76,0.2)"><td style="font-weight:800;color:#C9A84C">Total Hard Cost</td><td class="mono" style="font-weight:700;color:#C9A84C">$${totalHardPerSF}/SF all-in</td><td class="mono" style="font-weight:800;color:#E87A2E">${fmtD(totalHardCost)}</td></tr>
         </tbody>
       </table>
     </div>
@@ -3419,7 +3423,7 @@ function updateCustomCap(val){
       <div style="font-weight:700;color:#6B7394;margin-bottom:6px">Facility</div>
       <div>Building coverage: 35% of site</div>
       <div>Climate/drive split: ${Math.round(climatePct*100)}/${Math.round(drivePct*100)}</div>
-      <div>Construction: $${hardCostPerSF}/SF hard (${costIdx.toFixed(2)}x regional adj) + ${Math.round(softCostPct*100)}% soft</div>
+      <div>Construction: $${totalHardPerSF}/SF all-in hard (${costIdx.toFixed(2)}x regional adj) + ${Math.round(softCostPct*100)}% soft</div>
       <div>Product: ${isMultiStory ? stories + "-story multi-story" : "Single-story indoor climate-controlled"}</div>
     </div>
     <div>
