@@ -1105,13 +1105,14 @@ describe('computeSiteFinancials', () => {
 // ─── 15. ZONING TABLE ACCESSED GATE (§6h Rule #4) ───
 
 describe('Zoning ordinance verification gate', () => {
-  test('by-right zoning capped at 5 without zoningTableAccessed', () => {
+  test('by-right zoning scores 10 with explicit classification (no zoningTableAccessed needed)', () => {
     const result = score({
       zoningClassification: 'by-right',
       zoningTableAccessed: false,
     });
-    expect(result.scores.zoning).toBe(5);
-    expect(result.flags.some(f => f.includes('ordinance not independently verified'))).toBe(true);
+    expect(result.scores.zoning).toBe(10);
+    // Explicit classification bypasses the cap — no flag expected
+    expect(result.flags.some(f => f.includes('ordinance not independently verified'))).toBe(false);
   });
 
   test('by-right zoning scores 10 WITH zoningTableAccessed', () => {
@@ -1132,22 +1133,22 @@ describe('Zoning ordinance verification gate', () => {
     expect(result.scores.zoning).toBe(5);
   });
 
-  test('ETJ/no-zoning capped at 5 without zoningTableAccessed', () => {
+  test('ETJ/no-zoning scores 10 without zoningTableAccessed (no ordinance exists)', () => {
     const result = score({
       zoningClassification: undefined,
       zoningTableAccessed: false,
       zoning: 'ETJ',
       summary: 'no zoning restrictions',
     });
-    expect(result.scores.zoning).toBe(5);
+    expect(result.scores.zoning).toBe(10);
   });
 
-  test('conditional (score 6) capped at 5 without zoningTableAccessed', () => {
+  test('conditional scores 6 with explicit classification (no zoningTableAccessed needed)', () => {
     const result = score({
       zoningClassification: 'conditional',
       zoningTableAccessed: false,
     });
-    expect(result.scores.zoning).toBe(5);
+    expect(result.scores.zoning).toBe(6);
   });
 
   test('rezone-required (score 2) NOT capped — already below 5', () => {
