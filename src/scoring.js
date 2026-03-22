@@ -103,7 +103,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   scores.homeValue = hvScore;
 
-  // --- 2e. PS PROXIMITY (10%) — Distance to nearest PS location ---
+  // --- 2e. PS PROXIMITY (11%) — Distance to nearest PS location ---
   // Closer = market validation, NOT cannibalization. >35mi = too remote (FAIL).
   let psProxScore = 5;
   const nearestPS = site.siteiqData?.nearestPS;
@@ -145,6 +145,13 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     else if (rezoning.test(combinedText)) zoningScore = 2;
     else if (prohibited.test(combinedText)) { zoningScore = 0; hardFail = true; flags.push("FAIL: Zoning prohibits storage"); }
     else if ((site.zoning || "").trim()) zoningScore = 5;
+  }
+  // §6h Scoring Integrity Rule #4: Zoning capped at 5 (UNKNOWN) unless the actual
+  // permitted use table from the jurisdiction's ordinance was directly accessed.
+  // Broker confirmation alone never earns above 5. The ordinance is the answer.
+  if (zoningScore > 5 && !site.zoningTableAccessed) {
+    zoningScore = 5;
+    flags.push("Zoning capped at 5 — ordinance not independently verified (set zoningTableAccessed to unlock)");
   }
   scores.zoning = zoningScore;
 
