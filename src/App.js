@@ -911,7 +911,7 @@ function AppInner() {
       <div style={{ textAlign: "center" }}>
         <div style={{ width: 48, height: 48, border: "3px solid rgba(201,168,76,0.15)", borderTopColor: "#C9A84C", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(201,168,76,0.2)" }} />
         <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          {!authReady ? "Authenticating…" : "Initializing SiteScore — AI-Powered Land Engine"}
+          {!authReady ? "Authenticating…" : <>Initializing Storvex<sup style={{fontSize:"60%",verticalAlign:"super"}}>™</sup> — AI-Powered Storage Engine</>}
         </div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
