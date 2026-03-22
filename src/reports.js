@@ -167,11 +167,22 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 .qa-print{background:linear-gradient(135deg,#F37C33,#D45500);color:#fff}
 .qa-jump{background:#fff;color:#1E2761;border:1px solid #E2E8F0!important}
 
-/* TOC sidebar */
-.toc-sidebar{position:fixed;left:max(12px, calc(50% - 480px));top:50%;transform:translateY(-50%);width:180px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);padding:16px;z-index:999;border:1px solid #E2E8F0}
-.toc-sidebar .toc-title{font-size:9px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px}
-.toc-sidebar a{display:block;padding:5px 8px;font-size:10px;color:#64748B;text-decoration:none;border-radius:6px;font-weight:600;transition:all 0.15s ease;line-height:1.3;margin-bottom:2px}
-.toc-sidebar a:hover,.toc-sidebar a.active{background:#F37C3312;color:#F37C33}
+/* TOC sidebar — McKinsey nav strip */
+.toc-sidebar{position:fixed;left:0;top:50%;transform:translateY(-50%);width:52px;background:linear-gradient(180deg,#0A0A0C,#1E2761 40%,#2C3E6B);border-radius:0 14px 14px 0;box-shadow:4px 0 30px rgba(0,0,0,0.15);padding:14px 6px;z-index:999;transition:width 0.3s cubic-bezier(0.4,0,0.2,1);overflow:hidden}
+.toc-sidebar:hover{width:210px;padding:14px 12px}
+.toc-sidebar .toc-title{font-size:8px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:12px;padding:0 4px;white-space:nowrap;opacity:0;transition:opacity 0.2s}
+.toc-sidebar:hover .toc-title{opacity:1}
+.toc-sidebar .toc-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;margin:0 auto 8px;border-radius:8px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3)}
+.toc-sidebar:hover .toc-icon{display:none}
+.toc-sidebar .toc-icon svg{width:16px;height:16px;fill:#C9A84C}
+.toc-sidebar a{display:flex;align-items:center;gap:10px;padding:6px 8px;font-size:11px;color:rgba(255,255,255,0.5);text-decoration:none;border-radius:8px;font-weight:600;transition:all 0.15s ease;line-height:1.3;margin-bottom:2px;white-space:nowrap;overflow:hidden}
+.toc-sidebar a .toc-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;font-family:'Space Mono',monospace;flex-shrink:0;transition:all 0.15s}
+.toc-sidebar a .toc-label{opacity:0;transition:opacity 0.2s}
+.toc-sidebar:hover a .toc-label{opacity:1}
+.toc-sidebar a:hover{background:rgba(243,124,51,0.15);color:#fff}
+.toc-sidebar a:hover .toc-num{background:rgba(243,124,51,0.3);color:#F37C33}
+.toc-sidebar a.active{background:rgba(201,168,76,0.15);color:#C9A84C}
+.toc-sidebar a.active .toc-num{background:#C9A84C;color:#0A0A0C}
 
 /* Circular gauge */
 .gauge-ring{position:relative;width:90px;height:90px;display:inline-block}
@@ -188,23 +199,24 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 .sf-gauge{height:10px;border-radius:5px;background:linear-gradient(90deg,#16A34A 0%,#16A34A 33%,#3B82F6 33%,#3B82F6 60%,#EF4444 60%,#EF4444 100%);position:relative;margin:8px 0}
 .sf-gauge-marker{position:absolute;top:-4px;width:4px;height:18px;background:#1E293B;border-radius:2px;transform:translateX(-50%)}
 
-@media (max-width:1200px){.toc-sidebar{display:none}}
+@media (max-width:1000px){.toc-sidebar{display:none}}
 </style></head><body>
 
-<!-- TOC Sidebar -->
+<!-- TOC Sidebar — McKinsey nav strip (collapsed = icons only, hover = expand with labels) -->
 <nav class="toc-sidebar no-print" id="tocNav">
+  <div class="toc-icon"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>
   <div class="toc-title">Contents</div>
-  <a href="#sec-E" onclick="document.getElementById('sec-E').scrollIntoView({behavior:'smooth'});return false">Executive Summary</a>
-  <a href="#sec-R" onclick="document.getElementById('sec-R').scrollIntoView({behavior:'smooth'});return false">Research Gate</a>
-  <a href="#sec-1" onclick="document.getElementById('sec-1').scrollIntoView({behavior:'smooth'});return false">Property Overview</a>
-  <a href="#sec-2" onclick="document.getElementById('sec-2').scrollIntoView({behavior:'smooth'});return false">Zoning</a>
-  <a href="#sec-3" onclick="document.getElementById('sec-3').scrollIntoView({behavior:'smooth'});return false">Utilities & Water</a>
-  <a href="#sec-4" onclick="document.getElementById('sec-4').scrollIntoView({behavior:'smooth'});return false">Topography</a>
-  <a href="#sec-5" onclick="document.getElementById('sec-5').scrollIntoView({behavior:'smooth'});return false">Site Access</a>
-  <a href="#sec-6" onclick="document.getElementById('sec-6').scrollIntoView({behavior:'smooth'});return false">Demographics</a>
-  <a href="#sec-7" onclick="document.getElementById('sec-7').scrollIntoView({behavior:'smooth'});return false">Competition</a>
-  <a href="#sec-8" onclick="document.getElementById('sec-8').scrollIntoView({behavior:'smooth'});return false">Site Sizing</a>
-  <a href="#sec-S" onclick="document.getElementById('sec-S').scrollIntoView({behavior:'smooth'});return false">SiteScore</a>
+  <a href="#sec-E" onclick="document.getElementById('sec-E').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">E</span><span class="toc-label">Executive Summary</span></a>
+  <a href="#sec-R" onclick="document.getElementById('sec-R').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">R</span><span class="toc-label">Research Gate</span></a>
+  <a href="#sec-1" onclick="document.getElementById('sec-1').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">1</span><span class="toc-label">Property</span></a>
+  <a href="#sec-2" onclick="document.getElementById('sec-2').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">2</span><span class="toc-label">Zoning</span></a>
+  <a href="#sec-3" onclick="document.getElementById('sec-3').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">3</span><span class="toc-label">Water</span></a>
+  <a href="#sec-4" onclick="document.getElementById('sec-4').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">4</span><span class="toc-label">Topography</span></a>
+  <a href="#sec-5" onclick="document.getElementById('sec-5').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">5</span><span class="toc-label">Access</span></a>
+  <a href="#sec-6" onclick="document.getElementById('sec-6').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">6</span><span class="toc-label">Demographics</span></a>
+  <a href="#sec-7" onclick="document.getElementById('sec-7').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">7</span><span class="toc-label">Competition</span></a>
+  <a href="#sec-8" onclick="document.getElementById('sec-8').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">8</span><span class="toc-label">Sizing</span></a>
+  <a href="#sec-S" onclick="document.getElementById('sec-S').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">S</span><span class="toc-label">SiteScore</span></a>
 </nav>
 
 <!-- Quick Actions -->
@@ -972,22 +984,25 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 </div>
 
 <script>
-// TOC active section highlighting
 (function(){
-  var toc = document.getElementById('tocNav');
-  if (!toc) return;
-  var links = toc.querySelectorAll('a');
-  var observer = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){
-      if(e.isIntersecting){
-        links.forEach(function(l){l.classList.remove('active')});
-        var id = e.target.id;
-        var active = toc.querySelector('a[href="#'+id+'"]');
-        if(active) active.classList.add('active');
-      }
+  var links = document.querySelectorAll('#tocNav a');
+  var sections = [];
+  links.forEach(function(a){
+    var id = a.getAttribute('href').replace('#','');
+    var el = document.getElementById(id);
+    if(el) sections.push({el:el, link:a});
+  });
+  function onScroll(){
+    var scrollPos = window.scrollY + 120;
+    var active = null;
+    sections.forEach(function(s){
+      if(s.el.offsetTop <= scrollPos) active = s;
     });
-  },{rootMargin:'-20% 0px -70% 0px'});
-  document.querySelectorAll('.report-section[id]').forEach(function(s){observer.observe(s)});
+    links.forEach(function(a){ a.classList.remove('active'); });
+    if(active) active.link.classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll);
+  onScroll();
 })();
 </script>
 </body></html>`;
@@ -1146,7 +1161,25 @@ tr:hover td{background:rgba(201,168,76,0.04)}
 .nav-dot{width:6px;height:6px;border-radius:50%;background:#C9A84C;display:inline-block;margin:0 3px;opacity:0.3}
 .nav-dot.active{opacity:1;box-shadow:0 0 6px rgba(201,168,76,0.4)}
 
-@media print{body{background:#fff;color:#1a1a2e}.section{border:1px solid #e5e7eb;box-shadow:none;background:#fff}.gold{color:#92700C}.muted{color:#64748B}th{background:#f8f9fa;color:#1a1a2e}td{color:#1a1a2e}.expand-panel{max-height:none!important;opacity:1!important;padding:20px!important}.mi-panel{max-height:none!important;opacity:1!important;margin-top:12px!important}.mi::after{display:none}.mi-hint{display:none}}
+/* TOC sidebar — McKinsey nav strip */
+.toc-sidebar{position:fixed;left:0;top:50%;transform:translateY(-50%);width:52px;background:linear-gradient(180deg,#0A0A0C,#1E2761 40%,#2C3E6B);border-radius:0 14px 14px 0;box-shadow:4px 0 30px rgba(0,0,0,0.15);padding:14px 6px;z-index:999;transition:width 0.3s cubic-bezier(0.4,0,0.2,1);overflow:hidden}
+.toc-sidebar:hover{width:210px;padding:14px 12px}
+.toc-sidebar .toc-title{font-size:8px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:12px;padding:0 4px;white-space:nowrap;opacity:0;transition:opacity 0.2s}
+.toc-sidebar:hover .toc-title{opacity:1}
+.toc-sidebar .toc-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;margin:0 auto 8px;border-radius:8px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3)}
+.toc-sidebar:hover .toc-icon{display:none}
+.toc-sidebar .toc-icon svg{width:16px;height:16px;fill:#C9A84C}
+.toc-sidebar a{display:flex;align-items:center;gap:10px;padding:6px 8px;font-size:11px;color:rgba(255,255,255,0.5);text-decoration:none;border-radius:8px;font-weight:600;transition:all 0.15s ease;line-height:1.3;margin-bottom:2px;white-space:nowrap;overflow:hidden}
+.toc-sidebar a .toc-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;font-family:'Space Mono',monospace;flex-shrink:0;transition:all 0.15s}
+.toc-sidebar a .toc-label{opacity:0;transition:opacity 0.2s}
+.toc-sidebar:hover a .toc-label{opacity:1}
+.toc-sidebar a:hover{background:rgba(243,124,51,0.15);color:#fff}
+.toc-sidebar a:hover .toc-num{background:rgba(243,124,51,0.3);color:#F37C33}
+.toc-sidebar a.active{background:rgba(201,168,76,0.15);color:#C9A84C}
+.toc-sidebar a.active .toc-num{background:#C9A84C;color:#0A0A0C}
+@media (max-width:1000px){.toc-sidebar{display:none}}
+
+@media print{body{background:#fff;color:#1a1a2e}.section{border:1px solid #e5e7eb;box-shadow:none;background:#fff}.gold{color:#92700C}.muted{color:#64748B}th{background:#f8f9fa;color:#1a1a2e}td{color:#1a1a2e}.expand-panel{max-height:none!important;opacity:1!important;padding:20px!important}.mi-panel{max-height:none!important;opacity:1!important;margin-top:12px!important}.mi::after{display:none}.mi-hint{display:none}.toc-sidebar{display:none!important}}
 </style>
 <script>
 function toggleExpand(id){
@@ -1182,7 +1215,32 @@ function updateCustomCap(val){
   if(sf>0){document.getElementById('cc-persf').textContent='$'+Math.round(v/sf);}
 }
 </script>
-</head><body><div class="page">
+</head><body>
+
+<!-- TOC Sidebar — McKinsey nav strip -->
+<nav class="toc-sidebar" id="tocNav" style="display:none">
+  <div class="toc-icon"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>
+  <div class="toc-title">Contents</div>
+  <a href="#sec-P1" onclick="document.getElementById('sec-P1').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">1</span><span class="toc-label">Executive Summary</span></a>
+  <a href="#sec-P2" onclick="document.getElementById('sec-P2').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">2</span><span class="toc-label">Timeline</span></a>
+  <a href="#sec-P3" onclick="document.getElementById('sec-P3').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">3</span><span class="toc-label">PS Advantage</span></a>
+  <a href="#sec-P4" onclick="document.getElementById('sec-P4').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">4</span><span class="toc-label">Facility Program</span></a>
+  <a href="#sec-P5" onclick="document.getElementById('sec-P5').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">5</span><span class="toc-label">Unit Mix</span></a>
+  <a href="#sec-P6" onclick="document.getElementById('sec-P6').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">6</span><span class="toc-label">Market Rates</span></a>
+  <a href="#sec-P7" onclick="document.getElementById('sec-P7').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">7</span><span class="toc-label">Revenue Model</span></a>
+  <a href="#sec-P8" onclick="document.getElementById('sec-P8').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">8</span><span class="toc-label">Dev Costs</span></a>
+  <a href="#sec-P9" onclick="document.getElementById('sec-P9').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">9</span><span class="toc-label">Valuation</span></a>
+  <a href="#sec-P10" onclick="document.getElementById('sec-P10').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">10</span><span class="toc-label">Land Price Guide</span></a>
+  <a href="#sec-P11" onclick="document.getElementById('sec-P11').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">11</span><span class="toc-label">OpEx Detail</span></a>
+  <a href="#sec-P12" onclick="document.getElementById('sec-P12').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">12</span><span class="toc-label">Capital Stack</span></a>
+  <a href="#sec-P13" onclick="document.getElementById('sec-P13').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">13</span><span class="toc-label">Rate Audit</span></a>
+  <a href="#sec-P14" onclick="document.getElementById('sec-P14').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">14</span><span class="toc-label">Institutional</span></a>
+  <a href="#sec-P15" onclick="document.getElementById('sec-P15').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">15</span><span class="toc-label">REIT Bench</span></a>
+  <a href="#sec-P16" onclick="document.getElementById('sec-P16').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">16</span><span class="toc-label">Supply/Demand</span></a>
+  <a href="#sec-P17" onclick="document.getElementById('sec-P17').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">17</span><span class="toc-label">Replacement Cost</span></a>
+</nav>
+
+<div class="page">
 
 <!-- HEADER v4.0 -->
 <div class="header-v4" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding:24px 28px;border-radius:16px;background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.5));border:1px solid rgba(201,168,76,0.2)">
@@ -1208,7 +1266,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- EXECUTIVE SUMMARY v4.0 -->
-<div class="section section-gold expand-trigger" onclick="toggleExpand('exec')" style="background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6))">
+<div id="sec-P1" class="section section-gold expand-trigger" onclick="toggleExpand('exec')" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6))">
   <span class="expand-hint">▼ Click to expand <span id="exec-arrow" class="expand-arrow">▼</span></span>
   <h2 class="gold">Executive Summary</h2>
   <div class="grid4" style="margin-bottom:20px">
@@ -1382,7 +1440,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- DEVELOPMENT TIMELINE -->
-<div class="section expand-trigger" onclick="toggleExpand('timeline')">
+<div id="sec-P2" class="section expand-trigger" onclick="toggleExpand('timeline')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="timeline-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Development Timeline</span></h2>
   <div style="font-size:11px;color:#6B7394;margin-bottom:16px">Capital-at-risk timeline from acquisition through stabilized operations</div>
@@ -1448,7 +1506,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- PS vs INDUSTRY BENCHMARK -->
-<div class="section">
+<div id="sec-P3" class="section" style="scroll-margin-top:20px">
   <h2><span class="gold">PS Operating Advantage</span> <span style="font-size:11px;font-weight:400;color:#6B7394">vs. Industry</span></h2>
   <div style="font-size:11px;color:#6B7394;margin-bottom:16px">Why PS's operating platform produces superior returns on the same physical asset</div>
   <table style="width:100%;border-collapse:collapse">
@@ -1532,7 +1590,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- FACILITY PROGRAM v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('facility')">
+<div id="sec-P4" class="section expand-trigger" onclick="toggleExpand('facility')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="facility-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Facility Program</span></h2>
   <div class="grid4" style="margin-bottom:20px">
@@ -1664,7 +1722,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- UNIT MIX v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('unitmix')">
+<div id="sec-P5" class="section expand-trigger" onclick="toggleExpand('unitmix')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="unitmix-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Unit Mix & Stabilized Pricing</span></h2>
   <table>
@@ -1739,7 +1797,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- MARKET RATE INTELLIGENCE v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('rates')">
+<div id="sec-P6" class="section expand-trigger" onclick="toggleExpand('rates')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="rates-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Market Rate Intelligence</span></h2>
   <div class="grid2" style="margin-bottom:20px">
@@ -1861,7 +1919,7 @@ function updateCustomCap(val){
 <div class="divider"></div>
 
 <!-- 5-YEAR LEASE-UP MODEL v4.0 -->
-<div class="section section-gold expand-trigger" onclick="toggleExpand('leaseup')">
+<div id="sec-P7" class="section section-gold expand-trigger" onclick="toggleExpand('leaseup')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="leaseup-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">5-Year Lease-Up Revenue Model</span></h2>
   <div style="font-size:12px;color:#94A3B8;margin-bottom:20px">PS lease-up strategy: aggressive discounting in Y1 to fill units, gradual ECRI (Existing Customer Rate Increases) through Y3-Y5 to push above street rates.</div>
@@ -1962,7 +2020,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- DEVELOPMENT COST STACK v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('devcost')">
+<div id="sec-P8" class="section expand-trigger" onclick="toggleExpand('devcost')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="devcost-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Development Cost Stack</span></h2>
   <div class="grid2">
@@ -2123,7 +2181,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- VALUATION SCENARIOS v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('valuation')">
+<div id="sec-P9" class="section expand-trigger" onclick="toggleExpand('valuation')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="valuation-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Stabilized Valuation Scenarios</span></h2>
   <div style="font-size:12px;color:#94A3B8;margin-bottom:16px">Based on Year 5 stabilized NOI of <span class="mono gold" style="font-weight:700">${fmtD(stabNOI)}</span></div>
@@ -2230,7 +2288,7 @@ function updateCustomCap(val){
 <div class="divider"></div>
 
 <!-- LAND PRICE SUGGESTION v4.0 -->
-<div class="section section-gold expand-trigger" onclick="toggleExpand('landprice')" style="background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6));border-color:rgba(201,168,76,0.3);box-shadow:0 4px 30px rgba(201,168,76,0.12)">
+<div id="sec-P10" class="section section-gold expand-trigger" onclick="toggleExpand('landprice')" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6));border-color:rgba(201,168,76,0.3);box-shadow:0 4px 30px rgba(201,168,76,0.12)">
   <span class="expand-hint">▼ Click to expand <span id="landprice-arrow" class="expand-arrow">▼</span></span>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
     <div>
@@ -2381,7 +2439,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- DETAILED OPEX BREAKDOWN v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('opexdetail')">
+<div id="sec-P11" class="section expand-trigger" onclick="toggleExpand('opexdetail')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="opexdetail-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Stabilized Operating Expense Detail</span></h2>
   <div style="font-size:12px;color:#94A3B8;margin-bottom:16px">Line-item OpEx at Year 5 stabilization — <span class="mono" style="font-weight:700;color:${parseFloat(opexRatioDetail) <= 38 ? "#16A34A" : "#F59E0B"}">${opexRatioDetail}% OpEx ratio</span> (industry benchmark: 35-42%)</div>
@@ -2460,7 +2518,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- CAPITAL STACK & DEBT SERVICE v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('debtservice')">
+<div id="sec-P12" class="section expand-trigger" onclick="toggleExpand('debtservice')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="debtservice-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Capital Stack & Debt Service</span></h2>
   <div class="grid4" style="margin-bottom:20px">
@@ -2615,7 +2673,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- RATE CROSS-VALIDATION (AUDIT TRAIL) v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('rateval')">
+<div id="sec-P13" class="section expand-trigger" onclick="toggleExpand('rateval')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="rateval-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Rate Cross-Validation & Audit Trail</span></h2>
   <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px">
@@ -2739,7 +2797,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- INSTITUTIONAL PERFORMANCE METRICS v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('instmetrics')">
+<div id="sec-P14" class="section expand-trigger" onclick="toggleExpand('instmetrics')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="instmetrics-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Institutional Performance Metrics</span></h2>
   <div style="font-size:11px;color:#94A3B8;margin-bottom:16px">Industry-standard KPIs used by institutional storage operators (PSA, EXR, CUBE, NSA) in underwriting and portfolio management</div>
@@ -2896,7 +2954,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- REIT PORTFOLIO BENCHMARKING v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('reitbench')">
+<div id="sec-P15" class="section expand-trigger" onclick="toggleExpand('reitbench')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="reitbench-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">REIT Portfolio Benchmarking</span></h2>
   <div class="mi" onclick="toggleMI('rbbench',event)" style="font-size:11px;color:#94A3B8;margin-bottom:16px;cursor:pointer">How this site's projected metrics compare to publicly traded storage REIT portfolios <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></div>
@@ -2980,7 +3038,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- SUPPLY/DEMAND EQUILIBRIUM v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('supdem')">
+<div id="sec-P16" class="section expand-trigger" onclick="toggleExpand('supdem')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="supdem-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Supply / Demand Equilibrium Analysis</span></h2>
   <div class="grid3" style="margin-bottom:16px">
@@ -3065,7 +3123,7 @@ function updateCustomCap(val){
 </div>
 
 <!-- REPLACEMENT COST ANALYSIS v4.0 -->
-<div class="section expand-trigger" onclick="toggleExpand('replacement')">
+<div id="sec-P17" class="section expand-trigger" onclick="toggleExpand('replacement')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="replacement-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Replacement Cost Analysis — Build vs. Acquire</span></h2>
   <div class="grid3" style="margin-bottom:16px">
@@ -3341,7 +3399,32 @@ function updateCustomCap(val){
   </div>
 </div>
 
-</div></body></html>`;
+</div>
+<script>
+(function(){
+  var nav=document.getElementById('tocNav');
+  if(nav) nav.style.display='';
+  var links = document.querySelectorAll('#tocNav a');
+  var sections = [];
+  links.forEach(function(a){
+    var id = a.getAttribute('href').replace('#','');
+    var el = document.getElementById(id);
+    if(el) sections.push({el:el, link:a});
+  });
+  function onScroll(){
+    var scrollPos = window.scrollY + 120;
+    var active = null;
+    sections.forEach(function(s){
+      if(s.el.offsetTop <= scrollPos) active = s;
+    });
+    links.forEach(function(a){ a.classList.remove('active'); });
+    if(active) active.link.classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll);
+  onScroll();
+})();
+</script>
+</body></html>`;
   } catch (err) {
     console.error("Report generation error:", err);
     return `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;padding:40px;background:#0A0E2A;color:#fff;text-align:center"><h1 style="color:#C9A84C">Report Generation Error</h1><p style="color:#94A3B8">${escapeHtml(err.message)}</p><p style="color:#64748B;font-size:12px">Check the browser console for details. Try refreshing the site data.</p></body></html>`;
@@ -3498,7 +3581,25 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 .mi-row:last-child{border-bottom:none}
 .mi-row-label{color:#64748B;font-weight:600}
 .mi-row-val{color:#1E293B;font-weight:700;font-family:'Space Mono',monospace}
-@media print{body{background:#fff}.print-btn{display:none!important}.page{box-shadow:none}.mi-panel{max-height:none!important;opacity:1!important;margin-top:12px!important}.mi-hint{display:none}@page{margin:0.5in;size:letter}}
+/* TOC sidebar — McKinsey nav strip */
+.toc-sidebar{position:fixed;left:0;top:50%;transform:translateY(-50%);width:52px;background:linear-gradient(180deg,#0A0A0C,#1E2761 40%,#2C3E6B);border-radius:0 14px 14px 0;box-shadow:4px 0 30px rgba(0,0,0,0.15);padding:14px 6px;z-index:999;transition:width 0.3s cubic-bezier(0.4,0,0.2,1);overflow:hidden}
+.toc-sidebar:hover{width:210px;padding:14px 12px}
+.toc-sidebar .toc-title{font-size:8px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:12px;padding:0 4px;white-space:nowrap;opacity:0;transition:opacity 0.2s}
+.toc-sidebar:hover .toc-title{opacity:1}
+.toc-sidebar .toc-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;margin:0 auto 8px;border-radius:8px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3)}
+.toc-sidebar:hover .toc-icon{display:none}
+.toc-sidebar .toc-icon svg{width:16px;height:16px;fill:#C9A84C}
+.toc-sidebar a{display:flex;align-items:center;gap:10px;padding:6px 8px;font-size:11px;color:rgba(255,255,255,0.5);text-decoration:none;border-radius:8px;font-weight:600;transition:all 0.15s ease;line-height:1.3;margin-bottom:2px;white-space:nowrap;overflow:hidden}
+.toc-sidebar a .toc-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;font-family:'Space Mono',monospace;flex-shrink:0;transition:all 0.15s}
+.toc-sidebar a .toc-label{opacity:0;transition:opacity 0.2s}
+.toc-sidebar:hover a .toc-label{opacity:1}
+.toc-sidebar a:hover{background:rgba(243,124,51,0.15);color:#fff}
+.toc-sidebar a:hover .toc-num{background:rgba(243,124,51,0.3);color:#F37C33}
+.toc-sidebar a.active{background:rgba(201,168,76,0.15);color:#C9A84C}
+.toc-sidebar a.active .toc-num{background:#C9A84C;color:#0A0A0C}
+@media (max-width:1000px){.toc-sidebar{display:none}}
+
+@media print{body{background:#fff}.print-btn{display:none!important}.page{box-shadow:none}.mi-panel{max-height:none!important;opacity:1!important;margin-top:12px!important}.mi-hint{display:none}.toc-sidebar{display:none!important}@page{margin:0.5in;size:letter}}
 </style>
 <script>
 function toggleMI(id,evt){
@@ -3510,6 +3611,23 @@ function toggleMI(id,evt){
 }
 </script>
 </head><body>
+
+<!-- TOC Sidebar — McKinsey nav strip -->
+<nav class="toc-sidebar" id="tocNav" style="display:none">
+  <div class="toc-icon"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>
+  <div class="toc-title">REC Package</div>
+  <a href="#sec-R1" onclick="document.getElementById('sec-R1').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">1</span><span class="toc-label">Recommendation</span></a>
+  <a href="#sec-R2" onclick="document.getElementById('sec-R2').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">2</span><span class="toc-label">SiteScore</span></a>
+  <a href="#sec-R3" onclick="document.getElementById('sec-R3').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">3</span><span class="toc-label">Demographics</span></a>
+  <a href="#sec-R4" onclick="document.getElementById('sec-R4').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">4</span><span class="toc-label">Competition</span></a>
+  <a href="#sec-R5" onclick="document.getElementById('sec-R5').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">5</span><span class="toc-label">Zoning</span></a>
+  <a href="#sec-R6" onclick="document.getElementById('sec-R6').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">6</span><span class="toc-label">Utilities</span></a>
+  <a href="#sec-R7" onclick="document.getElementById('sec-R7').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">7</span><span class="toc-label">Site Access</span></a>
+  <a href="#sec-R8" onclick="document.getElementById('sec-R8').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">8</span><span class="toc-label">Financials</span></a>
+  <a href="#sec-R9" onclick="document.getElementById('sec-R9').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">9</span><span class="toc-label">Institutional</span></a>
+  <a href="#sec-R10" onclick="document.getElementById('sec-R10').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">10</span><span class="toc-label">Risk</span></a>
+</nav>
+
 <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
 <div class="page">
 
@@ -3556,7 +3674,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 1: RECOMMENDATION ═══════════════ -->
-<div class="section" style="background:${recColor}08;border-left:4px solid ${recColor}">
+<div id="sec-R1" class="section" style="scroll-margin-top:20px;background:${recColor}08;border-left:4px solid ${recColor}">
   <h2><span class="sec-num">1</span> Storvex Recommendation</h2>
   <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
     <span style="font-size:28px">${recIcon}</span>
@@ -3617,7 +3735,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 2: SITESCORE BREAKDOWN ═══════════════ -->
-<div class="section">
+<div id="sec-R2" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">2</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(1) : "—"}/10</h2>
   <table>
     <thead><tr><th>Dimension</th><th>Score (0–10)</th><th>Weight</th><th>Weighted</th></tr></thead>
@@ -3630,7 +3748,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 3: MARKET DEMOGRAPHICS ═══════════════ -->
-<div class="section">
+<div id="sec-R3" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">3</span> Market Demographics</h2>
   <div class="grid4" style="margin-bottom:16px">
     <div class="metric mi" onclick="toggleMI('dem-pop',event)"><div class="label">3-Mi Population</div><div class="value">${!isNaN(popN) ? fmtN2(popN) : "—"}</div><em class="mi-hint">i</em>
@@ -3734,7 +3852,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 4: COMPETITION LANDSCAPE ═══════════════ -->
-<div class="section">
+<div id="sec-R4" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">4</span> Competition Landscape</h2>
   <div class="grid3" style="margin-bottom:16px">
     <div class="metric mi" onclick="toggleMI('comp-count',event)"><div class="label">Competitors (3-Mi)</div><div class="value" style="color:${compCount <= 2 ? '#16A34A' : compCount <= 5 ? '#F59E0B' : '#EF4444'}">${compCount}</div><em class="mi-hint">i</em>
@@ -3804,7 +3922,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 5: ZONING & ENTITLEMENTS ═══════════════ -->
-<div class="section">
+<div id="sec-R5" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">5</span> Zoning & Entitlements</h2>
   <div style="display:flex;gap:16px;margin-bottom:16px">
     <div style="flex:1" class="metric mi" onclick="toggleMI('zon-district',event)">
@@ -3859,7 +3977,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 6: UTILITIES & INFRASTRUCTURE ═══════════════ -->
-<div class="section">
+<div id="sec-R6" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">6</span> Utilities & Infrastructure</h2>
   <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center">
     <div class="metric mi" style="flex:0 0 120px" onclick="toggleMI('util-grade',event)">
@@ -3906,7 +4024,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 7: SITE CHARACTERISTICS ═══════════════ -->
-<div class="section">
+<div id="sec-R7" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">7</span> Site Characteristics & Access</h2>
   <div class="grid3" style="margin-bottom:16px">
     <div class="metric mi" onclick="toggleMI('site-acreage',event)"><div class="label">Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "—"}</div><div class="sub">${isMultiStory ? "Multi-Story (3-4)" : "Single-Story"}</div><em class="mi-hint">i</em>
@@ -3969,7 +4087,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 8: FINANCIAL ANALYSIS ═══════════════ -->
-<div class="section" style="background:#FAFBFC">
+<div id="sec-R8" class="section" style="scroll-margin-top:20px;background:#FAFBFC">
   <h2><span class="sec-num">8</span> Financial Analysis</h2>
 
   <!-- Development Cost -->
@@ -4098,7 +4216,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 9: INSTITUTIONAL METRICS & REIT BENCHMARKING ═══════════════ -->
-<div class="section">
+<div id="sec-R9" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">9</span> Institutional Performance Metrics</h2>
   <div class="grid4" style="margin-bottom:16px">
     <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('inst-revpaf',event)"><div class="label">RevPAF</div><div class="value" style="font-size:18px;color:#1E2761">$${revPAF}</div><div class="sub">/available SF/yr</div><em class="mi-hint">i</em>
@@ -4387,7 +4505,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- ═══════════════ SECTION 10: RISK ASSESSMENT ═══════════════ -->
-<div class="section">
+<div id="sec-R10" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">10</span> Risk Assessment</h2>
   ${risks.length > 0 ? risks.map(r => `<div class="risk-row" style="background:${r.color}08;border:1px solid ${r.color}20">
     <span class="pill" style="background:${r.color}18;color:${r.color};min-width:60px;text-align:center">${r.level}</span>
@@ -4439,7 +4557,32 @@ ${site.summary ? `<div class="section">
   </div>
 </div>
 
-</div></body></html>`;
+</div>
+<script>
+(function(){
+  var nav=document.getElementById('tocNav');
+  if(nav) nav.style.display='';
+  var links = document.querySelectorAll('#tocNav a');
+  var sections = [];
+  links.forEach(function(a){
+    var id = a.getAttribute('href').replace('#','');
+    var el = document.getElementById(id);
+    if(el) sections.push({el:el, link:a});
+  });
+  function onScroll(){
+    var scrollPos = window.scrollY + 120;
+    var active = null;
+    sections.forEach(function(s){
+      if(s.el.offsetTop <= scrollPos) active = s;
+    });
+    links.forEach(function(a){ a.classList.remove('active'); });
+    if(active) active.link.classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll);
+  onScroll();
+})();
+</script>
+</body></html>`;
   } catch (err) {
     console.error("Report generation error:", err);
     return `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;padding:40px;background:#0A0E2A;color:#fff;text-align:center"><h1 style="color:#C9A84C">Report Generation Error</h1><p style="color:#94A3B8">${escapeHtml(err.message)}</p><p style="color:#64748B;font-size:12px">Check the browser console for details. Try refreshing the site data.</p></body></html>`;
