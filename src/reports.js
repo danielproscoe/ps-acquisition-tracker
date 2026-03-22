@@ -3387,7 +3387,7 @@ function toggleMI(id,evt){
         <div class="mi-header"><div class="mi-title">Competitive Density</div><div class="mi-conf ${compCount <= 2 ? "mi-conf-high" : compCount <= 5 ? "mi-conf-med" : "mi-conf-low"}">${compCount <= 1 ? "Low Competition" : compCount <= 3 ? "Moderate" : "High Competition"}</div></div>
         <div class="mi-body">
           <strong>Total self-storage facilities within a 3-mile radius. Fewer competitors = stronger pricing power and faster lease-up.</strong>
-          <div class="mi-formula">SiteScore Weight: 7% of composite<br>Score: ${compCount <= 1 ? "10/10 (0-1 competitors)" : compCount <= 3 ? "6/10 (2-3 competitors)" : "3/10 (4+ competitors)"}</div>
+          <div class="mi-formula">SiteScore Weight: 7% of composite<br>Score: ${compCount === 0 ? "10/10 (0 competitors)" : compCount === 1 ? "9/10 (1 competitor)" : compCount === 2 ? "7/10 (2 competitors)" : compCount === 3 ? "6/10 (3 competitors)" : compCount <= 5 ? "4/10 (4-5 competitors)" : compCount <= 8 ? "3/10 (6-8 competitors)" : "2/10 (9+ competitors)"}</div>
           <div class="mi-row"><span class="mi-row-label">Competitor Count</span><span class="mi-row-val">${compCount} facilities</span></div>
           <div class="mi-row"><span class="mi-row-label">Est. Competing SF</span><span class="mi-row-val">${site.competingSF || "—"}</span></div>
           ${sfPerCapita ? `<div class="mi-row"><span class="mi-row-label">SF/Capita (3-Mi)</span><span class="mi-row-val" style="color:${demandColor}">${sfPerCapita} (${demandSignal})</span></div>` : ""}

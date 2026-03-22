@@ -439,25 +439,33 @@ describe('Zoning scoring', () => {
 
 // ─── 9. COMPETITION SCORING ───
 
-describe('Competition scoring via siteiqData.competitorCount', () => {
+describe('Competition scoring via siteiqData.competitorCount (6-tier scale)', () => {
   test('0 competitors scores 10', () => {
     expect(score({ siteiqData: { competitorCount: 0 } }).scores.competition).toBe(10);
   });
 
-  test('1 competitor scores 10', () => {
-    expect(score({ siteiqData: { competitorCount: 1 } }).scores.competition).toBe(10);
+  test('1 competitor scores 9', () => {
+    expect(score({ siteiqData: { competitorCount: 1 } }).scores.competition).toBe(9);
   });
 
-  test('2 competitors scores 6', () => {
-    expect(score({ siteiqData: { competitorCount: 2 } }).scores.competition).toBe(6);
+  test('2 competitors scores 7', () => {
+    expect(score({ siteiqData: { competitorCount: 2 } }).scores.competition).toBe(7);
   });
 
   test('3 competitors scores 6', () => {
     expect(score({ siteiqData: { competitorCount: 3 } }).scores.competition).toBe(6);
   });
 
-  test('4+ competitors scores 3', () => {
-    expect(score({ siteiqData: { competitorCount: 5 } }).scores.competition).toBe(3);
+  test('4-5 competitors scores 4', () => {
+    expect(score({ siteiqData: { competitorCount: 5 } }).scores.competition).toBe(4);
+  });
+
+  test('6-8 competitors scores 3', () => {
+    expect(score({ siteiqData: { competitorCount: 7 } }).scores.competition).toBe(3);
+  });
+
+  test('9+ competitors scores 2', () => {
+    expect(score({ siteiqData: { competitorCount: 10 } }).scores.competition).toBe(2);
   });
 
   test('missing competitorCount falls back to summary regex', () => {

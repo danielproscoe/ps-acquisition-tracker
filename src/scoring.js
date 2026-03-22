@@ -171,13 +171,17 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) accessScore = Math.min(10, accessScore + 2);
   scores.access = Math.min(10, Math.max(0, accessScore));
 
-  // --- 6. COMPETITION (5%) ---
+  // --- 6. COMPETITION (7%) — more granular 6-tier scale ---
   let compScore = 6;
   const compCount = site.siteiqData?.competitorCount;
   if (compCount !== undefined && compCount !== null) {
-    if (compCount <= 1) compScore = 10;
-    else if (compCount <= 3) compScore = 6;
-    else compScore = 3;
+    if (compCount === 0) compScore = 10;
+    else if (compCount === 1) compScore = 9;
+    else if (compCount === 2) compScore = 7;
+    else if (compCount === 3) compScore = 6;
+    else if (compCount <= 5) compScore = 4;
+    else if (compCount <= 8) compScore = 3;
+    else compScore = 2;
   } else {
     if (/no\s*(?:nearby|existing)\s*(?:storage|competition|competitor)/i.test(summary) || /low\s*competition/i.test(summary)) compScore = 9;
     else if (/storage\s*(?:next\s*door|adjacent|nearby)/i.test(summary) || /high\s*competition/i.test(summary) || /saturated/i.test(summary)) compScore = 3;
@@ -300,7 +304,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const zoningExplain = zClass && zClass !== "unknown" ? `Classification: ${zClass} → ${zClass === "by-right" ? "10" : zClass === "conditional" ? "6" : zClass === "rezone-required" ? "2" : "0"}` : (zoningScore === 5 ? "Unverified — capped at 5" : `Regex-matched: score ${zoningScore}`);
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
-  const compExplain = compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount <= 1 ? "0-1 = 10" : compCount <= 3 ? "2-3 = 6" : "4+ = 3"}` : "Keyword-based estimate";
+  const compExplain = compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount === 0 ? "0 = 10" : compCount === 1 ? "1 = 9" : compCount === 2 ? "2 = 7" : compCount === 3 ? "3 = 6" : compCount <= 5 ? "4-5 = 4" : compCount <= 8 ? "6-8 = 3" : "9+ = 2"}` : "Keyword-based estimate";
   const tierExplain = tier ? `Tier ${tier} market → ${tier === 1 ? "10" : tier === 2 ? "8" : tier === 3 ? "6" : "4"}` : "Market keyword match";
 
   const breakdown = [
