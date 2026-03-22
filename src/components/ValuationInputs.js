@@ -293,8 +293,12 @@ const rawToDisplay = (input, raw) => {
 };
 
 // ═══ MAIN COMPONENT ═══
-export default function ValuationInputs({ overrides, onSave, fbSet }) {
+// activeSite: the currently-viewed site object (null = no site selected)
+// activeRegion: "southwest" or "east" (Firebase path for the site)
+export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, activeRegion }) {
   const [localOverrides, setLocalOverrides] = useState(overrides || {});
+  const [siteOverrides, setSiteOverrides] = useState({});
+  const [scope, setScope] = useState('global'); // 'global' | 'site'
   const [editingKey, setEditingKey] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [expandedSection, setExpandedSection] = useState('facility');
@@ -305,11 +309,33 @@ export default function ValuationInputs({ overrides, onSave, fbSet }) {
   const voltageTimeoutRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Merged state: defaults + user overrides
-  const merged = useMemo(() => ({ ...STORVEX_DEFAULTS, ...localOverrides }), [localOverrides]);
+  // Load site-specific overrides when activeSite changes
+  useEffect(() => {
+    if (activeSite?.overrides) {
+      setSiteOverrides(activeSite.overrides);
+      setScope('site'); // Auto-switch to site mode when a site is selected
+    } else {
+      setSiteOverrides({});
+      if (activeSite) setScope('site'); // Still default to site mode
+    }
+  }, [activeSite?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Count of user overrides
-  const overrideCount = Object.keys(localOverrides).length;
+  // Active overrides based on scope
+  const activeOverrides = scope === 'site' ? siteOverrides : localOverrides;
+  const setActiveOverrides = scope === 'site' ? setSiteOverrides : setLocalOverrides;
+
+  // 3-tier merge: site overrides > global overrides > Storvex defaults
+  const merged = useMemo(() => {
+    if (scope === 'site') {
+      return { ...STORVEX_DEFAULTS, ...localOverrides, ...siteOverrides };
+    }
+    return { ...STORVEX_DEFAULTS, ...localOverrides };
+  }, [localOverrides, siteOverrides, scope]);
+
+  // Count of active overrides (for the current scope)
+  const overrideCount = Object.keys(activeOverrides).length;
+  const siteOverrideCount = Object.keys(siteOverrides).length;
+  const globalOverrideCount = Object.keys(localOverrides).length;
   const totalInputs = SECTIONS.reduce((s, sec) => s + sec.inputs.length, 0);
 
   // Search filter
@@ -345,56 +371,77 @@ export default function ValuationInputs({ overrides, onSave, fbSet }) {
     }, 300);
   }, []);
 
-  // ─── Save handler ───
+  // ─── Firebase path for current scope ───
+  const fbPath = scope === 'site' && activeSite && activeRegion
+    ? `${activeRegion}/${activeSite.id}/overrides`
+    : 'config/valuation_overrides';
+
+  // ─── Save handler (scope-aware) ───
   const handleSave = useCallback((key, rawValue) => {
-    const newOverrides = { ...localOverrides };
-    // If value matches default, remove the override
-    if (Math.abs(rawValue - STORVEX_DEFAULTS[key]) < 0.0001) {
-      delete newOverrides[key];
+    const base = scope === 'site' ? siteOverrides : localOverrides;
+    const newOverrides = { ...base };
+    // For site scope: compare against effective value (global override or default)
+    const effectiveDefault = scope === 'site'
+      ? (localOverrides[key] !== undefined ? localOverrides[key] : STORVEX_DEFAULTS[key])
+      : STORVEX_DEFAULTS[key];
+
+    if (Math.abs(rawValue - effectiveDefault) < 0.0001) {
+      delete newOverrides[key]; // Same as parent level — remove override
     } else {
       newOverrides[key] = rawValue;
     }
-    setLocalOverrides(newOverrides);
+
+    if (scope === 'site') {
+      setSiteOverrides(newOverrides);
+    } else {
+      setLocalOverrides(newOverrides);
+    }
     setChangedKeys(prev => new Set(prev).add(key));
 
-    // Persist to Firebase
+    // Persist to Firebase at the correct path
     if (fbSet) {
-      fbSet('config/valuation_overrides', Object.keys(newOverrides).length > 0 ? newOverrides : null);
+      fbSet(fbPath, Object.keys(newOverrides).length > 0 ? newOverrides : null);
     }
-    if (onSave) onSave(newOverrides);
+    if (scope === 'global' && onSave) onSave(newOverrides);
 
-    // Trigger voltage
     triggerVoltage();
-
-    // Clear changed highlight after 3s
     setTimeout(() => {
       setChangedKeys(prev => { const n = new Set(prev); n.delete(key); return n; });
     }, 3000);
-  }, [localOverrides, fbSet, onSave, triggerVoltage]);
+  }, [scope, localOverrides, siteOverrides, fbSet, fbPath, onSave, triggerVoltage]);
 
-  // ─── Revert All ───
+  // ─── Revert All (scope-aware) ───
   const handleRevertAll = useCallback(() => {
-    setLocalOverrides({});
-    if (fbSet) fbSet('config/valuation_overrides', null);
-    if (onSave) onSave({});
+    if (scope === 'site') {
+      setSiteOverrides({});
+    } else {
+      setLocalOverrides({});
+    }
+    if (fbSet) fbSet(fbPath, null);
+    if (scope === 'global' && onSave) onSave({});
     triggerVoltage();
     setChangedKeys(new Set(Object.keys(STORVEX_DEFAULTS)));
     setTimeout(() => setChangedKeys(new Set()), 3000);
-  }, [fbSet, onSave, triggerVoltage]);
+  }, [scope, fbSet, fbPath, onSave, triggerVoltage]);
 
-  // ─── Revert single input ───
+  // ─── Revert single input (scope-aware) ───
   const handleRevertOne = useCallback((key) => {
-    const newOverrides = { ...localOverrides };
+    const base = scope === 'site' ? siteOverrides : localOverrides;
+    const newOverrides = { ...base };
     delete newOverrides[key];
-    setLocalOverrides(newOverrides);
-    if (fbSet) fbSet('config/valuation_overrides', Object.keys(newOverrides).length > 0 ? newOverrides : null);
-    if (onSave) onSave(newOverrides);
+    if (scope === 'site') {
+      setSiteOverrides(newOverrides);
+    } else {
+      setLocalOverrides(newOverrides);
+    }
+    if (fbSet) fbSet(fbPath, Object.keys(newOverrides).length > 0 ? newOverrides : null);
+    if (scope === 'global' && onSave) onSave(newOverrides);
     triggerVoltage();
     setChangedKeys(prev => new Set(prev).add(key));
     setTimeout(() => {
       setChangedKeys(prev => { const n = new Set(prev); n.delete(key); return n; });
     }, 3000);
-  }, [localOverrides, fbSet, onSave, triggerVoltage]);
+  }, [scope, localOverrides, siteOverrides, fbSet, fbPath, onSave, triggerVoltage]);
 
   // ─── Keyboard handling for inline edit ───
   const handleKeyDown = useCallback((e, input) => {
@@ -483,7 +530,9 @@ export default function ValuationInputs({ overrides, onSave, fbSet }) {
   // ─── Render a single input control ───
   const renderInput = (input) => {
     const val = merged[input.key];
-    const isOverridden = input.key in localOverrides;
+    const isOverridden = input.key in activeOverrides;
+    const isSiteLevel = scope === 'site' && input.key in siteOverrides;
+    const isGlobalLevel = input.key in localOverrides && !(input.key in siteOverrides);
     const isChanged = changedKeys.has(input.key);
     const isEditing = editingKey === input.key;
     const pct = ((val - input.min) / (input.max - input.min)) * 100;
@@ -491,8 +540,8 @@ export default function ValuationInputs({ overrides, onSave, fbSet }) {
 
     return (
       <div key={input.key} style={S.inputCard(isOverridden, isChanged)}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
+        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'; e.currentTarget.style.borderColor = isOverridden ? 'rgba(232,122,46,0.4)' : 'rgba(201,168,76,0.2)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = ''; }}>
 
         {/* Label row */}
         <div style={S.inputLabel}>
@@ -616,25 +665,63 @@ export default function ValuationInputs({ overrides, onSave, fbSet }) {
           </div>
           <button style={S.revertBtn}
             onClick={overrideCount > 0 ? handleRevertAll : undefined}
-            title={overrideCount > 0 ? 'Reset all inputs to Storvex engine defaults' : 'All inputs already at defaults'}>
+            title={overrideCount > 0 ? `Reset all ${scope === 'site' ? 'site' : 'global'} overrides` : 'All inputs already at defaults'}>
             <span style={{ fontSize: 16 }}>⚡</span>
-            Revert to Storvex Inputs
+            Revert {scope === 'site' ? 'Site' : 'All'} Inputs
           </button>
         </div>
       </div>
 
+      {/* ═══ SCOPE TOGGLE ═══ */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(201,168,76,0.15)', background: 'rgba(15,21,56,0.5)' }}>
+        <button
+          onClick={() => setScope('global')}
+          style={{
+            flex: 1, padding: '12px 20px', border: 'none', cursor: 'pointer',
+            background: scope === 'global' ? 'linear-gradient(135deg, rgba(201,168,76,0.2), rgba(30,39,97,0.8))' : 'transparent',
+            color: scope === 'global' ? '#C9A84C' : '#6B7394',
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
+            borderBottom: scope === 'global' ? '2px solid #C9A84C' : '2px solid transparent',
+            transition: 'all 0.2s',
+          }}>
+          Global Defaults
+          {globalOverrideCount > 0 && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 800, background: 'rgba(201,168,76,0.15)', color: '#C9A84C' }}>{globalOverrideCount}</span>}
+        </button>
+        <button
+          onClick={() => activeSite ? setScope('site') : null}
+          style={{
+            flex: 1, padding: '12px 20px', border: 'none',
+            cursor: activeSite ? 'pointer' : 'not-allowed',
+            background: scope === 'site' ? 'linear-gradient(135deg, rgba(232,122,46,0.2), rgba(30,39,97,0.8))' : 'transparent',
+            color: scope === 'site' ? '#E87A2E' : activeSite ? '#6B7394' : '#3A3F5C',
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
+            borderBottom: scope === 'site' ? '2px solid #E87A2E' : '2px solid transparent',
+            transition: 'all 0.2s',
+            opacity: activeSite ? 1 : 0.4,
+          }}>
+          {activeSite ? (activeSite.name || activeSite.address || 'This Site') : 'No Site Selected'}
+          {siteOverrideCount > 0 && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 800, background: 'rgba(232,122,46,0.15)', color: '#E87A2E' }}>{siteOverrideCount}</span>}
+        </button>
+      </div>
+
       {/* ═══ STATUS BAR ═══ */}
       <div style={S.statusBar}>
-        <div style={S.statusItem('#E87A2E')}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E87A2E' }} />
-          {overrideCount} Overrides
+        {scope === 'site' && activeSite && (
+          <div style={S.statusItem('#E87A2E')}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E87A2E' }} />
+            Site: {activeSite.name || activeSite.address || activeSite.id}
+          </div>
+        )}
+        <div style={S.statusItem(scope === 'site' ? '#E87A2E' : '#C9A84C')}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: scope === 'site' ? '#E87A2E' : '#C9A84C' }} />
+          {overrideCount} {scope === 'site' ? 'Site' : 'Global'} Override{overrideCount !== 1 ? 's' : ''}
         </div>
         <div style={S.statusItem('#39FF14')}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#39FF14' }} />
-          {totalInputs - overrideCount} Storvex Defaults
+          {totalInputs - overrideCount} Defaults
         </div>
         <div style={S.statusItem('#6B7394')}>
-          Valuation + Pricing + REC reports update live
+          {scope === 'site' ? 'Changes apply to this site only' : 'Changes apply to all new sites'}
         </div>
         <div style={{ flex: 1 }} />
         {/* Search */}

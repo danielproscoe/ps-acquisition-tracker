@@ -344,10 +344,16 @@ export const computeSiteScore = (site, siteScoreConfig) => {
 };
 
 // ─── Financial Model — Full Development Pro Forma ───
-// Accepts optional `overrides` from ValuationInputs page (Firebase config/valuation_overrides)
-// Any key in overrides replaces the hardcoded engine default for that calculation run.
-export const computeSiteFinancials = (site, overrides = {}) => {
-  const O = (key, fallback) => overrides[key] !== undefined ? overrides[key] : fallback;
+// 3-tier override chain: Site Override > Global Override > Storvex Default
+// - siteOverrides: per-site tweaks stored at {region}/{siteId}/overrides in Firebase
+// - overrides: global defaults from config/valuation_overrides (applies to all sites)
+// - fallback: hardcoded Storvex engine default
+// Site-specific values always win. Global overrides fill gaps. Engine defaults are the floor.
+export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) => {
+  const O = (key, fallback) =>
+    siteOverrides[key] !== undefined ? siteOverrides[key] :
+    overrides[key] !== undefined ? overrides[key] :
+    fallback;
   const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s.replace(/[^0-9.]/g, "")); };
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
   const askRaw = parseP(site.askingPrice);

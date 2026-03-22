@@ -1026,7 +1026,8 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig, valuation
   try {
   const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
-  const fin = computeSiteFinancials(site, valuationOverrides || {});
+  const siteOverrides = site.overrides || {};
+  const fin = computeSiteFinancials(site, valuationOverrides || {}, siteOverrides);
   const { acres, landCost, popN, incN, hvN, growthPct, compCount, nearestPS, incTier,
     operatorProfile, operatorLabel, noiMarginBenchmark,
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
@@ -3551,7 +3552,8 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   try {
   const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
-  const fin = computeSiteFinancials(site, valuationOverrides || {});
+  const siteOverrides = site.overrides || {};
+  const fin = computeSiteFinancials(site, valuationOverrides || {}, siteOverrides);
   const { acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
     operatorProfile, operatorLabel, noiMarginBenchmark,
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,

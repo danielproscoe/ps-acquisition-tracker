@@ -3839,13 +3839,20 @@ function AppInner() {
         })()}
 
         {/* ═══ VALUATION INPUTS ═══ */}
-        {tab === "inputs" && (
-          <ValuationInputs
+        {tab === "inputs" && (() => {
+          // If a detail view is active, pass that site for per-site overrides
+          const activeSite = detailView ? (() => {
+            const allSites = detailView.regionKey === "east" ? east : sw;
+            return allSites.find(s => s.id === detailView.siteId) || null;
+          })() : null;
+          return <ValuationInputs
             overrides={valuationOverrides}
             onSave={(newOverrides) => { setValuationOverrides(newOverrides); VALUATION_OVERRIDES = newOverrides; }}
             fbSet={fbSet}
-          />
-        )}
+            activeSite={activeSite}
+            activeRegion={detailView?.regionKey || null}
+          />;
+        })()}
 
         {/* ═══ TRACKERS ═══ */}
         {(tab === "southwest" || tab === "east") && !detailView && <TrackerCards regionKey={tab} />}
