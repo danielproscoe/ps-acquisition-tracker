@@ -1004,12 +1004,12 @@ describe('computeSiteFinancials', () => {
     expect(result.climatePct).toBe(0.65);
   });
 
-  test('land price guide returns 3 tiers (min, strike, max)', () => {
+  test('land price guide returns 3 tiers (walk away, strike, home run)', () => {
     const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
     expect(result.landPrices).toHaveLength(3);
-    expect(result.landPrices[0].label).toBe('Maximum');
+    expect(result.landPrices[0].label).toBe('Walk Away');
     expect(result.landPrices[1].label).toBe('Strike Price');
-    expect(result.landPrices[2].label).toBe('Minimum');
+    expect(result.landPrices[2].label).toBe('Home Run');
   });
 
   test('IRR is a valid percentage string', () => {
