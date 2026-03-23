@@ -1238,7 +1238,7 @@ function updateCustomCap(val){
 <nav class="toc-sidebar" id="tocNav" style="display:none">
   <div class="toc-icon"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>
   <div class="toc-title">Contents</div>
-  <a href="#sec-P0" onclick="document.getElementById('sec-P0').scrollIntoView({behavior:'smooth'});return false" style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.2);margin-bottom:6px"><span class="toc-num" style="background:#C9A84C;color:#0A0A0C">&#9889;</span><span class="toc-label" style="color:#C9A84C;font-weight:800">Inputs</span></a>
+  <a href="#sec-P0" onclick="document.getElementById('sec-P0').scrollIntoView({behavior:'smooth'});return false" style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.2);margin-bottom:6px"><span class="toc-num" style="background:#C9A84C;color:#0A0A0C">&#9889;</span><span class="toc-label" style="color:#C9A84C;font-weight:800">Pricing Inputs</span></a>
   <a href="#sec-P1" onclick="document.getElementById('sec-P1').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">1</span><span class="toc-label">Executive Summary</span></a>
   <a href="#sec-P2" onclick="document.getElementById('sec-P2').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">2</span><span class="toc-label">Timeline</span></a>
   <a href="#sec-P3" onclick="document.getElementById('sec-P3').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">3</span><span class="toc-label">PS Advantage</span></a>
@@ -1289,7 +1289,7 @@ function updateCustomCap(val){
     <div style="display:flex;align-items:center;gap:12px">
       <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 16px rgba(201,168,76,0.3)">&#9889;</div>
       <div>
-        <h2 style="margin:0;font-size:16px;color:#C9A84C;letter-spacing:0.06em">PROPERTY MODEL INPUTS</h2>
+        <h2 style="margin:0;font-size:16px;color:#C9A84C;letter-spacing:0.06em">PRICING INPUTS</h2>
         <div style="font-size:10px;color:#6B7394;margin-top:2px;letter-spacing:0.04em">Per-site assumptions driving this analysis</div>
       </div>
     </div>
