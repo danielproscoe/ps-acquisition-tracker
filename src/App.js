@@ -1176,12 +1176,7 @@ function AppInner() {
                           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
                           return flyerDoc ? (
                             <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>📄 View Flyer — {flyerDoc[1].name?.length > 30 ? flyerDoc[1].name.slice(0, 30) + "…" : flyerDoc[1].name}</a>
-                          ) : (
-                            <div onClick={() => document.getElementById(`doc-upload-flyer-${site.id}`)?.click()} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: "#FFF3E0", border: "1px dashed #F37C33", fontSize: 11, color: "#E65100", fontWeight: 600, cursor: "pointer", transition: "all .2s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#FFE0B2"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "#FFF3E0"; }}>
-                              <input type="file" id={`doc-upload-flyer-${site.id}`} accept=".pdf,image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(regionKey, site.id, f, "Flyer"); e.target.value = ""; }} />
-                              📎 Click to upload flyer
-                            </div>
-                          );
+                          ) : null;
                         })()}
                       </div>
 
@@ -1522,20 +1517,12 @@ function AppInner() {
                               <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.1)", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
                                 <span style={{ fontWeight: 600, color: "#94A3B8" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
                                 <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
-                                <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
+                                {/* Delete disabled — Dan controls all data */}
                               </div>
                             ))}
                           </div>
                         )}
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, background: "rgba(15,21,56,0.5)", cursor: "pointer" }}>
-                            {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
-                          </select>
-                          <input type="file" id={`doc-upload-${site.id}`} style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
-                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.getElementById(`doc-upload-${site.id}`)?.click(); }} style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "'Inter', sans-serif" }}>
-                            + Upload
-                          </button>
-                        </div>
+                        {/* Upload disabled — Dan controls all data */}
                       </div>
 
                       {/* Messages */}
@@ -2109,32 +2096,7 @@ function AppInner() {
                   <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: "#94A3B8" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
                 )}
               </div>
-              {/* ── Additional Attachments ── */}
-              <div style={{ marginBottom: 16, background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 14, border: "1px solid rgba(201,168,76,0.1)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— survey, PSA, environmental, etc.</span></div>
-                  <button onClick={() => attachRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#2C2C2C", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Add File</button>
-                  <input ref={attachRef} type="file" accept=".pdf,image/*,.doc,.docx,.xlsx,.xls,.csv" multiple style={{ display: "none" }} onChange={(e) => { const files = Array.from(e.target.files || []); const newA = files.map((f) => ({ file: f, type: "Other", id: uid() })); setAttachments((prev) => [...prev, ...newA]); e.target.value = ""; }} />
-                </div>
-                {attachments.length > 0 && (
-                  <div style={{ display: "grid", gap: 6 }}>
-                    {attachments.map((a) => (
-                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "#FAFAFA" }}>
-                        <div style={{ fontSize: 16 }}>{a.file.name.match(/\.pdf$/i) ? "📄" : a.file.type?.startsWith("image/") ? "🖼️" : "📎"}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
-                          <div style={{ fontSize: 10, color: "#94A3B8" }}>{(a.file.size / 1024).toFixed(0)} KB</div>
-                        </div>
-                        <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", fontSize: 11, background: "rgba(15,21,56,0.5)", cursor: "pointer", color: "#94A3B8" }}>
-                          {DOC_TYPES.filter((t) => t !== "Flyer").map((t) => <option key={t}>{t}</option>)}
-                        </select>
-                        <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {attachments.length === 0 && <div style={{ fontSize: 11, color: "#CBD5E1" }}>Survey, demographics, PSA, environmental, etc.</div>}
-              </div>
+              {/* Attachments disabled — Dan controls all data input */}
               {/* ── Form Fields ── */}
               <div style={{ display: "grid", gap: 12 }}>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
