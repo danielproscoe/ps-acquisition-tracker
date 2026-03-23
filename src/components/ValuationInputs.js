@@ -380,11 +380,23 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
   const globalOverrideCount = Object.keys(localOverrides).length;
   const totalInputs = SECTIONS.reduce((s, sec) => s + sec.inputs.length, 0);
 
-  // Search filter
+  // Determine if selected site is 1-story or multi-story (for input visibility)
+  const siteIsMultiStory = financials?.isMultiStory || false;
+
+  // Keys to hide based on product type
+  const ONESTORY_HIDE = ['climatePctMultiStory', 'multiStoryFloors'];
+  const MULTISTORY_HIDE = ['climatePctOneStory'];
+
+  // Search filter + product-type filter (hide irrelevant inputs)
   const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return SECTIONS;
+    const hideKeys = selectedSite ? (siteIsMultiStory ? MULTISTORY_HIDE : ONESTORY_HIDE) : [];
+    const productFiltered = SECTIONS.map(sec => ({
+      ...sec,
+      inputs: sec.inputs.filter(inp => !hideKeys.includes(inp.key))
+    }));
+    if (!searchQuery.trim()) return productFiltered;
     const q = searchQuery.toLowerCase();
-    return SECTIONS.map(sec => ({
+    return productFiltered.map(sec => ({
       ...sec,
       inputs: sec.inputs.filter(inp =>
         inp.label.toLowerCase().includes(q) ||
@@ -393,7 +405,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         sec.label.toLowerCase().includes(q)
       )
     })).filter(sec => sec.inputs.length > 0);
-  }, [searchQuery]);
+  }, [searchQuery, selectedSite, siteIsMultiStory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Voltage Animation Sequence ───
   const triggerVoltage = useCallback(() => {
