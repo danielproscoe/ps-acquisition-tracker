@@ -3200,7 +3200,7 @@ function AppInner() {
                             <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
                           </div>
                           {isHov && ttLines.length > 0 && (
-                            <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", minWidth: 320, maxWidth: 420, zIndex: 9999, borderRadius: 14, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.2), 0 0 40px rgba(30,39,97,0.4)", animation: "fadeIn 0.15s ease-out" }}>
+                            <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", minWidth: 320, maxWidth: 420, zIndex: 9999, borderRadius: 14, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.2), 0 0 40px rgba(30,39,97,0.4)", paddingTop: 4, pointerEvents: "none" }}>
                               <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "10px 14px", borderBottom: "2px solid #C9A84C", display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ fontSize: 12 }}>{m.key === "asking" ? "💰" : m.key === "internal" ? "🎯" : m.key === "acreage" ? "📐" : m.key === "zoning" ? "📋" : m.key === "pop" ? "👥" : "💵"}</span>
                                 <span style={{ fontSize: 11, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>SiteScore Intelligence</span>

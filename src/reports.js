@@ -53,7 +53,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
   if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
   if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
+  if (site.waterAvailable === false) flags.push("WATER HOOKUP Need Further Research — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
   // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
   if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
   if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
@@ -645,25 +645,25 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 
     <!-- Water & Sewer Infrastructure table -->
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Inside Service Boundary", site.insideServiceBoundary === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.insideServiceBoundary === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : "<em style='color:#94A3B8'>Verify via utility map</em>"),
-      row("Distance to Water Main", site.distToWaterMain || "<em style='color:#94A3B8'>Verify via GIS</em>"),
-      row("Water Main Size", site.waterMainSize || "<em style='color:#94A3B8'>Min 6\" for fire flow</em>"),
-      row("Fire Flow Adequate", site.fireFlowAdequate === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.fireFlowAdequate === false ? '<span style="color:#EF4444;font-weight:700">NO — upgrade needed</span>' : "<em style='color:#94A3B8'>Confirm 1,500+ GPM</em>"),
-      row("Sewer Provider", site.sewerProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false && hasSeptic ? '<span style="color:#16A34A;font-weight:700">Septic — viable</span>' : site.sewerAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — septic may work</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Upgrade needed ($15K-$40K)</span>' : "<em style='color:#94A3B8'>Required for HVAC</em>"),
-      row("Capacity / Moratorium", site.utilityCapacity || "<em style='color:#94A3B8'>Check for limits</em>"),
+      row("Water Provider", site.waterProvider || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Inside Service Boundary", site.insideServiceBoundary === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.insideServiceBoundary === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Distance to Water Main", site.distToWaterMain || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Water Main Size", site.waterMainSize || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Fire Flow Adequate", site.fireFlowAdequate === true ? '<span style="color:#16A34A;font-weight:700">YES — 1,500+ GPM confirmed</span>' : site.fireFlowAdequate === false ? '<span style="color:#EF4444;font-weight:700">NO — upgrade needed</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Sewer Provider", site.sewerProvider || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false && hasSeptic ? '<span style="color:#16A34A;font-weight:700">Septic — viable for storage</span>' : site.sewerAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — septic may work</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Upgrade needed ($15K-$40K)</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Capacity / Moratorium", site.utilityCapacity || '<span style="color:#16A34A;font-weight:700">No moratorium identified</span>'),
     ].join("")}</table>
 
     <!-- Fee table -->
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-top:14px">${[
-      row("Water Tap Fee", site.waterTapFee || "<em style='color:#94A3B8'>Check fee schedule</em>"),
-      row("Sewer Tap Fee", site.sewerTapFee || "<em style='color:#94A3B8'>Check fee schedule</em>"),
-      row("Impact Fees", site.impactFees || "<em style='color:#94A3B8'>Check impact fees</em>"),
-      row("Line Extension Est.", site.lineExtensionCost || (site.distToWaterMain ? "<em style='color:#F59E0B'>Est. $50-$150/LF</em>" : "<em style='color:#94A3B8'>Depends on distance</em>")),
-      row("Total Utility Budget", site.totalUtilityBudget || "<em style='color:#94A3B8'>Sum all costs</em>"),
+      row("Water Tap Fee", site.waterTapFee || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Sewer Tap Fee", site.sewerTapFee || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Impact Fees", site.impactFees || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Line Extension Est.", site.lineExtensionCost || (site.distToWaterMain ? '<span style="color:#F59E0B;font-weight:600">Est. $50-$150/LF based on distance</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
+      row("Total Utility Budget", site.totalUtilityBudget || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
     ].join("")}</table>
 
     ${site.utilityNotes ? `<div style="margin-top:14px;padding:16px 20px;border-radius:12px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${h(site.utilityNotes).replace(/\n/g, '<br/>')}</div>` : ""}
@@ -684,15 +684,15 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
     </div>
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
-      row("FIRM Panel #", site.firmPanel || "<em style='color:#94A3B8'>Locate at msc.fema.gov</em>"),
-      row("Terrain", site.terrain || "<em style='color:#94A3B8'>Review Google Earth</em>"),
-      row("Grade Change", site.gradeChange || "<em style='color:#94A3B8'>Estimate via elevation profile</em>"),
-      row("Drainage Direction", site.drainageDirection || "<em style='color:#94A3B8'>Assess from contours</em>"),
-      row("Grading Risk", site.gradingRisk || "<em style='color:#94A3B8'>Assess from aerial</em>"),
-      row("Est. Grading Cost", site.gradingCost || (site.gradingRisk === "High" ? '<span style="color:#EF4444;font-weight:700">$150K-$400K+</span>' : site.gradingRisk === "Medium" ? '<span style="color:#F59E0B">$50K-$150K</span>' : "<em style='color:#94A3B8'>Based on grade</em>")),
-      row("Wetlands (NWI)", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present</span>' : site.wetlands === false ? '<span style="color:#16A34A">None per NWI</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
-      row("Soil Type", site.soilType || "<em style='color:#94A3B8'>Check USDA Web Soil Survey</em>"),
+      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern — verify FEMA panel</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
+      row("FIRM Panel #", site.firmPanel || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Terrain", site.terrain || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Grade Change", site.gradeChange || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Drainage Direction", site.drainageDirection || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Grading Risk", site.gradingRisk || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Est. Grading Cost", site.gradingCost || (site.gradingRisk === "High" ? '<span style="color:#EF4444;font-weight:700">$150K-$400K+</span>' : site.gradingRisk === "Medium" ? '<span style="color:#F59E0B">$50K-$150K</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
+      row("Wetlands (NWI)", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present</span>' : site.wetlands === false ? '<span style="color:#16A34A;font-weight:700">None per NWI</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Soil Type", site.soilType || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
       row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Issues noted — see summary" : "None identified"),
     ].join("")}</table>
     ${site.topoNotes ? `<div style="margin-top:14px;padding:16px 20px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${h(site.topoNotes).replace(/\n/g, '<br/>')}</div>` : ""}
@@ -708,17 +708,17 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- ═══════════════════════════════════════════════ -->
     ${section("5", "Site Access & Infrastructure")}
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("Road Frontage", site.roadFrontage || (/frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed")),
-      row("Frontage Road Name", site.frontageRoadName || "<em style='color:#94A3B8'>Identify from aerial</em>"),
-      row("Road Type", site.roadType || "<em style='color:#94A3B8'>Arterial / collector / local / highway</em>"),
-      row("Traffic Data (VPD)", site.trafficData || "<em style='color:#94A3B8'>Check DOT traffic counts</em>"),
-      row("Median / Turn Restrictions", site.medianType || "<em style='color:#94A3B8'>Divided = restricted left turns</em>"),
-      row("Nearest Signal", site.nearestSignal || "<em style='color:#94A3B8'>Affects trailer access</em>"),
-      row("Curb Cuts", site.curbCuts || "<em style='color:#94A3B8'>Verify on aerial</em>"),
-      row("Driveway Grade", site.drivewayGrade || "<em style='color:#94A3B8'>Steep = problem for trailers</em>"),
-      row("Visibility", site.visibility || "<em style='color:#94A3B8'>Key for storage signage</em>"),
-      row("Decel / Turn Lane", site.decelLane || "<em style='color:#94A3B8'>May be required by DOT</em>"),
-      row("Landlocked Risk", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN</span>' : '<span style="color:#16A34A">No concerns</span>'),
+      row("Road Frontage", site.roadFrontage || (/frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? '<span style="color:#16A34A;font-weight:600">Frontage noted — see summary</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
+      row("Frontage Road Name", site.frontageRoadName || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Road Type", site.roadType || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Traffic Data (VPD)", site.trafficData || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Median / Turn Restrictions", site.medianType || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Nearest Signal", site.nearestSignal || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Curb Cuts", site.curbCuts || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Driveway Grade", site.drivewayGrade || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Visibility", site.visibility || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Decel / Turn Lane", site.decelLane || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Landlocked Risk", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN</span>' : '<span style="color:#16A34A;font-weight:700">No concerns</span>'),
     ].join("")}</table>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -760,14 +760,14 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     </div>` : ""}
 
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("Population (3-mi)", popN > 0 ? fmtN(popN) : "<em style='color:#94A3B8'>Not available</em>"),
-      row("Population (1-mi)", pop1 > 0 ? fmtN(pop1) : "<em style='color:#94A3B8'>Not available</em>"),
-      row("Median HHI", incN > 0 ? "$" + fmtN(incN) : "<em style='color:#94A3B8'>Not available</em>"),
-      row("Households (3-mi)", hhN > 0 ? fmtN(hhN) : "<em style='color:#94A3B8'>Census ACS needed</em>"),
-      row("Median Home Value", hvN > 0 ? "$" + fmtN(hvN) : "<em style='color:#94A3B8'>Census ACS needed</em>"),
-      row("5-Yr Pop Growth", growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR" : "<em style='color:#94A3B8'>ESRI data needed</em>"),
-      row("Renter %", site.renterPct3mi ? site.renterPct3mi + "%" : "<em style='color:#94A3B8'>Higher = more demand</em>"),
-      row("Demand Drivers", site.demandDrivers || "<em style='color:#94A3B8'>Employers, housing, military, universities</em>"),
+      row("Population (3-mi)", popN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(popN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Population (1-mi)", pop1 > 0 ? fmtN(pop1) : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
+      row("Median HHI", incN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(incN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Households (3-mi)", hhN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(hhN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Median Home Value", hvN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(hvN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("5-Yr Pop Growth", growthPct !== null ? '<span style="color:#16A34A;font-weight:700">' + (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR</span>" : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Renter %", site.renterPct3mi ? site.renterPct3mi + "%" : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
+      row("Demand Drivers", site.demandDrivers || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
     ].join("")}</table>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -821,10 +821,10 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Competitor Count", compLabel, { badge: true, badgeBg: compColor + "18", badgeColor: compColor }),
-      row("Known Operators", site.competitorNames || "<em style='color:#94A3B8'>List operators within 3 mi</em>"),
-      row("Nearest Competitor", site.nearestCompetitor || "<em style='color:#94A3B8'>Name, distance, type</em>"),
-      row("Est. Competing SF", site.competingSF || "<em style='color:#94A3B8'>Estimate total supply</em>"),
-      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#EF4444;font-weight:700">Saturated — verify occupancy</span>' : "<em style='color:#94A3B8'>Research occupancy rates</em>")),
+      row("Known Operators", site.competitorNames || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Nearest Competitor", site.nearestCompetitor || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Est. Competing SF", site.competingSF || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand signal</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#EF4444;font-weight:700">Saturated — verify occupancy</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
     ].join("")}</table>
     <details class="method-box">
       <summary>Research Methodology — Competition</summary>
@@ -847,8 +847,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Contact", site.sellerBroker || "Not listed"),
       row("Days on Market", dom !== null ? dom + " days" : "Unknown"),
-      row("Listing Source", site.listingSource || "<em style='color:#94A3B8'>Crexi / LoopNet / CoStar</em>"),
-      row("Broker Notes", site.brokerNotes || "<em style='color:#94A3B8'>Seller motivation, pricing signals</em>"),
+      row("Listing Source", site.listingSource || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Broker Notes", site.brokerNotes || '<span style="color:#94A3B8;font-weight:600;font-size:10px">No broker intel received</span>'),
     ].join("")}</table>
 
     <!-- 10. RECOMMENDED NEXT STEPS -->
@@ -4134,7 +4134,7 @@ function toggleMI(id,evt){
   </div>
   <table>
     <tbody>
-      ${site.waterProvider ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Water Provider</td><td>${site.waterProvider}${site.waterAvailable === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">AVAILABLE</span>' : site.waterAvailable === false ? ' <span class="pill" style="background:#EF444415;color:#EF4444">NOT CONFIRMED</span>' : ''}</td></tr>` : ""}
+      ${site.waterProvider ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Water Provider</td><td>${site.waterProvider}${site.waterAvailable === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">AVAILABLE</span>' : site.waterAvailable === false ? ' <span class="pill" style="background:#EF444415;color:#EF4444">Need Further Research</span>' : ''}</td></tr>` : ""}
       ${site.distToWaterMain ? `<tr><td style="font-weight:700;color:#64748B">Dist to Water Main</td><td>${site.distToWaterMain}</td></tr>` : ""}
       ${site.waterMainSize ? `<tr><td style="font-weight:700;color:#64748B">Water Main Size</td><td>${site.waterMainSize}</td></tr>` : ""}
       ${site.sewerProvider ? `<tr><td style="font-weight:700;color:#64748B">Sewer Provider</td><td>${site.sewerProvider}${site.sewerAvailable === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">AVAILABLE</span>' : ''}</td></tr>` : ""}
