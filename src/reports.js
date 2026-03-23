@@ -1350,127 +1350,150 @@ function updateCustomCap(val){
     </select>
   </div>
 
-  <!-- Per-Site Overrides Panel -->
-  <div id="site-overrides-panel">
-    ${(() => {
-      const ov = site.overrides || {};
-      const ovKeys = Object.keys(ov);
-      const hasOverrides = ovKeys.length > 0;
-      const defaults = {
-        coverageRatio: 0.35, netToGross: 0.90, climatePctOneStory: 0.65, climatePctMultiStory: 0.75,
-        multiStoryThreshold: 3.5, multiStoryFloors: 3,
-        climateRatePremium: 1.45, climateRateUpper: 1.25, climateRateMid: 1.10, climateRateValue: 0.95,
-        driveRatePremium: 0.85, driveRateUpper: 0.72, driveRateMid: 0.62, driveRateValue: 0.52,
-        annualEscalation: 0.03,
-        leaseUpY1Occ: 0.30, leaseUpY2Occ: 0.55, leaseUpY3Occ: 0.75, leaseUpY4Occ: 0.88, leaseUpY5Occ: 0.92,
-        leaseUpY1ClimDisc: 0.35, leaseUpY2ClimDisc: 0.15, leaseUpY3ClimDisc: 0.05,
-        leaseUpY1DriveDisc: 0.30, leaseUpY2DriveDisc: 0.12, leaseUpY3DriveDisc: 0.05,
-        ecriY1: 0, ecriY2: 0.06, ecriY3: 0.14, ecriY4: 0.24, ecriY5: 0.32,
-        hardCostOneStoryClimate: 45, hardCostOneStoryDrive: 28, hardCostMultiStory3: 68, hardCostMultiStory4: 78,
-        siteWorkPerSFOneStory: 8, siteWorkPerSFMulti: 10, fireSuppressionPerSF: 5.50,
-        interiorBuildoutPerSF: 15, technologyPerSF: 3.50, utilityInfraBase: 75000, utilityInfraPerSF: 2.00,
-        softCostPct: 0.20, contingencyPct: 0.075,
-        constructionMonthsOneStory: 14, constructionMonthsMultiStory: 18,
-        constLoanLTC: 0.60, constLoanRate: 0.075, avgDrawPct: 0.55, workingCapitalPct: 0.02,
-        propTaxRate: 0.010, insurancePerSF: 0.30, mgmtFeePct: 0.035,
-        basePayroll: 55000, payrollBurden: 1.25, baseFTE: 1.0,
-        climateUtilPerSF: 0.85, driveUtilPerSF: 0.20, rmPerSF: 0.25,
-        marketingPct: 0.02, marketingLeaseUpPct: 0.04, gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
-        capRateConservative: 0.065, capRateMarket: 0.0575, capRateAggressive: 0.05,
-        yocMax: 0.075, yocStrike: 0.09, yocMin: 0.105,
-        loanLTV: 0.65, loanRate: 0.0675, loanAmort: 25, exitCapRate: 0.06, holdPeriod: 10,
-      };
-      const categories = [
-        { label: 'Facility Sizing', icon: '&#9881;', keys: ['coverageRatio','netToGross','climatePctOneStory','climatePctMultiStory','multiStoryThreshold','multiStoryFloors'] },
-        { label: 'Market Rates', icon: '&#36;', keys: ['climateRatePremium','climateRateUpper','climateRateMid','climateRateValue','driveRatePremium','driveRateUpper','driveRateMid','driveRateValue','annualEscalation'] },
-        { label: 'Lease-Up', icon: '&#8593;', keys: ['leaseUpY1Occ','leaseUpY2Occ','leaseUpY3Occ','leaseUpY4Occ','leaseUpY5Occ'] },
-        { label: 'ECRI', icon: '&#9889;', keys: ['ecriY1','ecriY2','ecriY3','ecriY4','ecriY5'] },
-        { label: 'Construction', icon: '&#9874;', keys: ['hardCostOneStoryClimate','hardCostOneStoryDrive','hardCostMultiStory3','siteWorkPerSFOneStory','fireSuppressionPerSF','interiorBuildoutPerSF','technologyPerSF','utilityInfraBase','utilityInfraPerSF','softCostPct','contingencyPct'] },
-        { label: 'Carry Costs', icon: '&#127974;', keys: ['constructionMonthsOneStory','constructionMonthsMultiStory','constLoanLTC','constLoanRate','avgDrawPct','workingCapitalPct'] },
-        { label: 'Operating Expenses', icon: '&#128200;', keys: ['propTaxRate','insurancePerSF','mgmtFeePct','basePayroll','payrollBurden','baseFTE','climateUtilPerSF','driveUtilPerSF','rmPerSF','marketingPct','gaPct','badDebtPct','reservePerSF'] },
-        { label: 'Valuation', icon: '&#127919;', keys: ['capRateConservative','capRateMarket','capRateAggressive','exitCapRate','holdPeriod'] },
-        { label: 'Land Pricing', icon: '&#128506;', keys: ['yocMax','yocStrike','yocMin'] },
-        { label: 'Capital Stack', icon: '&#127963;', keys: ['loanLTV','loanRate','loanAmort'] },
-      ];
-      const fmtK = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).replace(/Pct$/, ' %').replace(/Per S F/g, '/SF').replace(/Per S f/g, '/SF');
-      const fmtV = (k, v) => {
-        if (typeof v !== 'number') return String(v);
-        if (k.includes('Pct') || k.includes('Rate') || k.includes('Occ') || k.includes('Disc') || k.includes('LTV') || k.includes('LTC') || k.includes('Escalation') || k.includes('Burden') || k.startsWith('ecri') || k.startsWith('yoc') || k === 'capRateConservative' || k === 'capRateMarket' || k === 'capRateAggressive' || k === 'exitCapRate') return (v * 100).toFixed(v < 0.01 ? 2 : 1) + '%';
-        if (k.includes('PerSF') || k.includes('perSF') || k.includes('InsurancePerSF') || k === 'insurancePerSF' || k === 'rmPerSF' || k === 'reservePerSF' || k === 'climateUtilPerSF' || k === 'driveUtilPerSF') return '$' + v.toFixed(2);
-        if (k.includes('Base') && v > 1000) return '$' + v.toLocaleString();
-        if (v >= 1000) return '$' + v.toLocaleString();
-        return String(v);
-      };
+  <!-- Argus-Style Input Assumptions Table -->
+  ${(() => {
+    const ov = site.overrides || {};
+    const D = {
+      coverageRatio: 0.35, netToGross: 0.90, climatePctOneStory: 0.65, climatePctMultiStory: 0.75,
+      multiStoryThreshold: 3.5, multiStoryFloors: 3,
+      climateRatePremium: 1.45, climateRateUpper: 1.25, climateRateMid: 1.10, climateRateValue: 0.95,
+      driveRatePremium: 0.85, driveRateUpper: 0.72, driveRateMid: 0.62, driveRateValue: 0.52,
+      annualEscalation: 0.03,
+      leaseUpY1Occ: 0.30, leaseUpY2Occ: 0.55, leaseUpY3Occ: 0.75, leaseUpY4Occ: 0.88, leaseUpY5Occ: 0.92,
+      ecriY1: 0, ecriY2: 0.06, ecriY3: 0.14, ecriY4: 0.24, ecriY5: 0.32,
+      hardCostOneStoryClimate: 45, hardCostOneStoryDrive: 28, hardCostMultiStory3: 68,
+      siteWorkPerSFOneStory: 8, fireSuppressionPerSF: 5.50, interiorBuildoutPerSF: 15,
+      technologyPerSF: 3.50, utilityInfraBase: 75000, utilityInfraPerSF: 2.00,
+      softCostPct: 0.20, contingencyPct: 0.075,
+      constructionMonthsOneStory: 14, constructionMonthsMultiStory: 18,
+      constLoanLTC: 0.60, constLoanRate: 0.075, avgDrawPct: 0.55, workingCapitalPct: 0.02,
+      propTaxRate: 0.010, insurancePerSF: 0.30, mgmtFeePct: 0.035,
+      basePayroll: 55000, payrollBurden: 1.25, baseFTE: 1.0,
+      climateUtilPerSF: 0.85, driveUtilPerSF: 0.20, rmPerSF: 0.25,
+      marketingPct: 0.02, gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
+      capRateConservative: 0.065, capRateMarket: 0.0575, capRateAggressive: 0.05,
+      yocMax: 0.075, yocStrike: 0.09, yocMin: 0.105,
+      loanLTV: 0.65, loanRate: 0.0675, loanAmort: 25, exitCapRate: 0.06, holdPeriod: 10,
+    };
+    const V = (k) => ov[k] !== undefined ? ov[k] : D[k];
+    const isOv = (k) => ov[k] !== undefined && ov[k] !== D[k];
+    const pct = (v) => (v * 100).toFixed(1) + '%';
+    const pct2 = (v) => (v * 100).toFixed(2) + '%';
+    const dlr = (v) => '$' + (typeof v === 'number' && v >= 1000 ? v.toLocaleString() : (typeof v === 'number' ? v.toFixed(2) : v));
+    const dlrSF = (v) => '$' + Number(v).toFixed(2) + '/SF';
+    const mo = (v) => v + ' mo';
+    const yr = (v) => v + ' yr';
+    const n = (v) => String(v);
+    const ovCount = Object.keys(ov).filter(k => D[k] !== undefined && ov[k] !== D[k]).length;
+    const row = (label, k, fmt) => {
+      const val = V(k);
+      const modified = isOv(k);
+      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.03)">' +
+        '<td style="padding:6px 12px;font-size:11px;color:#94A3B8;font-weight:500">' + label + '</td>' +
+        '<td style="padding:6px 12px;text-align:right;font-size:12px;font-weight:700;font-family:\'Space Mono\',monospace;color:' + (modified ? '#C9A84C' : '#E2E8F0') + '">' + fmt(val) + (modified ? ' <span style="font-size:8px;color:#C9A84C;font-weight:800;vertical-align:super">*</span>' : '') + '</td></tr>';
+    };
+    const hdr = (title) => '<tr><td colspan="2" style="padding:14px 12px 6px;font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;text-transform:uppercase;border-bottom:1px solid rgba(201,168,76,0.15)">' + title + '</td></tr>';
 
-      if (!hasOverrides) {
-        return '<div style="text-align:center;padding:20px"><span class="badge" style="background:rgba(22,163,74,0.12);color:#16A34A;border:1px solid rgba(22,163,74,0.2);font-size:11px;padding:8px 20px">Using Storvex Engine Defaults — No Site-Specific Overrides</span></div>';
-      }
-
-      return `<div style="margin-bottom:8px">
-        <div style="font-size:9px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-          <span style="width:8px;height:8px;border-radius:50%;background:#C9A84C;display:inline-block"></span>
-          SITE-SPECIFIC OVERRIDES (${ovKeys.length} modified)
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
-          ${ovKeys.map(k => {
-            const val = ov[k];
-            const def = defaults[k];
-            const changed = def !== undefined && val !== def;
-            return `<div style="padding:10px 14px;border-radius:8px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:10px;color:#94A3B8;font-weight:600">${fmtK(k)}</span>
-              <span style="font-size:13px;font-weight:800;font-family:'Space Mono',monospace;color:#C9A84C">${fmtV(k, val)}</span>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    })()}
-  </div>
-
-  <!-- Storvex Baseline Reference -->
-  <div style="margin-top:24px;border-top:1px solid rgba(201,168,76,0.1);padding-top:16px">
-    <div onclick="toggleExpand('storvex-ref')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 0">
-      <span style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;text-transform:uppercase;display:flex;align-items:center;gap:8px">
-        <span style="font-size:8px">&#9660;</span> Storvex Engine Defaults (Reference)
-        <span id="storvex-ref-arrow" class="expand-arrow">&#9660;</span>
-      </span>
-      <span style="font-size:9px;color:#4A5080;font-weight:600">PS Killeen Calibrated</span>
+    return `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em">STORVEX ENGINE v4.1</span>
+      <span style="width:4px;height:4px;border-radius:50%;background:#6B7394"></span>
+      <span style="font-size:10px;color:#4A5080;font-weight:600">PS Killeen Calibrated</span>
+      ${ovCount > 0 ? '<span style="margin-left:auto;font-size:10px;font-weight:700;color:#C9A84C;background:rgba(201,168,76,0.1);padding:3px 10px;border-radius:5px;border:1px solid rgba(201,168,76,0.15)"><span style="font-size:8px">*</span> = site override (' + ovCount + ')</span>' : '<span style="margin-left:auto;font-size:10px;font-weight:600;color:#16A34A;background:rgba(22,163,74,0.08);padding:3px 10px;border-radius:5px;border:1px solid rgba(22,163,74,0.15)">Using Defaults</span>'}
     </div>
-    <div id="storvex-ref" class="expand-panel" style="padding:0">
-      ${(() => {
-        const defaults = {
-          coverageRatio: 0.35, netToGross: 0.90, climatePctOneStory: 0.65, climatePctMultiStory: 0.75,
-          multiStoryThreshold: 3.5, multiStoryFloors: 3,
-          climateRatePremium: 1.45, climateRateUpper: 1.25, climateRateMid: 1.10, climateRateValue: 0.95,
-          driveRatePremium: 0.85, driveRateUpper: 0.72, driveRateMid: 0.62, driveRateValue: 0.52,
-          annualEscalation: 0.03,
-          hardCostOneStoryClimate: 45, hardCostOneStoryDrive: 28, hardCostMultiStory3: 68,
-          siteWorkPerSFOneStory: 8, fireSuppressionPerSF: 5.50, interiorBuildoutPerSF: 15,
-          technologyPerSF: 3.50, utilityInfraBase: 75000, utilityInfraPerSF: 2.00,
-          softCostPct: 0.20, contingencyPct: 0.075,
-          propTaxRate: 0.010, insurancePerSF: 0.30, mgmtFeePct: 0.035,
-          basePayroll: 55000, climateUtilPerSF: 0.85, rmPerSF: 0.25,
-          marketingPct: 0.02, gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
-          capRateConservative: 0.065, capRateMarket: 0.0575, capRateAggressive: 0.05,
-          yocMax: 0.075, yocStrike: 0.09, yocMin: 0.105,
-          loanLTV: 0.65, loanRate: 0.0675, loanAmort: 25, exitCapRate: 0.06, holdPeriod: 10,
-        };
-        const fmtK = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-        const fmtV = (k, v) => {
-          if (typeof v !== 'number') return String(v);
-          if (k.includes('Pct') || k.includes('Rate') || k.includes('Occ') || k.includes('LTV') || k.includes('LTC') || k.includes('Escalation') || k.startsWith('yoc') || k === 'capRateConservative' || k === 'capRateMarket' || k === 'capRateAggressive' || k === 'exitCapRate') return (v * 100).toFixed(v < 0.01 ? 2 : 1) + '%';
-          if (k.includes('PerSF') || k.includes('perSF') || k === 'insurancePerSF' || k === 'rmPerSF' || k === 'reservePerSF' || k === 'climateUtilPerSF' || k === 'driveUtilPerSF') return '$' + v.toFixed(2);
-          if (v >= 1000) return '$' + v.toLocaleString();
-          return String(v);
-        };
-        return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;padding:12px 0">
-          ${Object.entries(defaults).map(([k,v]) => `<div style="padding:6px 10px;border-radius:6px;background:rgba(15,21,56,0.4);border:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:9px;color:#4A5080;font-weight:600">${fmtK(k)}</span>
-            <span style="font-size:11px;font-weight:700;font-family:'Space Mono',monospace;color:#6B7394">${fmtV(k,v)}</span>
-          </div>`).join('')}
-        </div>`;
-      })()}
-    </div>
-  </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <table style="width:100%;border-collapse:collapse">
+          ${hdr('Revenue Assumptions')}
+          ${row('Climate Rate (Premium)', 'climateRatePremium', dlrSF)}
+          ${row('Climate Rate (Upper)', 'climateRateUpper', dlrSF)}
+          ${row('Climate Rate (Mid)', 'climateRateMid', dlrSF)}
+          ${row('Climate Rate (Value)', 'climateRateValue', dlrSF)}
+          ${row('Drive-Up Rate (Premium)', 'driveRatePremium', dlrSF)}
+          ${row('Drive-Up Rate (Upper)', 'driveRateUpper', dlrSF)}
+          ${row('Drive-Up Rate (Mid)', 'driveRateMid', dlrSF)}
+          ${row('Drive-Up Rate (Value)', 'driveRateValue', dlrSF)}
+          ${row('Annual Escalation', 'annualEscalation', pct)}
+
+          ${hdr('Lease-Up Schedule')}
+          ${row('Year 1 Occupancy', 'leaseUpY1Occ', pct)}
+          ${row('Year 2 Occupancy', 'leaseUpY2Occ', pct)}
+          ${row('Year 3 Occupancy', 'leaseUpY3Occ', pct)}
+          ${row('Year 4 Occupancy', 'leaseUpY4Occ', pct)}
+          ${row('Year 5 (Stabilized)', 'leaseUpY5Occ', pct)}
+
+          ${hdr('ECRI Schedule')}
+          ${row('Year 1', 'ecriY1', pct)}
+          ${row('Year 2', 'ecriY2', pct)}
+          ${row('Year 3', 'ecriY3', pct)}
+          ${row('Year 4', 'ecriY4', pct)}
+          ${row('Year 5', 'ecriY5', pct)}
+
+          ${hdr('Valuation & Exit')}
+          ${row('Cap Rate (Conservative)', 'capRateConservative', pct2)}
+          ${row('Cap Rate (Market)', 'capRateMarket', pct2)}
+          ${row('Cap Rate (Aggressive)', 'capRateAggressive', pct2)}
+          ${row('Exit Cap Rate', 'exitCapRate', pct2)}
+          ${row('Hold Period', 'holdPeriod', yr)}
+
+          ${hdr('Target YOC (Land Pricing)')}
+          ${row('Max Price (aggressive)', 'yocMax', pct2)}
+          ${row('Strike Price (target)', 'yocStrike', pct2)}
+          ${row('Min Price (conservative)', 'yocMin', pct2)}
+        </table>
+      </div>
+      <div>
+        <table style="width:100%;border-collapse:collapse">
+          ${hdr('Facility Sizing')}
+          ${row('Lot Coverage Ratio', 'coverageRatio', pct)}
+          ${row('Net-to-Gross Efficiency', 'netToGross', pct)}
+          ${row('Climate Mix (1-Story)', 'climatePctOneStory', pct)}
+          ${row('Climate Mix (Multi-Story)', 'climatePctMultiStory', pct)}
+          ${row('Multi-Story Threshold', 'multiStoryThreshold', (v) => v + ' ac')}
+          ${row('Multi-Story Floors', 'multiStoryFloors', n)}
+
+          ${hdr('Construction Costs')}
+          ${row('1-Story Climate Shell', 'hardCostOneStoryClimate', dlrSF)}
+          ${row('1-Story Drive-Up Shell', 'hardCostOneStoryDrive', dlrSF)}
+          ${row('Multi-Story (3-Floor)', 'hardCostMultiStory3', dlrSF)}
+          ${row('Site Work (1-Story)', 'siteWorkPerSFOneStory', dlrSF)}
+          ${row('Fire Suppression', 'fireSuppressionPerSF', dlrSF)}
+          ${row('Interior Buildout', 'interiorBuildoutPerSF', dlrSF)}
+          ${row('Technology/Access', 'technologyPerSF', dlrSF)}
+          ${row('Utility Infrastructure', 'utilityInfraBase', dlr)}
+          ${row('Utility Per SF', 'utilityInfraPerSF', dlrSF)}
+          ${row('Soft Costs', 'softCostPct', pct)}
+          ${row('Contingency', 'contingencyPct', pct)}
+
+          ${hdr('Construction Carry')}
+          ${row('Duration (1-Story)', 'constructionMonthsOneStory', mo)}
+          ${row('Duration (Multi-Story)', 'constructionMonthsMultiStory', mo)}
+          ${row('Loan LTC', 'constLoanLTC', pct)}
+          ${row('Construction Rate', 'constLoanRate', pct)}
+          ${row('Avg Draw %', 'avgDrawPct', pct)}
+          ${row('Working Capital', 'workingCapitalPct', pct)}
+
+          ${hdr('Operating Expenses')}
+          ${row('Property Tax Rate', 'propTaxRate', pct2)}
+          ${row('Insurance', 'insurancePerSF', dlrSF)}
+          ${row('Management Fee', 'mgmtFeePct', pct)}
+          ${row('Base Payroll', 'basePayroll', dlr)}
+          ${row('Climate Utilities', 'climateUtilPerSF', dlrSF)}
+          ${row('Drive-Up Utilities', 'driveUtilPerSF', dlrSF)}
+          ${row('R&M', 'rmPerSF', dlrSF)}
+          ${row('Marketing', 'marketingPct', pct)}
+          ${row('G&A', 'gaPct', pct)}
+          ${row('Bad Debt', 'badDebtPct', pct)}
+          ${row('Reserves', 'reservePerSF', dlrSF)}
+
+          ${hdr('Capital Stack')}
+          ${row('Perm Loan LTV', 'loanLTV', pct)}
+          ${row('Perm Loan Rate', 'loanRate', pct)}
+          ${row('Amortization', 'loanAmort', yr)}
+        </table>
+      </div>
+    </div>`;
+  })()}
 </div>
 
 <script>
