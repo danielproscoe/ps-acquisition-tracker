@@ -3830,35 +3830,32 @@ function AppInner() {
   );
 }
 
-// Intel tooltip wrapper — isolates hover state per card so hovering one card
-// doesn't re-render all 17. This is why the DW page was flickering.
+// Intel tooltip wrapper — isolates hover state per card (no parent re-renders)
 function IntelCardHeader({ site, onClick, children }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <div onMouseEnter={() => site.latestNote && setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={onClick} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative" }}>
+    <div onMouseEnter={() => site.latestNote && setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={onClick} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative", zIndex: hovered ? 100 : 1 }}>
       {hovered && site.latestNote && (
-        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 18, right: 80, zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.2s ease-out" }}>
-          <div style={{ borderRadius: 14, overflow: "hidden", boxShadow: "0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.15), 0 0 40px rgba(232,122,46,0.08)" }}>
-            <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 14 }}>&#x1F525;</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest Intel</span>
-              {site.latestNoteDate && <span style={{ fontSize: 10, color: "#6B7394", fontWeight: 600, marginLeft: "auto" }}>{site.latestNoteDate}</span>}
-            </div>
-            <div style={{ background: "linear-gradient(180deg, #0F1538, #131B45)", padding: "12px 16px" }}>
-              <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.6, fontWeight: 500 }}>
-                {site.latestNote.split("\n").map((line, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 6 }}>
-                    <span style={{ color: "#C9A84C", fontSize: 8, marginTop: 4, flexShrink: 0 }}>&#x25C6;</span>
-                    <span>{line}</span>
-                  </div>
-                ))}
+        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: -12, left: 0, right: 0, transform: "translateY(-100%)", zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.15s ease-out", padding: "0 18px" }}>
+          <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.7), 0 0 0 2px rgba(201,168,76,0.2), 0 0 80px rgba(232,122,46,0.1)", border: "2px solid rgba(201,168,76,0.25)" }}>
+            <div style={{ background: "linear-gradient(135deg, #0A0E24 0%, #1E2761 50%, #0A0E24 100%)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid rgba(201,168,76,0.2)" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, boxShadow: "0 4px 12px rgba(232,122,46,0.4)" }}>&#x1F525;</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest Intel</div>
+                <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>Storvex Pipeline Intelligence</div>
               </div>
+              {site.latestNoteDate && <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, marginLeft: "auto", background: "rgba(201,168,76,0.1)", padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)" }}>{site.latestNoteDate}</span>}
             </div>
-            <div style={{ background: "rgba(201,168,76,0.04)", padding: "5px 14px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
-              <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600, letterSpacing: "0.06em" }}>HOVER TO VIEW</span>
+            <div style={{ background: "#080B1A", padding: "16px 20px" }}>
+              {site.latestNote.split("\n").filter(l => l.trim()).map((line, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8, padding: "6px 0", borderBottom: i < site.latestNote.split("\n").filter(l => l.trim()).length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
+                  <span style={{ color: "#C9A84C", fontSize: 10, marginTop: 2, flexShrink: 0 }}>&#x25C6;</span>
+                  <span style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.7, fontWeight: 500 }}>{line}</span>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{ width: 12, height: 12, background: "#131B45", transform: "rotate(45deg)", position: "absolute", bottom: -6, left: 40, borderRight: "1px solid rgba(201,168,76,0.15)", borderBottom: "1px solid rgba(201,168,76,0.15)" }} />
+          <div style={{ width: 16, height: 16, background: "#080B1A", transform: "rotate(45deg)", position: "absolute", bottom: -8, left: 60, border: "2px solid rgba(201,168,76,0.25)", borderTop: "none", borderLeft: "none" }} />
         </div>
       )}
       {children}

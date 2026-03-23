@@ -512,8 +512,8 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     badge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: 'rgba(201,168,76,0.12)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)' },
     revertBtn: { ...STYLES.btnPrimary, padding: '10px 24px', fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 8, background: overrideCount > 0 ? 'linear-gradient(135deg, #E87A2E 0%, #C9A84C 50%, #1E2761 100%)' : 'rgba(107,115,148,0.15)', color: overrideCount > 0 ? '#fff' : '#6B7394', cursor: overrideCount > 0 ? 'pointer' : 'default', boxShadow: overrideCount > 0 ? '0 4px 16px rgba(232,122,46,0.35)' : 'none' },
     search: { width: '100%', maxWidth: 400, padding: '10px 16px 10px 40px', borderRadius: 12, border: '1px solid rgba(201,168,76,0.12)', background: 'rgba(15,21,56,0.5)', color: '#E2E8F0', fontSize: 13, fontFamily: "'Inter', sans-serif", outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' },
-    sectionCard: (isExpanded) => ({ ...STYLES.cardBase, marginBottom: 12, overflow: 'hidden', borderLeft: `3px solid ${isExpanded ? '#E87A2E' : 'rgba(201,168,76,0.12)'}`, transition: 'all 0.3s cubic-bezier(0.22,1,0.36,1)' }),
-    sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer', userSelect: 'none', transition: 'background 0.15s' },
+    sectionCard: (isExpanded) => ({ ...STYLES.cardBase, marginBottom: 12, overflow: 'hidden', borderLeft: `3px solid ${isExpanded ? '#E87A2E' : 'rgba(201,168,76,0.12)'}`, transition: 'all 0.25s cubic-bezier(0.22,1,0.36,1)', boxShadow: isExpanded ? '0 8px 32px rgba(232,122,46,0.08), 0 0 0 1px rgba(232,122,46,0.1)' : '0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(201,168,76,0.08)' }),
+    sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer', userSelect: 'none', transition: 'background 0.1s', borderRadius: 16 },
     sectionTitle: { display: 'flex', alignItems: 'center', gap: 10 },
     sectionLabel: { fontSize: 15, fontWeight: 700, color: '#E2E8F0', letterSpacing: '-0.01em' },
     sectionDesc: { fontSize: 11, color: '#6B7394', fontWeight: 500, marginTop: 2 },
@@ -835,9 +835,11 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
                   <div style={S.sectionDesc}>{sec.description}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, color: '#6B7394', fontWeight: 600 }}>{sec.inputs.length} inputs</span>
-                <span style={{ fontSize: 16, color: '#6B7394', transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.3s', display: 'inline-block' }}>▾</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 11, color: isExpanded ? '#E87A2E' : '#6B7394', fontWeight: 700, transition: 'color 0.2s' }}>{sec.inputs.length} inputs</span>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: isExpanded ? 'rgba(232,122,46,0.15)' : 'rgba(107,115,148,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                  <span style={{ fontSize: 14, color: isExpanded ? '#E87A2E' : '#6B7394', transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.25s cubic-bezier(0.22,1,0.36,1)', display: 'inline-block' }}>&#x25BE;</span>
+                </div>
               </div>
             </div>
 
