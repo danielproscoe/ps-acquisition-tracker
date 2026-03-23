@@ -2685,7 +2685,7 @@ function AppInner() {
                               psCount++;
                               const pNum = parts[0], pName = parts[1], pAddr = parts[2], pCity = parts[3], pState = parts[4];
                               const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map);
-                              marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "top", offset: [0, -10] });
+                              marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
                               marker.bindPopup(`<div style="font-weight:800;font-size:13px;color:#1565C0">${pNum}</div><div style="font-size:12px;font-weight:600;color:#334155;margin-top:2px">${pName}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${pAddr}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:11px;color:#E87A2E;font-weight:700;margin-top:4px">${dist.toFixed(1)} mi from site</div>`);
                             }
                           }
