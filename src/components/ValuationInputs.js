@@ -1,4 +1,4 @@
-// --- ValuationInputs -- McKinsey-Level Financial Model Console ---
+// ─── ValuationInputs — McKinsey-Level Financial Model Console ───
 // Storvex auto-populates intelligent defaults. PS corporate can toggle any lever.
 // "Revert to Storvex Inputs" snaps back to engine defaults.
 // Voltage animation on recalculation = the engine is alive.
@@ -6,18 +6,18 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { STYLES } from '../utils';
 
-// --- Storvex Engine Defaults (source of truth) ---
+// ─── Storvex Engine Defaults (source of truth) ───
 // These match scoring.js computeSiteFinancials() hardcoded values exactly.
 export const STORVEX_DEFAULTS = {
-  // -- Facility Sizing --
+  // ── Facility Sizing ──
   coverageRatio: 0.35,          // 35% lot coverage (PS Killeen sketch)
   netToGross: 0.90,             // 90% efficiency
   climatePctOneStory: 0.65,     // One-story: 65% climate
   climatePctMultiStory: 0.75,   // Multi-story: 75% climate
-  multiStoryThreshold: 3.5,     // Below 3.5ac -> multi-story
+  multiStoryThreshold: 3.5,     // Below 3.5ac → multi-story
   multiStoryFloors: 3,          // Default 3 stories
 
-  // -- Market Rates ($/SF/mo) --
+  // ── Market Rates ($/SF/mo) ──
   climateRatePremium: 1.45,
   climateRateUpper: 1.25,
   climateRateMid: 1.10,
@@ -28,7 +28,7 @@ export const STORVEX_DEFAULTS = {
   driveRateValue: 0.52,
   annualEscalation: 0.03,       // 3% annual rent escalation
 
-  // -- Lease-Up Schedule --
+  // ── Lease-Up Schedule ──
   leaseUpY1Occ: 0.30,
   leaseUpY2Occ: 0.55,
   leaseUpY3Occ: 0.75,
@@ -41,29 +41,29 @@ export const STORVEX_DEFAULTS = {
   leaseUpY2DriveDisc: 0.12,
   leaseUpY3DriveDisc: 0.05,
 
-  // -- ECRI Schedule (cumulative premium above street rate) --
+  // ── ECRI Schedule (cumulative premium above street rate) ──
   ecriY1: 0.00,
   ecriY2: 0.06,
   ecriY3: 0.14,
   ecriY4: 0.24,
   ecriY5: 0.32,
 
-  // -- Construction Costs (Recalibrated 2026-03-22 per PS Killeen closing) --
-  hardCostOneStoryClimate: 45,  // $/SF -- building shell + HVAC only
-  hardCostOneStoryDrive: 28,    // $/SF -- drive-up shell only
+  // ── Construction Costs (Recalibrated 2026-03-22 per PS Killeen closing) ──
+  hardCostOneStoryClimate: 45,  // $/SF — building shell + HVAC only
+  hardCostOneStoryDrive: 28,    // $/SF — drive-up shell only
   hardCostMultiStory3: 68,      // $/SF 3-story
   hardCostMultiStory4: 78,      // $/SF 4-story
-  siteWorkPerSFOneStory: 8,     // $/SF of total site area -- grading, paving, stormwater, landscaping
+  siteWorkPerSFOneStory: 8,     // $/SF of total site area — grading, paving, stormwater, landscaping
   siteWorkPerSFMulti: 10,       // $/SF multi-story (tighter sites)
-  fireSuppressionPerSF: 5.50,   // $/SF gross -- full sprinkler, alarm, standpipe (NFPA 13/72)
-  interiorBuildoutPerSF: 15,    // $/SF net -- unit partitions, roll-up doors, locks, office
-  technologyPerSF: 3.50,        // $/SF gross -- access control, cameras, smart-entry, IT
-  utilityInfraBase: 75000,      // Flat base -- tap fees, hookup regardless of size
-  utilityInfraPerSF: 2.00,      // $/SF gross -- capacity sizing (fire line, electric, sewer)
+  fireSuppressionPerSF: 5.50,   // $/SF gross — full sprinkler, alarm, standpipe (NFPA 13/72)
+  interiorBuildoutPerSF: 15,    // $/SF net — unit partitions, roll-up doors, locks, office
+  technologyPerSF: 3.50,        // $/SF gross — access control, cameras, smart-entry, IT
+  utilityInfraBase: 75000,      // Flat base — tap fees, hookup regardless of size
+  utilityInfraPerSF: 2.00,      // $/SF gross — capacity sizing (fire line, electric, sewer)
   softCostPct: 0.20,            // 20% of TOTAL hard costs (all 6 categories)
   contingencyPct: 0.075,        // 7.5% of TOTAL hard costs
 
-  // -- Construction Carry --
+  // ── Construction Carry ──
   constructionMonthsOneStory: 14,
   constructionMonthsMultiStory: 18,
   constLoanLTC: 0.60,
@@ -71,7 +71,7 @@ export const STORVEX_DEFAULTS = {
   avgDrawPct: 0.55,
   workingCapitalPct: 0.02,
 
-  // -- PS Operator Profile --
+  // ── PS Operator Profile ──
   propTaxRate: 0.010,
   insurancePerSF: 0.30,
   mgmtFeePct: 0.035,
@@ -87,31 +87,31 @@ export const STORVEX_DEFAULTS = {
   badDebtPct: 0.015,
   reservePerSF: 0.15,
 
-  // -- Cap Rates & Valuations --
+  // ── Cap Rates & Valuations ──
   capRateConservative: 0.065,
   capRateMarket: 0.0575,
   capRateAggressive: 0.05,
 
-  // -- Land Pricing YOC Targets (REIT-tight, recalibrated 2026-03-22) --
-  yocMax: 0.075,                // Walk Away -- PS minimum for strategic sites
-  yocStrike: 0.09,              // Strike Price -- standard REC approval zone
-  yocMin: 0.105,                // Home Run -- exceptional deal territory
+  // ── Land Pricing YOC Targets (REIT-tight, recalibrated 2026-03-22) ──
+  yocMax: 0.075,                // Walk Away — PS minimum for strategic sites
+  yocStrike: 0.09,              // Strike Price — standard REC approval zone
+  yocMin: 0.105,                // Home Run — exceptional deal territory
 
-  // -- Capital Stack --
+  // ── Capital Stack ──
   loanLTV: 0.65,
   loanRate: 0.0675,
   loanAmort: 25,
 
-  // -- DCF --
+  // ── DCF ──
   exitCapRate: 0.06,
   holdPeriod: 10,
 
-  // -- Sensitivity Ranges --
+  // ── Sensitivity Ranges ──
   sensitivityRentDelta: 0.10,   // ±10%
   sensitivityOccDelta: 0.05,    // ±5 pts
 };
 
-// --- Input Section Definitions ---
+// ─── Input Section Definitions ───
 const SECTIONS = [
   {
     id: 'facility',
@@ -133,14 +133,14 @@ const SECTIONS = [
     icon: '💰',
     description: 'Rental rates by income tier ($/SF/mo)',
     inputs: [
-      { key: 'climateRatePremium', label: 'Climate -- Premium ($90K+ HHI)', type: 'rate', step: 0.01, min: 0.50, max: 3.00, unit: '$/SF/mo' },
-      { key: 'climateRateUpper', label: 'Climate -- Upper ($75K+ HHI)', type: 'rate', step: 0.01, min: 0.50, max: 2.50, unit: '$/SF/mo' },
-      { key: 'climateRateMid', label: 'Climate -- Mid ($60K+ HHI)', type: 'rate', step: 0.01, min: 0.40, max: 2.00, unit: '$/SF/mo' },
-      { key: 'climateRateValue', label: 'Climate -- Value (<$60K HHI)', type: 'rate', step: 0.01, min: 0.30, max: 1.50, unit: '$/SF/mo' },
-      { key: 'driveRatePremium', label: 'Drive-Up -- Premium', type: 'rate', step: 0.01, min: 0.30, max: 2.00, unit: '$/SF/mo' },
-      { key: 'driveRateUpper', label: 'Drive-Up -- Upper', type: 'rate', step: 0.01, min: 0.25, max: 1.50, unit: '$/SF/mo' },
-      { key: 'driveRateMid', label: 'Drive-Up -- Mid', type: 'rate', step: 0.01, min: 0.20, max: 1.20, unit: '$/SF/mo' },
-      { key: 'driveRateValue', label: 'Drive-Up -- Value', type: 'rate', step: 0.01, min: 0.15, max: 1.00, unit: '$/SF/mo' },
+      { key: 'climateRatePremium', label: 'Climate — Premium ($90K+ HHI)', type: 'rate', step: 0.01, min: 0.50, max: 3.00, unit: '$/SF/mo' },
+      { key: 'climateRateUpper', label: 'Climate — Upper ($75K+ HHI)', type: 'rate', step: 0.01, min: 0.50, max: 2.50, unit: '$/SF/mo' },
+      { key: 'climateRateMid', label: 'Climate — Mid ($60K+ HHI)', type: 'rate', step: 0.01, min: 0.40, max: 2.00, unit: '$/SF/mo' },
+      { key: 'climateRateValue', label: 'Climate — Value (<$60K HHI)', type: 'rate', step: 0.01, min: 0.30, max: 1.50, unit: '$/SF/mo' },
+      { key: 'driveRatePremium', label: 'Drive-Up — Premium', type: 'rate', step: 0.01, min: 0.30, max: 2.00, unit: '$/SF/mo' },
+      { key: 'driveRateUpper', label: 'Drive-Up — Upper', type: 'rate', step: 0.01, min: 0.25, max: 1.50, unit: '$/SF/mo' },
+      { key: 'driveRateMid', label: 'Drive-Up — Mid', type: 'rate', step: 0.01, min: 0.20, max: 1.20, unit: '$/SF/mo' },
+      { key: 'driveRateValue', label: 'Drive-Up — Value', type: 'rate', step: 0.01, min: 0.15, max: 1.00, unit: '$/SF/mo' },
       { key: 'annualEscalation', label: 'Annual Rent Escalation', type: 'pct', step: 0.005, min: 0.00, max: 0.08, tip: 'Year-over-year street rate growth' },
     ]
   },
@@ -150,7 +150,7 @@ const SECTIONS = [
     icon: '📈',
     description: '5-year occupancy ramp & promotional discounting',
     inputs: [
-      { key: 'leaseUpY1Occ', label: 'Year 1 Occupancy', type: 'pct', step: 0.01, min: 0.10, max: 0.60, tip: 'Grand opening year -- heavy promotions' },
+      { key: 'leaseUpY1Occ', label: 'Year 1 Occupancy', type: 'pct', step: 0.01, min: 0.10, max: 0.60, tip: 'Grand opening year — heavy promotions' },
       { key: 'leaseUpY2Occ', label: 'Year 2 Occupancy', type: 'pct', step: 0.01, min: 0.30, max: 0.80 },
       { key: 'leaseUpY3Occ', label: 'Year 3 Occupancy', type: 'pct', step: 0.01, min: 0.50, max: 0.90 },
       { key: 'leaseUpY4Occ', label: 'Year 4 Occupancy', type: 'pct', step: 0.01, min: 0.70, max: 0.95 },
@@ -167,7 +167,7 @@ const SECTIONS = [
     id: 'ecri',
     label: 'ECRI Revenue Model',
     icon: '⚡',
-    description: 'Existing Customer Rate Increase -- PS\'s #1 revenue lever',
+    description: 'Existing Customer Rate Increase — PS\'s #1 revenue lever',
     inputs: [
       { key: 'ecriY1', label: 'Year 1 ECRI Premium', type: 'pct', step: 0.01, min: 0.00, max: 0.10, tip: 'Cumulative ECRI above street rate' },
       { key: 'ecriY2', label: 'Year 2 ECRI Premium', type: 'pct', step: 0.01, min: 0.00, max: 0.20 },
@@ -180,20 +180,20 @@ const SECTIONS = [
     id: 'construction',
     label: 'Construction Costs',
     icon: '🔨',
-    description: 'Full dev cost stack -- PS Killeen calibrated ($119/SF actual)',
+    description: 'Full dev cost stack — PS Killeen calibrated ($119/SF actual)',
     inputs: [
       { key: 'hardCostOneStoryClimate', label: '1-Story Shell+HVAC ($/SF)', type: 'dollar', step: 1, min: 20, max: 100, unit: '$/SF', tip: 'Building shell & HVAC only. PS benchmark: $45/SF national' },
       { key: 'hardCostOneStoryDrive', label: '1-Story Drive-Up Shell ($/SF)', type: 'dollar', step: 1, min: 10, max: 60, unit: '$/SF' },
       { key: 'hardCostMultiStory3', label: '3-Story Shell ($/SF)', type: 'dollar', step: 1, min: 40, max: 140, unit: '$/SF' },
       { key: 'hardCostMultiStory4', label: '4-Story Shell ($/SF)', type: 'dollar', step: 1, min: 50, max: 160, unit: '$/SF' },
-      { key: 'siteWorkPerSFOneStory', label: 'Site Dev 1-Story ($/SF site)', type: 'dollar', step: 0.5, min: 3, max: 20, unit: '$/SF', tip: 'Grading, paving, stormwater, landscaping, fencing -- per SF of total site area' },
+      { key: 'siteWorkPerSFOneStory', label: 'Site Dev 1-Story ($/SF site)', type: 'dollar', step: 0.5, min: 3, max: 20, unit: '$/SF', tip: 'Grading, paving, stormwater, landscaping, fencing — per SF of total site area' },
       { key: 'siteWorkPerSFMulti', label: 'Site Dev Multi-Story ($/SF site)', type: 'dollar', step: 0.5, min: 4, max: 25, unit: '$/SF' },
       { key: 'fireSuppressionPerSF', label: 'Fire Suppression ($/SF)', type: 'rate', step: 0.25, min: 2.00, max: 10.00, unit: '$/SF', tip: 'Full sprinkler (NFPA 13), fire alarm, standpipe, FDC' },
       { key: 'interiorBuildoutPerSF', label: 'Interior Buildout ($/SF net)', type: 'dollar', step: 0.5, min: 5, max: 30, unit: '$/SF', tip: 'Unit partitions, roll-up doors, locks, corridor finish, office' },
       { key: 'technologyPerSF', label: 'Technology & Security ($/SF)', type: 'rate', step: 0.25, min: 1.00, max: 8.00, unit: '$/SF', tip: 'Access control, cameras, smart-entry, IoT, IT infrastructure' },
       { key: 'utilityInfraBase', label: 'Utility Base Cost ($)', type: 'dollar', step: 5000, min: 25000, max: 200000, unit: '$', tip: 'Flat hookup costs: water/sewer taps, electric service, gas' },
       { key: 'utilityInfraPerSF', label: 'Utility Per-SF ($/SF)', type: 'rate', step: 0.25, min: 0.50, max: 5.00, unit: '$/SF', tip: 'Capacity sizing: fire line, transformer, sewer main' },
-      { key: 'softCostPct', label: 'Soft Costs (% of All Hard)', type: 'pct', step: 0.01, min: 0.10, max: 0.35, tip: 'A&E, permits, legal, survey, dev fee -- applied to TOTAL hard costs' },
+      { key: 'softCostPct', label: 'Soft Costs (% of All Hard)', type: 'pct', step: 0.01, min: 0.10, max: 0.35, tip: 'A&E, permits, legal, survey, dev fee — applied to TOTAL hard costs' },
       { key: 'contingencyPct', label: 'Contingency (% of All Hard)', type: 'pct', step: 0.005, min: 0.03, max: 0.15, tip: 'Industry standard: 7.5%. Required by PS REC.' },
     ]
   },
@@ -207,7 +207,7 @@ const SECTIONS = [
       { key: 'constructionMonthsMultiStory', label: 'Multi-Story Build (months)', type: 'int', step: 1, min: 12, max: 30, unit: 'mo' },
       { key: 'constLoanLTC', label: 'Construction LTC', type: 'pct', step: 0.01, min: 0.40, max: 0.80, tip: 'Loan-to-cost on construction financing' },
       { key: 'constLoanRate', label: 'Construction Loan Rate', type: 'pct', step: 0.0025, min: 0.04, max: 0.12 },
-      { key: 'avgDrawPct', label: 'Avg Draw Schedule', type: 'pct', step: 0.01, min: 0.30, max: 0.75, tip: 'Average outstanding balance -- S-curve draw' },
+      { key: 'avgDrawPct', label: 'Avg Draw Schedule', type: 'pct', step: 0.01, min: 0.30, max: 0.75, tip: 'Average outstanding balance — S-curve draw' },
       { key: 'workingCapitalPct', label: 'Working Capital Reserve', type: 'pct', step: 0.005, min: 0.00, max: 0.05 },
     ]
   },
@@ -215,7 +215,7 @@ const SECTIONS = [
     id: 'opex',
     label: 'Operating Expenses',
     icon: '📊',
-    description: 'PS operating platform -- 78.4% NOI margin benchmark',
+    description: 'PS operating platform — 78.4% NOI margin benchmark',
     inputs: [
       { key: 'propTaxRate', label: 'Property Tax Rate', type: 'pct', step: 0.001, min: 0.005, max: 0.030, tip: '% of development cost, 2%/yr reassessment escalation' },
       { key: 'insurancePerSF', label: 'Insurance ($/SF)', type: 'rate', step: 0.01, min: 0.10, max: 1.00, unit: '$/SF/yr' },
@@ -252,9 +252,9 @@ const SECTIONS = [
     icon: '🗺️',
     description: 'YOC targets for back-calculating max land acquisition price',
     inputs: [
-      { key: 'yocMax', label: 'YOC -- Maximum (Ceiling)', type: 'pct', step: 0.005, min: 0.04, max: 0.12, tip: 'Most PS will pay for land. Back-solves to max land price.' },
-      { key: 'yocStrike', label: 'YOC -- Strike Price (Target)', type: 'pct', step: 0.005, min: 0.05, max: 0.15 },
-      { key: 'yocMin', label: 'YOC -- Minimum (Floor)', type: 'pct', step: 0.005, min: 0.06, max: 0.20 },
+      { key: 'yocMax', label: 'YOC — Maximum (Ceiling)', type: 'pct', step: 0.005, min: 0.04, max: 0.12, tip: 'Most PS will pay for land. Back-solves to max land price.' },
+      { key: 'yocStrike', label: 'YOC — Strike Price (Target)', type: 'pct', step: 0.005, min: 0.05, max: 0.15 },
+      { key: 'yocMin', label: 'YOC — Minimum (Floor)', type: 'pct', step: 0.005, min: 0.06, max: 0.20 },
     ]
   },
   {
@@ -270,7 +270,7 @@ const SECTIONS = [
   },
 ];
 
-// --- Format helpers ---
+// ─── Format helpers ───
 const fmtPct = (v, decimals = 1) => `${(v * 100).toFixed(decimals)}%`;
 const fmtDollar = (v) => `$${Number(v).toLocaleString()}`;
 const fmtRate = (v) => `$${Number(v).toFixed(2)}`;
@@ -292,7 +292,7 @@ const rawToDisplay = (input, raw) => {
   return String(raw);
 };
 
-// --- MAIN COMPONENT ---
+// ═══ MAIN COMPONENT ═══
 // activeSite: the currently-viewed site object (null = no site selected)
 // activeRegion: "southwest" or "east" (Firebase path for the site)
 // allSites: array of all pipeline sites (for property dropdown)
@@ -382,7 +382,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     })).filter(sec => sec.inputs.length > 0);
   }, [searchQuery]);
 
-  // --- Voltage Animation Sequence ---
+  // ─── Voltage Animation Sequence ───
   const triggerVoltage = useCallback(() => {
     if (voltageTimeoutRef.current) clearTimeout(voltageTimeoutRef.current);
     setVoltageActive(true);
@@ -400,12 +400,12 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     }, 300);
   }, []);
 
-  // --- Firebase path for current scope ---
+  // ─── Firebase path for current scope ───
   const fbPath = scope === 'site' && selectedSite && selectedRegion
     ? `${selectedRegion}/${selectedSite.id}/overrides`
     : 'config/valuation_overrides';
 
-  // --- Save handler (scope-aware) ---
+  // ─── Save handler (scope-aware) ───
   const handleSave = useCallback((key, rawValue) => {
     const base = scope === 'site' ? siteOverrides : localOverrides;
     const newOverrides = { ...base };
@@ -415,7 +415,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
       : STORVEX_DEFAULTS[key];
 
     if (Math.abs(rawValue - effectiveDefault) < 0.0001) {
-      delete newOverrides[key]; // Same as parent level -- remove override
+      delete newOverrides[key]; // Same as parent level — remove override
     } else {
       newOverrides[key] = rawValue;
     }
@@ -439,7 +439,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     }, 3000);
   }, [scope, localOverrides, siteOverrides, fbSet, fbPath, onSave, triggerVoltage]);
 
-  // --- Revert All (scope-aware) ---
+  // ─── Revert All (scope-aware) ───
   const handleRevertAll = useCallback(() => {
     if (scope === 'site') {
       setSiteOverrides({});
@@ -453,7 +453,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     setTimeout(() => setChangedKeys(new Set()), 3000);
   }, [scope, fbSet, fbPath, onSave, triggerVoltage]);
 
-  // --- Revert single input (scope-aware) ---
+  // ─── Revert single input (scope-aware) ───
   const handleRevertOne = useCallback((key) => {
     const base = scope === 'site' ? siteOverrides : localOverrides;
     const newOverrides = { ...base };
@@ -472,7 +472,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     }, 3000);
   }, [scope, localOverrides, siteOverrides, fbSet, fbPath, onSave, triggerVoltage]);
 
-  // --- Keyboard handling for inline edit ---
+  // ─── Keyboard handling for inline edit ───
   const handleKeyDown = useCallback((e, input) => {
     if (e.key === 'Enter') {
       e.target.blur();
@@ -499,7 +499,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     }
   }, [overrides]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- STYLES ---
+  // ═══ STYLES ═══
   const S = {
     page: { animation: 'fadeIn 0.4s ease-out', maxWidth: 1200, margin: '0 auto', position: 'relative' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 16 },
@@ -513,7 +513,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     sectionTitle: { display: 'flex', alignItems: 'center', gap: 10 },
     sectionLabel: { fontSize: 15, fontWeight: 700, color: '#E2E8F0', letterSpacing: '-0.01em' },
     sectionDesc: { fontSize: 11, color: '#6B7394', fontWeight: 500, marginTop: 2 },
-    sectionBody: { padding: '0 20px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 },
+    sectionBody: { padding: '0 20px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 },
     inputCard: (isOverridden, isChanged) => ({
       padding: '12px 16px',
       borderRadius: 12,
@@ -556,7 +556,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     statusItem: (color) => ({ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color }),
   };
 
-  // --- Render a single input control ---
+  // ─── Render a single input control ───
   const renderInput = (input) => {
     const val = merged[input.key];
     const isOverridden = input.key in activeOverrides;
@@ -586,7 +586,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
           )}
         </div>
 
-        {/* Value -- click to edit inline */}
+        {/* Value — click to edit inline */}
         {isEditing ? (
           <input
             autoFocus
@@ -603,7 +603,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         ) : (
           <div style={S.inputValue(isOverridden)}
             onClick={() => { setEditingKey(input.key); setEditValue(rawToDisplay(input, val)); }}
-            title={input.tip || `Click to edit. Range: ${fmtVal(input, input.min)} - ${fmtVal(input, input.max)}`}>
+            title={input.tip || `Click to edit. Range: ${fmtVal(input, input.min)} – ${fmtVal(input, input.max)}`}>
             {fmtVal(input, val)}
             {input.unit && <span style={{ fontSize: 11, color: '#6B7394', fontWeight: 500, marginLeft: 4 }}>{input.unit}</span>}
           </div>
@@ -624,22 +624,20 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
           <div style={S.sliderThumb(pct)} />
         </div>
 
-        {/* Override indicator -- only show if value differs from default */}
-        {isOverridden && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-            <span style={{ fontSize: 9, color: '#E87A2E', fontWeight: 700 }}>
-              {val > defaultVal ? '▲' : '▼'} {fmtVal(input, Math.abs(val - defaultVal))} {val > defaultVal ? 'above' : 'below'} default
-            </span>
-            <button onClick={(e) => { e.stopPropagation(); handleSave(input.key, null); }} style={{ fontSize: 9, fontWeight: 700, color: '#E87A2E', background: 'rgba(232,122,46,0.1)', border: '1px solid rgba(232,122,46,0.2)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>REVERT</button>
-          </div>
-        )}
+        {/* Default reference */}
+        <div style={S.inputDefault}>
+          Storvex: {fmtVal(input, defaultVal)}
+          {isOverridden && <span style={{ color: '#E87A2E', marginLeft: 8 }}>
+            {val > defaultVal ? '▲' : '▼'} {fmtVal(input, Math.abs(val - defaultVal))} {val > defaultVal ? 'above' : 'below'} default
+          </span>}
+        </div>
       </div>
     );
   };
 
   return (
     <div ref={containerRef} style={S.page}>
-      {/* --- VOLTAGE OVERLAY --- */}
+      {/* ═══ VOLTAGE OVERLAY ═══ */}
       {voltageActive && (
         <div style={S.voltageOverlay}>
           {/* Horizontal discharge line */}
@@ -677,109 +675,99 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       )}
 
-      {/* --- HEADER --- */}
+      {/* ═══ HEADER ═══ */}
       <div style={S.header}>
         <div>
           <div style={S.title}>
-            <span style={{ background: 'linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Pricing Engine</span>
+            Valuation Inputs
             {voltageActive && <span style={{ marginLeft: 12, fontSize: 16, color: '#39FF14', animation: 'electricFlicker 0.5s steps(2) infinite' }}>
               {voltagePhase === 1 ? '⚡ CHARGING...' : voltagePhase === 2 ? '⚡ RECALCULATING' : voltagePhase === 3 ? '⚡ MODELS UPDATED' : ''}
             </span>}
           </div>
           <div style={S.subtitle}>
-            {selectedSite
-              ? <>{totalInputs} levers powering <span style={{ color: '#E87A2E', fontWeight: 700 }}>{selectedSite.name}</span> -- adjust any input, models update instantly</>
-              : <>Select a property below to unlock {totalInputs} financial model inputs</>
-            }
+            Storvex Financial Engine — {totalInputs} configurable inputs across {SECTIONS.length} categories
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          {selectedSite && siteOverrideCount > 0 && (
-            <button style={S.revertBtn}
-              onClick={handleRevertAll}
-              title="Reset all site overrides back to Storvex defaults">
-              <span style={{ fontSize: 16 }}>⚡</span>
-              Reset to Storvex
-            </button>
-          )}
+          <div style={S.badge}>
+            {overrideCount > 0 ? `${overrideCount} override${overrideCount > 1 ? 's' : ''} active` : 'Using Storvex defaults'}
+          </div>
+          <button style={S.revertBtn}
+            onClick={overrideCount > 0 ? handleRevertAll : undefined}
+            title={overrideCount > 0 ? `Reset all ${scope === 'site' ? 'site' : 'global'} overrides` : 'All inputs already at defaults'}>
+            <span style={{ fontSize: 16 }}>⚡</span>
+            Revert {scope === 'site' ? 'Site' : 'All'} Inputs
+          </button>
         </div>
       </div>
 
-      {/* --- PROPERTY SELECTOR --- */}
-      <div style={{ marginBottom: 24, padding: 24, borderRadius: 16, background: 'linear-gradient(135deg, rgba(15,21,56,0.8), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.2)', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: selectedSite ? '#C9A84C' : '#6B7394', boxShadow: selectedSite ? '0 0 12px rgba(201,168,76,0.6)' : 'none', transition: 'all 0.3s' }} />
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            Select Property to Model
+      {/* ═══ PROPERTY SELECTOR + SCOPE ═══ */}
+      <div style={{ marginBottom: 20, padding: 20, borderRadius: 14, background: 'linear-gradient(135deg, rgba(15,21,56,0.7), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.15)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedSite ? '#E87A2E' : '#C9A84C', boxShadow: `0 0 8px ${selectedSite ? 'rgba(232,122,46,0.5)' : 'rgba(201,168,76,0.5)'}` }} />
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#6B7394', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            {selectedSite ? 'Property-Level Pricing Inputs' : 'Select a Property'}
           </span>
-          {selectedSite && (
-            <span style={{ padding: '3px 12px', borderRadius: 20, background: siteOverrideCount > 0 ? 'rgba(232,122,46,0.15)' : 'rgba(22,163,74,0.12)', color: siteOverrideCount > 0 ? '#E87A2E' : '#16A34A', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', border: `1px solid ${siteOverrideCount > 0 ? 'rgba(232,122,46,0.25)' : 'rgba(22,163,74,0.2)'}` }}>
-              {siteOverrideCount > 0 ? `${siteOverrideCount} CUSTOM INPUT${siteOverrideCount !== 1 ? 'S' : ''}` : 'STORVEX DEFAULTS'}
-            </span>
-          )}
         </div>
         <select
           value={selectedSite?.id || ''}
           onChange={(e) => handleSiteSelect(e.target.value)}
           style={{
-            width: '100%', padding: '16px 20px', borderRadius: 12,
-            background: 'rgba(8,11,26,0.9)', border: selectedSite ? '2px solid rgba(201,168,76,0.35)' : '2px solid rgba(107,115,148,0.2)',
-            color: selectedSite ? '#E2E8F0' : '#6B7394', fontSize: 15, fontWeight: 700, fontFamily: "'Inter', sans-serif",
-            cursor: 'pointer', appearance: 'none', outline: 'none', transition: 'all 0.3s',
-            backgroundImage: "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 14 14%22><path d=%22M2 5l5 5 5-5%22 fill=%22none%22 stroke=%22%23C9A84C%22 stroke-width=%222%22 stroke-linecap=%22round%22/></svg>')",
-            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 18px center',
-            boxShadow: selectedSite ? '0 0 20px rgba(201,168,76,0.1)' : 'none',
+            width: '100%', padding: '14px 18px', borderRadius: 10,
+            background: 'rgba(8,11,26,0.8)', border: '1px solid rgba(201,168,76,0.25)',
+            color: '#E2E8F0', fontSize: 14, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+            cursor: 'pointer', appearance: 'none', outline: 'none', transition: 'border-color 0.2s',
+            backgroundImage: "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%23C9A84C%22 stroke-width=%221.5%22/></svg>')",
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center',
           }}>
-          <option value="" style={{ background: '#0A0E2A', color: '#6B7394' }}>Select a property...</option>
+          <option value="" style={{ background: '#0A0E2A', color: '#6B7394' }}>-- Global Defaults (All Sites) --</option>
           {(allSites || [])
             .slice()
             .sort((a, b) => (a.city || '').localeCompare(b.city || ''))
             .map(s => (
               <option key={s.id} value={s.id} style={{ background: '#0A0E2A', color: '#E2E8F0' }}>
-                {s.city || 'Unknown'}{s.state ? `, ${s.state}` : ''} -- {s.name || s.address || s.id}
+                {s.city || 'Unknown'}{s.state ? `, ${s.state}` : ''} — {s.name || s.address || s.id}
+                {s.overrides && Object.keys(s.overrides).length > 0 ? ` (${Object.keys(s.overrides).length} overrides)` : ''}
               </option>
             ))
           }
         </select>
         {selectedSite && (
-          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94A3B8' }}>
-              <span style={{ color: '#C9A84C', fontWeight: 800 }}>{selectedSite.acreage || '--'}</span> ac
-            </div>
-            <div style={{ width: 1, height: 14, background: 'rgba(201,168,76,0.15)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94A3B8' }}>
-              <span style={{ color: '#C9A84C', fontWeight: 800 }}>{selectedSite.askingPrice || '--'}</span>
-            </div>
-            <div style={{ width: 1, height: 14, background: 'rgba(201,168,76,0.15)' }} />
-            <div style={{ fontSize: 11, color: '#6B7394' }}>
-              Toggle any input below -- changes save instantly to this property
-            </div>
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: '#6B7394' }}>
+            <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(232,122,46,0.12)', color: '#E87A2E', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
+              {siteOverrideCount > 0 ? `${siteOverrideCount} SITE OVERRIDE${siteOverrideCount !== 1 ? 'S' : ''}` : 'USING DEFAULTS'}
+            </span>
+            <span>Changes below apply to <strong style={{ color: '#E87A2E' }}>{selectedSite.name || selectedSite.city || 'this site'}</strong> only</span>
           </div>
         )}
         {!selectedSite && (
-          <div style={{ marginTop: 16, textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ fontSize: 13, color: '#6B7394', marginBottom: 8 }}>Choose a property above to customize its pricing model</div>
-            <div style={{ fontSize: 11, color: '#4A5080' }}>Each property can have its own construction costs, market rates, cap rates, and operating assumptions</div>
+          <div style={{ marginTop: 10, fontSize: 11, color: '#6B7394', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(201,168,76,0.12)', color: '#C9A84C', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
+              {globalOverrideCount > 0 ? `${globalOverrideCount} GLOBAL OVERRIDE${globalOverrideCount !== 1 ? 'S' : ''}` : 'STORVEX DEFAULTS'}
+            </span>
+            <span>Changes apply to all new sites</span>
           </div>
         )}
       </div>
 
-      {/* --- STATUS BAR --- */}
-      {selectedSite && <div style={S.statusBar}>
-        <div style={S.statusItem('#C9A84C')}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#C9A84C' }} />
-          {selectedSite.city}{selectedSite.state ? `, ${selectedSite.state}` : ''}
-        </div>
-        <div style={S.statusItem(siteOverrideCount > 0 ? '#E87A2E' : '#16A34A')}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: siteOverrideCount > 0 ? '#E87A2E' : '#16A34A' }} />
-          {siteOverrideCount > 0 ? `${siteOverrideCount} Custom` : 'All Defaults'}
+      {/* ═══ STATUS BAR ═══ */}
+      <div style={S.statusBar}>
+        {scope === 'site' && selectedSite && (
+          <div style={S.statusItem('#E87A2E')}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E87A2E' }} />
+            Site: {selectedSite.name || selectedSite.address || selectedSite.id}
+          </div>
+        )}
+        <div style={S.statusItem(scope === 'site' ? '#E87A2E' : '#C9A84C')}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: scope === 'site' ? '#E87A2E' : '#C9A84C' }} />
+          {overrideCount} {scope === 'site' ? 'Site' : 'Global'} Override{overrideCount !== 1 ? 's' : ''}
         </div>
         <div style={S.statusItem('#39FF14')}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#39FF14' }} />
-          {totalInputs - siteOverrideCount} Storvex
+          {totalInputs - overrideCount} Defaults
         </div>
         <div style={S.statusItem('#6B7394')}>
-          Changes save instantly -- open Pricing Report to see results
+          {scope === 'site' ? 'Changes apply to this site only' : 'Changes apply to all new sites'}
         </div>
         <div style={{ flex: 1 }} />
         {/* Search */}
@@ -796,25 +784,10 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       </div>
 
-      {/* SECTION CARDS - only when a property is selected */}
-      {!selectedSite && (
-        <div style={{ textAlign: 'center', padding: '80px 20px', borderRadius: 20, background: 'linear-gradient(180deg, rgba(15,21,56,0.6), rgba(30,39,97,0.3))', border: '1px solid rgba(201,168,76,0.1)', marginTop: 8, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent)' }} />
-          <div style={{ fontSize: 56, marginBottom: 20, filter: 'drop-shadow(0 0 20px rgba(201,168,76,0.3))' }}>&#9889;</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#E2E8F0', marginBottom: 10, letterSpacing: '-0.02em' }}>Pick a Property. We Handle the Math.</div>
-          <div style={{ fontSize: 13, color: '#6B7394', maxWidth: 500, margin: '0 auto', lineHeight: 1.8 }}>
-            Every site in the pipeline has <span style={{ color: '#C9A84C', fontWeight: 700 }}>{totalInputs} pre-calibrated inputs</span> across revenue, construction, operating expenses, and valuation. Select a property above -- adjust any lever and watch the pricing report update in real time.
-          </div>
-          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-            {['Revenue', 'Construction', 'Lease-Up', 'OpEx', 'Valuation'].map(cat => (
-              <span key={cat} style={{ padding: '6px 16px', borderRadius: 20, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.1)', fontSize: 11, fontWeight: 700, color: '#6B7394', letterSpacing: '0.04em' }}>{cat}</span>
-            ))}
-          </div>
-        </div>
-      )}
-      {selectedSite && filteredSections.map(sec => {
+      {/* ═══ SECTION CARDS ═══ */}
+      {filteredSections.map(sec => {
         const isExpanded = expandedSections[sec.id] || searchQuery.trim();
-        const secOverrides = sec.inputs.filter(inp => inp.key in activeOverrides).length;
+        const secOverrides = sec.inputs.filter(inp => inp.key in localOverrides).length;
 
         return (
           <div key={sec.id} style={S.sectionCard(isExpanded)} className="card-reveal">
@@ -843,7 +816,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
               </div>
             </div>
 
-            {/* Section Body -- expanded */}
+            {/* Section Body — expanded */}
             {isExpanded && (
               <div style={S.sectionBody} className="card-expand">
                 {sec.inputs.map(renderInput)}
@@ -853,14 +826,14 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         );
       })}
 
-      {/* --- FOOTER -- ENGINE STATUS --- */}
+      {/* ═══ FOOTER — ENGINE STATUS ═══ */}
       <div style={{ marginTop: 24, padding: '16px 20px', borderRadius: 12, background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7394', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Storvex Financial Engine</div>
           <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
             {overrideCount > 0
-              ? `${overrideCount} custom override${overrideCount > 1 ? 's' : ''} applied -- all reports reflect these inputs`
-              : 'Running on Storvex intelligent defaults -- calibrated to PS operating platform'}
+              ? `${overrideCount} custom override${overrideCount > 1 ? 's' : ''} applied — all reports reflect these inputs`
+              : 'Running on Storvex intelligent defaults — calibrated to PS operating platform'}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -868,7 +841,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             LIVE
           </div>
           <div style={{ padding: '6px 14px', borderRadius: 8, background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.15)', fontSize: 11, fontWeight: 600, color: '#C9A84C' }}>
-            v3.1 -- RSMeans 2025
+            v3.1 — RSMeans 2025
           </div>
         </div>
       </div>
