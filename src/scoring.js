@@ -230,7 +230,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     (zoningScore * getIQWeight("zoning")) + (psProxScore * getIQWeight("psProximity")) +
     (scores.access * getIQWeight("access")) +
     (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
-  let adjusted = Math.round(weightedSum * 10) / 10;
+  let adjusted = Math.round(weightedSum * 100) / 100;
 
   // --- PHASE BONUS ---
   const phase = (site.phase || "").toLowerCase();
@@ -299,7 +299,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   else if (vetPct > 0) { adjusted = Math.max(0, adjusted - 0.1); }
   else { adjusted = Math.max(0, adjusted - 0.3); flags.push("No deep vet research completed"); }
 
-  const final = Math.round(adjusted * 10) / 10;
+  const final = Math.round(adjusted * 100) / 100;
 
   // --- CLASSIFICATION (§6h) ---
   let classification, classColor;

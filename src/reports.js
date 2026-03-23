@@ -79,9 +79,10 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const waterHookupColor = waterHookup === "by-right" ? "#16A34A" : waterHookup === "by-request" ? "#F59E0B" : waterHookup === "no-provider" ? "#EF4444" : "#94A3B8";
   // Water hookup cost estimator
   const distFt = site.distToWaterMain ? parseFloat(String(site.distToWaterMain).replace(/[^0-9.]/g, "")) : null;
-  const waterTapN = site.waterTapFee ? parseFloat(String(site.waterTapFee).replace(/[^0-9.]/g, "")) : null;
-  const sewerTapN = site.sewerTapFee ? parseFloat(String(site.sewerTapFee).replace(/[^0-9.]/g, "")) : null;
-  const impactN = site.impactFees ? parseFloat(String(site.impactFees).replace(/[^0-9.]/g, "")) : null;
+  const parseFee = (v) => { if (!v) return null; const m = String(v).match(/\$?([\d,]+(?:\.\d+)?)/); return m ? parseFloat(m[1].replace(/,/g, "")) : null; };
+  const waterTapN = parseFee(site.waterTapFee);
+  const sewerTapN = parseFee(site.sewerTapFee);
+  const impactN = parseFee(site.impactFees);
   const extensionLow = distFt ? Math.round(distFt * 50) : null;
   const extensionHigh = distFt ? Math.round(distFt * 150) : null;
   const totalUtilLow = (waterTapN || 0) + (sewerTapN || 0) + (impactN || 0) + (extensionLow || 0);
@@ -766,7 +767,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       row("Households (3-mi)", hhN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(hhN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
       row("Median Home Value", hvN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(hvN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
       row("5-Yr Pop Growth", growthPct !== null ? '<span style="color:#16A34A;font-weight:700">' + (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR</span>" : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Renter %", site.renterPct3mi ? site.renterPct3mi + "%" : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
+      row("Renter %", site.renterPct3mi ? String(site.renterPct3mi).replace(/%/g, "") + "%" : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
       row("Demand Drivers", site.demandDrivers || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
     ].join("")}</table>
 
@@ -1277,7 +1278,7 @@ function updateCustomCap(val){
   <div style="text-align:right">
     <div class="badge" style="background:rgba(201,168,76,0.12);color:#C9A84C;border:1px solid rgba(201,168,76,0.25);font-size:12px;padding:6px 16px">${phase}</div>
     <div style="font-size:11px;color:#6B7394;margin-top:8px">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-    <div style="font-size:10px;color:#4A5080;margin-top:2px">SiteScore: ${iq.score?.toFixed(1) || "N/A"}/10</div>
+    <div style="font-size:10px;color:#4A5080;margin-top:2px">SiteScore: ${iq.score?.toFixed(2) || "N/A"}/10</div>
   </div>
 </div>
 
@@ -3774,7 +3775,7 @@ function toggleMI(id,evt){
     </div>
     <div style="text-align:right">
       <div style="display:inline-flex;align-items:center;gap:10px;padding:10px 20px;border-radius:12px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
-        <span style="font-size:32px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iq.score === "number" ? iq.score.toFixed(1) : "—"}</span>
+        <span style="font-size:32px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}</span>
         <div>
           <div style="font-size:9px;color:#CBD5E1;letter-spacing:0.1em;font-weight:700">SITESCORE<span style="font-size:7px;vertical-align:super">™</span></div>
           <div style="font-size:12px;font-weight:800;color:${iqBadgeColor}">${iq.label || "—"}</div>
@@ -3805,7 +3806,7 @@ function toggleMI(id,evt){
     <span style="font-size:28px">${recIcon}</span>
     <div>
       <div style="font-size:18px;font-weight:900;color:${recColor};letter-spacing:0.02em">${recLabel}</div>
-      <div style="font-size:12px;color:#64748B;margin-top:4px">Storvex ${(iq.breakdown || []).length}-dimension composite analysis — SiteScore™ ${iq.score?.toFixed(1) || "—"}/10</div>
+      <div style="font-size:12px;color:#64748B;margin-top:4px">Storvex ${(iq.breakdown || []).length}-dimension composite analysis — SiteScore™ ${iq.score?.toFixed(2) || "—"}/10</div>
     </div>
   </div>
   ${landVerdict ? `<div style="display:flex;gap:16px;margin-top:16px">
@@ -3861,13 +3862,13 @@ function toggleMI(id,evt){
 
 <!-- ═══════════════ SECTION 2: SITESCORE BREAKDOWN ═══════════════ -->
 <div id="sec-R2" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">2</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(1) : "—"}/10</h2>
+  <h2><span class="sec-num">2</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10</h2>
   <table>
     <thead><tr><th>Dimension</th><th>Score (0–10)</th><th>Weight</th><th>Weighted</th></tr></thead>
     <tbody>${breakdownRows}</tbody>
     <tfoot><tr style="background:#F8FAFC">
       <td style="padding:12px 14px;font-size:13px;font-weight:900;border-top:2px solid #1E2761" colspan="3">COMPOSITE SCORE</td>
-      <td style="padding:12px 14px;font-size:18px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono',monospace;text-align:right;border-top:2px solid #1E2761">${typeof iq.score === "number" ? iq.score.toFixed(1) : "—"}</td>
+      <td style="padding:12px 14px;font-size:18px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono',monospace;text-align:right;border-top:2px solid #1E2761">${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}</td>
     </tr></tfoot>
   </table>
 </div>

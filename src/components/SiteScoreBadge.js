@@ -28,7 +28,7 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
         boxShadow: iq.tier === "gold" ? "0 0 8px rgba(243,124,51,0.15)" : "none",
       }}>
         <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: "inherit", opacity: 0.85 }}>S</span>
-        {s.toFixed(1)}
+        {s.toFixed(2)}
         {iq.classification && <span style={{ width: 6, height: 6, borderRadius: "50%", background: iq.classColor, flexShrink: 0 }} title={iq.classification} />}
       </span>
     );
@@ -58,7 +58,7 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
           animation: "sitescore-ring 3s ease-in-out infinite alternate",
         }} /></>}
         <div style={{ textAlign: "center", lineHeight: 1 }}>
-          <div style={{ fontSize: 24, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(2)}</div>
         </div>
       </div>
       {/* Label + Breakdown */}

@@ -1072,7 +1072,7 @@ function AppInner() {
                                       <span style={{ fontSize: 14 }}>🔬</span>
                                       <span style={{ color: "#FFB347", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SiteScore™ DETAILED SCORECARD</span>
                                       <span style={{ color: "#6B7394", fontSize: 10 }}>|</span>
-                                      <span style={{ color: scoreColor(iqD.score), fontSize: 13, fontWeight: 900, fontFamily: "'Space Mono', monospace" }}>{iqD.score.toFixed(1)}</span>
+                                      <span style={{ color: scoreColor(iqD.score), fontSize: 13, fontWeight: 900, fontFamily: "'Space Mono', monospace" }}>{iqD.score.toFixed(2)}</span>
                                       <span style={{ color: scoreColor(iqD.score), fontSize: 10, fontWeight: 800, background: scoreColor(iqD.score) + "18", padding: "2px 6px", borderRadius: 4 }}>{scoreLabel(iqD.score)}</span>
                                     </div>
                                     <button onClick={(e) => { e.stopPropagation(); setShowSiteScoreDetail(prev => ({ ...prev, [site.id]: false })); }} style={{ background: "none", border: "1px solid rgba(255,255,255,.15)", borderRadius: 5, color: "#6B7394", fontSize: 11, cursor: "pointer", padding: "2px 8px" }}>✕</button>
@@ -1102,7 +1102,7 @@ function AppInner() {
                                       <div style={{ fontSize: 10, color: "#6B7394", fontWeight: 600 }}>
                                         {iqD.flags && iqD.flags.length > 0 && iqD.flags.map((f, i) => <span key={i} style={{ display: "inline-block", fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>{f}</span>)}
                                       </div>
-                                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(1)}</span> / 10</div>
+                                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(2)}</span> / 10</div>
                                     </div>
                                   </div>
                                 </div>
@@ -2644,7 +2644,7 @@ function AppInner() {
                         <span style={{ background: iqR.classColor + "25", color: iqR.classColor, fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 6 }}>{iqR.classification}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ fontSize: 32, fontWeight: 900, color: iqR.tier === "gold" ? "#FFD700" : "#E2E8F0", fontFamily: "'Space Mono', monospace", textShadow: iqR.tier === "gold" ? "0 0 20px rgba(255,215,0,0.4)" : "none" }}>{iqR.score.toFixed(1)}</div>
+                        <div style={{ fontSize: 32, fontWeight: 900, color: iqR.tier === "gold" ? "#FFD700" : "#E2E8F0", fontFamily: "'Space Mono', monospace", textShadow: iqR.tier === "gold" ? "0 0 20px rgba(255,215,0,0.4)" : "none" }}>{iqR.score.toFixed(2)}</div>
                         <span style={{ fontSize: 12, color: "#94A3B8" }}>/10</span>
                         <button onClick={() => setScoreExpanded(false)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✕</button>
                       </div>
@@ -3802,7 +3802,7 @@ function AppInner() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 14 }}>🔬</span>
                         <span style={{ color: "#FFB347", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>SiteScore™ SCORECARD</span>
-                        <span style={{ color: sc2(iqR.score), fontSize: 14, fontWeight: 900, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span>
+                        <span style={{ color: sc2(iqR.score), fontSize: 14, fontWeight: 900, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(2)}</span>
                       </div>
                       {iqR.flags && iqR.flags.length > 0 && <div style={{ display: "flex", gap: 4 }}>{iqR.flags.map((f, i) => <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>)}</div>}
                     </div>
@@ -3821,7 +3821,7 @@ function AppInner() {
                         );
                       })}
                       <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 4px 4px", borderTop: "2px solid rgba(243,124,51,.2)", marginTop: 4 }}>
-                        <span style={{ fontSize: 10, color: "#94A3B8" }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 14, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span> / 10</span>
+                        <span style={{ fontSize: 10, color: "#94A3B8" }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 14, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(2)}</span> / 10</span>
                       </div>
                     </div>
                   </div>
