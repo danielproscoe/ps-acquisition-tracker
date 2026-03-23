@@ -697,7 +697,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     );
     const f = financials;
     const noiMargin = f.stabRev > 0 ? ((f.stabNOI / f.stabRev) * 100).toFixed(1) : 'N/A';
-    const verdictBg = f.landVerdict === 'STRONG BUY' ? 'rgba(22,163,74,0.12)' : f.landVerdict === 'BUY' ? 'rgba(34,197,94,0.12)' : f.landVerdict === 'NEGOTIATE' ? 'rgba(245,158,11,0.12)' : f.landVerdict === 'STRETCH' ? 'rgba(232,122,46,0.12)' : 'rgba(239,68,68,0.12)';
+    const verdictBg = f.landVerdict === 'STRONG BUY' ? 'rgba(22,163,74,0.12)' : f.landVerdict === 'BUY' ? 'rgba(34,197,94,0.12)' : f.landVerdict === 'NEGOTIATE' ? 'rgba(245,158,11,0.12)' : f.landVerdict === 'STRETCH' ? 'rgba(232,122,46,0.12)' : f.landVerdict === 'ABOVE STRIKE' ? 'rgba(232,122,46,0.12)' : 'rgba(22,163,74,0.12)';
     return (
       <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
         {/* Hero Section */}
@@ -711,7 +711,8 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               {f.landVerdict && (
-                <div style={{ padding: '8px 20px', borderRadius: 10, background: verdictBg, border: `1px solid ${f.verdictColor}30` }}>
+                <div style={{ padding: '8px 20px', borderRadius: 10, background: verdictBg, border: `1px solid ${f.verdictColor}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {f.landVerdict === 'APPROVED' && <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7.5" stroke="#16A34A" strokeWidth="1" fill="rgba(22,163,74,0.15)"/><path d="M4.5 8.5L6.5 10.5L11.5 5.5" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   <div style={{ fontSize: 14, fontWeight: 900, color: f.verdictColor, letterSpacing: '0.04em' }}>{f.landVerdict}</div>
                 </div>
               )}
