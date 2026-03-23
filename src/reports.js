@@ -1090,11 +1090,11 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig, valuation
   const avgMonthlyRent = totalUnits > 0 ? Math.round(stabRev / 12 / (totalUnits * 0.92)) : 0;
 
   const fmtD = (n) => "$" + Math.round(n).toLocaleString();
-  const fmtM = (n) => n >= 1000000 ? "$" + (n / 1000000).toFixed(2) + "M" : "$" + Math.round(n).toLocaleString();
+  const fmtM = (n) => n >= 1000000 ? "$" + (n / 1000000).toFixed(2) + "M" : n >= 100000 ? "$" + Math.round(n / 1000) + "K" : "$" + Math.round(n).toLocaleString();
   const pctBar = (pct, color) => `<div style="display:flex;align-items:center;gap:6px"><div style="width:80px;height:10px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden"><div style="width:${Math.round(pct*100)}%;height:100%;border-radius:5px;background:${color};transition:width 0.5s"></div></div><span style="font-size:12px;font-weight:700;color:${color}">${Math.round(pct*100)}%</span></div>`;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Storevex Pricing Report — ${h(site.name)}</title>
+<title>Storvex Pricing Report — ${h(site.name)}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1168,7 +1168,7 @@ tr:hover td{background:rgba(201,168,76,0.04)}
 .mi-row-label{color:#6B7394;font-weight:600}
 .mi-row-val{color:#E2E8F0;font-weight:700;font-family:'Space Mono',monospace}
 
-/* ═══ v4.0 COSMETICS ═══ */
+/* ═══ v4.1 COSMETICS — BCG Polish Pass ═══ */
 @keyframes headerGlow{0%,100%{box-shadow:0 0 30px rgba(201,168,76,0.08)}50%{box-shadow:0 0 50px rgba(201,168,76,0.15)}}
 .header-v4{animation:headerGlow 4s ease-in-out infinite}
 @keyframes pulseGold{0%,100%{opacity:0.6}50%{opacity:1}}
@@ -1177,6 +1177,31 @@ tr:hover td{background:rgba(201,168,76,0.04)}
 .section-v4{border-image:linear-gradient(135deg,rgba(201,168,76,0.15),rgba(232,122,46,0.1),rgba(201,168,76,0.15)) 1;border-width:1px;border-style:solid}
 .nav-dot{width:6px;height:6px;border-radius:50%;background:#C9A84C;display:inline-block;margin:0 3px;opacity:0.3}
 .nav-dot.active{opacity:1;box-shadow:0 0 6px rgba(201,168,76,0.4)}
+
+/* ═══ v4.1 — Storvex Turbine Engine Animation ═══ */
+@keyframes turbineSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes liquidFlow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes particleFloat{0%,100%{opacity:0;transform:translateY(0) scale(0.3)}30%{opacity:0.8;transform:translateY(-20px) scale(1)}70%{opacity:0.4;transform:translateY(-40px) scale(0.6)}100%{opacity:0;transform:translateY(-60px) scale(0.2)}}
+.storvex-turbine{position:relative;width:60px;height:60px;margin:0 auto}
+.turbine-core{width:60px;height:60px;border-radius:50%;border:3px solid transparent;border-top-color:#42A5F5;border-right-color:#16A34A;border-bottom-color:#42A5F5;border-left-color:#16A34A;animation:turbineSpin 2s linear infinite;box-shadow:0 0 20px rgba(66,165,245,0.3),inset 0 0 15px rgba(22,163,74,0.2)}
+.turbine-inner{position:absolute;top:8px;left:8px;width:44px;height:44px;border-radius:50%;border:2px solid transparent;border-top-color:#16A34A;border-right-color:#42A5F5;border-bottom-color:#16A34A;border-left-color:#42A5F5;animation:turbineSpin 1.2s linear infinite reverse}
+.turbine-center{position:absolute;top:18px;left:18px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#42A5F5,#16A34A);box-shadow:0 0 12px rgba(66,165,245,0.5),0 0 24px rgba(22,163,74,0.3);display:flex;align-items:center;justify-content:center}
+.turbine-center::after{content:"";width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.9);box-shadow:0 0 6px rgba(255,255,255,0.6)}
+.turbine-liquid{position:absolute;top:-4px;left:-4px;width:68px;height:68px;border-radius:50%;background:linear-gradient(45deg,rgba(66,165,245,0.15),rgba(22,163,74,0.15),rgba(66,165,245,0.15),rgba(22,163,74,0.15));background-size:200% 200%;animation:liquidFlow 3s ease-in-out infinite;pointer-events:none}
+.turbine-particle{position:absolute;width:4px;height:4px;border-radius:50%;pointer-events:none}
+.turbine-particle:nth-child(1){left:10px;top:0;background:#42A5F5;animation:particleFloat 2.5s ease-out infinite}
+.turbine-particle:nth-child(2){left:40px;top:-5px;background:#16A34A;animation:particleFloat 3s ease-out 0.5s infinite}
+.turbine-particle:nth-child(3){left:25px;top:-3px;background:#42A5F5;animation:particleFloat 2.8s ease-out 1s infinite}
+.turbine-particle:nth-child(4){left:50px;top:5px;background:#16A34A;animation:particleFloat 3.2s ease-out 1.5s infinite}
+.turbine-particle:nth-child(5){left:5px;top:10px;background:#42A5F5;animation:particleFloat 2.6s ease-out 0.8s infinite}
+
+/* ═══ v4.1 — Section Dividers ═══ */
+.section-divider{height:1px;background:linear-gradient(90deg,transparent 0%,rgba(201,168,76,0.2) 20%,rgba(66,165,245,0.15) 50%,rgba(201,168,76,0.2) 80%,transparent 100%);margin:28px 0;position:relative}
+.section-divider::after{content:"";position:absolute;left:50%;top:-2px;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:#C9A84C;box-shadow:0 0 8px rgba(201,168,76,0.4)}
+
+/* ═══ v4.1 — Polished Placeholder Styling ═══ */
+.val-pending{color:#6B7394;font-style:italic;font-weight:500;letter-spacing:0.02em}
+.val-confirmed{color:#E2E8F0;font-weight:700}
 
 /* TOC sidebar — McKinsey nav strip */
 .toc-sidebar{position:fixed;left:0;top:50%;transform:translateY(-50%);width:52px;background:linear-gradient(180deg,#0A0A0C,#1E2761 40%,#2C3E6B);border-radius:0 14px 14px 0;box-shadow:4px 0 30px rgba(0,0,0,0.15);padding:14px 6px;z-index:999;transition:width 0.3s cubic-bezier(0.4,0,0.2,1);overflow:hidden}
@@ -1260,14 +1285,14 @@ function updateCustomCap(val){
 
 <div class="page">
 
-<!-- HEADER v4.0 -->
+<!-- HEADER v4.1 — BCG Polish -->
 <div class="header-v4" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding:24px 28px;border-radius:16px;background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.5));border:1px solid rgba(201,168,76,0.2)">
-  <div>
+  <div style="flex:1">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:900;letter-spacing:0.14em;color:#C9A84C">STOREVEX<span style="font-size:7px;vertical-align:super">™</span></div>
+      <div style="font-size:13px;font-weight:900;letter-spacing:0.14em;color:#C9A84C">STORVEX<span style="font-size:7px;vertical-align:super">™</span></div>
       <div style="width:1px;height:16px;background:rgba(201,168,76,0.3)"></div>
       <div style="font-size:11px;font-weight:600;color:#6B7394;letter-spacing:0.08em">INTERACTIVE PRICING INTELLIGENCE</div>
-      <span class="version-badge">v4.0</span>
+      <span class="version-badge">v4.1</span>
     </div>
     <h1 style="color:#fff;margin-bottom:6px">${h(site.name)}</h1>
     <div style="font-size:13px;color:#94A3B8">${h(site.address || "")}${site.city ? ", " + h(site.city) : ""}${site.state ? ", " + h(site.state) : ""}</div>
@@ -1276,9 +1301,22 @@ function updateCustomCap(val){
       <span>for full source methodology and derivation intelligence</span>
     </div>
   </div>
-  <div style="text-align:right">
-    <div class="badge" style="background:rgba(201,168,76,0.12);color:#C9A84C;border:1px solid rgba(201,168,76,0.25);font-size:12px;padding:6px 16px">${phase}</div>
-    <div style="font-size:11px;color:#6B7394;margin-top:8px">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+  <div style="display:flex;align-items:center;gap:20px">
+    <!-- Storvex Turbine Engine -->
+    <div class="storvex-turbine">
+      <div class="turbine-liquid"></div>
+      <div class="turbine-core"></div>
+      <div class="turbine-inner"></div>
+      <div class="turbine-center"></div>
+      <div class="turbine-particle"></div>
+      <div class="turbine-particle"></div>
+      <div class="turbine-particle"></div>
+      <div class="turbine-particle"></div>
+      <div class="turbine-particle"></div>
+    </div>
+    <div style="text-align:right">
+      <div class="badge" style="background:rgba(201,168,76,0.12);color:#C9A84C;border:1px solid rgba(201,168,76,0.25);font-size:12px;padding:6px 16px">${phase}</div>
+      <div style="font-size:11px;color:#6B7394;margin-top:8px">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
     <div style="font-size:10px;color:#4A5080;margin-top:2px">SiteScore: ${iq.score?.toFixed(2) || "N/A"}/10</div>
   </div>
 </div>
@@ -1287,7 +1325,12 @@ function updateCustomCap(val){
 <div id="sec-P0" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(15,21,56,0.9),rgba(30,39,97,0.7));border:1px solid rgba(201,168,76,0.25);box-shadow:0 4px 30px rgba(201,168,76,0.08)">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:12px">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 16px rgba(201,168,76,0.3)">&#9889;</div>
+      <div class="storvex-turbine" style="width:36px;height:36px">
+        <div class="turbine-liquid" style="width:44px;height:44px;top:-4px;left:-4px"></div>
+        <div class="turbine-core" style="width:36px;height:36px"></div>
+        <div class="turbine-inner" style="width:24px;height:24px;top:6px;left:6px"></div>
+        <div class="turbine-center" style="width:14px;height:14px;top:11px;left:11px"></div>
+      </div>
       <div>
         <h2 style="margin:0;font-size:16px;color:#C9A84C;letter-spacing:0.06em">PRICING INPUTS</h2>
         <div style="font-size:10px;color:#6B7394;margin-top:2px;letter-spacing:0.04em">Per-site assumptions driving this analysis</div>
@@ -1885,6 +1928,7 @@ function switchSiteInputs(siteId) {
 </div>
 
 <!-- FACILITY PROGRAM v4.0 -->
+<div class="section-divider"></div>
 <div id="sec-P4" class="section expand-trigger" onclick="toggleExpand('facility')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="facility-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Facility Program</span></h2>
@@ -2214,6 +2258,7 @@ function switchSiteInputs(siteId) {
 <div class="divider"></div>
 
 <!-- 5-YEAR LEASE-UP MODEL v4.0 -->
+<div class="section-divider"></div>
 <div id="sec-P7" class="section section-gold expand-trigger" onclick="toggleExpand('leaseup')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="leaseup-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">5-Year Lease-Up Revenue Model</span></h2>
@@ -2589,6 +2634,7 @@ function switchSiteInputs(siteId) {
 <div class="divider"></div>
 
 <!-- LAND PRICE SUGGESTION v4.0 -->
+<div class="section-divider"></div>
 <div id="sec-P10" class="section section-gold expand-trigger" onclick="toggleExpand('landprice')" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6));border-color:rgba(201,168,76,0.3);box-shadow:0 4px 30px rgba(201,168,76,0.12)">
   <span class="expand-hint">▼ Click to expand <span id="landprice-arrow" class="expand-arrow">▼</span></span>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -3098,6 +3144,7 @@ function switchSiteInputs(siteId) {
 </div>
 
 <!-- INSTITUTIONAL PERFORMANCE METRICS v4.0 -->
+<div class="section-divider"></div>
 <div id="sec-P14" class="section expand-trigger" onclick="toggleExpand('instmetrics')" style="scroll-margin-top:20px">
   <span class="expand-hint">▼ Click to expand <span id="instmetrics-arrow" class="expand-arrow">▼</span></span>
   <h2><span class="gold">Institutional Performance Metrics</span></h2>
@@ -3684,12 +3731,21 @@ function switchSiteInputs(siteId) {
   <button onclick="window.print()" style="padding:14px 40px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#E87A2E);color:#fff;font-size:14px;font-weight:800;border:none;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;box-shadow:0 4px 20px rgba(201,168,76,0.3)">🖨 Print / Save as PDF</button>
 </div>
 
-<div class="footer" style="padding:32px 24px">
-  <div style="font-size:14px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:6px">SITESCORE<span style="font-size:9px;vertical-align:super">™</span></div>
+<div class="footer" style="padding:40px 24px">
+  <!-- Turbine Engine in footer -->
+  <div style="margin-bottom:16px">
+    <div class="storvex-turbine" style="width:40px;height:40px">
+      <div class="turbine-liquid" style="width:48px;height:48px;top:-4px;left:-4px"></div>
+      <div class="turbine-core" style="width:40px;height:40px"></div>
+      <div class="turbine-inner" style="width:28px;height:28px;top:6px;left:6px"></div>
+      <div class="turbine-center" style="width:16px;height:16px;top:12px;left:12px"></div>
+    </div>
+  </div>
+  <div style="font-size:14px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:4px">STORVEX<span style="font-size:9px;vertical-align:super">™</span> + SITESCORE<span style="font-size:9px;vertical-align:super">™</span></div>
   <div style="font-size:11px;color:#6B7394;margin-bottom:12px">AI-Powered Storage Site Intelligence & Pricing Analytics</div>
   <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent);margin:12px auto;max-width:400px"></div>
   <div style="font-size:10px;color:#4A5080;margin-top:12px;line-height:1.8">
-    <div>Storevex Pricing Report — ${h(site.name)} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div>Storvex Pricing Report — ${h(site.name)} | Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
     <div style="margin-top:8px;font-weight:600;color:#6B7394">Powered by DJR Real Estate LLC | U.S. Patent Pending — Serial No. 99712640</div>
     <div style="margin-top:10px;max-width:700px;margin-left:auto;margin-right:auto;color:#3A4060;font-size:9px;line-height:1.7">
       <strong style="color:#6B7394">CONFIDENTIAL & PROPRIETARY.</strong> This report and its contents are the exclusive property of DJR Real Estate LLC.
@@ -3820,7 +3876,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   const recIcon = score >= 8.0 ? "✅" : score >= 6.5 ? "🔵" : score >= 5.0 ? "⚠️" : "❌";
 
   const fmtD = (n) => "$" + Math.round(n).toLocaleString();
-  const fmtM = (n) => n >= 1000000 ? "$" + (n / 1000000).toFixed(2) + "M" : "$" + Math.round(n).toLocaleString();
+  const fmtM = (n) => n >= 1000000 ? "$" + (n / 1000000).toFixed(2) + "M" : n >= 100000 ? "$" + Math.round(n / 1000) + "K" : "$" + Math.round(n).toLocaleString();
   const fmtN2 = (n) => isNaN(n) ? "—" : n.toLocaleString();
   const iqBadgeColor = (iq.tier || "gray") === "gold" ? "#C9A84C" : (iq.tier || "gray") === "steel" ? "#2C3E6B" : "#94A3B8";
   const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
