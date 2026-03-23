@@ -14,7 +14,7 @@ export const STORVEX_DEFAULTS = {
   netToGross: 0.90,             // 90% efficiency
   climatePctOneStory: 0.65,     // One-story: 65% climate
   climatePctMultiStory: 0.75,   // Multi-story: 75% climate
-  multiStoryThreshold: 3.5,     // Below 3.5ac → multi-story
+  multiStoryThreshold: 3.5,     // Below 3.5ac -> multi-story
   multiStoryFloors: 3,          // Default 3 stories
 
   // -- Market Rates ($/SF/mo) --
