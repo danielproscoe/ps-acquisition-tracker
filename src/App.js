@@ -2677,14 +2677,16 @@ function AppInner() {
                           const psIcon = L.divIcon({ className: "", html: '<div style="width:16px;height:16px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2px solid #FFD700;border-radius:50%;box-shadow:0 2px 8px rgba(21,101,192,0.5)"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
                           for (let i = 1; i < lines.length; i++) {
                             const parts = lines[i].split(",");
-                            if (parts.length < 5) continue;
-                            const pLat = parseFloat(parts[3]), pLng = parseFloat(parts[4]);
+                            if (parts.length < 7) continue;
+                            const pLat = parseFloat(parts[5]), pLng = parseFloat(parts[6]);
                             if (isNaN(pLat) || isNaN(pLng)) continue;
                             const dist = haversine(siteLat, siteLng, pLat, pLng);
                             if (dist <= 25) {
                               psCount++;
-                              const pName = parts[0], pCity = parts[1], pState = parts[2];
-                              L.marker([pLat, pLng], { icon: psIcon }).addTo(map).bindPopup(`<div style="font-weight:800;font-size:12px;color:#1565C0">${pName}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:11px;color:#E87A2E;font-weight:700;margin-top:2px">${dist.toFixed(1)} mi from site</div>`);
+                              const pNum = parts[0], pName = parts[1], pAddr = parts[2], pCity = parts[3], pState = parts[4];
+                              const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map);
+                              marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "top", offset: [0, -10] });
+                              marker.bindPopup(`<div style="font-weight:800;font-size:13px;color:#1565C0">${pNum}</div><div style="font-size:12px;font-weight:600;color:#334155;margin-top:2px">${pName}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${pAddr}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:11px;color:#E87A2E;font-weight:700;margin-top:4px">${dist.toFixed(1)} mi from site</div>`);
                             }
                           }
                           // Add count badge
