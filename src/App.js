@@ -147,6 +147,7 @@ function AppInner() {
   const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
   const [demoRowExpanded, setDemoRowExpanded] = useState(null); // which demographics row is expanded (key string)
   const [hoveredMetric, setHoveredMetric] = useState(null); // which key metric box tooltip is showing
+  const [hoveredCard, setHoveredCard] = useState(null); // which tracker card is showing latest-note tooltip
   const [valuationOverrides, setValuationOverrides] = useState({}); // Valuation Inputs page overrides
 
   // ─── LOAD VALUATION OVERRIDES FROM FIREBASE ───
@@ -964,7 +965,33 @@ function AppInner() {
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
-                  <div onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <div onMouseEnter={() => site.latestNote && setHoveredCard(site.id)} onMouseLeave={() => setHoveredCard(null)} onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative" }}>
+                    {/* ── Latest Note Tooltip ── */}
+                    {hoveredCard === site.id && site.latestNote && (
+                      <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 18, right: 80, zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.2s ease-out" }}>
+                        <div style={{ borderRadius: 14, overflow: "hidden", boxShadow: "0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.15), 0 0 40px rgba(232,122,46,0.08)" }}>
+                          <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 14 }}>🔥</span>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest Intel</span>
+                            {site.latestNoteDate && <span style={{ fontSize: 10, color: "#6B7394", fontWeight: 600, marginLeft: "auto" }}>{site.latestNoteDate}</span>}
+                          </div>
+                          <div style={{ background: "linear-gradient(180deg, #0F1538, #131B45)", padding: "12px 16px" }}>
+                            <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.6, fontWeight: 500 }}>
+                              {site.latestNote.split("\n").map((line, i) => (
+                                <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: i < site.latestNote.split("\n").length - 1 ? 6 : 0 }}>
+                                  <span style={{ color: "#C9A84C", fontSize: 8, marginTop: 4, flexShrink: 0 }}>◆</span>
+                                  <span>{line}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ background: "rgba(201,168,76,0.04)", padding: "5px 14px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
+                            <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600, letterSpacing: "0.06em" }}>HOVER TO VIEW · CLICK CARD FOR DETAIL</span>
+                          </div>
+                        </div>
+                        <div style={{ width: 12, height: 12, background: "#131B45", transform: "rotate(45deg)", position: "absolute", bottom: -6, left: 40, borderRight: "1px solid rgba(201,168,76,0.15)", borderBottom: "1px solid rgba(201,168,76,0.15)" }} />
+                      </div>
+                    )}
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
@@ -990,6 +1017,7 @@ function AppInner() {
                         {msgs.length > 0 && <span style={{ color: "#E87A2E" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
+                        {site.latestNote && <span style={{ color: "#C9A84C", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 3, background: "rgba(201,168,76,0.08)", padding: "1px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", animation: "pulseOnce 1.5s ease-out" }} title="Hover card for latest intel">🔥 Intel</span>}
                       </div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(21,101,192,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(21,101,192,0.3)"; }}>📊 Detail</button>
