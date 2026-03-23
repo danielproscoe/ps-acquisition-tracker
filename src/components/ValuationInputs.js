@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { STYLES } from '../utils';
+import { computeSiteFinancials } from '../scoring';
 
 // ─── Storvex Engine Defaults (source of truth) ───
 // These match scoring.js computeSiteFinancials() hardcoded values exactly.
@@ -313,6 +314,8 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
   const [voltagePhase, setVoltagePhase] = useState(0); // 0=idle, 1=charging, 2=discharge, 3=cascade
   const [changedKeys, setChangedKeys] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [subTab, setSubTab] = useState('summary'); // 'summary' | 'inputs' | 'valuations'
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const voltageTimeoutRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -364,6 +367,12 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     }
     return { ...STORVEX_DEFAULTS, ...localOverrides };
   }, [localOverrides, siteOverrides, scope]);
+
+  // ─── Live Financial Model (recomputes on any input change) ───
+  const financials = useMemo(() => {
+    if (!selectedSite) return null;
+    return computeSiteFinancials(selectedSite, localOverrides, siteOverrides);
+  }, [selectedSite, localOverrides, siteOverrides]);
 
   // Count of active overrides (for the current scope)
   const overrideCount = Object.keys(activeOverrides).length;
@@ -641,12 +650,436 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     );
   };
 
+  // ─── Helpers for Valuation tab ───
+  const fmtK = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(2)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v.toLocaleString()}`;
+  // ─── Sub-Tab Definitions ───
+  const SUB_TABS = [
+    { id: 'summary', label: 'Executive Summary', icon: '\u2605' },
+    { id: 'inputs', label: 'Pricing Inputs', icon: '\u2699' },
+    { id: 'valuations', label: 'Valuations', icon: '\u25B2' },
+  ];
+
+  // ─── Shared metric card renderer ───
+  const MetricCard = ({ label, value, sub, color, wide }) => (
+    <div style={{ padding: '16px 18px', borderRadius: 12, background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.08)', flex: wide ? '1 1 100%' : '1 1 200px', minWidth: wide ? 'auto' : 200 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#6B7394', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 900, fontFamily: "'Space Mono', monospace", color: color || '#E2E8F0', letterSpacing: '-0.02em' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontWeight: 500 }}>{sub}</div>}
+    </div>
+  );
+
+  // ─── Render: Executive Summary Tab ───
+  const renderSummary = () => {
+    if (!financials) return (
+      <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6B7394' }}>
+        <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.5 }}>{'\u2605'}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#94A3B8' }}>Select a property to view the executive summary</div>
+      </div>
+    );
+    const f = financials;
+    const noiMargin = f.stabRev > 0 ? ((f.stabNOI / f.stabRev) * 100).toFixed(1) : 'N/A';
+    const verdictBg = f.landVerdict === 'STRONG BUY' ? 'rgba(22,163,74,0.12)' : f.landVerdict === 'BUY' ? 'rgba(34,197,94,0.12)' : f.landVerdict === 'NEGOTIATE' ? 'rgba(245,158,11,0.12)' : f.landVerdict === 'STRETCH' ? 'rgba(232,122,46,0.12)' : 'rgba(239,68,68,0.12)';
+    return (
+      <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+        {/* Hero Section */}
+        <div style={{ padding: '28px 32px', borderRadius: 16, background: 'linear-gradient(135deg, rgba(15,21,56,0.8), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #C9A84C, #E87A2E, #C9A84C)' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#6B7394', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Investment Thesis</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#E2E8F0', letterSpacing: '-0.02em' }}>{selectedSite.name || selectedSite.address || 'Site'}</div>
+              <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>{selectedSite.city}{selectedSite.state ? `, ${selectedSite.state}` : ''} {'\u2022'} {f.acres ? `${f.acres} acres` : ''} {'\u2022'} {f.isMultiStory ? `${f.stories}-Story` : '1-Story'} {'\u2022'} {f.totalSF?.toLocaleString()} NSF</div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {f.landVerdict && (
+                <div style={{ padding: '8px 20px', borderRadius: 10, background: verdictBg, border: `1px solid ${f.verdictColor}30` }}>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: f.verdictColor, letterSpacing: '0.04em' }}>{f.landVerdict}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Primary Metrics — 4 across */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <MetricCard label="Stabilized NOI" value={fmtK(f.stabNOI)} sub={`${noiMargin}% NOI margin`} color="#C9A84C" />
+          <MetricCard label="Total Dev Cost" value={fmtK(f.totalDevCost)} sub={`${f.totalSF > 0 ? '$' + Math.round(f.totalDevCost / f.totalSF) + '/SF all-in' : ''}`} />
+          <MetricCard label="Yield on Cost" value={`${f.yocStab}%`} sub="Stabilized Y5" color={parseFloat(f.yocStab) >= 9.0 ? '#16A34A' : parseFloat(f.yocStab) >= 7.5 ? '#F59E0B' : '#EF4444'} />
+          <MetricCard label="Strike Price" value={fmtK(f.landPrices[1]?.maxLand || 0)} sub={`${f.askVsStrike ? (parseFloat(f.askVsStrike) > 0 ? '+' : '') + f.askVsStrike + '% vs asking' : 'No asking price'}`} color="#C9A84C" />
+        </div>
+
+        {/* Return Metrics — 4 across */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <MetricCard label="Levered IRR" value={`${f.irrPct}%`} sub={`${f.holdPeriod}-yr hold`} color={parseFloat(f.irrPct) >= 15 ? '#16A34A' : parseFloat(f.irrPct) >= 10 ? '#F59E0B' : '#EF4444'} />
+          <MetricCard label="Unlevered IRR" value={`${f.unleveredIRR}%`} sub="Asset-level return" />
+          <MetricCard label="DSCR" value={f.dscrStab} sub="Debt coverage" color={parseFloat(f.dscrStab) >= 1.25 ? '#16A34A' : parseFloat(f.dscrStab) >= 1.0 ? '#F59E0B' : '#EF4444'} />
+          <MetricCard label="Cash-on-Cash" value={`${f.cashOnCash}%`} sub="Equity yield" />
+        </div>
+
+        {/* Facility & Capital Summary side-by-side */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          {/* Facility Program */}
+          <div style={{ padding: '20px 24px', borderRadius: 14, background: 'rgba(15,21,56,0.4)', border: '1px solid rgba(201,168,76,0.08)' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, borderBottom: '1px solid rgba(201,168,76,0.1)', paddingBottom: 8 }}>Facility Program</div>
+            {[
+              ['Product Type', f.isMultiStory ? `${f.stories}-Story Indoor` : '1-Story Suburban'],
+              ['Gross SF', f.grossSF?.toLocaleString() + ' SF'],
+              ['Net Rentable SF', f.totalSF?.toLocaleString() + ' SF'],
+              ['Climate / Drive-Up', `${Math.round(f.climatePct * 100)}% / ${Math.round(f.drivePct * 100)}%`],
+              ['Climate SF', f.climateSF?.toLocaleString() + ' SF'],
+              ['Drive-Up SF', f.driveSF?.toLocaleString() + ' SF'],
+              ['Lot Coverage', `${Math.round((merged.coverageRatio || 0.35) * 100)}%`],
+            ].map(([label, val], i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < 6 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                <span style={{ fontSize: 12, color: '#94A3B8' }}>{label}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#E2E8F0', fontFamily: "'Space Mono', monospace" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Capital Stack */}
+          <div style={{ padding: '20px 24px', borderRadius: 14, background: 'rgba(15,21,56,0.4)', border: '1px solid rgba(201,168,76,0.08)' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, borderBottom: '1px solid rgba(201,168,76,0.1)', paddingBottom: 8 }}>Capital Stack</div>
+            {[
+              ['Senior Debt', fmtK(f.loanAmount), `${Math.round(f.loanLTV * 100)}% LTV`],
+              ['Sponsor Equity', fmtK(f.equityRequired), `${Math.round(f.equityPct * 100)}%`],
+              ['Loan Rate', `${(f.loanRate * 100).toFixed(2)}%`, `${f.loanAmort}yr amort`],
+              ['Annual Debt Service', fmtK(f.annualDS), ''],
+              ['Cash After DS', fmtK(f.cashAfterDS), f.cashAfterDS < 0 ? 'NEGATIVE' : ''],
+              ['Equity Multiple', `${f.equityMultiple}x`, `${f.holdPeriod}-yr hold`],
+              ['Profit on Cost', `${f.profitOnCost}%`, ''],
+            ].map(([label, val, note], i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < 6 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                <span style={{ fontSize: 12, color: '#94A3B8' }}>{label}</span>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#E2E8F0', fontFamily: "'Space Mono', monospace" }}>{val}</span>
+                  {note && <span style={{ fontSize: 10, color: '#6B7394', marginLeft: 6 }}>{note}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Land Pricing Guide */}
+        <div style={{ padding: '20px 24px', borderRadius: 14, background: 'rgba(15,21,56,0.4)', border: '1px solid rgba(201,168,76,0.08)', marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, borderBottom: '1px solid rgba(201,168,76,0.1)', paddingBottom: 8 }}>Land Acquisition Price Guide</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {(f.landPrices || []).map((lp, i) => (
+              <div key={i} style={{ padding: '14px 16px', borderRadius: 10, background: `${lp.color}10`, border: `1px solid ${lp.color}25`, textAlign: 'center' }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: lp.color, letterSpacing: '0.1em', marginBottom: 4 }}>{lp.tag} {'\u2022'} {(lp.yoc * 100).toFixed(1)}% YOC</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: lp.color, fontFamily: "'Space Mono', monospace" }}>{fmtK(lp.maxLand)}</div>
+                <div style={{ fontSize: 10, color: '#6B7394', marginTop: 4 }}>{lp.perAcre > 0 ? `$${lp.perAcre.toLocaleString()}/ac` : ''} {'\u2022'} {lp.label}</div>
+              </div>
+            ))}
+          </div>
+          {f.landCost > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 14, padding: '10px 20px', borderRadius: 8, background: verdictBg, border: `1px solid ${f.verdictColor}20` }}>
+              <span style={{ fontSize: 12, color: '#94A3B8' }}>Asking: <strong style={{ color: '#E2E8F0' }}>{fmtK(f.landCost)}</strong></span>
+              <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#6B7394' }} />
+              <span style={{ fontSize: 12, color: '#94A3B8' }}>vs Strike: <strong style={{ color: f.verdictColor }}>{f.askVsStrike ? (parseFloat(f.askVsStrike) > 0 ? '+' : '') + f.askVsStrike + '%' : 'N/A'}</strong></span>
+              <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#6B7394' }} />
+              <span style={{ fontSize: 13, fontWeight: 900, color: f.verdictColor }}>{f.landVerdict}</span>
+            </div>
+          )}
+        </div>
+
+        {/* NPV & Board Metrics */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <MetricCard label="NPV at WACC (9.26%)" value={fmtK(Math.abs(f.npvAtWACC))} sub={f.npvAtWACC >= 0 ? 'Creates shareholder value' : 'Destroys value at WACC'} color={f.npvAtWACC >= 0 ? '#16A34A' : '#EF4444'} />
+          <MetricCard label="Debt Yield" value={`${f.debtYield}%`} sub="Lender risk metric" />
+          <MetricCard label="Dev Spread" value={`${f.devSpread} bps`} sub="YOC minus market cap" color={parseFloat(f.devSpread) > 0 ? '#16A34A' : '#EF4444'} />
+          <MetricCard label="Build vs Buy" value={f.buildOrBuy ? f.buildOrBuy.split(' \u2014 ')[0] : 'N/A'} sub={f.replacementVsMarket ? `${f.replacementVsMarket}% vs stabilized value` : ''} />
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Render: Valuations Tab ───
+  const renderValuations = () => {
+    if (!financials) return (
+      <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6B7394' }}>
+        <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.5 }}>{'\u25B2'}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#94A3B8' }}>Select a property to view valuations</div>
+      </div>
+    );
+    const f = financials;
+    const sectionStyle = { padding: '20px 24px', borderRadius: 14, background: 'rgba(15,21,56,0.4)', border: '1px solid rgba(201,168,76,0.08)', marginBottom: 16 };
+    const sectionHeader = (text) => <div style={{ fontSize: 11, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, borderBottom: '1px solid rgba(201,168,76,0.1)', paddingBottom: 8 }}>{text}</div>;
+    const row = (label, val, bold, color) => (
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+        <span style={{ fontSize: 12, color: bold ? '#E2E8F0' : '#94A3B8', fontWeight: bold ? 700 : 400 }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: color || (bold ? '#C9A84C' : '#E2E8F0'), fontFamily: "'Space Mono', monospace" }}>{val}</span>
+      </div>
+    );
+    return (
+      <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+        {/* Cap Rate Valuations */}
+        <div style={sectionStyle}>
+          {sectionHeader('Stabilized Value (Cap Rate Approach)')}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+            {(f.valuations || []).map((v, i) => (
+              <div key={i} style={{ padding: '16px', borderRadius: 10, background: i === 1 ? 'rgba(201,168,76,0.08)' : 'rgba(15,21,56,0.5)', border: `1px solid ${i === 1 ? 'rgba(201,168,76,0.2)' : 'rgba(201,168,76,0.06)'}`, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#6B7394', letterSpacing: '0.06em', marginBottom: 6 }}>{v.label}</div>
+                <div style={{ fontSize: 26, fontWeight: 900, fontFamily: "'Space Mono', monospace", color: i === 1 ? '#C9A84C' : '#E2E8F0' }}>{fmtK(v.value)}</div>
+                <div style={{ fontSize: 10, color: '#6B7394', marginTop: 4 }}>{f.totalSF > 0 ? `$${Math.round(v.value / f.totalSF)}/SF` : ''}</div>
+              </div>
+            ))}
+          </div>
+          {row('Stabilized NOI (Y5)', fmtK(f.stabNOI), true, '#C9A84C')}
+          {row('Stabilized Revenue', fmtK(f.stabRev))}
+          {row('NOI Margin', `${f.noiMarginPct}%`, false, parseFloat(f.noiMarginPct) >= 70 ? '#16A34A' : '#F59E0B')}
+        </div>
+
+        {/* 5-Year Lease-Up P&L */}
+        <div style={sectionStyle}>
+          {sectionHeader('5-Year Lease-Up Pro Forma')}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(201,168,76,0.15)' }}>
+                  <th style={{ textAlign: 'left', padding: '8px 12px', color: '#6B7394', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em' }}>YEAR</th>
+                  <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7394', fontSize: 10, fontWeight: 700 }}>OCC</th>
+                  <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7394', fontSize: 10, fontWeight: 700 }}>REVENUE</th>
+                  <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7394', fontSize: 10, fontWeight: 700 }}>OPEX</th>
+                  <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7394', fontSize: 10, fontWeight: 700 }}>NOI</th>
+                  <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7394', fontSize: 10, fontWeight: 700 }}>MARGIN</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(f.yearData || []).map((y, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: i === 4 ? 'rgba(201,168,76,0.04)' : 'transparent' }}>
+                    <td style={{ padding: '8px 12px', color: '#E2E8F0', fontWeight: i === 4 ? 700 : 400 }}>Y{y.yr}{i === 4 ? ' (Stab)' : ''}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#E2E8F0', fontFamily: "'Space Mono', monospace" }}>{Math.round(y.occRate * 100)}%</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#E2E8F0', fontFamily: "'Space Mono', monospace" }}>{fmtK(y.totalRev)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#E87A2E', fontFamily: "'Space Mono', monospace" }}>({fmtK(y.opex)})</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: i === 4 ? '#C9A84C' : '#16A34A', fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{fmtK(y.noi)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: '#94A3B8', fontFamily: "'Space Mono', monospace" }}>{y.totalRev > 0 ? `${((y.noi / y.totalRev) * 100).toFixed(0)}%` : '--'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* OpEx Breakdown */}
+        <div style={sectionStyle}>
+          {sectionHeader('Operating Expense Breakdown (Stabilized Y5)')}
+          {(f.opexDetail || []).map((item, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < f.opexDetail.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+              <div>
+                <span style={{ fontSize: 12, color: '#E2E8F0' }}>{item.item}</span>
+                <span style={{ fontSize: 9, color: '#6B7394', marginLeft: 8, fontStyle: 'italic' }}>{item.type}</span>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#E87A2E', fontFamily: "'Space Mono', monospace" }}>{fmtK(item.amount)}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '2px solid rgba(201,168,76,0.15)' }}>
+            {row('Total OpEx', fmtK(f.totalOpexDetail), true, '#E87A2E')}
+            {row('OpEx Ratio', `${f.opexRatioDetail}%`)}
+            {row('Net Operating Income', fmtK(f.noiDetail), true, '#C9A84C')}
+          </div>
+        </div>
+
+        {/* Sources & Uses */}
+        <div style={sectionStyle}>
+          {sectionHeader('Sources & Uses')}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#16A34A', letterSpacing: '0.08em', marginBottom: 8 }}>SOURCES</div>
+              {(f.sourcesAndUses?.sources || []).map((s, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <span style={{ fontSize: 11, color: '#94A3B8' }}>{s.item}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#E2E8F0', fontFamily: "'Space Mono', monospace" }}>{fmtK(s.amount)}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid rgba(22,163,74,0.2)', marginTop: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#16A34A' }}>Total Sources</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#16A34A', fontFamily: "'Space Mono', monospace" }}>{fmtK(f.sourcesAndUses?.totalSources || 0)}</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#E87A2E', letterSpacing: '0.08em', marginBottom: 8 }}>USES</div>
+              {(f.sourcesAndUses?.uses || []).map((u, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <span style={{ fontSize: 11, color: '#94A3B8' }}>{u.item}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#E2E8F0', fontFamily: "'Space Mono', monospace" }}>{fmtK(u.amount)}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid rgba(232,122,46,0.2)', marginTop: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#E87A2E' }}>Total Uses</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#E87A2E', fontFamily: "'Space Mono', monospace" }}>{fmtK(f.sourcesAndUses?.totalUses || 0)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Exit Scenarios */}
+        <div style={sectionStyle}>
+          {sectionHeader(`${f.holdPeriod}-Year Exit Scenarios`)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {(f.exitScenarios || []).map((es, i) => (
+              <div key={i} style={{ padding: '16px', borderRadius: 10, background: i === 1 ? 'rgba(201,168,76,0.06)' : 'rgba(15,21,56,0.5)', border: `1px solid ${i === 1 ? 'rgba(201,168,76,0.15)' : 'rgba(201,168,76,0.06)'}`, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#6B7394', marginBottom: 6 }}>{es.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "'Space Mono', monospace", color: '#E2E8F0' }}>{fmtK(es.exitValue)}</div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8, fontSize: 10, color: '#94A3B8' }}>
+                  <span>IRR <strong style={{ color: parseFloat(es.irr) >= 15 ? '#16A34A' : '#F59E0B' }}>{es.irr}%</strong></span>
+                  <span>PoC <strong style={{ color: parseFloat(es.profitOnCost) >= 30 ? '#16A34A' : '#F59E0B' }}>{es.profitOnCost}%</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Sensitivity Matrix */}
+        <div style={sectionStyle}>
+          {sectionHeader('Sensitivity Analysis (YOC & IRR)')}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '8px', background: 'rgba(201,168,76,0.06)', borderRadius: '8px 0 0 0', color: '#6B7394', fontSize: 9, fontWeight: 700 }}></th>
+                  {(f.sensitivityMatrix?.occScenarios || []).map((o, i) => (
+                    <th key={i} style={{ padding: '8px', background: 'rgba(201,168,76,0.06)', color: '#C9A84C', fontSize: 9, fontWeight: 700, textAlign: 'center' }}>{o.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(f.sensitivityMatrix?.grid || []).map((rentRow, ri) => (
+                  <tr key={ri}>
+                    <td style={{ padding: '8px', color: '#C9A84C', fontWeight: 700, fontSize: 10, background: 'rgba(201,168,76,0.04)' }}>{f.sensitivityMatrix.rentScenarios[ri]?.label}</td>
+                    {rentRow.map((cell, ci) => {
+                      const isBase = ri === 1 && ci === 1;
+                      const yocVal = parseFloat(cell.yoc);
+                      const yocColor = yocVal >= 9.0 ? '#16A34A' : yocVal >= 7.5 ? '#F59E0B' : '#EF4444';
+                      return (
+                        <td key={ci} style={{ padding: '8px 12px', textAlign: 'center', background: isBase ? 'rgba(201,168,76,0.08)' : 'transparent', border: isBase ? '1px solid rgba(201,168,76,0.2)' : '1px solid rgba(255,255,255,0.02)', borderRadius: isBase ? 6 : 0 }}>
+                          <div style={{ fontWeight: 800, color: yocColor, fontFamily: "'Space Mono', monospace", fontSize: 13 }}>{cell.yoc}%</div>
+                          <div style={{ fontSize: 9, color: '#6B7394', marginTop: 2 }}>IRR {cell.irr}%</div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* REIT Benchmarks */}
+        <div style={sectionStyle}>
+          {sectionHeader('REIT Peer Benchmarks (Q4 2025)')}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(201,168,76,0.15)' }}>
+                  {['Ticker', 'NOI Margin', 'Avg Occ', 'Rev/SF', 'Cap Rate', 'ECRI Lift'].map(h => (
+                    <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Ticker' ? 'left' : 'right', color: '#6B7394', fontSize: 9, fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(f.reitBench || []).map((r, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: r.ticker === 'PSA' ? 'rgba(201,168,76,0.04)' : 'transparent' }}>
+                    <td style={{ padding: '6px 10px', color: r.ticker === 'PSA' ? '#C9A84C' : '#E2E8F0', fontWeight: 700 }}>{r.ticker}</td>
+                    <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: "'Space Mono', monospace", color: '#E2E8F0' }}>{r.noiMargin}%</td>
+                    <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: "'Space Mono', monospace", color: '#E2E8F0' }}>{r.avgOcc}%</td>
+                    <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: "'Space Mono', monospace", color: '#E2E8F0' }}>${r.revPAF}</td>
+                    <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: "'Space Mono', monospace", color: '#E2E8F0' }}>{r.impliedCap}%</td>
+                    <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: "'Space Mono', monospace", color: '#E2E8F0' }}>{r.ecriLift}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Render: Pricing Inputs Tab (existing section cards) ───
+  const renderInputs = () => (
+    <div>
+      {/* ═══ STATUS BAR ═══ */}
+      <div style={S.statusBar}>
+        {scope === 'site' && selectedSite && (
+          <div style={S.statusItem('#E87A2E')}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E87A2E' }} />
+            Site: {selectedSite.name || selectedSite.address || selectedSite.id}
+          </div>
+        )}
+        <div style={S.statusItem(scope === 'site' ? '#E87A2E' : '#C9A84C')}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: scope === 'site' ? '#E87A2E' : '#C9A84C' }} />
+          {overrideCount} {scope === 'site' ? 'Site' : 'Global'} Override{overrideCount !== 1 ? 's' : ''}
+        </div>
+        <div style={S.statusItem('#39FF14')}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#39FF14' }} />
+          {totalInputs - overrideCount} Defaults
+        </div>
+        <div style={S.statusItem('#6B7394')}>
+          {scope === 'site' ? 'Changes apply to this site only' : 'Changes apply to all new sites'}
+        </div>
+        <div style={{ flex: 1 }} />
+        {/* Search */}
+        <div style={{ position: 'relative' }}>
+          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#6B7394', fontSize: 14, pointerEvents: 'none' }}>{'\uD83D\uDD0D'}</span>
+          <input
+            style={S.search}
+            placeholder="Search inputs..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={(e) => { e.target.style.borderColor = 'rgba(232,122,46,0.4)'; }}
+            onBlur={(e) => { e.target.style.borderColor = 'rgba(201,168,76,0.12)'; }}
+          />
+        </div>
+      </div>
+
+      {/* ═══ SECTION CARDS ═══ */}
+      {filteredSections.map(sec => {
+        const isExpanded = expandedSections[sec.id] || searchQuery.trim();
+        const secOverrides = sec.inputs.filter(inp => inp.key in localOverrides).length;
+        return (
+          <div key={sec.id} style={S.sectionCard(isExpanded)} className="card-reveal">
+            <div style={S.sectionHeader}
+              onClick={() => setExpandedSections(prev => ({ ...prev, [sec.id]: !prev[sec.id] }))}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(232,122,46,0.03)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+              <div style={S.sectionTitle}>
+                <span style={{ fontSize: 20 }}>{sec.icon}</span>
+                <div>
+                  <div style={S.sectionLabel}>
+                    {sec.label}
+                    {secOverrides > 0 && (
+                      <span style={{ marginLeft: 10, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: 'rgba(232,122,46,0.15)', color: '#E87A2E' }}>
+                        {secOverrides} override{secOverrides > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div style={S.sectionDesc}>{sec.description}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 11, color: isExpanded ? '#E87A2E' : '#6B7394', fontWeight: 700, transition: 'color 0.2s' }}>{sec.inputs.length} inputs</span>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: isExpanded ? 'rgba(232,122,46,0.15)' : 'rgba(107,115,148,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                  <span style={{ fontSize: 14, color: isExpanded ? '#E87A2E' : '#6B7394', transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.25s cubic-bezier(0.22,1,0.36,1)', display: 'inline-block' }}>{'\u25BE'}</span>
+                </div>
+              </div>
+            </div>
+            {isExpanded && (
+              <div style={S.sectionBody} className="card-expand">
+                {sec.inputs.map(renderInput)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div ref={containerRef} style={S.page}>
       {/* ═══ VOLTAGE OVERLAY ═══ */}
       {voltageActive && (
         <div style={S.voltageOverlay}>
-          {/* Horizontal discharge line */}
           <div style={{
             position: 'absolute', top: '50%', left: 0, right: 0, height: 2,
             background: voltagePhase >= 2
@@ -656,7 +1089,6 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             animation: voltagePhase >= 2 ? 'tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards' : 'none',
             transformOrigin: 'left',
           }} />
-          {/* Full-screen flash */}
           <div style={{
             position: 'absolute', inset: 0,
             background: voltagePhase === 2
@@ -666,7 +1098,6 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
               : 'transparent',
             transition: 'background 0.15s',
           }} />
-          {/* Corner lightning arcs */}
           {voltagePhase >= 2 && [0, 1, 2, 3].map(i => (
             <div key={i} style={{
               position: 'absolute',
@@ -681,19 +1112,44 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       )}
 
+      {/* ═══ REVERT CONFIRMATION DIALOG ═══ */}
+      {showRevertConfirm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowRevertConfirm(false)}>
+          <div style={{ background: 'linear-gradient(135deg, #0F1538, #1E2761)', borderRadius: 16, padding: '32px 36px', maxWidth: 440, width: '90%', border: '1px solid rgba(232,122,46,0.3)', boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 12 }}>{'\u26A0\uFE0F'}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#E2E8F0', textAlign: 'center', marginBottom: 8 }}>Revert All Inputs?</div>
+            <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', lineHeight: 1.7, marginBottom: 24 }}>
+              This will revert <strong style={{ color: '#E87A2E' }}>{overrideCount} override{overrideCount !== 1 ? 's' : ''}</strong> back to Storvex global defaults{scope === 'site' ? ` for ${selectedSite?.name || 'this site'}` : ' across all sites'}. All valuation reports, REC packages, and pricing outputs will recalculate to default values.
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setShowRevertConfirm(false)}
+                style={{ flex: 1, padding: '12px 20px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.15)', background: 'transparent', color: '#94A3B8', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => { handleRevertAll(); setShowRevertConfirm(false); }}
+                style={{ flex: 1, padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #E87A2E, #C9A84C)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 16px rgba(232,122,46,0.35)' }}>
+                Yes, Revert to Storvex Defaults
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ HEADER ═══ */}
       <div style={S.header}>
         <div>
           <div style={S.title}>
-            <span style={{ background: 'linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Pricing Engine</span>
+            <span style={{ background: 'linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Valuation Engine</span>
             {voltageActive && <span style={{ marginLeft: 12, fontSize: 16, color: '#39FF14', animation: 'electricFlicker 0.5s steps(2) infinite' }}>
-              {voltagePhase === 1 ? '⚡ CHARGING...' : voltagePhase === 2 ? '⚡ RECALCULATING' : voltagePhase === 3 ? '⚡ MODELS UPDATED' : ''}
+              {voltagePhase === 1 ? '\u26A1 CHARGING...' : voltagePhase === 2 ? '\u26A1 RECALCULATING' : voltagePhase === 3 ? '\u26A1 MODELS UPDATED' : ''}
             </span>}
           </div>
           <div style={S.subtitle}>
             {selectedSite
               ? <>{totalInputs} levers powering <span style={{ color: '#E87A2E', fontWeight: 700 }}>{selectedSite.name}</span> — adjust any input, models update instantly</>
-              : <>Select a property below to unlock {totalInputs} financial model inputs</>
+              : <>Select a property to power the valuation engine</>
             }
           </div>
         </div>
@@ -702,20 +1158,20 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             {overrideCount > 0 ? `${overrideCount} override${overrideCount > 1 ? 's' : ''} active` : 'Using Storvex defaults'}
           </div>
           <button style={S.revertBtn}
-            onClick={overrideCount > 0 ? handleRevertAll : undefined}
+            onClick={overrideCount > 0 ? () => setShowRevertConfirm(true) : undefined}
             title={overrideCount > 0 ? `Reset all ${scope === 'site' ? 'site' : 'global'} overrides` : 'All inputs already at defaults'}>
-            <span style={{ fontSize: 16 }}>⚡</span>
+            <span style={{ fontSize: 16 }}>{'\u26A1'}</span>
             Revert {scope === 'site' ? 'Site' : 'All'} Inputs
           </button>
         </div>
       </div>
 
-      {/* ═══ PROPERTY SELECTOR + SCOPE ═══ */}
+      {/* ═══ PROPERTY SELECTOR ═══ */}
       <div style={{ marginBottom: 20, padding: 20, borderRadius: 14, background: 'linear-gradient(135deg, rgba(15,21,56,0.7), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedSite ? '#E87A2E' : '#C9A84C', boxShadow: `0 0 8px ${selectedSite ? 'rgba(232,122,46,0.5)' : 'rgba(201,168,76,0.5)'}` }} />
           <span style={{ fontSize: 10, fontWeight: 800, color: '#6B7394', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            {selectedSite ? 'Property-Level Pricing Inputs' : 'Select a Property'}
+            {selectedSite ? 'Property-Level Valuation' : 'Select a Property'}
           </span>
         </div>
         <select
@@ -746,61 +1202,43 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(232,122,46,0.12)', color: '#E87A2E', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
               {siteOverrideCount > 0 ? `${siteOverrideCount} SITE OVERRIDE${siteOverrideCount !== 1 ? 'S' : ''}` : 'USING DEFAULTS'}
             </span>
-            <span>Changes below apply to <strong style={{ color: '#E87A2E' }}>{selectedSite.name || selectedSite.city || 'this site'}</strong> only</span>
-          </div>
-        )}
-        {!selectedSite && (
-          <div style={{ marginTop: 10, fontSize: 11, color: '#6B7394', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(201,168,76,0.12)', color: '#C9A84C', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
-              {globalOverrideCount > 0 ? `${globalOverrideCount} GLOBAL OVERRIDE${globalOverrideCount !== 1 ? 'S' : ''}` : 'STORVEX DEFAULTS'}
-            </span>
-            <span>Changes apply to all new sites</span>
+            <span>Changes apply to <strong style={{ color: '#E87A2E' }}>{selectedSite.name || selectedSite.city || 'this site'}</strong></span>
           </div>
         )}
       </div>
 
-      {/* ═══ STATUS BAR ═══ */}
-      <div style={S.statusBar}>
-        {scope === 'site' && selectedSite && (
-          <div style={S.statusItem('#E87A2E')}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E87A2E' }} />
-            Site: {selectedSite.name || selectedSite.address || selectedSite.id}
-          </div>
-        )}
-        <div style={S.statusItem(scope === 'site' ? '#E87A2E' : '#C9A84C')}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: scope === 'site' ? '#E87A2E' : '#C9A84C' }} />
-          {overrideCount} {scope === 'site' ? 'Site' : 'Global'} Override{overrideCount !== 1 ? 's' : ''}
-        </div>
-        <div style={S.statusItem('#39FF14')}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#39FF14' }} />
-          {totalInputs - overrideCount} Defaults
-        </div>
-        <div style={S.statusItem('#6B7394')}>
-          {scope === 'site' ? 'Changes apply to this site only' : 'Changes apply to all new sites'}
-        </div>
-        <div style={{ flex: 1 }} />
-        {/* Search */}
-        <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#6B7394', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
-          <input
-            style={S.search}
-            placeholder="Search inputs..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={(e) => { e.target.style.borderColor = 'rgba(232,122,46,0.4)'; }}
-            onBlur={(e) => { e.target.style.borderColor = 'rgba(201,168,76,0.12)'; }}
-          />
-        </div>
+      {/* ═══ SUB-TAB NAVIGATION ═══ */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 4, borderRadius: 12, background: 'rgba(15,21,56,0.6)', border: '1px solid rgba(201,168,76,0.08)' }}>
+        {SUB_TABS.map(t => {
+          const active = subTab === t.id;
+          return (
+            <button key={t.id} onClick={() => setSubTab(t.id)}
+              style={{
+                flex: 1, padding: '12px 16px', borderRadius: 10, border: 'none',
+                background: active ? 'linear-gradient(135deg, rgba(201,168,76,0.15), rgba(232,122,46,0.1))' : 'transparent',
+                color: active ? '#C9A84C' : '#6B7394',
+                fontSize: 12, fontWeight: active ? 800 : 600, letterSpacing: '0.02em',
+                cursor: 'pointer', transition: 'all 0.2s ease',
+                boxShadow: active ? '0 2px 12px rgba(201,168,76,0.1), inset 0 0 0 1px rgba(201,168,76,0.2)' : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+              onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(201,168,76,0.04)'; }}
+              onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
+              <span style={{ fontSize: 14 }}>{t.icon}</span>
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* ═══ EMPTY STATE ═══ */}
+      {/* ═══ EMPTY STATE (no property selected) ═══ */}
       {!selectedSite && (
         <div style={{ textAlign: 'center', padding: '80px 20px', borderRadius: 20, background: 'linear-gradient(180deg, rgba(15,21,56,0.6), rgba(30,39,97,0.3))', border: '1px solid rgba(201,168,76,0.1)', marginTop: 8, position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent)' }} />
-          <div style={{ fontSize: 56, marginBottom: 20, filter: 'drop-shadow(0 0 20px rgba(201,168,76,0.3))' }}>&#9889;</div>
+          <div style={{ fontSize: 56, marginBottom: 20, filter: 'drop-shadow(0 0 20px rgba(201,168,76,0.3))' }}>{'\u26A1'}</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#E2E8F0', marginBottom: 10, letterSpacing: '-0.02em' }}>Pick a Property. We Handle the Math.</div>
           <div style={{ fontSize: 13, color: '#6B7394', maxWidth: 500, margin: '0 auto', lineHeight: 1.8 }}>
-            Every site in the pipeline has <span style={{ color: '#C9A84C', fontWeight: 700 }}>{totalInputs} pre-calibrated inputs</span> across revenue, construction, operating expenses, and valuation. Select a property above — adjust any lever and watch the pricing report update in real time.
+            Every site in the pipeline has <span style={{ color: '#C9A84C', fontWeight: 700 }}>{totalInputs} pre-calibrated inputs</span> across revenue, construction, operating expenses, and valuation. Select a property above — adjust any lever and watch valuations update in real time.
           </div>
           <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
             {['Revenue', 'Construction', 'Lease-Up', 'OpEx', 'Valuation'].map(cat => (
@@ -810,57 +1248,18 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       )}
 
-      {/* ═══ SECTION CARDS ═══ */}
-      {selectedSite && filteredSections.map(sec => {
-        const isExpanded = expandedSections[sec.id] || searchQuery.trim();
-        const secOverrides = sec.inputs.filter(inp => inp.key in localOverrides).length;
-
-        return (
-          <div key={sec.id} style={S.sectionCard(isExpanded)} className="card-reveal">
-            {/* Section Header */}
-            <div style={S.sectionHeader}
-              onClick={() => setExpandedSections(prev => ({ ...prev, [sec.id]: !prev[sec.id] }))}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(232,122,46,0.03)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-              <div style={S.sectionTitle}>
-                <span style={{ fontSize: 20 }}>{sec.icon}</span>
-                <div>
-                  <div style={S.sectionLabel}>
-                    {sec.label}
-                    {secOverrides > 0 && (
-                      <span style={{ marginLeft: 10, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: 'rgba(232,122,46,0.15)', color: '#E87A2E' }}>
-                        {secOverrides} override{secOverrides > 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                  <div style={S.sectionDesc}>{sec.description}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 11, color: isExpanded ? '#E87A2E' : '#6B7394', fontWeight: 700, transition: 'color 0.2s' }}>{sec.inputs.length} inputs</span>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: isExpanded ? 'rgba(232,122,46,0.15)' : 'rgba(107,115,148,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
-                  <span style={{ fontSize: 14, color: isExpanded ? '#E87A2E' : '#6B7394', transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.25s cubic-bezier(0.22,1,0.36,1)', display: 'inline-block' }}>&#x25BE;</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Section Body — expanded */}
-            {isExpanded && (
-              <div style={S.sectionBody} className="card-expand">
-                {sec.inputs.map(renderInput)}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {/* ═══ SUB-TAB CONTENT ═══ */}
+      {selectedSite && subTab === 'summary' && renderSummary()}
+      {selectedSite && subTab === 'inputs' && renderInputs()}
+      {selectedSite && subTab === 'valuations' && renderValuations()}
 
       {/* ═══ FOOTER — ENGINE STATUS ═══ */}
       <div style={{ marginTop: 24, padding: '16px 20px', borderRadius: 12, background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7394', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Storvex Financial Engine</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7394', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Storvex Valuation Engine</div>
           <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
             {overrideCount > 0
-              ? `${overrideCount} custom override${overrideCount > 1 ? 's' : ''} applied — all reports reflect these inputs`
+              ? `${overrideCount} custom override${overrideCount > 1 ? 's' : ''} applied — all reports & REC packages reflect these inputs`
               : 'Running on Storvex intelligent defaults — calibrated to PS operating platform'}
           </div>
         </div>
@@ -869,7 +1268,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             LIVE
           </div>
           <div style={{ padding: '6px 14px', borderRadius: 8, background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.15)', fontSize: 11, fontWeight: 600, color: '#C9A84C' }}>
-            v3.1 — RSMeans 2025
+            v3.1 {'\u2014'} RSMeans 2025
           </div>
         </div>
       </div>
