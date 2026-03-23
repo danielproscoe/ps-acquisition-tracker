@@ -540,6 +540,37 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   ];
   const annualEsc = O('annualEscalation', 0.03);
 
+  // ── OpEx Helper — single source of truth for fixed + variable operating expenses ──
+  // COD AUDIT 2026-03-22: Extracted from 3 duplicate calculation sites (yearData, yrDataExt, sensitivity)
+  // to eliminate maintenance drift. Any OpEx change is now made once.
+  const calcOpEx = (yr, rev) => {
+    const fixed = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, yr))
+      + Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, yr))
+      + Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, yr))
+      + Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, yr))
+      + Math.round(totalSF * op.rmPerSF * Math.pow(1.02, yr))
+      + Math.round(totalSF * op.reservePerSF);
+    const variable = Math.round(rev * op.mgmtFeePct)
+      + Math.round(rev * (yr <= 1 ? op.marketingLeaseUpPct : op.marketingPct))
+      + Math.round(rev * op.gaPct) + Math.round(rev * op.badDebtPct);
+    return { fixed, variable, total: fixed + variable };
+  };
+
+  // ── OpEx Breakdown Helper — returns named items for display (Y5 stabilized) ──
+  const calcOpExBreakdown = (yr, rev) => {
+    const propTax = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, yr));
+    const insurance = Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, yr));
+    const payroll = Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, yr));
+    const utilities = Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, yr));
+    const rm = Math.round(totalSF * op.rmPerSF * Math.pow(1.02, yr));
+    const reserves = Math.round(totalSF * op.reservePerSF);
+    const mgmtFee = Math.round(rev * op.mgmtFeePct);
+    const marketing = Math.round(rev * (yr <= 1 ? op.marketingLeaseUpPct : op.marketingPct));
+    const ga = Math.round(rev * op.gaPct);
+    const badDebt = Math.round(rev * op.badDebtPct);
+    return { propTax, insurance, payroll, utilities, rm, reserves, mgmtFee, marketing, ga, badDebt };
+  };
+
   // ── P0: ECRI Revenue Model ──
   // Existing Customer Rate Increase — PS's #1 revenue lever (38-42% of mature revenue).
   // After 6-9 months, existing tenants get 8-12% annual rate increases.
@@ -555,31 +586,19 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     const driveRate = Math.round((mktDriveRate * escMult * (1 - y.driveDisc)) * 100) / 100;
 
     // ECRI: blended portfolio premium above street rate
-    const ecriMult = 1 + (ecriSchedule[i] || 0.20);
+    // AUDIT FIX 2026-03-22: Use nullish coalescing — ecriSchedule[0]=0 is a valid value (no ECRI Y1).
+    // Prior code: `ecriSchedule[i] || 0.20` treated 0 as falsy → applied phantom 20% Y1 ECRI premium.
+    const ecriMult = 1 + (ecriSchedule[i] != null ? ecriSchedule[i] : 0);
     const climRev = Math.round(climateSF * y.occRate * climRate * ecriMult * 12);
     const driveRev = Math.round(driveSF * y.occRate * driveRate * ecriMult * 12);
     const totalRev = climRev + driveRev;
 
-    // P0: Bottom-up Fixed + Variable OpEx — driven by operator profile (PS / generic / independent)
-    // PS profile: 78.4% NOI margin (self-managed, scale economies, centralized ops, smart-access tech)
-    // Generic profile: 62-66% NOI margin (3rd-party management, standard staffing)
-    // Fixed costs — independent of occupancy
-    const propTax = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, i));
-    const insurance = Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, i));
-    const payroll = Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, i));
-    const utilities = Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, i));
-    const rm = Math.round(totalSF * op.rmPerSF * Math.pow(1.02, i));
-    const reserves = Math.round(totalSF * op.reservePerSF);
-    const fixedOpex = propTax + insurance + payroll + utilities + rm + reserves;
-
-    // Variable costs — scale with actual revenue
-    const mgmtFee = Math.round(totalRev * op.mgmtFeePct);
-    const marketing = Math.round(totalRev * (y.yr <= 2 ? op.marketingLeaseUpPct : op.marketingPct));
-    const ga = Math.round(totalRev * op.gaPct);
-    const badDebt = Math.round(totalRev * op.badDebtPct);
-    const variableOpex = mgmtFee + marketing + ga + badDebt;
-
-    const opex = fixedOpex + variableOpex;
+    // P0: Bottom-up OpEx via single-source-of-truth helper (COD AUDIT 2026-03-22)
+    const opexResult = calcOpEx(i, totalRev);
+    const opexBkdn = calcOpExBreakdown(i, totalRev);
+    const fixedOpex = opexResult.fixed;
+    const variableOpex = opexResult.variable;
+    const opex = opexResult.total;
     const noi = totalRev - opex;
     const opexRatio = totalRev > 0 ? (opex / totalRev * 100).toFixed(1) : "N/A";
     const mktClimFull = Math.round(mktClimateRate * escMult * 100) / 100;
@@ -588,7 +607,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
       ...y, climRate, driveRate, climRev, driveRev, totalRev, opex, noi,
       mktClimFull, mktDriveFull, escMult, ecriMult,
       fixedOpex, variableOpex, opexRatio,
-      opexBreakdown: { propTax, insurance, payroll, utilities, rm, reserves, mgmtFee, marketing, ga, badDebt },
+      opexBreakdown: opexBkdn,
     };
   });
 
@@ -670,20 +689,15 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     const occ = i < 5 ? leaseUpSchedule[i].occRate : 0.92;
     const cDisc = i < 5 ? leaseUpSchedule[i].climDisc : 0;
     const dDisc = i < 5 ? leaseUpSchedule[i].driveDisc : 0;
-    const ecriMult = 1 + (ecriSchedule[Math.min(i, 4)] || 0.20);
-    const cR = mktClimateRate * esc * (1 - cDisc);
-    const dR = mktDriveRate * esc * (1 - dDisc);
+    // AUDIT FIX 2026-03-22: Same nullish coalescing fix as yearData loop — 0 is valid, not falsy.
+    const ecriIdx = Math.min(i, 4);
+    const ecriMult = 1 + (ecriSchedule[ecriIdx] != null ? ecriSchedule[ecriIdx] : 0);
+    // AUDIT FIX 2026-03-22: Round rates to match yearData precision (¢ rounding parity).
+    const cR = Math.round(mktClimateRate * esc * (1 - cDisc) * 100) / 100;
+    const dR = Math.round(mktDriveRate * esc * (1 - dDisc) * 100) / 100;
     const rev = Math.round(climateSF * occ * cR * ecriMult * 12) + Math.round(driveSF * occ * dR * ecriMult * 12);
-    // Bottom-up OpEx (matches yearData methodology — uses operator profile)
-    const fixedOp = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, i))
-      + Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, i))
-      + Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, i))
-      + Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, i))
-      + Math.round(totalSF * op.rmPerSF * Math.pow(1.02, i))
-      + Math.round(totalSF * op.reservePerSF);
-    const varOp = Math.round(rev * op.mgmtFeePct) + Math.round(rev * (i <= 1 ? op.marketingLeaseUpPct : op.marketingPct))
-      + Math.round(rev * op.gaPct) + Math.round(rev * op.badDebtPct);
-    const opex = fixedOp + varOp;
+    // Bottom-up OpEx via single-source-of-truth helper (COD AUDIT 2026-03-22)
+    const { total: opex } = calcOpEx(i, rev);
     const noi = rev - opex;
     yrDataExt.push({ yr: i + 1, occ, rev, opex, noi, cR, dR, ecriMult });
   }
@@ -717,7 +731,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
       const esc4 = Math.pow(1 + annualEsc, 4);
       const adjClimRate = Math.round(mktClimateRate * esc4 * r.factor * 100) / 100;
       const adjDriveRate = Math.round(mktDriveRate * esc4 * r.factor * 100) / 100;
-      const ecri5 = 1 + (ecriSchedule[4] || 0.32); // Y5 ECRI from calibrated schedule
+      // AUDIT FIX 2026-03-22: Consistent nullish coalescing (ecriSchedule[4]=0 is valid).
+      const ecri5 = 1 + (ecriSchedule[4] != null ? ecriSchedule[4] : 0);
       const adjRev = Math.round((climateSF * adjOcc * adjClimRate * ecri5 * 12) + (driveSF * adjOcc * adjDriveRate * ecri5 * 12));
       const adjVarOpex = Math.round(adjRev * varPctSum);
       const adjOpex = stabFixed + adjVarOpex;
@@ -731,15 +746,13 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
         const ocCl = Math.min(0.97, Math.max(0.10, oc));
         const cD = yr < 5 ? leaseUpSchedule[yr].climDisc : 0;
         const dD = yr < 5 ? leaseUpSchedule[yr].driveDisc : 0;
-        const em = 1 + (ecriSchedule[Math.min(yr, 4)] || 0.20);
+        // AUDIT FIX 2026-03-22: Consistent nullish coalescing for ECRI.
+        const emIdx = Math.min(yr, 4);
+        const em = 1 + (ecriSchedule[emIdx] != null ? ecriSchedule[emIdx] : 0);
         const yRev = Math.round(climateSF * ocCl * mktClimateRate * e * (1 - cD) * r.factor * em * 12)
           + Math.round(driveSF * ocCl * mktDriveRate * e * (1 - dD) * r.factor * em * 12);
-        const yFix = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, yr))
-          + Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, yr))
-          + Math.round(op.basePayroll * op.payrollBurden * (totalSF > 80000 ? Math.max(op.baseFTE, 1.5) : op.baseFTE) * Math.pow(1.03, yr))
-          + Math.round((climateSF * op.climateUtilPerSF + driveSF * op.driveUtilPerSF) * Math.pow(1.02, yr))
-          + Math.round(totalSF * op.rmPerSF * Math.pow(1.02, yr))
-          + Math.round(totalSF * op.reservePerSF);
+        // COD AUDIT 2026-03-22: Use calcOpEx helper for fixed costs, keep varPctSum for rent-adjusted variable costs
+        const { fixed: yFix } = calcOpEx(yr, yRev);
         const yVar = Math.round(yRev * varPctSum);
         const yNoi = yRev - yFix - yVar;
         const yCF = yNoi - annualDS;

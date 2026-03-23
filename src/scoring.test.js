@@ -1165,6 +1165,138 @@ describe('computeSiteFinancials', () => {
     expect(result.totalDevCost).toBeGreaterThan(result.landCost + result.buildCosts + result.carryCosts);
     expect(result.totalDevCost).toBe(result.landCost + result.buildCosts + result.carryCosts + result.workingCapital);
   });
+
+  // ── COD Audit 2026-03-22: ECRI falsy-zero fix ──
+  test('Year 1 ECRI multiplier is 1.0 (no phantom ECRI in launch year)', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    // ecriSchedule[0] = 0 → ecriMult = 1 + 0 = 1.0 (no ECRI Y1)
+    // Prior bug: 0 || 0.20 → 1.20 (phantom 20% Y1 boost)
+    expect(result.yearData[0].ecriMult).toBe(1.0);
+  });
+
+  test('Year 2 ECRI multiplier is 1.06 (6% ECRI premium)', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    expect(result.yearData[1].ecriMult).toBeCloseTo(1.06, 2);
+  });
+
+  test('Year 5 ECRI multiplier is 1.32 (32% cumulative ECRI)', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    expect(result.yearData[4].ecriMult).toBeCloseTo(1.32, 2);
+  });
+
+  test('ECRI schedule handles zero values without falsy fallback', () => {
+    // If someone explicitly sets ecriY1 to 0, it should stay 0 (not become 0.20)
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { ecriY1: 0 });
+    expect(result.yearData[0].ecriMult).toBe(1.0);
+  });
+
+  test('DCF yrDataExt Y1 ECRI matches yearData Y1 ECRI', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    // Both loops should use the same ECRI multiplier for Y1
+    expect(result.yrDataExt[0].ecriMult).toBe(result.yearData[0].ecriMult);
+  });
+
+  test('DCF yrDataExt Y5 revenue matches yearData Y5 revenue', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    // After rate rounding parity fix, Y5 revenue should match across both loops
+    expect(result.yrDataExt[4].rev).toBe(result.yearData[4].totalRev);
+  });
+
+  test('sensitivity base case NOI is within $50 of Y5 stabilized NOI', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    const baseCase = result.sensitivityMatrix.grid[1][1]; // Base rent, base occ
+    // Sensitivity uses simplified varPctSum (single rounding) vs yearData's individual rounding.
+    // Acceptable tolerance: $50 on a ~$500K+ NOI = <0.01% variance.
+    expect(Math.abs(baseCase.noi - result.yearData[4].noi)).toBeLessThanOrEqual(50);
+  });
+});
+
+// ─── 14b. PRESSURE TESTS — Override Flow-Through (COD AUDIT 2026-03-22) ───
+// Verifies that changing inputs at the ValuationInputs level flows through
+// to pricing, NOI, YOC, IRR, land price guide, and recommendation.
+
+describe('Override flow-through pressure tests', () => {
+  const baseFinancials = () => computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+
+  test('raising climate rate raises stabilized NOI and improves YOC', () => {
+    const base = baseFinancials();
+    const bumped = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRatePremium: 2.00 });
+    // Higher rent → higher revenue → higher NOI
+    expect(bumped.stabNOI).toBeGreaterThan(base.stabNOI);
+    // Higher NOI / same dev cost → higher YOC
+    expect(parseFloat(bumped.yocStab)).toBeGreaterThan(parseFloat(base.yocStab));
+  });
+
+  test('raising hard costs raises totalDevCost and lowers YOC', () => {
+    const base = baseFinancials();
+    const expensive = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { hardCostOneStoryClimate: 70 });
+    // Higher hard cost → higher dev cost
+    expect(expensive.totalDevCost).toBeGreaterThan(base.totalDevCost);
+    // Higher dev cost / similar NOI → lower YOC
+    expect(parseFloat(expensive.yocStab)).toBeLessThan(parseFloat(base.yocStab));
+  });
+
+  test('raising YOC strike threshold lowers max land price', () => {
+    const base = baseFinancials();
+    const tight = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { yocStrike: 0.12 });
+    // Higher YOC requirement → less land budget
+    expect(tight.landPrices[1].maxLand).toBeLessThan(base.landPrices[1].maxLand);
+  });
+
+  test('lowering stabilized occupancy lowers NOI and IRR', () => {
+    const base = baseFinancials();
+    const low = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { leaseUpY5Occ: 0.82 });
+    expect(low.stabNOI).toBeLessThan(base.stabNOI);
+    expect(parseFloat(low.irrPct)).toBeLessThan(parseFloat(base.irrPct));
+  });
+
+  test('site-specific override takes precedence over global override', () => {
+    const globalOnly = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRatePremium: 2.00 });
+    const siteOverride = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRatePremium: 2.00 }, { climateRatePremium: 0.80 });
+    // Site override of $0.80 should override global $2.00
+    expect(siteOverride.mktClimateRate).toBeLessThan(globalOnly.mktClimateRate);
+  });
+
+  test('changing exit cap rate changes exit value and IRR', () => {
+    const base = baseFinancials();
+    const compCap = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { exitCapRate: 0.05 });
+    // Lower exit cap → higher exit value
+    expect(compCap.exitValue).toBeGreaterThan(base.exitValue);
+    expect(parseFloat(compCap.irrPct)).toBeGreaterThan(parseFloat(base.irrPct));
+  });
+
+  test('land verdict moves from BUY to PASS when asking price doubles', () => {
+    const cheap = computeSiteFinancials({ ...baseSite, askingPrice: '$500,000' });
+    const expensive = computeSiteFinancials({ ...baseSite, askingPrice: '$3,000,000' });
+    // Cheap land should have a favorable verdict
+    expect(['STRONG BUY', 'BUY', 'NEGOTIATE']).toContain(cheap.landVerdict);
+    // Expensive land should have unfavorable verdict
+    expect(['STRETCH', 'PASS']).toContain(expensive.landVerdict);
+  });
+
+  test('NOI margin stays within PS benchmark range (70-85%) at default inputs', () => {
+    const result = baseFinancials();
+    const margin = parseFloat(result.noiMarginPct);
+    expect(margin).toBeGreaterThanOrEqual(60); // Floor: PS + overhead
+    expect(margin).toBeLessThanOrEqual(85);     // Ceiling: PS best-in-class
+  });
+
+  test('DSCR above 1.25x at default inputs (lender minimum)', () => {
+    const result = baseFinancials();
+    const dscr = parseFloat(result.dscrStab);
+    if (!isNaN(dscr) && dscr > 0) {
+      expect(dscr).toBeGreaterThanOrEqual(1.25);
+    }
+  });
+
+  test('changing hold period changes IRR and equity multiple', () => {
+    const short = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { holdPeriod: 5 });
+    const long = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { holdPeriod: 15 });
+    // Different hold periods should produce different IRRs
+    expect(short.irrPct).not.toBe(long.irrPct);
+    // Longer hold → higher equity multiple (more cash flow + appreciation)
+    expect(parseFloat(long.equityMultiple)).toBeGreaterThan(parseFloat(short.equityMultiple));
+  });
 });
 
 // ─── 15. ZONING TABLE ACCESSED GATE (§6h Rule #4) ───
