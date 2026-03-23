@@ -1016,19 +1016,19 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- ═══ SF/CAPITA PROJECTION — 1-3-5 Mile with 5-Year Forecast ═══ -->
     ${(() => {
       const compSF = site.competingSF ? parseInt(String(site.competingSF).replace(/[^0-9]/g, ""), 10) : null;
-      const pop3 = popN; const pop1r = pop1; const pop5est = pop3 ? Math.round(pop3 * 2.4) : null;
-      const sf3 = (compSF && pop3) ? (compSF / pop3).toFixed(1) : null;
-      const sf1 = (compSF && pop1r) ? (compSF * 0.25 / pop1r).toFixed(1) : null;
-      const sf5 = (compSF && pop5est) ? (compSF * 1.8 / pop5est).toFixed(1) : null;
+      const pop3v = popN; const pop1v = pop1; const pop5v = pop3v ? Math.round(pop3v * 2.4) : null;
+      // Supply estimates by radius — 3-mi is known, 1-mi and 5-mi are proportional estimates
+      const sf3mi = compSF || null; const sf1mi = compSF ? Math.round(compSF * 0.25) : null; const sf5mi = compSF ? Math.round(compSF * 1.8) : null;
+      const sfc = (supply, pop) => (supply && pop && pop > 0) ? (supply / pop).toFixed(1) : null;
       const g = growthPct || 0;
-      const proj = (pop, yr) => pop ? Math.round(pop * Math.pow(1 + g / 100, yr)) : null;
-      const pop3_y1 = proj(pop3, 1); const pop3_y3 = proj(pop3, 3); const pop3_y5 = proj(pop3, 5);
-      const sf3_y1 = (compSF && pop3_y1) ? (compSF / pop3_y1).toFixed(1) : null;
-      const sf3_y3 = (compSF && pop3_y3) ? (compSF / pop3_y3).toFixed(1) : null;
-      const sf3_y5 = (compSF && pop3_y5) ? (compSF / pop3_y5).toFixed(1) : null;
-      const sfColor = (v) => { const n = parseFloat(v); return n < 5 ? "#16A34A" : n <= 9 ? "#3B82F6" : "#EF4444"; };
-      const sfLabel2 = (v) => { const n = parseFloat(v); return n < 5 ? "Underserved" : n <= 7 ? "Moderate" : n <= 9 ? "Equilibrium" : n <= 12 ? "Well-supplied" : "Oversupplied"; };
-      const barPct = (v) => Math.min(100, Math.max(0, (parseFloat(v) / 15) * 100));
+      const projPop = (pop, y) => pop ? Math.round(pop * Math.pow(1 + g / 100, y)) : null;
+      // Current SF/capita
+      const sfc1_now = sfc(sf1mi, pop1v); const sfc3_now = sfc(sf3mi, pop3v) || (sfCapita ? sfCapita.toFixed(1) : null); const sfc5_now = sfc(sf5mi, pop5v);
+      // 5-year projected SF/capita (constant supply, growing population)
+      const sfc1_y5 = sfc(sf1mi, projPop(pop1v, 5)); const sfc3_y5 = sfc(sf3mi, projPop(pop3v, 5)); const sfc5_y5 = sfc(sf5mi, projPop(pop5v, 5));
+      const sfColor = (v) => { if (!v) return "#94A3B8"; const n = parseFloat(v); return n < 5 ? "#16A34A" : n <= 9 ? "#3B82F6" : "#EF4444"; };
+      const sfLabel2 = (v) => { if (!v) return "—"; const n = parseFloat(v); return n < 5 ? "Underserved" : n <= 7 ? "Moderate" : n <= 9 ? "Equilibrium" : n <= 12 ? "Well-supplied" : "Oversupplied"; };
+      const barPct = (v) => v ? Math.min(100, Math.max(0, (parseFloat(v) / 15) * 100)) : 0;
       const yr = new Date().getFullYear();
       return `
     <div style="margin:20px 0;border-radius:16px;overflow:hidden;border:1px solid #1E276120;background:#FAFBFC">
@@ -1040,59 +1040,45 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
         <span style="background:rgba(201,168,76,0.15);color:#C9A84C;font-size:9px;font-weight:800;padding:4px 12px;border-radius:6px;letter-spacing:0.08em">STORVEX INTELLIGENCE</span>
       </div>
 
-      <!-- Radius Ring Comparison -->
+      <!-- Current Snapshot + 5-Year Projection — 1-3-5 Mile Matrix -->
       <div style="padding:20px 24px;border-bottom:1px solid #E2E8F0">
-        <div style="font-size:10px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px">Current SF / Capita by Trade Area</div>
-        <div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:16px">
-          ${[
-            { label: "1-MILE", val: sf1, pop: pop1r ? pop1r.toLocaleString() : "—", dim: true },
-            { label: "3-MILE", val: sf3 || (sfCapita ? sfCapita.toFixed(1) : null), pop: pop3 ? pop3.toLocaleString() : "—", primary: true },
-            { label: "5-MILE (EST.)", val: sf5, pop: pop5est ? pop5est.toLocaleString() : "—", dim: true },
-          ].map(r => `<div style="border-radius:12px;padding:${r.primary ? "20px" : "14px"};text-align:center;background:${r.primary ? "#1E276108" : "#fff"};border:${r.primary ? "2px solid #1E276120" : "1px solid #E2E8F0"};${r.primary ? "box-shadow:0 4px 16px rgba(30,39,97,0.08);" : ""}">
-            <div style="font-size:${r.primary ? "9px" : "8px"};font-weight:800;color:${r.primary ? "#1E2761" : "#94A3B8"};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">${r.label}${r.primary ? " ★" : ""}</div>
-            <div style="font-size:${r.primary ? "36px" : "24px"};font-weight:900;color:${r.val ? sfColor(r.val) : "#94A3B8"};font-family:'Space Mono',monospace;line-height:1">${r.val || "—"}</div>
-            <div style="font-size:9px;color:#64748B;margin-top:4px;font-weight:600">SF / capita</div>
-            ${r.val ? `<div style="margin:8px auto 0;width:80%;height:6px;border-radius:3px;background:#E2E8F0;overflow:hidden"><div style="height:100%;width:${barPct(r.val)}%;border-radius:3px;background:linear-gradient(90deg,#16A34A,#3B82F6 47%,#F59E0B 60%,#EF4444)"></div></div>
-            <div style="font-size:9px;font-weight:700;color:${sfColor(r.val)};margin-top:4px">${sfLabel2(r.val)}</div>` : ""}
-            <div style="font-size:8px;color:#94A3B8;margin-top:4px">Pop: ${r.pop}</div>
-          </div>`).join("")}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-size:10px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.1em">SF / Capita — Current Snapshot & 5-Year Projection</div>
+          ${growthPct !== null ? `<span style="font-size:9px;font-weight:700;color:${growthColor};background:${growthColor}12;padding:3px 10px;border-radius:5px">${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}% CAGR (ESRI 2025-2030)</span>` : ""}
         </div>
-      </div>
-
-      <!-- 5-Year Projection (3-Mile Focus) -->
-      ${(sf3 || sfCapita) && growthPct !== null ? `<div style="padding:20px 24px;border-bottom:1px solid #E2E8F0">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <div style="font-size:10px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.1em">5-Year Demand Projection (3-Mile Ring)</div>
-          <span style="font-size:9px;font-weight:700;color:${growthColor};background:${growthColor}12;padding:3px 10px;border-radius:5px">${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}% CAGR</span>
-        </div>
-        <div style="font-size:10px;color:#94A3B8;margin-bottom:12px;font-style:italic">Assumes constant supply (${compSF ? compSF.toLocaleString() + " SF" : "current"}) with population growing at ${growthPct.toFixed(1)}% CAGR. Rising population dilutes SF/capita → stronger demand signal over time.</div>
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr>${["", "Current (${yr})", "Year 1 (${yr + 1})", "Year 3 (${yr + 3}) ★", "Year 5 (${yr + 5})"].map(h2 => `<th style="padding:8px 12px;font-size:9px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;text-align:${h2 ? "center" : "left"};border-bottom:2px solid #E2E8F0;${h2.includes("★") ? "background:#1E276108;" : ""}">${h2}</th>`).join("")}</tr></thead>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">
+          <thead><tr>
+            <th style="padding:10px 14px;font-size:9px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;text-align:left;border-bottom:2px solid #1E2761;background:#FAFBFC;width:140px">Trade Area</th>
+            <th style="padding:10px 14px;font-size:9px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;text-align:center;border-bottom:2px solid #1E2761;background:#FAFBFC">Population</th>
+            <th style="padding:10px 14px;font-size:9px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;text-align:center;border-bottom:2px solid #1E2761;background:#FAFBFC">Est. Supply (SF)</th>
+            <th style="padding:10px 14px;font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;text-align:center;border-bottom:2px solid #1E2761;background:#E8F0FE">Current SF/Capita</th>
+            <th style="padding:10px 14px;font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;text-align:center;border-bottom:2px solid #1E2761;background:#E8F0FE">5-Yr Projected SF/Capita</th>
+            <th style="padding:10px 14px;font-size:9px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;text-align:center;border-bottom:2px solid #1E2761;background:#FAFBFC">Signal</th>
+          </tr></thead>
           <tbody>
-            <tr>
-              <td style="padding:10px 12px;font-size:11px;font-weight:700;color:#1E2761;border-bottom:1px solid #F1F5F9">Population (3-mi)</td>
-              <td style="padding:10px 12px;font-size:13px;font-weight:700;color:#1E293B;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace">${pop3 ? pop3.toLocaleString() : "—"}</td>
-              <td style="padding:10px 12px;font-size:13px;font-weight:600;color:#64748B;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace">${pop3_y1 ? pop3_y1.toLocaleString() : "—"}</td>
-              <td style="padding:10px 12px;font-size:14px;font-weight:800;color:#1E2761;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace;background:#1E276108">${pop3_y3 ? pop3_y3.toLocaleString() : "—"}</td>
-              <td style="padding:10px 12px;font-size:13px;font-weight:600;color:#64748B;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace">${pop3_y5 ? pop3_y5.toLocaleString() : "—"}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px 12px;font-size:11px;font-weight:700;color:#1E2761">SF / Capita</td>
-              <td style="padding:10px 12px;text-align:center"><span style="font-size:14px;font-weight:800;color:${sf3 ? sfColor(sf3) : sfCapitaColor};font-family:'Space Mono',monospace">${sf3 || (sfCapita ? sfCapita.toFixed(1) : "—")}</span></td>
-              <td style="padding:10px 12px;text-align:center"><span style="font-size:13px;font-weight:700;color:${sf3_y1 ? sfColor(sf3_y1) : "#94A3B8"};font-family:'Space Mono',monospace">${sf3_y1 || "—"}</span></td>
-              <td style="padding:10px 12px;text-align:center;background:#1E276108"><span style="font-size:16px;font-weight:900;color:${sf3_y3 ? sfColor(sf3_y3) : "#94A3B8"};font-family:'Space Mono',monospace">${sf3_y3 || "—"}</span>${sf3_y3 ? `<div style="font-size:9px;font-weight:700;color:${sfColor(sf3_y3)};margin-top:2px">${sfLabel2(sf3_y3)}</div>` : ""}</td>
-              <td style="padding:10px 12px;text-align:center"><span style="font-size:13px;font-weight:700;color:${sf3_y5 ? sfColor(sf3_y5) : "#94A3B8"};font-family:'Space Mono',monospace">${sf3_y5 || "—"}</span></td>
-            </tr>
-            <tr>
-              <td style="padding:10px 12px;font-size:11px;font-weight:700;color:#1E2761">Classification</td>
-              <td style="padding:10px 12px;text-align:center"><span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;background:${sf3 ? sfColor(sf3) : sfCapitaColor}12;color:${sf3 ? sfColor(sf3) : sfCapitaColor}">${sf3 ? sfLabel2(sf3) : sfCapitaLabel}</span></td>
-              <td style="padding:10px 12px;text-align:center">${sf3_y1 ? `<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;background:${sfColor(sf3_y1)}12;color:${sfColor(sf3_y1)}">${sfLabel2(sf3_y1)}</span>` : "—"}</td>
-              <td style="padding:10px 12px;text-align:center;background:#1E276108">${sf3_y3 ? `<span style="font-size:10px;font-weight:800;padding:4px 12px;border-radius:5px;background:${sfColor(sf3_y3)}18;color:${sfColor(sf3_y3)};border:1px solid ${sfColor(sf3_y3)}30">${sfLabel2(sf3_y3)}</span>` : "—"}</td>
-              <td style="padding:10px 12px;text-align:center">${sf3_y5 ? `<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;background:${sfColor(sf3_y5)}12;color:${sfColor(sf3_y5)}">${sfLabel2(sf3_y5)}</span>` : "—"}</td>
-            </tr>
+            ${[
+              { label: "1-Mile Radius", pop: pop1v, supply: sf1mi, sfNow: sfc1_now, sf5yr: sfc1_y5, est: true },
+              { label: "3-Mile Radius ★", pop: pop3v, supply: sf3mi, sfNow: sfc3_now, sf5yr: sfc3_y5, primary: true },
+              { label: "5-Mile Radius", pop: pop5v, supply: sf5mi, sfNow: sfc5_now, sf5yr: sfc5_y5, est: true },
+            ].map((r, i) => {
+              const bg = r.primary ? "#1E276106" : (i % 2 ? "#FAFBFC" : "#fff");
+              const fw = r.primary ? 800 : 600;
+              const fs = r.primary ? "15px" : "13px";
+              const delta = (r.sfNow && r.sf5yr) ? (parseFloat(r.sf5yr) - parseFloat(r.sfNow)).toFixed(1) : null;
+              const deltaColor = delta ? (parseFloat(delta) < 0 ? "#16A34A" : "#EF4444") : "#94A3B8";
+              return `<tr style="background:${bg}${r.primary ? ";border-top:2px solid #1E276115;border-bottom:2px solid #1E276115" : ""}">
+                <td style="padding:${r.primary ? "14px" : "10px"} 14px;font-size:${r.primary ? "12px" : "11px"};font-weight:${r.primary ? 800 : 700};color:#1E2761;border-bottom:1px solid #F1F5F9">${r.label}${r.est ? ' <span style="font-size:8px;color:#94A3B8;font-weight:500">(est.)</span>' : ""}</td>
+                <td style="padding:10px 14px;font-size:${r.primary ? "13px" : "12px"};font-weight:${fw};color:#1E293B;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace">${r.pop ? r.pop.toLocaleString() : "—"}</td>
+                <td style="padding:10px 14px;font-size:12px;font-weight:600;color:#64748B;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace">${r.supply ? r.supply.toLocaleString() : "—"}</td>
+                <td style="padding:${r.primary ? "14px" : "10px"} 14px;text-align:center;border-bottom:1px solid #F1F5F9;background:${r.primary ? "#E8F0FE" : "#F0F7FF"}"><span style="font-size:${fs};font-weight:900;color:${sfColor(r.sfNow)};font-family:'Space Mono',monospace">${r.sfNow || "—"}</span>${r.sfNow ? `<div style="font-size:8px;font-weight:700;color:${sfColor(r.sfNow)};margin-top:2px">${sfLabel2(r.sfNow)}</div>` : ""}</td>
+                <td style="padding:${r.primary ? "14px" : "10px"} 14px;text-align:center;border-bottom:1px solid #F1F5F9;background:${r.primary ? "#E8F0FE" : "#F0F7FF"}"><span style="font-size:${fs};font-weight:900;color:${sfColor(r.sf5yr)};font-family:'Space Mono',monospace">${r.sf5yr || "—"}</span>${r.sf5yr ? `<div style="font-size:8px;font-weight:700;color:${sfColor(r.sf5yr)};margin-top:2px">${sfLabel2(r.sf5yr)}</div>` : ""}</td>
+                <td style="padding:10px 14px;text-align:center;border-bottom:1px solid #F1F5F9">${delta ? `<span style="font-size:11px;font-weight:800;color:${deltaColor};font-family:'Space Mono',monospace">${parseFloat(delta) <= 0 ? "" : "+"}${delta}</span><div style="font-size:8px;color:${deltaColor};font-weight:600;margin-top:1px">${parseFloat(delta) < -0.5 ? "Improving" : parseFloat(delta) < 0 ? "Slight improve" : parseFloat(delta) < 0.5 ? "Stable" : "Weakening"}</div>` : "—"}</td>
+              </tr>`;
+            }).join("")}
           </tbody>
         </table>
-      </div>` : ""}
+        <div style="font-size:9px;color:#94A3B8;margin-top:10px;font-style:italic;line-height:1.5">Projection assumes constant supply with population growing at ${growthPct !== null ? growthPct.toFixed(1) : "N/A"}% CAGR. Declining SF/capita = improving demand signal (population growing faster than new supply). 1-mile and 5-mile supply are proportional estimates from the 3-mile competitor scan. ★ 3-mile ring is the primary trade area for self-storage demand analysis.</div>
+      </div>
 
       <!-- Equilibrium Methodology -->
       <div style="padding:20px 24px">
