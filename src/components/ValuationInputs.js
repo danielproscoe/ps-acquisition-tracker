@@ -115,9 +115,9 @@ export const STORVEX_DEFAULTS = {
 const SECTIONS = [
   {
     id: 'facility',
-    label: 'Facility Sizing',
+    label: 'Facility Program',
     icon: '🏗️',
-    description: 'Building configuration and unit mix',
+    description: 'Site yield, unit mix, and building configuration',
     inputs: [
       { key: 'coverageRatio', label: 'Lot Coverage Ratio', type: 'pct', step: 0.01, min: 0.15, max: 0.60, tip: 'Building footprint as % of total lot area. PS standard: 35%' },
       { key: 'netToGross', label: 'Net-to-Gross Efficiency', type: 'pct', step: 0.01, min: 0.75, max: 0.95, tip: 'Leasable SF / Gross SF. Corridors, office, mechanical reduce this.' },
@@ -129,9 +129,9 @@ const SECTIONS = [
   },
   {
     id: 'rates',
-    label: 'Market Rates',
+    label: 'Revenue — Market Rates',
     icon: '💰',
-    description: 'Rental rates by income tier ($/SF/mo)',
+    description: 'Street rates by income tier — the top line',
     inputs: [
       { key: 'climateRatePremium', label: 'Climate — Premium ($90K+ HHI)', type: 'rate', step: 0.01, min: 0.50, max: 3.00, unit: '$/SF/mo' },
       { key: 'climateRateUpper', label: 'Climate — Upper ($75K+ HHI)', type: 'rate', step: 0.01, min: 0.50, max: 2.50, unit: '$/SF/mo' },
@@ -146,9 +146,9 @@ const SECTIONS = [
   },
   {
     id: 'leaseup',
-    label: 'Lease-Up Schedule',
+    label: 'Revenue — Lease-Up',
     icon: '📈',
-    description: '5-year occupancy ramp & promotional discounting',
+    description: '5-year absorption and promotional discounting schedule',
     inputs: [
       { key: 'leaseUpY1Occ', label: 'Year 1 Occupancy', type: 'pct', step: 0.01, min: 0.10, max: 0.60, tip: 'Grand opening year — heavy promotions' },
       { key: 'leaseUpY2Occ', label: 'Year 2 Occupancy', type: 'pct', step: 0.01, min: 0.30, max: 0.80 },
@@ -165,9 +165,9 @@ const SECTIONS = [
   },
   {
     id: 'ecri',
-    label: 'ECRI Revenue Model',
+    label: 'Revenue — ECRI',
     icon: '⚡',
-    description: 'Existing Customer Rate Increase — PS\'s #1 revenue lever',
+    description: 'Existing Customer Rate Increases — in-place rent growth engine',
     inputs: [
       { key: 'ecriY1', label: 'Year 1 ECRI Premium', type: 'pct', step: 0.01, min: 0.00, max: 0.10, tip: 'Cumulative ECRI above street rate' },
       { key: 'ecriY2', label: 'Year 2 ECRI Premium', type: 'pct', step: 0.01, min: 0.00, max: 0.20 },
@@ -178,9 +178,9 @@ const SECTIONS = [
   },
   {
     id: 'construction',
-    label: 'Construction Costs',
+    label: 'Development Costs',
     icon: '🔨',
-    description: 'Full dev cost stack — PS Killeen calibrated ($119/SF actual)',
+    description: 'Hard costs, site work, and full development budget',
     inputs: [
       { key: 'hardCostOneStoryClimate', label: '1-Story Shell+HVAC ($/SF)', type: 'dollar', step: 1, min: 20, max: 100, unit: '$/SF', tip: 'Building shell & HVAC only. PS benchmark: $45/SF national' },
       { key: 'hardCostOneStoryDrive', label: '1-Story Drive-Up Shell ($/SF)', type: 'dollar', step: 1, min: 10, max: 60, unit: '$/SF' },
@@ -199,9 +199,9 @@ const SECTIONS = [
   },
   {
     id: 'carry',
-    label: 'Construction Carry',
+    label: 'Development — Carry Costs',
     icon: '🏦',
-    description: 'Pre-revenue carrying costs during build phase',
+    description: 'Construction financing, insurance, and pre-revenue carry',
     inputs: [
       { key: 'constructionMonthsOneStory', label: '1-Story Build (months)', type: 'int', step: 1, min: 8, max: 24, unit: 'mo' },
       { key: 'constructionMonthsMultiStory', label: 'Multi-Story Build (months)', type: 'int', step: 1, min: 12, max: 30, unit: 'mo' },
@@ -215,7 +215,7 @@ const SECTIONS = [
     id: 'opex',
     label: 'Operating Expenses',
     icon: '📊',
-    description: 'PS operating platform — 78.4% NOI margin benchmark',
+    description: 'Property-level OpEx — taxes, insurance, payroll, utilities, R&M',
     inputs: [
       { key: 'propTaxRate', label: 'Property Tax Rate', type: 'pct', step: 0.001, min: 0.005, max: 0.030, tip: '% of development cost, 2%/yr reassessment escalation' },
       { key: 'insurancePerSF', label: 'Insurance ($/SF)', type: 'rate', step: 0.01, min: 0.10, max: 1.00, unit: '$/SF/yr' },
@@ -235,9 +235,9 @@ const SECTIONS = [
   },
   {
     id: 'valuation',
-    label: 'Valuation & Cap Rates',
+    label: 'Investor Returns',
     icon: '🎯',
-    description: 'Exit assumptions and stabilized valuation scenarios',
+    description: 'Cap rates, exit assumptions, and hold period',
     inputs: [
       { key: 'capRateConservative', label: 'Conservative Cap Rate', type: 'pct', step: 0.0025, min: 0.04, max: 0.10 },
       { key: 'capRateMarket', label: 'Market Cap Rate', type: 'pct', step: 0.0025, min: 0.035, max: 0.09 },
@@ -248,9 +248,9 @@ const SECTIONS = [
   },
   {
     id: 'land',
-    label: 'Land Pricing',
+    label: 'Land Acquisition',
     icon: '🗺️',
-    description: 'YOC targets for back-calculating max land acquisition price',
+    description: 'Target YOC thresholds that drive max/strike/min land price',
     inputs: [
       { key: 'yocMax', label: 'YOC — Maximum (Ceiling)', type: 'pct', step: 0.005, min: 0.04, max: 0.12, tip: 'Most PS will pay for land. Back-solves to max land price.' },
       { key: 'yocStrike', label: 'YOC — Strike Price (Target)', type: 'pct', step: 0.005, min: 0.05, max: 0.15 },
@@ -261,7 +261,7 @@ const SECTIONS = [
     id: 'capital',
     label: 'Capital Stack',
     icon: '🏛️',
-    description: 'Permanent debt structure and equity requirements',
+    description: 'Permanent financing — LTV, rate, and amortization',
     inputs: [
       { key: 'loanLTV', label: 'Loan-to-Value', type: 'pct', step: 0.01, min: 0.40, max: 0.80 },
       { key: 'loanRate', label: 'Permanent Loan Rate', type: 'pct', step: 0.0025, min: 0.03, max: 0.12 },

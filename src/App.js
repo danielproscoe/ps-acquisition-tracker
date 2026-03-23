@@ -3831,31 +3831,37 @@ function AppInner() {
 }
 
 // Intel tooltip wrapper — isolates hover state per card (no parent re-renders)
+// Uses a ref-based delay to prevent flicker on rapid mouse movement
 function IntelCardHeader({ site, onClick, children }) {
-  const [hovered, setHovered] = useState(false);
+  const [show, setShow] = useState(false);
+  const timerRef = useRef(null);
+  const enter = () => { if (!site.latestNote) return; clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setShow(true), 120); };
+  const leave = () => { clearTimeout(timerRef.current); setShow(false); };
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+  const lines = show && site.latestNote ? site.latestNote.split("\n").filter(l => l.trim()) : [];
   return (
-    <div onMouseEnter={() => site.latestNote && setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={onClick} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative", zIndex: hovered ? 100 : 1 }}>
-      {hovered && site.latestNote && (
-        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: -12, left: 0, right: 0, transform: "translateY(-100%)", zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.15s ease-out", padding: "0 18px" }}>
+    <div onMouseEnter={enter} onMouseLeave={leave} onClick={onClick} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative", zIndex: show ? 100 : 1 }}>
+      {show && lines.length > 0 && (
+        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.15s ease-out", padding: "8px 18px 0" }}>
           <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.7), 0 0 0 2px rgba(201,168,76,0.2), 0 0 80px rgba(232,122,46,0.1)", border: "2px solid rgba(201,168,76,0.25)" }}>
-            <div style={{ background: "linear-gradient(135deg, #0A0E24 0%, #1E2761 50%, #0A0E24 100%)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid rgba(201,168,76,0.2)" }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, boxShadow: "0 4px 12px rgba(232,122,46,0.4)" }}>&#x1F525;</div>
-              <div>
+            <div style={{ background: "linear-gradient(135deg, #0A0E24 0%, #1E2761 50%, #0A0E24 100%)", padding: "10px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid rgba(201,168,76,0.2)" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, boxShadow: "0 4px 12px rgba(232,122,46,0.4)" }}>&#x1F525;</div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest Intel</div>
                 <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>Storvex Pipeline Intelligence</div>
               </div>
-              {site.latestNoteDate && <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, marginLeft: "auto", background: "rgba(201,168,76,0.1)", padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)" }}>{site.latestNoteDate}</span>}
+              {site.latestNoteDate && <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, background: "rgba(201,168,76,0.1)", padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", whiteSpace: "nowrap" }}>{site.latestNoteDate}</span>}
             </div>
-            <div style={{ background: "#080B1A", padding: "16px 20px" }}>
-              {site.latestNote.split("\n").filter(l => l.trim()).map((line, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8, padding: "6px 0", borderBottom: i < site.latestNote.split("\n").filter(l => l.trim()).length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
-                  <span style={{ color: "#C9A84C", fontSize: 10, marginTop: 2, flexShrink: 0 }}>&#x25C6;</span>
+            <div style={{ background: "#080B1A", padding: "14px 20px" }}>
+              {lines.map((line, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "5px 0", borderBottom: i < lines.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
+                  <span style={{ color: "#C9A84C", fontSize: 10, marginTop: 3, flexShrink: 0 }}>&#x25C6;</span>
                   <span style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.7, fontWeight: 500 }}>{line}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div style={{ width: 16, height: 16, background: "#080B1A", transform: "rotate(45deg)", position: "absolute", bottom: -8, left: 60, border: "2px solid rgba(201,168,76,0.25)", borderTop: "none", borderLeft: "none" }} />
+          <div style={{ width: 14, height: 14, background: "#0A0E24", transform: "rotate(45deg)", position: "absolute", top: 2, left: 60, border: "2px solid rgba(201,168,76,0.25)", borderBottom: "none", borderRight: "none" }} />
         </div>
       )}
       {children}
