@@ -304,7 +304,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
   const [selectedRegion, setSelectedRegion] = useState(activeRegion || null);
   const [editingKey, setEditingKey] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [expandedSection, setExpandedSection] = useState('facility');
+  const [expandedSections, setExpandedSections] = useState({ facility: true });
   const [voltageActive, setVoltageActive] = useState(false);
   const [voltagePhase, setVoltagePhase] = useState(0); // 0=idle, 1=charging, 2=discharge, 3=cascade
   const [changedKeys, setChangedKeys] = useState(new Set());
@@ -802,14 +802,14 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       )}
       {selectedSite && filteredSections.map(sec => {
-        const isExpanded = expandedSection === sec.id || searchQuery.trim();
+        const isExpanded = expandedSections[sec.id] || searchQuery.trim();
         const secOverrides = sec.inputs.filter(inp => inp.key in activeOverrides).length;
 
         return (
           <div key={sec.id} style={S.sectionCard(isExpanded)} className="card-reveal">
             {/* Section Header */}
             <div style={S.sectionHeader}
-              onClick={() => setExpandedSection(isExpanded && !searchQuery ? null : sec.id)}
+              onClick={() => setExpandedSections(prev => ({ ...prev, [sec.id]: !prev[sec.id] }))}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(232,122,46,0.03)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
               <div style={S.sectionTitle}>
