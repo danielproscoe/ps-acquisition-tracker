@@ -167,7 +167,7 @@ export const earthLink = (c) =>
 
 // ─── Shared Style Constants ───
 export const STYLES = {
-  cardBase: { background: "rgba(15,21,56,0.6)", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(201,168,76,0.08)", overflow: "hidden", backdropFilter: "blur(12px)", transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)" },
+  cardBase: { background: "rgba(15,21,56,0.6)", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(201,168,76,0.08)", overflow: "visible", backdropFilter: "blur(12px)", transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)" },
   kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(145deg, rgba(15,21,56,0.85) 0%, rgba(10,14,42,0.95) 100%)", borderRadius: 16, padding: "22px 24px", minWidth: 140, boxShadow: `0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)`, borderLeft: `3px solid ${borderColor}`, transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden" }),
   labelMicro: { fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 },
   btnPrimary: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#E87A2E 0%,#C9A84C 50%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(232,122,46,0.35), 0 0 0 1px rgba(232,122,46,0.15)", transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden" },
