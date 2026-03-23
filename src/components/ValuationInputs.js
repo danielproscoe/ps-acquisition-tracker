@@ -295,10 +295,13 @@ const rawToDisplay = (input, raw) => {
 // ═══ MAIN COMPONENT ═══
 // activeSite: the currently-viewed site object (null = no site selected)
 // activeRegion: "southwest" or "east" (Firebase path for the site)
-export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, activeRegion }) {
+// allSites: array of all pipeline sites (for property dropdown)
+export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, activeRegion, allSites }) {
   const [localOverrides, setLocalOverrides] = useState(overrides || {});
   const [siteOverrides, setSiteOverrides] = useState({});
   const [scope, setScope] = useState('global'); // 'global' | 'site'
+  const [selectedSite, setSelectedSite] = useState(activeSite || null);
+  const [selectedRegion, setSelectedRegion] = useState(activeRegion || null);
   const [editingKey, setEditingKey] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [expandedSection, setExpandedSection] = useState('facility');
@@ -309,16 +312,42 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
   const voltageTimeoutRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Load site-specific overrides when activeSite changes
+  // Load site-specific overrides when selectedSite changes
   useEffect(() => {
-    if (activeSite?.overrides) {
-      setSiteOverrides(activeSite.overrides);
-      setScope('site'); // Auto-switch to site mode when a site is selected
+    if (selectedSite?.overrides) {
+      setSiteOverrides(selectedSite.overrides);
+      setScope('site');
     } else {
       setSiteOverrides({});
-      if (activeSite) setScope('site'); // Still default to site mode
+      if (selectedSite) setScope('site');
+    }
+  }, [selectedSite?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync selectedSite when activeSite prop changes (e.g., navigating from detail view)
+  useEffect(() => {
+    if (activeSite) {
+      setSelectedSite(activeSite);
+      setSelectedRegion(activeRegion);
     }
   }, [activeSite?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle property dropdown selection
+  const handleSiteSelect = (siteId) => {
+    if (!siteId) {
+      setSelectedSite(null);
+      setSelectedRegion(null);
+      setScope('global');
+      setSiteOverrides({});
+      return;
+    }
+    const site = (allSites || []).find(s => s.id === siteId);
+    if (site) {
+      setSelectedSite(site);
+      setSelectedRegion(site._region || activeRegion);
+      setScope('site');
+      setSiteOverrides(site.overrides || {});
+    }
+  };
 
   // Active overrides based on scope
   const activeOverrides = scope === 'site' ? siteOverrides : localOverrides;
@@ -372,8 +401,8 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
   }, []);
 
   // ─── Firebase path for current scope ───
-  const fbPath = scope === 'site' && activeSite && activeRegion
-    ? `${activeRegion}/${activeSite.id}/overrides`
+  const fbPath = scope === 'site' && selectedSite && selectedRegion
+    ? `${selectedRegion}/${selectedSite.id}/overrides`
     : 'config/valuation_overrides';
 
   // ─── Save handler (scope-aware) ───
@@ -672,44 +701,61 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       </div>
 
-      {/* ═══ SCOPE TOGGLE ═══ */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(201,168,76,0.15)', background: 'rgba(15,21,56,0.5)' }}>
-        <button
-          onClick={() => setScope('global')}
+      {/* ═══ PROPERTY SELECTOR + SCOPE ═══ */}
+      <div style={{ marginBottom: 20, padding: 20, borderRadius: 14, background: 'linear-gradient(135deg, rgba(15,21,56,0.7), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.15)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedSite ? '#E87A2E' : '#C9A84C', boxShadow: `0 0 8px ${selectedSite ? 'rgba(232,122,46,0.5)' : 'rgba(201,168,76,0.5)'}` }} />
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#6B7394', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            {selectedSite ? 'Property-Level Pricing Inputs' : 'Select a Property'}
+          </span>
+        </div>
+        <select
+          value={selectedSite?.id || ''}
+          onChange={(e) => handleSiteSelect(e.target.value)}
           style={{
-            flex: 1, padding: '12px 20px', border: 'none', cursor: 'pointer',
-            background: scope === 'global' ? 'linear-gradient(135deg, rgba(201,168,76,0.2), rgba(30,39,97,0.8))' : 'transparent',
-            color: scope === 'global' ? '#C9A84C' : '#6B7394',
-            fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
-            borderBottom: scope === 'global' ? '2px solid #C9A84C' : '2px solid transparent',
-            transition: 'all 0.2s',
+            width: '100%', padding: '14px 18px', borderRadius: 10,
+            background: 'rgba(8,11,26,0.8)', border: '1px solid rgba(201,168,76,0.25)',
+            color: '#E2E8F0', fontSize: 14, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+            cursor: 'pointer', appearance: 'none', outline: 'none', transition: 'border-color 0.2s',
+            backgroundImage: "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%23C9A84C%22 stroke-width=%221.5%22/></svg>')",
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center',
           }}>
-          Global Defaults
-          {globalOverrideCount > 0 && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 800, background: 'rgba(201,168,76,0.15)', color: '#C9A84C' }}>{globalOverrideCount}</span>}
-        </button>
-        <button
-          onClick={() => activeSite ? setScope('site') : null}
-          style={{
-            flex: 1, padding: '12px 20px', border: 'none',
-            cursor: activeSite ? 'pointer' : 'not-allowed',
-            background: scope === 'site' ? 'linear-gradient(135deg, rgba(232,122,46,0.2), rgba(30,39,97,0.8))' : 'transparent',
-            color: scope === 'site' ? '#E87A2E' : activeSite ? '#6B7394' : '#3A3F5C',
-            fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
-            borderBottom: scope === 'site' ? '2px solid #E87A2E' : '2px solid transparent',
-            transition: 'all 0.2s',
-            opacity: activeSite ? 1 : 0.4,
-          }}>
-          {activeSite ? (activeSite.name || activeSite.address || 'This Site') : 'No Site Selected'}
-          {siteOverrideCount > 0 && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 800, background: 'rgba(232,122,46,0.15)', color: '#E87A2E' }}>{siteOverrideCount}</span>}
-        </button>
+          <option value="" style={{ background: '#0A0E2A', color: '#6B7394' }}>-- Global Defaults (All Sites) --</option>
+          {(allSites || [])
+            .slice()
+            .sort((a, b) => (a.city || '').localeCompare(b.city || ''))
+            .map(s => (
+              <option key={s.id} value={s.id} style={{ background: '#0A0E2A', color: '#E2E8F0' }}>
+                {s.city || 'Unknown'}{s.state ? `, ${s.state}` : ''} — {s.name || s.address || s.id}
+                {s.overrides && Object.keys(s.overrides).length > 0 ? ` (${Object.keys(s.overrides).length} overrides)` : ''}
+              </option>
+            ))
+          }
+        </select>
+        {selectedSite && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: '#6B7394' }}>
+            <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(232,122,46,0.12)', color: '#E87A2E', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
+              {siteOverrideCount > 0 ? `${siteOverrideCount} SITE OVERRIDE${siteOverrideCount !== 1 ? 'S' : ''}` : 'USING DEFAULTS'}
+            </span>
+            <span>Changes below apply to <strong style={{ color: '#E87A2E' }}>{selectedSite.name || selectedSite.city || 'this site'}</strong> only</span>
+          </div>
+        )}
+        {!selectedSite && (
+          <div style={{ marginTop: 10, fontSize: 11, color: '#6B7394', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(201,168,76,0.12)', color: '#C9A84C', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
+              {globalOverrideCount > 0 ? `${globalOverrideCount} GLOBAL OVERRIDE${globalOverrideCount !== 1 ? 'S' : ''}` : 'STORVEX DEFAULTS'}
+            </span>
+            <span>Changes apply to all new sites</span>
+          </div>
+        )}
       </div>
 
       {/* ═══ STATUS BAR ═══ */}
       <div style={S.statusBar}>
-        {scope === 'site' && activeSite && (
+        {scope === 'site' && selectedSite && (
           <div style={S.statusItem('#E87A2E')}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E87A2E' }} />
-            Site: {activeSite.name || activeSite.address || activeSite.id}
+            Site: {selectedSite.name || selectedSite.address || selectedSite.id}
           </div>
         )}
         <div style={S.statusItem(scope === 'site' ? '#E87A2E' : '#C9A84C')}>

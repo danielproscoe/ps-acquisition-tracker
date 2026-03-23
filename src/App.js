@@ -3802,17 +3802,17 @@ function AppInner() {
 
         {/* ═══ VALUATION INPUTS ═══ */}
         {tab === "inputs" && (() => {
-          // If a detail view is active, pass that site for per-site overrides
-          const activeSite = detailView ? (() => {
-            const allSites = detailView.regionKey === "east" ? east : sw;
-            return allSites.find(s => s.id === detailView.siteId) || null;
-          })() : null;
+          // Pass all pipeline sites so the component can render a property dropdown
+          const allPipelineSites = [...sw.map(s => ({ ...s, _region: "southwest" })), ...east.map(s => ({ ...s, _region: "east" }))];
+          // If a detail view is active, pre-select that site
+          const preselectedSite = detailView ? allPipelineSites.find(s => s.id === detailView.siteId) || null : null;
           return <ValuationInputs
             overrides={valuationOverrides}
             onSave={(newOverrides) => { setValuationOverrides(newOverrides); VALUATION_OVERRIDES = newOverrides; }}
             fbSet={fbSet}
-            activeSite={activeSite}
-            activeRegion={detailView?.regionKey || null}
+            activeSite={preselectedSite}
+            activeRegion={preselectedSite?._region || detailView?.regionKey || null}
+            allSites={allPipelineSites}
           />;
         })()}
 
