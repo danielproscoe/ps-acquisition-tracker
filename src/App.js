@@ -2275,7 +2275,8 @@ function AppInner() {
                   if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                   return true;
                 }).sort((a, b) => {
-                  // NEW (unreviewed) sites first, then descending SiteScore
+                  // If user picked a sort, respect it. Otherwise: NEW first, then SiteScore desc.
+                  if (sortBy !== "name") return 0; // sortData() already sorted — preserve that order
                   const aIsNew = !a.recommendedAt && !a.approvedAt && a.status === "pending";
                   const bIsNew = !b.recommendedAt && !b.approvedAt && b.status === "pending";
                   if (aIsNew && !bIsNew) return -1;
