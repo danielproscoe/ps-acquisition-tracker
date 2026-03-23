@@ -513,7 +513,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     sectionTitle: { display: 'flex', alignItems: 'center', gap: 10 },
     sectionLabel: { fontSize: 15, fontWeight: 700, color: '#E2E8F0', letterSpacing: '-0.01em' },
     sectionDesc: { fontSize: 11, color: '#6B7394', fontWeight: 500, marginTop: 2 },
-    sectionBody: { padding: '0 20px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 },
+    sectionBody: { padding: '0 20px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 },
     inputCard: (isOverridden, isChanged) => ({
       padding: '12px 16px',
       borderRadius: 12,
@@ -624,13 +624,15 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
           <div style={S.sliderThumb(pct)} />
         </div>
 
-        {/* Default reference */}
-        <div style={S.inputDefault}>
-          Storvex: {fmtVal(input, defaultVal)}
-          {isOverridden && <span style={{ color: '#E87A2E', marginLeft: 8 }}>
-            {val > defaultVal ? '▲' : '▼'} {fmtVal(input, Math.abs(val - defaultVal))} {val > defaultVal ? 'above' : 'below'} default
-          </span>}
-        </div>
+        {/* Override indicator — only show if value differs from default */}
+        {isOverridden && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+            <span style={{ fontSize: 9, color: '#E87A2E', fontWeight: 700 }}>
+              {val > defaultVal ? '▲' : '▼'} {fmtVal(input, Math.abs(val - defaultVal))} {val > defaultVal ? 'above' : 'below'} default
+            </span>
+            <button onClick={(e) => { e.stopPropagation(); handleSave(input.key, null); }} style={{ fontSize: 9, fontWeight: 700, color: '#E87A2E', background: 'rgba(232,122,46,0.1)', border: '1px solid rgba(232,122,46,0.2)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>REVERT</button>
+          </div>
+        )}
       </div>
     );
   };
