@@ -2646,11 +2646,11 @@ function AppInner() {
                   <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24, position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}>
                     <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, display: "flex", gap: 8, alignItems: "center" }}>
                       <div style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", color: "#fff", padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.2)" }}>INTERACTIVE AERIAL</div>
-                      <div style={{ background: "rgba(232,122,46,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span> SITE
-                      </div>
                       <div style={{ background: "rgba(21,101,192,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#FFD700", display: "inline-block" }}></span> PS LOCATIONS
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span> SUBJECT SITE
+                      </div>
+                      <div style={{ background: "rgba(232,122,46,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1a1a1a", display: "inline-block", border: "1px solid #E87A2E" }}></span> PS LOCATIONS
                       </div>
                     </div>
                     <div id={mapId} style={{ width: "100%", height: 420 }} ref={(el) => {
@@ -2667,14 +2667,14 @@ function AppInner() {
                         const map = L.map(el, { zoomControl: true, attributionControl: false }).setView([siteLat, siteLng], 14);
                         L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(map);
                         L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.6 }).addTo(map);
-                        // Site marker — large orange
-                        const siteIcon = L.divIcon({ className: "", html: '<div style="width:28px;height:28px;background:#E87A2E;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 12px rgba(232,122,46,0.6),0 0 0 4px rgba(232,122,46,0.25)"></div>', iconSize: [28, 28], iconAnchor: [14, 14] });
-                        L.marker([siteLat, siteLng], { icon: siteIcon }).addTo(map).bindPopup(`<div style="font-weight:800;font-size:13px;color:#1E2761">${site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${site.address || ""}, ${site.city || ""} ${site.state || ""}</div><div style="font-size:11px;color:#E87A2E;font-weight:700;margin-top:4px">${site.acreage ? site.acreage + " ac" : ""} ${site.askingPrice ? "· " + site.askingPrice : ""}</div>`);
+                        // Site marker — blue with white border + pulsing ring
+                        const siteIcon = L.divIcon({ className: "", html: '<div style="position:relative;width:32px;height:32px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:sitePulse 2s ease-in-out infinite"></div><div style="position:absolute;top:4px;left:4px;width:24px;height:24px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div><style>@keyframes sitePulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.5);opacity:0}}</style>', iconSize: [32, 32], iconAnchor: [16, 16] });
+                        L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(`<div style="font-weight:900;font-size:14px;color:#1565C0;letter-spacing:-0.01em">${site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${site.address || ""}, ${site.city || ""} ${site.state || ""}</div><div style="display:flex;gap:8px;margin-top:6px"><span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage ? site.acreage + " ac" : ""}</span>${site.askingPrice ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}</div>`);
                         // Load PS locations and show nearby pins
                         fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
                           const lines = csv.trim().split("\n");
                           let psCount = 0;
-                          const psIcon = L.divIcon({ className: "", html: '<div style="width:16px;height:16px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2px solid #FFD700;border-radius:50%;box-shadow:0 2px 8px rgba(21,101,192,0.5)"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+                          const psIcon = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
                           for (let i = 1; i < lines.length; i++) {
                             const parts = lines[i].split(",");
                             if (parts.length < 7) continue;
@@ -2686,13 +2686,13 @@ function AppInner() {
                               const pNum = parts[0], pName = parts[1], pAddr = parts[2], pCity = parts[3], pState = parts[4];
                               const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map);
                               marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
-                              marker.bindPopup(`<div style="font-weight:800;font-size:13px;color:#1565C0">${pNum}</div><div style="font-size:12px;font-weight:600;color:#334155;margin-top:2px">${pName}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${pAddr}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:11px;color:#E87A2E;font-weight:700;margin-top:4px">${dist.toFixed(1)} mi from site</div>`);
+                              marker.bindPopup(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">${pNum}</span></div><div style="font-size:12px;font-weight:600;color:#334155">${pName}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${pAddr}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">${dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>`);
                             }
                           }
                           // Add count badge
                           const badge = document.createElement("div");
-                          badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid rgba(21,101,192,0.3)";
-                          badge.innerHTML = `<span style="color:#FFD700;font-weight:900">${psCount}</span> PS locations within 25 mi`;
+                          badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);color:#fff;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;align-items:center;gap:8px";
+                          badge.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:13px;font-weight:900;color:#1a1a1a">${psCount}</span><span>PS locations within 25 mi</span>`;
                           el.appendChild(badge);
                         }).catch(() => {});
                         // 3-mile radius ring
