@@ -681,13 +681,16 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
       <div style={S.header}>
         <div>
           <div style={S.title}>
-            Pricing Inputs
+            <span style={{ background: 'linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Pricing Engine</span>
             {voltageActive && <span style={{ marginLeft: 12, fontSize: 16, color: '#39FF14', animation: 'electricFlicker 0.5s steps(2) infinite' }}>
               {voltagePhase === 1 ? '⚡ CHARGING...' : voltagePhase === 2 ? '⚡ RECALCULATING' : voltagePhase === 3 ? '⚡ MODELS UPDATED' : ''}
             </span>}
           </div>
           <div style={S.subtitle}>
-            Select a property to configure its financial model — {totalInputs} inputs across {SECTIONS.length} categories
+            {selectedSite
+              ? <>{totalInputs} levers powering <span style={{ color: '#E87A2E', fontWeight: 700 }}>{selectedSite.name}</span> — adjust any input, models update instantly</>
+              : <>Select a property below to unlock {totalInputs} financial model inputs</>
+            }
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -707,7 +710,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <div style={{ width: 10, height: 10, borderRadius: '50%', background: selectedSite ? '#C9A84C' : '#6B7394', boxShadow: selectedSite ? '0 0 12px rgba(201,168,76,0.6)' : 'none', transition: 'all 0.3s' }} />
           <span style={{ fontSize: 11, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            Property
+            Select Property to Model
           </span>
           {selectedSite && (
             <span style={{ padding: '3px 12px', borderRadius: 20, background: siteOverrideCount > 0 ? 'rgba(232,122,46,0.15)' : 'rgba(22,163,74,0.12)', color: siteOverrideCount > 0 ? '#E87A2E' : '#16A34A', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', border: `1px solid ${siteOverrideCount > 0 ? 'rgba(232,122,46,0.25)' : 'rgba(22,163,74,0.2)'}` }}>
@@ -795,11 +798,17 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
 
       {/* SECTION CARDS - only when a property is selected */}
       {!selectedSite && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', borderRadius: 16, background: 'rgba(15,21,56,0.4)', border: '1px dashed rgba(201,168,76,0.15)', marginTop: 8 }}>
-          <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.4 }}>&#9889;</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#6B7394', marginBottom: 8 }}>Select a Property to Begin</div>
-          <div style={{ fontSize: 12, color: '#4A5080', maxWidth: 500, margin: '0 auto', lineHeight: 1.7 }}>
-            Storvex populates market-calibrated defaults for every site. Use the dropdown above to select a property, then toggle any input to customize the financial model for that specific deal.
+        <div style={{ textAlign: 'center', padding: '80px 20px', borderRadius: 20, background: 'linear-gradient(180deg, rgba(15,21,56,0.6), rgba(30,39,97,0.3))', border: '1px solid rgba(201,168,76,0.1)', marginTop: 8, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent)' }} />
+          <div style={{ fontSize: 56, marginBottom: 20, filter: 'drop-shadow(0 0 20px rgba(201,168,76,0.3))' }}>&#9889;</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#E2E8F0', marginBottom: 10, letterSpacing: '-0.02em' }}>Pick a Property. We Handle the Math.</div>
+          <div style={{ fontSize: 13, color: '#6B7394', maxWidth: 500, margin: '0 auto', lineHeight: 1.8 }}>
+            Every site in the pipeline has <span style={{ color: '#C9A84C', fontWeight: 700 }}>{totalInputs} pre-calibrated inputs</span> across revenue, construction, operating expenses, and valuation. Select a property above — adjust any lever and watch the pricing report update in real time.
+          </div>
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
+            {['Revenue', 'Construction', 'Lease-Up', 'OpEx', 'Valuation'].map(cat => (
+              <span key={cat} style={{ padding: '6px 16px', borderRadius: 20, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.1)', fontSize: 11, fontWeight: 700, color: '#6B7394', letterSpacing: '0.04em' }}>{cat}</span>
+            ))}
           </div>
         </div>
       )}
