@@ -1552,3 +1552,148 @@ describe('Individual dimension weights are locked', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'marketTier').weight).toBe(0.02);
   });
 });
+
+// ─── computeValidationStats Tests ───
+
+import { computeValidationStats } from './scoring';
+
+describe('computeValidationStats', () => {
+  const makeSite = (reicOutcome, scoreAtReicSubmit, classAtReicSubmit, scoresAtReicSubmit) => ({
+    reicOutcome,
+    scoreAtReicSubmit,
+    classAtReicSubmit,
+    scoresAtReicSubmit,
+  });
+
+  test('returns zeros for empty array', () => {
+    const result = computeValidationStats([]);
+    expect(result.total).toBe(0);
+    expect(result.approvedCount).toBe(0);
+    expect(result.rejectedCount).toBe(0);
+    expect(result.approvalRate).toBeNull();
+    expect(result.confidence).toBe('low');
+  });
+
+  test('ignores sites without reicOutcome or with pending', () => {
+    const sites = [
+      makeSite(null, 8.0, 'GREEN', {}),
+      makeSite('pending', 7.0, 'YELLOW', {}),
+      makeSite('approved', 8.5, 'GREEN', {}),
+    ];
+    const result = computeValidationStats(sites);
+    expect(result.total).toBe(1);
+    expect(result.approvedCount).toBe(1);
+    expect(result.pending).toBe(1);
+  });
+
+  test('computes approval rate correctly', () => {
+    const sites = [
+      makeSite('approved', 8.5, 'GREEN', {}),
+      makeSite('approved', 7.2, 'YELLOW', {}),
+      makeSite('rejected', 4.1, 'ORANGE', {}),
+    ];
+    const result = computeValidationStats(sites);
+    expect(result.total).toBe(3);
+    expect(result.approvedCount).toBe(2);
+    expect(result.rejectedCount).toBe(1);
+    expect(result.approvalRate).toBeCloseTo(0.6667, 3);
+  });
+
+  test('computes average scores for approved vs rejected', () => {
+    const sites = [
+      makeSite('approved', 8.5, 'GREEN', {}),
+      makeSite('approved', 7.5, 'YELLOW', {}),
+      makeSite('rejected', 4.0, 'ORANGE', {}),
+      makeSite('rejected', 3.0, 'RED', {}),
+    ];
+    const result = computeValidationStats(sites);
+    expect(result.avgScoreApproved).toBeCloseTo(8.0, 1);
+    expect(result.avgScoreRejected).toBeCloseTo(3.5, 1);
+  });
+
+  test('buckets sites into correct score bands', () => {
+    const sites = [
+      makeSite('approved', 9.0, 'GREEN', {}),
+      makeSite('approved', 8.2, 'GREEN', {}),
+      makeSite('rejected', 8.1, 'GREEN', {}),
+      makeSite('approved', 6.5, 'YELLOW', {}),
+      makeSite('rejected', 5.0, 'ORANGE', {}),
+      makeSite('rejected', 2.0, 'RED', {}),
+    ];
+    const result = computeValidationStats(sites);
+    const band8 = result.bandStats.find(b => b.min === 8);
+    expect(band8.total).toBe(3);
+    expect(band8.approved).toBe(2);
+    expect(band8.rejected).toBe(1);
+    expect(band8.approvalRate).toBeCloseTo(0.6667, 3);
+
+    const band6 = result.bandStats.find(b => b.min === 6);
+    expect(band6.total).toBe(1);
+    expect(band6.approved).toBe(1);
+
+    const band4 = result.bandStats.find(b => b.min === 4);
+    expect(band4.total).toBe(1);
+    expect(band4.rejected).toBe(1);
+
+    const band0 = result.bandStats.find(b => b.min === 0);
+    expect(band0.total).toBe(1);
+    expect(band0.rejected).toBe(1);
+  });
+
+  test('computes confusion matrix by classification', () => {
+    const sites = [
+      makeSite('approved', 8.5, 'GREEN', {}),
+      makeSite('approved', 8.0, 'GREEN', {}),
+      makeSite('rejected', 8.1, 'GREEN', {}),
+      makeSite('rejected', 5.0, 'ORANGE', {}),
+    ];
+    const result = computeValidationStats(sites);
+    const green = result.confusionMatrix.find(c => c.classification === 'GREEN');
+    expect(green.total).toBe(3);
+    expect(green.approved).toBe(2);
+    expect(green.rejected).toBe(1);
+    expect(green.accuracy).toBeCloseTo(0.6667, 3);
+
+    const orange = result.confusionMatrix.find(c => c.classification === 'ORANGE');
+    expect(orange.total).toBe(1);
+    expect(orange.rejected).toBe(1);
+    expect(orange.accuracy).toBe(1); // for ORANGE/RED, accuracy = rejection rate
+  });
+
+  test('computes per-dimension stats from snapshots', () => {
+    const sites = [
+      makeSite('approved', 8.5, 'GREEN', { population: 8, zoning: 10 }),
+      makeSite('approved', 7.5, 'YELLOW', { population: 6, zoning: 10 }),
+      makeSite('rejected', 4.0, 'ORANGE', { population: 3, zoning: 2 }),
+    ];
+    const result = computeValidationStats(sites);
+    const popDim = result.dimStats.find(d => d.key === 'population');
+    expect(popDim.appAvg).toBe(7); // (8+6)/2
+    expect(popDim.rejAvg).toBe(3);
+    expect(popDim.delta).toBe(4); // 7-3
+
+    const zonDim = result.dimStats.find(d => d.key === 'zoning');
+    expect(zonDim.appAvg).toBe(10);
+    expect(zonDim.rejAvg).toBe(2);
+  });
+
+  test('confidence level thresholds', () => {
+    const makeSites = (n) => Array.from({ length: n }, (_, i) =>
+      makeSite(i % 2 === 0 ? 'approved' : 'rejected', 7.0, 'YELLOW', {})
+    );
+    expect(computeValidationStats(makeSites(5)).confidence).toBe('low');
+    expect(computeValidationStats(makeSites(10)).confidence).toBe('medium');
+    expect(computeValidationStats(makeSites(25)).confidence).toBe('high');
+  });
+
+  test('handles missing scoreAtReicSubmit gracefully', () => {
+    const sites = [
+      { reicOutcome: 'approved' },
+      { reicOutcome: 'rejected', scoreAtReicSubmit: 5.0 },
+    ];
+    const result = computeValidationStats(sites);
+    expect(result.total).toBe(2);
+    expect(result.avgScoreApproved).toBeNull();
+    expect(result.avgScoreRejected).toBe(5.0);
+  });
+});

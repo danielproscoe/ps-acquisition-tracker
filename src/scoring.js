@@ -942,3 +942,99 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     pricePerAcre,
   };
 };
+
+// ─── SiteScore Validation — REIC Outcome Correlation Engine ───
+// Computes correlation stats between SiteScore predictions and REIC outcomes.
+// Pure function: takes array of site objects, returns analytics for the Validation tab.
+export const computeValidationStats = (sites) => {
+  const withOutcome = sites.filter(s => s.reicOutcome === "approved" || s.reicOutcome === "rejected");
+  const approved = withOutcome.filter(s => s.reicOutcome === "approved");
+  const rejected = withOutcome.filter(s => s.reicOutcome === "rejected");
+
+  // Helper: average of numeric array
+  const avg = (arr) => {
+    const nums = arr.filter(v => v != null && !isNaN(v));
+    return nums.length === 0 ? null : nums.reduce((a, b) => a + b, 0) / nums.length;
+  };
+
+  // Helper: get score for a site (prefer snapshot, fall back to current)
+  const getScore = (s) => {
+    if (s.scoreAtReicSubmit != null && !isNaN(Number(s.scoreAtReicSubmit))) return Number(s.scoreAtReicSubmit);
+    return null;
+  };
+
+  // --- Score Band Breakdown ---
+  const bands = [
+    { label: "8.0–10", min: 8, max: 10.01, color: "#22C55E" },
+    { label: "6.0–7.9", min: 6, max: 8, color: "#3B82F6" },
+    { label: "4.0–5.9", min: 4, max: 6, color: "#F59E0B" },
+    { label: "0–3.9", min: 0, max: 4, color: "#DC2626" },
+  ];
+  const bandStats = bands.map(b => {
+    const inBand = withOutcome.filter(s => {
+      const sc = getScore(s);
+      return sc != null && sc >= b.min && sc < b.max;
+    });
+    const app = inBand.filter(s => s.reicOutcome === "approved").length;
+    return {
+      ...b,
+      total: inBand.length,
+      approved: app,
+      rejected: inBand.length - app,
+      approvalRate: inBand.length > 0 ? app / inBand.length : null,
+    };
+  });
+
+  // --- Confusion Matrix (Classification at submission vs Outcome) ---
+  const classifications = ["GREEN", "YELLOW", "ORANGE", "RED"];
+  const confusionMatrix = classifications.map(cls => {
+    const inClass = withOutcome.filter(s => (s.classAtReicSubmit || "").toUpperCase() === cls);
+    const app = inClass.filter(s => s.reicOutcome === "approved").length;
+    return {
+      classification: cls,
+      total: inClass.length,
+      approved: app,
+      rejected: inClass.length - app,
+      accuracy: inClass.length > 0 ? (cls === "GREEN" || cls === "YELLOW" ? app / inClass.length : (inClass.length - app) / inClass.length) : null,
+    };
+  });
+
+  // --- Per-Dimension Predictive Power ---
+  const dimKeys = ["population", "growth", "income", "households", "homeValue", "zoning", "psProximity", "access", "competition", "marketTier"];
+  const dimLabels = { population: "Population", growth: "Growth", income: "Income", households: "Households", homeValue: "Home Value", zoning: "Zoning", psProximity: "PS Proximity", access: "Access & Size", competition: "Competition", marketTier: "Market Tier" };
+  const dimStats = dimKeys.map(key => {
+    const appScores = approved.map(s => s.scoresAtReicSubmit?.[key]).filter(v => v != null && !isNaN(v));
+    const rejScores = rejected.map(s => s.scoresAtReicSubmit?.[key]).filter(v => v != null && !isNaN(v));
+    const appAvg = avg(appScores);
+    const rejAvg = avg(rejScores);
+    return {
+      key,
+      label: dimLabels[key] || key,
+      appAvg,
+      rejAvg,
+      delta: appAvg != null && rejAvg != null ? appAvg - rejAvg : null,
+      appCount: appScores.length,
+      rejCount: rejScores.length,
+    };
+  });
+
+  // --- Confidence level ---
+  const total = withOutcome.length;
+  const confidence = total >= 25 ? "high" : total >= 10 ? "medium" : "low";
+  const confidenceLabel = total >= 25 ? "Statistically meaningful sample" : total >= 10 ? "Patterns emerging — building confidence" : "Early data — trends are directional only";
+
+  return {
+    total,
+    approvedCount: approved.length,
+    rejectedCount: rejected.length,
+    approvalRate: total > 0 ? approved.length / total : null,
+    avgScoreApproved: avg(approved.map(getScore)),
+    avgScoreRejected: avg(rejected.map(getScore)),
+    bandStats,
+    confusionMatrix,
+    dimStats,
+    confidence,
+    confidenceLabel,
+    pending: sites.filter(s => s.reicOutcome === "pending").length,
+  };
+};

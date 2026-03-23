@@ -24,7 +24,7 @@ import {
   MSG_COLORS, DOC_TYPES, SITE_SCORE_DEFAULTS, STYLES,
   normalizeSiteScoreWeights,
 } from './utils';
-import { computeSiteScore as _computeSiteScore, computeSiteFinancials } from './scoring';
+import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeValidationStats } from './scoring';
 import {
   generateVettingReport as _generateVettingReport,
   generatePricingReport as _generatePricingReport,
@@ -94,6 +94,7 @@ function AppInner() {
   const [expandedSite, setExpandedSite] = useState(null);
   const [showNewAlert, setShowNewAlert] = useState(false);
   const [filterPhase, setFilterPhase] = useState("all");
+  const [reicPrompt, setReicPrompt] = useState(null); // { region, id, siteName, newPhase }
 
   // ─── FIREBASE DATA HOOK ───
   const {
@@ -287,17 +288,33 @@ function AppInner() {
       const site = [...sw, ...east].find(s => s.id === id);
       const oldPhase = site?.phase || "Unknown";
       if (oldPhase !== value) {
+        const now = new Date().toISOString();
         fbPush(`${region}/${id}/phaseHistory`, {
           from: oldPhase,
           to: value,
-          changedAt: new Date().toISOString(),
+          changedAt: now,
           by: "User",
         });
         fbPush(`${region}/${id}/activityLog`, {
           action: `Phase: ${oldPhase} → ${value}`,
-          ts: new Date().toISOString(),
+          ts: now,
           by: "User",
         });
+        // --- REIC Validation: Snapshot SiteScore on "Submitted to PS" ---
+        if (value === "Submitted to PS" && !site.reicOutcome && site) {
+          const iq = computeSiteScore(site);
+          fbUpdate(`${region}/${id}`, {
+            reicOutcome: "pending",
+            reicSubmittedAt: now,
+            scoreAtReicSubmit: iq.score,
+            scoresAtReicSubmit: iq.scores,
+            classAtReicSubmit: iq.classification,
+          });
+        }
+        // --- REIC Validation: Prompt for outcome on resolution phases ---
+        if (site?.reicOutcome === "pending" && ["Under Contract", "Closed", "Declined", "Dead"].includes(value)) {
+          setReicPrompt({ region, id, siteName: site.name || site.address, newPhase: value });
+        }
       }
     }
   };
@@ -1120,6 +1137,28 @@ function AppInner() {
                             <select value={site.phase || "Prospect"} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 600, color: "#E2E8F0" }}>
                               {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                             </select>
+                            {/* REIC Outcome */}
+                            <select value={site.reicOutcome || ""} onChange={(e) => {
+                              const val = e.target.value || null;
+                              const now = new Date().toISOString();
+                              const updates = { reicOutcome: val };
+                              if (val === "approved" || val === "rejected") { updates.reicDate = now; }
+                              if ((val === "pending" || val === "approved" || val === "rejected") && !site.scoreAtReicSubmit) {
+                                const iq = computeSiteScore(site);
+                                updates.scoreAtReicSubmit = iq.score;
+                                updates.scoresAtReicSubmit = iq.scores;
+                                updates.classAtReicSubmit = iq.classification;
+                              }
+                              fbUpdate(`${regionKey}/${site.id}`, updates);
+                              if (val === "approved" || val === "rejected") {
+                                fbPush("config/scoring_calibration", { siteId: site.id, siteName: site.name, action: `reic_${val}`, reicOutcome: val, ts: now, by: "User" });
+                              }
+                            }} style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${site.reicOutcome === "approved" ? "rgba(34,197,94,0.4)" : site.reicOutcome === "rejected" ? "rgba(220,38,38,0.4)" : site.reicOutcome === "pending" ? "rgba(201,168,76,0.3)" : "rgba(255,255,255,.15)"}`, fontSize: 11, fontFamily: "'Inter', sans-serif", background: site.reicOutcome === "approved" ? "rgba(34,197,94,0.08)" : site.reicOutcome === "rejected" ? "rgba(220,38,38,0.08)" : site.reicOutcome === "pending" ? "rgba(201,168,76,0.06)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.reicOutcome === "approved" ? "#22C55E" : site.reicOutcome === "rejected" ? "#DC2626" : site.reicOutcome === "pending" ? "#C9A84C" : "#6B7394" }}>
+                              <option value="">REIC: —</option>
+                              <option value="pending">REIC: Pending</option>
+                              <option value="approved">REIC: Approved</option>
+                              <option value="rejected">REIC: Rejected</option>
+                            </select>
                             {/* Assigned To */}
                             <select value={site.assignedTo || ""} onChange={(e) => { const val = e.target.value; if (val) { const now = new Date().toISOString(); const sub = { ...site, status: "pending", region: regionKey, submittedAt: now, assignedTo: val, needsReview: true, sentBackToReview: true }; delete sub.messages; delete sub.docs; delete sub.activityLog; fbSet(`submissions/${site.id}`, sub); fbRemove(`${regionKey}/${site.id}`); setExpandedSite(null); notify(`${site.name} → Review Queue (assigned to ${val})`); } else { updateSiteField(regionKey, site.id, "assignedTo", ""); updateSiteField(regionKey, site.id, "needsReview", false); } }} style={{ padding: "6px 10px", borderRadius: 7, border: site.assignedTo ? "2px solid #C9A84C" : "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: site.assignedTo ? "rgba(201,168,76,.12)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.assignedTo ? "#FFD700" : "#94A3B8" }}>
                               <option value="">Assign to...</option>
@@ -1687,6 +1726,7 @@ function AppInner() {
             { key: "east", label: "Matthew Toussaint" },
             { key: "submit", label: "Submit Site" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
+            { key: "validation", label: "Validation" },
             { key: "inputs", label: "\u26A1 Valuation Engine" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
@@ -3961,8 +4001,183 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
           />;
         })()}
 
+        {/* ═══ VALIDATION TAB ═══ */}
+        {tab === "validation" && (() => {
+          const allSites = [...sw, ...east];
+          const vs = computeValidationStats(allSites);
+          const pct = (n) => n != null ? `${(n * 100).toFixed(0)}%` : "—";
+          const fmt1 = (n) => n != null ? n.toFixed(1) : "—";
+          const kpiCard = (label, value, sub, color) => (
+            <div style={{ flex: "1 1 140px", padding: "18px 16px", borderRadius: 12, background: "rgba(15,21,56,0.6)", border: `1px solid ${color}33`, textAlign: "center" }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color, fontFamily: "'Inter', sans-serif" }}>{value}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>{label}</div>
+              {sub && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>{sub}</div>}
+            </div>
+          );
+          const confColors = { GREEN: "#22C55E", YELLOW: "#3B82F6", ORANGE: "#F59E0B", RED: "#DC2626" };
+          return (
+            <div style={{ maxWidth: 900, margin: "0 auto" }}>
+              {/* Confidence Banner */}
+              <div style={{ padding: "12px 18px", borderRadius: 10, background: vs.confidence === "high" ? "rgba(34,197,94,0.08)" : vs.confidence === "medium" ? "rgba(59,130,246,0.08)" : "rgba(245,158,11,0.08)", border: `1px solid ${vs.confidence === "high" ? "rgba(34,197,94,0.2)" : vs.confidence === "medium" ? "rgba(59,130,246,0.2)" : "rgba(245,158,11,0.2)"}`, marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{vs.confidence === "high" ? "📊" : vs.confidence === "medium" ? "📈" : "🔬"}</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0" }}>{vs.confidenceLabel}</div>
+                  <div style={{ fontSize: 10, color: "#94A3B8" }}>{vs.total} REIC decisions recorded{vs.pending > 0 ? ` · ${vs.pending} pending` : ""}</div>
+                </div>
+              </div>
+
+              {/* KPI Cards */}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+                {kpiCard("REIC Decisions", vs.total, `${vs.approvedCount} approved · ${vs.rejectedCount} rejected`, "#C9A84C")}
+                {kpiCard("Approval Rate", pct(vs.approvalRate), vs.total > 0 ? `${vs.approvedCount} of ${vs.total}` : "No data yet", "#22C55E")}
+                {kpiCard("Avg Score (Approved)", fmt1(vs.avgScoreApproved), "Sites REIC approved", "#22C55E")}
+                {kpiCard("Avg Score (Rejected)", fmt1(vs.avgScoreRejected), "Sites REIC rejected", "#DC2626")}
+              </div>
+
+              {/* Score Band Chart */}
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0", marginBottom: 14 }}>Score Band vs. REIC Approval Rate</div>
+                {vs.bandStats.map((b) => (
+                  <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                    <div style={{ width: 60, fontSize: 11, fontWeight: 700, color: b.color, textAlign: "right" }}>{b.label}</div>
+                    <div style={{ flex: 1, height: 30, borderRadius: 6, background: "rgba(15,21,56,0.7)", overflow: "hidden", display: "flex", position: "relative" }}>
+                      {b.total > 0 ? (<>
+                        <div style={{ width: `${(b.approved / b.total) * 100}%`, background: "linear-gradient(90deg, #16A34A, #22C55E)", transition: "width 0.6s ease", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {b.approved > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>{b.approved}</span>}
+                        </div>
+                        <div style={{ width: `${(b.rejected / b.total) * 100}%`, background: "linear-gradient(90deg, #DC2626, #EF4444)", transition: "width 0.6s ease", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {b.rejected > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>{b.rejected}</span>}
+                        </div>
+                      </>) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", fontSize: 10, color: "#6B7394" }}>No data</div>
+                      )}
+                    </div>
+                    <div style={{ width: 90, fontSize: 11, color: "#E2E8F0", textAlign: "right" }}>
+                      {b.total > 0 ? `${b.approved}/${b.total} (${pct(b.approvalRate)})` : "—"}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 10, color: "#6B7394" }}>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#22C55E", marginRight: 4 }}></span>Approved</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#DC2626", marginRight: 4 }}></span>Rejected</span>
+                </div>
+              </div>
+
+              {/* Confusion Matrix */}
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0", marginBottom: 14 }}>Classification vs. REIC Outcome</div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["Classification", "Approved", "Rejected", "Total", "Accuracy"].map((h) => (
+                        <th key={h} style={{ padding: "8px 10px", textAlign: h === "Classification" ? "left" : "center", fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vs.confusionMatrix.map((row) => (
+                      <tr key={row.classification}>
+                        <td style={{ padding: "8px 10px", fontSize: 12, fontWeight: 700, color: confColors[row.classification] }}>{row.classification}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#22C55E" }}>{row.approved || "—"}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#DC2626" }}>{row.rejected || "—"}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 12, color: "#94A3B8" }}>{row.total || "—"}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 12, fontWeight: 700, color: row.accuracy != null && row.accuracy >= 0.7 ? "#22C55E" : row.accuracy != null && row.accuracy >= 0.5 ? "#F59E0B" : row.total > 0 ? "#DC2626" : "#6B7394" }}>{row.total > 0 ? pct(row.accuracy) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Per-Dimension Power (only if N >= 10) */}
+              {vs.total >= 10 && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 24 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0", marginBottom: 4 }}>Dimension Predictive Power</div>
+                  <div style={{ fontSize: 10, color: "#6B7394", marginBottom: 14 }}>Average dimension score: approved vs. rejected sites</div>
+                  {vs.dimStats.filter(d => d.appAvg != null || d.rejAvg != null).map((d) => (
+                    <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{ width: 100, fontSize: 11, fontWeight: 600, color: "#94A3B8", textAlign: "right" }}>{d.label}</div>
+                      <div style={{ flex: 1, display: "flex", gap: 4 }}>
+                        <div style={{ flex: 1, height: 18, borderRadius: 4, background: "rgba(15,21,56,0.7)", overflow: "hidden" }}>
+                          <div style={{ width: `${(d.appAvg || 0) * 10}%`, height: "100%", background: "linear-gradient(90deg, #16A34A, #22C55E)", borderRadius: 4, transition: "width 0.5s" }}></div>
+                        </div>
+                        <div style={{ flex: 1, height: 18, borderRadius: 4, background: "rgba(15,21,56,0.7)", overflow: "hidden" }}>
+                          <div style={{ width: `${(d.rejAvg || 0) * 10}%`, height: "100%", background: "linear-gradient(90deg, #DC2626, #EF4444)", borderRadius: 4, transition: "width 0.5s" }}></div>
+                        </div>
+                      </div>
+                      <div style={{ width: 110, fontSize: 10, color: "#E2E8F0", textAlign: "right" }}>
+                        <span style={{ color: "#22C55E" }}>{fmt1(d.appAvg)}</span> / <span style={{ color: "#DC2626" }}>{fmt1(d.rejAvg)}</span>
+                        {d.delta != null && <span style={{ color: d.delta > 1 ? "#22C55E" : d.delta > 0 ? "#F59E0B" : "#DC2626", marginLeft: 4 }}>({d.delta > 0 ? "+" : ""}{d.delta.toFixed(1)})</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Backfill Button */}
+              <div style={{ textAlign: "center", padding: "12px 0" }}>
+                <button onClick={() => {
+                  const allTracker = [...sw.map(s => ({ ...s, _r: "southwest" })), ...east.map(s => ({ ...s, _r: "east" }))];
+                  const toBackfill = allTracker.filter(s => !s.scoreAtReicSubmit && s.phase && ["Submitted to PS", "SiteScore Approved", "LOI", "PSA Sent", "Under Contract", "Closed", "Declined", "Dead"].includes(s.phase));
+                  if (toBackfill.length === 0) { notify("All sites already have score snapshots"); return; }
+                  toBackfill.forEach(s => {
+                    const iq = computeSiteScore(s);
+                    fbUpdate(`${s._r}/${s.id}`, {
+                      scoreAtReicSubmit: iq.score,
+                      scoresAtReicSubmit: iq.scores,
+                      classAtReicSubmit: iq.classification,
+                      ...(s.reicOutcome ? {} : { reicOutcome: s.phase === "Declined" || s.phase === "Dead" ? "rejected" : "pending" }),
+                    });
+                  });
+                  notify(`Backfilled ${toBackfill.length} sites`);
+                }} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>
+                  Backfill Score Snapshots
+                </button>
+                <div style={{ fontSize: 10, color: "#6B7394", marginTop: 6 }}>Retroactively snapshot current SiteScore for sites already in pipeline</div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ═══ TRACKERS ═══ */}
         {(tab === "southwest" || tab === "east") && !detailView && <TrackerCards regionKey={tab} />}
+
+        {/* ═══ REIC OUTCOME PROMPT ═══ */}
+        {reicPrompt && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setReicPrompt(null)}>
+            <div style={{ background: "#0F1538", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(201,168,76,0.15)", maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#E2E8F0", marginBottom: 4 }}>REIC Outcome</div>
+              <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 18 }}>Record REIC decision for <strong style={{ color: "#C9A84C" }}>{reicPrompt.siteName}</strong> (moving to {reicPrompt.newPhase})</div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+                {[
+                  { label: "Approved", value: "approved", bg: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff" },
+                  { label: "Rejected", value: "rejected", bg: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "#fff" },
+                  { label: "Skip", value: null, bg: "rgba(148,163,184,0.1)", color: "#94A3B8" },
+                ].map((opt) => (
+                  <button key={opt.label} onClick={() => {
+                    const now = new Date().toISOString();
+                    if (opt.value) {
+                      fbUpdate(`${reicPrompt.region}/${reicPrompt.id}`, {
+                        reicOutcome: opt.value,
+                        reicDate: now,
+                      });
+                      fbPush("config/scoring_calibration", {
+                        siteId: reicPrompt.id,
+                        siteName: reicPrompt.siteName,
+                        action: `reic_${opt.value}`,
+                        reicOutcome: opt.value,
+                        ts: now,
+                        by: "Dan R",
+                      });
+                    }
+                    setReicPrompt(null);
+                  }} style={{ flex: 1, padding: "12px 16px", borderRadius: 10, border: "none", background: opt.bg, color: opt.color, fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
