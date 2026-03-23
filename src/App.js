@@ -2606,7 +2606,107 @@ function AppInner() {
                 </div>
               </div>
 
-              {/* SITESCORE DEEP BREAKDOWN — expandable */}
+              {/* ═══ QUICK ACCESS BAR — Premium prominent links ═══ */}
+              <div style={{ display: "grid", gridTemplateColumns: site.coordinates ? (site.listingUrl ? (flyerDoc ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr") : (flyerDoc ? "1fr 1fr 1fr" : "1fr 1fr")) : (site.listingUrl ? (flyerDoc ? "1fr 1fr" : "1fr") : flyerDoc ? "1fr" : "none"), gap: 10, marginBottom: 20 }}>
+                {site.coordinates && (
+                  <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(21,101,192,0.35), 0 0 0 1px rgba(21,101,192,0.3)", letterSpacing: "0.04em", transition: "all 0.2s" }}>
+                    <span style={{ fontSize: 18 }}>🗺</span> Google Maps
+                  </a>
+                )}
+                {site.coordinates && (
+                  <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #388E3C)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(46,125,50,0.35), 0 0 0 1px rgba(46,125,50,0.3)", letterSpacing: "0.04em", transition: "all 0.2s" }}>
+                    <span style={{ fontSize: 18 }}>🌍</span> Google Earth
+                  </a>
+                )}
+                {site.listingUrl && (
+                  <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #F59E0B)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(232,122,46,0.35), 0 0 0 1px rgba(232,122,46,0.3)", letterSpacing: "0.04em", transition: "all 0.2s" }}>
+                    <span style={{ fontSize: 18 }}>🔗</span> Property Listing
+                  </a>
+                )}
+                {flyerDoc && (
+                  <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #C9A84C, #D4AF37)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.04em", transition: "all 0.2s" }}>
+                    <span style={{ fontSize: 18 }}>📄</span> Broker Flyer
+                  </a>
+                )}
+              </div>
+
+              {/* ═══ INTERACTIVE AERIAL MAP with PS Pins ═══ */}
+              {site.coordinates && (() => {
+                const mapId = `leaflet-map-${site.id}`;
+                const coords = site.coordinates.split(",").map(c => parseFloat(c.trim()));
+                if (coords.length !== 2 || isNaN(coords[0]) || isNaN(coords[1])) return null;
+                const [siteLat, siteLng] = coords;
+                // Haversine helper
+                const haversine = (lat1, lon1, lat2, lon2) => {
+                  const R = 3958.8; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+                  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                };
+                return (
+                  <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24, position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}>
+                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", color: "#fff", padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.2)" }}>INTERACTIVE AERIAL</div>
+                      <div style={{ background: "rgba(232,122,46,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span> SITE
+                      </div>
+                      <div style={{ background: "rgba(21,101,192,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#FFD700", display: "inline-block" }}></span> PS LOCATIONS
+                      </div>
+                    </div>
+                    <div id={mapId} style={{ width: "100%", height: 420 }} ref={(el) => {
+                      if (!el || el._leafletInit) return;
+                      el._leafletInit = true;
+                      // Load Leaflet CSS + JS from CDN
+                      if (!document.getElementById("leaflet-css")) {
+                        const css = document.createElement("link"); css.id = "leaflet-css"; css.rel = "stylesheet";
+                        css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+                      }
+                      const initMap = () => {
+                        if (!window.L) { setTimeout(initMap, 100); return; }
+                        const L = window.L;
+                        const map = L.map(el, { zoomControl: true, attributionControl: false }).setView([siteLat, siteLng], 14);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(map);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.6 }).addTo(map);
+                        // Site marker — large orange
+                        const siteIcon = L.divIcon({ className: "", html: '<div style="width:28px;height:28px;background:#E87A2E;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 12px rgba(232,122,46,0.6),0 0 0 4px rgba(232,122,46,0.25)"></div>', iconSize: [28, 28], iconAnchor: [14, 14] });
+                        L.marker([siteLat, siteLng], { icon: siteIcon }).addTo(map).bindPopup(`<div style="font-weight:800;font-size:13px;color:#1E2761">${site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${site.address || ""}, ${site.city || ""} ${site.state || ""}</div><div style="font-size:11px;color:#E87A2E;font-weight:700;margin-top:4px">${site.acreage ? site.acreage + " ac" : ""} ${site.askingPrice ? "· " + site.askingPrice : ""}</div>`);
+                        // Load PS locations and show nearby pins
+                        fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
+                          const lines = csv.trim().split("\n");
+                          let psCount = 0;
+                          const psIcon = L.divIcon({ className: "", html: '<div style="width:16px;height:16px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2px solid #FFD700;border-radius:50%;box-shadow:0 2px 8px rgba(21,101,192,0.5)"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+                          for (let i = 1; i < lines.length; i++) {
+                            const parts = lines[i].split(",");
+                            if (parts.length < 5) continue;
+                            const pLat = parseFloat(parts[3]), pLng = parseFloat(parts[4]);
+                            if (isNaN(pLat) || isNaN(pLng)) continue;
+                            const dist = haversine(siteLat, siteLng, pLat, pLng);
+                            if (dist <= 25) {
+                              psCount++;
+                              const pName = parts[0], pCity = parts[1], pState = parts[2];
+                              L.marker([pLat, pLng], { icon: psIcon }).addTo(map).bindPopup(`<div style="font-weight:800;font-size:12px;color:#1565C0">${pName}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:11px;color:#E87A2E;font-weight:700;margin-top:2px">${dist.toFixed(1)} mi from site</div>`);
+                            }
+                          }
+                          // Add count badge
+                          const badge = document.createElement("div");
+                          badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid rgba(21,101,192,0.3)";
+                          badge.innerHTML = `<span style="color:#FFD700;font-weight:900">${psCount}</span> PS locations within 25 mi`;
+                          el.appendChild(badge);
+                        }).catch(() => {});
+                        // 3-mile radius ring
+                        L.circle([siteLat, siteLng], { radius: 4828, color: "#C9A84C", weight: 2, opacity: 0.5, fillColor: "#C9A84C", fillOpacity: 0.04, dashArray: "8,6" }).addTo(map).bindPopup("<div style='font-weight:700;font-size:11px;color:#C9A84C'>3-Mile Radius</div><div style='font-size:10px;color:#64748B'>Primary trade area</div>");
+                      };
+                      if (!document.getElementById("leaflet-js")) {
+                        const js = document.createElement("script"); js.id = "leaflet-js";
+                        js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+                        js.onload = initMap; document.head.appendChild(js);
+                      } else { initMap(); }
+                    }} />
+                  </div>
+                );
+              })()}
+
+              {/* SITESCORE DEEP BREAKDOWN — expandable (moved below map) */}
               {scoreExpanded && (() => {
                 const bd = iqR.breakdown || [];
                 const wSum = bd.reduce((a, b) => a + b.weight, 0);
@@ -3217,24 +3317,7 @@ function AppInner() {
                     try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "12px 16px", borderRadius: 12, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all 0.15s" }}>📋 REC Package</button>
                 </div>
-                {/* Bottom Row — Small Icon Links */}
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {site.coordinates && <>
-                    <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(21,101,192,0.10)", color: "#42A5F5", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.20)", display: "inline-flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🗺 Maps</a>
-                    <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(46,125,50,0.10)", color: "#66BB6A", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.20)", display: "inline-flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🌍 Earth</a>
-                  </>}
-                  {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(232,122,46,0.10)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.20)", display: "inline-flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Listing</a>}
-                  {flyerDoc && <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(243,124,51,0.10)", color: "#FFB347", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(243,124,51,0.20)", display: "inline-flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>📄 Flyer</a>}
-                </div>
               </div>
-
-              {/* AERIAL VIEW */}
-              {site.coordinates && (
-                <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 20, position: "relative" }}>
-                  <iframe title={`Aerial — ${site.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
-                  <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em" }}>AERIAL VIEW</div>
-                </div>
-              )}
 
               {/* SUMMARY */}
               <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
