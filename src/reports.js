@@ -928,8 +928,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
         const wc = (v * d.weight).toFixed(2);
         return `<div style="display:grid;grid-template-columns:130px 1fr 50px 55px;align-items:center;gap:12px;padding:7px 0;${i < dims.length - 1 ? "border-bottom:1px solid #E2E8F015" : ""}">
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:11px;font-weight:600;color:#E2E8F0">${d.label}</span>
-            <span style="font-size:8px;color:#4A5080;font-family:'Space Mono',monospace">${(d.weight * 100).toFixed(0)}%</span>
+            <span style="font-size:12px;font-weight:800;color:#1E2761">${d.label}</span>
+            <span style="font-size:9px;color:#6B7394;font-weight:700;font-family:'Space Mono',monospace">${(d.weight * 100).toFixed(0)}%</span>
           </div>
           <div style="height:18px;border-radius:4px;background:rgba(255,255,255,0.04);overflow:hidden;position:relative">
             <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;border-radius:4px;background:linear-gradient(90deg,${c}cc,${c});transition:width 0.5s"></div>
