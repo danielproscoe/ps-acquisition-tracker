@@ -1023,7 +1023,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
   }
 };
 
-export const generatePricingReport = (site, iqResult, siteScoreConfig, valuationOverrides) => {
+export const generatePricingReport = (site, iqResult, siteScoreConfig, valuationOverrides, allSites) => {
   try {
   const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
@@ -1238,6 +1238,7 @@ function updateCustomCap(val){
 <nav class="toc-sidebar" id="tocNav" style="display:none">
   <div class="toc-icon"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>
   <div class="toc-title">Contents</div>
+  <a href="#sec-P0" onclick="document.getElementById('sec-P0').scrollIntoView({behavior:'smooth'});return false" style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.2);margin-bottom:6px"><span class="toc-num" style="background:#C9A84C;color:#0A0A0C">&#9889;</span><span class="toc-label" style="color:#C9A84C;font-weight:800">Inputs</span></a>
   <a href="#sec-P1" onclick="document.getElementById('sec-P1').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">1</span><span class="toc-label">Executive Summary</span></a>
   <a href="#sec-P2" onclick="document.getElementById('sec-P2').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">2</span><span class="toc-label">Timeline</span></a>
   <a href="#sec-P3" onclick="document.getElementById('sec-P3').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">3</span><span class="toc-label">PS Advantage</span></a>
@@ -1281,6 +1282,190 @@ function updateCustomCap(val){
     <div style="font-size:10px;color:#4A5080;margin-top:2px">SiteScore: ${iq.score?.toFixed(2) || "N/A"}/10</div>
   </div>
 </div>
+
+<!-- ═══ PROPERTY MODEL INPUTS ═══ -->
+<div id="sec-P0" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(15,21,56,0.9),rgba(30,39,97,0.7));border:1px solid rgba(201,168,76,0.25);box-shadow:0 4px 30px rgba(201,168,76,0.08)">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 16px rgba(201,168,76,0.3)">&#9889;</div>
+      <div>
+        <h2 style="margin:0;font-size:16px;color:#C9A84C;letter-spacing:0.06em">PROPERTY MODEL INPUTS</h2>
+        <div style="font-size:10px;color:#6B7394;margin-top:2px;letter-spacing:0.04em">Per-site assumptions driving this analysis</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Property Selector -->
+  <div style="margin-bottom:24px">
+    <label style="font-size:9px;font-weight:800;color:#6B7394;letter-spacing:0.12em;text-transform:uppercase;display:block;margin-bottom:8px">Select Property</label>
+    <select id="site-selector" onchange="switchSiteInputs(this.value)" style="width:100%;padding:12px 16px;border-radius:10px;background:rgba(8,11,26,0.8);border:1px solid rgba(201,168,76,0.25);color:#E2E8F0;font-size:13px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%23C9A84C%22 stroke-width=%221.5%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;outline:none;transition:border-color 0.2s">
+      ${(() => {
+        const sites = (allSites || [site]).map(s => ({ id: s.id || '', name: s.name || 'Unknown', city: s.city || '', state: s.state || '', overrides: s.overrides || {} }));
+        sites.sort((a, b) => (a.city || '').localeCompare(b.city || ''));
+        return sites.map(s => `<option value="${h(s.id)}" ${s.id === (site.id || '') ? 'selected' : ''}>${h(s.city)}${s.state ? ', ' + h(s.state) : ''} — ${h(s.name)}</option>`).join('');
+      })()}
+    </select>
+  </div>
+
+  <!-- Per-Site Overrides Panel -->
+  <div id="site-overrides-panel">
+    ${(() => {
+      const ov = site.overrides || {};
+      const ovKeys = Object.keys(ov);
+      const hasOverrides = ovKeys.length > 0;
+      const defaults = {
+        coverageRatio: 0.35, netToGross: 0.90, climatePctOneStory: 0.65, climatePctMultiStory: 0.75,
+        multiStoryThreshold: 3.5, multiStoryFloors: 3,
+        climateRatePremium: 1.45, climateRateUpper: 1.25, climateRateMid: 1.10, climateRateValue: 0.95,
+        driveRatePremium: 0.85, driveRateUpper: 0.72, driveRateMid: 0.62, driveRateValue: 0.52,
+        annualEscalation: 0.03,
+        leaseUpY1Occ: 0.30, leaseUpY2Occ: 0.55, leaseUpY3Occ: 0.75, leaseUpY4Occ: 0.88, leaseUpY5Occ: 0.92,
+        leaseUpY1ClimDisc: 0.35, leaseUpY2ClimDisc: 0.15, leaseUpY3ClimDisc: 0.05,
+        leaseUpY1DriveDisc: 0.30, leaseUpY2DriveDisc: 0.12, leaseUpY3DriveDisc: 0.05,
+        ecriY1: 0, ecriY2: 0.06, ecriY3: 0.14, ecriY4: 0.24, ecriY5: 0.32,
+        hardCostOneStoryClimate: 45, hardCostOneStoryDrive: 28, hardCostMultiStory3: 68, hardCostMultiStory4: 78,
+        siteWorkPerSFOneStory: 8, siteWorkPerSFMulti: 10, fireSuppressionPerSF: 5.50,
+        interiorBuildoutPerSF: 15, technologyPerSF: 3.50, utilityInfraBase: 75000, utilityInfraPerSF: 2.00,
+        softCostPct: 0.20, contingencyPct: 0.075,
+        constructionMonthsOneStory: 14, constructionMonthsMultiStory: 18,
+        constLoanLTC: 0.60, constLoanRate: 0.075, avgDrawPct: 0.55, workingCapitalPct: 0.02,
+        propTaxRate: 0.010, insurancePerSF: 0.30, mgmtFeePct: 0.035,
+        basePayroll: 55000, payrollBurden: 1.25, baseFTE: 1.0,
+        climateUtilPerSF: 0.85, driveUtilPerSF: 0.20, rmPerSF: 0.25,
+        marketingPct: 0.02, marketingLeaseUpPct: 0.04, gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
+        capRateConservative: 0.065, capRateMarket: 0.0575, capRateAggressive: 0.05,
+        yocMax: 0.075, yocStrike: 0.09, yocMin: 0.105,
+        loanLTV: 0.65, loanRate: 0.0675, loanAmort: 25, exitCapRate: 0.06, holdPeriod: 10,
+      };
+      const categories = [
+        { label: 'Facility Sizing', icon: '&#9881;', keys: ['coverageRatio','netToGross','climatePctOneStory','climatePctMultiStory','multiStoryThreshold','multiStoryFloors'] },
+        { label: 'Market Rates', icon: '&#36;', keys: ['climateRatePremium','climateRateUpper','climateRateMid','climateRateValue','driveRatePremium','driveRateUpper','driveRateMid','driveRateValue','annualEscalation'] },
+        { label: 'Lease-Up', icon: '&#8593;', keys: ['leaseUpY1Occ','leaseUpY2Occ','leaseUpY3Occ','leaseUpY4Occ','leaseUpY5Occ'] },
+        { label: 'ECRI', icon: '&#9889;', keys: ['ecriY1','ecriY2','ecriY3','ecriY4','ecriY5'] },
+        { label: 'Construction', icon: '&#9874;', keys: ['hardCostOneStoryClimate','hardCostOneStoryDrive','hardCostMultiStory3','siteWorkPerSFOneStory','fireSuppressionPerSF','interiorBuildoutPerSF','technologyPerSF','utilityInfraBase','utilityInfraPerSF','softCostPct','contingencyPct'] },
+        { label: 'Carry Costs', icon: '&#127974;', keys: ['constructionMonthsOneStory','constructionMonthsMultiStory','constLoanLTC','constLoanRate','avgDrawPct','workingCapitalPct'] },
+        { label: 'Operating Expenses', icon: '&#128200;', keys: ['propTaxRate','insurancePerSF','mgmtFeePct','basePayroll','payrollBurden','baseFTE','climateUtilPerSF','driveUtilPerSF','rmPerSF','marketingPct','gaPct','badDebtPct','reservePerSF'] },
+        { label: 'Valuation', icon: '&#127919;', keys: ['capRateConservative','capRateMarket','capRateAggressive','exitCapRate','holdPeriod'] },
+        { label: 'Land Pricing', icon: '&#128506;', keys: ['yocMax','yocStrike','yocMin'] },
+        { label: 'Capital Stack', icon: '&#127963;', keys: ['loanLTV','loanRate','loanAmort'] },
+      ];
+      const fmtK = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).replace(/Pct$/, ' %').replace(/Per S F/g, '/SF').replace(/Per S f/g, '/SF');
+      const fmtV = (k, v) => {
+        if (typeof v !== 'number') return String(v);
+        if (k.includes('Pct') || k.includes('Rate') || k.includes('Occ') || k.includes('Disc') || k.includes('LTV') || k.includes('LTC') || k.includes('Escalation') || k.includes('Burden') || k.startsWith('ecri') || k.startsWith('yoc') || k === 'capRateConservative' || k === 'capRateMarket' || k === 'capRateAggressive' || k === 'exitCapRate') return (v * 100).toFixed(v < 0.01 ? 2 : 1) + '%';
+        if (k.includes('PerSF') || k.includes('perSF') || k.includes('InsurancePerSF') || k === 'insurancePerSF' || k === 'rmPerSF' || k === 'reservePerSF' || k === 'climateUtilPerSF' || k === 'driveUtilPerSF') return '$' + v.toFixed(2);
+        if (k.includes('Base') && v > 1000) return '$' + v.toLocaleString();
+        if (v >= 1000) return '$' + v.toLocaleString();
+        return String(v);
+      };
+
+      if (!hasOverrides) {
+        return '<div style="text-align:center;padding:20px"><span class="badge" style="background:rgba(22,163,74,0.12);color:#16A34A;border:1px solid rgba(22,163,74,0.2);font-size:11px;padding:8px 20px">Using Storvex Engine Defaults — No Site-Specific Overrides</span></div>';
+      }
+
+      return `<div style="margin-bottom:8px">
+        <div style="font-size:9px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#C9A84C;display:inline-block"></span>
+          SITE-SPECIFIC OVERRIDES (${ovKeys.length} modified)
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+          ${ovKeys.map(k => {
+            const val = ov[k];
+            const def = defaults[k];
+            const changed = def !== undefined && val !== def;
+            return `<div style="padding:10px 14px;border-radius:8px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:10px;color:#94A3B8;font-weight:600">${fmtK(k)}</span>
+              <span style="font-size:13px;font-weight:800;font-family:'Space Mono',monospace;color:#C9A84C">${fmtV(k, val)}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    })()}
+  </div>
+
+  <!-- Storvex Baseline Reference -->
+  <div style="margin-top:24px;border-top:1px solid rgba(201,168,76,0.1);padding-top:16px">
+    <div onclick="toggleExpand('storvex-ref')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+      <span style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;text-transform:uppercase;display:flex;align-items:center;gap:8px">
+        <span style="font-size:8px">&#9660;</span> Storvex Engine Defaults (Reference)
+        <span id="storvex-ref-arrow" class="expand-arrow">&#9660;</span>
+      </span>
+      <span style="font-size:9px;color:#4A5080;font-weight:600">PS Killeen Calibrated</span>
+    </div>
+    <div id="storvex-ref" class="expand-panel" style="padding:0">
+      ${(() => {
+        const defaults = {
+          coverageRatio: 0.35, netToGross: 0.90, climatePctOneStory: 0.65, climatePctMultiStory: 0.75,
+          multiStoryThreshold: 3.5, multiStoryFloors: 3,
+          climateRatePremium: 1.45, climateRateUpper: 1.25, climateRateMid: 1.10, climateRateValue: 0.95,
+          driveRatePremium: 0.85, driveRateUpper: 0.72, driveRateMid: 0.62, driveRateValue: 0.52,
+          annualEscalation: 0.03,
+          hardCostOneStoryClimate: 45, hardCostOneStoryDrive: 28, hardCostMultiStory3: 68,
+          siteWorkPerSFOneStory: 8, fireSuppressionPerSF: 5.50, interiorBuildoutPerSF: 15,
+          technologyPerSF: 3.50, utilityInfraBase: 75000, utilityInfraPerSF: 2.00,
+          softCostPct: 0.20, contingencyPct: 0.075,
+          propTaxRate: 0.010, insurancePerSF: 0.30, mgmtFeePct: 0.035,
+          basePayroll: 55000, climateUtilPerSF: 0.85, rmPerSF: 0.25,
+          marketingPct: 0.02, gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
+          capRateConservative: 0.065, capRateMarket: 0.0575, capRateAggressive: 0.05,
+          yocMax: 0.075, yocStrike: 0.09, yocMin: 0.105,
+          loanLTV: 0.65, loanRate: 0.0675, loanAmort: 25, exitCapRate: 0.06, holdPeriod: 10,
+        };
+        const fmtK = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+        const fmtV = (k, v) => {
+          if (typeof v !== 'number') return String(v);
+          if (k.includes('Pct') || k.includes('Rate') || k.includes('Occ') || k.includes('LTV') || k.includes('LTC') || k.includes('Escalation') || k.startsWith('yoc') || k === 'capRateConservative' || k === 'capRateMarket' || k === 'capRateAggressive' || k === 'exitCapRate') return (v * 100).toFixed(v < 0.01 ? 2 : 1) + '%';
+          if (k.includes('PerSF') || k.includes('perSF') || k === 'insurancePerSF' || k === 'rmPerSF' || k === 'reservePerSF' || k === 'climateUtilPerSF' || k === 'driveUtilPerSF') return '$' + v.toFixed(2);
+          if (v >= 1000) return '$' + v.toLocaleString();
+          return String(v);
+        };
+        return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;padding:12px 0">
+          ${Object.entries(defaults).map(([k,v]) => `<div style="padding:6px 10px;border-radius:6px;background:rgba(15,21,56,0.4);border:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:9px;color:#4A5080;font-weight:600">${fmtK(k)}</span>
+            <span style="font-size:11px;font-weight:700;font-family:'Space Mono',monospace;color:#6B7394">${fmtV(k,v)}</span>
+          </div>`).join('')}
+        </div>`;
+      })()}
+    </div>
+  </div>
+</div>
+
+<script>
+var __allSitesData = ${JSON.stringify((allSites || [site]).map(s => ({ id: s.id || '', name: s.name || '', city: s.city || '', state: s.state || '', overrides: s.overrides || {} })))};
+var __storvexDefaults = {"coverageRatio":0.35,"netToGross":0.90,"climatePctOneStory":0.65,"climatePctMultiStory":0.75,"multiStoryThreshold":3.5,"multiStoryFloors":3,"climateRatePremium":1.45,"climateRateUpper":1.25,"climateRateMid":1.10,"climateRateValue":0.95,"driveRatePremium":0.85,"driveRateUpper":0.72,"driveRateMid":0.62,"driveRateValue":0.52,"annualEscalation":0.03,"hardCostOneStoryClimate":45,"hardCostOneStoryDrive":28,"hardCostMultiStory3":68,"siteWorkPerSFOneStory":8,"fireSuppressionPerSF":5.50,"interiorBuildoutPerSF":15,"technologyPerSF":3.50,"utilityInfraBase":75000,"utilityInfraPerSF":2.00,"softCostPct":0.20,"contingencyPct":0.075,"propTaxRate":0.010,"insurancePerSF":0.30,"mgmtFeePct":0.035,"basePayroll":55000,"climateUtilPerSF":0.85,"rmPerSF":0.25,"marketingPct":0.02,"gaPct":0.010,"badDebtPct":0.015,"reservePerSF":0.15,"capRateConservative":0.065,"capRateMarket":0.0575,"capRateAggressive":0.05,"yocMax":0.075,"yocStrike":0.09,"yocMin":0.105,"loanLTV":0.65,"loanRate":0.0675,"loanAmort":25,"exitCapRate":0.06,"holdPeriod":10};
+
+function switchSiteInputs(siteId) {
+  var site = __allSitesData.find(function(s) { return s.id === siteId; });
+  if (!site) return;
+  var ov = site.overrides || {};
+  var keys = Object.keys(ov);
+  var panel = document.getElementById('site-overrides-panel');
+  if (keys.length === 0) {
+    panel.innerHTML = '<div style="text-align:center;padding:20px"><span style="display:inline-block;padding:8px 20px;border-radius:6px;background:rgba(22,163,74,0.12);color:#16A34A;border:1px solid rgba(22,163,74,0.2);font-size:11px;font-weight:700;letter-spacing:0.06em">Using Storvex Engine Defaults \\u2014 No Site-Specific Overrides</span></div>';
+    return;
+  }
+  var fmtK = function(k) { return k.replace(/([A-Z])/g, ' $1').replace(/^./, function(s) { return s.toUpperCase(); }); };
+  var fmtV = function(k, v) {
+    if (typeof v !== 'number') return String(v);
+    if (k.indexOf('Pct') >= 0 || k.indexOf('Rate') >= 0 || k.indexOf('Occ') >= 0 || k.indexOf('Disc') >= 0 || k.indexOf('LTV') >= 0 || k.indexOf('LTC') >= 0 || k.indexOf('Escalation') >= 0 || k.indexOf('Burden') >= 0 || k.indexOf('ecri') === 0 || k.indexOf('yoc') === 0 || k === 'capRateConservative' || k === 'capRateMarket' || k === 'capRateAggressive' || k === 'exitCapRate') return (v * 100).toFixed(v < 0.01 ? 2 : 1) + '%';
+    if (k.indexOf('PerSF') >= 0 || k.indexOf('perSF') >= 0 || k === 'insurancePerSF' || k === 'rmPerSF' || k === 'reservePerSF' || k === 'climateUtilPerSF' || k === 'driveUtilPerSF') return '$' + v.toFixed(2);
+    if (v >= 1000) return '$' + v.toLocaleString();
+    return String(v);
+  };
+  var html = '<div style="margin-bottom:8px">' +
+    '<div style="font-size:9px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px">' +
+    '<span style="width:8px;height:8px;border-radius:50%;background:#C9A84C;display:inline-block"></span>' +
+    'SITE-SPECIFIC OVERRIDES (' + keys.length + ' modified)</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">';
+  keys.forEach(function(k) {
+    html += '<div style="padding:10px 14px;border-radius:8px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);display:flex;justify-content:space-between;align-items:center">' +
+      '<span style="font-size:10px;color:#94A3B8;font-weight:600">' + fmtK(k) + '</span>' +
+      '<span style="font-size:13px;font-weight:800;font-family:\\'Space Mono\\',monospace;color:#C9A84C">' + fmtV(k, ov[k]) + '</span></div>';
+  });
+  html += '</div></div>';
+  panel.innerHTML = html;
+}
+</script>
 
 <!-- EXECUTIVE SUMMARY v4.0 -->
 <div id="sec-P1" class="section section-gold expand-trigger" onclick="toggleExpand('exec')" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(15,21,56,0.8),rgba(30,39,97,0.6))">
