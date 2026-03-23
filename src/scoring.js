@@ -446,7 +446,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // PS actual: $11,654,895 dev cost (excl land) on ~98K GSF = ~$119/SF all-in.
   // New model produces ~$11.1M = ~$113/SF — within 5% of PS actuals (delta = PS internal overhead).
   // Sources: RSMeans 2025, ENR, SteelCo, PS Killeen closing settlement statement.
-  const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94 };
+  const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94, "AK": 1.28, "HI": 1.25, "WV": 0.87, "ME": 1.03, "NH": 1.05, "VT": 1.04, "RI": 1.10, "DE": 1.02, "DC": 1.18, "MT": 0.93, "ND": 0.90, "SD": 0.88, "WY": 0.93 };
   const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
 
   // ── 1. Building Shell + HVAC (vertical construction) ──
@@ -525,8 +525,10 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const workingCapital = Math.round(buildCosts * O('workingCapitalPct', 0.02));
 
   // ── Total Development Cost (PS "Total Development Yield" denominator) ──
-  // buildCosts now includes hard + soft + contingency (7.5%)
-  const totalDevCost = landCost + buildCosts + carryCosts;
+  // Includes ALL project costs: build (hard+soft+contingency) + carry + working capital reserve.
+  // Working capital is equity-funded but IS a project cost — Sources & Uses must balance.
+  // Prior to 2026-03-22 audit: workingCapital was excluded, causing S&U imbalance.
+  const totalDevCost = landCost + buildCosts + carryCosts + workingCapital;
 
   // ── 5-Year Lease-Up Model ──
   const leaseUpSchedule = [
@@ -634,7 +636,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     { label: "Home Run", yoc: O('yocMin', 0.105), color: "#16A34A", tag: "STEAL" },
   ];
   const landPrices = landTargets.map(t => {
-    const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts - carryCosts) : 0;
+    const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts - carryCosts - workingCapital) : 0;
     const perAcre = !isNaN(acres) && acres > 0 && maxLand > 0 ? Math.round(maxLand / acres) : 0;
     return { ...t, maxLand: Math.max(maxLand, 0), perAcre };
   });
@@ -657,10 +659,13 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const cashAfterDS = noiDetail - annualDS;
   const cashOnCash = equityRequired > 0 ? ((cashAfterDS / equityRequired) * 100).toFixed(1) : "N/A";
 
-  // ── 10-Year DCF & IRR (with ECRI + bottom-up OpEx) ──
+  // ── N-Year DCF & IRR (with ECRI + bottom-up OpEx) ──
+  // holdPeriod wired from STORVEX_DEFAULTS / overrides — default 10 years.
+  // Prior to 2026-03-22 audit: hardcoded to 10, holdPeriod slider was non-functional.
+  const holdPeriod = Math.max(5, Math.min(20, Math.round(O('holdPeriod', 10))));
   const exitCapRate = O('exitCapRate', 0.06);
   const yrDataExt = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < holdPeriod; i++) {
     const esc = Math.pow(1 + annualEsc, i);
     const occ = i < 5 ? leaseUpSchedule[i].occRate : 0.92;
     const cDisc = i < 5 ? leaseUpSchedule[i].climDisc : 0;
@@ -682,10 +687,10 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     const noi = rev - opex;
     yrDataExt.push({ yr: i + 1, occ, rev, opex, noi, cR, dR, ecriMult });
   }
-  const exitValue = Math.round(yrDataExt[9].noi / exitCapRate);
-  const exitLoanBal = (() => { let bal = loanAmount; for (let i = 0; i < 120; i++) { bal = bal * (1 + monthlyLoanRate) - monthlyPmt; } return Math.round(Math.max(bal, 0)); })();
+  const exitValue = Math.round(yrDataExt[holdPeriod - 1].noi / exitCapRate);
+  const exitLoanBal = (() => { let bal = loanAmount; for (let i = 0; i < holdPeriod * 12; i++) { bal = bal * (1 + monthlyLoanRate) - monthlyPmt; } return Math.round(Math.max(bal, 0)); })();
   const exitEquityProceeds = exitValue - exitLoanBal;
-  const irrCashFlows = [-equityRequired, ...yrDataExt.map((y, i) => { const cf = y.noi - annualDS; return i === 9 ? cf + exitEquityProceeds : cf; })];
+  const irrCashFlows = [-equityRequired, ...yrDataExt.map((y, i) => { const cf = y.noi - annualDS; return i === holdPeriod - 1 ? cf + exitEquityProceeds : cf; })];
   const calcNPV = (rate) => irrCashFlows.reduce((npv, cf, t) => npv + cf / Math.pow(1 + rate, t), 0);
   let irrLow = -0.1, irrHigh = 0.5;
   for (let iter = 0; iter < 100; iter++) { const mid = (irrLow + irrHigh) / 2; if (calcNPV(mid) > 0) irrLow = mid; else irrHigh = mid; }
@@ -718,9 +723,9 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
       const adjOpex = stabFixed + adjVarOpex;
       const adjNOI = adjRev - adjOpex;
       const adjYOC = totalDevCost > 0 ? ((adjNOI / totalDevCost) * 100).toFixed(1) : "N/A";
-      // IRR sensitivity — recompute 10-year DCF for each scenario
+      // IRR sensitivity — recompute N-year DCF for each scenario
       const adjCFs = [-equityRequired];
-      for (let yr = 0; yr < 10; yr++) {
+      for (let yr = 0; yr < holdPeriod; yr++) {
         const e = Math.pow(1 + annualEsc, yr);
         const oc = yr < 5 ? leaseUpSchedule[yr].occRate + o.adj : adjOcc;
         const ocCl = Math.min(0.97, Math.max(0.10, oc));
@@ -738,7 +743,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
         const yVar = Math.round(yRev * varPctSum);
         const yNoi = yRev - yFix - yVar;
         const yCF = yNoi - annualDS;
-        if (yr === 9) {
+        if (yr === holdPeriod - 1) {
           const exitVal = Math.round(yNoi / exitCapRate);
           const exitBal = exitLoanBal;
           adjCFs.push(yCF + exitVal - exitBal);
@@ -825,7 +830,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // ── Phase 2: Institutional Board Metrics (Bain Review 2026-03-21) ──
 
   // Unlevered IRR — isolates asset quality from capital structure
-  const unleveredCFs = [-totalDevCost, ...yrDataExt.map((y, i) => i === 9 ? y.noi + exitValue : y.noi)];
+  const unleveredCFs = [-totalDevCost, ...yrDataExt.map((y, i) => i === holdPeriod - 1 ? y.noi + exitValue : y.noi)];
   let uIrrLow = -0.1, uIrrHigh = 0.5;
   for (let iter = 0; iter < 100; iter++) {
     const mid = (uIrrLow + uIrrHigh) / 2;
@@ -852,11 +857,11 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     { label: "Base (6.00%)", rate: 0.06 },
     { label: "Bear (7.00%)", rate: 0.07 },
   ].map(s => {
-    const eVal = Math.round(yrDataExt[9].noi / s.rate);
+    const eVal = Math.round(yrDataExt[holdPeriod - 1].noi / s.rate);
     const eProceeds = eVal - exitLoanBal;
     const cfs = [-equityRequired, ...yrDataExt.map((y, i) => {
       const cf = y.noi - annualDS;
-      return i === 9 ? cf + eProceeds : cf;
+      return i === holdPeriod - 1 ? cf + eProceeds : cf;
     })];
     let lo = -0.1, hi = 0.5;
     for (let it = 0; it < 100; it++) {
@@ -905,7 +910,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     // Capital stack
     loanLTV, loanRate, loanAmort, equityPct, loanAmount, equityRequired, monthlyLoanRate, numPmts, monthlyPmt, annualDS, dscrStab, cashAfterDS, cashOnCash,
     // DCF
-    exitCapRate, yrDataExt, exitValue, exitLoanBal, exitEquityProceeds, irrCashFlows, irrPct, equityMultiple,
+    holdPeriod, exitCapRate, yrDataExt, exitValue, exitLoanBal, exitEquityProceeds, irrCashFlows, irrPct, equityMultiple,
     // Rate validation
     m1Rate, m2ClimRate, m2DriveRate, m3ClimRate, popDensityFactor, consensusClimRate, rateConfidence, rateConfColor,
     // Institutional

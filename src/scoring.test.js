@@ -1100,6 +1100,71 @@ describe('computeSiteFinancials', () => {
     expect(poc).toBeDefined();
     expect(typeof poc).toBe('number');
   });
+
+  // ── Bain Audit 2026-03-22: Sources & Uses balance control ──
+  test('Sources & Uses totals balance exactly (totalSources === totalUses)', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,200,000' });
+    const { sourcesAndUses } = result;
+    expect(sourcesAndUses.totalSources).toBe(sourcesAndUses.totalUses);
+  });
+
+  test('Sources line items sum to totalSources', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,200,000' });
+    const { sourcesAndUses } = result;
+    const lineSum = sourcesAndUses.sources.reduce((s, r) => s + r.amount, 0);
+    expect(lineSum).toBe(sourcesAndUses.totalSources);
+  });
+
+  test('Uses line items sum to totalUses', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,200,000' });
+    const { sourcesAndUses } = result;
+    const lineSum = sourcesAndUses.uses.reduce((s, r) => s + r.amount, 0);
+    expect(lineSum).toBe(sourcesAndUses.totalUses);
+  });
+
+  test('Sources percentages sum to ~100%', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,200,000' });
+    const { sourcesAndUses } = result;
+    const pctSum = sourcesAndUses.sources.reduce((s, r) => s + parseFloat(r.pct), 0);
+    expect(pctSum).toBeCloseTo(100, 0);
+  });
+
+  test('Uses percentages sum to ~100%', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,200,000' });
+    const { sourcesAndUses } = result;
+    const pctSum = sourcesAndUses.uses.reduce((s, r) => s + parseFloat(r.pct), 0);
+    expect(pctSum).toBeCloseTo(100, 0);
+  });
+
+  // ── Bain Audit 2026-03-22: holdPeriod parameter wiring ──
+  test('holdPeriod defaults to 10 and controls DCF array length', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    expect(result.holdPeriod).toBe(10);
+    expect(result.yrDataExt).toHaveLength(10);
+    expect(result.irrCashFlows).toHaveLength(11); // initial equity + 10 years
+  });
+
+  test('holdPeriod override changes DCF array length', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { holdPeriod: 7 });
+    expect(result.holdPeriod).toBe(7);
+    expect(result.yrDataExt).toHaveLength(7);
+    expect(result.irrCashFlows).toHaveLength(8); // initial equity + 7 years
+  });
+
+  test('holdPeriod clamped to 5-20 range', () => {
+    const low = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { holdPeriod: 3 });
+    expect(low.holdPeriod).toBe(5);
+    const high = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { holdPeriod: 25 });
+    expect(high.holdPeriod).toBe(20);
+  });
+
+  test('totalDevCost includes workingCapital (Bain audit fix)', () => {
+    const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
+    // totalDevCost = land + buildCosts + carry + workingCapital
+    // workingCapital = buildCosts * 0.02
+    expect(result.totalDevCost).toBeGreaterThan(result.landCost + result.buildCosts + result.carryCosts);
+    expect(result.totalDevCost).toBe(result.landCost + result.buildCosts + result.carryCosts + result.workingCapital);
+  });
 });
 
 // ─── 15. ZONING TABLE ACCESSED GATE (§6h Rule #4) ───
