@@ -6,6 +6,219 @@
 import { escapeHtml, safeNum, fmtPrice, mapsLink, earthLink, buildDemoReport, fmtN, stripEmoji, cleanPriority } from './utils';
 import { computeSiteScore, computeSiteFinancials } from './scoring';
 
+// ─── Demographics Report — Full 1-3-5 Mile ESRI Table ───
+export const generateDemographicsReport = (site) => {
+  if (!site) return null;
+  const dr = buildDemoReport(site);
+  const pN = (v) => { if (v == null || v === "") return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
+  const fV = (v, pre) => { const n = pN(v); return n != null ? (pre || "") + n.toLocaleString() : "—"; };
+  const fPct = (v) => v != null && v !== "" ? String(v) : "—";
+  const fGrowth = (v) => { if (v == null || v === "") return "—"; const n = typeof v === "number" ? v : parseFloat(String(v)); if (isNaN(n)) return String(v); return (n >= 0 ? "+" : "") + n.toFixed(2) + "%"; };
+  const gColor = (v) => { if (v == null) return "#64748B"; const n = typeof v === "number" ? v : parseFloat(String(v)); return !isNaN(n) && n > 0 ? "#16A34A" : !isNaN(n) && n < 0 ? "#EF4444" : "#64748B"; };
+  const r = dr?.rings || {};
+  const r1 = r[1] || {}; const r3 = r[3] || {}; const r5 = r[5] || {};
+  const siteName = site.name || site.address || "Unknown Site";
+  const coords = site.coordinates || "";
+
+  // Growth outlook
+  const pg = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : null;
+  const growthOutlook = pg != null ? (pg > 1.5 ? "High Growth" : pg > 0.5 ? "Growing" : pg > 0 ? "Stable Growth" : pg > -0.5 ? "Flat" : "Declining") : "N/A";
+  const outlookColor = pg != null ? (pg > 1.5 ? "#22C55E" : pg > 0.5 ? "#4ADE80" : pg > 0 ? "#FBBF24" : pg > -0.5 ? "#94A3B8" : "#EF4444") : "#64748B";
+
+  // Income tier
+  const hhi3 = pN(site.income3mi);
+  const incomeTier = hhi3 != null ? (hhi3 >= 90000 ? "PREMIUM" : hhi3 >= 75000 ? "AFFLUENT" : hhi3 >= 65000 ? "STRONG" : hhi3 >= 55000 ? "ADEQUATE" : "BELOW THRESHOLD") : "N/A";
+  const incomeColor = hhi3 != null ? (hhi3 >= 90000 ? "#C9A84C" : hhi3 >= 75000 ? "#22C55E" : hhi3 >= 65000 ? "#3B82F6" : hhi3 >= 55000 ? "#FBBF24" : "#EF4444") : "#64748B";
+
+  // Pop signal
+  const pop3 = pN(site.pop3mi);
+  const popSignal = pop3 != null ? (pop3 >= 40000 ? "DENSE MARKET" : pop3 >= 25000 ? "SOLID DEMAND" : pop3 >= 10000 ? "EMERGING" : "THIN") : "N/A";
+  const popColor = pop3 != null ? (pop3 >= 40000 ? "#22C55E" : pop3 >= 25000 ? "#3B82F6" : pop3 >= 10000 ? "#FBBF24" : "#EF4444") : "#64748B";
+
+  // Storage demand signals
+  const hhRaw = pN(site.households3mi);
+  const hvRaw = pN(site.homeValue3mi);
+  const renterPct = site.renterPct3mi;
+
+  const tableRow = (metric, v1, v3, v5, opts = {}) => {
+    const isGrowth = opts.isGrowth;
+    const prefix = opts.prefix || "";
+    const format = (v) => isGrowth ? `<span style="color:${gColor(v)}">${fGrowth(v)}</span>` : (opts.isPct ? fPct(v) : fV(v, prefix));
+    return `<tr>
+      <td style="padding:14px 20px;font-weight:700;color:#E2E8F0;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap">${metric}</td>
+      <td style="padding:14px 20px;text-align:right;font-size:14px;font-weight:600;color:#CBD5E1;font-family:'Space Mono',monospace;border-bottom:1px solid rgba(255,255,255,.06)">${format(v1)}</td>
+      <td style="padding:14px 20px;text-align:right;font-size:15px;font-weight:800;color:#C9A84C;font-family:'Space Mono',monospace;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(201,168,76,.04)">${format(v3)}</td>
+      <td style="padding:14px 20px;text-align:right;font-size:14px;font-weight:600;color:#CBD5E1;font-family:'Space Mono',monospace;border-bottom:1px solid rgba(255,255,255,.06)">${format(v5)}</td>
+    </tr>`;
+  };
+
+  return `<!DOCTYPE html><html><head>
+<title>Demographics — ${escapeHtml(siteName)}</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#080C24;color:#E2E8F0;min-height:100vh}
+.hero{background:linear-gradient(135deg,#0A0E2A 0%,#1E2761 40%,#1565C0 100%);padding:48px 40px 36px;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(201,168,76,.08),transparent 70%);pointer-events:none}
+.hero h1{font-size:28px;font-weight:900;color:#fff;letter-spacing:-.01em;margin-bottom:6px}
+.hero .sub{font-size:13px;color:#94A3B8;font-weight:600;letter-spacing:.04em}
+.hero .badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#FBBF24,#F59E0B);color:#0F172A;font-size:11px;font-weight:900;padding:4px 12px;border-radius:6px;letter-spacing:.06em;margin-left:12px}
+.container{max-width:1100px;margin:0 auto;padding:32px 24px}
+.signal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:32px}
+.signal-card{background:rgba(15,21,56,.6);border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,.06);text-align:center;transition:all .2s}
+.signal-card:hover{border-color:rgba(201,168,76,.25);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.signal-label{font-size:9px;font-weight:700;color:#6B7394;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.signal-value{font-size:24px;font-weight:900;font-family:'Space Mono',monospace;line-height:1.1;margin-bottom:4px}
+.signal-sub{font-size:10px;font-weight:700;letter-spacing:.06em}
+.table-wrap{background:rgba(15,21,56,.5);border-radius:16px;overflow:hidden;border:1px solid rgba(201,168,76,.1);margin-bottom:28px;box-shadow:0 4px 24px rgba(0,0,0,.2)}
+.table-header{background:linear-gradient(135deg,#0F172A,#1E293B);padding:16px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid rgba(201,168,76,.15)}
+.table-header span.icon{font-size:18px}
+.table-header span.title{font-size:14px;font-weight:800;color:#fff;letter-spacing:.05em}
+.table-header span.tag{font-size:10px;font-weight:800;color:#C9A84C;background:rgba(201,168,76,.1);padding:3px 10px;border-radius:5px;margin-left:auto;letter-spacing:.08em}
+table{width:100%;border-collapse:collapse}
+thead th{padding:12px 20px;text-align:right;font-size:10px;font-weight:800;color:#94A3B8;letter-spacing:.1em;text-transform:uppercase;border-bottom:2px solid rgba(201,168,76,.1)}
+thead th:first-child{text-align:left}
+thead th.gold{background:rgba(201,168,76,.06);color:#C9A84C}
+.proj-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:20px;background:linear-gradient(135deg,#0F172A,#1a1a2e)}
+.proj-card{background:rgba(255,255,255,.03);border-radius:10px;padding:14px;text-align:center;border:1px solid rgba(255,255,255,.05)}
+.proj-label{font-size:8px;font-weight:700;color:#6B7394;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.proj-val{font-size:16px;font-weight:800;color:#E2E8F0;font-family:'Space Mono',monospace}
+.proj-growth{font-size:10px;font-weight:700;margin-top:3px}
+.insight-box{background:linear-gradient(135deg,#1E2761,#0F172A);border-radius:14px;padding:20px 24px;border:1px solid rgba(201,168,76,.12);margin-bottom:20px}
+.insight-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.insight-header .dot{width:8px;height:8px;border-radius:50%}
+.insight-header span{font-size:11px;font-weight:800;color:#C9A84C;letter-spacing:.08em;text-transform:uppercase}
+.insight-text{font-size:12px;color:#CBD5E1;line-height:1.8}
+.footer{text-align:center;padding:24px;border-top:1px solid rgba(201,168,76,.08)}
+.footer span{font-size:9px;color:#4A5080;letter-spacing:.06em}
+@media(max-width:768px){.signal-grid,.proj-grid{grid-template-columns:repeat(2,1fr)}}
+@media print{body{background:#fff;color:#1E293B} .hero{background:#1E2761!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+
+<div class="hero">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+    <span style="font-size:28px">📊</span>
+    <div>
+      <h1>Demographic Intelligence<span class="badge">ESRI 2025</span></h1>
+      <div class="sub">${escapeHtml(siteName)}${coords ? ` — ${escapeHtml(coords)}` : ""}</div>
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+    <span style="font-size:10px;color:#94A3B8;background:rgba(255,255,255,.06);padding:4px 12px;border-radius:6px;font-weight:600">ESRI ArcGIS GeoEnrichment — Live Geocoded — Current Year + 2030 Projections</span>
+    ${dr?.pulledAt ? `<span style="font-size:10px;color:#64748B;background:rgba(255,255,255,.04);padding:4px 12px;border-radius:6px;font-weight:600">Updated ${new Date(dr.pulledAt).toLocaleDateString()}</span>` : ""}
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Signal Cards -->
+  <div class="signal-grid">
+    <div class="signal-card">
+      <div class="signal-label">3-Mile Population</div>
+      <div class="signal-value" style="color:${popColor}">${fV(pop3)}</div>
+      <div class="signal-sub" style="color:${popColor}">${popSignal}</div>
+    </div>
+    <div class="signal-card">
+      <div class="signal-label">Median Household Income</div>
+      <div class="signal-value" style="color:${incomeColor}">${fV(hhi3, "$")}</div>
+      <div class="signal-sub" style="color:${incomeColor}">${incomeTier}</div>
+    </div>
+    <div class="signal-card">
+      <div class="signal-label">Growth Outlook (5yr)</div>
+      <div class="signal-value" style="color:${outlookColor}">${fGrowth(pg)}</div>
+      <div class="signal-sub" style="color:${outlookColor}">${growthOutlook}</div>
+    </div>
+    <div class="signal-card">
+      <div class="signal-label">3-Mile Households</div>
+      <div class="signal-value" style="color:#3B82F6">${fV(hhRaw)}</div>
+      <div class="signal-sub" style="color:#64748B">Demand Proxy</div>
+    </div>
+  </div>
+
+  <!-- Full 1-3-5 Mile Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="icon">🎯</span>
+      <span class="title">RADIUS RING ANALYSIS</span>
+      <span class="tag">1 · 3 · 5 MILE</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="text-align:left;width:28%">METRIC</th>
+        <th>1-MILE</th>
+        <th class="gold">3-MILE</th>
+        <th>5-MILE</th>
+      </tr></thead>
+      <tbody>
+        ${tableRow("Population", r1.pop, r3.pop, r5.pop)}
+        ${tableRow("Median Household Income", r1.medIncome, r3.medIncome, r5.medIncome, { prefix: "$" })}
+        ${tableRow("Households", r1.hh, r3.hh, r5.hh)}
+        ${tableRow("Median Home Value", r1.homeValue, r3.homeValue, r5.homeValue, { prefix: "$" })}
+        ${tableRow("Renter %", r1.renterPct, r3.renterPct, r5.renterPct, { isPct: true })}
+        ${tableRow("Pop Growth (CAGR)", r1.popGrowth, r3.popGrowth, r5.popGrowth, { isGrowth: true })}
+      </tbody>
+    </table>
+
+    <!-- 2030 Projections -->
+    ${(dr?.pop3mi_fy || dr?.income3mi_fy) ? `
+    <div style="border-top:2px solid rgba(201,168,76,.12)">
+      <div style="padding:14px 20px;background:linear-gradient(135deg,#0F172A,#1a1a2e)">
+        <div style="font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:.1em;margin-bottom:12px">2030 FIVE-YEAR PROJECTIONS (3-MILE RADIUS)</div>
+        <div class="proj-grid" style="padding:0">
+          <div class="proj-card">
+            <div class="proj-label">Population</div>
+            <div class="proj-val">${fV(dr.pop3mi_fy)}</div>
+            ${dr.popGrowth3mi ? `<div class="proj-growth" style="color:${gColor(dr.popGrowth3mi)}">${fGrowth(dr.popGrowth3mi)} /yr</div>` : ""}
+          </div>
+          <div class="proj-card">
+            <div class="proj-label">Median HHI</div>
+            <div class="proj-val">${fV(dr.income3mi_fy, "$")}</div>
+            ${dr.incomeGrowth3mi ? `<div class="proj-growth" style="color:${gColor(dr.incomeGrowth3mi)}">${fGrowth(dr.incomeGrowth3mi)} /yr</div>` : ""}
+          </div>
+          <div class="proj-card">
+            <div class="proj-label">Households</div>
+            <div class="proj-val">${fV(dr.households3mi_fy)}</div>
+            ${dr.hhGrowth3mi ? `<div class="proj-growth" style="color:${gColor(dr.hhGrowth3mi)}">${fGrowth(dr.hhGrowth3mi)} /yr</div>` : ""}
+          </div>
+          <div class="proj-card">
+            <div class="proj-label">Growth Outlook</div>
+            <div class="proj-val" style="font-size:14px;color:${outlookColor}">${growthOutlook}</div>
+          </div>
+        </div>
+      </div>
+    </div>` : ""}
+  </div>
+
+  <!-- Storage Demand Insights -->
+  <div class="insight-box">
+    <div class="insight-header">
+      <div class="dot" style="background:${popColor}"></div>
+      <span>Storage Demand Analysis</span>
+    </div>
+    <div class="insight-text">
+      ${pop3 != null && pop3 >= 40000
+        ? `Dense population base of <strong>${pop3.toLocaleString()}</strong> within 3 miles exceeds the 40K benchmark — top tier for household-driven self-storage absorption.${pg != null && pg > 1 ? " Combined with above-average growth, this site has compounding demand tailwinds." : ""}`
+        : pop3 != null && pop3 >= 15000
+        ? `Population of <strong>${pop3.toLocaleString()}</strong> within 3 miles — mid-range for storage feasibility. Sufficient for a climate-controlled facility if competition is limited.${pg != null && pg > 1.5 ? " Strong growth could push this into premium territory within 3-5 years." : ""}`
+        : `Population of <strong>${pop3 != null ? pop3.toLocaleString() : "N/A"}</strong> within 3 miles — thinner demand base. Requires low competition, premium income, or exceptional growth to justify development.`}
+      <br><br>
+      ${hhi3 != null
+        ? `Median household income of <strong>$${hhi3.toLocaleString()}</strong> classifies this market as <strong style="color:${incomeColor}">${incomeTier}</strong> for climate-controlled storage demand.${hhi3 >= 75000 ? " Affluent households store higher-value items and show lower price sensitivity — premium unit absorption expected." : hhi3 >= 55000 ? " Moderate willingness to pay supports standard rate structures." : " Below minimum threshold — price sensitivity is high."}`
+        : "Income data not available."}
+      ${hvRaw != null ? `<br><br>Median home value of <strong>$${hvRaw.toLocaleString()}</strong> ${hvRaw >= 350000 ? "signals an affluent homeowner base with storage demand for furniture, seasonal items, and lifestyle goods." : hvRaw >= 180000 ? "indicates a stable middle-income housing market — solid base for storage demand." : "suggests a value-oriented market — price positioning will be critical."}` : ""}
+      ${renterPct ? `<br><br>Renter percentage of <strong>${renterPct}</strong> — renters are disproportionately high users of self-storage due to space constraints and mobility.` : ""}
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>STORVEX™ Demographic Intelligence — ESRI ArcGIS GeoEnrichment (Paid) — ${new Date().toLocaleDateString()}</span>
+  </div>
+
+</div>
+</body></html>`;
+};
+
 export const generateVettingReport = (site, nearestPSDistance, iqResult, siteScoreConfig) => {
   try {
   // XSS protection — escape all user-supplied text before HTML interpolation
