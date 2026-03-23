@@ -679,95 +679,102 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
       <div style={S.header}>
         <div>
           <div style={S.title}>
-            Valuation Inputs
+            Pricing Inputs
             {voltageActive && <span style={{ marginLeft: 12, fontSize: 16, color: '#39FF14', animation: 'electricFlicker 0.5s steps(2) infinite' }}>
               {voltagePhase === 1 ? '⚡ CHARGING...' : voltagePhase === 2 ? '⚡ RECALCULATING' : voltagePhase === 3 ? '⚡ MODELS UPDATED' : ''}
             </span>}
           </div>
           <div style={S.subtitle}>
-            Storvex Financial Engine — {totalInputs} configurable inputs across {SECTIONS.length} categories
+            Select a property to configure its financial model — {totalInputs} inputs across {SECTIONS.length} categories
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={S.badge}>
-            {overrideCount > 0 ? `${overrideCount} override${overrideCount > 1 ? 's' : ''} active` : 'Using Storvex defaults'}
-          </div>
-          <button style={S.revertBtn}
-            onClick={overrideCount > 0 ? handleRevertAll : undefined}
-            title={overrideCount > 0 ? `Reset all ${scope === 'site' ? 'site' : 'global'} overrides` : 'All inputs already at defaults'}>
-            <span style={{ fontSize: 16 }}>⚡</span>
-            Revert {scope === 'site' ? 'Site' : 'All'} Inputs
-          </button>
+          {selectedSite && siteOverrideCount > 0 && (
+            <button style={S.revertBtn}
+              onClick={handleRevertAll}
+              title="Reset all site overrides back to Storvex defaults">
+              <span style={{ fontSize: 16 }}>⚡</span>
+              Reset to Storvex
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ═══ PROPERTY SELECTOR + SCOPE ═══ */}
-      <div style={{ marginBottom: 20, padding: 20, borderRadius: 14, background: 'linear-gradient(135deg, rgba(15,21,56,0.7), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedSite ? '#E87A2E' : '#C9A84C', boxShadow: `0 0 8px ${selectedSite ? 'rgba(232,122,46,0.5)' : 'rgba(201,168,76,0.5)'}` }} />
-          <span style={{ fontSize: 10, fontWeight: 800, color: '#6B7394', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            {selectedSite ? 'Property-Level Pricing Inputs' : 'Select a Property'}
+      {/* ═══ PROPERTY SELECTOR ═══ */}
+      <div style={{ marginBottom: 24, padding: 24, borderRadius: 16, background: 'linear-gradient(135deg, rgba(15,21,56,0.8), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.2)', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: selectedSite ? '#C9A84C' : '#6B7394', boxShadow: selectedSite ? '0 0 12px rgba(201,168,76,0.6)' : 'none', transition: 'all 0.3s' }} />
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            Property
           </span>
+          {selectedSite && (
+            <span style={{ padding: '3px 12px', borderRadius: 20, background: siteOverrideCount > 0 ? 'rgba(232,122,46,0.15)' : 'rgba(22,163,74,0.12)', color: siteOverrideCount > 0 ? '#E87A2E' : '#16A34A', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', border: `1px solid ${siteOverrideCount > 0 ? 'rgba(232,122,46,0.25)' : 'rgba(22,163,74,0.2)'}` }}>
+              {siteOverrideCount > 0 ? `${siteOverrideCount} CUSTOM INPUT${siteOverrideCount !== 1 ? 'S' : ''}` : 'STORVEX DEFAULTS'}
+            </span>
+          )}
         </div>
         <select
           value={selectedSite?.id || ''}
           onChange={(e) => handleSiteSelect(e.target.value)}
           style={{
-            width: '100%', padding: '14px 18px', borderRadius: 10,
-            background: 'rgba(8,11,26,0.8)', border: '1px solid rgba(201,168,76,0.25)',
-            color: '#E2E8F0', fontSize: 14, fontWeight: 700, fontFamily: "'Inter', sans-serif",
-            cursor: 'pointer', appearance: 'none', outline: 'none', transition: 'border-color 0.2s',
-            backgroundImage: "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%23C9A84C%22 stroke-width=%221.5%22/></svg>')",
-            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center',
+            width: '100%', padding: '16px 20px', borderRadius: 12,
+            background: 'rgba(8,11,26,0.9)', border: selectedSite ? '2px solid rgba(201,168,76,0.35)' : '2px solid rgba(107,115,148,0.2)',
+            color: selectedSite ? '#E2E8F0' : '#6B7394', fontSize: 15, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+            cursor: 'pointer', appearance: 'none', outline: 'none', transition: 'all 0.3s',
+            backgroundImage: "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 14 14%22><path d=%22M2 5l5 5 5-5%22 fill=%22none%22 stroke=%22%23C9A84C%22 stroke-width=%222%22 stroke-linecap=%22round%22/></svg>')",
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 18px center',
+            boxShadow: selectedSite ? '0 0 20px rgba(201,168,76,0.1)' : 'none',
           }}>
-          <option value="" style={{ background: '#0A0E2A', color: '#6B7394' }}>-- Global Defaults (All Sites) --</option>
+          <option value="" style={{ background: '#0A0E2A', color: '#6B7394' }}>Select a property...</option>
           {(allSites || [])
             .slice()
             .sort((a, b) => (a.city || '').localeCompare(b.city || ''))
             .map(s => (
               <option key={s.id} value={s.id} style={{ background: '#0A0E2A', color: '#E2E8F0' }}>
                 {s.city || 'Unknown'}{s.state ? `, ${s.state}` : ''} — {s.name || s.address || s.id}
-                {s.overrides && Object.keys(s.overrides).length > 0 ? ` (${Object.keys(s.overrides).length} overrides)` : ''}
               </option>
             ))
           }
         </select>
         {selectedSite && (
-          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: '#6B7394' }}>
-            <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(232,122,46,0.12)', color: '#E87A2E', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
-              {siteOverrideCount > 0 ? `${siteOverrideCount} SITE OVERRIDE${siteOverrideCount !== 1 ? 'S' : ''}` : 'USING DEFAULTS'}
-            </span>
-            <span>Changes below apply to <strong style={{ color: '#E87A2E' }}>{selectedSite.name || selectedSite.city || 'this site'}</strong> only</span>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94A3B8' }}>
+              <span style={{ color: '#C9A84C', fontWeight: 800 }}>{selectedSite.acreage || '—'}</span> ac
+            </div>
+            <div style={{ width: 1, height: 14, background: 'rgba(201,168,76,0.15)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94A3B8' }}>
+              <span style={{ color: '#C9A84C', fontWeight: 800 }}>{selectedSite.askingPrice || '—'}</span>
+            </div>
+            <div style={{ width: 1, height: 14, background: 'rgba(201,168,76,0.15)' }} />
+            <div style={{ fontSize: 11, color: '#6B7394' }}>
+              Toggle any input below — changes save instantly to this property
+            </div>
           </div>
         )}
         {!selectedSite && (
-          <div style={{ marginTop: 10, fontSize: 11, color: '#6B7394', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(201,168,76,0.12)', color: '#C9A84C', fontWeight: 700, fontSize: 10, letterSpacing: '0.06em' }}>
-              {globalOverrideCount > 0 ? `${globalOverrideCount} GLOBAL OVERRIDE${globalOverrideCount !== 1 ? 'S' : ''}` : 'STORVEX DEFAULTS'}
-            </span>
-            <span>Changes apply to all new sites</span>
+          <div style={{ marginTop: 16, textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: 13, color: '#6B7394', marginBottom: 8 }}>Choose a property above to customize its pricing model</div>
+            <div style={{ fontSize: 11, color: '#4A5080' }}>Each property can have its own construction costs, market rates, cap rates, and operating assumptions</div>
           </div>
         )}
       </div>
 
       {/* ═══ STATUS BAR ═══ */}
-      <div style={S.statusBar}>
-        {scope === 'site' && selectedSite && (
-          <div style={S.statusItem('#E87A2E')}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E87A2E' }} />
-            Site: {selectedSite.name || selectedSite.address || selectedSite.id}
-          </div>
-        )}
-        <div style={S.statusItem(scope === 'site' ? '#E87A2E' : '#C9A84C')}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: scope === 'site' ? '#E87A2E' : '#C9A84C' }} />
-          {overrideCount} {scope === 'site' ? 'Site' : 'Global'} Override{overrideCount !== 1 ? 's' : ''}
+      {selectedSite && <div style={S.statusBar}>
+        <div style={S.statusItem('#C9A84C')}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#C9A84C' }} />
+          {selectedSite.city}{selectedSite.state ? `, ${selectedSite.state}` : ''}
+        </div>
+        <div style={S.statusItem(siteOverrideCount > 0 ? '#E87A2E' : '#16A34A')}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: siteOverrideCount > 0 ? '#E87A2E' : '#16A34A' }} />
+          {siteOverrideCount > 0 ? `${siteOverrideCount} Custom` : 'All Defaults'}
         </div>
         <div style={S.statusItem('#39FF14')}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#39FF14' }} />
-          {totalInputs - overrideCount} Defaults
+          {totalInputs - siteOverrideCount} Storvex
         </div>
         <div style={S.statusItem('#6B7394')}>
-          {scope === 'site' ? 'Changes apply to this site only' : 'Changes apply to all new sites'}
+          Changes save instantly — open Pricing Report to see results
         </div>
         <div style={{ flex: 1 }} />
         {/* Search */}
@@ -784,10 +791,19 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       </div>
 
-      {/* ═══ SECTION CARDS ═══ */}
-      {filteredSections.map(sec => {
+      {/* ═══ SECTION CARDS — only when a property is selected ═══ */}
+      {!selectedSite && (
+        <div style={{ textAlign: 'center', padding: '60px 20px', borderRadius: 16, background: 'rgba(15,21,56,0.4)', border: '1px dashed rgba(201,168,76,0.15)', marginTop: 8 }}>
+          <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.4 }}>&#9889;</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#6B7394', marginBottom: 8 }}>Select a Property to Begin</div>
+          <div style={{ fontSize: 12, color: '#4A5080', maxWidth: 500, margin: '0 auto', lineHeight: 1.7 }}>
+            Storvex populates market-calibrated defaults for every site. Use the dropdown above to select a property, then toggle any input to customize the financial model for that specific deal.
+          </div>
+        </div>
+      )}
+      {selectedSite && filteredSections.map(sec => {
         const isExpanded = expandedSection === sec.id || searchQuery.trim();
-        const secOverrides = sec.inputs.filter(inp => inp.key in localOverrides).length;
+        const secOverrides = sec.inputs.filter(inp => inp.key in activeOverrides).length;
 
         return (
           <div key={sec.id} style={S.sectionCard(isExpanded)} className="card-reveal">
