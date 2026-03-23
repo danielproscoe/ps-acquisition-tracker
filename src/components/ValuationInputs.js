@@ -528,25 +528,27 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     }),
     inputLabel: { fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     inputValue: (isOverridden) => ({
-      fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono', monospace",
+      fontSize: 24, fontWeight: 800, fontFamily: "'Space Mono', monospace",
       color: isOverridden ? '#E87A2E' : '#E2E8F0',
-      cursor: 'pointer', transition: 'all 0.15s',
+      cursor: 'text', transition: 'all 0.15s',
       letterSpacing: '-0.02em',
+      padding: '2px 6px', borderRadius: 6,
+      border: '1px solid transparent',
     }),
     inputDefault: { fontSize: 10, color: '#6B7394', marginTop: 4, fontWeight: 500 },
-    sliderTrack: { width: '100%', height: 4, borderRadius: 2, background: 'rgba(107,115,148,0.2)', marginTop: 8, position: 'relative', cursor: 'pointer' },
+    sliderTrack: { width: '100%', height: 8, borderRadius: 4, background: 'rgba(107,115,148,0.15)', marginTop: 10, position: 'relative', cursor: 'pointer' },
     sliderFill: (pct, isOverridden) => ({
-      position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 2,
+      position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 4,
       width: `${Math.max(0, Math.min(100, pct))}%`,
       background: isOverridden ? 'linear-gradient(90deg, #E87A2E, #C9A84C)' : 'linear-gradient(90deg, #2C3E6B, #42A5F5)',
-      transition: 'width 0.3s cubic-bezier(0.22,1,0.36,1)',
+      transition: 'width 0.2s cubic-bezier(0.22,1,0.36,1)',
     }),
     sliderThumb: (pct) => ({
-      position: 'absolute', top: -5, left: `calc(${Math.max(0, Math.min(100, pct))}% - 7px)`,
-      width: 14, height: 14, borderRadius: '50%',
-      background: '#E2E8F0', border: '2px solid #E87A2E',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-      transition: 'left 0.3s cubic-bezier(0.22,1,0.36,1)',
+      position: 'absolute', top: -6, left: `calc(${Math.max(0, Math.min(100, pct))}% - 10px)`,
+      width: 20, height: 20, borderRadius: '50%',
+      background: 'linear-gradient(135deg, #F4F6FA, #E2E8F0)', border: '3px solid #E87A2E',
+      boxShadow: '0 2px 12px rgba(232,122,46,0.4), 0 1px 4px rgba(0,0,0,0.3)',
+      transition: 'left 0.2s cubic-bezier(0.22,1,0.36,1)',
       cursor: 'grab',
     }),
     revertOneBtn: { padding: '2px 6px', borderRadius: 4, border: 'none', background: 'rgba(232,122,46,0.15)', color: '#E87A2E', fontSize: 9, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' },
@@ -590,7 +592,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
           )}
         </div>
 
-        {/* Value — click to edit inline */}
+        {/* Value — click to type, or use slider */}
         {isEditing ? (
           <input
             autoFocus
@@ -602,12 +604,14 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, input)}
             onBlur={() => handleBlur(input)}
-            style={{ ...S.inputValue(isOverridden), width: '100%', background: 'rgba(15,21,56,0.8)', border: '1px solid #E87A2E', borderRadius: 6, padding: '4px 8px', outline: 'none', fontSize: 18 }}
+            style={{ ...S.inputValue(isOverridden), width: '100%', background: 'rgba(232,122,46,0.08)', border: '2px solid #E87A2E', borderRadius: 8, padding: '6px 10px', outline: 'none', fontSize: 22, boxShadow: '0 0 20px rgba(232,122,46,0.15)' }}
           />
         ) : (
           <div style={S.inputValue(isOverridden)}
             onClick={() => { setEditingKey(input.key); setEditValue(rawToDisplay(input, val)); }}
-            title={input.tip || `Click to edit. Range: ${fmtVal(input, input.min)} – ${fmtVal(input, input.max)}`}>
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(232,122,46,0.3)'; e.currentTarget.style.background = 'rgba(232,122,46,0.04)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+            title={input.tip || 'Click to type a value directly'}>
             {fmtVal(input, val)}
             {input.unit && <span style={{ fontSize: 11, color: '#6B7394', fontWeight: 500, marginLeft: 4 }}>{input.unit}</span>}
           </div>
