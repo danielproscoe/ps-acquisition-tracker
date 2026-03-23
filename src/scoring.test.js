@@ -1273,7 +1273,7 @@ describe('Override flow-through pressure tests', () => {
     // Cheap land should have a favorable verdict
     expect(['STRONG BUY', 'BUY', 'NEGOTIATE']).toContain(cheap.landVerdict);
     // Expensive land should have unfavorable verdict
-    expect(['STRETCH', 'PASS']).toContain(expensive.landVerdict);
+    expect(['STRETCH', 'ABOVE STRIKE']).toContain(expensive.landVerdict);
   });
 
   test('NOI margin stays within PS benchmark range (70-85%) at default inputs', () => {
