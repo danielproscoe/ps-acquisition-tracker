@@ -651,7 +651,14 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
   };
 
   // ─── Helpers for Valuation tab ───
-  const fmtK = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(2)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v.toLocaleString()}`;
+  const fmtK = (v) => {
+    if (v == null || isNaN(v)) return '$0';
+    const abs = Math.abs(v);
+    const sign = v < 0 ? '-' : '';
+    if (abs >= 1000000) return `${sign}$${(abs / 1000000).toFixed(2)}M`;
+    if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(0)}K`;
+    return `${sign}$${abs.toLocaleString()}`;
+  };
   // ─── Sub-Tab Definitions ───
   const SUB_TABS = [
     { id: 'summary', label: 'Executive Summary', icon: '\u2605' },
@@ -785,7 +792,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
 
         {/* NPV & Board Metrics */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <MetricCard label="NPV at WACC (9.26%)" value={fmtK(Math.abs(f.npvAtWACC))} sub={f.npvAtWACC >= 0 ? 'Creates shareholder value' : 'Destroys value at WACC'} color={f.npvAtWACC >= 0 ? '#16A34A' : '#EF4444'} />
+          <MetricCard label="NPV at WACC (9.26%)" value={fmtK(f.npvAtWACC)} sub={f.npvAtWACC >= 0 ? 'Creates shareholder value' : 'Destroys value at WACC'} color={f.npvAtWACC >= 0 ? '#16A34A' : '#EF4444'} />
           <MetricCard label="Debt Yield" value={`${f.debtYield}%`} sub="Lender risk metric" />
           <MetricCard label="Dev Spread" value={`${f.devSpread} bps`} sub="YOC minus market cap" color={parseFloat(f.devSpread) > 0 ? '#16A34A' : '#EF4444'} />
           <MetricCard label="Build vs Buy" value={f.buildOrBuy ? f.buildOrBuy.split(' \u2014 ')[0] : 'N/A'} sub={f.replacementVsMarket ? `${f.replacementVsMarket}% vs stabilized value` : ''} />
