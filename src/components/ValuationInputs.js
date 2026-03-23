@@ -292,7 +292,7 @@ const rawToDisplay = (input, raw) => {
   return String(raw);
 };
 
-// ═══ MAIN COMPONENT ═══
+// --- MAIN COMPONENT ---
 // activeSite: the currently-viewed site object (null = no site selected)
 // activeRegion: "southwest" or "east" (Firebase path for the site)
 // allSites: array of all pipeline sites (for property dropdown)
@@ -499,7 +499,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     }
   }, [overrides]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ═══ STYLES ═══
+  // --- STYLES ---
   const S = {
     page: { animation: 'fadeIn 0.4s ease-out', maxWidth: 1200, margin: '0 auto', position: 'relative' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 16 },
@@ -637,7 +637,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
 
   return (
     <div ref={containerRef} style={S.page}>
-      {/* ═══ VOLTAGE OVERLAY ═══ */}
+      {/* --- VOLTAGE OVERLAY --- */}
       {voltageActive && (
         <div style={S.voltageOverlay}>
           {/* Horizontal discharge line */}
@@ -675,7 +675,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       )}
 
-      {/* ═══ HEADER ═══ */}
+      {/* --- HEADER --- */}
       <div style={S.header}>
         <div>
           <div style={S.title}>
@@ -700,7 +700,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       </div>
 
-      {/* ═══ PROPERTY SELECTOR ═══ */}
+      {/* --- PROPERTY SELECTOR --- */}
       <div style={{ marginBottom: 24, padding: 24, borderRadius: 16, background: 'linear-gradient(135deg, rgba(15,21,56,0.8), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.2)', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <div style={{ width: 10, height: 10, borderRadius: '50%', background: selectedSite ? '#C9A84C' : '#6B7394', boxShadow: selectedSite ? '0 0 12px rgba(201,168,76,0.6)' : 'none', transition: 'all 0.3s' }} />
@@ -759,7 +759,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         )}
       </div>
 
-      {/* ═══ STATUS BAR ═══ */}
+      {/* --- STATUS BAR --- */}
       {selectedSite && <div style={S.statusBar}>
         <div style={S.statusItem('#C9A84C')}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#C9A84C' }} />
@@ -791,7 +791,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         </div>
       </div>
 
-      {/* ═══ SECTION CARDS — only when a property is selected ═══ */}
+      {/* SECTION CARDS - only when a property is selected */}
       {!selectedSite && (
         <div style={{ textAlign: 'center', padding: '60px 20px', borderRadius: 16, background: 'rgba(15,21,56,0.4)', border: '1px dashed rgba(201,168,76,0.15)', marginTop: 8 }}>
           <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.4 }}>&#9889;</div>
@@ -842,7 +842,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
         );
       })}
 
-      {/* ═══ FOOTER — ENGINE STATUS ═══ */}
+      {/* --- FOOTER — ENGINE STATUS --- */}
       <div style={{ marginTop: 24, padding: '16px 20px', borderRadius: 12, background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7394', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Storvex Financial Engine</div>
