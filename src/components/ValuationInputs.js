@@ -697,25 +697,55 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
     );
     const f = financials;
     const noiMargin = f.stabRev > 0 ? ((f.stabNOI / f.stabRev) * 100).toFixed(1) : 'N/A';
-    const verdictBg = f.landVerdict === 'STRONG BUY' ? 'rgba(22,163,74,0.12)' : f.landVerdict === 'BUY' ? 'rgba(34,197,94,0.12)' : f.landVerdict === 'NEGOTIATE' ? 'rgba(245,158,11,0.12)' : f.landVerdict === 'STRETCH' ? 'rgba(232,122,46,0.12)' : f.landVerdict === 'ABOVE STRIKE' ? 'rgba(232,122,46,0.12)' : 'rgba(22,163,74,0.12)';
+
+    // ─── Smart Approval Logic — does this site meet PS investment criteria? ───
+    const yocNum = parseFloat(f.yocStab) || 0;
+    const irrNum = parseFloat(f.irrPct) || 0;
+    const dscrNum = parseFloat(f.dscrStab) || 0;
+    const noiMarginNum = parseFloat(noiMargin) || 0;
+    const meetsYOC = yocNum >= 7.5;
+    const meetsIRR = irrNum >= 10;
+    const meetsDSCR = dscrNum >= 1.25;
+    const isApproved = meetsYOC && meetsIRR && meetsDSCR;
+
+    // Build approval reasons
+    const approvalReasons = [];
+    if (meetsYOC) approvalReasons.push(`${yocNum.toFixed(1)}% YOC exceeds 7.5% floor`);
+    if (meetsIRR) approvalReasons.push(`${irrNum.toFixed(1)}% levered IRR above 10% threshold`);
+    if (meetsDSCR) approvalReasons.push(`${dscrNum}x DSCR provides lender comfort`);
+    if (noiMarginNum >= 70) approvalReasons.push(`${noiMargin}% NOI margin — PS operating platform`);
+
+    const concerns = [];
+    if (!meetsYOC) concerns.push(`YOC ${yocNum.toFixed(1)}% below 7.5% floor`);
+    if (!meetsIRR) concerns.push(`IRR ${irrNum.toFixed(1)}% below 10% threshold`);
+    if (!meetsDSCR) concerns.push(`DSCR ${dscrNum} below 1.25x lender minimum`);
+
+    const approvalLabel = isApproved ? 'APPROVED' : concerns.length <= 1 ? 'CONDITIONAL' : 'REVIEW REQUIRED';
+    const approvalColor = isApproved ? '#16A34A' : concerns.length <= 1 ? '#F59E0B' : '#E87A2E';
+    const approvalBg = isApproved ? 'rgba(22,163,74,0.10)' : concerns.length <= 1 ? 'rgba(245,158,11,0.10)' : 'rgba(232,122,46,0.10)';
+
     return (
       <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
         {/* Hero Section */}
         <div style={{ padding: '28px 32px', borderRadius: 16, background: 'linear-gradient(135deg, rgba(15,21,56,0.8), rgba(30,39,97,0.5))', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #C9A84C, #E87A2E, #C9A84C)' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: isApproved ? 'linear-gradient(90deg, #16A34A, #22C55E, #16A34A)' : 'linear-gradient(90deg, #C9A84C, #E87A2E, #C9A84C)' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: '#6B7394', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Investment Thesis</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#E2E8F0', letterSpacing: '-0.02em' }}>{selectedSite.name || selectedSite.address || 'Site'}</div>
               <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>{selectedSite.city}{selectedSite.state ? `, ${selectedSite.state}` : ''} {'\u2022'} {f.acres ? `${f.acres} acres` : ''} {'\u2022'} {f.isMultiStory ? `${f.stories}-Story` : '1-Story'} {'\u2022'} {f.totalSF?.toLocaleString()} NSF</div>
             </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              {f.landVerdict && (
-                <div style={{ padding: '8px 20px', borderRadius: 10, background: verdictBg, border: `1px solid ${f.verdictColor}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {f.landVerdict === 'APPROVED' && <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7.5" stroke="#16A34A" strokeWidth="1" fill="rgba(22,163,74,0.15)"/><path d="M4.5 8.5L6.5 10.5L11.5 5.5" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  <div style={{ fontSize: 14, fontWeight: 900, color: f.verdictColor, letterSpacing: '0.04em' }}>{f.landVerdict}</div>
-                </div>
-              )}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, minWidth: 220 }}>
+              <div style={{ padding: '8px 20px', borderRadius: 10, background: approvalBg, border: `1px solid ${approvalColor}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isApproved && <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke={approvalColor} strokeWidth="1.2" fill={`${approvalColor}20`}/><path d="M5 9.5L7.5 12L13 6" stroke={approvalColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                <div style={{ fontSize: 14, fontWeight: 900, color: approvalColor, letterSpacing: '0.04em' }}>{approvalLabel}</div>
+              </div>
+              <div style={{ fontSize: 10, color: '#94A3B8', textAlign: 'right', lineHeight: 1.5, maxWidth: 280 }}>
+                {isApproved
+                  ? approvalReasons.slice(0, 2).join(' \u2022 ')
+                  : concerns.join(' \u2022 ')
+                }
+              </div>
             </div>
           </div>
         </div>
