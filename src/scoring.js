@@ -454,8 +454,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const baseHardPerSF = isMultiStory
     ? (stories <= 3 ? O('hardCostMultiStory3', 68) : stories <= 4 ? O('hardCostMultiStory4', 78) : 95)
     : (climatePct >= 0.5 ? O('hardCostOneStoryClimate', 45) : O('hardCostOneStoryDrive', 28));
-  const hardCostPerSF = Math.round(baseHardPerSF * costIdx);
-  const hardCost = grossSF * hardCostPerSF; // Building shell + HVAC on gross SF
+  const hardCost = Math.round(grossSF * baseHardPerSF * costIdx); // Building shell + HVAC on gross SF
+  const hardCostPerSF = grossSF > 0 ? Math.round(hardCost / grossSF) : 0; // Display-only — derived from total
 
   // ── 2. Site Development (horizontal construction) ──
   // Grading/earthwork, paving (drives + parking + loading), stormwater detention,
@@ -650,7 +650,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const loanAmort = O('loanAmort', 25);
   const equityPct = 1 - loanLTV;
   const loanAmount = Math.round(totalDevCost * loanLTV);
-  const equityRequired = Math.round(totalDevCost * equityPct);
+  const equityRequired = totalDevCost - loanAmount; // Derived from loan to guarantee Sources = Uses balance exactly
   const monthlyLoanRate = loanRate / 12;
   const numPmts = loanAmort * 12;
   const monthlyPmt = loanAmount > 0 ? loanAmount * (monthlyLoanRate * Math.pow(1 + monthlyLoanRate, numPmts)) / (Math.pow(1 + monthlyLoanRate, numPmts) - 1) : 0;
@@ -715,8 +715,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     const grid = rentScenarios.map(r => occScenarios.map(o => {
       const adjOcc = Math.min(0.97, Math.max(0.50, 0.92 + o.adj));
       const esc4 = Math.pow(1 + annualEsc, 4);
-      const adjClimRate = mktClimateRate * esc4 * r.factor;
-      const adjDriveRate = mktDriveRate * esc4 * r.factor;
+      const adjClimRate = Math.round(mktClimateRate * esc4 * r.factor * 100) / 100;
+      const adjDriveRate = Math.round(mktDriveRate * esc4 * r.factor * 100) / 100;
       const ecri5 = 1 + (ecriSchedule[4] || 0.32); // Y5 ECRI from calibrated schedule
       const adjRev = Math.round((climateSF * adjOcc * adjClimRate * ecri5 * 12) + (driveSF * adjOcc * adjDriveRate * ecri5 * 12));
       const adjVarOpex = Math.round(adjRev * varPctSum);
