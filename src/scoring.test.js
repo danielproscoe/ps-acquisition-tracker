@@ -1220,7 +1220,8 @@ describe('Override flow-through pressure tests', () => {
 
   test('raising climate rate raises stabilized NOI and improves YOC', () => {
     const base = baseFinancials();
-    const bumped = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRatePremium: 2.00 });
+    // baseSite income=$75K → "upper" tier → uses climateRateUpper (default $1.25/SF/mo)
+    const bumped = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRateUpper: 2.00 });
     // Higher rent → higher revenue → higher NOI
     expect(bumped.stabNOI).toBeGreaterThan(base.stabNOI);
     // Higher NOI / same dev cost → higher YOC
@@ -1251,8 +1252,9 @@ describe('Override flow-through pressure tests', () => {
   });
 
   test('site-specific override takes precedence over global override', () => {
-    const globalOnly = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRatePremium: 2.00 });
-    const siteOverride = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRatePremium: 2.00 }, { climateRatePremium: 0.80 });
+    // baseSite income=$75K → "upper" tier → uses climateRateUpper
+    const globalOnly = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRateUpper: 2.00 });
+    const siteOverride = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { climateRateUpper: 2.00 }, { climateRateUpper: 0.80 });
     // Site override of $0.80 should override global $2.00
     expect(siteOverride.mktClimateRate).toBeLessThan(globalOnly.mktClimateRate);
   });
