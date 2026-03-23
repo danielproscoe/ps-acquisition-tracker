@@ -823,12 +823,13 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
             ))}
           </div>
           {f.landCost > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 14, padding: '10px 20px', borderRadius: 8, background: verdictBg, border: `1px solid ${f.verdictColor}20` }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 14, padding: '10px 20px', borderRadius: 8, background: approvalBg, border: `1px solid ${approvalColor}20` }}>
               <span style={{ fontSize: 12, color: '#94A3B8' }}>Asking: <strong style={{ color: '#E2E8F0' }}>{fmtK(f.landCost)}</strong></span>
               <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#6B7394' }} />
-              <span style={{ fontSize: 12, color: '#94A3B8' }}>vs Strike: <strong style={{ color: f.verdictColor }}>{f.askVsStrike ? (parseFloat(f.askVsStrike) > 0 ? '+' : '') + f.askVsStrike + '%' : 'N/A'}</strong></span>
+              <span style={{ fontSize: 12, color: '#94A3B8' }}>vs Strike: <strong style={{ color: approvalColor }}>{f.askVsStrike ? (parseFloat(f.askVsStrike) > 0 ? '+' : '') + f.askVsStrike + '%' : 'N/A'}</strong></span>
               <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#6B7394' }} />
-              <span style={{ fontSize: 13, fontWeight: 900, color: f.verdictColor }}>{f.landVerdict}</span>
+              {isApproved && <svg width="14" height="14" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke={approvalColor} strokeWidth="1.2" fill={`${approvalColor}20`}/><path d="M5 9.5L7.5 12L13 6" stroke={approvalColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              <span style={{ fontSize: 13, fontWeight: 900, color: approvalColor }}>{approvalLabel}</span>
             </div>
           )}
         </div>

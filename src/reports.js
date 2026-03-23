@@ -226,12 +226,12 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
   const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
-  const demoScore = (popN && incN) ? (popN >= 40000 && incN >= 60000 ? "PASS" : popN >= 20000 && incN >= 50000 ? "MARGINAL" : "BELOW THRESHOLD") : null;
-  const demoColor = demoScore === "PASS" ? "#16A34A" : demoScore === "MARGINAL" ? "#F59E0B" : "#EF4444";
+  const demoScore = (popN && incN) ? (popN >= 40000 && incN >= 60000 ? "MEETS CRITERIA" : popN >= 20000 && incN >= 50000 ? "MARGINAL" : "BELOW THRESHOLD") : null;
+  const demoColor = demoScore === "MEETS CRITERIA" ? "#16A34A" : demoScore === "MARGINAL" ? "#F59E0B" : "#EF4444";
   let sizingText = "TBD", sizingColor = "#94A3B8", sizingTag = "PENDING";
   if (!isNaN(acres)) {
-    if (acres >= 3.5 && acres <= 5) { sizingText = `${acres} ac — PRIMARY (one-story climate-controlled)`; sizingColor = "#16A34A"; sizingTag = "PASS"; }
-    else if (acres >= 2.5 && acres < 3.5) { sizingText = `${acres} ac — SECONDARY (multi-story 3-4 story)`; sizingColor = "#16A34A"; sizingTag = "PASS"; }
+    if (acres >= 3.5 && acres <= 5) { sizingText = `${acres} ac — PRIMARY (one-story climate-controlled)`; sizingColor = "#16A34A"; sizingTag = "MEETS CRITERIA"; }
+    else if (acres >= 2.5 && acres < 3.5) { sizingText = `${acres} ac — SECONDARY (multi-story 3-4 story)`; sizingColor = "#16A34A"; sizingTag = "MEETS CRITERIA"; }
     else if (acres < 2.5) { sizingText = `${acres} ac — Below minimum threshold`; sizingColor = "#EF4444"; sizingTag = "FAIL"; }
     else if (acres > 5 && acres <= 7) { sizingText = `${acres} ac — Viable if subdivisible`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
     else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
@@ -4101,7 +4101,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   if (compCount > 5) risks.push({ cat: "Competition", level: "MEDIUM", desc: `${compCount} competitors within 3mi — potential supply saturation`, color: "#F59E0B" });
   if (popN && popN < 15000) risks.push({ cat: "Demographics", level: "MEDIUM", desc: "3-mi population below 15K — limited demand pool", color: "#F59E0B" });
   if (growthPct < 0) risks.push({ cat: "Growth", level: "HIGH", desc: `Negative population growth (${growthPct}%) — declining market`, color: "#EF4444" });
-  if (landVerdict === "PASS") risks.push({ cat: "Pricing", level: "HIGH", desc: "Asking price exceeds strike by 30%+ — requires significant negotiation", color: "#EF4444" });
+  if (landVerdict === "ABOVE STRIKE") risks.push({ cat: "Pricing", level: "HIGH", desc: "Asking price exceeds strike by 30%+ — requires significant negotiation", color: "#EF4444" });
   else if (landVerdict === "STRETCH") risks.push({ cat: "Pricing", level: "MEDIUM", desc: "Asking price 15-30% above strike — tight underwriting", color: "#F59E0B" });
   if (!isNaN(acres) && acres < 2.5) risks.push({ cat: "Site", level: "HIGH", desc: "Below minimum acreage — insufficient for development", color: "#EF4444" });
 
