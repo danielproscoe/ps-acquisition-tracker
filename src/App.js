@@ -965,10 +965,10 @@ function AppInner() {
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
-                  <div onMouseEnter={() => site.latestNote && setHoveredCard(site.id)} onMouseLeave={() => setHoveredCard(null)} onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative" }}>
-                    {/* ── Latest Note Tooltip ── */}
-                    {hoveredCard === site.id && site.latestNote && (
-                      <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 18, right: 80, zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.2s ease-out" }}>
+                  <div className={site.latestNote ? "card-with-intel" : ""} onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative" }}>
+                    {/* ── Latest Note Tooltip (CSS :hover, no React state) ── */}
+                    {site.latestNote && (
+                      <div className="intel-tooltip" style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 18, right: 80, zIndex: 9999, pointerEvents: "none", opacity: 0, transform: "translateY(6px)", transition: "opacity 0.2s, transform 0.2s" }}>
                         <div style={{ borderRadius: 14, overflow: "hidden", boxShadow: "0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.15), 0 0 40px rgba(232,122,46,0.08)" }}>
                           <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 }}>
                             <span style={{ fontSize: 14 }}>🔥</span>

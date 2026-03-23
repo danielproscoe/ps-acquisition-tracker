@@ -304,7 +304,11 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
   const [selectedRegion, setSelectedRegion] = useState(activeRegion || null);
   const [editingKey, setEditingKey] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [expandedSections, setExpandedSections] = useState({ facility: true });
+  const [expandedSections, setExpandedSections] = useState(() => {
+    const init = {};
+    SECTIONS.forEach(s => { init[s.id] = true; });
+    return init;
+  });
   const [voltageActive, setVoltageActive] = useState(false);
   const [voltagePhase, setVoltagePhase] = useState(0); // 0=idle, 1=charging, 2=discharge, 3=cascade
   const [changedKeys, setChangedKeys] = useState(new Set());
