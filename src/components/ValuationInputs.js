@@ -617,20 +617,17 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
           </div>
         )}
 
-        {/* Slider track */}
-        <div style={S.sliderTrack}
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const clickPct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            const raw = input.min + clickPct * (input.max - input.min);
-            // Snap to step
-            const stepped = Math.round(raw / input.step) * input.step;
-            const clamped = Math.max(input.min, Math.min(input.max, stepped));
-            handleSave(input.key, clamped);
-          }}>
-          <div style={S.sliderFill(pct, isOverridden)} />
-          <div style={S.sliderThumb(pct)} />
-        </div>
+        {/* Native range slider — draggable, accessible, smooth */}
+        <input
+          type="range"
+          min={input.min}
+          max={input.max}
+          step={input.step}
+          value={val}
+          onChange={(e) => handleSave(input.key, parseFloat(e.target.value))}
+          className="storvex-slider"
+          style={{ width: '100%', marginTop: 8, cursor: 'pointer', accentColor: isOverridden ? '#E87A2E' : '#42A5F5' }}
+        />
 
         {/* Override delta — only when changed from default */}
         {isOverridden && (
