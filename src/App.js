@@ -3176,7 +3176,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         const barC = dim.score >= 8 ? "#22C55E" : dim.score >= 6 ? "#3B82F6" : dim.score >= 4 ? "#F59E0B" : "#EF4444";
                         const wPct = wSum > 0 ? ((dim.weight / wSum) * 100).toFixed(0) : "0";
                         const contrib = (dim.score * dim.weight / wSum).toFixed(2);
-                        const dimIcons = ["👥","📈","💰","🏠","🏡","🏷️","🏛","📍","🚗","🏪","🗺"];
+                        const dimIcons = ["👥","📈","💰","🏠","🏡","🏷️","🏛","📍","🚗","🏪"];
                         const isExpanded = scoreDimExpanded === dim.key;
                         const pN = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
                         const popRaw = pN(site.pop3mi); const pop1Raw = pN(site.pop1mi); const hhiRaw = pN(site.income3mi);
