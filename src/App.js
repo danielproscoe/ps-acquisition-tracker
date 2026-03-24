@@ -2937,7 +2937,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                 </div>
               </div>
 
-              {/* ═══ INTERACTIVE AERIAL MAP with PS Pins ═══ */}
+              {/* ═══ INTERACTIVE AERIAL MAP with PS Pins + Pipeline Prospects ═══ */}
               {site.coordinates && (() => {
                 const mapId = `leaflet-map-${site.id}`;
                 const coords = site.coordinates.split(",").map(c => parseFloat(c.trim()));
@@ -2949,18 +2949,34 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
                   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
                 };
+                // Gather all other tracker prospects with valid coordinates (excluding current site)
+                const otherProspects = [...sw.map(s => ({ ...s, _tracker: "DW" })), ...east.map(s => ({ ...s, _tracker: "MT" }))]
+                  .filter(s => s.id !== site.id && s.coordinates && s.phase !== "Dead" && s.phase !== "Declined")
+                  .map(s => {
+                    const c = s.coordinates.split(",").map(v => parseFloat(v.trim()));
+                    if (c.length !== 2 || isNaN(c[0]) || isNaN(c[1])) return null;
+                    return { ...s, _lat: c[0], _lng: c[1], _dist: haversine(siteLat, siteLng, c[0], c[1]) };
+                  }).filter(Boolean).sort((a, b) => a._dist - b._dist);
+                // Phase color mapping for prospect markers
+                const phaseColor = (phase) => {
+                  const m = { "Prospect": "#3B82F6", "Submitted to PS": "#8B5CF6", "SiteScore Approved": "#06B6D4", "LOI": "#F59E0B", "PSA Sent": "#F97316", "Under Contract": "#22C55E", "Closed": "#10B981" };
+                  return m[phase] || "#3B82F6";
+                };
                 return (
                   <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24, position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}>
-                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, display: "flex", gap: 8, alignItems: "center" }}>
-                      <div style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", color: "#fff", padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.2)" }}>INTERACTIVE AERIAL</div>
+                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", maxWidth: "calc(100% - 24px)" }}>
+                      <div style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(12px)", color: "#fff", padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.25)" }}>INTERACTIVE AERIAL</div>
                       <div style={{ background: "rgba(21,101,192,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span> SUBJECT SITE
                       </div>
                       <div style={{ background: "rgba(232,122,46,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1a1a1a", display: "inline-block", border: "1px solid #E87A2E" }}></span> PS LOCATIONS
                       </div>
+                      <div style={{ background: "rgba(59,130,246,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: 2, background: "#fff", display: "inline-block", transform: "rotate(45deg)" }}></span> PIPELINE PROSPECTS
+                      </div>
                     </div>
-                    <div id={mapId} style={{ width: "100%", height: 420 }} ref={(el) => {
+                    <div id={mapId} style={{ width: "100%", height: 480 }} ref={(el) => {
                       if (!el || el._leafletInit) return;
                       el._leafletInit = true;
                       // Load Leaflet CSS + JS from CDN
@@ -2974,10 +2990,16 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         const map = L.map(el, { zoomControl: true, attributionControl: false }).setView([siteLat, siteLng], 14);
                         L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(map);
                         L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.6 }).addTo(map);
-                        // Site marker — blue with white border + pulsing ring
-                        const siteIcon = L.divIcon({ className: "", html: '<div style="position:relative;width:32px;height:32px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:sitePulse 2s ease-in-out infinite"></div><div style="position:absolute;top:4px;left:4px;width:24px;height:24px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div><style>@keyframes sitePulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.5);opacity:0}}</style>', iconSize: [32, 32], iconAnchor: [16, 16] });
-                        L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(`<div style="font-weight:900;font-size:14px;color:#1565C0;letter-spacing:-0.01em">${site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${site.address || ""}, ${site.city || ""} ${site.state || ""}</div><div style="display:flex;gap:8px;margin-top:6px"><span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage ? site.acreage + " ac" : ""}</span>${site.askingPrice ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}</div>`);
-                        // Load PS locations and show nearby pins
+
+                        // ── Subject site marker — blue pulsing dot with HOVER tooltip ──
+                        const siteIcon = L.divIcon({ className: "", html: '<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.18);border-radius:50%;animation:sitePulse 2s ease-in-out infinite"></div><div style="position:absolute;inset:0;background:rgba(21,101,192,0.08);border-radius:50%;animation:sitePulse 2s ease-in-out infinite 0.5s"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 20px rgba(21,101,192,0.7)"></div></div><style>@keyframes sitePulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.8);opacity:0}}</style>', iconSize: [36, 36], iconAnchor: [18, 18] });
+                        const siteMarker = L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map);
+                        // Sleek hover tooltip
+                        siteMarker.bindTooltip(`<div style="min-width:200px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2px solid #fff;border-radius:50%;box-shadow:0 1px 6px rgba(21,101,192,0.5)"></div><span style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:#1565C0;text-transform:uppercase">Subject Site</span></div><div style="font-weight:900;font-size:13px;color:#0F172A;line-height:1.3">${site.address || site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${[site.city, site.state].filter(Boolean).join(", ")}</div>${site.acreage || site.askingPrice ? `<div style="display:flex;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid #E2E8F0">${site.acreage ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}</div>` : ""}</div>`, { direction: "top", offset: [0, -20], className: "site-tooltip-sleek", sticky: false });
+                        // Rich click popup
+                        siteMarker.bindPopup(`<div style="min-width:220px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #1565C0"><div style="width:14px;height:14px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2.5px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(21,101,192,0.5)"></div><span style="font-weight:900;font-size:14px;color:#1565C0;letter-spacing:-0.01em">SUBJECT SITE</span></div><div style="font-weight:800;font-size:13px;color:#0F172A">${site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${site.address || ""}, ${site.city || ""} ${site.state || ""}</div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${site.acreage ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}${site.zoning ? `<span style="font-size:11px;color:#065F46;font-weight:700;background:#D1FAE5;padding:2px 8px;border-radius:4px">${site.zoning}</span>` : ""}</div></div>`);
+
+                        // ── PS locations layer ──
                         fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
                           const lines = csv.trim().split("\n");
                           let psCount = 0;
@@ -2996,13 +3018,59 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                               marker.bindPopup(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">${pNum}</span></div><div style="font-size:12px;font-weight:600;color:#334155">${pName}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${pAddr}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">${dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>`);
                             }
                           }
-                          // Add count badge
+                          // Count badge (bottom-right) — PS locations
                           const badge = document.createElement("div");
-                          badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);color:#fff;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;align-items:center;gap:8px";
-                          badge.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:13px;font-weight:900;color:#1a1a1a">${psCount}</span><span>PS locations within 25 mi</span>`;
+                          badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>`;
                           el.appendChild(badge);
                         }).catch(() => {});
-                        // 3-mile radius ring
+
+                        // ── Pipeline prospects layer — diamond markers, zoom-aware ──
+                        const prospectGroup = L.layerGroup();
+                        let prospectCount = 0;
+                        const prospectBadgeEl = document.createElement("div");
+                        prospectBadgeEl.style.cssText = "position:absolute;bottom:52px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;gap:8px;min-width:180px;transition:opacity 0.3s;opacity:0";
+                        el.appendChild(prospectBadgeEl);
+
+                        otherProspects.forEach(p => {
+                          const pc = phaseColor(p.phase);
+                          const iq = getSiteScore(p);
+                          const scoreStr = iq && iq.score ? iq.score.toFixed(1) : "—";
+                          const scoreColor = iq && iq.score >= 8 ? "#22C55E" : iq && iq.score >= 6 ? "#3B82F6" : iq && iq.score >= 4 ? "#F59E0B" : "#EF4444";
+                          // Diamond marker — rotated square with phase-colored border
+                          const prospIcon = L.divIcon({
+                            className: "",
+                            html: `<div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:16px;background:rgba(15,23,42,0.85);border:2.5px solid ${pc};border-radius:3px;transform:rotate(45deg);box-shadow:0 2px 12px ${pc}55,0 0 0 1px ${pc}33"></div></div>`,
+                            iconSize: [28, 28],
+                            iconAnchor: [14, 14]
+                          });
+                          const m = L.marker([p._lat, p._lng], { icon: prospIcon, zIndexOffset: 500 });
+                          // Hover tooltip — sleek prospect card
+                          m.bindTooltip(`<div style="min-width:220px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid #E2E8F0"><div style="width:10px;height:10px;background:rgba(15,23,42,0.85);border:2px solid ${pc};border-radius:2px;transform:rotate(45deg)"></div><span style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:${pc};text-transform:uppercase">Pipeline Prospect</span><span style="margin-left:auto;font-size:9px;font-weight:700;color:#94A3B8;background:rgba(148,163,184,0.1);padding:1px 6px;border-radius:3px">${p._tracker}</span></div><div style="font-weight:800;font-size:12px;color:#0F172A;line-height:1.3">${p.name || p.address || "Prospect"}</div><div style="font-size:10px;color:#64748B;margin-top:2px">${[p.city, p.state].filter(Boolean).join(", ")}</div><div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;align-items:center">${p.phase ? `<span style="font-size:9px;font-weight:700;color:${pc};background:${pc}18;padding:2px 7px;border-radius:3px;border:1px solid ${pc}33">${p.phase}</span>` : ""}<span style="font-size:10px;font-weight:800;color:${scoreColor};background:${scoreColor}15;padding:2px 7px;border-radius:3px;border:1px solid ${scoreColor}33">${scoreStr}/10</span>${p.acreage ? `<span style="font-size:9px;font-weight:700;color:#475569;background:#F1F5F9;padding:2px 7px;border-radius:3px">${p.acreage} ac</span>` : ""}${p.askingPrice ? `<span style="font-size:9px;font-weight:700;color:#475569;background:#F1F5F9;padding:2px 7px;border-radius:3px">${p.askingPrice}</span>` : ""}</div><div style="margin-top:5px;font-size:10px;color:#1565C0;font-weight:700">${p._dist.toFixed(1)} mi from subject</div></div>`, { direction: "auto", offset: [0, -14], className: "prospect-tooltip-sleek" });
+                          // Click popup — full detail
+                          m.bindPopup(`<div style="min-width:240px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid ${pc}"><div style="width:12px;height:12px;background:rgba(15,23,42,0.85);border:2.5px solid ${pc};border-radius:2px;transform:rotate(45deg)"></div><span style="font-weight:900;font-size:13px;color:${pc}">PIPELINE PROSPECT</span><span style="margin-left:auto;font-size:10px;font-weight:700;background:rgba(148,163,184,0.1);color:#94A3B8;padding:2px 8px;border-radius:4px">${p._tracker} Tracker</span></div><div style="font-weight:800;font-size:14px;color:#0F172A">${p.name || "Prospect"}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${p.address || ""}, ${[p.city, p.state].filter(Boolean).join(", ")}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #E2E8F0">${p.acreage ? `<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">Acreage</div><div style="font-size:13px;font-weight:800;color:#0F172A">${p.acreage} ac</div></div>` : ""}<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">SiteScore</div><div style="font-size:13px;font-weight:800;color:${scoreColor}">${scoreStr}</div></div>${p.askingPrice ? `<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">Asking</div><div style="font-size:13px;font-weight:800;color:#0F172A">${p.askingPrice}</div></div>` : ""}<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">Phase</div><div style="font-size:12px;font-weight:700;color:${pc}">${p.phase || "Prospect"}</div></div></div><div style="margin-top:8px;padding-top:8px;border-top:1px solid #E2E8F0;display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:800;color:#1565C0">${p._dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8">from subject</span>${p.zoning ? `<span style="margin-left:auto;font-size:10px;font-weight:700;color:#065F46;background:#D1FAE5;padding:2px 8px;border-radius:4px">${p.zoning}</span>` : ""}</div></div>`);
+                          prospectGroup.addLayer(m);
+                          prospectCount++;
+                        });
+
+                        // Zoom-aware: show prospects at zoom ≤ 11, show/hide dynamically
+                        const updateProspectVisibility = () => {
+                          const z = map.getZoom();
+                          if (z <= 11 && !map.hasLayer(prospectGroup)) {
+                            map.addLayer(prospectGroup);
+                            prospectBadgeEl.style.opacity = "1";
+                          } else if (z > 11 && map.hasLayer(prospectGroup)) {
+                            map.removeLayer(prospectGroup);
+                            prospectBadgeEl.style.opacity = "0";
+                          }
+                        };
+                        map.on("zoomend", updateProspectVisibility);
+                        // Set prospect badge content
+                        prospectBadgeEl.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#3B82F6,#6366F1);border-radius:6px;font-size:12px;font-weight:900;color:#fff">${prospectCount}</span><span style="font-size:11px">Pipeline prospects</span><span style="font-size:9px;color:#64748B;margin-left:4px">(zoom out)</span>`;
+                        // Initial state — hidden at zoom 14
+                        updateProspectVisibility();
+
+                        // ── 3-mile radius ring ──
                         L.circle([siteLat, siteLng], { radius: 4828, color: "#C9A84C", weight: 2, opacity: 0.5, fillColor: "#C9A84C", fillOpacity: 0.04, dashArray: "8,6" }).addTo(map).bindPopup("<div style='font-weight:700;font-size:11px;color:#C9A84C'>3-Mile Radius</div><div style='font-size:10px;color:#64748B'>Primary trade area</div>");
                       };
                       if (!document.getElementById("leaflet-js")) {
