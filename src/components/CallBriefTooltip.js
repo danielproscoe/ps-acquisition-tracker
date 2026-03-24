@@ -3,6 +3,21 @@
 // Auto-saves to Firebase when closed or on blur
 import React, { useEffect, useRef } from "react";
 
+// Extract just the dollar amount from askingPrice strings like "$1,945,000 ($300K/ac — confirmed active...)"
+function cleanPrice(raw) {
+  if (!raw) return "—";
+  const s = String(raw).trim();
+  // Match first dollar amount pattern
+  const m = s.match(/^\$[\d,]+(?:\.\d+)?(?:\s*[MmKk])?/);
+  return m ? m[0] : (s.length > 16 ? s.substring(0, 16) + "…" : s);
+}
+
+// Truncate long text with ellipsis
+function trunc(s, max) {
+  if (!s) return "—";
+  return s.length > max ? s.substring(0, max) + "…" : s;
+}
+
 export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSave, onClose, getSiteScore }) {
   const iq = getSiteScore ? getSiteScore(site) : null;
   const score = iq?.composite ?? iq?.score ?? null;
@@ -19,18 +34,25 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
   const fmtN = (v) => { const n = Number(v); return isNaN(n) ? v : n.toLocaleString(); };
 
   const metrics = [
-    { label: "ASKING", value: site.askingPrice || "—" },
+    { label: "ASKING", value: cleanPrice(site.askingPrice) },
     { label: "ACRES", value: site.acreage ? `${site.acreage} ac` : "—" },
     { label: "3MI POP", value: site.pop3mi ? fmtN(site.pop3mi) : "—" },
     { label: "3MI HHI", value: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : `$${fmtN(site.income3mi)}`) : "—" },
   ];
 
+  // Clean zoning display — just district + classification, not the full overlay name
+  const zoningShort = site.zoning ? trunc(site.zoning.split("(")[0].trim(), 20) : "—";
+  const zoningClsShort = zoningCls ? zoningCls.replace(/-/g, " ") : "";
+
+  // Clean broker — just first name if multiple
+  const brokerShort = site.sellerBroker ? trunc(site.sellerBroker.split(",")[0].split("(")[0].trim(), 24) : null;
+
   const pills = [
-    { label: "ZONING", value: `${site.zoning || "—"}${zoningCls ? ` · ${zoningCls.replace(/-/g, " ")}` : ""}`, color: zoningColor },
+    { label: "ZONING", value: `${zoningShort}${zoningClsShort ? ` · ${zoningClsShort}` : ""}`, color: zoningColor },
     site.waterHookupStatus && { label: "WATER", value: site.waterHookupStatus.replace(/-/g, " "), color: waterColor },
-    site.sellerBroker && { label: "BROKER", value: site.sellerBroker, color: "#C9A84C" },
+    brokerShort && { label: "BROKER", value: brokerShort, color: "#C9A84C" },
     site.siteiqData?.nearestPS != null && { label: "NEAREST PS", value: `${site.siteiqData.nearestPS} mi`, color: "#818CF8" },
-    site.siteiqData?.competitorCount != null && { label: "COMPETITORS", value: `${site.siteiqData.competitorCount} within 3mi`, color: "#94A3B8" },
+    site.siteiqData?.competitorCount != null && { label: "COMP.", value: `${site.siteiqData.competitorCount} in 3mi`, color: "#94A3B8" },
   ].filter(Boolean);
 
   return (
@@ -57,10 +79,10 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
         <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ background: "none", border: "none", color: "#6B7394", fontSize: 14, cursor: "pointer", padding: "2px 6px", borderRadius: 4, lineHeight: 1 }} title="Close (Esc)">✕</button>
       </div>
 
-      {/* Key metrics row */}
+      {/* Key metrics row — minWidth:0 forces grid cells to respect overflow */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, padding: "0 12px 10px" }}>
         {metrics.map((m, i) => (
-          <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+          <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.05)", minWidth: 0, overflow: "hidden" }}>
             <div style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.1em", marginBottom: 2 }}>{m.label}</div>
             <div style={{ fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
           </div>
@@ -70,9 +92,9 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
       {/* Status pills */}
       <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", flexWrap: "wrap" }}>
         {pills.map((p, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: `${p.color}10`, padding: "4px 10px", borderRadius: 6, border: `1px solid ${p.color}25` }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>{p.label}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: p.color }}>{p.value}</span>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: `${p.color}10`, padding: "4px 10px", borderRadius: 6, border: `1px solid ${p.color}25`, maxWidth: "100%", overflow: "hidden" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em", flexShrink: 0 }}>{p.label}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: p.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.value}</span>
           </div>
         ))}
       </div>
