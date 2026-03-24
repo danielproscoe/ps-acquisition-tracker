@@ -2973,7 +2973,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1a1a1a", display: "inline-block", border: "1px solid #E87A2E" }}></span> PS LOCATIONS
                       </div>
                       <div style={{ background: "rgba(59,130,246,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: 2, background: "#fff", display: "inline-block", transform: "rotate(45deg)" }}></span> PIPELINE PROSPECTS
+                        <span style={{ width: 8, height: 8, borderRadius: 2, background: "#fff", display: "inline-block", transform: "rotate(45deg)", border: "1.5px solid #3B82F6", boxShadow: "0 0 4px rgba(59,130,246,0.5)" }}></span> PIPELINE PROSPECTS
                       </div>
                     </div>
                     <div id={mapId} style={{ width: "100%", height: 480 }} ref={(el) => {
@@ -3037,12 +3037,12 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                           const iq = getSiteScore(p);
                           const scoreStr = iq && iq.score ? iq.score.toFixed(1) : "—";
                           const scoreColor = iq && iq.score >= 8 ? "#22C55E" : iq && iq.score >= 6 ? "#3B82F6" : iq && iq.score >= 4 ? "#F59E0B" : "#EF4444";
-                          // Diamond marker — rotated square with phase-colored border
+                          // Diamond marker — bright white fill, phase-colored border, glow
                           const prospIcon = L.divIcon({
                             className: "",
-                            html: `<div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:16px;background:rgba(15,23,42,0.85);border:2.5px solid ${pc};border-radius:3px;transform:rotate(45deg);box-shadow:0 2px 12px ${pc}55,0 0 0 1px ${pc}33"></div></div>`,
-                            iconSize: [28, 28],
-                            iconAnchor: [14, 14]
+                            html: `<div style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;background:linear-gradient(135deg,#ffffff,#E0E7FF);border:3px solid ${pc};border-radius:3px;transform:rotate(45deg);box-shadow:0 0 14px ${pc}88,0 0 6px ${pc}44,0 2px 6px rgba(0,0,0,0.4)"></div></div>`,
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 16]
                           });
                           const m = L.marker([p._lat, p._lng], { icon: prospIcon, zIndexOffset: 500 });
                           // Hover tooltip — sleek prospect card
