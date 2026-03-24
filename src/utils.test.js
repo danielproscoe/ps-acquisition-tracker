@@ -96,7 +96,7 @@ describe('cleanPriority', () => {
 
 // ─── SiteScore Config ───
 describe('SITE_SCORE_DEFAULTS', () => {
-  test('has 10 dimensions', () => expect(SITE_SCORE_DEFAULTS.length).toBe(10));
+  test('has 9 dimensions', () => expect(SITE_SCORE_DEFAULTS.length).toBe(9));
   test('weights sum to ~1.0', () => {
     const sum = SITE_SCORE_DEFAULTS.reduce((s, d) => s + d.weight, 0);
     expect(sum).toBeCloseTo(1.0, 2);
@@ -114,7 +114,7 @@ describe('normalizeSiteScoreWeights', () => {
     const input = SITE_SCORE_DEFAULTS.map(d => ({ ...d, weight: 0 }));
     const result = normalizeSiteScoreWeights(input);
     // Should not crash, returns original
-    expect(result.length).toBe(10);
+    expect(result.length).toBe(9);
   });
 });
 

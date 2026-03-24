@@ -4296,6 +4296,19 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                 <button onClick={() => { setDetailView(null); navigateTo(dv.regionKey); }} style={{ padding: "12px 24px", borderRadius: 10, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↩ Back to Tracker</button>
                 <button disabled={!nextSite} onClick={() => { if (nextSite) { goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!nextSite), padding: "12px 24px" }}>{nextSite ? nextSite.name : "End"} →</button>
               </div>
+
+              {/* PERMANENTLY REMOVE SITE */}
+              <div style={{ display: "flex", justifyContent: "center", padding: "16px 0 32px", borderTop: "1px solid rgba(220,38,38,0.08)" }}>
+                <button onClick={() => {
+                  const confirmed = window.confirm(`PERMANENTLY REMOVE "${site.name}"?\n\nThis will delete the site from the ${dv.regionKey === "southwest" ? "Daniel Wollent" : "Matthew Toussaint"} tracker. This action cannot be undone.\n\nAre you sure?`);
+                  if (confirmed) {
+                    fbRemove(`${dv.regionKey}/${site.id}`);
+                    notify(`${site.name} permanently removed from tracker`);
+                    setDetailView(null);
+                    navigateTo(dv.regionKey);
+                  }
+                }} style={{ padding: "10px 28px", borderRadius: 8, background: "transparent", border: "1px solid rgba(220,38,38,0.25)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.1)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.25)"; }}>Permanently Remove Site</button>
+              </div>
             </div>
           );
         })()}
