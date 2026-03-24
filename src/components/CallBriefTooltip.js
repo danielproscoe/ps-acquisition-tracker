@@ -1,7 +1,8 @@
 // ─── CallBriefTooltip — McKinsey-level hover card with live-editable notes ───
 // Shows key site metrics + editable briefing notes on hover/click
 // Auto-saves to Firebase when closed or on blur
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 // Extract just the dollar amount from askingPrice strings like "$1,945,000 ($300K/ac — confirmed active...)"
 function cleanPrice(raw) {
@@ -18,7 +19,7 @@ function trunc(s, max) {
   return s.length > max ? s.substring(0, max) + "…" : s;
 }
 
-export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSave, onClose, getSiteScore }) {
+export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSave, onClose, getSiteScore, anchorId }) {
   const iq = getSiteScore ? getSiteScore(site) : null;
   const score = iq?.composite ?? iq?.score ?? null;
   const cls = score >= 8 ? "GREEN" : score >= 6 ? "YELLOW" : score >= 4 ? "ORANGE" : "RED";
@@ -29,8 +30,33 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
   const waterColor = waterStatus === "by-right" ? "#22C55E" : waterStatus === "by-request" ? "#FBBF24" : waterStatus === "no-provider" ? "#EF4444" : "#94A3B8";
 
   const textRef = useRef(null);
-  // Auto-focus textarea after a tick so it doesn't interfere with the click event
-  useEffect(() => { const t = setTimeout(() => { if (textRef.current) textRef.current.focus(); }, 50); return () => clearTimeout(t); }, []);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+
+  // Position the tooltip below the anchor card element
+  useEffect(() => {
+    const el = anchorId ? document.getElementById(anchorId) : null;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setPos({ top: r.bottom + window.scrollY + 2, left: r.left + window.scrollX, width: r.width });
+    }
+  }, [anchorId]);
+
+  // Auto-focus textarea after a tick
+  useEffect(() => { const t = setTimeout(() => { if (textRef.current) textRef.current.focus(); }, 100); return () => clearTimeout(t); }, []);
+
+  // Close on click outside
+  useEffect(() => {
+    const handler = (e) => {
+      // If clicking outside the tooltip and not on the BRIEF badge
+      const tooltip = document.getElementById("call-brief-portal");
+      if (tooltip && !tooltip.contains(e.target) && !e.target.closest("[data-brief-badge]")) {
+        onSave(briefDraft);
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [briefDraft, onSave, onClose]);
 
   const fmtN = (v) => { const n = Number(v); return isNaN(n) ? v : n.toLocaleString(); };
 
@@ -56,10 +82,10 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
     site.siteiqData?.competitorCount != null && { label: "COMP.", value: `${site.siteiqData.competitorCount} in 3mi`, color: "#94A3B8" },
   ].filter(Boolean);
 
-  return (
-    <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} style={{
-      position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
-      marginTop: 2, borderRadius: 14, overflow: "hidden",
+  return createPortal(
+    <div id="call-brief-portal" style={{
+      position: "absolute", top: pos.top, left: pos.left, width: pos.width || "auto", zIndex: 99999,
+      borderRadius: 14, overflow: "hidden",
       background: "linear-gradient(170deg, #0c0e1a 0%, #111827 50%, #0f1629 100%)",
       border: "1px solid rgba(201,168,76,0.2)",
       boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08), 0 0 40px rgba(201,168,76,0.04)",
@@ -128,6 +154,7 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
           onFocus={(e) => { e.target.style.borderColor = "rgba(232,122,46,0.3)"; }}
         />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

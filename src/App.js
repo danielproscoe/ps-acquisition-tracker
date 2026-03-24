@@ -1117,6 +1117,7 @@ function AppInner() {
                             transition: "all 0.15s", letterSpacing: "0.04em", userSelect: "none",
                           }}
                           title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}
+                          data-brief-badge="true"
                         >
                           {site.callBrief ? "BRIEF" : "+BRIEF"}
                         </span>
@@ -1152,6 +1153,7 @@ function AppInner() {
                   {hoveredBrief === site.id && (
                     <CallBriefTooltip
                       site={site}
+                      anchorId={`site-${site.id}`}
                       briefDraft={briefDraft}
                       setBriefDraft={setBriefDraft}
                       getSiteScore={getSiteScore}
