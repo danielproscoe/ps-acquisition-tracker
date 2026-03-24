@@ -1,7 +1,90 @@
 // ─── SiteScore Badge Component ───
 // Extracted from App.js for modular component architecture
-// v2: Clickable bars with source attribution popovers
-import React, { useState } from "react";
+// v3: Portal-based popovers — immune to parent overflow clipping
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+
+// Portal popover — renders to document.body so it's never clipped
+function SourcePopover({ anchorRef, bd, color, onClose }) {
+  const [pos, setPos] = useState(null);
+  const popRef = useRef(null);
+
+  useEffect(() => {
+    if (!anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    // Position below the bar, centered
+    setPos({ top: rect.bottom + 8 + window.scrollY, left: rect.left + rect.width / 2 - 140 + window.scrollX });
+  }, [anchorRef]);
+
+  // Clamp to viewport on mount
+  useEffect(() => {
+    if (!popRef.current || !pos) return;
+    const r = popRef.current.getBoundingClientRect();
+    let left = pos.left;
+    if (r.right > window.innerWidth - 12) left = pos.left - (r.right - window.innerWidth + 12);
+    if (r.left < 12) left = 12;
+    if (left !== pos.left) setPos(p => ({ ...p, left }));
+  }, [pos]);
+
+  if (!pos || !bd) return null;
+  const c = color;
+
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 99998 }} />
+      {/* Popover */}
+      <div ref={popRef} onClick={(e) => e.stopPropagation()} style={{
+        position: "absolute", top: pos.top, left: pos.left,
+        width: 280, padding: "12px 14px", borderRadius: 10,
+        background: "linear-gradient(135deg, rgba(10,10,20,0.98), rgba(15,21,56,0.98))",
+        border: `1px solid ${c}40`, boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 12px ${c}15`,
+        zIndex: 99999, animation: "fadeIn 0.15s ease-out",
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#E2E8F0", letterSpacing: "0.06em" }}>{bd.label}</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: c, fontFamily: "'Space Mono', monospace" }}>{bd.score}/10</span>
+          </div>
+          {bd.verified
+            ? <span style={{ fontSize: 7, fontWeight: 800, color: "#22C55E", background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 3, letterSpacing: "0.08em" }}>VERIFIED</span>
+            : <span style={{ fontSize: 7, fontWeight: 800, color: "#F59E0B", background: "rgba(245,158,11,0.15)", padding: "2px 6px", borderRadius: 3, letterSpacing: "0.08em" }}>UNVERIFIED</span>
+          }
+        </div>
+        {/* Raw value */}
+        {bd.rawValue && (
+          <div style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 6, padding: "6px 10px", marginBottom: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{bd.rawValue}</div>
+          </div>
+        )}
+        {/* Source */}
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 7, fontWeight: 800, color: "#4A5080", letterSpacing: "0.12em", marginBottom: 2 }}>DATA SOURCE</div>
+          <div style={{ fontSize: 10, color: "#E2E8F0", fontWeight: 600 }}>{bd.source}</div>
+        </div>
+        {/* Methodology */}
+        <div style={{ marginBottom: bd.url ? 6 : 0 }}>
+          <div style={{ fontSize: 7, fontWeight: 800, color: "#4A5080", letterSpacing: "0.12em", marginBottom: 2 }}>METHODOLOGY</div>
+          <div style={{ fontSize: 9, color: "#94A3B8", lineHeight: 1.5 }}>{bd.methodology}</div>
+        </div>
+        {/* Scoring logic */}
+        <div style={{ marginBottom: bd.url ? 6 : 0 }}>
+          <div style={{ fontSize: 7, fontWeight: 800, color: "#4A5080", letterSpacing: "0.12em", marginBottom: 2 }}>SCORING LOGIC</div>
+          <div style={{ fontSize: 9, color: "#94A3B8", lineHeight: 1.5 }}>{bd.reason}</div>
+        </div>
+        {/* Source URL if available */}
+        {bd.url && (
+          <div>
+            <div style={{ fontSize: 7, fontWeight: 800, color: "#4A5080", letterSpacing: "0.12em", marginBottom: 2 }}>SOURCE URL</div>
+            <a href={bd.url} target="_blank" rel="noreferrer" style={{ fontSize: 9, color: "#3B82F6", wordBreak: "break-all" }}>{bd.url}</a>
+          </div>
+        )}
+      </div>
+    </>,
+    document.body
+  );
+}
 
 export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, computeSiteScore }) {
   const iq = iqProp || (computeSiteScore ? computeSiteScore(site) : { score: 0, tier: "gray", label: "N/A", flags: [], scores: {}, classification: "", breakdown: [] });
@@ -9,6 +92,7 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
   const isGold = iq.tier === "gold";
   const isSmall = size === "small";
   const [activeBar, setActiveBar] = useState(null);
+  const barRefs = useRef({});
 
   const tierColors = {
     gold: { bg: "linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)", glow: "0 0 24px rgba(201,168,76,0.5), 0 0 48px rgba(201,168,76,0.2), 0 0 4px rgba(255,215,0,0.8)", text: "#0a0a0a", ring: "#C9A84C", labelBg: "linear-gradient(135deg, #FFFBEB, #FFF8ED)" },
@@ -17,8 +101,12 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
   };
   const tc = tierColors[iq.tier] || tierColors.gray;
 
-  // Get breakdown info for a dimension key
   const getBreakdown = (key) => (iq.breakdown || []).find(b => b.key === key);
+
+  const handleBarClick = useCallback((e, key) => {
+    e.stopPropagation();
+    setActiveBar(prev => prev === key ? null : key);
+  }, []);
 
   if (isSmall) {
     return (
@@ -52,8 +140,11 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
     { key: "marketTier", label: "MKT" },
   ];
 
+  const activeBd = activeBar ? getBreakdown(activeBar) : null;
+  const activeColor = activeBar ? (() => { const v = iq.scores[activeBar] || 0; return v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444"; })() : "#F37C33";
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", position: "relative" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
       {/* Score Circle */}
       <div style={{
         position: "relative",
@@ -100,74 +191,33 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
             ))}
           </div>
         )}
-        <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "flex-end", height: 64, position: "relative" }}>
+        <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "flex-end", height: 64 }}>
           {dims.map((f) => {
             const v = iq.scores[f.key] || 0;
             const pct = Math.max(8, (v / 10) * 100);
             const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
-            const bd = getBreakdown(f.key);
             const isActive = activeBar === f.key;
             return (
-              <div key={f.key} onClick={(e) => { e.stopPropagation(); setActiveBar(isActive ? null : f.key); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 24, cursor: "pointer", position: "relative", zIndex: isActive ? 100 : 1 }}>
+              <div key={f.key} ref={el => { barRefs.current[f.key] = el; }} onClick={(e) => handleBarClick(e, f.key)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 24, cursor: "pointer" }}>
                 <div style={{ fontSize: 9, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
                 <div style={{ width: isActive ? 20 : 16, height: 40, borderRadius: 4, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden", transition: "width 0.15s ease", border: isActive ? `1px solid ${c}80` : "1px solid transparent" }}>
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 4, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 8px ${c}50` : "none" }} />
                 </div>
                 <div style={{ fontSize: 8, fontWeight: 700, color: isActive ? c : "#94A3B8", letterSpacing: "0.02em", lineHeight: 1, transition: "color 0.15s" }}>{f.label}</div>
-                {/* Source popover */}
-                {isActive && bd && (
-                  <div onClick={(e) => e.stopPropagation()} style={{
-                    position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
-                    width: 280, padding: "12px 14px", borderRadius: 10,
-                    background: "linear-gradient(135deg, rgba(10,10,20,0.98), rgba(15,21,56,0.98))",
-                    border: `1px solid ${c}40`, boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 12px ${c}15`,
-                    zIndex: 1000, animation: "fadeIn 0.15s ease-out",
-                  }}>
-                    {/* Arrow */}
-                    <div style={{ position: "absolute", top: -6, left: "50%", transform: "translateX(-50%)", width: 12, height: 12, background: "rgba(10,10,20,0.98)", border: `1px solid ${c}40`, borderRight: "none", borderBottom: "none", transform: "translateX(-50%) rotate(45deg)" }} />
-                    {/* Header */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "#E2E8F0", letterSpacing: "0.06em" }}>{bd.label}</span>
-                        <span style={{ fontSize: 16, fontWeight: 900, color: c, fontFamily: "'Space Mono', monospace" }}>{v}/10</span>
-                      </div>
-                      {bd.verified
-                        ? <span style={{ fontSize: 7, fontWeight: 800, color: "#22C55E", background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 3, letterSpacing: "0.08em" }}>VERIFIED</span>
-                        : <span style={{ fontSize: 7, fontWeight: 800, color: "#F59E0B", background: "rgba(245,158,11,0.15)", padding: "2px 6px", borderRadius: 3, letterSpacing: "0.08em" }}>UNVERIFIED</span>
-                      }
-                    </div>
-                    {/* Raw value */}
-                    {bd.rawValue && (
-                      <div style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 6, padding: "6px 10px", marginBottom: 8 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{bd.rawValue}</div>
-                      </div>
-                    )}
-                    {/* Source */}
-                    <div style={{ marginBottom: 6 }}>
-                      <div style={{ fontSize: 7, fontWeight: 800, color: "#4A5080", letterSpacing: "0.12em", marginBottom: 2 }}>DATA SOURCE</div>
-                      <div style={{ fontSize: 10, color: "#E2E8F0", fontWeight: 600 }}>{bd.source}</div>
-                    </div>
-                    {/* Methodology */}
-                    <div style={{ marginBottom: bd.url ? 6 : 0 }}>
-                      <div style={{ fontSize: 7, fontWeight: 800, color: "#4A5080", letterSpacing: "0.12em", marginBottom: 2 }}>METHODOLOGY</div>
-                      <div style={{ fontSize: 9, color: "#94A3B8", lineHeight: 1.5 }}>{bd.methodology}</div>
-                    </div>
-                    {/* Source URL if available */}
-                    {bd.url && (
-                      <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, color: "#4A5080", letterSpacing: "0.12em", marginBottom: 2 }}>SOURCE URL</div>
-                        <a href={bd.url} target="_blank" rel="noreferrer" style={{ fontSize: 9, color: "#3B82F6", wordBreak: "break-all" }}>{bd.url}</a>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       </div>
-      {/* Click-away overlay to close popover */}
-      {activeBar && <div onClick={() => setActiveBar(null)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />}
+      {/* Portal-based popover */}
+      {activeBar && activeBd && (
+        <SourcePopover
+          anchorRef={{ current: barRefs.current[activeBar] }}
+          bd={activeBd}
+          color={activeColor}
+          onClose={() => setActiveBar(null)}
+        />
+      )}
     </div>
   );
 }
