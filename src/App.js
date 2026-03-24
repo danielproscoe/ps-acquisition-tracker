@@ -2996,12 +2996,21 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         const siteMarker = L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map);
                         // Compute SF/capita (current & projected 5-year)
                         const _pop3 = parseFloat(String(site.pop3mi || "").replace(/[^0-9.]/g, ""));
-                        const _compSfRaw = String(site.competingSF || site.demandSupplySignal || "").replace(/[^0-9]/g, "");
-                        const _compSf = _compSfRaw ? parseFloat(_compSfRaw) : NaN;
+                        // Parse competing SF — extract first number with K/M suffix, or look for SPC: X.X pattern
+                        const _compStr = String(site.competingSF || site.demandSupplySignal || "");
+                        const _spcDirect = _compStr.match(/SPC:\s*([\d.]+)/i);
+                        let _compSf = NaN;
+                        let _directSpc = _spcDirect ? parseFloat(_spcDirect[1]) : null;
+                        if (!_directSpc) {
+                          const _sfMatch = _compStr.match(/~?([\d,.]+)\s*[Kk]/);
+                          if (_sfMatch) { _compSf = parseFloat(_sfMatch[1].replace(/,/g, "")) * 1000; }
+                          else { const _sfMatch2 = _compStr.match(/~?([\d,.]+)\s*(?:SF|sf|sq)/); if (_sfMatch2) _compSf = parseFloat(_sfMatch2[1].replace(/,/g, "")); }
+                        }
                         const _growthPct = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : NaN;
-                        const _spcNow = (!isNaN(_pop3) && _pop3 > 0 && !isNaN(_compSf)) ? (_compSf / _pop3).toFixed(1) : null;
+                        const _spcNow = _directSpc ? _directSpc.toFixed(1) : ((!isNaN(_pop3) && _pop3 > 0 && !isNaN(_compSf)) ? (_compSf / _pop3).toFixed(1) : null);
                         const _pop5yr = (!isNaN(_pop3) && !isNaN(_growthPct)) ? Math.round(_pop3 * Math.pow(1 + _growthPct / 100, 5)) : NaN;
-                        const _spc5yr = (!isNaN(_pop5yr) && _pop5yr > 0 && !isNaN(_compSf)) ? (_compSf / _pop5yr).toFixed(1) : null;
+                        const _spc5yrCalc = _directSpc ? (_directSpc * _pop3 / _pop5yr) : (!isNaN(_compSf) ? _compSf / _pop5yr : NaN);
+                        const _spc5yr = (!isNaN(_pop5yr) && _pop5yr > 0 && !isNaN(_spc5yrCalc)) ? _spc5yrCalc.toFixed(1) : null;
                         const _spcColor = (v) => !v ? "#94A3B8" : parseFloat(v) < 5 ? "#22C55E" : parseFloat(v) < 9 ? "#3B82F6" : "#EF4444";
                         const _spcLabel = (v) => !v ? "" : parseFloat(v) < 5 ? "Underserved" : parseFloat(v) < 9 ? "Equilibrium" : "Oversupplied";
                         const _spcRow = (_spcNow || _spc5yr) ? `<div style="margin-top:6px;padding-top:5px;border-top:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><span style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.06em">SF / CAPITA (3-MI)</span></div><div style="display:flex;gap:8px;align-items:baseline">${_spcNow ? `<div><span style="font-size:14px;font-weight:900;color:${_spcColor(_spcNow)}">${_spcNow}</span><span style="font-size:9px;color:#94A3B8;margin-left:3px">now</span></div>` : ""}${_spc5yr ? `<div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:#94A3B8">\u2192</span><span style="font-size:14px;font-weight:900;color:${_spcColor(_spc5yr)}">${_spc5yr}</span><span style="font-size:9px;color:#94A3B8;margin-left:3px">5yr proj</span></div>` : ""}</div>${_spcNow ? `<div style="font-size:9px;font-weight:700;color:${_spcColor(_spcNow)};margin-top:2px">${_spcLabel(_spcNow)}${_spc5yr && _spcLabel(_spc5yr) !== _spcLabel(_spcNow) ? ` \u2192 ${_spcLabel(_spc5yr)}` : ""}</div>` : ""}</div>` : "";
