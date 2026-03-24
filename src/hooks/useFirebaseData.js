@@ -31,6 +31,8 @@ export function useFirebaseData({ onWeightsChange }) {
   const [iqWeights, setIqWeights] = useState(
     SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip }))
   );
+  const [killedSites, setKilledSites] = useState([]);
+  const [declinePatterns, setDeclinePatterns] = useState([]);
 
   // ─── FIREBASE AUTH — anonymous sign-in ───
   useEffect(() => {
@@ -65,6 +67,8 @@ export function useFirebaseData({ onWeightsChange }) {
     const eastRef = ref(db, "east");
     const swRef = ref(db, "southwest");
     const iqRef = ref(db, "config/siteiq_weights");
+    const killedRef = ref(db, "config/killed_sites");
+    const calibRef = ref(db, "config/scoring_calibration");
 
     // Pending initial data — buffer updates until all 3 data listeners fire.
     const pendingRef = { subs: [], east: [], sw: [] };
@@ -92,6 +96,20 @@ export function useFirebaseData({ onWeightsChange }) {
         setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
         setConfigVersion(v => v + 1);
       }
+    });
+
+    // ─── KILLED SITES LISTENER — dedup & learning ───
+    const unsubKilled = onValue(killedRef, (snap) => {
+      const val = snap.val();
+      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, _id: id })) : [];
+      setKilledSites(arr);
+    });
+
+    // ─── SCORING CALIBRATION LISTENER — decline pattern analytics ───
+    const unsubCalib = onValue(calibRef, (snap) => {
+      const val = snap.val();
+      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, _id: id })) : [];
+      setDeclinePatterns(arr);
     });
 
     const unsubSubs = onValue(subsRef, (snap) => {
@@ -133,6 +151,8 @@ export function useFirebaseData({ onWeightsChange }) {
       unsubEast();
       unsubSw();
       unsubIQ();
+      unsubKilled();
+      unsubCalib();
     };
   }, [authReady]); // onWeightsChange stabilized via ref — no longer a dependency
 
@@ -162,6 +182,7 @@ export function useFirebaseData({ onWeightsChange }) {
     sw, setSw,
     configVersion, setConfigVersion,
     iqWeights, setIqWeights,
+    killedSites, declinePatterns,
     fbSet, fbUpdate, fbPush, fbRemove,
   };
 }
