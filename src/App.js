@@ -104,6 +104,7 @@ function AppInner() {
     sw, setSw,
     configVersion, setConfigVersion,
     iqWeights, setIqWeights,
+    killedSites, declinePatterns,
     fbSet, fbUpdate, fbPush, fbRemove,
   } = useFirebaseData({
     onWeightsChange: (normalized) => {
@@ -527,16 +528,19 @@ function AppInner() {
       notify("Fill name, address, city, state.");
       return;
     }
-    if (!form.listingUrl) {
-      notify("Listing URL is required. Add the Crexi or LoopNet link.");
-      return;
-    }
     // Field-level validation
     if (!isValidState(form.state)) { notify("Invalid state abbreviation."); return; }
     if (form.coordinates && !isValidCoordinates(form.coordinates)) { notify("Invalid coordinates format. Use: lat, lng"); return; }
     if (form.askingPrice && !isValidPrice(form.askingPrice)) { notify("Invalid asking price."); return; }
     if (form.acreage && !isValidAcreage(form.acreage)) { notify("Invalid acreage value."); return; }
     if (!REGIONS[form.region]) { notify("Invalid region."); return; }
+
+    // Killed site dedup check — prevent re-submitting discarded sites
+    const killed = isKilledSite(form.address, form.coordinates);
+    if (killed) {
+      const killedDate = killed.killedAt ? new Date(killed.killedAt).toLocaleDateString() : "unknown date";
+      if (!window.confirm(`This site was previously discarded on ${killedDate}.\nReason: ${killed.declineReason || "Unknown"}\n${killed.psFeedback ? `PS Feedback: ${killed.psFeedback}\n` : ""}\nSubmit anyway?`)) return;
+    }
 
     const now = new Date().toISOString();
     const id = uid();
@@ -812,6 +816,86 @@ function AppInner() {
       console.error(err);
       notify(`Error discarding sites: ${err.message}`);
     });
+  };
+
+  // ─── DECLINE PATTERN LEARNING ENGINE ───
+  // Analyzes historical decline reasons to surface insights and prevent re-submission
+  const getDeclineInsights = useCallback(() => {
+    if (!declinePatterns || declinePatterns.length === 0) return { topReasons: [], byState: {}, total: 0, recentTrend: "" };
+    const declines = declinePatterns.filter(d => d.action === "declined_by_dan" || d.action === "rejected_by_ps");
+    const reasonCounts = {};
+    const stateCounts = {};
+    const stateReasons = {};
+    declines.forEach(d => {
+      const r = d.reason || "Other";
+      reasonCounts[r] = (reasonCounts[r] || 0) + 1;
+      const st = d.state || "Unknown";
+      stateCounts[st] = (stateCounts[st] || 0) + 1;
+      if (!stateReasons[st]) stateReasons[st] = {};
+      stateReasons[st][r] = (stateReasons[st][r] || 0) + 1;
+    });
+    const topReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([reason, count]) => ({ reason, count, pct: Math.round((count / declines.length) * 100) }));
+    // Recent trend (last 30 days vs prior)
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 86400000;
+    const recent = declines.filter(d => d.ts && new Date(d.ts).getTime() > thirtyDaysAgo).length;
+    const prior = declines.length - recent;
+    const recentTrend = recent > prior * 1.5 ? "increasing" : recent < prior * 0.5 ? "decreasing" : "stable";
+    return { topReasons, byState: stateCounts, stateReasons, total: declines.length, recentTrend, recent };
+  }, [declinePatterns]);
+
+  // Check if a site address/coordinates match a previously killed site
+  const isKilledSite = useCallback((address, coordinates) => {
+    if (!killedSites || killedSites.length === 0) return null;
+    const addrNorm = (address || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const k of killedSites) {
+      const kAddr = (k.address || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (addrNorm && kAddr && addrNorm === kAddr) return k;
+      if (coordinates && k.coordinates && coordinates === k.coordinates) return k;
+    }
+    return null;
+  }, [killedSites]);
+
+  // Smart discard: logs to killed_sites + learns pattern + removes
+  const handleSmartDiscard = (id) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) { fbRemove(`submissions/${id}`); return; }
+    const reason = site.psRejectReason || site.declineReason || "Discarded";
+    // Log to killed sites registry
+    fbPush("config/killed_sites", {
+      siteId: id,
+      name: site.name || "",
+      address: site.address || "",
+      city: site.city || "",
+      state: site.state || "",
+      coordinates: site.coordinates || "",
+      declineReason: reason,
+      psFeedback: site.psFeedback || "",
+      psRejectedBy: site.psRejectedBy || "",
+      siteScore: site.siteScoreAtDecline || null,
+      killedAt: new Date().toISOString(),
+      // Learning fields
+      zoningClassification: site.zoningClassification || "",
+      pop3mi: site.pop3mi || "",
+      income3mi: site.income3mi || "",
+      acreage: site.acreage || "",
+      market: site.market || "",
+    });
+    // Log to calibration for pattern analysis
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site.name || "",
+      action: "discarded_permanently",
+      reason, feedback: site.psFeedback || "",
+      siteScore: site.siteScoreAtDecline || null,
+      classification: site.classificationAtDecline || null,
+      address: site.address || "", state: site.state || "",
+      city: site.city || "", market: site.market || "",
+      zoning: site.zoning || "", zoningClassification: site.zoningClassification || "",
+      ts: new Date().toISOString(), by: "Dan R",
+    });
+    fbRemove(`submissions/${id}`);
+    notify(`${site.name || "Site"} discarded — pattern logged for learning.`);
   };
 
   // ─── DOCUMENT UPLOAD (Firebase Storage) ───
@@ -2187,7 +2271,7 @@ function AppInner() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Coordinates</label><input style={inp} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="lat, lng" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Listing URL *</label><input style={{ ...inp, borderColor: !form.listingUrl ? "rgba(220,38,38,0.4)" : undefined }} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link (required)" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
                 </div>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
@@ -2227,9 +2311,25 @@ function AppInner() {
                     <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
                     <div style={{ display: "flex", gap: 6 }}>
                       {reviewTab === "mine" && myCount > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Recommend All ({myCount})</button>}
-                      {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
+                      {subs.some((s) => s.status === "declined") && <button onClick={() => { const declined = subs.filter(s => s.status === "declined"); if (window.confirm(`Discard ${declined.length} declined site${declined.length !== 1 ? "s" : ""}? Patterns will be logged for learning.`)) { declined.forEach(s => handleSmartDiscard(s.id)); } }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Discard All Declined</button>}
                     </div>
                   </div>
+                  {/* Decline Pattern Insights Banner */}
+                  {reviewTab === "mine" && (() => {
+                    const insights = getDeclineInsights();
+                    if (insights.total < 3) return null;
+                    return (
+                      <div style={{ background: "rgba(107,75,0,0.08)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 10, padding: "10px 14px", marginBottom: 10, fontSize: 11 }}>
+                        <div style={{ fontWeight: 700, color: "#C9A84C", marginBottom: 4 }}>Learning Insights ({insights.total} discards)</div>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", color: "#94A3B8" }}>
+                          {insights.topReasons.slice(0, 3).map((r, i) => (
+                            <span key={i} style={{ background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: 6 }}>{r.reason.split("\u2014")[0].trim()}: {r.pct}%</span>
+                          ))}
+                          {insights.recent > 0 && <span style={{ color: "#6B7394" }}>Last 30d: {insights.recent} ({insights.recentTrend})</span>}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div style={{ display: "flex", gap: 4, background: "rgba(15,21,56,0.6)", borderRadius: 10, padding: 4, marginBottom: 4 }}>
                     {reviewTabs.map(rt => (
                       <button key={rt.key} onClick={() => setReviewTab(rt.key)} style={{
@@ -2314,7 +2414,7 @@ function AppInner() {
             <SortBar sortBy={sortBy} setSortBy={setSortBy} />
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected" || site.status === "declined";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
@@ -2331,7 +2431,7 @@ function AppInner() {
             })()}
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected" || site.status === "declined";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
@@ -2340,7 +2440,7 @@ function AppInner() {
               return (
               <div style={{ display: "grid", gap: 10 }}>
                 {sortData(subs).filter(site => {
-                  if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected";
+                  if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected" || site.status === "declined";
                   if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                   if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                   return true;
@@ -2377,7 +2477,7 @@ function AppInner() {
                         <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: 8, padding: "8px 12px", marginTop: 6, marginBottom: 4 }}>
                           {site.psRejectReason && <div style={{ fontSize: 11, fontWeight: 700, color: "#DC2626", marginBottom: 4 }}>Reason: {site.psRejectReason}</div>}
                           {site.psFeedback && <div style={{ fontSize: 11, color: "#FCA5A5", lineHeight: 1.5 }}>Feedback: "{site.psFeedback}"</div>}
-                          <button onClick={(e) => { e.stopPropagation(); handleDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard Permanently</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleSmartDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard & Learn</button>
                         </div>
                       )}
                       {/* Links */}
@@ -2385,6 +2485,16 @@ function AppInner() {
                         {site.listingUrl ? <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(232,122,46,0.1)", color: "#E87A2E", fontSize: 10, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.15)" }}>🔗 Listing</a> : <span onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(220,38,38,0.06)", color: "#EF4444", fontSize: 10, fontWeight: 700, border: "1px solid rgba(220,38,38,0.12)" }}>⚠ No Listing</span>}
                         {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(21,101,192,0.08)", color: "#42A5F5", fontSize: 10, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.15)" }}>📍 Map</a>}
                       </div>
+                      {/* Declined site — rejection reason banner + Discard button */}
+                      {site.status === "declined" && (site.declineReason || site.reviewNote) && (
+                        <div style={{ background: "rgba(107,75,0,0.12)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "8px 12px", marginTop: 6, marginBottom: 4 }}>
+                          {site.declineReason && <div style={{ fontSize: 11, fontWeight: 700, color: "#D97706", marginBottom: 4 }}>Declined: {site.declineReason}</div>}
+                          {site.reviewNote && <div style={{ fontSize: 11, color: "#FBBF24", lineHeight: 1.5 }}>Note: "{site.reviewNote}"</div>}
+                          {site.siteScoreAtDecline && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>SiteScore at decline: {site.siteScoreAtDecline} ({site.classificationAtDecline || "—"})</div>}
+                          {site.declinedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>Declined: {new Date(site.declinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                          <button onClick={(e) => { e.stopPropagation(); handleSmartDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard & Learn</button>
+                        </div>
+                      )}
                       {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{site.summary.substring(0, 180)}{site.summary.length > 180 ? "…" : ""}</div>}
                       {/* NEW badge for unreviewed sites */}
                       {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
@@ -2486,11 +2596,18 @@ function AppInner() {
               )}
 
               {/* Links */}
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: site.listingUrl ? 20 : 8, alignItems: "center" }}>
                 {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)" }}>🗺 Google Maps</a>}
-                {site.listingUrl ? <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a> : <span style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 13, fontWeight: 700, border: "1px solid rgba(220,38,38,0.2)" }}>⚠ No Listing URL</span>}
+                {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a>}
                 <button onClick={() => { try { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); } }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 Storvex Deep Vet Report</button>
               </div>
+              {!site.listingUrl && (
+                <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 12, padding: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#EF4444" }}>⚠ MISSING: Property Listing URL</span>
+                  <input value={ri.listingUrl || ""} onChange={(e) => setRI("listingUrl", e.target.value)} placeholder="Paste Crexi / LoopNet link here…" style={{ flex: 1, minWidth: 220, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", fontSize: 12, outline: "none", background: "rgba(255,255,255,0.06)", color: "#E2E8F0" }} />
+                  <button onClick={() => { if (!ri.listingUrl) { notify("Paste the listing URL first"); return; } fbUpdate(`submissions/${site.id}`, { listingUrl: ri.listingUrl }); notify("Listing URL saved"); }} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Save URL</button>
+                </div>
+              )}
 
               {/* ── ACTIVITY TIMELINE ── */}
               {(() => {
@@ -2594,8 +2711,25 @@ function AppInner() {
                       {site.psRejectedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>Rejected: {new Date(site.psRejectedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => { handleDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard Permanently</button>
+                      <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
                       <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending" }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
+                    </div>
+                  </div>
+                )}
+
+                {site.status === "declined" && (
+                  <div>
+                    <div style={{ background: "rgba(107,75,0,0.12)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#D97706", marginBottom: 8 }}>Declined by {site.reviewedBy || "Dan R."}</div>
+                      {site.declineReason && <div style={{ fontSize: 12, color: "#FBBF24", marginBottom: 6 }}><strong>Reason:</strong> {site.declineReason}</div>}
+                      {site.reviewNote && <div style={{ fontSize: 12, color: "#FBBF24", marginBottom: 6, lineHeight: 1.5, fontStyle: "italic" }}>"{site.reviewNote}"</div>}
+                      {site.siteScoreAtDecline && <div style={{ fontSize: 11, color: "#6B7394", marginBottom: 4 }}>SiteScore at decline: {site.siteScoreAtDecline} ({site.classificationAtDecline || "—"})</div>}
+                      {site.declinedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>Declined: {new Date(site.declinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                      {(() => { const match = isKilledSite(site.address, site.coordinates); return match ? <div style={{ fontSize: 11, color: "#EF4444", marginTop: 8, fontWeight: 700 }}>Previously killed: {match.declineReason} ({new Date(match.killedAt).toLocaleDateString()})</div> : null; })()}
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
+                      <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending", declineReason: null, declinedAt: null, reviewedBy: null, reviewNote: null, siteScoreAtDecline: null, classificationAtDecline: null }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
                     </div>
                   </div>
                 )}
