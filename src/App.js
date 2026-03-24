@@ -360,6 +360,22 @@ function AppInner() {
     notify(`${site.name} → Review Queue`);
   };
 
+  // Reject a site from DW/MT tracker review → routes back to submissions as ps-rejected
+  const handleTrackerReject = (region, id, site, rejectedBy) => {
+    const now = new Date().toISOString();
+    const sub = { ...site, status: "ps-rejected", region, psRejectedBy: rejectedBy, psRejectReason: "Rejected during tracker review", psRejectedAt: now, sentBackToReview: true };
+    delete sub.messages; delete sub.docs; delete sub.activityLog;
+    delete sub._region; delete sub._iqResult;
+    fbSet(`submissions/${id}`, sub);
+    fbRemove(`${region}/${id}`);
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site.name || "", action: "rejected_from_tracker",
+      reason: "Rejected during tracker review", address: site.address || "", state: site.state || "",
+      ts: now, by: rejectedBy,
+    });
+    notify(`✗ ${site.name} rejected by ${rejectedBy} — routed back to Review Queue`);
+  };
+
   // ─── GEOCODE & DEMOGRAPHICS ───
   const handleFetchDemos = async (region, site) => {
     if (!site.coordinates) { notify("Add coordinates first"); return; }
@@ -2278,7 +2294,7 @@ function AppInner() {
                               {/* Action buttons — right side */}
                               <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 160 }}>
                                 <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); updateSiteField(site._region, site.id, "phase", "SiteScore Approved"); notify(`✓ Approved — ${site.name} stays in ${site._region === "southwest" ? "DW" : "MT"} tracker`); }} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 2px 12px rgba(22,163,74,0.3)", letterSpacing: "0.02em" }}>✓ Approve</button>
-                                <button onClick={() => { if (window.confirm(`Reject "${site.name}"? This will remove it from the tracker.`)) { fbRemove(`${site._region}/${site.id}`); notify(`✗ Rejected — ${site.name} removed`); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                                <button onClick={() => { if (window.confirm(`Reject "${site.name}"? This will route it back to the Review Queue with PS rejection status.`)) { handleTrackerReject(site._region, site.id, site, person); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
                                 <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 18px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(148,163,184,0.06)", color: "#94A3B8", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
                               </div>
                             </div>
@@ -2294,7 +2310,7 @@ function AppInner() {
             <SortBar sortBy={sortBy} setSortBy={setSortBy} />
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined" || site.status === "ps-rejected";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
@@ -2311,7 +2327,7 @@ function AppInner() {
             })()}
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined" || site.status === "ps-rejected";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
@@ -2320,7 +2336,7 @@ function AppInner() {
               return (
               <div style={{ display: "grid", gap: 10 }}>
                 {sortData(subs).filter(site => {
-                  if (reviewTab === "mine") return site.status === "pending" || site.status === "declined" || site.status === "ps-rejected";
+                  if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected";
                   if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                   if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                   return true;
