@@ -527,6 +527,10 @@ function AppInner() {
       notify("Fill name, address, city, state.");
       return;
     }
+    if (!form.listingUrl) {
+      notify("Listing URL is required. Add the Crexi or LoopNet link.");
+      return;
+    }
     // Field-level validation
     if (!isValidState(form.state)) { notify("Invalid state abbreviation."); return; }
     if (form.coordinates && !isValidCoordinates(form.coordinates)) { notify("Invalid coordinates format. Use: lat, lng"); return; }
@@ -2183,7 +2187,7 @@ function AppInner() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Coordinates</label><input style={inp} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="lat, lng" /></div>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Listing URL</label><input style={inp} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Listing URL *</label><input style={{ ...inp, borderColor: !form.listingUrl ? "rgba(220,38,38,0.4)" : undefined }} value={form.listingUrl} onChange={(e) => setForm({ ...form, listingUrl: e.target.value })} placeholder="Crexi / LoopNet link (required)" /></div>
                 </div>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Region *</label><select style={{ ...inp, cursor: "pointer" }} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="southwest">Daniel Wollent</option><option value="east">Matthew Toussaint</option></select></div>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Notes</label><textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes…" /></div>
