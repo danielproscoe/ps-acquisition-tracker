@@ -123,9 +123,9 @@ describe('computeSiteScore — basic structure', () => {
     expect(['GREEN', 'YELLOW', 'ORANGE', 'RED']).toContain(result.classification);
   });
 
-  test('returns breakdown array with 10 entries', () => {
+  test('returns breakdown array with 9 entries', () => {
     const result = score();
-    expect(result.breakdown).toHaveLength(10);
+    expect(result.breakdown).toHaveLength(9);
     result.breakdown.forEach(entry => {
       expect(entry).toHaveProperty('label');
       expect(entry).toHaveProperty('key');
