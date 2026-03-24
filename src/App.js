@@ -146,7 +146,6 @@ function AppInner() {
   // vettingReport removed — auto-generates on site add
   const [showIQConfig, setShowIQConfig] = useState(false);
   const [hoveredBrief, setHoveredBrief] = useState(null); // site id for call briefing tooltip
-  const [briefDraft, setBriefDraft] = useState(""); // local draft for editable briefing
   const hoverTimerRef = useRef(null);
   const [demoExpanded, setDemoExpanded] = useState(false);
   const [scoreExpanded, setScoreExpanded] = useState(false);
@@ -1102,10 +1101,8 @@ function AppInner() {
                             e.stopPropagation();
                             e.preventDefault();
                             if (hoveredBrief === site.id) {
-                              if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
                               setHoveredBrief(null);
                             } else {
-                              setBriefDraft(site.callBrief || "");
                               setHoveredBrief(site.id);
                             }
                           }}
@@ -1154,14 +1151,12 @@ function AppInner() {
                     <CallBriefTooltip
                       site={site}
                       anchorId={`site-${site.id}`}
-                      briefDraft={briefDraft}
-                      setBriefDraft={setBriefDraft}
+                      initialDraft={site.callBrief || ""}
                       getSiteScore={getSiteScore}
                       onSave={(val) => {
                         if (val !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", val);
                       }}
                       onClose={() => {
-                        if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
                         setHoveredBrief(null);
                       }}
                     />

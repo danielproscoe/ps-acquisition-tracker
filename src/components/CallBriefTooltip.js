@@ -19,7 +19,8 @@ function trunc(s, max) {
   return s.length > max ? s.substring(0, max) + "…" : s;
 }
 
-export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSave, onClose, getSiteScore, anchorId }) {
+export default function CallBriefTooltip({ site, initialDraft, onSave, onClose, getSiteScore, anchorId }) {
+  const [briefDraft, setBriefDraft] = useState(initialDraft ?? site.callBrief ?? "");
   const iq = getSiteScore ? getSiteScore(site) : null;
   const score = iq?.composite ?? iq?.score ?? null;
   const cls = score >= 8 ? "GREEN" : score >= 6 ? "YELLOW" : score >= 4 ? "ORANGE" : "RED";
