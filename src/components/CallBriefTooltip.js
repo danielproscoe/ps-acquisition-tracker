@@ -77,17 +77,17 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
   ].filter(Boolean);
 
   return createPortal(
-    <>
-    {/* Invisible backdrop — catches clicks outside tooltip */}
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 99998 }} onClick={() => { onSaveRef.current(briefDraftRef.current); onCloseRef.current(); }} />
-    <div id="call-brief-portal" style={{
-      position: "absolute", top: pos.top, left: pos.left, width: pos.width || "auto", zIndex: 99999,
-      borderRadius: 14, overflow: "hidden",
-      background: "linear-gradient(170deg, #0c0e1a 0%, #111827 50%, #0f1629 100%)",
-      border: "1px solid rgba(201,168,76,0.2)",
-      boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08), 0 0 40px rgba(201,168,76,0.04)",
-      animation: "fadeIn 0.12s ease-out",
-    }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 99998 }}
+      onClick={(e) => { if (e.target === e.currentTarget) { onSaveRef.current(briefDraftRef.current); onCloseRef.current(); } }}>
+      {/* Tooltip card — positioned inside the full-screen container so clicks stay contained */}
+      <div id="call-brief-portal" style={{
+        position: "absolute", top: pos.top, left: pos.left, width: pos.width || "auto",
+        borderRadius: 14, overflow: "hidden",
+        background: "linear-gradient(170deg, #0c0e1a 0%, #111827 50%, #0f1629 100%)",
+        border: "1px solid rgba(201,168,76,0.2)",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08), 0 0 40px rgba(201,168,76,0.04)",
+        animation: "fadeIn 0.12s ease-out",
+      }}>
       {/* Gold accent bar */}
       <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)" }} />
 
@@ -151,8 +151,8 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
           onFocus={(e) => { e.target.style.borderColor = "rgba(232,122,46,0.3)"; }}
         />
       </div>
-    </div>
-    </>,
+      </div>
+    </div>,
     document.body
   );
 }
