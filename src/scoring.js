@@ -205,31 +205,15 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   scores.competition = compScore;
 
-  // --- 7. MARKET TIER (2%) ---
-  let tierScore = 2;
-  const tier = site.siteiqData?.marketTier;
-  if (tier === 1) tierScore = 10;
-  else if (tier === 2) tierScore = 8;
-  else if (tier === 3) tierScore = 6;
-  else if (tier === 4) tierScore = 4;
-  else {
-    const mkt = (site.market || "").toLowerCase();
-    if (/cinc|nky|n\.?\s*ky|northern\s*kent/i.test(mkt)) tierScore = 10;
-    else if (/ind|indy/i.test(mkt)) tierScore = 10;
-    else if (/independence|springboro|s\.?\s*dayton/i.test(mkt)) tierScore = 8;
-    else if (/tn|tenn|nashville|murfreesboro|clarksville|lebanon/i.test(mkt)) tierScore = 6;
-    else if (/dfw|dallas|austin|houston|san\s*ant/i.test(mkt)) tierScore = 4;
-  }
-  scores.marketTier = tierScore;
-
-  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, 10 dimensions ---
+  // --- COMPOSITE (weighted sum, 0-9 scale) — uses configurable weights, 9 dimensions ---
+  // Market Tier removed — was 2% weight, redistributed to Growth (+1%) and Zoning (+1%)
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
     (incScore * getIQWeight("income")) + (hhScore * getIQWeight("households")) +
     (hvScore * getIQWeight("homeValue")) +
     (zoningScore * getIQWeight("zoning")) + (psProxScore * getIQWeight("psProximity")) +
     (scores.access * getIQWeight("access")) +
-    (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
+    (compScore * getIQWeight("competition"));
   let adjusted = Math.round(weightedSum * 100) / 100;
 
   // --- PHASE BONUS ---
@@ -322,7 +306,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
   const compExplain = compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount === 0 ? "0 = 10" : compCount === 1 ? "1 = 9" : compCount === 2 ? "2 = 7" : compCount === 3 ? "3 = 6" : compCount <= 5 ? "4-5 = 4" : compCount <= 8 ? "6-8 = 3" : "9+ = 2"}` : "Keyword-based estimate";
-  const tierExplain = tier ? `Tier ${tier} market → ${tier === 1 ? "10" : tier === 2 ? "8" : tier === 3 ? "6" : "4"}` : "Market keyword match";
+
 
   // ─── DATA SOURCE CITATIONS — "Where did this come from?" ───
   // Each dimension gets a source, rawValue, and methodology so Dan can answer PS leadership instantly.
@@ -343,7 +327,6 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const psSource = { source: "PS Corporate Location Database", rawValue: !isNaN(psDist) ? psDist.toFixed(1) + " miles" : null, methodology: !isNaN(psDist) ? "Haversine distance calculation from site to nearest of 3,112 PS-owned locations" : "No proximity data — populate siteiqData.nearestPS", verified: !isNaN(psDist) };
   const accessSource = { source: "Listing data + aerial imagery review", rawValue: !isNaN(acres) ? acres.toFixed(1) + " acres" : null, methodology: "Acreage from listing, frontage/access from aerial review and summary keywords" + (site.roadFrontage ? ` — ${site.roadFrontage}` : ""), verified: !isNaN(acres) && acres > 0 };
   const compSource = { source: compCount !== undefined && compCount !== null ? "3-mile radius facility scan" : "Summary keyword analysis (estimated)", rawValue: compCount !== undefined && compCount !== null ? compCount + " facilities within 3 mi" : null, methodology: compCount !== undefined && compCount !== null ? "Google Maps + SpareFoot + SelfStorage.com scan" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : "Keyword match on summary text — run full competition scan for verified count", verified: compCount !== undefined && compCount !== null };
-  const mktSource = { source: "DJR Target Market Classification", rawValue: tier ? "Tier " + tier : (site.market || "Unclassified"), methodology: "Internal market prioritization: Tier 1 (Cincy/Indy), Tier 2 (Independence/Springboro), Tier 3 (Middle TN), Tier 4 (DFW/Austin/Houston)", verified: true };
 
   const breakdown = [
     { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population"), reason: popExplain, ...popSource },
@@ -355,7 +338,6 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity"), reason: psExplain, ...psSource },
     { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access"), reason: accessExplain, ...accessSource },
     { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition"), reason: compExplain, ...compSource },
-    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier"), reason: tierExplain, ...mktSource },
   ];
   return {
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor, breakdown,

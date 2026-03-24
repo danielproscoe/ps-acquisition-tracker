@@ -137,7 +137,6 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
     { key: "psProximity", label: "PS" },
     { key: "access", label: "ACC" },
     { key: "competition", label: "CP" },
-    { key: "marketTier", label: "MKT" },
   ];
 
   const activeBd = activeBar ? getBreakdown(activeBar) : null;

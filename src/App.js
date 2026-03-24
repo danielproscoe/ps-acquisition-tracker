@@ -1232,7 +1232,6 @@ function AppInner() {
                                 { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest PS — closer = validated market" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
                                 { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
-                                { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier"), icon: "🎯", tip: "Target market alignment (MT/DW tiers)" },
                               ];
                               const scoreColor = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
                               const scoreLabel = (v) => v >= 9 ? "ELITE" : v >= 8 ? "PRIME" : v >= 7 ? "STRONG" : v >= 6 ? "VIABLE" : v >= 4 ? "MARGINAL" : "WEAK";
@@ -3519,31 +3518,6 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                               <StorvexAnalysis signal={signal} signalColor={sigC} text={compCount <= 1 ? `Only ${compCount} competing facilit${compCount === 1 ? "y" : "ies"} within 3 miles signals an underserved market with significant unmet demand. Low competition environments allow for premium pricing, faster lease-up, and dominant market positioning. This is the ideal competitive landscape for a new PS development.` : compCount <= 3 ? `${compCount} competitors within 3 miles represents manageable competition. Market is not saturated, and a well-positioned PS facility can capture meaningful share. ${reitCount > 0 ? `${reitCount} REIT operator(s) present validates institutional-grade demand.` : "Predominantly local operators suggest opportunity for a REIT-quality facility to capture market share."} Focus on differentiation through climate-controlled product and PS brand strength.` : compCount <= 6 ? `${compCount} facilities within 3 miles indicates moderate competition. Market is established with proven demand, but share capture requires competitive positioning. ${reitCount >= 2 ? "Multiple REIT operators confirm a mature, validated market." : ""} Key success factors: unit mix optimization, competitive rate strategy, and superior site visibility/access.` : `${compCount} facilities within 3 miles signals high competitive density. New entrant faces lease-up headwinds in a market with existing supply. Recommend careful analysis of occupancy rates, rate trends, and whether recent new supply has been absorbed. Success requires a differentiated value proposition or displacement of weaker operators.`} />
                             </div>);
                           }
-                          if (dK === "marketTier") {
-                            const mt = iq.marketTier;
-                            const tierLabel = mt === 1 ? "TIER 1 — PRIMARY" : mt === 2 ? "TIER 2 — STRATEGIC" : mt === 3 ? "TIER 3 — GROWTH" : mt === 4 ? "TIER 4 — EMERGING" : "UNCLASSIFIED";
-                            const tierC = mt === 1 ? "#C9A84C" : mt === 2 ? "#22C55E" : mt === 3 ? "#3B82F6" : mt === 4 ? "#8B5CF6" : "#6B7394";
-                            const tierMarkets = { 1: "Cincinnati / N. KY, Indianapolis", 2: "Independence KY, S. Dayton OH, Springboro OH", 3: "Middle TN corridor", 4: "DFW, Austin, Houston, Central TX" };
-                            return (<div>
-                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tierC}15`, marginBottom: 12 }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>TARGET MARKET CLASSIFICATION</div>
-                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 16 }}>
-                                  <div style={{ fontSize: 28, fontWeight: 900, color: tierC, letterSpacing: "0.02em" }}>{tierLabel}</div>
-                                </div>
-                                {[1, 2, 3, 4].map(t => (
-                                  <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 6, marginBottom: 4, background: mt === t ? (t === 1 ? "#C9A84C" : t === 2 ? "#22C55E" : t === 3 ? "#3B82F6" : "#8B5CF6") + "12" : "transparent", border: mt === t ? `1px solid ${t === 1 ? "#C9A84C" : t === 2 ? "#22C55E" : t === 3 ? "#3B82F6" : "#8B5CF6"}30` : "1px solid transparent" }}>
-                                    <div style={{ width: 24, height: 24, borderRadius: 6, background: (t === 1 ? "#C9A84C" : t === 2 ? "#22C55E" : t === 3 ? "#3B82F6" : "#8B5CF6") + (mt === t ? "30" : "10"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: mt === t ? "#E2E8F0" : "#4A5080" }}>{t}</div>
-                                    <div style={{ flex: 1 }}>
-                                      <div style={{ fontSize: 11, fontWeight: mt === t ? 700 : 500, color: mt === t ? "#E2E8F0" : "#6B7394" }}>Tier {t}: {t === 1 ? "Primary" : t === 2 ? "Strategic" : t === 3 ? "Growth" : "Emerging"}</div>
-                                      <div style={{ fontSize: 9, color: "#4A5080" }}>{tierMarkets[t]}</div>
-                                    </div>
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: mt === t ? tierC : "#4A5080", fontFamily: "'Space Mono', monospace" }}>{t === 1 ? "10/10" : t === 2 ? "8/10" : t === 3 ? "6/10" : "4/10"}</span>
-                                  </div>
-                                ))}
-                              </div>
-                              <StorvexAnalysis signal={tierLabel} signalColor={tierC} text={mt === 1 ? `${site.market || "This market"} is a Tier 1 primary target — PS's highest-priority expansion corridor. MT and DW have confirmed active deal flow here. Sites in Tier 1 markets receive a scoring boost reflecting PS's strategic focus and established operational infrastructure in the region.` : mt === 2 ? `Tier 2 strategic market — identified as a coverage gap in PS's footprint. These markets have zero or minimal PS presence despite strong fundamentals, representing greenfield expansion opportunities.` : mt === 3 ? `Tier 3 growth market — Middle TN corridor. Growing market with PS interest but lower strategic priority than Tier 1-2. Sites here compete primarily on fundamentals (demographics, zoning, pricing) rather than market alignment.` : mt === 4 ? `Tier 4 emerging market. PS has broader interest in this region but no confirmed target list placement. Sites score on their standalone merits. Strong fundamentals can still drive advancement.` : `Market not classified in PS's target tier system. This site will be evaluated purely on demographic and competitive fundamentals without a market alignment bonus.`} />
-                            </div>);
-                          }
                           return <div style={{ padding: 16, fontSize: 11, color: "#6B7394", fontStyle: "italic" }}>Detailed analysis not yet available for this dimension.</div>;
                         };
                         return (
@@ -4287,7 +4261,6 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   { key: "psProximity", label: "PS Proximity", icon: "📦", weight: getIQWeight("psProximity") },
                   { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
                   { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
-                  { key: "marketTier", label: "Market Tier", icon: "🎯", weight: getIQWeight("marketTier") },
                 ];
                 const sc2 = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
                 return (

@@ -66,16 +66,21 @@ describe('Weight Normalization', () => {
     expect(Math.abs(total - 1.0)).toBeLessThan(0.001);
   });
 
-  test('SITE_SCORE_DEFAULTS has exactly 10 dimensions', () => {
-    expect(SITE_SCORE_DEFAULTS.length).toBe(10);
+  test('SITE_SCORE_DEFAULTS has exactly 9 dimensions', () => {
+    expect(SITE_SCORE_DEFAULTS.length).toBe(9);
   });
 
   test('all required dimension keys are present', () => {
     const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
     expect(keys).toEqual(expect.arrayContaining([
       'population', 'growth', 'income', 'households', 'homeValue',
-      'zoning', 'psProximity', 'access', 'competition', 'marketTier',
+      'zoning', 'psProximity', 'access', 'competition',
     ]));
+  });
+
+  test('marketTier dimension has been removed', () => {
+    const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
+    expect(keys).not.toContain('marketTier');
   });
 
   test('no pricing dimension exists (removed per v3.1)', () => {
@@ -95,7 +100,7 @@ describe('computeSiteScore — basic structure', () => {
 
   test('returns all 10 dimension scores', () => {
     const result = score();
-    expect(Object.keys(result.scores).length).toBe(10);
+    expect(Object.keys(result.scores).length).toBe(9);
     expect(result.scores).toHaveProperty('population');
     expect(result.scores).toHaveProperty('growth');
     expect(result.scores).toHaveProperty('income');
@@ -105,7 +110,6 @@ describe('computeSiteScore — basic structure', () => {
     expect(result.scores).toHaveProperty('psProximity');
     expect(result.scores).toHaveProperty('access');
     expect(result.scores).toHaveProperty('competition');
-    expect(result.scores).toHaveProperty('marketTier');
   });
 
   test('assigns tier label (gold / steel / gray)', () => {
@@ -485,41 +489,7 @@ describe('Competition scoring via siteiqData.competitorCount (6-tier scale)', ()
   });
 });
 
-// ─── 10. MARKET TIER ───
-
-describe('Market tier scoring via siteiqData.marketTier', () => {
-  test('tier 1 scores 10', () => {
-    expect(score({ siteiqData: { marketTier: 1 } }).scores.marketTier).toBe(10);
-  });
-
-  test('tier 2 scores 8', () => {
-    expect(score({ siteiqData: { marketTier: 2 } }).scores.marketTier).toBe(8);
-  });
-
-  test('tier 3 scores 6', () => {
-    expect(score({ siteiqData: { marketTier: 3 } }).scores.marketTier).toBe(6);
-  });
-
-  test('tier 4 scores 4', () => {
-    expect(score({ siteiqData: { marketTier: 4 } }).scores.marketTier).toBe(4);
-  });
-
-  test('no tier falls back to market field keyword — Cincinnati', () => {
-    const result = score({
-      siteiqData: { marketTier: undefined },
-      market: 'Cincinnati metro',
-    });
-    expect(result.scores.marketTier).toBe(10);
-  });
-
-  test('no tier and no market keyword defaults to 2', () => {
-    const result = score({
-      siteiqData: { marketTier: undefined },
-      market: 'Boise ID',
-    });
-    expect(result.scores.marketTier).toBe(2);
-  });
-});
+// Market Tier dimension removed — weight redistributed to Growth (+1%) and Zoning (+1%)
 
 // ─── 11. ACCESS & SIZE SCORING ───
 
@@ -1516,8 +1486,8 @@ describe('Individual dimension weights are locked', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'population').weight).toBe(0.16);
   });
 
-  test('growth weight is exactly 0.21', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.21);
+  test('growth weight is exactly 0.22', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.22);
   });
 
   test('income weight is exactly 0.10', () => {
@@ -1532,8 +1502,8 @@ describe('Individual dimension weights are locked', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'homeValue').weight).toBe(0.05);
   });
 
-  test('zoning weight is exactly 0.16', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.16);
+  test('zoning weight is exactly 0.17', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.17);
   });
 
   test('psProximity weight is exactly 0.11', () => {
@@ -1548,8 +1518,12 @@ describe('Individual dimension weights are locked', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'competition').weight).toBe(0.07);
   });
 
-  test('marketTier weight is exactly 0.02', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'marketTier').weight).toBe(0.02);
+  test('growth weight is exactly 0.22 (absorbed 1% from removed marketTier)', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.22);
+  });
+
+  test('zoning weight is exactly 0.17 (absorbed 1% from removed marketTier)', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.17);
   });
 });
 
