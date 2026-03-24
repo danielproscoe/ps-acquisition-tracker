@@ -790,6 +790,71 @@ describe('Growth scoring', () => {
   test('no growth data defaults to score 5', () => {
     expect(score({ popGrowth3mi: undefined }).scores.growth).toBe(5);
   });
+
+  test('reads growthRate field when popGrowth3mi is absent', () => {
+    expect(score({ popGrowth3mi: undefined, growthRate: '4.5' }).scores.growth).toBe(10);
+  });
+
+  test('reads siteiqData.growthRate when popGrowth3mi and growthRate are absent', () => {
+    expect(score({ popGrowth3mi: undefined, growthRate: undefined, siteiqData: { growthRate: 4.5 } }).scores.growth).toBe(10);
+  });
+
+  test('popGrowth3mi takes priority over growthRate', () => {
+    expect(score({ popGrowth3mi: '0.5', growthRate: '4.5' }).scores.growth).toBe(6);
+  });
+
+  test('growthRate as number string scores correctly', () => {
+    expect(score({ popGrowth3mi: undefined, growthRate: '1.5' }).scores.growth).toBe(9);
+  });
+
+  test('siteiqData.growthRate as number (not string) scores correctly', () => {
+    expect(score({ popGrowth3mi: undefined, growthRate: undefined, siteiqData: { growthRate: 1.0 } }).scores.growth).toBe(8);
+  });
+});
+
+// ─── 17b. COMPETITION — CC SPC SCORING ───
+
+describe('Competition scoring via siteiqData.ccSPC (primary metric)', () => {
+  test('ccSPC < 1.5 scores 10', () => {
+    expect(score({ siteiqData: { ccSPC: 1.2 } }).scores.competition).toBe(10);
+  });
+
+  test('ccSPC 1.5-3.0 scores 8', () => {
+    expect(score({ siteiqData: { ccSPC: 2.5 } }).scores.competition).toBe(8);
+  });
+
+  test('ccSPC 3.0-5.0 scores 6', () => {
+    expect(score({ siteiqData: { ccSPC: 4.3 } }).scores.competition).toBe(6);
+  });
+
+  test('ccSPC 5.0-7.0 scores 4', () => {
+    expect(score({ siteiqData: { ccSPC: 6.0 } }).scores.competition).toBe(4);
+  });
+
+  test('ccSPC > 7.0 scores 2', () => {
+    expect(score({ siteiqData: { ccSPC: 8.5 } }).scores.competition).toBe(2);
+  });
+
+  test('ccSPC takes priority over competitorCount', () => {
+    // ccSPC 4.3 = score 6, but competitorCount 0 would be score 10
+    expect(score({ siteiqData: { ccSPC: 4.3, competitorCount: 0 } }).scores.competition).toBe(6);
+  });
+
+  test('falls back to competitorCount when ccSPC is null', () => {
+    expect(score({ siteiqData: { ccSPC: null, competitorCount: 1 } }).scores.competition).toBe(9);
+  });
+
+  test('falls back to competitorCount when ccSPC is undefined', () => {
+    expect(score({ siteiqData: { ccSPC: undefined, competitorCount: 2 } }).scores.competition).toBe(7);
+  });
+
+  test('ccSPC exactly 3.0 scores 8 (upper bound of 1.5-3.0 tier)', () => {
+    expect(score({ siteiqData: { ccSPC: 3.0 } }).scores.competition).toBe(8);
+  });
+
+  test('ccSPC exactly 5.0 scores 6 (upper bound of 3.0-5.0 tier)', () => {
+    expect(score({ siteiqData: { ccSPC: 5.0 } }).scores.competition).toBe(6);
+  });
 });
 
 // ─── 18. HOUSEHOLDS & HOME VALUE ───

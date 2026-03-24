@@ -65,7 +65,9 @@ export const computeSiteScore = (site, siteScoreConfig) => {
 
   // --- 2b. GROWTH (21%) — ESRI 5-year population CAGR ---
   let growthScore = 5; // default when no ESRI data
-  const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
+  // Read growth rate from multiple possible fields: popGrowth3mi (primary), growthRate, siteiqData.growthRate
+  const growthFieldRaw = site.popGrowth3mi || site.growthRate || (site.siteiqData?.growthRate != null ? String(site.siteiqData.growthRate) : null);
+  const growthRaw = growthFieldRaw ? parseFloat(String(growthFieldRaw).replace(/[^0-9.\-+]/g, "")) : null;
   if (growthRaw !== null && !isNaN(growthRaw)) {
     if (growthRaw >= 2.0) growthScore = 10;       // booming — Sun Belt corridors
     else if (growthRaw >= 1.5) growthScore = 9;    // strong growth
@@ -187,10 +189,22 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) accessScore = Math.min(10, accessScore + 2);
   scores.access = Math.min(10, Math.max(0, accessScore));
 
-  // --- 6. COMPETITION (7%) — more granular 6-tier scale ---
+  // --- 6. COMPETITION (7%) — CC SPC (climate-controlled SF/capita) is PRIMARY metric ---
+  // Priority: siteiqData.ccSPC (float) → siteiqData.competitorCount (int) → summary keywords
   let compScore = 6;
+  const ccSPC = site.siteiqData?.ccSPC;
   const compCount = site.siteiqData?.competitorCount;
-  if (compCount !== undefined && compCount !== null) {
+  let compMethod = 'keyword'; // track which method was used for explain text
+  if (ccSPC != null && !isNaN(parseFloat(ccSPC))) {
+    const spc = parseFloat(ccSPC);
+    compMethod = 'ccSPC';
+    if (spc < 1.5) compScore = 10;
+    else if (spc <= 3.0) compScore = 8;
+    else if (spc <= 5.0) compScore = 6;
+    else if (spc <= 7.0) compScore = 4;
+    else compScore = 2;
+  } else if (compCount !== undefined && compCount !== null) {
+    compMethod = 'count';
     if (compCount === 0) compScore = 10;
     else if (compCount === 1) compScore = 9;
     else if (compCount === 2) compScore = 7;
@@ -295,7 +309,8 @@ export const computeSiteScore = (site, siteScoreConfig) => {
 
   // Build scoring explanations for each dimension
   const popExplain = popRaw > 0 ? `3-mi pop: ${popRaw.toLocaleString()} → ${popRaw >= 40000 ? "40K+ = 10" : popRaw >= 25000 ? "25K+ = 8" : popRaw >= 15000 ? "15K+ = 6" : popRaw >= 10000 ? "10K+ = 5" : popRaw >= 5000 ? "5K+ = 3" : "<5K = FAIL"}` : "No data — default 5";
-  const growthExplain = growthRaw !== null ? `5-yr CAGR: ${growthRaw.toFixed(1)}% → ${growthRaw >= 2.0 ? "≥2.0% = 10" : growthRaw >= 1.5 ? "≥1.5% = 9" : growthRaw >= 1.0 ? "≥1.0% = 8" : growthRaw >= 0.5 ? "≥0.5% = 6" : growthRaw >= 0.0 ? "≥0% = 4" : growthRaw >= -0.5 ? "declining = 2" : "<-0.5% = 0"}` : "No ESRI data — default 5";
+  const growthFieldName = site.popGrowth3mi ? "popGrowth3mi" : site.growthRate ? "growthRate" : site.siteiqData?.growthRate != null ? "siteiqData.growthRate" : null;
+  const growthExplain = growthRaw !== null ? `5-yr CAGR: ${growthRaw.toFixed(1)}% (${growthFieldName}) → ${growthRaw >= 2.0 ? "≥2.0% = 10" : growthRaw >= 1.5 ? "≥1.5% = 9" : growthRaw >= 1.0 ? "≥1.0% = 8" : growthRaw >= 0.5 ? "≥0.5% = 6" : growthRaw >= 0.0 ? "≥0% = 4" : growthRaw >= -0.5 ? "declining = 2" : "<-0.5% = 0"}` : "No ESRI data — default 5";
   const incExplain = incRaw > 0 ? `3-mi HHI: $${incRaw.toLocaleString()} → ${incRaw >= 90000 ? "$90K+ = 10" : incRaw >= 75000 ? "$75K+ = 8" : incRaw >= 65000 ? "$65K+ = 6" : incRaw >= 55000 ? "$55K+ = 4" : "<$55K = FAIL"}` : "No data — default 5";
   const hhExplain = hhRaw > 0 ? `3-mi HH: ${hhRaw.toLocaleString()} → ${hhRaw >= 25000 ? "25K+ = 10" : hhRaw >= 18000 ? "18K+ = 8" : hhRaw >= 12000 ? "12K+ = 7" : hhRaw >= 6000 ? "6K+ = 5" : "<6K = 3"}` : "No data — default 5";
   const hvExplain = hvRaw > 0 ? `3-mi home value: $${hvRaw.toLocaleString()} → ${hvRaw >= 500000 ? "$500K+ = 10" : hvRaw >= 350000 ? "$350K+ = 9" : hvRaw >= 250000 ? "$250K+ = 8" : hvRaw >= 180000 ? "$180K+ = 6" : hvRaw >= 120000 ? "$120K+ = 4" : "<$120K = 2"}` : "No data — default 5";
@@ -305,7 +320,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const zoningExplain = zClass && zClass !== "unknown" ? `Classification: ${zClass} → ${scores.zoning}` : (scores.zoning === 5 ? "Unverified — capped at 5 (set zoningClassification to unlock)" : isNoZoning ? `ETJ/no-zoning → ${scores.zoning}` : `Regex-matched: score ${scores.zoning}`);
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
-  const compExplain = compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount === 0 ? "0 = 10" : compCount === 1 ? "1 = 9" : compCount === 2 ? "2 = 7" : compCount === 3 ? "3 = 6" : compCount <= 5 ? "4-5 = 4" : compCount <= 8 ? "6-8 = 3" : "9+ = 2"}` : "Keyword-based estimate";
+  const compExplain = compMethod === 'ccSPC' ? `CC SPC: ${parseFloat(ccSPC).toFixed(1)} SF/capita → ${parseFloat(ccSPC) < 1.5 ? "<1.5 = 10" : parseFloat(ccSPC) <= 3.0 ? "1.5-3.0 = 8" : parseFloat(ccSPC) <= 5.0 ? "3.0-5.0 = 6" : parseFloat(ccSPC) <= 7.0 ? "5.0-7.0 = 4" : ">7.0 = 2"}` : compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount === 0 ? "0 = 10" : compCount === 1 ? "1 = 9" : compCount === 2 ? "2 = 7" : compCount === 3 ? "3 = 6" : compCount <= 5 ? "4-5 = 4" : compCount <= 8 ? "6-8 = 3" : "9+ = 2"}` : "Keyword-based estimate";
 
 
   // ─── DATA SOURCE CITATIONS — "Where did this come from?" ───
@@ -313,7 +328,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const demoSource = site.demoSource || (growthRaw !== null ? "ESRI Community Analyst" : (popRaw > 0 ? "U.S. Census ACS 5-Year Estimates" : null));
   const demoMethodology = "3-mile radius ring study centered on site coordinates";
   const popSource = { source: popRaw > 0 ? demoSource : "No data available", rawValue: popRaw > 0 ? popRaw.toLocaleString() + " residents" : null, methodology: popRaw > 0 ? demoMethodology : "Default score (5) applied — populate pop3mi field", verified: popRaw > 0 };
-  const growthSource = { source: growthRaw !== null ? (site.demoSource || "ESRI 2025→2030 Population Projections") : "No ESRI projection data", rawValue: growthRaw !== null ? growthRaw.toFixed(2) + "% CAGR" : null, methodology: growthRaw !== null ? "5-year compound annual growth rate, 3-mi ring" : "Default score (5) applied — populate popGrowth3mi field", verified: growthRaw !== null };
+  const growthSource = { source: growthRaw !== null ? (site.demoSource || "ESRI 2025→2030 Population Projections") : "No ESRI projection data", rawValue: growthRaw !== null ? growthRaw.toFixed(2) + "% CAGR" : null, methodology: growthRaw !== null ? `5-year compound annual growth rate, 3-mi ring (from ${growthFieldName})` : "Default score (5) applied — populate popGrowth3mi, growthRate, or siteiqData.growthRate field", verified: growthRaw !== null };
   const incSource = { source: incRaw > 0 ? demoSource : "No data available", rawValue: incRaw > 0 ? "$" + incRaw.toLocaleString() : null, methodology: incRaw > 0 ? demoMethodology : "Default score (5) applied — populate income3mi field", verified: incRaw > 0 };
   const hhSource = { source: hhRaw > 0 ? demoSource : "No data available", rawValue: hhRaw > 0 ? hhRaw.toLocaleString() + " households" : null, methodology: hhRaw > 0 ? demoMethodology : "Default score (5) applied — populate households3mi field", verified: hhRaw > 0 };
   const hvSource = { source: hvRaw > 0 ? demoSource : "No data available", rawValue: hvRaw > 0 ? "$" + hvRaw.toLocaleString() : null, methodology: hvRaw > 0 ? demoMethodology : "Default score (5) applied — populate homeValue3mi field", verified: hvRaw > 0 };
@@ -326,7 +341,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   };
   const psSource = { source: "PS Corporate Location Database", rawValue: !isNaN(psDist) ? psDist.toFixed(1) + " miles" : null, methodology: !isNaN(psDist) ? "Haversine distance calculation from site to nearest of 3,112 PS-owned locations" : "No proximity data — populate siteiqData.nearestPS", verified: !isNaN(psDist) };
   const accessSource = { source: "Listing data + aerial imagery review", rawValue: !isNaN(acres) ? acres.toFixed(1) + " acres" : null, methodology: "Acreage from listing, frontage/access from aerial review and summary keywords" + (site.roadFrontage ? ` — ${site.roadFrontage}` : ""), verified: !isNaN(acres) && acres > 0 };
-  const compSource = { source: compCount !== undefined && compCount !== null ? "3-mile radius facility scan" : "Summary keyword analysis (estimated)", rawValue: compCount !== undefined && compCount !== null ? compCount + " facilities within 3 mi" : null, methodology: compCount !== undefined && compCount !== null ? "Google Maps + SpareFoot + SelfStorage.com scan" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : "Keyword match on summary text — run full competition scan for verified count", verified: compCount !== undefined && compCount !== null };
+  const compSource = { source: compMethod === 'ccSPC' ? "Climate-controlled SF per capita analysis" : compMethod === 'count' ? "3-mile radius facility scan" : "Summary keyword analysis (estimated)", rawValue: compMethod === 'ccSPC' ? parseFloat(ccSPC).toFixed(1) + " CC SF/capita" : compCount !== undefined && compCount !== null ? compCount + " facilities within 3 mi" : null, methodology: compMethod === 'ccSPC' ? "CC SF within 3 mi ÷ 3-mi population" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : compMethod === 'count' ? "Google Maps + SpareFoot + SelfStorage.com scan" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : "Keyword match on summary text — run full competition scan for verified count", verified: compMethod !== 'keyword' };
 
   const breakdown = [
     { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population"), reason: popExplain, ...popSource },
