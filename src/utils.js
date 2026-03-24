@@ -283,15 +283,16 @@ export const sanitizeString = (str) => {
   return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim().slice(0, 5000);
 };
 
-// Fix common UTF-8 mojibake patterns (e.g. â€" → —) seen in Firebase data
+// Fix common UTF-8 mojibake patterns seen in Firebase data
+// UTF-8 bytes decoded as Windows-1252: E2=â, 80=€, 94=", 93=", 99=™, 9C=œ, 9D=
 export const fixEncoding = (str) => {
   if (typeof str !== "string") return str;
   return str
-    .replace(/\u00e2\u0080\u0094|â€"/g, "—")
-    .replace(/\u00e2\u0080\u0093|â€"/g, "–")
-    .replace(/\u00e2\u0080\u0099|â€™/g, "'")
-    .replace(/\u00e2\u0080\u009c|â€œ/g, "\u201C")
-    .replace(/\u00e2\u0080\u009d|â€\u009d/g, "\u201D");
+    .replace(/\u00e2\u20ac\u201d/g, "\u2014")   // â€" → — (em dash)
+    .replace(/\u00e2\u20ac\u201c/g, "\u2013")   // â€" → – (en dash)
+    .replace(/\u00e2\u20ac\u2122/g, "\u2019")   // â€™ → ' (right single quote)
+    .replace(/\u00e2\u20ac\u0153/g, "\u201C")   // â€œ → " (left double quote)
+    .replace(/\u00e2\u20ac[\u009d\u0098]/g, "\u201D"); // â€ → " (right double quote)
 };
 
 // Validate a Firebase path segment — no dots, brackets, slashes, or control chars
