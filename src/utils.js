@@ -283,6 +283,17 @@ export const sanitizeString = (str) => {
   return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim().slice(0, 5000);
 };
 
+// Fix common UTF-8 mojibake patterns (e.g. â€" → —) seen in Firebase data
+export const fixEncoding = (str) => {
+  if (typeof str !== "string") return str;
+  return str
+    .replace(/\u00e2\u0080\u0094|â€"/g, "—")
+    .replace(/\u00e2\u0080\u0093|â€"/g, "–")
+    .replace(/\u00e2\u0080\u0099|â€™/g, "'")
+    .replace(/\u00e2\u0080\u009c|â€œ/g, "\u201C")
+    .replace(/\u00e2\u0080\u009d|â€\u009d/g, "\u201D");
+};
+
 // Validate a Firebase path segment — no dots, brackets, slashes, or control chars
 export const isValidFirebasePath = (p) => typeof p === "string" && p.length > 0 && !/[.#$\[\]\/\x00-\x1F]/.test(p);
 
