@@ -657,6 +657,7 @@ function AppInner() {
       pop3mi: site.pop3mi || "",
       sellerBroker: site.sellerBroker || "",
       summary: site.summary || "",
+      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}${site.zoning ? " · Zoning: " + site.zoning : ""}${site.zoningClassification ? " (" + site.zoningClassification + ")" : ""}${site.waterHookupStatus ? " · Water: " + site.waterHookupStatus : ""}${site.siteiqData?.nearestPS ? " · Nearest PS: " + site.siteiqData.nearestPS + " mi" : ""}`,
       coordinates: site.coordinates || "",
       listingUrl: site.listingUrl || "",
       dateOnMarket: site.dateOnMarket || "",
@@ -1091,14 +1092,15 @@ function AppInner() {
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
-                  <IntelCardHeader site={site} onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                  <IntelCardHeader site={site} onClick={() => { if (hoveredBrief === site.id) return; goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
-                        {/* Call Briefing toggle */}
+                        {/* Call Briefing toggle — click only, no hover-to-open */}
                         <span
                           onClick={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             if (hoveredBrief === site.id) {
                               if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
                               setHoveredBrief(null);
@@ -1107,27 +1109,11 @@ function AppInner() {
                               setHoveredBrief(site.id);
                             }
                           }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "rgba(232,122,46,0.15)";
-                            e.currentTarget.style.borderColor = "rgba(232,122,46,0.3)";
-                            if (hoveredBrief !== site.id) {
-                              clearTimeout(hoverTimerRef.current);
-                              hoverTimerRef.current = setTimeout(() => {
-                                setBriefDraft(site.callBrief || "");
-                                setHoveredBrief(site.id);
-                              }, 400);
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)";
-                            e.currentTarget.style.borderColor = site.callBrief ? "rgba(232,122,46,0.2)" : "rgba(201,168,76,0.1)";
-                            clearTimeout(hoverTimerRef.current);
-                          }}
                           style={{
                             fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
-                            border: site.callBrief ? "1px solid rgba(232,122,46,0.2)" : "1px solid rgba(201,168,76,0.1)",
-                            background: site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)",
-                            color: site.callBrief ? "#E87A2E" : "#6B7394",
+                            border: hoveredBrief === site.id ? "1px solid rgba(232,122,46,0.4)" : site.callBrief ? "1px solid rgba(232,122,46,0.2)" : "1px solid rgba(201,168,76,0.1)",
+                            background: hoveredBrief === site.id ? "rgba(232,122,46,0.2)" : site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)",
+                            color: site.callBrief || hoveredBrief === site.id ? "#E87A2E" : "#6B7394",
                             transition: "all 0.15s", letterSpacing: "0.04em", userSelect: "none",
                           }}
                           title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}

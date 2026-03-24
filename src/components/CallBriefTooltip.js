@@ -29,7 +29,8 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
   const waterColor = waterStatus === "by-right" ? "#22C55E" : waterStatus === "by-request" ? "#FBBF24" : waterStatus === "no-provider" ? "#EF4444" : "#94A3B8";
 
   const textRef = useRef(null);
-  useEffect(() => { if (textRef.current) textRef.current.focus(); }, []);
+  // Auto-focus textarea after a tick so it doesn't interfere with the click event
+  useEffect(() => { const t = setTimeout(() => { if (textRef.current) textRef.current.focus(); }, 50); return () => clearTimeout(t); }, []);
 
   const fmtN = (v) => { const n = Number(v); return isNaN(n) ? v : n.toLocaleString(); };
 
@@ -56,7 +57,7 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
   ].filter(Boolean);
 
   return (
-    <div onClick={(e) => e.stopPropagation()} style={{
+    <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} style={{
       position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
       marginTop: 2, borderRadius: 14, overflow: "hidden",
       background: "linear-gradient(170deg, #0c0e1a 0%, #111827 50%, #0f1629 100%)",
