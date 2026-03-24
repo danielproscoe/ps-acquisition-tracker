@@ -31,7 +31,7 @@ import {
   generateRECPackage as _generateRECPackage,
   generateDemographicsReport,
 } from './reports';
-import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF } from './components';
+import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF, CallBriefTooltip } from './components';
 import { SortBar, SORT_OPTIONS } from './components/SortBar';
 import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
 import ValuationInputs from './components/ValuationInputs';
@@ -145,6 +145,9 @@ function AppInner() {
   const [showSiteScoreDetail, setShowSiteScoreDetail] = useState({});
   // vettingReport removed — auto-generates on site add
   const [showIQConfig, setShowIQConfig] = useState(false);
+  const [hoveredBrief, setHoveredBrief] = useState(null); // site id for call briefing tooltip
+  const [briefDraft, setBriefDraft] = useState(""); // local draft for editable briefing
+  const hoverTimerRef = useRef(null);
   const [demoExpanded, setDemoExpanded] = useState(false);
   const [scoreExpanded, setScoreExpanded] = useState(false);
   const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
@@ -953,6 +956,7 @@ function AppInner() {
       { key: "dateOnMarket", header: "Date on Market", width: 16 },
       { key: "dom", header: "Days on Market", width: 16 },
       { key: "summary", header: "Summary / Notes", width: 50 },
+      { key: "callBrief", header: "Call Briefing", width: 50 },
       { key: "coordinates", header: "Coordinates", width: 24 },
       { key: "listingUrl", header: "Listing URL", width: 36 },
       { key: "approvedAt", header: "Date Added", width: 14 },
@@ -1085,12 +1089,51 @@ function AppInner() {
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
+                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
                   <IntelCardHeader site={site} onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
+                        {/* Call Briefing toggle */}
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (hoveredBrief === site.id) {
+                              if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
+                              setHoveredBrief(null);
+                            } else {
+                              setBriefDraft(site.callBrief || "");
+                              setHoveredBrief(site.id);
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(232,122,46,0.15)";
+                            e.currentTarget.style.borderColor = "rgba(232,122,46,0.3)";
+                            if (hoveredBrief !== site.id) {
+                              clearTimeout(hoverTimerRef.current);
+                              hoverTimerRef.current = setTimeout(() => {
+                                setBriefDraft(site.callBrief || "");
+                                setHoveredBrief(site.id);
+                              }, 400);
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)";
+                            e.currentTarget.style.borderColor = site.callBrief ? "rgba(232,122,46,0.2)" : "rgba(201,168,76,0.1)";
+                            clearTimeout(hoverTimerRef.current);
+                          }}
+                          style={{
+                            fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
+                            border: site.callBrief ? "1px solid rgba(232,122,46,0.2)" : "1px solid rgba(201,168,76,0.1)",
+                            background: site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)",
+                            color: site.callBrief ? "#E87A2E" : "#6B7394",
+                            transition: "all 0.15s", letterSpacing: "0.04em", userSelect: "none",
+                          }}
+                          title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}
+                        >
+                          {site.callBrief ? "BRIEF" : "+BRIEF"}
+                        </span>
                         <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
@@ -1119,6 +1162,22 @@ function AppInner() {
                     <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(21,101,192,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(21,101,192,0.3)"; }}>📊 Detail</button>
                     <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
                   </IntelCardHeader>
+                  {/* Call Briefing Tooltip */}
+                  {hoveredBrief === site.id && (
+                    <CallBriefTooltip
+                      site={site}
+                      briefDraft={briefDraft}
+                      setBriefDraft={setBriefDraft}
+                      getSiteScore={getSiteScore}
+                      onSave={(val) => {
+                        if (val !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", val);
+                      }}
+                      onClose={() => {
+                        if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
+                        setHoveredBrief(null);
+                      }}
+                    />
+                  )}
 
                   {/* Expanded */}
                   {isOpen && (
@@ -1358,6 +1417,15 @@ function AppInner() {
                       <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: 14, margin: "10px 0", border: "1px solid rgba(201,168,76,0.08)" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.08em" }}>Recent Summary</div>
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
+                      </div>
+
+                      {/* Call Briefing — editable notes for MT/DW calls */}
+                      <div style={{ background: "linear-gradient(135deg, rgba(232,122,46,0.04) 0%, rgba(15,21,56,0.5) 100%)", borderRadius: 10, padding: 14, margin: "0 0 10px", border: "1px solid rgba(232,122,46,0.12)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Call Briefing</span>
+                          <span style={{ fontSize: 8, color: "#4A5080", fontWeight: 600 }}>shows on hover card</span>
+                        </div>
+                        <EF multi label="" value={site.callBrief || ""} onSave={(v) => saveField(regionKey, site.id, "callBrief", v)} placeholder="Quick talking points for MT/DW call — pricing recommendation, key risks, next steps..." />
                       </div>
 
                       {/* ── Editable Detail Fields ── */}

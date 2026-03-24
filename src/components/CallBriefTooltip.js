@@ -1,0 +1,110 @@
+// ─── CallBriefTooltip — McKinsey-level hover card with live-editable notes ───
+// Shows key site metrics + editable briefing notes on hover/click
+// Auto-saves to Firebase when closed or on blur
+import React, { useEffect, useRef } from "react";
+
+export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSave, onClose, getSiteScore }) {
+  const iq = getSiteScore ? getSiteScore(site) : null;
+  const score = iq?.composite ?? iq?.score ?? null;
+  const cls = score >= 8 ? "GREEN" : score >= 6 ? "YELLOW" : score >= 4 ? "ORANGE" : "RED";
+  const clsColor = { GREEN: "#22C55E", YELLOW: "#FBBF24", ORANGE: "#F97316", RED: "#EF4444" }[cls] || "#6B7394";
+  const zoningCls = (site.zoningClassification || "").toLowerCase();
+  const zoningColor = zoningCls.includes("by-right") ? "#22C55E" : zoningCls.includes("conditional") ? "#FBBF24" : zoningCls.includes("rezone") ? "#F97316" : "#94A3B8";
+  const waterStatus = (site.waterHookupStatus || "").toLowerCase();
+  const waterColor = waterStatus === "by-right" ? "#22C55E" : waterStatus === "by-request" ? "#FBBF24" : waterStatus === "no-provider" ? "#EF4444" : "#94A3B8";
+
+  const textRef = useRef(null);
+  useEffect(() => { if (textRef.current) textRef.current.focus(); }, []);
+
+  const fmtN = (v) => { const n = Number(v); return isNaN(n) ? v : n.toLocaleString(); };
+
+  const metrics = [
+    { label: "ASKING", value: site.askingPrice || "—" },
+    { label: "ACRES", value: site.acreage ? `${site.acreage} ac` : "—" },
+    { label: "3MI POP", value: site.pop3mi ? fmtN(site.pop3mi) : "—" },
+    { label: "3MI HHI", value: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : `$${fmtN(site.income3mi)}`) : "—" },
+  ];
+
+  const pills = [
+    { label: "ZONING", value: `${site.zoning || "—"}${zoningCls ? ` · ${zoningCls.replace(/-/g, " ")}` : ""}`, color: zoningColor },
+    site.waterHookupStatus && { label: "WATER", value: site.waterHookupStatus.replace(/-/g, " "), color: waterColor },
+    site.sellerBroker && { label: "BROKER", value: site.sellerBroker, color: "#C9A84C" },
+    site.siteiqData?.nearestPS != null && { label: "NEAREST PS", value: `${site.siteiqData.nearestPS} mi`, color: "#818CF8" },
+    site.siteiqData?.competitorCount != null && { label: "COMPETITORS", value: `${site.siteiqData.competitorCount} within 3mi`, color: "#94A3B8" },
+  ].filter(Boolean);
+
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{
+      position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
+      marginTop: 2, borderRadius: 14, overflow: "hidden",
+      background: "linear-gradient(170deg, #0c0e1a 0%, #111827 50%, #0f1629 100%)",
+      border: "1px solid rgba(201,168,76,0.2)",
+      boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08), 0 0 40px rgba(201,168,76,0.04)",
+      animation: "fadeIn 0.12s ease-out",
+    }}>
+      {/* Gold accent bar */}
+      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)" }} />
+
+      {/* Header strip */}
+      <div style={{ padding: "12px 16px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: "#F4F6FA", letterSpacing: "-0.01em" }}>CALL BRIEFING</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: clsColor, background: `${clsColor}15`, padding: "2px 8px", borderRadius: 5, border: `1px solid ${clsColor}30` }}>
+            {score ? `${score.toFixed(1)} ${cls}` : "—"}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: "#6B7394" }}>{site.phase || "Prospect"}</span>
+        </div>
+        <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ background: "none", border: "none", color: "#6B7394", fontSize: 14, cursor: "pointer", padding: "2px 6px", borderRadius: 4, lineHeight: 1 }} title="Close (Esc)">✕</button>
+      </div>
+
+      {/* Key metrics row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, padding: "0 12px 10px" }}>
+        {metrics.map((m, i) => (
+          <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.1em", marginBottom: 2 }}>{m.label}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Status pills */}
+      <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", flexWrap: "wrap" }}>
+        {pills.map((p, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: `${p.color}10`, padding: "4px 10px", borderRadius: 6, border: `1px solid ${p.color}25` }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>{p.label}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: p.color }}>{p.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)", margin: "0 12px" }} />
+
+      {/* Editable briefing notes */}
+      <div style={{ padding: "10px 12px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em" }}>BRIEFING NOTES</span>
+          <span style={{ fontSize: 8, color: "#4A5080", fontWeight: 600 }}>auto-saves on close · Esc to dismiss</span>
+        </div>
+        <textarea
+          ref={textRef}
+          value={briefDraft}
+          onChange={(e) => setBriefDraft(e.target.value)}
+          onBlur={() => onSave(briefDraft)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { if (e.key === "Escape") { onSave(briefDraft); onClose(); } e.stopPropagation(); }}
+          placeholder="Type call notes here — auto-saves when you close..."
+          style={{
+            width: "100%", minHeight: 80, maxHeight: 200, padding: "10px 12px",
+            borderRadius: 10, border: "1px solid rgba(201,168,76,0.1)",
+            background: "rgba(15,21,56,0.6)", color: "#E2E8F0",
+            fontSize: 12, fontFamily: "'Inter', sans-serif", lineHeight: 1.6,
+            resize: "vertical", outline: "none", boxSizing: "border-box",
+            transition: "border-color 0.15s",
+          }}
+          onFocus={(e) => { e.target.style.borderColor = "rgba(232,122,46,0.3)"; }}
+        />
+      </div>
+    </div>
+  );
+}
