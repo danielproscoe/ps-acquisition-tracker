@@ -2605,15 +2605,55 @@ function AppInner() {
                 </div>
               </div>
 
-              {/* SiteScore Scorecard */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 20 }}>
-                {(iqR.breakdown || []).map((b, i) => (
-                  <div key={i} style={{ background: "rgba(15,21,56,0.6)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 4 }}>{b.label}</div>
-                    <div style={{ fontSize: 24, fontWeight: 900, color: b.score >= 8 ? "#16A34A" : b.score >= 6 ? "#D97706" : b.score >= 4 ? "#EA580C" : "#DC2626" }}>{b.score}<span style={{ fontSize: 12, color: "#6B7394" }}>/10</span></div>
-                    <div style={{ fontSize: 10, color: "#6B7394" }}>{Math.round(b.weight * 100)}% weight</div>
+              {/* SiteScore Scorecard — with source citations */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 20 }}>
+                {(iqR.breakdown || []).map((b, i) => {
+                  const sc = b.score >= 8 ? "#16A34A" : b.score >= 6 ? "#D97706" : b.score >= 4 ? "#EA580C" : "#DC2626";
+                  const isOpen = reviewInputs.__sourceExpanded === b.key;
+                  return (
+                  <div key={i} onClick={() => setReviewInputs({ ...reviewInputs, __sourceExpanded: isOpen ? null : b.key })} style={{ background: isOpen ? "rgba(15,21,56,0.85)" : "rgba(15,21,56,0.6)", borderRadius: 12, padding: "12px 14px", border: isOpen ? `1px solid ${sc}40` : "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "all 0.2s ease", position: "relative" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 4 }}>{b.label}</div>
+                        <div style={{ fontSize: 24, fontWeight: 900, color: sc }}>{b.score}<span style={{ fontSize: 12, color: "#6B7394" }}>/10</span></div>
+                        <div style={{ fontSize: 10, color: "#6B7394" }}>{Math.round(b.weight * 100)}% weight</div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                        {b.verified ? <span style={{ fontSize: 8, fontWeight: 800, color: "#22C55E", background: "rgba(34,197,94,0.12)", padding: "2px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>VERIFIED</span> : <span style={{ fontSize: 8, fontWeight: 800, color: "#F59E0B", background: "rgba(245,158,11,0.12)", padding: "2px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>UNVERIFIED</span>}
+                        <span style={{ fontSize: 8, color: "#4A5080", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▼</span>
+                      </div>
+                    </div>
+                    {/* Raw value preview — always visible */}
+                    {b.rawValue && <div style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C", marginTop: 6, fontFamily: "'Space Mono', monospace" }}>{b.rawValue}</div>}
+                    {/* Source tag — always visible */}
+                    <div style={{ fontSize: 9, color: "#6B7394", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ color: b.verified ? "#22C55E" : "#F59E0B", fontSize: 7 }}>●</span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.source}</span>
+                    </div>
+                    {/* Expanded source detail */}
+                    {isOpen && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(201,168,76,0.1)", animation: "fadeIn 0.2s ease-out" }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>DATA SOURCE</div>
+                          <div style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{b.source}</div>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>METHODOLOGY</div>
+                          <div style={{ fontSize: 10, color: "#CBD5E1", lineHeight: 1.5 }}>{b.methodology}</div>
+                        </div>
+                        <div style={{ marginBottom: b.url ? 8 : 0 }}>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>SCORING LOGIC</div>
+                          <div style={{ fontSize: 10, color: "#CBD5E1", lineHeight: 1.5 }}>{b.reason}</div>
+                        </div>
+                        {b.url && <div>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>SOURCE URL</div>
+                          <a href={b.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: 10, color: "#3B82F6", wordBreak: "break-all" }}>{b.url}</a>
+                        </div>}
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Key Metrics */}

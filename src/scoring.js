@@ -324,17 +324,38 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const compExplain = compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount === 0 ? "0 = 10" : compCount === 1 ? "1 = 9" : compCount === 2 ? "2 = 7" : compCount === 3 ? "3 = 6" : compCount <= 5 ? "4-5 = 4" : compCount <= 8 ? "6-8 = 3" : "9+ = 2"}` : "Keyword-based estimate";
   const tierExplain = tier ? `Tier ${tier} market → ${tier === 1 ? "10" : tier === 2 ? "8" : tier === 3 ? "6" : "4"}` : "Market keyword match";
 
+  // ─── DATA SOURCE CITATIONS — "Where did this come from?" ───
+  // Each dimension gets a source, rawValue, and methodology so Dan can answer PS leadership instantly.
+  const demoSource = site.demoSource || (growthRaw !== null ? "ESRI Community Analyst" : (popRaw > 0 ? "U.S. Census ACS 5-Year Estimates" : null));
+  const demoMethodology = "3-mile radius ring study centered on site coordinates";
+  const popSource = { source: popRaw > 0 ? demoSource : "No data available", rawValue: popRaw > 0 ? popRaw.toLocaleString() + " residents" : null, methodology: popRaw > 0 ? demoMethodology : "Default score (5) applied — populate pop3mi field", verified: popRaw > 0 };
+  const growthSource = { source: growthRaw !== null ? (site.demoSource || "ESRI 2025→2030 Population Projections") : "No ESRI projection data", rawValue: growthRaw !== null ? growthRaw.toFixed(2) + "% CAGR" : null, methodology: growthRaw !== null ? "5-year compound annual growth rate, 3-mi ring" : "Default score (5) applied — populate popGrowth3mi field", verified: growthRaw !== null };
+  const incSource = { source: incRaw > 0 ? demoSource : "No data available", rawValue: incRaw > 0 ? "$" + incRaw.toLocaleString() : null, methodology: incRaw > 0 ? demoMethodology : "Default score (5) applied — populate income3mi field", verified: incRaw > 0 };
+  const hhSource = { source: hhRaw > 0 ? demoSource : "No data available", rawValue: hhRaw > 0 ? hhRaw.toLocaleString() + " households" : null, methodology: hhRaw > 0 ? demoMethodology : "Default score (5) applied — populate households3mi field", verified: hhRaw > 0 };
+  const hvSource = { source: hvRaw > 0 ? demoSource : "No data available", rawValue: hvRaw > 0 ? "$" + hvRaw.toLocaleString() : null, methodology: hvRaw > 0 ? demoMethodology : "Default score (5) applied — populate homeValue3mi field", verified: hvRaw > 0 };
+  const zoningSourceInfo = {
+    source: site.zoningSource || (site.zoningTableAccessed ? "Municipal ordinance (verified)" : explicitClassSet ? "Verified classification" : "Unverified"),
+    rawValue: site.zoningUseTerm || site.zoning || null,
+    methodology: site.zoningTableAccessed ? `Permitted use table accessed — ${site.zoningOrdinanceSection || "section on file"}` : explicitClassSet ? `Classification set: ${zClass}` : isNoZoning ? "ETJ/unincorporated — no zoning ordinance applies" : "Regex keyword match on summary text (unverified — score capped at 5)",
+    verified: !!(site.zoningTableAccessed || explicitClassSet || isNoZoning),
+    url: site.zoningSource || null,
+  };
+  const psSource = { source: "PS Corporate Location Database", rawValue: !isNaN(psDist) ? psDist.toFixed(1) + " miles" : null, methodology: !isNaN(psDist) ? "Haversine distance calculation from site to nearest of 3,112 PS-owned locations" : "No proximity data — populate siteiqData.nearestPS", verified: !isNaN(psDist) };
+  const accessSource = { source: "Listing data + aerial imagery review", rawValue: !isNaN(acres) ? acres.toFixed(1) + " acres" : null, methodology: "Acreage from listing, frontage/access from aerial review and summary keywords" + (site.roadFrontage ? ` — ${site.roadFrontage}` : ""), verified: !isNaN(acres) && acres > 0 };
+  const compSource = { source: compCount !== undefined && compCount !== null ? "3-mile radius facility scan" : "Summary keyword analysis (estimated)", rawValue: compCount !== undefined && compCount !== null ? compCount + " facilities within 3 mi" : null, methodology: compCount !== undefined && compCount !== null ? "Google Maps + SpareFoot + SelfStorage.com scan" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : "Keyword match on summary text — run full competition scan for verified count", verified: compCount !== undefined && compCount !== null };
+  const mktSource = { source: "DJR Target Market Classification", rawValue: tier ? "Tier " + tier : (site.market || "Unclassified"), methodology: "Internal market prioritization: Tier 1 (Cincy/Indy), Tier 2 (Independence/Springboro), Tier 3 (Middle TN), Tier 4 (DFW/Austin/Houston)", verified: true };
+
   const breakdown = [
-    { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population"), reason: popExplain },
-    { label: "Growth", key: "growth", score: scores.growth, weight: getIQWeight("growth"), reason: growthExplain },
-    { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income"), reason: incExplain },
-    { label: "Households", key: "households", score: scores.households, weight: getIQWeight("households"), reason: hhExplain },
-    { label: "Home Value", key: "homeValue", score: scores.homeValue, weight: getIQWeight("homeValue"), reason: hvExplain },
-    { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning"), reason: zoningExplain },
-    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity"), reason: psExplain },
-    { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access"), reason: accessExplain },
-    { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition"), reason: compExplain },
-    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier"), reason: tierExplain },
+    { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population"), reason: popExplain, ...popSource },
+    { label: "Growth", key: "growth", score: scores.growth, weight: getIQWeight("growth"), reason: growthExplain, ...growthSource },
+    { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income"), reason: incExplain, ...incSource },
+    { label: "Households", key: "households", score: scores.households, weight: getIQWeight("households"), reason: hhExplain, ...hhSource },
+    { label: "Home Value", key: "homeValue", score: scores.homeValue, weight: getIQWeight("homeValue"), reason: hvExplain, ...hvSource },
+    { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning"), reason: zoningExplain, ...zoningSourceInfo },
+    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity"), reason: psExplain, ...psSource },
+    { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access"), reason: accessExplain, ...accessSource },
+    { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition"), reason: compExplain, ...compSource },
+    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier"), reason: tierExplain, ...mktSource },
   ];
   return {
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor, breakdown,
