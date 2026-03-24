@@ -44,19 +44,13 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
   // Auto-focus textarea after a tick
   useEffect(() => { const t = setTimeout(() => { if (textRef.current) textRef.current.focus(); }, 100); return () => clearTimeout(t); }, []);
 
-  // Close on click outside
-  useEffect(() => {
-    const handler = (e) => {
-      // If clicking outside the tooltip and not on the BRIEF badge
-      const tooltip = document.getElementById("call-brief-portal");
-      if (tooltip && !tooltip.contains(e.target) && !e.target.closest("[data-brief-badge]")) {
-        onSave(briefDraft);
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [briefDraft, onSave, onClose]);
+  // Store latest callbacks in refs to avoid stale closures
+  const onSaveRef = useRef(onSave);
+  const onCloseRef = useRef(onClose);
+  const briefDraftRef = useRef(briefDraft);
+  useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => { briefDraftRef.current = briefDraft; }, [briefDraft]);
 
   const fmtN = (v) => { const n = Number(v); return isNaN(n) ? v : n.toLocaleString(); };
 
@@ -83,6 +77,9 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
   ].filter(Boolean);
 
   return createPortal(
+    <>
+    {/* Invisible backdrop — catches clicks outside tooltip */}
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 99998 }} onClick={() => { onSaveRef.current(briefDraftRef.current); onCloseRef.current(); }} />
     <div id="call-brief-portal" style={{
       position: "absolute", top: pos.top, left: pos.left, width: pos.width || "auto", zIndex: 99999,
       borderRadius: 14, overflow: "hidden",
@@ -154,7 +151,8 @@ export default function CallBriefTooltip({ site, briefDraft, setBriefDraft, onSa
           onFocus={(e) => { e.target.style.borderColor = "rgba(232,122,46,0.3)"; }}
         />
       </div>
-    </div>,
+    </div>
+    </>,
     document.body
   );
 }
