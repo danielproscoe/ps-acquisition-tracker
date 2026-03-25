@@ -728,71 +728,44 @@ function AppInner() {
 
   // Dan declines a site from his review queue (never sent to PS)
   const handleDecline = (id, declineReason) => {
-    try {
     const ri = reviewInputs[id] || {};
     const site = subs.find(s => s.id === id);
-    let iqR = null;
-    try { iqR = site ? computeSiteScore(site, siteScoreConfig) : null; } catch(e) { console.error("Score calc failed:", e); }
     const reason = declineReason || ri.declineReason || "Other";
     fbUpdate(`submissions/${id}`, {
-      status: "declined",
-      reviewedBy: ri.reviewer || "Dan R",
-      reviewNote: ri.note || "",
-      declineReason: reason,
-      declinedAt: new Date().toISOString(),
-      siteScoreAtDecline: iqR ? (iqR.score ?? iqR.composite ?? null) : null,
-      classificationAtDecline: iqR ? iqR.classification : null,
+      status: "declined", reviewedBy: ri.reviewer || "Dan R", reviewNote: ri.note || "",
+      declineReason: reason, declinedAt: new Date().toISOString(),
     });
     fbPush("config/scoring_calibration", {
       siteId: id, siteName: site?.name || "", action: "declined_by_dan",
-      reason, siteScore: iqR ? iqR.score : null,
-      classification: iqR ? iqR.classification : null,
-      address: site?.address || "", state: site?.state || "",
+      reason, address: site?.address || "", state: site?.state || "",
       ts: new Date().toISOString(), by: "Dan R",
     });
     notify("Declined — " + reason);
-    } catch(e) { console.error("handleDecline error:", e); notify("Error declining — check console"); }
   };
 
   // PS (DW/MT/Brian) rejects a site — routes BACK to Dan's queue with feedback
   // Auto-attributes rejector based on who the site was routed to (no manual selection needed)
   const handlePSReject = (id) => {
-    try {
     const ri = reviewInputs[id] || {};
     const site = subs.find(s => s.id === id);
-    let iqR = null;
-    try { iqR = site ? computeSiteScore(site, siteScoreConfig) : null; } catch(e) { console.error("Score calc failed:", e); }
     const reason = ri.declineReason || "PS Feedback — declined by PS stakeholder";
     const feedback = ri.psFeedback || ri.note || "";
-    // Auto-attribute rejector: infer from recommendedTo or region, fallback to approver dropdown or "PS"
     const rec = (site?.recommendedTo || "").toLowerCase();
     const region = (site?.routedTo || site?.region || "").toLowerCase();
     let rejectedBy = "PS";
-    if (rec.includes("toussaint") || rec.includes("matthew") || region === "east") {
-      rejectedBy = "Matthew Toussaint";
-    } else if (rec.includes("wollent") || rec.includes("daniel w") || region === "southwest") {
-      rejectedBy = "Daniel Wollent";
-    } else if (ri.reviewer) {
-      rejectedBy = ri.reviewer;
-    }
+    if (rec.includes("toussaint") || rec.includes("matthew") || region === "east") rejectedBy = "Matthew Toussaint";
+    else if (rec.includes("wollent") || rec.includes("daniel w") || region === "southwest") rejectedBy = "Daniel Wollent";
+    else if (ri.reviewer) rejectedBy = ri.reviewer;
     fbUpdate(`submissions/${id}`, {
-      status: "ps-rejected",
-      psRejectedBy: rejectedBy,
-      psRejectReason: reason,
-      psFeedback: feedback,
-      psRejectedAt: new Date().toISOString(),
-      siteScoreAtDecline: iqR ? (iqR.score ?? iqR.composite ?? null) : null,
-      classificationAtDecline: iqR ? iqR.classification : null,
+      status: "ps-rejected", psRejectedBy: rejectedBy, psRejectReason: reason,
+      psFeedback: feedback, psRejectedAt: new Date().toISOString(),
     });
     fbPush("config/scoring_calibration", {
       siteId: id, siteName: site?.name || "", action: "rejected_by_ps",
-      reason, feedback, siteScore: iqR ? iqR.score : null,
-      classification: iqR ? iqR.classification : null,
-      address: site?.address || "", state: site?.state || "",
+      reason, feedback, address: site?.address || "", state: site?.state || "",
       ts: new Date().toISOString(), by: rejectedBy,
     });
     notify(`PS Rejected by ${rejectedBy} — routed back to Dan for review`);
-    } catch(e) { console.error("handlePSReject error:", e); notify("Error rejecting — check console"); }
   };
 
   // Dan permanently kills a site after reading PS feedback — address logged to never-resubmit
