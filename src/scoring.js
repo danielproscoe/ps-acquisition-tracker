@@ -3,7 +3,7 @@
 
 // ─── SiteScore™ v3.1 — 10-Dimension Calibrated Scoring Engine ───
 // Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
-// Default weights: Pop 16%, Growth 21%, HHI 10%, Households 5%, HomeValue 5%, Zoning 16%, PS Proximity 11%, Access 7%, Competition 7%, Market 2%
+// Default weights: Pop 16%, Growth 21%, HHI 10%, Households 5%, HomeValue 5%, Zoning 16%, PS Proximity 11%, Access 7%, Competition 7%, MarketTier 2%
 // Pricing removed — land valuation handled by Pricing Report's Land Acquisition Price Guide.
 // Hard FAIL: pop <5K, HHI <$55K, landlocked, >35mi from nearest PS
 export const computeSiteScore = (site, siteScoreConfig) => {
@@ -140,11 +140,13 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   // We actively target unzoned land — it's a HUGE positive, not a neutral score.
   let zoningScore = 3;
   const zClass = site.zoningClassification;
-  if (zClass && zClass !== "unknown") {
-    if (zClass === "by-right") zoningScore = 10;
-    else if (zClass === "conditional") zoningScore = 6;
-    else if (zClass === "rezone-required") zoningScore = 2;
-    else if (zClass === "prohibited") { zoningScore = 0; hardFail = true; flags.push("FAIL: Zoning prohibits storage"); }
+  const zClassNorm = (zClass || "").toLowerCase().trim();
+  if (zClassNorm && zClassNorm !== "unknown") {
+    if (zClassNorm.startsWith("by-right") || zClassNorm === "by right" || zClassNorm.startsWith("permitted")) zoningScore = 10;
+    else if (zClassNorm.startsWith("conditional") || zClassNorm.includes("conditional") || zClassNorm.includes("sup") || zClassNorm.includes("cup") || zClassNorm.includes("special use") || zClassNorm.includes("plan commission")) zoningScore = 6;
+    else if (zClassNorm.startsWith("rezone") || zClassNorm.includes("rezone")) zoningScore = 2;
+    else if (zClassNorm.startsWith("prohibited") || zClassNorm.includes("prohibited")) { zoningScore = 0; hardFail = true; flags.push("FAIL: Zoning prohibits storage"); }
+    else zoningScore = 5; // has classification but unrecognized — treat as unknown
   } else {
     // "no zoning", "unincorporated", "ETJ", "unrestricted" = 10/10 — best possible outcome
     const noZoning = /(no\s*zoning|unincorporated|unrestricted|\bETJ\b|county\s*[-—]\s*no\s*zon)/i;
@@ -165,7 +167,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   //   (b) zoningClassification was explicitly set (by-right, conditional, etc.) — this IS our verification
   //   (c) Site is ETJ/unincorporated/no-zoning — no ordinance exists to access
   // The cap only applies to regex-matched scores from the fallback path (no explicit classification set).
-  const explicitClassSet = zClass && zClass !== "unknown";
+  const explicitClassSet = zClassNorm && zClassNorm !== "unknown" && zClassNorm !== "";
   const isNoZoning = /(no\s*zoning|unincorporated|\bETJ\b)/i.test(combinedText);
   if (zoningScore > 5 && !site.zoningTableAccessed && !explicitClassSet && !isNoZoning) {
     zoningScore = 5;
@@ -205,13 +207,9 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     else compScore = 2;
   } else if (compCount !== undefined && compCount !== null) {
     compMethod = 'count';
-    if (compCount === 0) compScore = 10;
-    else if (compCount === 1) compScore = 9;
-    else if (compCount === 2) compScore = 7;
-    else if (compCount === 3) compScore = 6;
-    else if (compCount <= 5) compScore = 4;
-    else if (compCount <= 8) compScore = 3;
-    else compScore = 2;
+    if (compCount <= 1) compScore = 10;
+    else if (compCount <= 3) compScore = 6;
+    else compScore = 3;
   } else {
     if (/no\s*(?:nearby|existing)\s*(?:storage|competition|competitor)/i.test(summary) || /low\s*competition/i.test(summary)) compScore = 9;
     else if (/storage\s*(?:next\s*door|adjacent|nearby)/i.test(summary) || /high\s*competition/i.test(summary) || /saturated/i.test(summary)) compScore = 3;
@@ -219,15 +217,30 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   scores.competition = compScore;
 
-  // --- COMPOSITE (weighted sum, 0-9 scale) — uses configurable weights, 9 dimensions ---
-  // Market Tier removed — was 2% weight, redistributed to Growth (+1%) and Zoning (+1%)
+  // --- 7. MARKET TIER (2%) — MT/DW target market alignment ---
+  let marketScore = 2; // default for unknown markets
+  const mTier = site.siteiqData?.marketTier;
+  if (mTier !== undefined && mTier !== null) {
+    const tier = parseInt(String(mTier), 10);
+    if (tier === 1) marketScore = 10;
+    else if (tier === 2) marketScore = 8;
+    else if (tier === 3) marketScore = 6;
+    else if (tier === 4) marketScore = 4;
+    else marketScore = 2;
+  }
+  scores.marketTier = marketScore;
+
+  const marketExplain = mTier !== undefined && mTier !== null ? `Market Tier ${mTier} → ${parseInt(String(mTier)) === 1 ? "Tier 1 = 10" : parseInt(String(mTier)) === 2 ? "Tier 2 = 8" : parseInt(String(mTier)) === 3 ? "Tier 3 = 6" : parseInt(String(mTier)) === 4 ? "Tier 4 = 4" : "Other = 2"}` : "No tier data — default 2";
+
+  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, 10 dimensions ---
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
     (incScore * getIQWeight("income")) + (hhScore * getIQWeight("households")) +
     (hvScore * getIQWeight("homeValue")) +
     (zoningScore * getIQWeight("zoning")) + (psProxScore * getIQWeight("psProximity")) +
     (scores.access * getIQWeight("access")) +
-    (compScore * getIQWeight("competition"));
+    (compScore * getIQWeight("competition")) +
+    (marketScore * getIQWeight("marketTier"));
   let adjusted = Math.round(weightedSum * 100) / 100;
 
   // --- PHASE BONUS ---
@@ -317,10 +330,10 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const psDist = nearestPS !== undefined && nearestPS !== null ? parseFloat(String(nearestPS)) : NaN;
   const psExplain = !isNaN(psDist) ? `Nearest PS: ${psDist.toFixed(1)} mi → ${psDist <= 5 ? "≤5mi = 10" : psDist <= 10 ? "≤10mi = 9" : psDist <= 15 ? "≤15mi = 7" : psDist <= 25 ? "≤25mi = 5" : psDist <= 35 ? "≤35mi = 3" : ">35mi = FAIL"}` : "No data — default 5";
   const zoningBaseLabel = zClass === "by-right" ? "10" : zClass === "conditional" ? "6" : zClass === "rezone-required" ? "2" : "0";
-  const zoningExplain = zClass && zClass !== "unknown" ? `Classification: ${zClass} → ${scores.zoning}` : (scores.zoning === 5 ? "Unverified — capped at 5 (set zoningClassification to unlock)" : isNoZoning ? `ETJ/no-zoning → ${scores.zoning}` : `Regex-matched: score ${scores.zoning}`);
+  const zoningExplain = explicitClassSet ? `Classification: ${zClass} → ${scores.zoning}` : (scores.zoning === 5 ? "Unverified — capped at 5 (set zoningClassification to unlock)" : isNoZoning ? `ETJ/no-zoning → ${scores.zoning}` : `Regex-matched: score ${scores.zoning}`);
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
-  const compExplain = compMethod === 'ccSPC' ? `CC SPC: ${parseFloat(ccSPC).toFixed(1)} SF/capita → ${parseFloat(ccSPC) < 1.5 ? "<1.5 = 10" : parseFloat(ccSPC) <= 3.0 ? "1.5-3.0 = 8" : parseFloat(ccSPC) <= 5.0 ? "3.0-5.0 = 6" : parseFloat(ccSPC) <= 7.0 ? "5.0-7.0 = 4" : ">7.0 = 2"}` : compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount === 0 ? "0 = 10" : compCount === 1 ? "1 = 9" : compCount === 2 ? "2 = 7" : compCount === 3 ? "3 = 6" : compCount <= 5 ? "4-5 = 4" : compCount <= 8 ? "6-8 = 3" : "9+ = 2"}` : "Keyword-based estimate";
+  const compExplain = compMethod === 'ccSPC' ? `CC SPC: ${parseFloat(ccSPC).toFixed(1)} SF/capita → ${parseFloat(ccSPC) < 1.5 ? "<1.5 = 10" : parseFloat(ccSPC) <= 3.0 ? "1.5-3.0 = 8" : parseFloat(ccSPC) <= 5.0 ? "3.0-5.0 = 6" : parseFloat(ccSPC) <= 7.0 ? "5.0-7.0 = 4" : ">7.0 = 2"}` : compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount <= 1 ? "0-1 = 10" : compCount <= 3 ? "2-3 = 6" : "4+ = 3"}` : "Keyword-based estimate";
 
 
   // ─── DATA SOURCE CITATIONS — "Where did this come from?" ───
@@ -353,6 +366,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity"), reason: psExplain, ...psSource },
     { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access"), reason: accessExplain, ...accessSource },
     { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition"), reason: compExplain, ...compSource },
+    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier"), reason: marketExplain, source: "MT/DW Territory Analysis", rawValue: mTier !== undefined && mTier !== null ? `Tier ${mTier}` : null, methodology: "Geographic alignment with PS expansion territories", verified: mTier !== undefined && mTier !== null },
   ];
   return {
     score: final, scores, flags, hardFail, hasDemoData, classification, classColor, breakdown,

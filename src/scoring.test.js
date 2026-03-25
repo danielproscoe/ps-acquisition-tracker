@@ -66,21 +66,22 @@ describe('Weight Normalization', () => {
     expect(Math.abs(total - 1.0)).toBeLessThan(0.001);
   });
 
-  test('SITE_SCORE_DEFAULTS has exactly 9 dimensions', () => {
-    expect(SITE_SCORE_DEFAULTS.length).toBe(9);
+  test('SITE_SCORE_DEFAULTS has exactly 10 dimensions', () => {
+    expect(SITE_SCORE_DEFAULTS.length).toBe(10);
   });
 
   test('all required dimension keys are present', () => {
     const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
     expect(keys).toEqual(expect.arrayContaining([
       'population', 'growth', 'income', 'households', 'homeValue',
-      'zoning', 'psProximity', 'access', 'competition',
+      'zoning', 'psProximity', 'access', 'competition', 'marketTier',
     ]));
   });
 
-  test('marketTier dimension has been removed', () => {
-    const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
-    expect(keys).not.toContain('marketTier');
+  test('marketTier dimension is present at 2% weight', () => {
+    const mt = SITE_SCORE_DEFAULTS.find(d => d.key === 'marketTier');
+    expect(mt).toBeTruthy();
+    expect(mt.weight).toBeCloseTo(0.02, 3);
   });
 
   test('no pricing dimension exists (removed per v3.1)', () => {
@@ -100,7 +101,7 @@ describe('computeSiteScore — basic structure', () => {
 
   test('returns all 10 dimension scores', () => {
     const result = score();
-    expect(Object.keys(result.scores).length).toBe(9);
+    expect(Object.keys(result.scores).length).toBe(10);
     expect(result.scores).toHaveProperty('population');
     expect(result.scores).toHaveProperty('growth');
     expect(result.scores).toHaveProperty('income');
@@ -110,6 +111,7 @@ describe('computeSiteScore — basic structure', () => {
     expect(result.scores).toHaveProperty('psProximity');
     expect(result.scores).toHaveProperty('access');
     expect(result.scores).toHaveProperty('competition');
+    expect(result.scores).toHaveProperty('marketTier');
   });
 
   test('assigns tier label (gold / steel / gray)', () => {
@@ -123,9 +125,9 @@ describe('computeSiteScore — basic structure', () => {
     expect(['GREEN', 'YELLOW', 'ORANGE', 'RED']).toContain(result.classification);
   });
 
-  test('returns breakdown array with 9 entries', () => {
+  test('returns breakdown array with 10 entries', () => {
     const result = score();
-    expect(result.breakdown).toHaveLength(9);
+    expect(result.breakdown).toHaveLength(10);
     result.breakdown.forEach(entry => {
       expect(entry).toHaveProperty('label');
       expect(entry).toHaveProperty('key');
@@ -369,6 +371,22 @@ describe('Zoning scoring', () => {
     expect(score({ zoningClassification: 'rezone-required' }).scores.zoning).toBe(2);
   });
 
+  test('zoningClassification "Conditional — Plan Commission approval" scores 6 (fuzzy match)', () => {
+    expect(score({ zoningClassification: 'Conditional — Plan Commission approval' }).scores.zoning).toBe(6);
+  });
+
+  test('zoningClassification "by-right per Section 526.2" scores 10 (fuzzy match)', () => {
+    expect(score({ zoningClassification: 'by-right per Section 526.2' }).scores.zoning).toBe(10);
+  });
+
+  test('zoningClassification "Rezone required — currently AG" scores 2 (fuzzy match)', () => {
+    expect(score({ zoningClassification: 'Rezone required — currently AG' }).scores.zoning).toBe(2);
+  });
+
+  test('zoningClassification with SUP mention scores 6 (fuzzy match)', () => {
+    expect(score({ zoningClassification: 'Requires SUP per Article 12' }).scores.zoning).toBe(6);
+  });
+
   test('zoningClassification "prohibited" is HARD FAIL (score 0)', () => {
     const result = score({ zoningClassification: 'prohibited' });
     expect(result.scores.zoning).toBe(0);
@@ -443,33 +461,33 @@ describe('Zoning scoring', () => {
 
 // ─── 9. COMPETITION SCORING ───
 
-describe('Competition scoring via siteiqData.competitorCount (6-tier scale)', () => {
+describe('Competition scoring via siteiqData.competitorCount (3-tier scale per CLAUDE.md)', () => {
   test('0 competitors scores 10', () => {
     expect(score({ siteiqData: { competitorCount: 0 } }).scores.competition).toBe(10);
   });
 
-  test('1 competitor scores 9', () => {
-    expect(score({ siteiqData: { competitorCount: 1 } }).scores.competition).toBe(9);
+  test('1 competitor scores 10', () => {
+    expect(score({ siteiqData: { competitorCount: 1 } }).scores.competition).toBe(10);
   });
 
-  test('2 competitors scores 7', () => {
-    expect(score({ siteiqData: { competitorCount: 2 } }).scores.competition).toBe(7);
+  test('2 competitors scores 6', () => {
+    expect(score({ siteiqData: { competitorCount: 2 } }).scores.competition).toBe(6);
   });
 
   test('3 competitors scores 6', () => {
     expect(score({ siteiqData: { competitorCount: 3 } }).scores.competition).toBe(6);
   });
 
-  test('4-5 competitors scores 4', () => {
-    expect(score({ siteiqData: { competitorCount: 5 } }).scores.competition).toBe(4);
+  test('4+ competitors scores 3', () => {
+    expect(score({ siteiqData: { competitorCount: 5 } }).scores.competition).toBe(3);
   });
 
-  test('6-8 competitors scores 3', () => {
+  test('7 competitors scores 3', () => {
     expect(score({ siteiqData: { competitorCount: 7 } }).scores.competition).toBe(3);
   });
 
-  test('9+ competitors scores 2', () => {
-    expect(score({ siteiqData: { competitorCount: 10 } }).scores.competition).toBe(2);
+  test('10 competitors scores 3', () => {
+    expect(score({ siteiqData: { competitorCount: 10 } }).scores.competition).toBe(3);
   });
 
   test('missing competitorCount falls back to summary regex', () => {
@@ -489,7 +507,33 @@ describe('Competition scoring via siteiqData.competitorCount (6-tier scale)', ()
   });
 });
 
-// Market Tier dimension removed — weight redistributed to Growth (+1%) and Zoning (+1%)
+// ─── 10. MARKET TIER SCORING ───
+
+describe('Market Tier scoring', () => {
+  test('marketTier 1 scores 10', () => {
+    expect(score({ siteiqData: { marketTier: 1 } }).scores.marketTier).toBe(10);
+  });
+
+  test('marketTier 2 scores 8', () => {
+    expect(score({ siteiqData: { marketTier: 2 } }).scores.marketTier).toBe(8);
+  });
+
+  test('marketTier 3 scores 6', () => {
+    expect(score({ siteiqData: { marketTier: 3 } }).scores.marketTier).toBe(6);
+  });
+
+  test('marketTier 4 scores 4', () => {
+    expect(score({ siteiqData: { marketTier: 4 } }).scores.marketTier).toBe(4);
+  });
+
+  test('undefined marketTier defaults to 2', () => {
+    expect(score({ siteiqData: { marketTier: undefined } }).scores.marketTier).toBe(2);
+  });
+
+  test('null marketTier defaults to 2', () => {
+    expect(score({ siteiqData: { marketTier: null } }).scores.marketTier).toBe(2);
+  });
+});
 
 // ─── 11. ACCESS & SIZE SCORING ───
 
@@ -841,11 +885,11 @@ describe('Competition scoring via siteiqData.ccSPC (primary metric)', () => {
   });
 
   test('falls back to competitorCount when ccSPC is null', () => {
-    expect(score({ siteiqData: { ccSPC: null, competitorCount: 1 } }).scores.competition).toBe(9);
+    expect(score({ siteiqData: { ccSPC: null, competitorCount: 1 } }).scores.competition).toBe(10);
   });
 
   test('falls back to competitorCount when ccSPC is undefined', () => {
-    expect(score({ siteiqData: { ccSPC: undefined, competitorCount: 2 } }).scores.competition).toBe(7);
+    expect(score({ siteiqData: { ccSPC: undefined, competitorCount: 2 } }).scores.competition).toBe(6);
   });
 
   test('ccSPC exactly 3.0 scores 8 (upper bound of 1.5-3.0 tier)', () => {
@@ -1583,12 +1627,16 @@ describe('Individual dimension weights are locked', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'competition').weight).toBe(0.07);
   });
 
-  test('growth weight is exactly 0.22 (absorbed 1% from removed marketTier)', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.22);
+  test('growth weight is exactly 0.21 (per CLAUDE.md)', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.21);
   });
 
-  test('zoning weight is exactly 0.17 (absorbed 1% from removed marketTier)', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.17);
+  test('zoning weight is exactly 0.16 (per CLAUDE.md)', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.16);
+  });
+
+  test('marketTier weight is exactly 0.02', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'marketTier').weight).toBe(0.02);
   });
 });
 

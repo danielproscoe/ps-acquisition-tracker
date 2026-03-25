@@ -96,14 +96,15 @@ export const DOC_TYPES = [
 // Persisted at Firebase path: config/siteiq_weights
 export const SITE_SCORE_DEFAULTS = [
   { key: "population", label: "Population", icon: "👥", weight: 0.16, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.22, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
+  { key: "growth", label: "Growth", icon: "📈", weight: 0.21, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
   { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
   { key: "households", label: "Households", icon: "🏠", weight: 0.05, tip: "3-mile household count (demand proxy)", source: "ESRI / Census ACS", group: "demographics" },
   { key: "homeValue", label: "Home Value", icon: "🏡", weight: 0.05, tip: "Median home value — affluence signal", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.17, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
+  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.16, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
   { key: "psProximity", label: "PS Proximity", icon: "📦", weight: 0.11, tip: "Distance to nearest PS location", source: "siteiqData.nearestPS", group: "market" },
   { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
   { key: "competition", label: "Competition", icon: "🏢", weight: 0.07, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
+  { key: "marketTier", label: "Market Tier", icon: "🎯", weight: 0.02, tip: "MT/DW target market alignment", source: "siteiqData.marketTier", group: "market" },
 ];
 
 // Auto-normalize so weights always sum to 1.0
