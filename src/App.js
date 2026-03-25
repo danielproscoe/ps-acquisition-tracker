@@ -37,6 +37,7 @@ import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
 import ValuationInputs from './components/ValuationInputs';
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { useNavigation } from './hooks/useNavigation';
+import StrategicNotes from './components/StrategicNotes';
 import './App.css';
 
 // ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
@@ -1946,6 +1947,7 @@ function AppInner() {
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
             { key: "validation", label: "Validation" },
             { key: "inputs", label: "\u26A1 Valuation Engine" },
+            { key: "strategy", label: "\u{1F3AF} Strategy Notes" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#E87A2E"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 16px rgba(232,122,46,0.4)"; } }}
@@ -4634,6 +4636,9 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
             </div>
           );
         })()}
+
+        {/* ═══ STRATEGIC PLANNING NOTES ═══ */}
+        {tab === "strategy" && <StrategicNotes />}
 
         {/* ═══ TRACKERS ═══ */}
         {(tab === "southwest" || tab === "east") && !detailView && <TrackerCards regionKey={tab} />}
