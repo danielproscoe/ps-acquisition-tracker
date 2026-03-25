@@ -1645,53 +1645,50 @@ describe('Exact boundary thresholds', () => {
 
 // ─── 17. WEIGHT REGRESSION GUARDS ───
 
-describe('Individual dimension weights are locked', () => {
-  test('population weight is exactly 0.16', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'population').weight).toBe(0.16);
+describe('Individual dimension weights are locked — SiteScore v4.0', () => {
+  test('population weight is exactly 0.14', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'population').weight).toBe(0.14);
   });
 
-  test('growth weight is exactly 0.22', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.22);
+  test('growth weight is exactly 0.18', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.18);
   });
 
   test('income weight is exactly 0.10', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'income').weight).toBe(0.10);
   });
 
-  test('households weight is exactly 0.05', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'households').weight).toBe(0.05);
+  test('households weight is exactly 0.04', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'households').weight).toBe(0.04);
   });
 
-  test('homeValue weight is exactly 0.05', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'homeValue').weight).toBe(0.05);
+  test('homeValue weight is exactly 0.04', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'homeValue').weight).toBe(0.04);
   });
 
-  test('zoning weight is exactly 0.17', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.17);
+  test('zoning weight is exactly 0.16', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.16);
   });
 
-  test('psProximity weight is exactly 0.11', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'psProximity').weight).toBe(0.11);
+  test('psProximity is NOT in defaults (gate only)', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'psProximity')).toBeUndefined();
   });
 
   test('access weight is exactly 0.07', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'access').weight).toBe(0.07);
   });
 
-  test('competition weight is exactly 0.07', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'competition').weight).toBe(0.07);
-  });
-
-  test('growth weight is exactly 0.21 (per CLAUDE.md)', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'growth').weight).toBe(0.21);
-  });
-
-  test('zoning weight is exactly 0.16 (per CLAUDE.md)', () => {
-    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'zoning').weight).toBe(0.16);
+  test('competition weight is exactly 0.25 (CC SPC is king)', () => {
+    expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'competition').weight).toBe(0.25);
   });
 
   test('marketTier weight is exactly 0.02', () => {
     expect(SITE_SCORE_DEFAULTS.find(d => d.key === 'marketTier').weight).toBe(0.02);
+  });
+
+  test('all weights sum to 1.00', () => {
+    const total = SITE_SCORE_DEFAULTS.reduce((sum, d) => sum + d.weight, 0);
+    expect(total).toBeCloseTo(1.0, 4);
   });
 });
 
