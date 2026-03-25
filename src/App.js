@@ -752,13 +752,24 @@ function AppInner() {
   };
 
   // PS (DW/MT/Brian) rejects a site — routes BACK to Dan's queue with feedback
+  // Auto-attributes rejector based on who the site was routed to (no manual selection needed)
   const handlePSReject = (id) => {
     const ri = reviewInputs[id] || {};
     const site = subs.find(s => s.id === id);
     const iqR = site ? computeSiteScore(site) : null;
     const reason = ri.declineReason || "PS Feedback — declined by PS stakeholder";
     const feedback = ri.psFeedback || ri.note || "";
-    const rejectedBy = ri.reviewer || "PS";
+    // Auto-attribute rejector: infer from recommendedTo or region, fallback to approver dropdown or "PS"
+    const rec = (site?.recommendedTo || "").toLowerCase();
+    const region = (site?.routedTo || site?.region || "").toLowerCase();
+    let rejectedBy = "PS";
+    if (rec.includes("toussaint") || rec.includes("matthew") || region === "east") {
+      rejectedBy = "Matthew Toussaint";
+    } else if (rec.includes("wollent") || rec.includes("daniel w") || region === "southwest") {
+      rejectedBy = "Daniel Wollent";
+    } else if (ri.reviewer) {
+      rejectedBy = ri.reviewer;
+    }
     fbUpdate(`submissions/${id}`, {
       status: "ps-rejected",
       psRejectedBy: rejectedBy,
@@ -2802,7 +2813,7 @@ function AppInner() {
                         </select>
                         <input value={ri.psFeedback || ""} onChange={(e) => setRI("psFeedback", e.target.value)} placeholder="PS feedback — what did they say?" style={{ flex: 1, minWidth: 200, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", fontSize: 12, outline: "none", background: "rgba(220,38,38,0.04)", color: "#FCA5A5" }} />
                       </div>
-                      <button onClick={() => { if (!ri.reviewer) { notify("Select who rejected (DW, MT, Brian, or Jarrod)"); return; } handlePSReject(site.id); setReviewDetailSite(null); }} style={{ padding: "10px 22px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.1)", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✗ PS Reject → Route Back to Dan</button>
+                      <button onClick={() => { if (!ri.declineReason) { notify("Select a rejection reason"); return; } handlePSReject(site.id); setReviewDetailSite(null); }} style={{ padding: "10px 22px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.1)", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✗ PS Reject → Route Back to Dan</button>
                     </div>
                   </div>
                 )}
