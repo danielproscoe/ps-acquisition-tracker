@@ -728,9 +728,11 @@ function AppInner() {
 
   // Dan declines a site from his review queue (never sent to PS)
   const handleDecline = (id, declineReason) => {
+    try {
     const ri = reviewInputs[id] || {};
     const site = subs.find(s => s.id === id);
-    const iqR = site ? computeSiteScore(site) : null;
+    let iqR = null;
+    try { iqR = site ? computeSiteScore(site, siteScoreConfig) : null; } catch(e) { console.error("Score calc failed:", e); }
     const reason = declineReason || ri.declineReason || "Other";
     fbUpdate(`submissions/${id}`, {
       status: "declined",
@@ -738,7 +740,7 @@ function AppInner() {
       reviewNote: ri.note || "",
       declineReason: reason,
       declinedAt: new Date().toISOString(),
-      siteScoreAtDecline: iqR ? iqR.composite : null,
+      siteScoreAtDecline: iqR ? (iqR.score ?? iqR.composite ?? null) : null,
       classificationAtDecline: iqR ? iqR.classification : null,
     });
     fbPush("config/scoring_calibration", {
@@ -749,14 +751,17 @@ function AppInner() {
       ts: new Date().toISOString(), by: "Dan R",
     });
     notify("Declined — " + reason);
+    } catch(e) { console.error("handleDecline error:", e); notify("Error declining — check console"); }
   };
 
   // PS (DW/MT/Brian) rejects a site — routes BACK to Dan's queue with feedback
   // Auto-attributes rejector based on who the site was routed to (no manual selection needed)
   const handlePSReject = (id) => {
+    try {
     const ri = reviewInputs[id] || {};
     const site = subs.find(s => s.id === id);
-    const iqR = site ? computeSiteScore(site) : null;
+    let iqR = null;
+    try { iqR = site ? computeSiteScore(site, siteScoreConfig) : null; } catch(e) { console.error("Score calc failed:", e); }
     const reason = ri.declineReason || "PS Feedback — declined by PS stakeholder";
     const feedback = ri.psFeedback || ri.note || "";
     // Auto-attribute rejector: infer from recommendedTo or region, fallback to approver dropdown or "PS"
@@ -776,7 +781,7 @@ function AppInner() {
       psRejectReason: reason,
       psFeedback: feedback,
       psRejectedAt: new Date().toISOString(),
-      siteScoreAtDecline: iqR ? iqR.composite : null,
+      siteScoreAtDecline: iqR ? (iqR.score ?? iqR.composite ?? null) : null,
       classificationAtDecline: iqR ? iqR.classification : null,
     });
     fbPush("config/scoring_calibration", {
@@ -787,6 +792,7 @@ function AppInner() {
       ts: new Date().toISOString(), by: rejectedBy,
     });
     notify(`PS Rejected by ${rejectedBy} — routed back to Dan for review`);
+    } catch(e) { console.error("handlePSReject error:", e); notify("Error rejecting — check console"); }
   };
 
   // Dan permanently kills a site after reading PS feedback — address logged to never-resubmit
