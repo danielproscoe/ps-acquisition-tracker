@@ -743,29 +743,98 @@ function AppInner() {
     notify("Declined — " + reason);
   };
 
-  // PS (DW/MT/Brian) rejects a site — routes BACK to Dan's queue with feedback
+  // PS (DW/MT/Brian) rejects a site — routes to Dan, MT, or DW based on dropdown
   // Auto-attributes rejector based on who the site was routed to (no manual selection needed)
   const handlePSReject = (id) => {
     const ri = reviewInputs[id] || {};
     const site = subs.find(s => s.id === id);
     const reason = ri.declineReason || "PS Feedback — declined by PS stakeholder";
     const feedback = ri.psFeedback || ri.note || "";
+    const routeTo = ri.rejectRouteTo || "dan";
     const rec = (site?.recommendedTo || "").toLowerCase();
     const region = (site?.routedTo || site?.region || "").toLowerCase();
     let rejectedBy = "PS";
     if (rec.includes("toussaint") || rec.includes("matthew") || region === "east") rejectedBy = "Matthew Toussaint";
     else if (rec.includes("wollent") || rec.includes("daniel w") || region === "southwest") rejectedBy = "Daniel Wollent";
     else if (ri.reviewer) rejectedBy = ri.reviewer;
-    fbUpdate(`submissions/${id}`, {
-      status: "ps-rejected", psRejectedBy: rejectedBy, psRejectReason: reason,
-      psFeedback: feedback, psRejectedAt: new Date().toISOString(),
-    });
+    const now = new Date().toISOString();
+    if (routeTo === "dan") {
+      // Current behavior — back to Dan's queue
+      fbUpdate(`submissions/${id}`, {
+        status: "ps-rejected", psRejectedBy: rejectedBy, psRejectReason: reason,
+        psFeedback: feedback, psRejectedAt: now,
+      });
+    } else if (routeTo === "mt") {
+      // Re-route to MT for second look
+      fbUpdate(`submissions/${id}`, {
+        status: "recommended", routedTo: "east", recommendedTo: "Matthew Toussaint",
+        psRejectedBy: rejectedBy, psRejectReason: reason, psFeedback: feedback,
+        reRoutedAt: now, reRoutedFrom: rejectedBy,
+      });
+    } else if (routeTo === "dw") {
+      // Route to DW instead
+      fbUpdate(`submissions/${id}`, {
+        status: "recommended", routedTo: "southwest", recommendedTo: "Daniel Wollent",
+        psRejectedBy: rejectedBy, psRejectReason: reason, psFeedback: feedback,
+        reRoutedAt: now, reRoutedFrom: rejectedBy,
+      });
+    }
     fbPush("config/scoring_calibration", {
       siteId: id, siteName: site?.name || "", action: "rejected_by_ps",
       reason, feedback, address: site?.address || "", state: site?.state || "",
-      ts: new Date().toISOString(), by: rejectedBy,
+      ts: now, by: rejectedBy, routedTo: routeTo === "dan" ? "Dan R." : routeTo === "mt" ? "Matthew Toussaint" : "Daniel Wollent",
     });
-    notify(`PS Rejected by ${rejectedBy} — routed back to Dan for review`);
+    const destLabel = routeTo === "dan" ? "Dan R." : routeTo === "mt" ? "Matthew Toussaint" : "Daniel Wollent";
+    notify(`PS Rejected by ${rejectedBy} — routed to ${destLabel}`);
+  };
+
+  // Dan directly routes a site from pending/declined to MT/DW tracker or recommendation queue
+  const handleDirectRoute = (id, destination) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) return;
+    const ri = reviewInputs[id] || {};
+    const now = new Date().toISOString();
+    if (destination === "mt-tracker" || destination === "dw-tracker") {
+      // Direct to tracker — skip recommendation step
+      const region = destination === "mt-tracker" ? "east" : "southwest";
+      const regionLabel = destination === "mt-tracker" ? "MT Tracker" : "DW Tracker";
+      const t = { ...site, region, status: "tracking", approvedAt: now, approvedBy: "Dan R.", phase: site.phase || "Prospect", coordinates: site.coordinates || "", callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}` };
+      delete t.messages; delete t.docs; delete t.activityLog; delete t._region; delete t._iqResult;
+      fbSet(`${region}/${id}`, t);
+      fbRemove(`submissions/${id}`);
+      fbPush(`${region}/${id}/activityLog`, { action: `Direct-routed to ${regionLabel} by Dan R.`, ts: now, by: "Dan R" });
+      notify(`Routed directly to ${regionLabel}`);
+    } else if (destination === "mt") {
+      fbUpdate(`submissions/${id}`, { status: "recommended", routedTo: "east", recommendedTo: "Matthew Toussaint", recommendedBy: "Dan R.", recommendedAt: now, reviewNote: ri.note || "" });
+      notify("Routed to Matthew Toussaint for review");
+    } else if (destination === "dw") {
+      fbUpdate(`submissions/${id}`, { status: "recommended", routedTo: "southwest", recommendedTo: "Daniel Wollent", recommendedBy: "Dan R.", recommendedAt: now, reviewNote: ri.note || "" });
+      notify("Routed to Daniel Wollent for review");
+    }
+  };
+
+  // Move a site from one tracker to the other (east ↔ southwest) or back to review queue
+  const handleTrackerRoute = (fromRegion, id, site, destination) => {
+    const now = new Date().toISOString();
+    const person = fromRegion === "east" ? "Matthew Toussaint" : "Daniel Wollent";
+    if (destination === "review") {
+      // Send back to review queue
+      const sub = { ...site, status: "pending", region: fromRegion, submittedAt: now, sentBackToReview: true };
+      delete sub.messages; delete sub.docs; delete sub.activityLog; delete sub._region; delete sub._iqResult;
+      fbSet(`submissions/${id}`, sub);
+      fbRemove(`${fromRegion}/${id}`);
+      notify(`${site.name} sent back to Review Queue`);
+    } else if (destination === "other") {
+      // Move to the other tracker
+      const toRegion = fromRegion === "east" ? "southwest" : "east";
+      const toLabel = toRegion === "east" ? "MT Tracker" : "DW Tracker";
+      const moved = { ...site, region: toRegion };
+      delete moved._region; delete moved._iqResult;
+      fbSet(`${toRegion}/${id}`, moved);
+      fbRemove(`${fromRegion}/${id}`);
+      fbPush(`${toRegion}/${id}/activityLog`, { action: `Transferred from ${fromRegion === "east" ? "MT" : "DW"} tracker`, ts: now, by: person });
+      notify(`${site.name} moved to ${toLabel}`);
+    }
   };
 
   // Dan permanently kills a site after reading PS feedback — address logged to never-resubmit
@@ -2441,9 +2510,10 @@ function AppInner() {
                                 </div>
                               </div>
                               {/* Action buttons — right side */}
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 160 }}>
-                                <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); updateSiteField(site._region, site.id, "phase", "SiteScore Approved"); notify(`✓ Approved — ${site.name} stays in ${site._region === "southwest" ? "DW" : "MT"} tracker`); }} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 2px 12px rgba(22,163,74,0.3)", letterSpacing: "0.02em" }}>✓ Approve</button>
-                                <button onClick={() => { if (window.confirm(`Reject "${site.name}"? This will route it back to the Review Queue with PS rejection status.`)) { handleTrackerReject(site._region, site.id, site, person); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 180 }}>
+                                <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); updateSiteField(site._region, site.id, "phase", "SiteScore Approved"); notify(`Approved — ${site.name} stays in ${site._region === "southwest" ? "DW" : "MT"} tracker`); }} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 2px 12px rgba(22,163,74,0.3)", letterSpacing: "0.02em" }}>&#10003; Approve</button>
+                                <button onClick={() => { if (window.confirm(`Reject "${site.name}"? This will route it back to the Review Queue.`)) { handleTrackerReject(site._region, site.id, site, person); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{"\u2717"} Reject {"\u2192"} Review</button>
+                                <button onClick={() => { if (window.confirm(`Move "${site.name}" to ${site._region === "east" ? "DW" : "MT"} tracker?`)) { handleTrackerRoute(site._region, site.id, site, "other"); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{"\u2194"} Move to {site._region === "east" ? "DW" : "MT"}</button>
                                 <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 18px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(148,163,184,0.06)", color: "#94A3B8", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
                               </div>
                             </div>
@@ -2751,13 +2821,25 @@ function AppInner() {
                       <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 200, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 13, outline: "none", background: "rgba(255,255,255,0.05)", color: "#E2E8F0" }} />
                     </div>
                     <textarea value={ri.approvalComment || ""} onChange={(e) => setRI("approvalComment", e.target.value)} placeholder="Approval notes — pricing, zoning follow-ups, etc." rows={2} style={{ width: "100%", marginBottom: 12, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.12)", fontSize: 12, outline: "none", background: "rgba(201,168,76,0.04)", color: "#E2E8F0", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleRecommend(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(201,168,76,0.3)", letterSpacing: "0.04em" }}>✓ Approve & Route</button>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleRecommend(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(201,168,76,0.3)", letterSpacing: "0.04em" }}>&#10003; Approve & Route</button>
                       <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.2)", fontSize: 12, background: "rgba(220,38,38,0.04)", cursor: "pointer", minWidth: 200, color: "#FCA5A5" }}>
                         <option value="">Decline reason…</option>
                         {DECLINE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
-                      <button onClick={() => { handleDecline(site.id, ri.declineReason); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                      <button onClick={() => { handleDecline(site.id, ri.declineReason); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>{"\u2717"} Reject</button>
+                    </div>
+                    {/* Direct Route — skip approval, send straight to tracker or person */}
+                    <div style={{ borderTop: "1px solid rgba(148,163,184,0.12)", paddingTop: 10, marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Route instead:</span>
+                      <select value={ri.directRoute || ""} onChange={(e) => setRI("directRoute", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", fontSize: 11, background: "rgba(148,163,184,0.06)", cursor: "pointer", minWidth: 180, color: "#94A3B8" }}>
+                        <option value="">Select destination…</option>
+                        <option value="mt">Matthew Toussaint (review)</option>
+                        <option value="dw">Daniel Wollent (review)</option>
+                        <option value="mt-tracker">MT Tracker (direct)</option>
+                        <option value="dw-tracker">DW Tracker (direct)</option>
+                      </select>
+                      <button disabled={!ri.directRoute} onClick={() => { handleDirectRoute(site.id, ri.directRoute); setReviewDetailSite(null); }} style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", background: ri.directRoute ? "rgba(201,168,76,0.1)" : "rgba(148,163,184,0.04)", color: ri.directRoute ? "#C9A84C" : "#475569", fontSize: 11, fontWeight: 700, cursor: ri.directRoute ? "pointer" : "default", opacity: ri.directRoute ? 1 : 0.5 }}>{"\u2192"} Route</button>
                     </div>
                   </div>
                 )}
@@ -2782,9 +2864,9 @@ function AppInner() {
                       <button onClick={() => { handlePSApprove(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#16A34A,#15803D)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(22,163,74,0.3)", letterSpacing: "0.04em" }}>⚡ Approve → Tracker</button>
                     </div>
                     <textarea value={ri.psApprovalComment || ""} onChange={(e) => setRI("psApprovalComment", e.target.value)} placeholder="PS approval notes — conditions, follow-ups, etc." rows={2} style={{ width: "100%", marginBottom: 10, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(22,163,74,0.12)", fontSize: 12, outline: "none", background: "rgba(22,163,74,0.04)", color: "#E2E8F0", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
-                    {/* PS Rejection Section — reason + feedback routes back to Dan */}
+                    {/* PS Rejection Section — reason + feedback + route-to dropdown */}
                     <div style={{ borderTop: "1px solid rgba(220,38,38,0.15)", paddingTop: 12, marginTop: 8 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>PS Rejection (routes back to Dan with feedback)</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>PS Rejection & Routing</div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                         <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.25)", fontSize: 12, background: "rgba(220,38,38,0.05)", cursor: "pointer", minWidth: 220, color: "#FCA5A5" }}>
                           <option value="">Rejection reason…</option>
@@ -2792,7 +2874,14 @@ function AppInner() {
                         </select>
                         <input value={ri.psFeedback || ""} onChange={(e) => setRI("psFeedback", e.target.value)} placeholder="PS feedback — what did they say?" style={{ flex: 1, minWidth: 200, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", fontSize: 12, outline: "none", background: "rgba(220,38,38,0.04)", color: "#FCA5A5" }} />
                       </div>
-                      <button onClick={() => { if (!ri.declineReason) { notify("Select a rejection reason"); return; } handlePSReject(site.id); setReviewDetailSite(null); }} style={{ padding: "10px 22px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.1)", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✗ PS Reject → Route Back to Dan</button>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <select value={ri.rejectRouteTo || "dan"} onChange={(e) => setRI("rejectRouteTo", e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.25)", fontSize: 12, background: "rgba(220,38,38,0.05)", cursor: "pointer", minWidth: 180, color: "#FCA5A5" }}>
+                          <option value="dan">Route to Dan R. (Review)</option>
+                          <option value="mt">Route to Matthew Toussaint</option>
+                          <option value="dw">Route to Daniel Wollent</option>
+                        </select>
+                        <button onClick={() => { if (!ri.declineReason) { notify("Select a rejection reason"); return; } handlePSReject(site.id); setReviewDetailSite(null); }} style={{ padding: "10px 22px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.1)", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{`\u2717 Reject \u2192 ${(ri.rejectRouteTo || "dan") === "dan" ? "Dan R." : (ri.rejectRouteTo || "dan") === "mt" ? "MT" : "DW"}`}</button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2803,11 +2892,24 @@ function AppInner() {
                       <div style={{ fontSize: 13, fontWeight: 800, color: "#DC2626", marginBottom: 8 }}>PS Rejected by {site.psRejectedBy || "PS"}</div>
                       {site.psRejectReason && <div style={{ fontSize: 12, color: "#FCA5A5", marginBottom: 6 }}><strong>Reason:</strong> {site.psRejectReason}</div>}
                       {site.psFeedback && <div style={{ fontSize: 12, color: "#FCA5A5", marginBottom: 6, lineHeight: 1.5, fontStyle: "italic" }}>"{site.psFeedback}"</div>}
+                      {site.reRoutedFrom && <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Re-routed from {site.reRoutedFrom}</div>}
                       {site.psRejectedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>Rejected: {new Date(site.psRejectedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
                     </div>
-                    <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                       <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
                       <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending" }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
+                    </div>
+                    {/* Re-route from ps-rejected to another person or tracker */}
+                    <div style={{ borderTop: "1px solid rgba(148,163,184,0.12)", paddingTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Route instead:</span>
+                      <select value={ri.reRouteTarget || ""} onChange={(e) => setRI("reRouteTarget", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", fontSize: 11, background: "rgba(148,163,184,0.06)", cursor: "pointer", minWidth: 180, color: "#94A3B8" }}>
+                        <option value="">Select destination…</option>
+                        <option value="mt">Matthew Toussaint (review)</option>
+                        <option value="dw">Daniel Wollent (review)</option>
+                        <option value="mt-tracker">MT Tracker (direct)</option>
+                        <option value="dw-tracker">DW Tracker (direct)</option>
+                      </select>
+                      <button disabled={!ri.reRouteTarget} onClick={() => { handleDirectRoute(site.id, ri.reRouteTarget); setReviewDetailSite(null); }} style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", background: ri.reRouteTarget ? "rgba(201,168,76,0.1)" : "rgba(148,163,184,0.04)", color: ri.reRouteTarget ? "#C9A84C" : "#475569", fontSize: 11, fontWeight: 700, cursor: ri.reRouteTarget ? "pointer" : "default", opacity: ri.reRouteTarget ? 1 : 0.5 }}>{"\u2192"} Route</button>
                     </div>
                   </div>
                 )}
@@ -2822,9 +2924,21 @@ function AppInner() {
                       {site.declinedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>Declined: {new Date(site.declinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
                       {(() => { const match = isKilledSite(site.address, site.coordinates); return match ? <div style={{ fontSize: 11, color: "#EF4444", marginTop: 8, fontWeight: 700 }}>Previously killed: {match.declineReason} ({new Date(match.killedAt).toLocaleDateString()})</div> : null; })()}
                     </div>
-                    <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                       <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
                       <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending", declineReason: null, declinedAt: null, reviewedBy: null, reviewNote: null, siteScoreAtDecline: null, classificationAtDecline: null }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
+                    </div>
+                    {/* Re-route from declined to another person or tracker */}
+                    <div style={{ borderTop: "1px solid rgba(148,163,184,0.12)", paddingTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Route instead:</span>
+                      <select value={ri.reRouteTarget || ""} onChange={(e) => setRI("reRouteTarget", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", fontSize: 11, background: "rgba(148,163,184,0.06)", cursor: "pointer", minWidth: 180, color: "#94A3B8" }}>
+                        <option value="">Select destination…</option>
+                        <option value="mt">Matthew Toussaint (review)</option>
+                        <option value="dw">Daniel Wollent (review)</option>
+                        <option value="mt-tracker">MT Tracker (direct)</option>
+                        <option value="dw-tracker">DW Tracker (direct)</option>
+                      </select>
+                      <button disabled={!ri.reRouteTarget} onClick={() => { handleDirectRoute(site.id, ri.reRouteTarget); setReviewDetailSite(null); }} style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", background: ri.reRouteTarget ? "rgba(201,168,76,0.1)" : "rgba(148,163,184,0.04)", color: ri.reRouteTarget ? "#C9A84C" : "#475569", fontSize: 11, fontWeight: 700, cursor: ri.reRouteTarget ? "pointer" : "default", opacity: ri.reRouteTarget ? 1 : 0.5 }}>{"\u2192"} Route</button>
                     </div>
                   </div>
                 )}
