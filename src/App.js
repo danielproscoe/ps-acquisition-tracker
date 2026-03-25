@@ -621,12 +621,14 @@ function AppInner() {
     const ri = reviewInputs[id] || {};
     const routeTo = ri.routeTo || site.region || "southwest";
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
+    const approvalComment = ri.approvalComment || "";
     const now = new Date().toISOString();
     fbUpdate(`submissions/${id}`, {
       status: "recommended",
       region: routeTo,
       recommendedBy: "Dan R.",
       recommendedAt: now,
+      recommendedComment: approvalComment,
       reviewNote: ri.note || "",
       routedTo: routeTo,
     });
@@ -641,13 +643,16 @@ function AppInner() {
     const ri = reviewInputs[id] || {};
     const routeTo = site.routedTo || site.region || "southwest";
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
+    const psApprovalComment = ri.psApprovalComment || "";
     const now = new Date().toISOString();
+    const activityAction = `PS Approved → routed to ${routeLabel}`;
     const t = {
       ...site,
       region: routeTo,
       status: "tracking",
       approvedAt: now,
       approvedBy: ri.reviewer || "PS",
+      approvedComment: psApprovalComment,
       reviewedBy: site.recommendedBy || "Dan R",
       reviewNote: site.reviewNote || ri.note || "",
       askingPrice: site.askingPrice || "",
@@ -666,10 +671,10 @@ function AppInner() {
       priority: "⚪ None",
       messages: {},
       docs: {},
-      activityLog: { [uid()]: { action: `PS Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "PS" } },
+      activityLog: { [uid()]: { action: activityAction, comment: psApprovalComment, ts: now, by: ri.reviewer || "PS", type: "approval" } },
     };
     fbSet(`${routeTo}/${id}`, t);
-    fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now });
+    fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now, approvedComment: psApprovalComment });
     // Log to scoring calibration — approved sites help calibrate model accuracy
     const iqR = computeSiteScore(site);
     fbPush("config/scoring_calibration", {
@@ -2548,7 +2553,7 @@ function AppInner() {
                       {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{site.summary.substring(0, 180)}{site.summary.length > 180 ? "…" : ""}</div>}
                       {/* NEW badge for unreviewed sites */}
                       {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
-                      {site.status === "recommended" && <div style={{ marginTop: 4, fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>}
+                      {site.status === "recommended" && <div style={{ marginTop: 4 }}><div style={{ fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>{site.recommendedComment && <div style={{ fontSize: 10, fontStyle: "italic", color: "#D6E4F7", marginTop: 2 }}>Note: {site.recommendedComment}</div>}</div>}
                     </div>
                   );
                 })}
@@ -2703,13 +2708,13 @@ function AppInner() {
               {(() => {
                 const events = [];
                 if (site.submittedAt) events.push({ ts: site.submittedAt, action: "Site entered review queue", by: "System", icon: "📥", color: "#F59E0B" });
-                if (site.recommendedAt) events.push({ ts: site.recommendedAt, action: `Dan R. approved & routed to ${REGIONS[site.routedTo || site.region]?.label || "—"}`, by: site.recommendedBy || "Dan R.", icon: "✓", color: "#C9A84C" });
-                if (site.approvedAt && site.approvedBy) events.push({ ts: site.approvedAt, action: `PS approved → moved to tracker`, by: site.approvedBy, icon: "⚡", color: "#16A34A" });
+                if (site.recommendedAt) events.push({ ts: site.recommendedAt, action: `Dan R. approved & routed to ${REGIONS[site.routedTo || site.region]?.label || "—"}`, by: site.recommendedBy || "Dan R.", icon: "✓", color: "#C9A84C", comment: site.recommendedComment || "" });
+                if (site.approvedAt && site.approvedBy) events.push({ ts: site.approvedAt, action: `PS approved → moved to tracker`, by: site.approvedBy, icon: "⚡", color: "#16A34A", comment: site.approvedComment || "" });
                 if (site.psRejectedAt) events.push({ ts: site.psRejectedAt, action: `PS rejected — ${site.psRejectReason || "no reason given"}${site.psFeedback ? `: "${site.psFeedback}"` : ""}`, by: site.psRejectedBy || "PS", icon: "✗", color: "#DC2626" });
                 // Pull from activityLog if it exists
                 if (site.activityLog) {
                   Object.values(site.activityLog).forEach(log => {
-                    if (log.ts && log.action) events.push({ ts: log.ts, action: log.action, by: log.by || "System", icon: "→", color: "#6366F1" });
+                    if (log.ts && log.action) events.push({ ts: log.ts, action: log.action, by: log.by || "System", icon: log.type === "approval" ? "✓" : "→", color: log.type === "approval" ? "#16A34A" : "#6366F1", comment: log.comment || "" });
                   });
                 }
                 events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
@@ -2725,6 +2730,11 @@ function AppInner() {
                           <div style={{ position: "absolute", left: -14, top: 2, width: 14, height: 14, borderRadius: "50%", background: "rgba(15,21,56,0.9)", border: `2px solid ${ev.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8 }}>{ev.icon}</div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{ev.action}</div>
+                            {ev.comment && (
+                              <div style={{ fontSize: 11, fontStyle: "italic", color: "#D6E4F7", marginTop: 3, padding: "4px 10px", background: "rgba(201,168,76,0.06)", borderLeft: "2px solid rgba(201,168,76,0.3)", borderRadius: "0 6px 6px 0" }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", marginRight: 4 }}>Note:</span>{ev.comment}
+                              </div>
+                            )}
                             <div style={{ fontSize: 10, color: "#6B7394", marginTop: 1 }}>{ev.by} · {fmtDate(ev.ts)}</div>
                           </div>
                         </div>
@@ -2750,6 +2760,7 @@ function AppInner() {
                       </select>
                       <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 200, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 13, outline: "none", background: "rgba(255,255,255,0.05)", color: "#E2E8F0" }} />
                     </div>
+                    <textarea value={ri.approvalComment || ""} onChange={(e) => setRI("approvalComment", e.target.value)} placeholder="Approval notes — pricing, zoning follow-ups, etc." rows={2} style={{ width: "100%", marginBottom: 12, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.12)", fontSize: 12, outline: "none", background: "rgba(201,168,76,0.04)", color: "#E2E8F0", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleRecommend(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(201,168,76,0.3)", letterSpacing: "0.04em" }}>✓ Approve & Route</button>
                       <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.2)", fontSize: 12, background: "rgba(220,38,38,0.04)", cursor: "pointer", minWidth: 200, color: "#FCA5A5" }}>
@@ -2763,9 +2774,12 @@ function AppInner() {
 
                 {site.status === "recommended" && (
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#16A34A", background: "#DCFCE7", padding: "4px 12px", borderRadius: 8 }}>Dan R. Approved</span>
-                      <span style={{ fontSize: 12, color: "#94A3B8" }}>→ {REGIONS[site.routedTo || site.region]?.label || "Unassigned"}</span>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#16A34A", background: "#DCFCE7", padding: "4px 12px", borderRadius: 8 }}>Dan R. Approved</span>
+                        <span style={{ fontSize: 12, color: "#94A3B8" }}>→ {REGIONS[site.routedTo || site.region]?.label || "Unassigned"}</span>
+                      </div>
+                      {site.recommendedComment && <div style={{ fontSize: 11, fontStyle: "italic", color: "#D6E4F7", marginTop: 6, padding: "4px 10px", background: "rgba(201,168,76,0.06)", borderLeft: "2px solid rgba(201,168,76,0.3)", borderRadius: "0 6px 6px 0" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", marginRight: 4 }}>Note:</span>{site.recommendedComment}</div>}
                     </div>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                       <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(22,163,74,0.3)", fontSize: 13, background: "rgba(22,163,74,0.08)", cursor: "pointer", minWidth: 180, fontWeight: 700, color: "#16A34A" }}>
@@ -2777,6 +2791,7 @@ function AppInner() {
                       </select>
                       <button onClick={() => { handlePSApprove(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#16A34A,#15803D)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(22,163,74,0.3)", letterSpacing: "0.04em" }}>⚡ Approve → Tracker</button>
                     </div>
+                    <textarea value={ri.psApprovalComment || ""} onChange={(e) => setRI("psApprovalComment", e.target.value)} placeholder="PS approval notes — conditions, follow-ups, etc." rows={2} style={{ width: "100%", marginBottom: 10, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(22,163,74,0.12)", fontSize: 12, outline: "none", background: "rgba(22,163,74,0.04)", color: "#E2E8F0", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
                     {/* PS Rejection Section — reason + feedback routes back to Dan */}
                     <div style={{ borderTop: "1px solid rgba(220,38,38,0.15)", paddingTop: 12, marginTop: 8 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>PS Rejection (routes back to Dan with feedback)</div>
