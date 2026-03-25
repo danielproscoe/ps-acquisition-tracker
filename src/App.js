@@ -2734,13 +2734,63 @@ function AppInner() {
                 ))}
               </div>
 
-              {/* Aerial */}
-              {site.coordinates && (
-                <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 20, position: "relative" }}>
-                  <iframe title={`Aerial — ${site.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
-                  <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>AERIAL VIEW</div>
-                </div>
-              )}
+              {/* ═══ INTERACTIVE AERIAL MAP — Review Queue (same as tracker detail) ═══ */}
+              {site.coordinates && (() => {
+                const mapId = `leaflet-map-review-${site.id}`;
+                const coords = site.coordinates.split(",").map(c => parseFloat(c.trim()));
+                if (coords.length !== 2 || isNaN(coords[0]) || isNaN(coords[1])) return null;
+                const [siteLat, siteLng] = coords;
+                const haversine = (lat1, lon1, lat2, lon2) => {
+                  const R = 3958.8; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+                  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                };
+                const otherProspects = [...sw.map(s => ({ ...s, _tracker: "DW" })), ...east.map(s => ({ ...s, _tracker: "MT" }))]
+                  .filter(s => s.id !== site.id && s.coordinates && s.phase !== "Dead" && s.phase !== "Declined")
+                  .map(s => { const c = s.coordinates.split(",").map(v => parseFloat(v.trim())); if (c.length !== 2 || isNaN(c[0]) || isNaN(c[1])) return null; return { ...s, _lat: c[0], _lng: c[1], _dist: haversine(siteLat, siteLng, c[0], c[1]) }; }).filter(Boolean).sort((a, b) => a._dist - b._dist);
+                const phaseColor = (phase) => { const m = { "Prospect": "#3B82F6", "Submitted to PS": "#8B5CF6", "SiteScore Approved": "#06B6D4", "LOI": "#F59E0B", "PSA Sent": "#F97316", "Under Contract": "#22C55E", "Closed": "#10B981" }; return m[phase] || "#3B82F6"; };
+                return (
+                  <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24, position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}>
+                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", maxWidth: "calc(100% - 24px)" }}>
+                      <div style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(12px)", color: "#fff", padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.25)" }}>INTERACTIVE AERIAL</div>
+                      <div style={{ background: "rgba(21,101,192,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span> SUBJECT SITE</div>
+                      <div style={{ background: "rgba(232,122,46,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1a1a1a", display: "inline-block", border: "1px solid #E87A2E" }}></span> PS LOCATIONS</div>
+                      <div style={{ background: "rgba(59,130,246,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "#fff", display: "inline-block", transform: "rotate(45deg)", border: "1.5px solid #3B82F6", boxShadow: "0 0 4px rgba(59,130,246,0.5)" }}></span> PIPELINE PROSPECTS</div>
+                    </div>
+                    <div id={mapId} style={{ width: "100%", height: 480 }} ref={(el) => {
+                      if (!el || el._leafletInit) return;
+                      el._leafletInit = true;
+                      if (!document.getElementById("leaflet-css")) { const css = document.createElement("link"); css.id = "leaflet-css"; css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css); }
+                      const initMap = () => {
+                        if (!window.L) { setTimeout(initMap, 100); return; }
+                        const L = window.L;
+                        const map = L.map(el, { zoomControl: true, attributionControl: false }).setView([siteLat, siteLng], 14);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(map);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.6 }).addTo(map);
+                        const siteIcon = L.divIcon({ className: "", html: '<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.18);border-radius:50%;animation:sitePulse 2s ease-in-out infinite"></div><div style="position:absolute;inset:0;background:rgba(21,101,192,0.08);border-radius:50%;animation:sitePulse 2s ease-in-out infinite 0.5s"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 20px rgba(21,101,192,0.7)"></div></div><style>@keyframes sitePulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.8);opacity:0}}</style>', iconSize: [36, 36], iconAnchor: [18, 18] });
+                        const siteMarker = L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map);
+                        siteMarker.bindTooltip(`<div style="min-width:200px"><div style="font-weight:900;font-size:13px;color:#0F172A">${site.address || site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${[site.city, site.state].filter(Boolean).join(", ")}</div>${site.acreage || site.askingPrice ? `<div style="display:flex;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid #E2E8F0">${site.acreage ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}</div>` : ""}</div>`, { direction: "top", offset: [0, -20] });
+                        fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
+                          const lines = csv.trim().split("\n"); let psCount = 0;
+                          const psIcon = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          for (let i = 1; i < lines.length; i++) { const parts = lines[i].split(","); if (parts.length < 7) continue; const pLat = parseFloat(parts[5]), pLng = parseFloat(parts[6]); if (isNaN(pLat) || isNaN(pLng)) continue; const dist = haversine(siteLat, siteLng, pLat, pLng); if (dist <= 25) { psCount++; const pNum = parts[0], pAddr = parts[2], pCity = parts[3], pState = parts[4]; const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map); marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] }); } }
+                          const badge = document.createElement("div"); badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>`;
+                          el.appendChild(badge);
+                        }).catch(() => {});
+                        const prospectGroup = L.layerGroup(); let prospectCount = 0;
+                        const prospectBadgeEl = document.createElement("div"); prospectBadgeEl.style.cssText = "position:absolute;bottom:52px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;gap:8px;min-width:180px;transition:opacity 0.3s;opacity:0"; el.appendChild(prospectBadgeEl);
+                        otherProspects.forEach(p => { const pc = phaseColor(p.phase); const prospIcon = L.divIcon({ className: "", html: `<div style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;background:linear-gradient(135deg,#ffffff,#E0E7FF);border:3px solid ${pc};border-radius:3px;transform:rotate(45deg);box-shadow:0 0 14px ${pc}88,0 0 6px ${pc}44,0 2px 6px rgba(0,0,0,0.4)"></div></div>`, iconSize: [32, 32], iconAnchor: [16, 16] }); const m = L.marker([p._lat, p._lng], { icon: prospIcon, zIndexOffset: 500 }); m.bindTooltip(`<div style="min-width:180px"><div style="font-weight:800;font-size:12px;color:#0F172A">${p.name || p.address || "Prospect"}</div><div style="font-size:10px;color:#64748B">${[p.city, p.state].filter(Boolean).join(", ")}</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">${p._dist.toFixed(1)} mi</div></div>`, { direction: "auto", offset: [0, -14] }); prospectGroup.addLayer(m); prospectCount++; });
+                        const updateProspectVisibility = () => { const z = map.getZoom(); if (z <= 11 && !map.hasLayer(prospectGroup)) { map.addLayer(prospectGroup); prospectBadgeEl.style.opacity = "1"; } else if (z > 11 && map.hasLayer(prospectGroup)) { map.removeLayer(prospectGroup); prospectBadgeEl.style.opacity = "0"; } }; map.on("zoomend", updateProspectVisibility);
+                        prospectBadgeEl.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#3B82F6,#6366F1);border-radius:6px;font-size:12px;font-weight:900;color:#fff">${prospectCount}</span><span style="font-size:11px">Pipeline prospects</span><span style="font-size:9px;color:#64748B;margin-left:4px">(zoom out)</span>`;
+                        updateProspectVisibility();
+                        L.circle([siteLat, siteLng], { radius: 4828, color: "#C9A84C", weight: 2, opacity: 0.5, fillColor: "#C9A84C", fillOpacity: 0.04, dashArray: "8,6" }).addTo(map).bindPopup("<div style='font-weight:700;font-size:11px;color:#C9A84C'>3-Mile Radius</div><div style='font-size:10px;color:#64748B'>Primary trade area</div>");
+                      };
+                      if (!document.getElementById("leaflet-js")) { const js = document.createElement("script"); js.id = "leaflet-js"; js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; js.onload = initMap; document.head.appendChild(js); } else { initMap(); }
+                    }} />
+                  </div>
+                );
+              })()}
 
               {/* Summary */}
               {site.summary && (
