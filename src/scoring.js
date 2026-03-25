@@ -1,10 +1,11 @@
 // ─── Scoring Engine — SiteScore & Financial Models ───
 // Extracted from App.js for reuse across modules
 
-// ─── SiteScore™ v3.1 — 10-Dimension Calibrated Scoring Engine ───
+// ─── SiteScore™ v4.0 — 9-Dimension + Binary Gate Scoring Engine ───
 // Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
-// Default weights: Pop 16%, Growth 21%, HHI 10%, Households 5%, HomeValue 5%, Zoning 16%, PS Proximity 11%, Access 7%, Competition 7%, MarketTier 2%
-// Pricing removed — land valuation handled by Pricing Report's Land Acquisition Price Guide.
+// Default weights: Pop 14%, Growth 18%, HHI 10%, Households 4%, HomeValue 4%, Zoning 16%, Access 7%, Competition 25%, MarketTier 2%
+// PS Proximity: Binary gate only (>35mi = FAIL, otherwise not scored). NOT a weighted dimension.
+// Competition: CC SPC (climate-controlled SF/capita) is king — uses worse of current vs projected 5-yr.
 // Hard FAIL: pop <5K, HHI <$55K, landlocked, >35mi from nearest PS
 export const computeSiteScore = (site, siteScoreConfig) => {
   const getIQWeight = (key) => {
@@ -116,8 +117,9 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   scores.homeValue = hvScore;
 
-  // --- 2e. PS PROXIMITY (11%) — Distance to nearest PS location ---
-  // Closer = market validation, NOT cannibalization. >35mi = too remote (FAIL).
+  // --- 2e. PS PROXIMITY — BINARY GATE ONLY (v4.0) ---
+  // >35mi from nearest PS = HARD FAIL. Otherwise NOT scored (weight 0).
+  // Kept in scores object for transparency/breakdown display but weight is 0.
   let psProxScore = 5;
   const nearestPS = site.siteiqData?.nearestPS;
   if (nearestPS !== undefined && nearestPS !== null) {
@@ -131,7 +133,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
       else psProxScore = 3;
     }
   }
-  scores.psProximity = psProxScore;
+  scores.psProximity = psProxScore; // stored for display but weight = 0
 
   // --- 3. ZONING (16%) §6c methodology ---
   // Prefer structured zoningClassification field; fall back to regex on zoning + summary text
@@ -191,20 +193,45 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) accessScore = Math.min(10, accessScore + 2);
   scores.access = Math.min(10, Math.max(0, accessScore));
 
-  // --- 6. COMPETITION (7%) — CC SPC (climate-controlled SF/capita) is PRIMARY metric ---
-  // Priority: siteiqData.ccSPC (float) → siteiqData.competitorCount (int) → summary keywords
+  // --- 6. COMPETITION (25%) — CC SPC is KING (v4.0) ---
+  // Uses WORSE (higher) of current ccSPC vs projected 5-yr projectedCCSPC.
+  // Priority: siteiqData.ccSPC/projectedCCSPC (float) → siteiqData.competitorCount (int) → summary keywords
   let compScore = 6;
   const ccSPC = site.siteiqData?.ccSPC;
+  const projCCSPC = site.siteiqData?.projectedCCSPC;
   const compCount = site.siteiqData?.competitorCount;
   let compMethod = 'keyword'; // track which method was used for explain text
-  if (ccSPC != null && !isNaN(parseFloat(ccSPC))) {
-    const spc = parseFloat(ccSPC);
+  let effectiveSPC = null;
+
+  // Determine effective SPC — use the WORSE (higher) of current vs projected
+  const ccSPCValid = ccSPC != null && !isNaN(parseFloat(ccSPC));
+  const projCCSPCValid = projCCSPC != null && !isNaN(parseFloat(projCCSPC));
+  if (ccSPCValid && projCCSPCValid) {
+    effectiveSPC = Math.max(parseFloat(ccSPC), parseFloat(projCCSPC)); // higher SPC = worse (more supply)
+  } else if (ccSPCValid) {
+    effectiveSPC = parseFloat(ccSPC);
+  } else if (projCCSPCValid) {
+    effectiveSPC = parseFloat(projCCSPC);
+  }
+
+  if (effectiveSPC !== null) {
     compMethod = 'ccSPC';
-    if (spc < 1.5) compScore = 10;
-    else if (spc <= 3.0) compScore = 8;
-    else if (spc <= 5.0) compScore = 6;
-    else if (spc <= 7.0) compScore = 4;
-    else compScore = 2;
+    if (effectiveSPC < 1.5) compScore = 10;       // severely underserved
+    else if (effectiveSPC <= 3.0) compScore = 8;   // underserved
+    else if (effectiveSPC <= 5.0) compScore = 6;   // moderate
+    else if (effectiveSPC <= 7.0) compScore = 4;   // well-supplied
+    else compScore = 2;                             // oversupplied
+
+    // Pipeline flood flag: if projected is 2+ tiers worse than current
+    if (ccSPCValid && projCCSPCValid) {
+      const tierOf = (v) => v < 1.5 ? 5 : v <= 3.0 ? 4 : v <= 5.0 ? 3 : v <= 7.0 ? 2 : 1;
+      const currTier = tierOf(parseFloat(ccSPC));
+      const projTier = tierOf(parseFloat(projCCSPC));
+      if (currTier - projTier >= 2) {
+        compScore = Math.min(compScore, 4);
+        flags.push("Pipeline flood: projected CC SPC 2+ tiers worse than current");
+      }
+    }
   } else if (compCount !== undefined && compCount !== null) {
     compMethod = 'count';
     if (compCount <= 1) compScore = 10;
@@ -232,12 +259,13 @@ export const computeSiteScore = (site, siteScoreConfig) => {
 
   const marketExplain = mTier !== undefined && mTier !== null ? `Market Tier ${mTier} → ${parseInt(String(mTier)) === 1 ? "Tier 1 = 10" : parseInt(String(mTier)) === 2 ? "Tier 2 = 8" : parseInt(String(mTier)) === 3 ? "Tier 3 = 6" : parseInt(String(mTier)) === 4 ? "Tier 4 = 4" : "Other = 2"}` : "No tier data — default 2";
 
-  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, 10 dimensions ---
+  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights, 9 scored dimensions ---
+  // PS Proximity is a binary gate only (>35mi = FAIL) — NOT included in weighted sum (v4.0).
   const weightedSum =
     (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
     (incScore * getIQWeight("income")) + (hhScore * getIQWeight("households")) +
     (hvScore * getIQWeight("homeValue")) +
-    (zoningScore * getIQWeight("zoning")) + (psProxScore * getIQWeight("psProximity")) +
+    (zoningScore * getIQWeight("zoning")) +
     (scores.access * getIQWeight("access")) +
     (compScore * getIQWeight("competition")) +
     (marketScore * getIQWeight("marketTier"));
@@ -333,7 +361,9 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const zoningExplain = explicitClassSet ? `Classification: ${zClass} → ${scores.zoning}` : (scores.zoning === 5 ? "Unverified — capped at 5 (set zoningClassification to unlock)" : isNoZoning ? `ETJ/no-zoning → ${scores.zoning}` : `Regex-matched: score ${scores.zoning}`);
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
-  const compExplain = compMethod === 'ccSPC' ? `CC SPC: ${parseFloat(ccSPC).toFixed(1)} SF/capita → ${parseFloat(ccSPC) < 1.5 ? "<1.5 = 10" : parseFloat(ccSPC) <= 3.0 ? "1.5-3.0 = 8" : parseFloat(ccSPC) <= 5.0 ? "3.0-5.0 = 6" : parseFloat(ccSPC) <= 7.0 ? "5.0-7.0 = 4" : ">7.0 = 2"}` : compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount <= 1 ? "0-1 = 10" : compCount <= 3 ? "2-3 = 6" : "4+ = 3"}` : "Keyword-based estimate";
+  const compExplain = compMethod === 'ccSPC'
+    ? `CC SPC: ${effectiveSPC.toFixed(1)} SF/capita (${ccSPCValid && projCCSPCValid ? `current ${parseFloat(ccSPC).toFixed(1)}, projected ${parseFloat(projCCSPC).toFixed(1)} — using worse` : ccSPCValid ? 'current' : 'projected'}) → ${effectiveSPC < 1.5 ? "<1.5 = 10" : effectiveSPC <= 3.0 ? "1.5-3.0 = 8" : effectiveSPC <= 5.0 ? "3.0-5.0 = 6" : effectiveSPC <= 7.0 ? "5.0-7.0 = 4" : ">7.0 = 2"}`
+    : compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount <= 1 ? "0-1 = 10" : compCount <= 3 ? "2-3 = 6" : "4+ = 3"}` : "Keyword-based estimate";
 
 
   // ─── DATA SOURCE CITATIONS — "Where did this come from?" ───
@@ -354,7 +384,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   };
   const psSource = { source: "PS Corporate Location Database", rawValue: !isNaN(psDist) ? psDist.toFixed(1) + " miles" : null, methodology: !isNaN(psDist) ? "Haversine distance calculation from site to nearest of 3,112 PS-owned locations" : "No proximity data — populate siteiqData.nearestPS", verified: !isNaN(psDist) };
   const accessSource = { source: "Listing data + aerial imagery review", rawValue: !isNaN(acres) ? acres.toFixed(1) + " acres" : null, methodology: "Acreage from listing, frontage/access from aerial review and summary keywords" + (site.roadFrontage ? ` — ${site.roadFrontage}` : ""), verified: !isNaN(acres) && acres > 0 };
-  const compSource = { source: compMethod === 'ccSPC' ? "Climate-controlled SF per capita analysis" : compMethod === 'count' ? "3-mile radius facility scan" : "Summary keyword analysis (estimated)", rawValue: compMethod === 'ccSPC' ? parseFloat(ccSPC).toFixed(1) + " CC SF/capita" : compCount !== undefined && compCount !== null ? compCount + " facilities within 3 mi" : null, methodology: compMethod === 'ccSPC' ? "CC SF within 3 mi ÷ 3-mi population" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : compMethod === 'count' ? "Google Maps + SpareFoot + SelfStorage.com scan" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : "Keyword match on summary text — run full competition scan for verified count", verified: compMethod !== 'keyword' };
+  const compSource = { source: compMethod === 'ccSPC' ? "Climate-controlled SF per capita analysis (current + projected 5-yr)" : compMethod === 'count' ? "3-mile radius facility scan" : "Summary keyword analysis (estimated)", rawValue: compMethod === 'ccSPC' ? `${effectiveSPC.toFixed(1)} CC SF/capita (effective)${ccSPCValid && projCCSPCValid ? ` — current ${parseFloat(ccSPC).toFixed(1)}, projected ${parseFloat(projCCSPC).toFixed(1)}` : ''}` : compCount !== undefined && compCount !== null ? compCount + " facilities within 3 mi" : null, methodology: compMethod === 'ccSPC' ? "CC SF within 3 mi ÷ 3-mi population; uses worse of current vs projected 5-yr" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : compMethod === 'count' ? "Google Maps + SpareFoot + SelfStorage.com scan" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : "Keyword match on summary text — run full competition scan for verified count", verified: compMethod !== 'keyword' };
 
   const breakdown = [
     { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population"), reason: popExplain, ...popSource },
@@ -363,7 +393,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     { label: "Households", key: "households", score: scores.households, weight: getIQWeight("households"), reason: hhExplain, ...hhSource },
     { label: "Home Value", key: "homeValue", score: scores.homeValue, weight: getIQWeight("homeValue"), reason: hvExplain, ...hvSource },
     { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning"), reason: zoningExplain, ...zoningSourceInfo },
-    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: getIQWeight("psProximity"), reason: psExplain, ...psSource },
+    { label: "PS Proximity", key: "psProximity", score: scores.psProximity, weight: 0, reason: psExplain + " (Binary gate — >35mi = FAIL, otherwise not scored)", ...psSource },
     { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access"), reason: accessExplain, ...accessSource },
     { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition"), reason: compExplain, ...compSource },
     { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier"), reason: marketExplain, source: "MT/DW Territory Analysis", rawValue: mTier !== undefined && mTier !== null ? `Tier ${mTier}` : null, methodology: "Geographic alignment with PS expansion territories", verified: mTier !== undefined && mTier !== null },

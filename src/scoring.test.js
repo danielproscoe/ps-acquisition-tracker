@@ -61,21 +61,28 @@ const score = (overrides = {}) => {
 // ─── 1. WEIGHT NORMALIZATION ───
 
 describe('Weight Normalization', () => {
-  test('all 10 SITE_SCORE_DEFAULTS weights sum to 1.0', () => {
+  test('all 9 SITE_SCORE_DEFAULTS weights sum to 1.0', () => {
     const total = SITE_SCORE_DEFAULTS.reduce((s, d) => s + d.weight, 0);
     expect(Math.abs(total - 1.0)).toBeLessThan(0.001);
   });
 
-  test('SITE_SCORE_DEFAULTS has exactly 10 dimensions', () => {
-    expect(SITE_SCORE_DEFAULTS.length).toBe(10);
+  test('SITE_SCORE_DEFAULTS has exactly 9 dimensions (psProximity removed in v4.0)', () => {
+    expect(SITE_SCORE_DEFAULTS.length).toBe(9);
   });
 
-  test('all required dimension keys are present', () => {
+  test('all required dimension keys are present (no psProximity)', () => {
     const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
     expect(keys).toEqual(expect.arrayContaining([
       'population', 'growth', 'income', 'households', 'homeValue',
-      'zoning', 'psProximity', 'access', 'competition', 'marketTier',
+      'zoning', 'access', 'competition', 'marketTier',
     ]));
+    expect(keys).not.toContain('psProximity');
+  });
+
+  test('competition dimension is at 25% weight (CC SPC is king)', () => {
+    const comp = SITE_SCORE_DEFAULTS.find(d => d.key === 'competition');
+    expect(comp).toBeTruthy();
+    expect(comp.weight).toBeCloseTo(0.25, 3);
   });
 
   test('marketTier dimension is present at 2% weight', () => {
@@ -87,6 +94,11 @@ describe('Weight Normalization', () => {
   test('no pricing dimension exists (removed per v3.1)', () => {
     const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
     expect(keys).not.toContain('pricing');
+  });
+
+  test('no psProximity dimension in defaults (binary gate only per v4.0)', () => {
+    const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
+    expect(keys).not.toContain('psProximity');
   });
 });
 
@@ -305,9 +317,9 @@ describe('Income scoring', () => {
   });
 });
 
-// ─── 7. PS PROXIMITY ───
+// ─── 7. PS PROXIMITY — BINARY GATE (v4.0) ───
 
-describe('PS proximity scoring', () => {
+describe('PS proximity — binary gate only (v4.0)', () => {
   test('>35 mi is HARD FAIL (score 0)', () => {
     const result = score({ siteiqData: { nearestPS: 36 } });
     expect(result.scores.psProximity).toBe(0);
@@ -315,36 +327,29 @@ describe('PS proximity scoring', () => {
     expect(result.flags.some(f => f.includes('FAIL') && f.includes('35 mi'))).toBe(true);
   });
 
-  test('<= 5 mi scores 10 (market validation)', () => {
+  test('<= 5 mi still tracks score in scores object', () => {
     expect(score({ siteiqData: { nearestPS: 5 } }).scores.psProximity).toBe(10);
   });
 
-  test('0.5 mi scores 10 — no minimum proximity penalty', () => {
-    expect(score({ siteiqData: { nearestPS: 0.5 } }).scores.psProximity).toBe(10);
+  test('psProximity does NOT affect composite score (weight 0)', () => {
+    // Two sites identical except nearestPS: 5mi (score 10) vs 30mi (score 3)
+    // Both should have the same composite score since psProximity weight is 0
+    const close = score({ siteiqData: { nearestPS: 5 } });
+    const far = score({ siteiqData: { nearestPS: 30 } });
+    expect(close.score).toBe(far.score);
   });
 
-  test('0.1 mi scores 10 — adjacent to PS is fine', () => {
-    expect(score({ siteiqData: { nearestPS: 0.1 } }).scores.psProximity).toBe(10);
+  test('psProximity appears in breakdown with weight 0', () => {
+    const result = score();
+    const psEntry = result.breakdown.find(b => b.key === 'psProximity');
+    expect(psEntry).toBeTruthy();
+    expect(psEntry.weight).toBe(0);
   });
 
-  test('8 mi scores 9', () => {
-    expect(score({ siteiqData: { nearestPS: 8 } }).scores.psProximity).toBe(9);
-  });
-
-  test('12 mi scores 7', () => {
-    expect(score({ siteiqData: { nearestPS: 12 } }).scores.psProximity).toBe(7);
-  });
-
-  test('20 mi scores 5', () => {
-    expect(score({ siteiqData: { nearestPS: 20 } }).scores.psProximity).toBe(5);
-  });
-
-  test('30 mi scores 3', () => {
-    expect(score({ siteiqData: { nearestPS: 30 } }).scores.psProximity).toBe(3);
-  });
-
-  test('exactly 35 mi scores 3 (not FAIL)', () => {
-    expect(score({ siteiqData: { nearestPS: 35 } }).scores.psProximity).toBe(3);
+  test('exactly 35 mi does NOT hard fail', () => {
+    const result = score({ siteiqData: { nearestPS: 35 } });
+    expect(result.scores.psProximity).toBe(3);
+    expect(result.flags.some(f => f.includes('FAIL') && f.includes('35 mi'))).toBe(false);
   });
 
   test('missing nearestPS defaults to score 5', () => {
@@ -898,6 +903,56 @@ describe('Competition scoring via siteiqData.ccSPC (primary metric)', () => {
 
   test('ccSPC exactly 5.0 scores 6 (upper bound of 3.0-5.0 tier)', () => {
     expect(score({ siteiqData: { ccSPC: 5.0 } }).scores.competition).toBe(6);
+  });
+});
+
+// ─── 17c. COMPETITION — PROJECTED CC SPC (v4.0) ───
+
+describe('Competition scoring via projectedCCSPC (v4.0)', () => {
+  test('uses projectedCCSPC when ccSPC is null', () => {
+    expect(score({ siteiqData: { ccSPC: null, projectedCCSPC: 2.0 } }).scores.competition).toBe(8);
+  });
+
+  test('uses projectedCCSPC when ccSPC is undefined', () => {
+    expect(score({ siteiqData: { ccSPC: undefined, projectedCCSPC: 4.5 } }).scores.competition).toBe(6);
+  });
+
+  test('uses worse (higher SPC) of current vs projected', () => {
+    // current 2.0 (score 8), projected 4.5 (score 6) → uses 4.5 → score 6
+    expect(score({ siteiqData: { ccSPC: 2.0, projectedCCSPC: 4.5 } }).scores.competition).toBe(6);
+  });
+
+  test('uses current when it is the worse value', () => {
+    // current 6.0 (score 4), projected 2.0 (score 8) → uses 6.0 → score 4
+    expect(score({ siteiqData: { ccSPC: 6.0, projectedCCSPC: 2.0 } }).scores.competition).toBe(4);
+  });
+
+  test('both equal — uses that value', () => {
+    expect(score({ siteiqData: { ccSPC: 3.0, projectedCCSPC: 3.0 } }).scores.competition).toBe(8);
+  });
+
+  test('pipeline flood flag when projected is 2+ tiers worse than current', () => {
+    // current 1.0 (tier 5 — <1.5), projected 5.5 (tier 2 — 5.0-7.0) → diff = 3 tiers → flood flag, capped at 4
+    const result = score({ siteiqData: { ccSPC: 1.0, projectedCCSPC: 5.5 } });
+    expect(result.scores.competition).toBeLessThanOrEqual(4);
+    expect(result.flags.some(f => f.includes('Pipeline flood'))).toBe(true);
+  });
+
+  test('no pipeline flood flag when tiers are close', () => {
+    // current 2.0 (tier 4), projected 4.0 (tier 3) → diff = 1 tier → no flag
+    const result = score({ siteiqData: { ccSPC: 2.0, projectedCCSPC: 4.0 } });
+    expect(result.flags.some(f => f.includes('Pipeline flood'))).toBe(false);
+  });
+
+  test('pipeline flood caps score at 4 even if effective SPC would score higher', () => {
+    // current 0.5 (score 10, tier 5), projected 8.0 (score 2, tier 1) → flood, effective=8.0, score=2, capped at min(2,4)=2
+    const result = score({ siteiqData: { ccSPC: 0.5, projectedCCSPC: 8.0 } });
+    expect(result.scores.competition).toBe(2);
+    expect(result.flags.some(f => f.includes('Pipeline flood'))).toBe(true);
+  });
+
+  test('projectedCCSPC falls back to competitorCount when both SPC are null', () => {
+    expect(score({ siteiqData: { ccSPC: null, projectedCCSPC: null, competitorCount: 0 } }).scores.competition).toBe(10);
   });
 });
 
