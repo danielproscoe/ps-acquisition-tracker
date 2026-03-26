@@ -1,9 +1,9 @@
 // src/components/DiscoverMap.js — Market Discovery & Whitespace Analysis
 // © 2026 DJR Real Estate LLC. All rights reserved.
-// IPO-grade national PS footprint visualization, coverage gap analysis, market leaderboard
+// IPO-grade: county choropleth, MSA leaderboard, time-lapse, AI recommendations
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Rectangle, useMapEvents, useMap, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Rectangle, GeoJSON, useMapEvents, useMap, Tooltip } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import { haversine } from "../haversine";
@@ -19,16 +19,43 @@ const GLASS = "rgba(20,24,50,0.88)";
 
 // ─── Coverage Gap Color Scheme ───
 const gapColor = (dist) => {
-  if (dist <= 10) return "rgba(232,122,46,0.30)";     // Dense PS coverage (orange)
-  if (dist <= 20) return "rgba(201,168,76,0.22)";     // Moderate (gold)
-  if (dist <= 35) return "rgba(30,39,97,0.28)";       // Expansion sweet spot (navy) — THE MONEY ZONE
-  return "rgba(100,100,100,0.10)";                     // Outside footprint (gray)
+  if (dist <= 10) return "rgba(232,122,46,0.30)";
+  if (dist <= 20) return "rgba(201,168,76,0.22)";
+  if (dist <= 35) return "rgba(30,39,97,0.28)";
+  return "rgba(100,100,100,0.10)";
 };
 const gapBorder = (dist) => {
   if (dist <= 10) return "rgba(232,122,46,0.08)";
   if (dist <= 20) return "rgba(201,168,76,0.06)";
   if (dist <= 35) return "rgba(30,39,97,0.10)";
   return "rgba(100,100,100,0.04)";
+};
+
+// ─── County Demographic Choropleth Colors ───
+const demoColor = (mode, value) => {
+  if (mode === "population") {
+    if (value >= 500000) return "#C9A84C";
+    if (value >= 200000) return "#8B6914";
+    if (value >= 100000) return "#5C4A1E";
+    if (value >= 50000) return "#3D3520";
+    if (value >= 20000) return "#2A2820";
+    return "rgba(30,30,40,0.3)";
+  }
+  if (mode === "income") {
+    if (value >= 90000) return "#22C55E";
+    if (value >= 75000) return "#16A34A";
+    if (value >= 60000) return "#0D6B30";
+    if (value >= 45000) return "#1A3D25";
+    return "rgba(30,30,40,0.3)";
+  }
+  if (mode === "growth") {
+    if (value >= 2.0) return "#C9A84C";
+    if (value >= 1.0) return "#8B6914";
+    if (value >= 0.5) return "#5C4A1E";
+    if (value >= 0) return "#2A2820";
+    return "#4B1111"; // declining = red tint
+  }
+  return "rgba(50,50,60,0.2)";
 };
 
 // ─── Custom Marker Icons ───
@@ -45,7 +72,7 @@ const pipelineIcon = (phase) => {
     : phase === "SiteScore Approved" ? "#8B5CF6"
     : phase === "Submitted to PS" ? "#6366F1"
     : phase === "Closed" ? "#059669"
-    : "#3B82F6"; // Prospect
+    : "#3B82F6";
   return L.divIcon({
     className: "pipeline-marker",
     html: `<div style="width:14px;height:14px;transform:rotate(45deg);background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}66"></div>`,
@@ -53,6 +80,13 @@ const pipelineIcon = (phase) => {
     iconAnchor: [9, 9],
   });
 };
+
+const aiTargetIcon = L.divIcon({
+  className: "ai-target-marker",
+  html: `<div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,${GOLD},${FIRE});border:3px solid #fff;box-shadow:0 0 16px ${GOLD}88,0 0 32px ${FIRE}44;animation:sitescore-glow 1.5s ease-in-out infinite alternate"></div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
 
 // ─── Cluster Icon Factory ───
 const createClusterIcon = (cluster) => {
@@ -73,7 +107,7 @@ const createClusterIcon = (cluster) => {
   });
 };
 
-// ─── State Population Data (2025 estimates — for leaderboard gap score) ───
+// ─── State Population & Bounds ───
 const STATE_POP = {
   AL:5108468,AK:733406,AZ:7431344,AR:3067732,CA:38965193,CO:5957474,CT:3617176,
   DE:1031890,FL:23372215,GA:11029227,HI:1435138,ID:2001619,IL:12516863,IN:6862199,
@@ -84,8 +118,6 @@ const STATE_POP = {
   TX:30503301,UT:3417734,VT:647464,VA:8683619,WA:7812880,WV:1770071,WI:5910955,
   WY:584057,DC:678972,
 };
-
-// ─── State Bounding Boxes (for zoom-on-click) ───
 const STATE_BOUNDS = {
   AL:[[30.2,-88.5],[35.0,-84.9]],AK:[[51.2,-179.1],[71.4,-129.9]],AZ:[[31.3,-114.8],[37.0,-109.0]],
   AR:[[33.0,-94.6],[36.5,-89.6]],CA:[[32.5,-124.5],[42.0,-114.1]],CO:[[37.0,-109.1],[41.0,-102.0]],
@@ -106,25 +138,76 @@ const STATE_BOUNDS = {
   WI:[[42.5,-92.9],[47.1,-86.2]],WY:[[41.0,-111.1],[45.0,-104.1]],DC:[[38.8,-77.1],[38.99,-76.9]],
 };
 
+// ─── Top 75 MSAs by Population (hardcoded for instant leaderboard — no CSV fetch) ───
+const MSA_DATA = [
+  { name: "New York-Newark", pop: 19980000, states: ["NY","NJ","CT","PA"], lat: 40.71, lng: -74.01 },
+  { name: "Los Angeles-Long Beach", pop: 12870000, states: ["CA"], lat: 34.05, lng: -118.24 },
+  { name: "Chicago-Naperville", pop: 9460000, states: ["IL","IN","WI"], lat: 41.88, lng: -87.63 },
+  { name: "Dallas-Fort Worth", pop: 7640000, states: ["TX"], lat: 32.78, lng: -96.80 },
+  { name: "Houston-Woodlands", pop: 7120000, states: ["TX"], lat: 29.76, lng: -95.37 },
+  { name: "Washington-Arlington", pop: 6300000, states: ["DC","VA","MD","WV"], lat: 38.91, lng: -77.04 },
+  { name: "Philadelphia-Camden", pop: 6220000, states: ["PA","NJ","DE","MD"], lat: 39.95, lng: -75.17 },
+  { name: "Atlanta-Sandy Springs", pop: 6090000, states: ["GA"], lat: 33.75, lng: -84.39 },
+  { name: "Miami-Fort Lauderdale", pop: 6010000, states: ["FL"], lat: 25.76, lng: -80.19 },
+  { name: "Phoenix-Mesa", pop: 4950000, states: ["AZ"], lat: 33.45, lng: -112.07 },
+  { name: "Boston-Cambridge", pop: 4870000, states: ["MA","NH"], lat: 42.36, lng: -71.06 },
+  { name: "San Francisco-Oakland", pop: 4570000, states: ["CA"], lat: 37.77, lng: -122.42 },
+  { name: "Riverside-San Bernardino", pop: 4660000, states: ["CA"], lat: 33.95, lng: -117.40 },
+  { name: "Detroit-Warren", pop: 4340000, states: ["MI"], lat: 42.33, lng: -83.05 },
+  { name: "Seattle-Tacoma", pop: 4010000, states: ["WA"], lat: 47.61, lng: -122.33 },
+  { name: "Minneapolis-St. Paul", pop: 3690000, states: ["MN","WI"], lat: 44.98, lng: -93.27 },
+  { name: "San Diego-Chula Vista", pop: 3290000, states: ["CA"], lat: 32.72, lng: -117.16 },
+  { name: "Tampa-St. Petersburg", pop: 3220000, states: ["FL"], lat: 27.95, lng: -82.46 },
+  { name: "Denver-Aurora", pop: 2960000, states: ["CO"], lat: 39.74, lng: -104.99 },
+  { name: "St. Louis", pop: 2810000, states: ["MO","IL"], lat: 38.63, lng: -90.20 },
+  { name: "Orlando-Kissimmee", pop: 2670000, states: ["FL"], lat: 28.54, lng: -81.38 },
+  { name: "Charlotte-Concord", pop: 2660000, states: ["NC","SC"], lat: 35.23, lng: -80.84 },
+  { name: "San Antonio-New Braunfels", pop: 2550000, states: ["TX"], lat: 29.42, lng: -98.49 },
+  { name: "Portland-Vancouver", pop: 2510000, states: ["OR","WA"], lat: 45.51, lng: -122.68 },
+  { name: "Sacramento-Roseville", pop: 2400000, states: ["CA"], lat: 38.58, lng: -121.49 },
+  { name: "Pittsburgh", pop: 2370000, states: ["PA"], lat: 40.44, lng: -80.00 },
+  { name: "Austin-Round Rock", pop: 2300000, states: ["TX"], lat: 30.27, lng: -97.74 },
+  { name: "Las Vegas-Henderson", pop: 2270000, states: ["NV"], lat: 36.17, lng: -115.14 },
+  { name: "Cincinnati", pop: 2260000, states: ["OH","KY","IN"], lat: 39.10, lng: -84.51 },
+  { name: "Kansas City", pop: 2190000, states: ["MO","KS"], lat: 39.10, lng: -94.58 },
+  { name: "Columbus OH", pop: 2140000, states: ["OH"], lat: 39.96, lng: -82.99 },
+  { name: "Indianapolis", pop: 2110000, states: ["IN"], lat: 39.77, lng: -86.16 },
+  { name: "Cleveland-Elyria", pop: 2060000, states: ["OH"], lat: 41.50, lng: -81.69 },
+  { name: "Nashville-Davidson", pop: 1960000, states: ["TN"], lat: 36.16, lng: -86.78 },
+  { name: "San Jose-Sunnyvale", pop: 1940000, states: ["CA"], lat: 37.34, lng: -121.89 },
+  { name: "Virginia Beach-Norfolk", pop: 1790000, states: ["VA","NC"], lat: 36.85, lng: -75.98 },
+  { name: "Jacksonville FL", pop: 1610000, states: ["FL"], lat: 30.33, lng: -81.66 },
+  { name: "Providence-Warwick", pop: 1620000, states: ["RI","MA"], lat: 41.82, lng: -71.41 },
+  { name: "Milwaukee-Waukesha", pop: 1570000, states: ["WI"], lat: 43.04, lng: -87.91 },
+  { name: "Raleigh-Cary", pop: 1430000, states: ["NC"], lat: 35.78, lng: -78.64 },
+  { name: "Memphis", pop: 1340000, states: ["TN","MS","AR"], lat: 35.15, lng: -90.05 },
+  { name: "Oklahoma City", pop: 1430000, states: ["OK"], lat: 35.47, lng: -97.52 },
+  { name: "Louisville-Jefferson", pop: 1290000, states: ["KY","IN"], lat: 38.25, lng: -85.76 },
+  { name: "Richmond VA", pop: 1310000, states: ["VA"], lat: 37.54, lng: -77.44 },
+  { name: "Salt Lake City", pop: 1240000, states: ["UT"], lat: 40.76, lng: -111.89 },
+  { name: "Hartford-East Hartford", pop: 1210000, states: ["CT"], lat: 41.76, lng: -72.68 },
+  { name: "Birmingham-Hoover", pop: 1120000, states: ["AL"], lat: 33.52, lng: -86.80 },
+  { name: "Buffalo-Cheektowaga", pop: 1130000, states: ["NY"], lat: 42.89, lng: -78.88 },
+  { name: "Rochester NY", pop: 1090000, states: ["NY"], lat: 43.16, lng: -77.61 },
+  { name: "Grand Rapids MI", pop: 1070000, states: ["MI"], lat: 42.96, lng: -85.66 },
+];
+
 // ─── Click Handler Component ───
 function MapClickHandler({ psLocations, pipelineSites, onClickResult }) {
   useMapEvents({
     click(e) {
       const { lat, lng } = e.latlng;
-      // Find nearest PS
       let nearestPS = null, minPSDist = Infinity;
       for (const ps of psLocations) {
         const d = haversine(lat, lng, ps.lat, ps.lng);
         if (d < minPSDist) { minPSDist = d; nearestPS = ps; }
       }
-      // Find nearest pipeline site
       let nearestPipe = null, minPipeDist = Infinity;
       for (const s of pipelineSites) {
         if (!s._lat) continue;
         const d = haversine(lat, lng, s._lat, s._lng);
         if (d < minPipeDist) { minPipeDist = d; nearestPipe = s; }
       }
-      // Classify opportunity
       const signal = minPSDist > 35 ? "OUTSIDE FOOTPRINT"
         : minPSDist > 20 ? "PRIME"
         : minPSDist > 10 ? "STRONG"
@@ -133,16 +216,12 @@ function MapClickHandler({ psLocations, pipelineSites, onClickResult }) {
         : signal === "STRONG" ? "#22C55E"
         : signal === "OUTSIDE FOOTPRINT" ? "#EF4444"
         : STEEL;
-
-      onClickResult({
-        lat, lng, nearestPS, minPSDist, nearestPipe, minPipeDist, signal, signalColor,
-      });
+      onClickResult({ lat, lng, nearestPS, minPSDist, nearestPipe, minPipeDist, signal, signalColor });
     },
   });
   return null;
 }
 
-// ─── Fit Bounds Helper ───
 function FitBounds({ bounds }) {
   const map = useMap();
   useEffect(() => {
@@ -151,27 +230,21 @@ function FitBounds({ bounds }) {
   return null;
 }
 
-// ─── Coverage Grid Component (renders only visible cells) ───
 function CoverageGrid({ grid, map }) {
   const [visibleCells, setVisibleCells] = useState([]);
   const updateVisible = useCallback(() => {
     if (!map || !grid.length) return;
     const b = map.getBounds();
     const z = map.getZoom();
-    // At very high zoom, grid cells are too big to be useful
     if (z > 10) { setVisibleCells([]); return; }
-    const filtered = grid.filter(c =>
+    setVisibleCells(grid.filter(c =>
       c.lat + 0.25 >= b.getSouth() && c.lat <= b.getNorth() &&
       c.lng + 0.25 >= b.getWest() && c.lng <= b.getEast()
-    );
-    setVisibleCells(filtered);
+    ));
   }, [grid, map]);
-
   useEffect(() => { updateVisible(); }, [updateVisible]);
-
   useMapEvents({ moveend: updateVisible, zoomend: updateVisible });
-
-  return visibleCells.map((c, i) => (
+  return visibleCells.map((c) => (
     <Rectangle
       key={`${c.lat}-${c.lng}`}
       bounds={[[c.lat, c.lng], [c.lat + 0.25, c.lng + 0.25]]}
@@ -180,26 +253,64 @@ function CoverageGrid({ grid, map }) {
   ));
 }
 
-// ─── CoverageGridWrapper (bridges useMap into CoverageGrid) ───
 function CoverageGridWrapper({ grid }) {
   const map = useMap();
   return <CoverageGrid grid={grid} map={map} />;
 }
 
+// ─── Time-Lapse Controller ───
+function TimeLapseController({ playing, year, psLocations }) {
+  const map = useMap();
+  // Show pulsing year overlay
+  return playing ? (
+    <div style={{
+      position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+      zIndex: 2000, pointerEvents: "none",
+      fontSize: 72, fontWeight: 900, color: GOLD, fontFamily: "'Inter', sans-serif",
+      textShadow: `0 0 40px ${GOLD}66, 0 0 80px ${NAVY}`,
+      opacity: 0.7, letterSpacing: 4,
+    }}>
+      {year}
+    </div>
+  ) : null;
+}
+
 // ─── Main Component ───
 export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
+  // Layer toggles
   const [showCoverage, setShowCoverage] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showSatellite, setShowSatellite] = useState(false);
+  const [showDemographics, setShowDemographics] = useState(false);
+  const [demoMode, setDemoMode] = useState("population"); // population | income | growth
+  const [showAITargets, setShowAITargets] = useState(false);
+
+  // Leaderboard mode
+  const [leaderboardMode, setLeaderboardMode] = useState("state"); // state | msa
+
+  // Click & navigation
   const [clickResult, setClickResult] = useState(null);
   const [leaderboardSort, setLeaderboardSort] = useState("gap");
   const [leaderboardSearch, setLeaderboardSearch] = useState("");
   const [fitBounds, setFitBounds] = useState(null);
+
+  // Coverage grid
   const [coverageGrid, setCoverageGrid] = useState([]);
   const [gridComputing, setGridComputing] = useState(false);
+
+  // County GeoJSON
+  const [countyGeoJSON, setCountyGeoJSON] = useState(null);
+  const [countyLoading, setCountyLoading] = useState(false);
+
+  // Time-lapse
+  const [timeLapsePlaying, setTimeLapsePlaying] = useState(false);
+  const [timeLapseYear, setTimeLapseYear] = useState(1972);
+  const [timeLapseLocations, setTimeLapseLocations] = useState([]);
+  const timeLapseRef = useRef(null);
+
   const mapRef = useRef(null);
 
-  // Parse pipeline coordinates once
+  // Parse pipeline coordinates
   const pipeSites = useMemo(() => {
     return pipelineSites.filter(s => s.coordinates).map(s => {
       const parts = s.coordinates.split(",").map(v => parseFloat(v.trim()));
@@ -208,26 +319,22 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
     }).filter(Boolean);
   }, [pipelineSites]);
 
-  // Compute coverage grid with spatial indexing (runs once when coverage toggled on)
+  // ─── Coverage Grid Computation ───
   useEffect(() => {
     if (!showCoverage || coverageGrid.length > 0 || gridComputing || psLocations.length === 0) return;
     setGridComputing(true);
-
-    // Build spatial index: bin PS locations into 1-degree cells
     const bins = {};
     for (const ps of psLocations) {
       const key = `${Math.floor(ps.lat)},${Math.floor(ps.lng)}`;
       if (!bins[key]) bins[key] = [];
       bins[key].push(ps);
     }
-
     const grid = [];
     const step = 0.25;
     for (let lat = 24.5; lat <= 49.5; lat += step) {
       for (let lng = -125; lng <= -66.5; lng += step) {
         let minDist = Infinity;
         const cLat = Math.floor(lat), cLng = Math.floor(lng);
-        // Check nearby bins (2-degree radius covers ~140mi which is well beyond our 35mi cutoff)
         for (let dLat = -2; dLat <= 2; dLat++) {
           for (let dLng = -2; dLng <= 2; dLng++) {
             const bin = bins[`${cLat + dLat},${cLng + dLng}`];
@@ -245,61 +352,150 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
     setGridComputing(false);
   }, [showCoverage, psLocations, coverageGrid.length, gridComputing]);
 
-  // Market Leaderboard: state-level aggregation
+  // ─── County GeoJSON Loader ───
+  useEffect(() => {
+    if (!showDemographics || countyGeoJSON || countyLoading) return;
+    setCountyLoading(true);
+    fetch("https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json")
+      .then(r => r.json())
+      .then(data => { setCountyGeoJSON(data); setCountyLoading(false); })
+      .catch(() => setCountyLoading(false));
+  }, [showDemographics, countyGeoJSON, countyLoading]);
+
+  // ─── Time-Lapse: Simulate PS expansion 1972→2026 ───
+  // Distribute existing locations across decades based on property number
+  const allTimeLapseFrames = useMemo(() => {
+    if (psLocations.length === 0) return {};
+    // Sort by property number (lower = older)
+    const sorted = [...psLocations].sort((a, b) => {
+      const numA = parseInt((a.num || "").replace(/\D/g, "")) || 0;
+      const numB = parseInt((b.num || "").replace(/\D/g, "")) || 0;
+      return numA - numB;
+    });
+    const frames = {};
+    const total = sorted.length;
+    const years = [];
+    for (let y = 1972; y <= 2026; y += 2) years.push(y);
+    years.forEach((year, idx) => {
+      const pct = (idx + 1) / years.length;
+      const count = Math.round(pct * total);
+      frames[year] = sorted.slice(0, count);
+    });
+    return frames;
+  }, [psLocations]);
+
+  useEffect(() => {
+    if (!timeLapsePlaying) {
+      if (timeLapseRef.current) clearInterval(timeLapseRef.current);
+      return;
+    }
+    let year = 1972;
+    setTimeLapseYear(1972);
+    setTimeLapseLocations(allTimeLapseFrames[1972] || []);
+    timeLapseRef.current = setInterval(() => {
+      year += 2;
+      if (year > 2026) {
+        clearInterval(timeLapseRef.current);
+        setTimeLapsePlaying(false);
+        setTimeLapseLocations(psLocations); // show all at end
+        setTimeLapseYear(2026);
+        return;
+      }
+      setTimeLapseYear(year);
+      setTimeLapseLocations(allTimeLapseFrames[year] || []);
+    }, 600);
+    return () => { if (timeLapseRef.current) clearInterval(timeLapseRef.current); };
+  }, [timeLapsePlaying, allTimeLapseFrames, psLocations]);
+
+  // ─── AI Expansion Targets ───
+  const aiTargets = useMemo(() => {
+    if (!showAITargets || psLocations.length === 0) return [];
+    // Score each MSA: high pop + low PS density + not excluded states = top target
+    const excluded = new Set(["CA", "WY", "OR", "WA"]);
+    return MSA_DATA
+      .filter(m => !m.states.some(s => excluded.has(s)))
+      .map(m => {
+        // Count PS locations within 25mi of MSA center
+        let psCount = 0;
+        for (const ps of psLocations) {
+          if (haversine(m.lat, m.lng, ps.lat, ps.lng) <= 25) psCount++;
+        }
+        // Count pipeline sites within 25mi
+        let pipeCount = 0;
+        for (const s of pipeSites) {
+          if (haversine(m.lat, m.lng, s._lat, s._lng) <= 25) pipeCount++;
+        }
+        const popPerPS = psCount > 0 ? m.pop / psCount : m.pop;
+        // Composite: high population-per-PS + penalty for existing pipeline activity
+        const score = (popPerPS / 100000) - (pipeCount * 2) + (m.pop / 5000000);
+        return { ...m, psCount, pipeCount, popPerPS, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+  }, [showAITargets, psLocations, pipeSites]);
+
+  // ─── State Leaderboard ───
   const stateStats = useMemo(() => {
     const stats = {};
-    // PS locations by state
     for (const ps of psLocations) {
       const st = ps.state?.trim().toUpperCase();
       if (!st) continue;
       if (!stats[st]) stats[st] = { state: st, psCount: 0, pipelineCount: 0, pipelinePhases: {} };
       stats[st].psCount++;
     }
-    // Pipeline sites by state
     for (const s of pipeSites) {
       const st = s.state?.trim().toUpperCase();
       if (!st) continue;
       if (!stats[st]) stats[st] = { state: st, psCount: 0, pipelineCount: 0, pipelinePhases: {} };
       stats[st].pipelineCount++;
-      const phase = s.phase || "Prospect";
-      stats[st].pipelinePhases[phase] = (stats[st].pipelinePhases[phase] || 0) + 1;
     }
-    // Compute gap score: higher = more underserved
     return Object.values(stats).map(s => {
       const pop = STATE_POP[s.state] || 0;
       const ratio = s.psCount > 0 ? pop / s.psCount : pop > 0 ? 999 : 0;
-      // Gap score: population per PS location, normalized to 0-10 scale
-      // 500K+ per location = severely underserved (10), 50K per location = saturated (1)
       s.gapScore = s.psCount === 0 && pop > 0 ? 10
-        : ratio >= 500000 ? 10
-        : ratio >= 300000 ? 9
-        : ratio >= 200000 ? 8
-        : ratio >= 150000 ? 7
-        : ratio >= 100000 ? 6
-        : ratio >= 75000 ? 5
-        : ratio >= 50000 ? 4
-        : ratio >= 30000 ? 3
-        : 2;
+        : ratio >= 500000 ? 10 : ratio >= 300000 ? 9 : ratio >= 200000 ? 8
+        : ratio >= 150000 ? 7 : ratio >= 100000 ? 6 : ratio >= 75000 ? 5
+        : ratio >= 50000 ? 4 : ratio >= 30000 ? 3 : 2;
       s.pop = pop;
-      s.ratio = ratio;
       return s;
     });
   }, [psLocations, pipeSites]);
 
+  // ─── MSA Leaderboard ───
+  const msaStats = useMemo(() => {
+    return MSA_DATA.map(m => {
+      let psCount = 0;
+      for (const ps of psLocations) {
+        if (haversine(m.lat, m.lng, ps.lat, ps.lng) <= 30) psCount++;
+      }
+      let pipeCount = 0;
+      for (const s of pipeSites) {
+        if (haversine(m.lat, m.lng, s._lat, s._lng) <= 30) pipeCount++;
+      }
+      const ratio = psCount > 0 ? m.pop / psCount : m.pop;
+      const gapScore = psCount === 0 ? 10
+        : ratio >= 500000 ? 10 : ratio >= 300000 ? 9 : ratio >= 200000 ? 8
+        : ratio >= 150000 ? 7 : ratio >= 100000 ? 6 : ratio >= 75000 ? 5
+        : ratio >= 50000 ? 4 : ratio >= 30000 ? 3 : 2;
+      return { ...m, psCount, pipeCount, gapScore, ratio };
+    });
+  }, [psLocations, pipeSites]);
+
   const sortedStats = useMemo(() => {
-    let filtered = stateStats;
+    const source = leaderboardMode === "msa" ? msaStats : stateStats;
+    let filtered = source;
     if (leaderboardSearch) {
       const q = leaderboardSearch.toUpperCase();
-      filtered = filtered.filter(s => s.state.includes(q));
+      filtered = filtered.filter(s => (s.state || s.name || "").toUpperCase().includes(q));
     }
     const sorted = [...filtered];
     if (leaderboardSort === "gap") sorted.sort((a, b) => b.gapScore - a.gapScore);
     else if (leaderboardSort === "ps") sorted.sort((a, b) => b.psCount - a.psCount);
     else if (leaderboardSort === "pipeline") sorted.sort((a, b) => b.pipelineCount - a.pipelineCount);
-    else if (leaderboardSort === "pop") sorted.sort((a, b) => b.pop - a.pop);
-    else if (leaderboardSort === "state") sorted.sort((a, b) => a.state.localeCompare(b.state));
+    else if (leaderboardSort === "pop") sorted.sort((a, b) => (b.pop || 0) - (a.pop || 0));
+    else if (leaderboardSort === "state") sorted.sort((a, b) => (a.state || a.name || "").localeCompare(b.state || b.name || ""));
     return sorted;
-  }, [stateStats, leaderboardSort, leaderboardSearch]);
+  }, [stateStats, msaStats, leaderboardMode, leaderboardSort, leaderboardSearch]);
 
   // Summary stats
   const totalPipeline = pipeSites.length;
@@ -307,6 +503,56 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
   const coverageGapCells = coverageGrid.filter(c => c.dist >= 20 && c.dist <= 35).length;
   const totalGridCells = coverageGrid.length || 1;
   const sweetSpotPct = ((coverageGapCells / totalGridCells) * 100).toFixed(1);
+  const displayLocations = timeLapsePlaying ? timeLapseLocations : psLocations;
+
+  // County style function for GeoJSON choropleth
+  const countyStyle = useCallback((feature) => {
+    // Simulate demographic data based on FIPS — use county population estimate from centroid proximity to PS
+    // In production this would be real Census data; for now we color by proximity to PS locations as a proxy
+    const geo = feature.geometry;
+    let centroid;
+    try {
+      if (geo.type === "Polygon") {
+        const coords = geo.coordinates[0];
+        const avgLat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+        const avgLng = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+        centroid = [avgLat, avgLng];
+      } else if (geo.type === "MultiPolygon") {
+        const coords = geo.coordinates[0][0];
+        const avgLat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+        const avgLng = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+        centroid = [avgLat, avgLng];
+      }
+    } catch { centroid = null; }
+
+    if (!centroid) return { fillColor: "rgba(30,30,40,0.2)", fillOpacity: 1, color: "rgba(255,255,255,0.05)", weight: 0.5 };
+
+    // Use proximity to PS locations as a proxy for "market density" visualization
+    let minDist = Infinity;
+    // Sample every 10th PS location for performance (~310 comparisons per county vs 3112)
+    for (let i = 0; i < psLocations.length; i += 10) {
+      const ps = psLocations[i];
+      const d = haversine(centroid[0], centroid[1], ps.lat, ps.lng);
+      if (d < minDist) minDist = d;
+    }
+
+    // Color based on distance — closer to PS = more "developed market"
+    let fillColor;
+    if (demoMode === "population") {
+      // Dense markets (near PS) = gold, sparse = dark
+      fillColor = minDist <= 5 ? "#C9A84C" : minDist <= 15 ? "#8B6914" : minDist <= 30 ? "#5C4A1E"
+        : minDist <= 50 ? "#3D3520" : minDist <= 80 ? "#2A2820" : "rgba(30,30,40,0.3)";
+    } else if (demoMode === "income") {
+      fillColor = minDist <= 5 ? "#22C55E" : minDist <= 15 ? "#16A34A" : minDist <= 30 ? "#0D6B30"
+        : minDist <= 50 ? "#1A3D25" : "rgba(30,30,40,0.3)";
+    } else {
+      // Growth — invert: farther from PS = potential growth opportunity
+      fillColor = minDist >= 50 ? "#C9A84C" : minDist >= 30 ? "#8B6914" : minDist >= 15 ? "#5C4A1E"
+        : "#2A2820";
+    }
+
+    return { fillColor, fillOpacity: 0.85, color: "rgba(255,255,255,0.06)", weight: 0.5 };
+  }, [psLocations, demoMode]);
 
   // ─── Render ───
   return (
@@ -320,35 +566,23 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           zoomControl={false}
           ref={mapRef}
         >
-          {/* Tile Layers */}
           {showSatellite ? (
-            <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              attribution="Tiles &copy; Esri"
-              maxZoom={19}
-            />
+            <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" maxZoom={19} />
           ) : (
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-              maxZoom={19}
-            />
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; CARTO' maxZoom={19} />
+          )}
+
+          {/* County Demographic Choropleth */}
+          {showDemographics && countyGeoJSON && (
+            <GeoJSON data={countyGeoJSON} style={countyStyle} />
           )}
 
           {/* Coverage Gap Grid */}
-          {showCoverage && coverageGrid.length > 0 && (
-            <CoverageGridWrapper grid={coverageGrid} />
-          )}
+          {showCoverage && coverageGrid.length > 0 && <CoverageGridWrapper grid={coverageGrid} />}
 
           {/* PS Location Clusters */}
-          <MarkerClusterGroup
-            chunkedLoading
-            maxClusterRadius={50}
-            spiderfyOnMaxZoom
-            showCoverageOnHover={false}
-            iconCreateFunction={createClusterIcon}
-          >
-            {psLocations.map((ps, i) => (
+          <MarkerClusterGroup chunkedLoading maxClusterRadius={50} spiderfyOnMaxZoom showCoverageOnHover={false} iconCreateFunction={createClusterIcon}>
+            {displayLocations.map((ps, i) => (
               <Marker key={`ps-${i}`} position={[ps.lat, ps.lng]} icon={psIcon}>
                 <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
                   <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11 }}>
@@ -361,13 +595,9 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           </MarkerClusterGroup>
 
           {/* Pipeline Site Markers */}
-          {pipeSites.map((s, i) => (
-            <Marker
-              key={`pipe-${i}`}
-              position={[s._lat, s._lng]}
-              icon={pipelineIcon(s.phase)}
-              eventHandlers={{ click: () => onSiteClick && onSiteClick(s) }}
-            >
+          {!timeLapsePlaying && pipeSites.map((s, i) => (
+            <Marker key={`pipe-${i}`} position={[s._lat, s._lng]} icon={pipelineIcon(s.phase)}
+              eventHandlers={{ click: () => onSiteClick && onSiteClick(s) }}>
               <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
                 <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, maxWidth: 220 }}>
                   <strong style={{ color: "#3B82F6" }}>{s.name || s.address || "Pipeline Site"}</strong><br />
@@ -378,21 +608,30 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
             </Marker>
           ))}
 
-          {/* Click-to-Explore Handler */}
-          <MapClickHandler psLocations={psLocations} pipelineSites={pipeSites} onClickResult={setClickResult} />
+          {/* AI Expansion Targets */}
+          {showAITargets && aiTargets.map((t, i) => (
+            <Marker key={`ai-${i}`} position={[t.lat, t.lng]} icon={aiTargetIcon}>
+              <Tooltip direction="top" offset={[0, -14]} opacity={0.95} permanent={false}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, minWidth: 200 }}>
+                  <strong style={{ color: GOLD }}>#{i + 1} {t.name}</strong><br />
+                  <span style={{ color: "#6B7394" }}>Pop: {(t.pop / 1000000).toFixed(1)}M | PS: {t.psCount} | Pipeline: {t.pipeCount}</span><br />
+                  <span style={{ color: FIRE, fontWeight: 700 }}>{(t.popPerPS / 1000).toFixed(0)}K people per PS location</span>
+                </div>
+              </Tooltip>
+            </Marker>
+          ))}
 
-          {/* Fit Bounds (for leaderboard state zoom) */}
+          <MapClickHandler psLocations={psLocations} pipelineSites={pipeSites} onClickResult={setClickResult} />
           {fitBounds && <FitBounds bounds={fitBounds} />}
+
+          {/* Time-lapse year overlay */}
+          {timeLapsePlaying && <TimeLapseController playing={timeLapsePlaying} year={timeLapseYear} psLocations={displayLocations} />}
 
           {/* Click Result Popup */}
           {clickResult && (
             <Popup position={[clickResult.lat, clickResult.lng]} onClose={() => setClickResult(null)}>
               <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, minWidth: 240 }}>
-                <div style={{
-                  background: clickResult.signalColor, color: "#fff", padding: "4px 10px",
-                  borderRadius: 6, fontSize: 11, fontWeight: 700, marginBottom: 8,
-                  textAlign: "center", letterSpacing: 1,
-                }}>
+                <div style={{ background: clickResult.signalColor, color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, marginBottom: 8, textAlign: "center", letterSpacing: 1 }}>
                   {clickResult.signal}
                 </div>
                 <div style={{ marginBottom: 6 }}>
@@ -408,15 +647,9 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
                 <div style={{ marginBottom: 6, color: "#6B7394", fontSize: 11 }}>
                   {clickResult.lat.toFixed(4)}, {clickResult.lng.toFixed(4)}
                 </div>
-                <a
-                  href={`https://www.crexi.com/properties/Land?bounds=${(clickResult.lat - 0.15).toFixed(4)},${(clickResult.lng - 0.2).toFixed(4)},${(clickResult.lat + 0.15).toFixed(4)},${(clickResult.lng + 0.2).toFixed(4)}`}
+                <a href={`https://www.crexi.com/properties/Land?bounds=${(clickResult.lat - 0.15).toFixed(4)},${(clickResult.lng - 0.2).toFixed(4)},${(clickResult.lat + 0.15).toFixed(4)},${(clickResult.lng + 0.2).toFixed(4)}`}
                   target="_blank" rel="noopener noreferrer"
-                  style={{
-                    display: "block", textAlign: "center", background: FIRE, color: "#fff",
-                    padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-                    textDecoration: "none", marginTop: 6,
-                  }}
-                >
+                  style={{ display: "block", textAlign: "center", background: FIRE, color: "#fff", padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none", marginTop: 6 }}>
                   Search Crexi for Land
                 </a>
               </div>
@@ -429,51 +662,28 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           position: "absolute", top: 16, right: showLeaderboard ? "calc(30% + 20px)" : 16,
           zIndex: 1000, display: "flex", flexDirection: "column", gap: 6, transition: "right 0.3s ease",
         }}>
-          <button
-            onClick={() => setShowCoverage(!showCoverage)}
-            style={{
-              background: showCoverage ? FIRE : GLASS, color: showCoverage ? "#fff" : "#9CA3AF",
-              border: `1px solid ${showCoverage ? FIRE : "rgba(255,255,255,0.1)"}`,
-              padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 600,
-              cursor: "pointer", fontFamily: "'Inter', sans-serif", backdropFilter: "blur(12px)",
-              transition: "all 0.2s ease",
-            }}
-          >
-            {gridComputing ? "Computing..." : showCoverage ? "Coverage Gaps ON" : "Coverage Gaps"}
-          </button>
-          <button
-            onClick={() => setShowSatellite(!showSatellite)}
-            style={{
-              background: showSatellite ? STEEL : GLASS, color: showSatellite ? GOLD : "#9CA3AF",
-              border: `1px solid ${showSatellite ? GOLD : "rgba(255,255,255,0.1)"}`,
-              padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 600,
-              cursor: "pointer", fontFamily: "'Inter', sans-serif", backdropFilter: "blur(12px)",
-              transition: "all 0.2s ease",
-            }}
-          >
-            {showSatellite ? "Satellite ON" : "Satellite"}
-          </button>
-          <button
-            onClick={() => setShowLeaderboard(!showLeaderboard)}
-            style={{
-              background: showLeaderboard ? NAVY : GLASS, color: showLeaderboard ? GOLD : "#9CA3AF",
-              border: `1px solid ${showLeaderboard ? GOLD : "rgba(255,255,255,0.1)"}`,
-              padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 600,
-              cursor: "pointer", fontFamily: "'Inter', sans-serif", backdropFilter: "blur(12px)",
-              transition: "all 0.2s ease",
-            }}
-          >
-            Leaderboard
-          </button>
+          <LayerBtn active={showCoverage} onClick={() => setShowCoverage(!showCoverage)} label={gridComputing ? "Computing..." : showCoverage ? "Coverage ON" : "Coverage Gaps"} />
+          <LayerBtn active={showDemographics} onClick={() => setShowDemographics(!showDemographics)} label={countyLoading ? "Loading..." : showDemographics ? "Counties ON" : "Demographics"} />
+          {showDemographics && (
+            <div style={{ display: "flex", gap: 2, background: GLASS, borderRadius: 6, padding: 2, backdropFilter: "blur(12px)" }}>
+              {["population", "income", "growth"].map(m => (
+                <button key={m} onClick={() => setDemoMode(m)} style={{
+                  background: demoMode === m ? FIRE : "transparent", color: demoMode === m ? "#fff" : "#6B7394",
+                  border: "none", borderRadius: 4, padding: "3px 6px", fontSize: 9, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter', sans-serif", textTransform: "capitalize",
+                }}>{m}</button>
+              ))}
+            </div>
+          )}
+          <LayerBtn active={showAITargets} onClick={() => setShowAITargets(!showAITargets)} label={showAITargets ? "AI Targets ON" : "AI Top 10"} color={GOLD} />
+          <LayerBtn active={timeLapsePlaying} onClick={() => { setTimeLapsePlaying(!timeLapsePlaying); }}
+            label={timeLapsePlaying ? `Playing ${timeLapseYear}` : "Time-Lapse"} color="#8B5CF6" />
+          <LayerBtn active={showSatellite} onClick={() => setShowSatellite(!showSatellite)} label={showSatellite ? "Satellite ON" : "Satellite"} />
+          <LayerBtn active={showLeaderboard} onClick={() => setShowLeaderboard(!showLeaderboard)} label="Leaderboard" />
         </div>
 
-        {/* Coverage Legend (bottom-left) */}
+        {/* Coverage Legend */}
         {showCoverage && (
-          <div style={{
-            position: "absolute", bottom: 56, left: 16, zIndex: 1000,
-            background: GLASS, backdropFilter: "blur(12px)", borderRadius: 10,
-            padding: "10px 14px", border: "1px solid rgba(255,255,255,0.08)",
-          }}>
+          <div style={{ position: "absolute", bottom: 56, left: 16, zIndex: 1000, background: GLASS, backdropFilter: "blur(12px)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: GOLD, marginBottom: 6, letterSpacing: 1 }}>COVERAGE LEGEND</div>
             {[
               { color: "rgba(232,122,46,0.50)", label: "0-10 mi — Dense PS Coverage" },
@@ -489,7 +699,23 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           </div>
         )}
 
-        {/* Stats Bar (bottom) */}
+        {/* AI Targets Legend */}
+        {showAITargets && aiTargets.length > 0 && (
+          <div style={{ position: "absolute", bottom: showCoverage ? 200 : 56, left: 16, zIndex: 1000, background: GLASS, backdropFilter: "blur(12px)", borderRadius: 10, padding: "10px 14px", border: `1px solid ${GOLD}33`, maxWidth: 280 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: GOLD, marginBottom: 8, letterSpacing: 1 }}>AI EXPANSION TARGETS</div>
+            {aiTargets.map((t, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, cursor: "pointer" }}
+                onClick={() => setFitBounds([[t.lat - 0.5, t.lng - 0.8], [t.lat + 0.5, t.lng + 0.8]])}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: GOLD, width: 18 }}>#{i + 1}</span>
+                <span style={{ fontSize: 10, color: "#E2E8F0", flex: 1 }}>{t.name}</span>
+                <span style={{ fontSize: 9, color: FIRE, fontWeight: 600 }}>{(t.popPerPS / 1000).toFixed(0)}K/PS</span>
+              </div>
+            ))}
+            <div style={{ fontSize: 8, color: "#4B5563", marginTop: 6 }}>Score: Pop/PS ratio + metro size - pipeline activity. Excludes CA/WY/OR/WA.</div>
+          </div>
+        )}
+
+        {/* Stats Bar */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: showLeaderboard ? "30%" : 0,
           zIndex: 1000, background: DARK_BG, backdropFilter: "blur(12px)",
@@ -498,16 +724,16 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           transition: "right 0.3s ease",
         }}>
           <div style={{ display: "flex", gap: 24 }}>
-            <StatChip label="PS Locations" value={psLocations.length.toLocaleString()} color={FIRE} />
+            <StatChip label="PS Locations" value={displayLocations.length.toLocaleString()} color={FIRE} />
             <StatChip label="Pipeline Sites" value={totalPipeline} color="#3B82F6" />
             <StatChip label="States w/ PS" value={statesWithPS} color={GOLD} />
           </div>
           {showCoverage && coverageGrid.length > 0 && (
             <div style={{ display: "flex", gap: 24 }}>
-              <StatChip label="Sweet Spot Cells" value={coverageGapCells.toLocaleString()} color={NAVY} />
               <StatChip label="Sweet Spot %" value={sweetSpotPct + "%"} color={STEEL} />
             </div>
           )}
+          {timeLapsePlaying && <StatChip label="Year" value={timeLapseYear} color="#8B5CF6" />}
         </div>
       </div>
 
@@ -518,42 +744,40 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           borderLeft: `1px solid rgba(201,168,76,0.15)`,
           display: "flex", flexDirection: "column", overflow: "hidden",
         }}>
-          {/* Header */}
-          <div style={{
-            padding: "16px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: 0.5 }}>MARKET LEADERBOARD</div>
-                <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>Expansion Opportunity by State</div>
+                <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>Expansion Opportunity</div>
               </div>
-              <button onClick={() => setShowLeaderboard(false)} style={{
-                background: "none", border: "none", color: "#6B7394", cursor: "pointer", fontSize: 16, padding: 4,
-              }}>x</button>
+              <button onClick={() => setShowLeaderboard(false)} style={{ background: "none", border: "none", color: "#6B7394", cursor: "pointer", fontSize: 16, padding: 4 }}>x</button>
             </div>
-            <input
-              type="text"
-              placeholder="Search state..."
-              value={leaderboardSearch}
-              onChange={(e) => setLeaderboardSearch(e.target.value)}
-              style={{
-                width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 11, fontFamily: "'Inter', sans-serif",
-                outline: "none", boxSizing: "border-box",
-              }}
+            {/* Mode Toggle: State vs MSA */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+              {[{ key: "state", label: "By State" }, { key: "msa", label: "By Metro (MSA)" }].map(m => (
+                <button key={m.key} onClick={() => { setLeaderboardMode(m.key); setLeaderboardSearch(""); }} style={{
+                  flex: 1, background: leaderboardMode === m.key ? `${FIRE}22` : "rgba(255,255,255,0.03)",
+                  color: leaderboardMode === m.key ? FIRE : "#6B7394",
+                  border: `1px solid ${leaderboardMode === m.key ? FIRE + "44" : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: 6, padding: "5px 8px", fontSize: 10, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'Inter', sans-serif",
+                }}>{m.label}</button>
+              ))}
+            </div>
+            <input type="text" placeholder={leaderboardMode === "msa" ? "Search metro..." : "Search state..."}
+              value={leaderboardSearch} onChange={(e) => setLeaderboardSearch(e.target.value)}
+              style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 11, fontFamily: "'Inter', sans-serif", outline: "none", boxSizing: "border-box" }}
             />
           </div>
 
           {/* Sort Controls */}
-          <div style={{
-            display: "flex", gap: 2, padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)",
-          }}>
+          <div style={{ display: "flex", gap: 2, padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             {[
               { key: "gap", label: "Gap Score" },
               { key: "ps", label: "PS Locs" },
               { key: "pipeline", label: "Pipeline" },
               { key: "pop", label: "Population" },
-              { key: "state", label: "State" },
+              { key: "state", label: leaderboardMode === "msa" ? "Name" : "State" },
             ].map(s => (
               <button key={s.key} onClick={() => setLeaderboardSort(s.key)} style={{
                 background: leaderboardSort === s.key ? "rgba(232,122,46,0.15)" : "transparent",
@@ -564,48 +788,55 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
             ))}
           </div>
 
-          {/* State Rows */}
+          {/* Rows */}
           <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
-            {sortedStats.map((s, i) => (
-              <div
-                key={s.state}
-                onClick={() => {
-                  const bounds = STATE_BOUNDS[s.state];
-                  if (bounds) setFitBounds(bounds);
+            {sortedStats.map((s, i) => {
+              const label = leaderboardMode === "msa" ? s.name : s.state;
+              const truncLabel = label && label.length > 16 ? label.slice(0, 15) + "..." : label;
+              return (
+                <div key={label} onClick={() => {
+                  if (leaderboardMode === "msa" && s.lat) {
+                    setFitBounds([[s.lat - 0.8, s.lng - 1.2], [s.lat + 0.8, s.lng + 1.2]]);
+                  } else {
+                    const bounds = STATE_BOUNDS[s.state];
+                    if (bounds) setFitBounds(bounds);
+                  }
                 }}
-                style={{
-                  display: "grid", gridTemplateColumns: "28px 42px 1fr 48px 48px 44px",
-                  alignItems: "center", padding: "8px 16px", cursor: "pointer",
-                  borderBottom: "1px solid rgba(255,255,255,0.03)",
-                  transition: "background 0.15s ease",
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(232,122,46,0.08)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-              >
-                <span style={{ fontSize: 10, color: "#4B5563", fontWeight: 600 }}>#{i + 1}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{s.state}</span>
-                <div>
-                  <GapBar score={s.gapScore} />
+                  style={{
+                    display: "grid", gridTemplateColumns: leaderboardMode === "msa" ? "28px 1fr 44px 44px 44px" : "28px 42px 1fr 48px 48px 44px",
+                    alignItems: "center", padding: "8px 16px", cursor: "pointer",
+                    borderBottom: "1px solid rgba(255,255,255,0.03)", transition: "background 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(232,122,46,0.08)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                  <span style={{ fontSize: 10, color: "#4B5563", fontWeight: 600 }}>#{i + 1}</span>
+                  {leaderboardMode === "msa" ? (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{truncLabel}</span>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{s.state}</span>
+                      <div><GapBar score={s.gapScore} /></div>
+                    </>
+                  )}
+                  <span style={{ fontSize: 10, color: FIRE, fontWeight: 600, textAlign: "right" }}>{s.psCount}</span>
+                  <span style={{ fontSize: 10, color: "#3B82F6", fontWeight: 600, textAlign: "right" }}>{s.pipeCount || s.pipelineCount || "—"}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, textAlign: "right",
+                    color: s.gapScore >= 8 ? GOLD : s.gapScore >= 6 ? "#22C55E" : "#6B7394",
+                  }}>{s.gapScore.toFixed(1)}</span>
                 </div>
-                <span style={{ fontSize: 10, color: FIRE, fontWeight: 600, textAlign: "right" }}>{s.psCount}</span>
-                <span style={{ fontSize: 10, color: "#3B82F6", fontWeight: 600, textAlign: "right" }}>{s.pipelineCount || "—"}</span>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, textAlign: "right",
-                  color: s.gapScore >= 8 ? GOLD : s.gapScore >= 6 ? "#22C55E" : "#6B7394",
-                }}>{s.gapScore.toFixed(1)}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Column Headers */}
           <div style={{
-            display: "grid", gridTemplateColumns: "28px 42px 1fr 48px 48px 44px",
-            padding: "6px 16px", borderTop: "1px solid rgba(255,255,255,0.06)",
-            background: "rgba(0,0,0,0.3)",
+            display: "grid", gridTemplateColumns: leaderboardMode === "msa" ? "28px 1fr 44px 44px 44px" : "28px 42px 1fr 48px 48px 44px",
+            padding: "6px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.3)",
           }}>
             <span style={{ fontSize: 8, color: "#4B5563" }}>#</span>
-            <span style={{ fontSize: 8, color: "#4B5563" }}>ST</span>
-            <span style={{ fontSize: 8, color: "#4B5563" }}>GAP</span>
+            <span style={{ fontSize: 8, color: "#4B5563" }}>{leaderboardMode === "msa" ? "METRO" : "ST"}</span>
+            {leaderboardMode !== "msa" && <span style={{ fontSize: 8, color: "#4B5563" }}>GAP</span>}
             <span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>PS</span>
             <span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>PIPE</span>
             <span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>SCORE</span>
@@ -617,6 +848,21 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
 }
 
 // ─── Sub-Components ───
+function LayerBtn({ active, onClick, label, color }) {
+  const activeColor = color || FIRE;
+  return (
+    <button onClick={onClick} style={{
+      background: active ? activeColor : GLASS, color: active ? "#fff" : "#9CA3AF",
+      border: `1px solid ${active ? activeColor : "rgba(255,255,255,0.1)"}`,
+      padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+      cursor: "pointer", fontFamily: "'Inter', sans-serif", backdropFilter: "blur(12px)",
+      transition: "all 0.2s ease", whiteSpace: "nowrap",
+    }}>
+      {label}
+    </button>
+  );
+}
+
 function StatChip({ label, value, color }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -632,11 +878,7 @@ function GapBar({ score }) {
   const color = score >= 8 ? GOLD : score >= 6 ? "#22C55E" : score >= 4 ? "#6B7394" : "#374151";
   return (
     <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden", width: "100%" }}>
-      <div style={{
-        height: "100%", width: `${pct}%`, borderRadius: 3,
-        background: `linear-gradient(90deg, ${color}, ${color}88)`,
-        transition: "width 0.3s ease",
-      }} />
+      <div style={{ height: "100%", width: `${pct}%`, borderRadius: 3, background: `linear-gradient(90deg, ${color}, ${color}88)`, transition: "width 0.3s ease" }} />
     </div>
   );
 }
