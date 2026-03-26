@@ -1235,6 +1235,7 @@ export const buildSitePackage = (site, siteScoreConfig, valuationOverrides = {})
   const recColor = score >= 8.0 ? "#16A34A" : score >= 6.0 ? "#F59E0B" : typeof score === "number" ? "#EF4444" : "#94A3B8";
 
   // 7. Vetting completeness (22-item checklist per §6h-2)
+  const combined = ((site.zoning || "") + " " + (site.summary || "") + " " + (site.zoningNotes || "")).toLowerCase();
   const vetCompleteness = {
     zoning: [
       { item: "Zoning district confirmed", done: !!site.zoning },
@@ -1242,7 +1243,7 @@ export const buildSitePackage = (site, siteScoreConfig, valuationOverrides = {})
       { item: "Use category identified", done: !!site.zoningUseTerm },
       { item: "Ordinance section cited", done: !!site.zoningOrdinanceSection },
       { item: "Ordinance URL/source", done: !!site.zoningSource },
-      { item: "Overlay districts checked", done: vet.hasOverlay || !!site.overlayDistrict || combined => false },
+      { item: "Overlay districts checked", done: vet.hasOverlay || !!site.overlayDistrict },
       { item: "Planning dept contact", done: !!site.planningPhone || !!site.planningEmail },
       { item: "Verification date", done: !!site.zoningVerifyDate },
     ].map(c => ({ ...c, done: typeof c.done === 'boolean' ? c.done : false })),
@@ -1265,8 +1266,7 @@ export const buildSitePackage = (site, siteScoreConfig, valuationOverrides = {})
       { item: "Grading cost risk", done: !!site.gradingCostRisk },
     ],
   };
-  const combined = ((site.zoning || "") + " " + (site.summary || "") + " " + (site.zoningNotes || "")).toLowerCase();
-  // Fix the overlay check that used a bad arrow function
+  // Patch overlay check to include "no overlay" keyword detection
   vetCompleteness.zoning[5].done = vet.hasOverlay || !!site.overlayDistrict || /no overlay/i.test(combined);
   const allChecks = [...vetCompleteness.zoning, ...vetCompleteness.utility, ...vetCompleteness.topo];
   const completionPct = Math.round((allChecks.filter(c => c.done).length / allChecks.length) * 100);
