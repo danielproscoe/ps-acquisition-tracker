@@ -987,6 +987,48 @@ function AppInner() {
     return null;
   }, [killedSites]);
 
+  // Permanently delete a site — no killed_sites log, no learning, just gone
+  const handlePermanentDelete = (id) => {
+    const site = subs.find(s => s.id === id);
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site?.name || "", action: "deleted_permanently",
+      reason: site?.psRejectReason || site?.declineReason || "Permanently deleted",
+      address: site?.address || "", state: site?.state || "",
+      ts: new Date().toISOString(), by: "Dan R",
+    });
+    fbRemove(`submissions/${id}`);
+    notify(`${site?.name || "Site"} permanently deleted.`);
+  };
+
+  // Send a rejected site back to PS — re-routes to the original tracker
+  const handleSendBackToPS = (id) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) return;
+    const now = new Date().toISOString();
+    const region = (site.routedTo || site.region || "southwest").toLowerCase();
+    const regionPath = region === "east" ? "east" : "southwest";
+    const regionLabel = regionPath === "east" ? "MT Tracker" : "DW Tracker";
+    const t = { ...site, region: regionPath, status: "tracking", phase: site.phase || "Prospect",
+      resubmittedToPS: true, resubmittedAt: now, coordinates: site.coordinates || "",
+      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}` };
+    delete t.messages; delete t.docs; delete t.activityLog; delete t._region; delete t._iqResult;
+    // Clear rejection fields
+    delete t.psRejectedBy; delete t.psRejectReason; delete t.psFeedback; delete t.psRejectedAt;
+    delete t.declineReason; delete t.declinedAt; delete t.reviewedBy; delete t.reviewNote;
+    delete t.siteScoreAtDecline; delete t.classificationAtDecline;
+    t.status = "tracking";
+    fbSet(`${regionPath}/${id}`, t);
+    fbRemove(`submissions/${id}`);
+    fbPush(`${regionPath}/${id}/activityLog`, { action: `Re-sent to PS via ${regionLabel} after rejection`, ts: now, by: "Dan R" });
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site.name || "", action: "resubmitted_to_ps",
+      reason: "Sent back to PS after rejection/decline",
+      address: site.address || "", state: site.state || "",
+      ts: now, by: "Dan R", routedTo: regionLabel,
+    });
+    notify(`${site.name || "Site"} sent back to PS via ${regionLabel}`);
+  };
+
   // Smart discard: logs to killed_sites + learns pattern + removes
   const handleSmartDiscard = (id) => {
     const site = subs.find(s => s.id === id);
@@ -3040,6 +3082,8 @@ function AppInner() {
                     </div>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                       <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
+                      <button onClick={() => { if (window.confirm("Permanently delete this site? This cannot be undone.")) { handlePermanentDelete(site.id); setReviewDetailSite(null); } }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(127,29,29,0.4)", background: "rgba(127,29,29,0.2)", color: "#F87171", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Delete Permanently</button>
+                      <button onClick={() => { handleSendBackToPS(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.08)", color: "#22C55E", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Send Back to PS</button>
                       <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending" }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
                     </div>
                     {/* Re-route from ps-rejected to another person or tracker */}
@@ -3069,6 +3113,8 @@ function AppInner() {
                     </div>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                       <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
+                      <button onClick={() => { if (window.confirm("Permanently delete this site? This cannot be undone.")) { handlePermanentDelete(site.id); setReviewDetailSite(null); } }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(127,29,29,0.4)", background: "rgba(127,29,29,0.2)", color: "#F87171", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Delete Permanently</button>
+                      <button onClick={() => { handleSendBackToPS(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.08)", color: "#22C55E", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Send Back to PS</button>
                       <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending", declineReason: null, declinedAt: null, reviewedBy: null, reviewNote: null, siteScoreAtDecline: null, classificationAtDecline: null }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
                     </div>
                     {/* Re-route from declined to another person or tracker */}
