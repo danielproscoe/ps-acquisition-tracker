@@ -1516,7 +1516,7 @@ function updateCustomCap(val){
       <div style="font-size:13px;font-weight:900;letter-spacing:0.14em;color:#C9A84C">STORVEX<span style="font-size:7px;vertical-align:super">™</span></div>
       <div style="width:1px;height:16px;background:rgba(201,168,76,0.3)"></div>
       <div style="font-size:11px;font-weight:600;color:#6B7394;letter-spacing:0.08em">INTERACTIVE PRICING INTELLIGENCE</div>
-      <span class="version-badge">v4.1</span>
+      <!-- version badge removed -->
     </div>
     <h1 style="color:#fff;margin-bottom:6px">${h(site.name)}</h1>
     <div style="font-size:13px;color:#94A3B8">${h(site.address || "")}${site.city ? ", " + h(site.city) : ""}${site.state ? ", " + h(site.state) : ""}</div>
