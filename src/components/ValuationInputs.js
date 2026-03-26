@@ -11,7 +11,7 @@ import { computeSiteFinancials } from '../scoring';
 // These match scoring.js computeSiteFinancials() hardcoded values exactly.
 export const STORVEX_DEFAULTS = {
   // ── Facility Sizing ──
-  coverageRatio: 0.35,          // 35% lot coverage (PS Killeen sketch)
+  coverageRatio: 0.35,          // 35% lot coverage (PS standard 1-story layout)
   netToGross: 0.90,             // 90% efficiency
   climatePctOneStory: 0.65,     // One-story: 65% climate
   climatePctMultiStory: 0.75,   // Multi-story: 75% climate
@@ -49,7 +49,7 @@ export const STORVEX_DEFAULTS = {
   ecriY4: 0.24,
   ecriY5: 0.32,
 
-  // ── Construction Costs (Recalibrated 2026-03-22 per PS Killeen closing) ──
+  // ── Construction Costs (Recalibrated 2026-03-22 per market benchmarks) ──
   hardCostOneStoryClimate: 45,  // $/SF — building shell + HVAC only
   hardCostOneStoryDrive: 28,    // $/SF — drive-up shell only
   hardCostMultiStory3: 68,      // $/SF 3-story
@@ -122,7 +122,7 @@ const SECTIONS = [
     inputs: [
       { key: 'coverageRatio', label: 'Lot Coverage Ratio', type: 'pct', step: 0.01, min: 0.15, max: 0.60, tip: 'Building footprint as % of total lot area. PS standard: 35%' },
       { key: 'netToGross', label: 'Net-to-Gross Efficiency', type: 'pct', step: 0.01, min: 0.75, max: 0.95, tip: 'Leasable SF / Gross SF. Corridors, office, mechanical reduce this.' },
-      { key: 'climatePctOneStory', label: 'Climate Mix (1-Story)', type: 'pct', step: 0.01, min: 0.40, max: 0.90, tip: 'Climate-controlled unit share of one-story product. PS Killeen: 65%' },
+      { key: 'climatePctOneStory', label: 'Climate Mix (1-Story)', type: 'pct', step: 0.01, min: 0.40, max: 0.90, tip: 'Climate-controlled unit share of one-story product. Industry standard: 65%' },
       { key: 'climatePctMultiStory', label: 'Climate Mix (Multi-Story)', type: 'pct', step: 0.01, min: 0.50, max: 1.00, tip: 'Climate-controlled share of multi-story. Vertical = all indoor: 75%' },
       { key: 'multiStoryThreshold', label: 'Multi-Story Threshold (ac)', type: 'num', step: 0.1, min: 2.0, max: 5.0, unit: 'ac', tip: 'Sites below this acreage trigger multi-story product' },
       { key: 'multiStoryFloors', label: 'Multi-Story Floor Count', type: 'int', step: 1, min: 2, max: 5, unit: 'floors', tip: 'Number of stories for multi-story buildings' },

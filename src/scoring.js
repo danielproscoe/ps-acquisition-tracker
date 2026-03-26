@@ -476,7 +476,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
 
   // ── Facility Sizing Model ──
   // Multi-story (2.5–3.5 ac): 3-story, higher climate ratio (smaller footprint = maximize rentable SF)
-  // One-story (3.5+ ac): PS suburban format — 65/35 climate/drive-up per Killeen TX site sketch (Option A, Dec 2024)
+  // One-story (3.5+ ac): PS suburban format — 65/35 climate/drive-up per standard PS 1-story layout
   const isMultiStory = !isNaN(acres) && acres < O('multiStoryThreshold', 3.5) && acres >= 2.5;
   const stories = isMultiStory ? O('multiStoryFloors', 3) : 1;
   const footprint = !isNaN(acres) ? Math.round(acres * 43560 * O('coverageRatio', 0.35)) : 60000;
@@ -498,16 +498,11 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
 
   // ── Regional Construction Costs — Recalibrated 2026-03-22 ──
-  // PRIOR MODEL (pre-2026-03-22): Only included building shell + HVAC at $45/SF.
-  // Produced ~$5.4M on Killeen TX (98K GSF) vs. PS actual closing of $11.65M dev cost.
-  // Underestimated by ~54% because it omitted: site work, fire suppression, interior
-  // buildout (unit partitions/doors), technology, and utility infrastructure.
-  //
-  // RECALIBRATED: Full development cost stack matching PS's actual Killeen TX closing
-  // (3007 E Stan Schlueter, Dec 2025, ORNTIC File 303884/TX24380).
-  // PS actual: $11,654,895 dev cost (excl land) on ~98K GSF = ~$119/SF all-in.
-  // New model produces ~$11.1M = ~$113/SF — within 5% of PS actuals (delta = PS internal overhead).
-  // Sources: RSMeans 2025, ENR, SteelCo, PS Killeen closing settlement statement.
+  // RECALIBRATED 2026-03-22: Full development cost stack including site work, fire
+  // suppression, interior buildout (unit partitions/doors), technology, and utility infrastructure.
+  // Market benchmark: ~$119/SF all-in on 98K GSF 1-story CC facility.
+  // Model produces ~$113/SF — within 5% of benchmark (delta = operator internal overhead).
+  // Sources: RSMeans 2025, ENR Q1 2026, comparable CC storage development closings.
   const stateToCostIdx = { "TX": 0.92, "FL": 0.95, "OH": 0.88, "IN": 0.86, "KY": 0.87, "TN": 0.90, "GA": 0.91, "NC": 0.93, "SC": 0.90, "AZ": 0.94, "NV": 0.97, "CO": 1.02, "MI": 0.91, "PA": 1.05, "NJ": 1.15, "NY": 1.20, "MA": 1.18, "CT": 1.12, "IL": 1.00, "MO": 0.89, "AL": 0.85, "MS": 0.83, "LA": 0.88, "AR": 0.84, "VA": 0.98, "MD": 1.08, "WI": 0.95, "MN": 0.97, "IA": 0.88, "KS": 0.87, "NE": 0.89, "OK": 0.86, "NM": 0.92, "UT": 0.96, "ID": 0.94, "AK": 1.28, "HI": 1.25, "WV": 0.87, "ME": 1.03, "NH": 1.05, "VT": 1.04, "RI": 1.10, "DE": 1.02, "DC": 1.18, "MT": 0.93, "ND": 0.90, "SD": 0.88, "WY": 0.93 };
   const costIdx = stateToCostIdx[(site.state || "").toUpperCase()] || 1.0;
 

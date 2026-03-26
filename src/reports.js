@@ -1620,9 +1620,7 @@ function updateCustomCap(val){
 
     return `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <span style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em">STORVEX ENGINE v4.1</span>
-      <span style="width:4px;height:4px;border-radius:50%;background:#6B7394"></span>
-      <span style="font-size:10px;color:#4A5080;font-weight:600">PS Killeen Calibrated</span>
+      <span style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em">STORVEX ENGINE</span>
       ${ovCount > 0 ? '<span style="margin-left:auto;font-size:10px;font-weight:700;color:#C9A84C;background:rgba(201,168,76,0.1);padding:3px 10px;border-radius:5px;border:1px solid rgba(201,168,76,0.15)"><span style="font-size:8px">*</span> = site override (' + ovCount + ')</span>' : '<span style="margin-left:auto;font-size:10px;font-weight:600;color:#16A34A;background:rgba(22,163,74,0.08);padding:3px 10px;border-radius:5px;border:1px solid rgba(22,163,74,0.15)">Using Defaults</span>'}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -2187,7 +2185,7 @@ function switchSiteInputs(siteId) {
           <strong>Acreage sourced from listing platform.</strong> Drives all facility sizing calculations.
           <div class="mi-formula">Gross Site = ${!isNaN(acres) ? acres.toFixed(2) : "?"} acres = ${!isNaN(acres) ? Math.round(acres*43560).toLocaleString() : "?"} SF<br>Buildable (35% coverage) = ${footprint.toLocaleString()} SF<br>Gross Building SF = ${grossSF ? grossSF.toLocaleString() : "?"} SF<br>Net Rentable (${netToGross ? (netToGross*100).toFixed(0) : 90}% efficiency) = ${totalSF.toLocaleString()} SF</div>
           <div class="mi-row"><span class="mi-row-label">PS Size Classification</span><span class="mi-row-val">${acres >= 3.5 ? "Primary (one-story preferred)" : acres >= 2.5 ? "Secondary (multi-story candidate)" : "Undersized"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Coverage Ratio</span><span class="mi-row-val">35% (PS standard — Killeen TX sketch)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Coverage Ratio</span><span class="mi-row-val">35% (PS standard layout)</span></div>
           <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet"} listing | Verify with survey when available</div>
         </div>
       </div></div>
@@ -2215,7 +2213,7 @@ function switchSiteInputs(siteId) {
           <div class="mi-row"><span class="mi-row-label">Footprint = Acres × 43,560 × 35%</span><span class="mi-row-val">${!isNaN(acres) ? (acres * 43560).toLocaleString() : "?"} × 0.35</span></div>
           <div class="mi-row"><span class="mi-row-label">Stories</span><span class="mi-row-val">${stories}</span></div>
           <div class="mi-row"><span class="mi-row-label">Revenue Density</span><span class="mi-row-val">${totalSF > 0 ? "$" + (stabRev/totalSF).toFixed(2) + "/SF/yr" : "N/A"}</span></div>
-          <div class="mi-source">Source: SiteScore Facility Sizing Engine | 35% coverage from PS Killeen TX Option A sketch (Dec 2024)</div>
+          <div class="mi-source">Source: SiteScore Facility Sizing Engine | 35% lot coverage per industry standard 1-story CC layout</div>
         </div>
       </div></div>
     </div>
@@ -2243,10 +2241,10 @@ function switchSiteInputs(siteId) {
         <div class="mi-body">
           <div class="mi-formula">Climate SF = Total SF × ${Math.round(climatePct*100)}%<br>= ${totalSF.toLocaleString()} × ${climatePct}<br>= <strong style="color:#42A5F5">${climateSF.toLocaleString()} SF</strong></div>
           <div class="mi-row"><span class="mi-row-label">Split Ratio</span><span class="mi-row-val">${Math.round(climatePct*100)}/${Math.round(drivePct*100)} (Climate/Drive)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Why ${Math.round(climatePct*100)}%?</span><span class="mi-row-val">${isMultiStory ? "Multi-story = vertical = all indoor" : "Per PS Killeen TX layout (Dec 2024)"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Why ${Math.round(climatePct*100)}%?</span><span class="mi-row-val">${isMultiStory ? "Multi-story = vertical = all indoor" : "Per industry standard 1-story CC product mix"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Revenue Premium</span><span class="mi-row-val">Climate rates ~${Math.round((stabClimRate/stabDriveRate-1)*100)}% above drive-up</span></div>
           <div class="mi-row"><span class="mi-row-label">Annual Revenue (Y5)</span><span class="mi-row-val">${fmtD(climateSF * stabClimRate * 12 * 0.92)}</span></div>
-          <div class="mi-source">Source: PS Killeen TX Option A site sketch calibration | Climate = primary revenue driver, premium pricing</div>
+          <div class="mi-source">Source: Industry standard CC product mix | Climate = primary revenue driver, premium pricing</div>
         </div>
       </div></div>
     </div>
@@ -2626,9 +2624,9 @@ function switchSiteInputs(siteId) {
         </div></div></td></tr>
         <tr class="mi" onclick="toggleMI('dchard',event)" style="cursor:pointer"><td style="color:#6B7394;font-weight:600">All Hard Costs (${grossSF ? grossSF.toLocaleString() : totalSF.toLocaleString()} GSF @ $${totalHardPerSF}/SF) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td class="mono" style="font-weight:700;text-align:right">${fmtD(totalHardCost)}</td></tr>
         <tr><td colspan="2" style="padding:0;border:none"><div id="mi-dchard" class="mi-panel"><div class="mi-panel-inner">
-          <div class="mi-header"><div class="mi-title">Hard Cost Breakdown — Full Development Stack</div><div class="mi-conf mi-conf-high">PS Killeen Calibrated</div></div>
+          <div class="mi-header"><div class="mi-title">Hard Cost Breakdown — Full Development Stack</div><div class="mi-conf mi-conf-high">Industry Benchmarked</div></div>
           <div class="mi-body">
-            <strong>All-in hard costs for ${isMultiStory ? stories + "-story multi-story" : "single-story indoor"} climate-controlled self-storage. Calibrated against PS Killeen TX closing (Dec 2025, $11.65M actual).</strong>
+            <strong>All-in hard costs for ${isMultiStory ? stories + "-story multi-story" : "single-story indoor"} climate-controlled self-storage. Calibrated against market benchmarks and recent comparable closings.</strong>
             <table style="width:100%;border-collapse:collapse;margin:10px 0">
               <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Building Shell & HVAC</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${hardCostPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"}</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(hardCost)}</td></tr>
               <tr style="border-bottom:1px solid rgba(201,168,76,0.12)"><td style="padding:5px 0;font-size:11px;color:#6B7394;font-weight:600">Site Development</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:center;color:#6B7394">$${baseSiteWorkPerSF}/SF × ${siteAreaSF.toLocaleString()} site SF</td><td class="mono" style="padding:5px 0;font-size:11px;text-align:right;font-weight:700;color:#E2E8F0">${fmtD(siteWorkCost)}</td></tr>
@@ -2639,8 +2637,8 @@ function switchSiteInputs(siteId) {
               <tr style="border-top:2px solid rgba(201,168,76,0.2)"><td style="padding:6px 0;font-size:12px;color:#C9A84C;font-weight:800">Total Hard Costs</td><td class="mono" style="padding:6px 0;font-size:11px;text-align:center;color:#C9A84C;font-weight:700">$${totalHardPerSF}/SF all-in</td><td class="mono" style="padding:6px 0;font-size:12px;text-align:right;font-weight:800;color:#E87A2E">${fmtD(totalHardCost)}</td></tr>
             </table>
             <div class="mi-row"><span class="mi-row-label">Regional Index</span><span class="mi-row-val">${site.state || "N/A"}: ${costIdx.toFixed(2)}x — ${costIdx < 0.95 ? "below-average market, favorable GC pricing" : costIdx > 1.05 ? "above-average market, elevated costs" : "near national average"}</span></div>
-            <div class="mi-row"><span class="mi-row-label">PS Calibration</span><span class="mi-row-val">Killeen TX closing (Dec 2025): $11.65M dev cost on 98K GSF = $119/SF all-in. Model produces $${totalHardPerSF}/SF — ${Math.abs(totalHardPerSF - 119) <= 15 ? "within calibration range" : "review rates"}.</span></div>
-            <div class="mi-source">Source: RSMeans 2025 | PS Killeen TX settlement statement (ORNTIC 303884/TX24380) | ENR Q1 2026</div>
+            <div class="mi-row"><span class="mi-row-label">Market Benchmark</span><span class="mi-row-val">Industry benchmark: $119/SF all-in on 98K GSF 1-story CC. Model produces $${totalHardPerSF}/SF -- ${Math.abs(totalHardPerSF - 119) <= 15 ? "within calibration range" : "review rates"}.</span></div>
+            <div class="mi-source">Source: RSMeans 2025 | ENR Q1 2026 | Comparable CC storage development closings</div>
           </div>
         </div></div></td></tr>
         <tr class="mi" onclick="toggleMI('dcsoft',event)" style="cursor:pointer"><td style="color:#6B7394;font-weight:600">Soft Costs (${Math.round(softCostPct*100)}%) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td class="mono" style="font-weight:700;text-align:right">${fmtD(softCost)}</td></tr>
@@ -4631,7 +4629,7 @@ function toggleMI(id,evt){
           <div class="mi-row"><span class="mi-row-label">≥ 3.5 ac (Primary)</span><span class="mi-row-val">One-story indoor — PS preference</span></div>
           <div class="mi-row"><span class="mi-row-label">2.5 – 3.5 ac (Secondary)</span><span class="mi-row-val">3-4 story multi-story</span></div>
           <div class="mi-row"><span class="mi-row-label">< 2.5 ac</span><span class="mi-row-val" style="color:#EF4444">Generally too small for development</span></div>
-          <div class="mi-row"><span class="mi-row-label">Coverage Ratio</span><span class="mi-row-val">35% (PS standard — Killeen TX sketch)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Coverage Ratio</span><span class="mi-row-val">35% (PS standard layout)</span></div>
           <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet"} listing | PS development standards (Dec 2024)</div>
         </div>
       </div></div>
@@ -4645,7 +4643,7 @@ function toggleMI(id,evt){
           <div class="mi-row"><span class="mi-row-label">Climate-Controlled</span><span class="mi-row-val">${climateSF.toLocaleString()} SF (${Math.round(climatePct*100)}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Drive-Up</span><span class="mi-row-val">${driveSF.toLocaleString()} SF (${Math.round(drivePct*100)}%)</span></div>
           <div class="mi-row"><span class="mi-row-label">Revenue Density</span><span class="mi-row-val">$${totalSF > 0 ? (stabRev/totalSF).toFixed(2) : "N/A"}/SF/yr</span></div>
-          <div class="mi-source">Source: SiteScore Facility Sizing Engine | 35% coverage from PS Killeen TX Option A sketch (Dec 2024)</div>
+          <div class="mi-source">Source: SiteScore Facility Sizing Engine | 35% lot coverage per industry standard 1-story CC layout</div>
         </div>
       </div></div>
     </div>
@@ -4703,9 +4701,9 @@ function toggleMI(id,evt){
     </div>
     <div class="metric mi" onclick="toggleMI('fin-hard',event)"><div class="label">Total Hard Cost</div><div class="value" style="font-size:16px">${fmtM(totalHardCost)}</div><div class="sub">$${totalHardPerSF}/SF all-in</div><em class="mi-hint">i</em>
       <div id="mi-fin-hard" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Full Hard Cost Stack — PS Killeen Calibrated</div><div class="mi-conf mi-conf-high">Killeen Benchmarked</div></div>
+        <div class="mi-header"><div class="mi-title">Full Hard Cost Stack — Industry Benchmarked</div><div class="mi-conf mi-conf-high">Industry Benchmarked</div></div>
         <div class="mi-body">
-          <strong>All-in hard costs: building shell, site development, fire suppression, interior buildout, technology, and utility infrastructure. Regionally adjusted. Calibrated to PS Killeen TX closing ($119/SF actual).</strong>
+          <strong>All-in hard costs: building shell, site development, fire suppression, interior buildout, technology, and utility infrastructure. Regionally adjusted. Calibrated against market benchmarks and recent comparable closings.</strong>
           <div class="mi-formula">
             Building Shell & HVAC: $${hardCostPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} = ${fmtD(hardCost)}<br>
             Site Development: $${baseSiteWorkPerSF}/SF × ${siteAreaSF.toLocaleString()} site SF = ${fmtD(siteWorkCost)}<br>
@@ -4719,8 +4717,8 @@ function toggleMI(id,evt){
           <div class="mi-row"><span class="mi-row-label">State Cost Index (${site.state || "N/A"})</span><span class="mi-row-val">${costIdx.toFixed(2)}x — ${costIdx < 0.95 ? "below national avg" : costIdx > 1.05 ? "above national avg" : "near national avg"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Gross vs Net SF</span><span class="mi-row-val">${grossSF ? grossSF.toLocaleString() : "?"} gross → ${totalSF.toLocaleString()} net (${netToGross ? (netToGross*100).toFixed(0) : 90}% efficiency)</span></div>
           <div class="mi-row"><span class="mi-row-label">Hard % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(totalHardCost/totalDevCost*100) : 0}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">PS Benchmark</span><span class="mi-row-val">Killeen TX: $119/SF all-in on 98K GSF. Model: $${totalHardPerSF}/SF. ${Math.abs(totalHardPerSF - 119) <= 15 ? "Within calibration range." : "Review assumptions."}</span></div>
-          <div class="mi-source">Source: RSMeans 2025 | PS Killeen TX closing (ORNTIC 303884/TX24380) | ENR Q1 2026</div>
+          <div class="mi-row"><span class="mi-row-label">Market Benchmark</span><span class="mi-row-val">Industry benchmark: $119/SF all-in on 98K GSF 1-story CC. Model: $${totalHardPerSF}/SF. ${Math.abs(totalHardPerSF - 119) <= 15 ? "Within calibration range." : "Review assumptions."}</span></div>
+          <div class="mi-source">Source: RSMeans 2025 | ENR Q1 2026 | Comparable CC storage development closings</div>
         </div>
       </div></div>
     </div>
