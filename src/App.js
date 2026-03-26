@@ -35,8 +35,10 @@ import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePrior
 import { SortBar, SORT_OPTIONS } from './components/SortBar';
 import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
 import ValuationInputs from './components/ValuationInputs';
+import { DiscoverMap } from './components/DiscoverMap';
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { useNavigation } from './hooks/useNavigation';
+import 'leaflet/dist/leaflet.css';
 import './App.css';
 
 // ─── Display name fallback: derive from Firebase key when name/address missing ───
@@ -134,6 +136,26 @@ function AppInner() {
     navigateTo,
     goToDetail,
   } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
+
+  // ─── PS Locations (loaded once for Discover tab map) ───
+  const [psLocations, setPsLocations] = useState([]);
+  useEffect(() => {
+    fetch("/ps-locations.csv")
+      .then(r => r.text())
+      .then(csv => {
+        const lines = csv.trim().split("\n");
+        const locs = [];
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(",");
+          if (parts.length < 7) continue;
+          const lat = parseFloat(parts[5]), lng = parseFloat(parts[6]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          locs.push({ num: parts[0], name: parts[1], address: parts[2], city: parts[3], state: parts[4], lat, lng });
+        }
+        setPsLocations(locs);
+      })
+      .catch(() => {});
+  }, []);
 
   // ─── Deep-link: ?site=SITE_ID opens directly to property detail ───
   const deepLinkHandled = useRef(false);
@@ -2072,6 +2094,7 @@ function AppInner() {
         <div style={{ display: "flex", gap: 4, overflowX: "auto", padding: "6px 0 4px", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
+            { key: "discover", label: "\uD83C\uDF0E Discover" },
             { key: "summary", label: "Summary" },
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
@@ -2394,6 +2417,27 @@ function AppInner() {
 
             {/* Pipeline comparison cards removed — side-by-side phase counts created competitive optics between DW and MT trackers */}
           </div>
+        )}
+
+        {/* ═══ DISCOVER — Market Discovery & Whitespace Analysis ═══ */}
+        {tab === "discover" && (
+          <DiscoverMap
+            psLocations={psLocations}
+            pipelineSites={[
+              ...subs.filter(s => s.coordinates).map(s => ({ ...s, _source: "queue" })),
+              ...sw.filter(s => s.coordinates && s.phase !== "Dead" && s.phase !== "Declined").map(s => ({ ...s, _source: "DW" })),
+              ...east.filter(s => s.coordinates && s.phase !== "Dead" && s.phase !== "Declined").map(s => ({ ...s, _source: "MT" })),
+            ]}
+            onSiteClick={(site) => {
+              if (site._source === "queue") {
+                navigateTo("review");
+              } else {
+                const regionKey = site._source === "DW" ? "southwest" : "east";
+                goToDetail({ regionKey, siteId: site.id });
+                navigateTo(regionKey);
+              }
+            }}
+          />
         )}
 
         {/* ═══ SUMMARY ═══ */}
