@@ -24,7 +24,7 @@ import {
   MSG_COLORS, DOC_TYPES, SITE_SCORE_DEFAULTS, STYLES,
   normalizeSiteScoreWeights,
 } from './utils';
-import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeValidationStats } from './scoring';
+import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeVettingIntel, buildSitePackage, computeValidationStats } from './scoring';
 import {
   generateVettingReport as _generateVettingReport,
   generatePricingReport as _generatePricingReport,

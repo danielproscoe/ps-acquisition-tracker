@@ -1005,6 +1005,298 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   };
 };
 
+// ─── Vetting Intelligence — Shared computation layer for all reports ───
+// Extracts zoning, utilities, access, competition, and risk assessment into a
+// structured object that all 4 report generators consume. Single source of truth
+// for vetting findings — eliminates duplication across vet/pricing/REC reports.
+export const computeVettingIntel = (site) => {
+  const combined = ((site.zoning || "") + " " + (site.summary || "") + " " + (site.zoningNotes || "")).toLowerCase();
+  const parseNum = (v) => {
+    if (v == null || v === "") return 0;
+    const s = String(v);
+    const d = Number(s); if (!isNaN(d) && isFinite(d)) return Math.round(d);
+    const m = s.match(/[\d,]+/); if (!m) return 0;
+    return parseInt(m[0].replace(/,/g, ""), 10) || 0;
+  };
+  const parseFee = (v) => { if (!v) return null; const m = String(v).match(/\$?([\d,]+(?:\.\d+)?)/); return m ? parseFloat(m[1].replace(/,/g, "")) : null; };
+  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+  const popN = parseNum(site.pop3mi);
+  const incN = parseNum(site.income3mi);
+  const hhN = parseNum(site.households3mi);
+  const hvN = parseNum(site.homeValue3mi);
+  const pop1 = parseNum(site.pop1mi);
+  const growthPct = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
+
+  // ── Zoning Intelligence ──
+  const zoningClass = site.zoningClassification || "unknown";
+  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
+  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
+  const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
+  const hasSUP = /(conditional|sup\b|cup\b|special\s*use)/i.test(combined);
+  const hasRezone = /rezone/i.test(combined);
+  const hasOverlay = /overlay/i.test(combined);
+  const hasFlood = /flood/i.test(combined);
+  const hasUtilities = /(utilit|water|sewer|electric|gas\b)/i.test(combined);
+  const hasSeptic = /septic/i.test(combined);
+  const hasWell = /\bwell\b/i.test(combined);
+  const zoningTableAccessed = site.zoningTableAccessed === true;
+
+  // ── Overlay cost impact (flows into pricing) ──
+  const overlayCostImpactRaw = parseFee(site.overlayCostImpact);
+  const overlayCostAdder = hasOverlay ? (overlayCostImpactRaw || 150000) : 0; // Default $150K if overlay noted but cost not specified
+
+  // ── Zoning-driven design premiums ──
+  // Facade requirements in overlays add masonry/stone costs above standard metal panel
+  const facadeReqs = site.facadeReqs || "";
+  const hasMasonryReq = /masonry|brick|stone|stucco/i.test(facadeReqs);
+  const facadePremium = hasMasonryReq ? 100000 : 0; // $100K average masonry upgrade on storage
+
+  // ── Utility Readiness Score (0-100) ──
+  const utilChecks = [
+    { done: !!site.waterProvider, weight: 20, label: "Water provider identified" },
+    { done: site.waterAvailable === true, weight: 15, label: "Water confirmed available" },
+    { done: site.insideServiceBoundary === true, weight: 10, label: "Inside service boundary" },
+    { done: !!site.sewerProvider || hasSeptic, weight: 12, label: "Sewer/septic solution" },
+    { done: site.sewerAvailable === true || hasSeptic, weight: 8, label: "Sewer confirmed" },
+    { done: !!site.electricProvider, weight: 10, label: "Electric provider identified" },
+    { done: site.threePhase === true, weight: 10, label: "3-phase power available" },
+    { done: !!site.waterTapFee || !!site.tapFees, weight: 5, label: "Tap fees documented" },
+    { done: site.fireFlowAdequate === true, weight: 5, label: "Fire flow confirmed" },
+    { done: !!site.distToWaterMain, weight: 5, label: "Distance to main known" },
+  ];
+  const utilScore = utilChecks.reduce((sum, c) => sum + (c.done ? c.weight : 0), 0);
+  const utilGrade = utilScore >= 80 ? "A" : utilScore >= 60 ? "B" : utilScore >= 40 ? "C" : utilScore >= 20 ? "D" : "F";
+  const utilGradeColor = utilScore >= 80 ? "#16A34A" : utilScore >= 60 ? "#3B82F6" : utilScore >= 40 ? "#F59E0B" : "#EF4444";
+
+  // ── Water hookup status & cost estimator ──
+  const waterHookup = site.waterHookupStatus || (site.insideServiceBoundary === true ? "by-right" : site.insideServiceBoundary === false ? "by-request" : site.waterProvider ? "unknown" : "unknown");
+  const waterHookupLabel = { "by-right": "BY-RIGHT", "by-request": "BY-REQUEST", "no-provider": "NO PROVIDER", "unknown": "UNKNOWN" }[waterHookup] || "UNKNOWN";
+  const waterHookupColor = waterHookup === "by-right" ? "#16A34A" : waterHookup === "by-request" ? "#F59E0B" : waterHookup === "no-provider" ? "#EF4444" : "#94A3B8";
+  const distFt = site.distToWaterMain ? parseFloat(String(site.distToWaterMain).replace(/[^0-9.]/g, "")) : null;
+  const waterTapN = parseFee(site.waterTapFee);
+  const sewerTapN = parseFee(site.sewerTapFee);
+  const impactN = parseFee(site.impactFees);
+  const extensionLow = distFt ? Math.round(distFt * 50) : null;
+  const extensionHigh = distFt ? Math.round(distFt * 150) : null;
+  const totalUtilLow = (waterTapN || 0) + (sewerTapN || 0) + (impactN || 0) + (extensionLow || 0);
+  const totalUtilHigh = (waterTapN || 0) + (sewerTapN || 0) + (impactN || 0) + (extensionHigh || 0);
+
+  // ── Utility cost adder for pricing (flows into computeSiteFinancials) ──
+  // If water hookup is "by-request" and we have distance data, add extension cost
+  // If "no-provider", add a large penalty cost estimate
+  const utilCostAdder = waterHookup === "no-provider" ? 250000
+    : waterHookup === "by-request" ? (extensionHigh || 75000)
+    : (totalUtilLow > 0 ? totalUtilLow : 0);
+
+  // ── Site Access & Sizing ──
+  let sizingText = "TBD", sizingColor = "#94A3B8", sizingTag = "PENDING";
+  if (!isNaN(acres)) {
+    if (acres >= 3.5 && acres <= 5) { sizingText = `${acres} ac — PRIMARY (one-story climate-controlled)`; sizingColor = "#16A34A"; sizingTag = "MEETS CRITERIA"; }
+    else if (acres >= 2.5 && acres < 3.5) { sizingText = `${acres} ac — SECONDARY (multi-story 3-4 story)`; sizingColor = "#16A34A"; sizingTag = "MEETS CRITERIA"; }
+    else if (acres < 2.5) { sizingText = `${acres} ac — Below minimum threshold`; sizingColor = "#EF4444"; sizingTag = "FAIL"; }
+    else if (acres > 5 && acres <= 7) { sizingText = `${acres} ac — Viable if subdivisible`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
+    else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
+  }
+
+  // ── PS Proximity ──
+  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
+  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS > 35 ? "#EF4444" : site.siteiqData.nearestPS <= 15 ? "#16A34A" : "#F59E0B") : "#94A3B8";
+
+  // ── Competition ──
+  const cc = site.siteiqData?.competitorCount;
+  const compColor = cc !== undefined && cc !== null ? (cc <= 1 ? "#16A34A" : cc <= 3 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+  const compLabel = cc !== undefined && cc !== null ? (cc === 0 ? "NO COMPETITORS" : cc === 1 ? "1 COMPETITOR" : cc + " COMPETITORS") : "NOT ASSESSED";
+  const satLevel = cc !== undefined && cc !== null ? (cc === 0 ? "Unserved Market" : cc <= 2 ? "Low Saturation" : cc <= 4 ? "Moderate Saturation" : "High Saturation") : "Unknown";
+  const sfCapitaMatch = (site.demandSupplySignal || "").match(/([\d.]+)\s*SF\/capita/i);
+  const sfCapita = sfCapitaMatch ? parseFloat(sfCapitaMatch[1]) : null;
+  const sfCapitaColor = sfCapita !== null ? (sfCapita < 5 ? "#16A34A" : sfCapita <= 9 ? "#3B82F6" : "#EF4444") : "#94A3B8";
+  const sfCapitaLabel = sfCapita !== null ? (sfCapita < 5 ? "Underserved" : sfCapita <= 9 ? "Equilibrium" : "Oversupplied") : "Unknown";
+
+  // ── Demographics classifications ──
+  const demoScore = (popN && incN) ? (popN >= 40000 && incN >= 60000 ? "MEETS CRITERIA" : popN >= 20000 && incN >= 50000 ? "MARGINAL" : "BELOW THRESHOLD") : null;
+  const demoColor = demoScore === "MEETS CRITERIA" ? "#16A34A" : demoScore === "MARGINAL" ? "#F59E0B" : "#EF4444";
+  const growthColor = growthPct !== null ? (growthPct >= 1.5 ? "#16A34A" : growthPct >= 0.5 ? "#3B82F6" : growthPct >= 0 ? "#F59E0B" : "#EF4444") : "#94A3B8";
+  const incTier = incN >= 90000 ? "PREMIUM" : incN >= 75000 ? "AFFLUENT" : incN >= 65000 ? "STRONG" : incN >= 55000 ? "ADEQUATE" : "BELOW THRESHOLD";
+  const incomeColor = incN >= 90000 ? "#C9A84C" : incN >= 75000 ? "#22C55E" : incN >= 65000 ? "#3B82F6" : incN >= 55000 ? "#FBBF24" : "#EF4444";
+  const popSignal = popN >= 40000 ? "DENSE MARKET" : popN >= 25000 ? "SOLID DEMAND" : popN >= 10000 ? "EMERGING" : popN > 0 ? "THIN" : "N/A";
+  const popColor = popN >= 40000 ? "#22C55E" : popN >= 25000 ? "#3B82F6" : popN >= 10000 ? "#FBBF24" : "#EF4444";
+  const growthOutlook = growthPct !== null ? (growthPct > 1.5 ? "High Growth" : growthPct > 0.5 ? "Growing" : growthPct > 0 ? "Stable Growth" : growthPct > -0.5 ? "Flat" : "Declining") : "N/A";
+  const outlookColor = growthPct !== null ? (growthPct > 1.5 ? "#22C55E" : growthPct > 0.5 ? "#4ADE80" : growthPct > 0 ? "#FBBF24" : growthPct > -0.5 ? "#94A3B8" : "#EF4444") : "#64748B";
+
+  // ── Flags (unified across all reports) ──
+  const flags = [];
+  if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
+  if (zoningClass === "unknown") flags.push("Zoning classification not confirmed — verify with local planning");
+  if (zoningClass === "prohibited") flags.push("Storage use PROHIBITED in current zoning district");
+  if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
+  if (!site.coordinates) flags.push("No coordinates — cannot verify location");
+  if (!isNaN(acres) && acres < 2.5) flags.push("Below minimum acreage threshold");
+  if (popN && popN < 10000) flags.push("3-mi population below 10,000 minimum");
+  if (incN && incN < 60000) flags.push("3-mi median HHI below $60,000 target");
+  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
+  if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
+  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
+  if (site.waterAvailable === false) flags.push("WATER HOOKUP Need Further Research — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
+  if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
+  if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
+  if (site.waterAvailable === false && !site.distToWaterMain) flags.push("Water extension required but distance to main UNKNOWN — critical cost variable");
+  if (distFt && distFt > 500) flags.push(`Water main is ${Math.round(distFt)} LF away — extension cost est. $${Math.round((extensionLow || 0) / 1000)}K–$${Math.round((extensionHigh || 0) / 1000)}K`);
+  if (site.fireFlowAdequate === false) flags.push("Fire flow INADEQUATE — hydrant/main upgrade required before development");
+
+  // ── Risk Matrix (shared across pricing & REC) ──
+  const risks = [];
+  if (zoningClass === "rezone-required" || zoningClass === "prohibited") risks.push({ cat: "Entitlement", level: "HIGH", desc: "Rezone or rezoning required — timeline, political, and cost risk", color: "#EF4444" });
+  else if (zoningClass === "conditional") risks.push({ cat: "Entitlement", level: "MEDIUM", desc: "SUP/CUP required — public hearing process", color: "#F59E0B" });
+  else if (zoningClass === "by-right") risks.push({ cat: "Entitlement", level: "LOW", desc: "Storage use permitted by right", color: "#16A34A" });
+  if (hasFlood) risks.push({ cat: "Environmental", level: "HIGH", desc: "Flood zone identified — insurance cost and development constraints", color: "#EF4444" });
+  if (site.waterAvailable === false) risks.push({ cat: "Utilities", level: "HIGH", desc: "Municipal water not confirmed — HARD REQUIREMENT for fire suppression", color: "#EF4444" });
+  else if (!site.waterProvider) risks.push({ cat: "Utilities", level: "MEDIUM", desc: "Water provider not yet identified — needs verification", color: "#F59E0B" });
+  if (cc > 5) risks.push({ cat: "Competition", level: "MEDIUM", desc: `${cc} competitors within 3mi — potential supply saturation`, color: "#F59E0B" });
+  if (popN && popN < 15000) risks.push({ cat: "Demographics", level: "MEDIUM", desc: "3-mi population below 15K — limited demand pool", color: "#F59E0B" });
+  if (growthPct !== null && growthPct < 0) risks.push({ cat: "Growth", level: "HIGH", desc: `Negative population growth (${growthPct}%) — declining market`, color: "#EF4444" });
+
+  // ── Key Strength / Risk for executive summaries ──
+  const keyStrength = popN >= 40000 ? "Exceptional population density within 3-mi radius" : growthPct >= 2.0 ? "High-growth corridor with strong projected demand" : zoningClass === "by-right" && popN >= 25000 ? "Permitted zoning + strong demographics" : zoningClass === "by-right" ? "Storage permitted by-right — no entitlement risk" : "Evaluate on case-by-case basis";
+  const keyRisk = zoningClass === "prohibited" ? "Storage explicitly prohibited — rezone is only path" : zoningClass === "unknown" ? "Zoning not verified — cannot confirm storage permissibility" : zoningClass === "rezone-required" ? "Rezone required — political risk and 4-12 month timeline" : waterHookup === "no-provider" ? "No municipal water provider identified — fire code blocker" : hasFlood ? "Flood zone present — insurance cost and development constraints" : popN < 10000 && popN > 0 ? "Low population density — demand may not support facility" : flags.length > 0 ? flags[0] : "No critical risks identified";
+
+  // ── Cost adjustments that flow into pricing ──
+  // These represent vetting-discovered cost impacts not captured in the standard
+  // construction cost model. They feed into buildSitePackage → computeSiteFinancials.
+  const vettingCostAdders = {
+    overlayCost: overlayCostAdder,          // Overlay district design/facade premium
+    facadePremium: facadePremium,           // Masonry/stone facade upgrade cost
+    utilityExtension: utilCostAdder,         // Water/utility extension or hookup costs beyond standard tap
+    totalAdder: overlayCostAdder + facadePremium + utilCostAdder,
+  };
+
+  return {
+    // Parsed demographics
+    acres, popN, incN, hhN, hvN, pop1, growthPct,
+    // Demographic classifications (shared — no recomputation in reports)
+    demoScore, demoColor, incTier, incomeColor, popSignal, popColor,
+    growthOutlook, outlookColor, growthColor,
+    // Zoning
+    zoningClass, zoningColor, zoningLabel, zoningTableAccessed,
+    hasByRight, hasSUP, hasRezone, hasOverlay, hasFlood, hasUtilities, hasSeptic, hasWell,
+    // Utilities
+    utilChecks, utilScore, utilGrade, utilGradeColor,
+    waterHookup, waterHookupLabel, waterHookupColor,
+    distFt, waterTapN, sewerTapN, impactN, extensionLow, extensionHigh, totalUtilLow, totalUtilHigh,
+    // Site access & sizing
+    sizingText, sizingColor, sizingTag,
+    // PS proximity
+    psDistance, psColor,
+    // Competition
+    cc, compColor, compLabel, satLevel, sfCapita, sfCapitaColor, sfCapitaLabel,
+    // Flags & risks (shared across all reports)
+    flags, risks, keyStrength, keyRisk,
+    // Cost adjustments (flows into pricing)
+    vettingCostAdders,
+  };
+};
+
+// ─── Site Package Orchestrator — Single computation, all reports consume ───
+// Calls all computation functions ONCE and returns a unified object.
+// Any report generator can destructure what it needs without recomputing.
+// Ensures circularity: demographics → vetting → pricing → REC all share one truth.
+export const buildSitePackage = (site, siteScoreConfig, valuationOverrides = {}) => {
+  const timestamp = new Date().toISOString();
+
+  // 1. Demographics (foundation layer)
+  // buildDemoReport is imported from utils at call site — we accept it as a result
+  // to avoid circular imports. Caller passes it in.
+
+  // 2. SiteScore (quality layer)
+  const iq = computeSiteScore(site, siteScoreConfig);
+
+  // 3. Vetting Intelligence (research layer)
+  const vet = computeVettingIntel(site);
+
+  // 4. Financial Model (pricing layer) — receives vetting cost adjustments
+  const siteOverrides = site.overrides || {};
+  // Merge vetting-discovered cost adders into site overrides so pricing reflects reality
+  const enrichedOverrides = {
+    ...siteOverrides,
+    // Add vetting-discovered costs to utility infrastructure budget
+    utilityInfraBase: (siteOverrides.utilityInfraBase || valuationOverrides.utilityInfraBase || 75000) + (vet.vettingCostAdders.utilityExtension || 0),
+  };
+  const fin = computeSiteFinancials(site, valuationOverrides, enrichedOverrides);
+
+  // 5. Pricing verdict augmented with vetting risk context
+  const landVerdictRisk = vet.risks.some(r => r.level === "HIGH") ? "HIGH_RISK_SITE" : vet.risks.some(r => r.level === "MEDIUM") ? "MEDIUM_RISK_SITE" : "LOW_RISK_SITE";
+
+  // 6. Cross-report recommendation
+  const score = iq.score || 0;
+  const recommendation = score >= 8.0 ? "AUTO-ADVANCE — Site meets all thresholds for review queue."
+    : score >= 6.0 ? "PRESENT FOR REVIEW — Strong candidate with noted concerns."
+    : score >= 4.0 ? "FLAGGED — Below target thresholds. Recommend pass unless override."
+    : typeof score === "number" && score > 0 ? "AUTO-PASS — Below minimum thresholds."
+    : "INSUFFICIENT DATA — Complete research before scoring.";
+  const recColor = score >= 8.0 ? "#16A34A" : score >= 6.0 ? "#F59E0B" : typeof score === "number" ? "#EF4444" : "#94A3B8";
+
+  // 7. Vetting completeness (22-item checklist per §6h-2)
+  const vetCompleteness = {
+    zoning: [
+      { item: "Zoning district confirmed", done: !!site.zoning },
+      { item: "Permitted use table accessed", done: vet.zoningTableAccessed },
+      { item: "Use category identified", done: !!site.zoningUseTerm },
+      { item: "Ordinance section cited", done: !!site.zoningOrdinanceSection },
+      { item: "Ordinance URL/source", done: !!site.zoningSource },
+      { item: "Overlay districts checked", done: vet.hasOverlay || !!site.overlayDistrict || combined => false },
+      { item: "Planning dept contact", done: !!site.planningPhone || !!site.planningEmail },
+      { item: "Verification date", done: !!site.zoningVerifyDate },
+    ].map(c => ({ ...c, done: typeof c.done === 'boolean' ? c.done : false })),
+    utility: [
+      { item: "Water provider identified", done: !!site.waterProvider },
+      { item: "Water hookup status", done: !!site.waterHookupStatus },
+      { item: "Service boundary checked", done: site.insideServiceBoundary === true || site.insideServiceBoundary === false },
+      { item: "Distance to water main", done: !!site.distToWaterMain },
+      { item: "Fire flow assessed", done: site.fireFlowAdequate === true || site.fireFlowAdequate === false },
+      { item: "Sewer solution", done: !!site.sewerProvider || vet.hasSeptic },
+      { item: "Electric + 3-phase", done: !!site.electricProvider },
+      { item: "Tap fees documented", done: !!site.waterTapFee || !!site.tapFees },
+      { item: "Water contact provided", done: !!site.waterContact },
+    ],
+    topo: [
+      { item: "FEMA flood zone", done: !!site.femaFloodZone || vet.hasFlood || /zone x/i.test(combined) },
+      { item: "Terrain classification", done: !!site.terrainClass },
+      { item: "Wetlands check", done: !!site.wetlands || /wetland|nwi/i.test(combined) },
+      { item: "Grade change estimate", done: !!site.gradeChange },
+      { item: "Grading cost risk", done: !!site.gradingCostRisk },
+    ],
+  };
+  const combined = ((site.zoning || "") + " " + (site.summary || "") + " " + (site.zoningNotes || "")).toLowerCase();
+  // Fix the overlay check that used a bad arrow function
+  vetCompleteness.zoning[5].done = vet.hasOverlay || !!site.overlayDistrict || /no overlay/i.test(combined);
+  const allChecks = [...vetCompleteness.zoning, ...vetCompleteness.utility, ...vetCompleteness.topo];
+  const completionPct = Math.round((allChecks.filter(c => c.done).length / allChecks.length) * 100);
+  const completionGate = completionPct >= 50 ? "PASS" : "FAIL";
+
+  return {
+    // Metadata
+    _packageVersion: "1.0",
+    _timestamp: timestamp,
+    _site: site,
+
+    // Layer 1: SiteScore
+    iq,
+
+    // Layer 2: Vetting Intelligence
+    vet,
+
+    // Layer 3: Financial Model (with vetting cost adjustments baked in)
+    fin,
+
+    // Layer 4: Cross-report derived fields
+    recommendation,
+    recColor,
+    landVerdictRisk,
+    vetCompleteness,
+    completionPct,
+    completionGate,
+  };
+};
+
 // ─── SiteScore Validation — REIC Outcome Correlation Engine ───
 // Computes correlation stats between SiteScore predictions and REIC outcomes.
 // Pure function: takes array of site objects, returns analytics for the Validation tab.

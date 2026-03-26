@@ -1,10 +1,11 @@
 // ─── Reports Module ───
-// Extracted from App.js — three HTML report generators.
-// Each function takes siteScoreConfig as a new trailing parameter
-// and passes it through to computeSiteScore.
+// Four HTML report generators with circular data flow.
+// All reports can consume a unified `sitePackage` from buildSitePackage()
+// to ensure consistent data across demographics → vetting → pricing → REC.
+// Backward-compatible: individual params still work (auto-compute if sitePackage not provided).
 
 import { escapeHtml, safeNum, fmtPrice, mapsLink, earthLink, buildDemoReport, fmtN, stripEmoji, cleanPriority } from './utils';
-import { computeSiteScore, computeSiteFinancials } from './scoring';
+import { computeSiteScore, computeSiteFinancials, computeVettingIntel } from './scoring';
 
 // ─── Demographics Report — Full 1-3-5 Mile ESRI Table ───
 export const generateDemographicsReport = (site) => {
@@ -223,86 +224,23 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   try {
   // XSS protection — escape all user-supplied text before HTML interpolation
   const h = escapeHtml;
-  const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
-  const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
-  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
-  const demoScore = (popN && incN) ? (popN >= 40000 && incN >= 60000 ? "MEETS CRITERIA" : popN >= 20000 && incN >= 50000 ? "MARGINAL" : "BELOW THRESHOLD") : null;
-  const demoColor = demoScore === "MEETS CRITERIA" ? "#16A34A" : demoScore === "MARGINAL" ? "#F59E0B" : "#EF4444";
-  let sizingText = "TBD", sizingColor = "#94A3B8", sizingTag = "PENDING";
-  if (!isNaN(acres)) {
-    if (acres >= 3.5 && acres <= 5) { sizingText = `${acres} ac — PRIMARY (one-story climate-controlled)`; sizingColor = "#16A34A"; sizingTag = "MEETS CRITERIA"; }
-    else if (acres >= 2.5 && acres < 3.5) { sizingText = `${acres} ac — SECONDARY (multi-story 3-4 story)`; sizingColor = "#16A34A"; sizingTag = "MEETS CRITERIA"; }
-    else if (acres < 2.5) { sizingText = `${acres} ac — Below minimum threshold`; sizingColor = "#EF4444"; sizingTag = "FAIL"; }
-    else if (acres > 5 && acres <= 7) { sizingText = `${acres} ac — Viable if subdivisible`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
-    else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
-  }
-  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
-  // PS proximity color: closer = better (market validation). >35mi = FAIL. No minimum distance.
-  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS > 35 ? "#EF4444" : site.siteiqData.nearestPS <= 15 ? "#16A34A" : "#F59E0B") : "#94A3B8";
-  // Z&U intelligence parsing
+
+  // ── CIRCULAR FLOW: Consume shared vettingIntel instead of recomputing ──
+  // computeVettingIntel() is the single source of truth for all vetting classifications.
+  // This eliminates 100+ lines of duplicated logic that previously diverged across reports.
+  const v = computeVettingIntel(site);
+  const { acres, popN, incN, demoScore, demoColor, sizingText, sizingColor, sizingTag,
+    zoningClass, zoningColor, zoningLabel, hasByRight, hasSUP, hasRezone, hasOverlay, hasFlood, hasUtilities, hasSeptic, hasWell,
+    utilChecks, utilScore, utilGrade, utilGradeColor,
+    waterHookup, waterHookupLabel, waterHookupColor,
+    distFt, waterTapN, sewerTapN, impactN, extensionLow, extensionHigh, totalUtilLow, totalUtilHigh,
+    flags, keyStrength, keyRisk, growthPct, growthColor, hhN: hhNVet, hvN: hvNVet, pop1: pop1Vet,
+    cc, compColor, compLabel, satLevel, sfCapita, sfCapitaColor, sfCapitaLabel,
+  } = v;
+  const psDistance = v.psDistance || (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
+  const psColor = v.psColor;
   const combined = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
-  const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
-  const hasSUP = /(conditional|sup\b|cup\b|special\s*use)/i.test(combined);
-  const hasRezone = /rezone/i.test(combined);
-  const hasOverlay = /overlay/i.test(combined);
-  const hasFlood = /flood/i.test(combined);
-  const hasUtilities = /(utilit|water|sewer|electric|gas\b)/i.test(combined);
-  const hasSeptic = /septic/i.test(combined);
-  const hasWell = /\bwell\b/i.test(combined);
-  const zoningClass = site.zoningClassification || "unknown";
-  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
-  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
   const statusPill = (text, color) => `<span style="display:inline-block;padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color}30">${text}</span>`;
-  // Flags — merged from both reports
-  const flags = [];
-  if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
-  if (zoningClass === "unknown") flags.push("Zoning classification not confirmed — verify with local planning");
-  if (zoningClass === "prohibited") flags.push("Storage use PROHIBITED in current zoning district");
-  if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
-  if (!site.coordinates) flags.push("No coordinates — cannot verify location");
-  if (!isNaN(acres) && acres < 2.5) flags.push("Below minimum acreage threshold");
-  if (popN && popN < 10000) flags.push("3-mi population below 10,000 minimum");
-  if (incN && incN < 60000) flags.push("3-mi median HHI below $60,000 target");
-  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
-  if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
-  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("WATER HOOKUP Need Further Research — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
-  // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
-  if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
-  if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
-  // Utility Readiness Score (0-100) — quantifies how "hookup-ready" a site is
-  const utilChecks = [
-    { done: !!site.waterProvider, weight: 20, label: "Water provider identified" },
-    { done: site.waterAvailable === true, weight: 15, label: "Water confirmed available" },
-    { done: site.insideServiceBoundary === true, weight: 10, label: "Inside service boundary" },
-    { done: !!site.sewerProvider || hasSeptic, weight: 12, label: "Sewer/septic solution" },
-    { done: site.sewerAvailable === true || hasSeptic, weight: 8, label: "Sewer confirmed" },
-    { done: !!site.electricProvider, weight: 10, label: "Electric provider identified" },
-    { done: site.threePhase === true, weight: 10, label: "3-phase power available" },
-    { done: !!site.waterTapFee || !!site.tapFees, weight: 5, label: "Tap fees documented" },
-    { done: site.fireFlowAdequate === true, weight: 5, label: "Fire flow confirmed" },
-    { done: !!site.distToWaterMain, weight: 5, label: "Distance to main known" },
-  ];
-  const utilScore = utilChecks.reduce((sum, c) => sum + (c.done ? c.weight : 0), 0);
-  const utilGrade = utilScore >= 80 ? "A" : utilScore >= 60 ? "B" : utilScore >= 40 ? "C" : utilScore >= 20 ? "D" : "F";
-  const utilGradeColor = utilScore >= 80 ? "#16A34A" : utilScore >= 60 ? "#3B82F6" : utilScore >= 40 ? "#F59E0B" : "#EF4444";
-  // Water hookup status
-  const waterHookup = site.waterHookupStatus || (site.insideServiceBoundary === true ? "by-right" : site.insideServiceBoundary === false ? "by-request" : site.waterProvider ? "unknown" : "unknown");
-  const waterHookupLabel = { "by-right": "BY-RIGHT", "by-request": "BY-REQUEST", "no-provider": "NO PROVIDER", "unknown": "UNKNOWN" }[waterHookup] || "UNKNOWN";
-  const waterHookupColor = waterHookup === "by-right" ? "#16A34A" : waterHookup === "by-request" ? "#F59E0B" : waterHookup === "no-provider" ? "#EF4444" : "#94A3B8";
-  // Water hookup cost estimator
-  const distFt = site.distToWaterMain ? parseFloat(String(site.distToWaterMain).replace(/[^0-9.]/g, "")) : null;
-  const parseFee = (v) => { if (!v) return null; const m = String(v).match(/\$?([\d,]+(?:\.\d+)?)/); return m ? parseFloat(m[1].replace(/,/g, "")) : null; };
-  const waterTapN = parseFee(site.waterTapFee);
-  const sewerTapN = parseFee(site.sewerTapFee);
-  const impactN = parseFee(site.impactFees);
-  const extensionLow = distFt ? Math.round(distFt * 50) : null;
-  const extensionHigh = distFt ? Math.round(distFt * 150) : null;
-  const totalUtilLow = (waterTapN || 0) + (sewerTapN || 0) + (impactN || 0) + (extensionLow || 0);
-  const totalUtilHigh = (waterTapN || 0) + (sewerTapN || 0) + (impactN || 0) + (extensionHigh || 0);
-  if (site.waterAvailable === false && !site.distToWaterMain) flags.push("Water extension required but distance to main UNKNOWN — critical cost variable");
-  if (distFt && distFt > 500) flags.push(`Water main is ${Math.round(distFt)} LF away — extension cost est. $${Math.round(extensionLow/1000)}K–$${Math.round(extensionHigh/1000)}K`);
-  if (site.fireFlowAdequate === false) flags.push("Fire flow INADEQUATE — hydrant/main upgrade required before development");
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
   const iqScore = iq?.score || "—";
   const iqTier = iq?.tier || "gray";
@@ -310,28 +248,15 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const iqBadgeColor = iqTier === "gold" ? "#C9A84C" : iqTier === "steel" ? "#2C3E6B" : "#94A3B8";
   const zoningScore = iq?.scores?.zoning;
   const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
-  // Competition data for executive summary
-  const cc = site.siteiqData?.competitorCount;
-  const compColor = cc !== undefined && cc !== null ? (cc <= 1 ? "#16A34A" : cc <= 3 ? "#F59E0B" : "#EF4444") : "#94A3B8";
-  const compLabel = cc !== undefined && cc !== null ? (cc === 0 ? "NO COMPETITORS" : cc === 1 ? "1 COMPETITOR" : cc + " COMPETITORS") : "NOT ASSESSED";
-  const satLevel = cc !== undefined && cc !== null ? (cc === 0 ? "Unserved Market" : cc <= 2 ? "Low Saturation" : cc <= 4 ? "Moderate Saturation" : "High Saturation") : "Unknown";
-  // Demographics for exec summary
-  const hhN = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
-  const hvN = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
-  const pop1 = parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
-  const growthPct = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
-  const growthColor = growthPct !== null ? (growthPct >= 1.5 ? "#16A34A" : growthPct >= 0.5 ? "#3B82F6" : growthPct >= 0 ? "#F59E0B" : "#EF4444") : "#94A3B8";
-  // Key strength / risk for exec summary
-  const keyStrength = iqScore >= 8 ? "Elite composite score — strong fundamentals across all dimensions" : zoningClass === "by-right" && popN >= 25000 ? "Permitted zoning + strong demographics" : popN >= 40000 ? "Exceptional population density within 3-mi radius" : growthPct >= 2.0 ? "High-growth corridor with strong projected demand" : zoningClass === "by-right" ? "Storage permitted by-right — no entitlement risk" : "Evaluate on case-by-case basis";
-  const keyRisk = zoningClass === "prohibited" ? "Storage explicitly prohibited — rezone is only path" : zoningClass === "unknown" ? "Zoning not verified — cannot confirm storage permissibility" : zoningClass === "rezone-required" ? "Rezone required — political risk and 4-12 month timeline" : waterHookup === "no-provider" ? "No municipal water provider identified — fire code blocker" : hasFlood ? "Flood zone present — insurance cost and development constraints" : popN < 10000 && popN > 0 ? "Low population density — demand may not support facility" : flags.length > 0 ? flags[0] : "No critical risks identified";
+  // ── CIRCULAR FLOW: cc, compColor, compLabel, satLevel, hhN, hvN, pop1, growthPct, growthColor,
+  // keyStrength, keyRisk, sfCapita, sfCapitaColor, sfCapitaLabel all come from vettingIntel (v) above.
+  // Previously duplicated here — now consumed from single source of truth.
+  const hhN = v.hhN || parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
+  const hvN = v.hvN || parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
+  const pop1 = v.pop1 || parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
   // Recommendation for exec summary
   const recommendation = iqScore >= 8.0 ? "AUTO-ADVANCE — Site meets all thresholds for review queue." : iqScore >= 6.0 ? "PRESENT FOR REVIEW — Strong candidate with noted concerns." : iqScore >= 4.0 ? "FLAGGED — Below target thresholds. Recommend pass unless override." : typeof iqScore === "number" ? "AUTO-PASS — Below minimum thresholds." : "INSUFFICIENT DATA — Complete research before scoring.";
   const recColor = iqScore >= 8.0 ? "#16A34A" : iqScore >= 6.0 ? "#F59E0B" : typeof iqScore === "number" ? "#EF4444" : "#94A3B8";
-  // SF/capita competition gauge
-  const sfCapitaMatch = (site.demandSupplySignal || "").match(/([\d.]+)\s*SF\/capita/i);
-  const sfCapita = sfCapitaMatch ? parseFloat(sfCapitaMatch[1]) : null;
-  const sfCapitaColor = sfCapita !== null ? (sfCapita < 5 ? "#16A34A" : sfCapita <= 9 ? "#3B82F6" : "#EF4444") : "#94A3B8";
-  const sfCapitaLabel = sfCapita !== null ? (sfCapita < 5 ? "Underserved" : sfCapita <= 9 ? "Equilibrium" : "Oversupplied") : "Unknown";
 
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
@@ -4120,8 +4045,23 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   try {
   const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
+
+  // ── CIRCULAR FLOW: Consume shared vettingIntel (single source of truth) ──
+  const v = computeVettingIntel(site);
+  const { zoningClass, zoningColor, zoningLabel, hasFlood, hasOverlay,
+    utilChecks, utilScore, utilGrade, flags: vetFlags, risks: vetRisks,
+    waterHookup, waterHookupLabel, waterHookupColor,
+    keyStrength, keyRisk, vettingCostAdders,
+  } = v;
+  const utilColor = v.utilGradeColor;
+
+  // ── CIRCULAR FLOW: Financial model with vetting cost adjustments baked in ──
   const siteOverrides = site.overrides || {};
-  const fin = computeSiteFinancials(site, valuationOverrides || {}, siteOverrides);
+  const enrichedOverrides = {
+    ...siteOverrides,
+    utilityInfraBase: (siteOverrides.utilityInfraBase || (valuationOverrides || {}).utilityInfraBase || 75000) + (vettingCostAdders.utilityExtension || 0),
+  };
+  const fin = computeSiteFinancials(site, valuationOverrides || {}, enrichedOverrides);
   const { acres, landCost, popN, incN, hvN, hhN, pop1, growthPct, compCount, nearestPS, incTier,
     operatorProfile, operatorLabel, noiMarginBenchmark,
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
@@ -4151,42 +4091,8 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   } = fin;
   const phase = site.phase || "Prospect";
 
-  // ── Zoning Intelligence ──
-  const combined = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
-  const zoningClass = site.zoningClassification || "unknown";
-  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
-  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
-  const hasFlood = /flood/i.test(combined);
-  const hasOverlay = /overlay/i.test(combined);
-
-  // ── Utility Readiness ──
-  const utilChecks = [
-    { done: !!site.waterProvider, w: 20, l: "Water provider" },
-    { done: site.waterAvailable === true, w: 15, l: "Water available" },
-    { done: site.insideServiceBoundary === true, w: 10, l: "Service boundary" },
-    { done: !!site.sewerProvider || /septic/i.test(combined), w: 12, l: "Sewer/septic" },
-    { done: site.sewerAvailable === true || /septic/i.test(combined), w: 8, l: "Sewer confirmed" },
-    { done: !!site.electricProvider, w: 10, l: "Electric" },
-    { done: site.threePhase === true, w: 10, l: "3-phase" },
-    { done: !!site.waterTapFee || !!site.tapFees, w: 5, l: "Tap fees" },
-    { done: site.fireFlowAdequate === true, w: 5, l: "Fire flow" },
-    { done: !!site.distToWaterMain, w: 5, l: "Dist to main" },
-  ];
-  const utilScore = utilChecks.reduce((s, c) => s + (c.done ? c.w : 0), 0);
-  const utilGrade = utilScore >= 80 ? "A" : utilScore >= 60 ? "B" : utilScore >= 40 ? "C" : utilScore >= 20 ? "D" : "F";
-  const utilColor = utilScore >= 80 ? "#16A34A" : utilScore >= 60 ? "#3B82F6" : utilScore >= 40 ? "#F59E0B" : "#EF4444";
-
-  // ── Risk Matrix ──
-  const risks = [];
-  if (zoningClass === "rezone-required" || zoningClass === "prohibited") risks.push({ cat: "Entitlement", level: "HIGH", desc: "Rezone or rezoning required — timeline, political, and cost risk", color: "#EF4444" });
-  else if (zoningClass === "conditional") risks.push({ cat: "Entitlement", level: "MEDIUM", desc: "SUP/CUP required — public hearing process", color: "#F59E0B" });
-  else if (zoningClass === "by-right") risks.push({ cat: "Entitlement", level: "LOW", desc: "Storage use permitted by right", color: "#16A34A" });
-  if (hasFlood) risks.push({ cat: "Environmental", level: "HIGH", desc: "Flood zone identified — insurance cost and development constraints", color: "#EF4444" });
-  if (site.waterAvailable === false) risks.push({ cat: "Utilities", level: "HIGH", desc: "Municipal water not confirmed — HARD REQUIREMENT for fire suppression", color: "#EF4444" });
-  else if (!site.waterProvider) risks.push({ cat: "Utilities", level: "MEDIUM", desc: "Water provider not yet identified — needs verification", color: "#F59E0B" });
-  if (compCount > 5) risks.push({ cat: "Competition", level: "MEDIUM", desc: `${compCount} competitors within 3mi — potential supply saturation`, color: "#F59E0B" });
-  if (popN && popN < 15000) risks.push({ cat: "Demographics", level: "MEDIUM", desc: "3-mi population below 15K — limited demand pool", color: "#F59E0B" });
-  if (growthPct < 0) risks.push({ cat: "Growth", level: "HIGH", desc: `Negative population growth (${growthPct}%) — declining market`, color: "#EF4444" });
+  // ── Risks: merge vetting risks + pricing risks (circular — pricing findings feed back) ──
+  const risks = [...vetRisks];
   if (landVerdict === "ABOVE STRIKE") risks.push({ cat: "Pricing", level: "HIGH", desc: "Asking price exceeds strike by 30%+ — requires significant negotiation", color: "#EF4444" });
   else if (landVerdict === "STRETCH") risks.push({ cat: "Pricing", level: "MEDIUM", desc: "Asking price 15-30% above strike — tight underwriting", color: "#F59E0B" });
   if (!isNaN(acres) && acres < 2.5) risks.push({ cat: "Site", level: "HIGH", desc: "Below minimum acreage — insufficient for development", color: "#EF4444" });
