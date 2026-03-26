@@ -46,8 +46,9 @@ export function useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert
   const navigateTo = useCallback((newTab, opts = {}) => {
     if (opts.reviewSiteId) {
       setReviewDetailSite(opts.reviewSiteId);
+      setDetailView({ regionKey: "queue", siteId: opts.reviewSiteId });
       setTab("review");
-      pushNav({ tab: "review", detailView: null, reviewDetailSite: opts.reviewSiteId });
+      pushNav({ tab: "review", detailView: { regionKey: "queue", siteId: opts.reviewSiteId }, reviewDetailSite: opts.reviewSiteId });
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }

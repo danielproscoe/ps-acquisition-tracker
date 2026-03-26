@@ -266,6 +266,7 @@ function AppInner() {
       if (reviewId && subs.find((s) => s.id === reviewId)) {
         setTab("review");
         setReviewDetailSite(reviewId);
+        setDetailView({ regionKey: "queue", siteId: reviewId });
         setShowNewAlert(false);
         window.scrollTo({ top: 0 });
       }
@@ -430,6 +431,7 @@ function AppInner() {
 
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
   const autoGenerateVettingReport = (region, siteId, site) => {
+    const fbRegion = region === "queue" ? "submissions" : region;
     try {
       const iqR = computeSiteScore(site);
       const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
@@ -442,8 +444,8 @@ function AppInner() {
       const path = `docs/${siteId}/${docId}_${fileName}`;
       const sRef = storageRef(storage, path);
       uploadBytes(sRef, file).then(() => getDownloadURL(sRef)).then((url) => {
-        fbPush(`${region}/${siteId}/docs`, { id: docId, name: fileName, type: "Other", url, path, uploadedAt: now });
-        fbPush(`${region}/${siteId}/activityLog`, { action: "Vetting report auto-generated & saved", ts: now, by: "System" });
+        fbPush(`${fbRegion}/${siteId}/docs`, { id: docId, name: fileName, type: "Other", url, path, uploadedAt: now });
+        fbPush(`${fbRegion}/${siteId}/activityLog`, { action: "Vetting report auto-generated & saved", ts: now, by: "System" });
       }).catch((err) => console.error("Vetting report auto-save error:", err));
     } catch (err) {
       console.error("Vetting report generation error:", err);
@@ -2684,8 +2686,8 @@ function AppInner() {
           </div>
         )}
 
-        {/* ═══ REVIEW DETAIL VIEW — Full property page from review queue ═══ */}
-        {reviewDetailSite && (() => {
+        {/* ═══ REVIEW DETAIL VIEW — Legacy (hidden when detailView is set, tracker detail handles queue too) ═══ */}
+        {reviewDetailSite && !detailView && (() => {
           const site = subs.find(s => s.id === reviewDetailSite);
           if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => setReviewDetailSite(null)} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
           const iqR = computeSiteScore(site);
@@ -3095,9 +3097,9 @@ function AppInner() {
         {/* ═══ PROPERTY DETAIL VIEW ═══ */}
         {detailView && (() => {
           const dv = detailView;
-          const allSites = sortData(dv.regionKey === "east" ? east : sw);
+          const allSites = dv.regionKey === "queue" ? subs : sortData(dv.regionKey === "east" ? east : sw);
           const site = allSites.find(s => s.id === dv.siteId);
-          if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => setDetailView(null)} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
+          if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => { setDetailView(null); if (dv.regionKey === "queue") setReviewDetailSite(null); }} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
           const idx = allSites.findIndex(s => s.id === dv.siteId);
           const prevSite = idx > 0 ? allSites[idx - 1] : null;
           const nextSite = idx < allSites.length - 1 ? allSites[idx + 1] : null;
@@ -3110,15 +3112,17 @@ function AppInner() {
           const handleDetailKey = (e) => {
             if (e.key === "ArrowLeft" && prevSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
             if (e.key === "ArrowRight" && nextSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "Escape") { setDetailView(null); }
+            if (e.key === "Escape") { setDetailView(null); if (dv.regionKey === "queue") setReviewDetailSite(null); }
           };
           if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
+          const isQueue = dv.regionKey === "queue";
+          const goBackFromDetail = () => { setDetailView(null); window._detailKeyBound = false; if (isQueue) { setReviewDetailSite(null); navigateTo("review"); } else { navigateTo(dv.regionKey, { siteId: dv.siteId }); } };
 
           return (
             <div style={{ animation: "fadeIn 0.15s ease-out" }}>
               {/* TOP NAV BAR */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                <button onClick={() => { setDetailView(null); window._detailKeyBound = false; navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
+                <button onClick={goBackFromDetail} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>{isQueue ? "← Back to Review Queue" : "← Back to Tracker"}</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button disabled={!prevSite} onClick={() => { if (prevSite) { goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
