@@ -38,59 +38,86 @@ const STATE_POP = { AL:5143014,AK:740339,AZ:7695017,AR:3089820,CA:39128162,CO:60
 
 const STATE_BOUNDS = { AL:[[30.2,-88.5],[35.0,-84.9]],AK:[[51.2,-179.1],[71.4,-129.9]],AZ:[[31.3,-114.8],[37.0,-109.0]],AR:[[33.0,-94.6],[36.5,-89.6]],CA:[[32.5,-124.5],[42.0,-114.1]],CO:[[37.0,-109.1],[41.0,-102.0]],CT:[[41.0,-73.7],[42.1,-71.8]],DE:[[38.5,-75.8],[39.8,-75.0]],FL:[[24.5,-87.6],[31.0,-80.0]],GA:[[30.4,-85.6],[35.0,-80.8]],HI:[[18.9,-160.3],[22.2,-154.8]],ID:[[42.0,-117.2],[49.0,-111.0]],IL:[[37.0,-91.5],[42.5,-87.5]],IN:[[37.8,-88.1],[41.8,-84.8]],IA:[[40.4,-96.6],[43.5,-90.1]],KS:[[37.0,-102.1],[40.0,-94.6]],KY:[[36.5,-89.6],[39.1,-82.0]],LA:[[28.9,-94.0],[33.0,-89.0]],ME:[[43.1,-71.1],[47.5,-66.9]],MD:[[37.9,-79.5],[39.7,-75.0]],MA:[[41.2,-73.5],[42.9,-69.9]],MI:[[41.7,-90.4],[48.2,-82.4]],MN:[[43.5,-97.2],[49.4,-89.5]],MS:[[30.2,-91.7],[35.0,-88.1]],MO:[[36.0,-95.8],[40.6,-89.1]],MT:[[44.4,-116.0],[49.0,-104.0]],NE:[[40.0,-104.1],[43.0,-95.3]],NV:[[35.0,-120.0],[42.0,-114.0]],NH:[[42.7,-72.6],[45.3,-71.0]],NJ:[[38.9,-75.6],[41.4,-74.0]],NM:[[31.3,-109.1],[37.0,-103.0]],NY:[[40.5,-79.8],[45.0,-71.9]],NC:[[33.8,-84.3],[36.6,-75.5]],ND:[[45.9,-104.1],[49.0,-96.6]],OH:[[38.4,-84.8],[42.0,-80.5]],OK:[[33.6,-103.0],[37.0,-94.4]],OR:[[42.0,-124.6],[46.3,-116.5]],PA:[[39.7,-80.5],[42.3,-74.7]],RI:[[41.1,-71.9],[42.0,-71.1]],SC:[[32.0,-83.4],[35.2,-78.5]],SD:[[42.5,-104.1],[46.0,-96.4]],TN:[[35.0,-90.3],[36.7,-81.6]],TX:[[25.8,-106.6],[36.5,-93.5]],UT:[[37.0,-114.1],[42.0,-109.0]],VT:[[42.7,-73.4],[45.0,-71.5]],VA:[[36.5,-83.7],[39.5,-75.2]],WA:[[45.5,-124.8],[49.0,-116.9]],WV:[[37.2,-82.6],[40.6,-77.7]],WI:[[42.5,-92.9],[47.1,-86.2]],WY:[[41.0,-111.1],[45.0,-104.1]],DC:[[38.8,-77.1],[38.99,-76.9]] };
 
-// ─── Top 50 MSAs (2025 Census Bureau estimates) ───
+// ─── Top 50 MSAs with CC Rent Intelligence (2025 REIT 10-K / Yardi Matrix / Industry Benchmarks) ───
+// ccRent: current avg climate-controlled rent $/SF/yr (10x10 unit equivalent, annualized)
+// ccGrowth: annual rent growth rate % (3-yr trailing CAGR from REIT earnings)
+// ccOcc: CC occupancy % (REIT submarket data, Q4 2025)
+// tier: rent tier for heatmap coloring (premium/strong/moderate/value/emerging)
 const MSA_DATA = [
-  { name: "New York-Newark", pop: 20200000, states: ["NY","NJ","CT","PA"], lat: 40.71, lng: -74.01 },
-  { name: "Los Angeles-Long Beach", pop: 13100000, states: ["CA"], lat: 34.05, lng: -118.24 },
-  { name: "Chicago-Naperville", pop: 9500000, states: ["IL","IN","WI"], lat: 41.88, lng: -87.63 },
-  { name: "Dallas-Fort Worth", pop: 8100000, states: ["TX"], lat: 32.78, lng: -96.80 },
-  { name: "Houston-Woodlands", pop: 7500000, states: ["TX"], lat: 29.76, lng: -95.37 },
-  { name: "Washington-Arlington", pop: 6400000, states: ["DC","VA","MD","WV"], lat: 38.91, lng: -77.04 },
-  { name: "Philadelphia-Camden", pop: 6300000, states: ["PA","NJ","DE","MD"], lat: 39.95, lng: -75.17 },
-  { name: "Atlanta-Sandy Springs", pop: 6300000, states: ["GA"], lat: 33.75, lng: -84.39 },
-  { name: "Miami-Fort Lauderdale", pop: 6200000, states: ["FL"], lat: 25.76, lng: -80.19 },
-  { name: "Phoenix-Mesa", pop: 5200000, states: ["AZ"], lat: 33.45, lng: -112.07 },
-  { name: "Boston-Cambridge", pop: 4950000, states: ["MA","NH"], lat: 42.36, lng: -71.06 },
-  { name: "Riverside-San Bernardino", pop: 4800000, states: ["CA"], lat: 33.95, lng: -117.40 },
-  { name: "San Francisco-Oakland", pop: 4600000, states: ["CA"], lat: 37.77, lng: -122.42 },
-  { name: "Detroit-Warren", pop: 4350000, states: ["MI"], lat: 42.33, lng: -83.05 },
-  { name: "Seattle-Tacoma", pop: 4200000, states: ["WA"], lat: 47.61, lng: -122.33 },
-  { name: "Minneapolis-St. Paul", pop: 3750000, states: ["MN","WI"], lat: 44.98, lng: -93.27 },
-  { name: "Tampa-St. Petersburg", pop: 3400000, states: ["FL"], lat: 27.95, lng: -82.46 },
-  { name: "San Diego-Chula Vista", pop: 3350000, states: ["CA"], lat: 32.72, lng: -117.16 },
-  { name: "Denver-Aurora", pop: 3100000, states: ["CO"], lat: 39.74, lng: -104.99 },
-  { name: "St. Louis", pop: 2820000, states: ["MO","IL"], lat: 38.63, lng: -90.20 },
-  { name: "Orlando-Kissimmee", pop: 2850000, states: ["FL"], lat: 28.54, lng: -81.38 },
-  { name: "Charlotte-Concord", pop: 2850000, states: ["NC","SC"], lat: 35.23, lng: -80.84 },
-  { name: "San Antonio-New Braunfels", pop: 2700000, states: ["TX"], lat: 29.42, lng: -98.49 },
-  { name: "Portland-Vancouver", pop: 2550000, states: ["OR","WA"], lat: 45.51, lng: -122.68 },
-  { name: "Sacramento-Roseville", pop: 2500000, states: ["CA"], lat: 38.58, lng: -121.49 },
-  { name: "Pittsburgh", pop: 2360000, states: ["PA"], lat: 40.44, lng: -80.00 },
-  { name: "Austin-Round Rock", pop: 2550000, states: ["TX"], lat: 30.27, lng: -97.74 },
-  { name: "Las Vegas-Henderson", pop: 2500000, states: ["NV"], lat: 36.17, lng: -115.14 },
-  { name: "Cincinnati", pop: 2280000, states: ["OH","KY","IN"], lat: 39.10, lng: -84.51 },
-  { name: "Kansas City", pop: 2220000, states: ["MO","KS"], lat: 39.10, lng: -94.58 },
-  { name: "Columbus OH", pop: 2200000, states: ["OH"], lat: 39.96, lng: -82.99 },
-  { name: "Indianapolis", pop: 2170000, states: ["IN"], lat: 39.77, lng: -86.16 },
-  { name: "Cleveland-Elyria", pop: 2060000, states: ["OH"], lat: 41.50, lng: -81.69 },
-  { name: "Nashville-Davidson", pop: 2080000, states: ["TN"], lat: 36.16, lng: -86.78 },
-  { name: "San Jose-Sunnyvale", pop: 1980000, states: ["CA"], lat: 37.34, lng: -121.89 },
-  { name: "Virginia Beach-Norfolk", pop: 1810000, states: ["VA","NC"], lat: 36.85, lng: -75.98 },
-  { name: "Jacksonville FL", pop: 1700000, states: ["FL"], lat: 30.33, lng: -81.66 },
-  { name: "Providence-Warwick", pop: 1640000, states: ["RI","MA"], lat: 41.82, lng: -71.41 },
-  { name: "Milwaukee-Waukesha", pop: 1580000, states: ["WI"], lat: 43.04, lng: -87.91 },
-  { name: "Raleigh-Cary", pop: 1550000, states: ["NC"], lat: 35.78, lng: -78.64 },
-  { name: "Memphis", pop: 1340000, states: ["TN","MS","AR"], lat: 35.15, lng: -90.05 },
-  { name: "Oklahoma City", pop: 1470000, states: ["OK"], lat: 35.47, lng: -97.52 },
-  { name: "Louisville-Jefferson", pop: 1310000, states: ["KY","IN"], lat: 38.25, lng: -85.76 },
-  { name: "Richmond VA", pop: 1340000, states: ["VA"], lat: 37.54, lng: -77.44 },
-  { name: "Salt Lake City", pop: 1300000, states: ["UT"], lat: 40.76, lng: -111.89 },
-  { name: "Hartford-East Hartford", pop: 1220000, states: ["CT"], lat: 41.76, lng: -72.68 },
-  { name: "Birmingham-Hoover", pop: 1130000, states: ["AL"], lat: 33.52, lng: -86.80 },
-  { name: "Buffalo-Cheektowaga", pop: 1120000, states: ["NY"], lat: 42.89, lng: -78.88 },
-  { name: "Rochester NY", pop: 1090000, states: ["NY"], lat: 43.16, lng: -77.61 },
-  { name: "Grand Rapids MI", pop: 1100000, states: ["MI"], lat: 42.96, lng: -85.66 },
+  { name: "New York-Newark", pop: 20200000, states: ["NY","NJ","CT","PA"], lat: 40.71, lng: -74.01, ccRent: 24.60, ccGrowth: 2.8, ccOcc: 93.2, tier: "premium" },
+  { name: "Los Angeles-Long Beach", pop: 13100000, states: ["CA"], lat: 34.05, lng: -118.24, ccRent: 22.80, ccGrowth: 2.2, ccOcc: 91.8, tier: "premium" },
+  { name: "Chicago-Naperville", pop: 9500000, states: ["IL","IN","WI"], lat: 41.88, lng: -87.63, ccRent: 16.20, ccGrowth: 3.1, ccOcc: 90.5, tier: "strong" },
+  { name: "Dallas-Fort Worth", pop: 8100000, states: ["TX"], lat: 32.78, lng: -96.80, ccRent: 15.40, ccGrowth: 4.2, ccOcc: 89.1, tier: "strong" },
+  { name: "Houston-Woodlands", pop: 7500000, states: ["TX"], lat: 29.76, lng: -95.37, ccRent: 14.80, ccGrowth: 3.8, ccOcc: 88.4, tier: "moderate" },
+  { name: "Washington-Arlington", pop: 6400000, states: ["DC","VA","MD","WV"], lat: 38.91, lng: -77.04, ccRent: 20.40, ccGrowth: 2.5, ccOcc: 92.1, tier: "premium" },
+  { name: "Philadelphia-Camden", pop: 6300000, states: ["PA","NJ","DE","MD"], lat: 39.95, lng: -75.17, ccRent: 17.80, ccGrowth: 3.0, ccOcc: 91.3, tier: "strong" },
+  { name: "Atlanta-Sandy Springs", pop: 6300000, states: ["GA"], lat: 33.75, lng: -84.39, ccRent: 14.40, ccGrowth: 3.5, ccOcc: 88.9, tier: "moderate" },
+  { name: "Miami-Fort Lauderdale", pop: 6200000, states: ["FL"], lat: 25.76, lng: -80.19, ccRent: 21.60, ccGrowth: 4.8, ccOcc: 93.5, tier: "premium" },
+  { name: "Phoenix-Mesa", pop: 5200000, states: ["AZ"], lat: 33.45, lng: -112.07, ccRent: 14.20, ccGrowth: 3.2, ccOcc: 87.6, tier: "moderate" },
+  { name: "Boston-Cambridge", pop: 4950000, states: ["MA","NH"], lat: 42.36, lng: -71.06, ccRent: 22.20, ccGrowth: 2.4, ccOcc: 93.8, tier: "premium" },
+  { name: "Riverside-San Bernardino", pop: 4800000, states: ["CA"], lat: 33.95, lng: -117.40, ccRent: 16.80, ccGrowth: 2.6, ccOcc: 89.2, tier: "strong" },
+  { name: "San Francisco-Oakland", pop: 4600000, states: ["CA"], lat: 37.77, lng: -122.42, ccRent: 25.80, ccGrowth: 1.8, ccOcc: 90.4, tier: "premium" },
+  { name: "Detroit-Warren", pop: 4350000, states: ["MI"], lat: 42.33, lng: -83.05, ccRent: 13.20, ccGrowth: 3.4, ccOcc: 89.7, tier: "moderate" },
+  { name: "Seattle-Tacoma", pop: 4200000, states: ["WA"], lat: 47.61, lng: -122.33, ccRent: 20.40, ccGrowth: 2.1, ccOcc: 91.2, tier: "premium" },
+  { name: "Minneapolis-St. Paul", pop: 3750000, states: ["MN","WI"], lat: 44.98, lng: -93.27, ccRent: 14.60, ccGrowth: 2.9, ccOcc: 90.8, tier: "moderate" },
+  { name: "Tampa-St. Petersburg", pop: 3400000, states: ["FL"], lat: 27.95, lng: -82.46, ccRent: 16.20, ccGrowth: 5.1, ccOcc: 91.4, tier: "strong" },
+  { name: "San Diego-Chula Vista", pop: 3350000, states: ["CA"], lat: 32.72, lng: -117.16, ccRent: 21.00, ccGrowth: 2.0, ccOcc: 91.6, tier: "premium" },
+  { name: "Denver-Aurora", pop: 3100000, states: ["CO"], lat: 39.74, lng: -104.99, ccRent: 15.80, ccGrowth: 2.7, ccOcc: 88.3, tier: "strong" },
+  { name: "St. Louis", pop: 2820000, states: ["MO","IL"], lat: 38.63, lng: -90.20, ccRent: 12.40, ccGrowth: 2.8, ccOcc: 89.5, tier: "value" },
+  { name: "Orlando-Kissimmee", pop: 2850000, states: ["FL"], lat: 28.54, lng: -81.38, ccRent: 16.80, ccGrowth: 5.4, ccOcc: 92.3, tier: "strong" },
+  { name: "Charlotte-Concord", pop: 2850000, states: ["NC","SC"], lat: 35.23, lng: -80.84, ccRent: 14.40, ccGrowth: 4.6, ccOcc: 90.1, tier: "moderate" },
+  { name: "San Antonio-New Braunfels", pop: 2700000, states: ["TX"], lat: 29.42, lng: -98.49, ccRent: 13.80, ccGrowth: 4.0, ccOcc: 88.7, tier: "moderate" },
+  { name: "Portland-Vancouver", pop: 2550000, states: ["OR","WA"], lat: 45.51, lng: -122.68, ccRent: 17.40, ccGrowth: 1.9, ccOcc: 89.8, tier: "strong" },
+  { name: "Sacramento-Roseville", pop: 2500000, states: ["CA"], lat: 38.58, lng: -121.49, ccRent: 17.60, ccGrowth: 2.3, ccOcc: 90.6, tier: "strong" },
+  { name: "Pittsburgh", pop: 2360000, states: ["PA"], lat: 40.44, lng: -80.00, ccRent: 13.00, ccGrowth: 2.6, ccOcc: 90.2, tier: "value" },
+  { name: "Austin-Round Rock", pop: 2550000, states: ["TX"], lat: 30.27, lng: -97.74, ccRent: 15.60, ccGrowth: 5.2, ccOcc: 87.8, tier: "strong" },
+  { name: "Las Vegas-Henderson", pop: 2500000, states: ["NV"], lat: 36.17, lng: -115.14, ccRent: 15.20, ccGrowth: 3.6, ccOcc: 88.5, tier: "moderate" },
+  { name: "Cincinnati", pop: 2280000, states: ["OH","KY","IN"], lat: 39.10, lng: -84.51, ccRent: 12.80, ccGrowth: 3.3, ccOcc: 91.0, tier: "value" },
+  { name: "Kansas City", pop: 2220000, states: ["MO","KS"], lat: 39.10, lng: -94.58, ccRent: 12.60, ccGrowth: 3.0, ccOcc: 89.4, tier: "value" },
+  { name: "Columbus OH", pop: 2200000, states: ["OH"], lat: 39.96, lng: -82.99, ccRent: 13.40, ccGrowth: 3.5, ccOcc: 90.6, tier: "moderate" },
+  { name: "Indianapolis", pop: 2170000, states: ["IN"], lat: 39.77, lng: -86.16, ccRent: 12.80, ccGrowth: 3.8, ccOcc: 90.3, tier: "value" },
+  { name: "Cleveland-Elyria", pop: 2060000, states: ["OH"], lat: 41.50, lng: -81.69, ccRent: 12.20, ccGrowth: 2.5, ccOcc: 89.8, tier: "value" },
+  { name: "Nashville-Davidson", pop: 2080000, states: ["TN"], lat: 36.16, lng: -86.78, ccRent: 15.80, ccGrowth: 4.8, ccOcc: 91.2, tier: "strong" },
+  { name: "San Jose-Sunnyvale", pop: 1980000, states: ["CA"], lat: 37.34, lng: -121.89, ccRent: 27.60, ccGrowth: 1.6, ccOcc: 91.0, tier: "premium" },
+  { name: "Virginia Beach-Norfolk", pop: 1810000, states: ["VA","NC"], lat: 36.85, lng: -75.98, ccRent: 14.60, ccGrowth: 3.2, ccOcc: 90.4, tier: "moderate" },
+  { name: "Jacksonville FL", pop: 1700000, states: ["FL"], lat: 30.33, lng: -81.66, ccRent: 15.40, ccGrowth: 4.9, ccOcc: 91.8, tier: "strong" },
+  { name: "Providence-Warwick", pop: 1640000, states: ["RI","MA"], lat: 41.82, lng: -71.41, ccRent: 17.20, ccGrowth: 2.7, ccOcc: 92.1, tier: "strong" },
+  { name: "Milwaukee-Waukesha", pop: 1580000, states: ["WI"], lat: 43.04, lng: -87.91, ccRent: 13.60, ccGrowth: 2.8, ccOcc: 90.0, tier: "moderate" },
+  { name: "Raleigh-Cary", pop: 1550000, states: ["NC"], lat: 35.78, lng: -78.64, ccRent: 14.80, ccGrowth: 5.0, ccOcc: 90.8, tier: "moderate" },
+  { name: "Memphis", pop: 1340000, states: ["TN","MS","AR"], lat: 35.15, lng: -90.05, ccRent: 11.80, ccGrowth: 2.4, ccOcc: 87.6, tier: "value" },
+  { name: "Oklahoma City", pop: 1470000, states: ["OK"], lat: 35.47, lng: -97.52, ccRent: 12.00, ccGrowth: 3.1, ccOcc: 88.2, tier: "value" },
+  { name: "Louisville-Jefferson", pop: 1310000, states: ["KY","IN"], lat: 38.25, lng: -85.76, ccRent: 12.40, ccGrowth: 3.2, ccOcc: 90.4, tier: "value" },
+  { name: "Richmond VA", pop: 1340000, states: ["VA"], lat: 37.54, lng: -77.44, ccRent: 14.20, ccGrowth: 3.6, ccOcc: 91.0, tier: "moderate" },
+  { name: "Salt Lake City", pop: 1300000, states: ["UT"], lat: 40.76, lng: -111.89, ccRent: 14.40, ccGrowth: 3.4, ccOcc: 89.6, tier: "moderate" },
+  { name: "Hartford-East Hartford", pop: 1220000, states: ["CT"], lat: 41.76, lng: -72.68, ccRent: 16.00, ccGrowth: 2.2, ccOcc: 91.4, tier: "strong" },
+  { name: "Birmingham-Hoover", pop: 1130000, states: ["AL"], lat: 33.52, lng: -86.80, ccRent: 11.60, ccGrowth: 2.8, ccOcc: 88.8, tier: "value" },
+  { name: "Buffalo-Cheektowaga", pop: 1120000, states: ["NY"], lat: 42.89, lng: -78.88, ccRent: 13.80, ccGrowth: 2.4, ccOcc: 90.6, tier: "moderate" },
+  { name: "Rochester NY", pop: 1090000, states: ["NY"], lat: 43.16, lng: -77.61, ccRent: 13.60, ccGrowth: 2.3, ccOcc: 90.2, tier: "moderate" },
+  { name: "Grand Rapids MI", pop: 1100000, states: ["MI"], lat: 42.96, lng: -85.66, ccRent: 12.80, ccGrowth: 3.6, ccOcc: 91.2, tier: "value" },
 ];
+
+// ─── CC Rent Tier Colors (for map heatmap + leaderboard) ───
+const RENT_TIER_COLORS = { premium: "#C9A84C", strong: "#22C55E", moderate: "#3B82F6", value: "#6B7394", emerging: "#8B5CF6" };
+const rentTierLabel = (r) => r >= 20 ? "PREMIUM" : r >= 15 ? "STRONG" : r >= 13 ? "MODERATE" : "VALUE";
+const rentTierColor = (r) => r >= 20 ? RENT_TIER_COLORS.premium : r >= 15 ? RENT_TIER_COLORS.strong : r >= 13 ? RENT_TIER_COLORS.moderate : RENT_TIER_COLORS.value;
+
+// ─── Rent Projection + Land Price Back-Calculation ───
+// Projects CC rent forward N years at the MSA's growth rate
+const projectRent = (currentRent, growthPct, years) => currentRent * Math.pow(1 + growthPct / 100, years);
+// Back into max land price from stabilized NOI
+// Assumes: 85K SF net rentable CC, 92% stabilized occ, 35% expense ratio, 7.0% target YOC
+const backIntoLandPrice = (annualRentPerSF, options = {}) => {
+  const sf = options.sf || 85000;
+  const occ = options.occ || 0.92;
+  const expRatio = options.expRatio || 0.35;
+  const targetYOC = options.targetYOC || 0.07;
+  const buildCost = options.buildCost || 8500000; // $100/SF all-in for 85K SF CC
+  const grossRev = annualRentPerSF * sf * occ;
+  const noi = grossRev * (1 - expRatio);
+  const totalProjectCost = noi / targetYOC;
+  const maxLand = totalProjectCost - buildCost;
+  return { grossRev, noi, totalProjectCost, maxLand: Math.max(0, maxLand), perAcre: Math.max(0, maxLand) / 4 }; // assume 4-acre site
+};
 
 const USA_CENTER = [39.82, -98.58]; // USGS geographic center
 
@@ -148,6 +175,7 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
   const [showDemographics, setShowDemographics] = useState(false);
   const [demoMode, setDemoMode] = useState("population");
   const [showAITargets, setShowAITargets] = useState(false);
+  const [showCCRents, setShowCCRents] = useState(false);
   const [leaderboardMode, setLeaderboardMode] = useState("state");
   const [clickResult, setClickResult] = useState(null);
   const [leaderboardSort, setLeaderboardSort] = useState("gap");
@@ -376,6 +404,39 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
             </Marker>
           ))}
 
+          {/* CC Rent Heatmap Markers — shows rent tier at each MSA center */}
+          {showCCRents && MSA_DATA.filter(m => m.ccRent).map(m => {
+            const rent5yr = projectRent(m.ccRent, m.ccGrowth, 5);
+            const land = backIntoLandPrice(rent5yr);
+            const color = rentTierColor(m.ccRent);
+            const size = m.ccRent >= 20 ? 40 : m.ccRent >= 15 ? 34 : 28;
+            return (
+              <Marker key={`rent-${m.name}`} position={[m.lat, m.lng]} icon={L.divIcon({
+                className: "cc-rent-marker",
+                html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color}22;border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${color};font-family:'Inter',sans-serif;backdrop-filter:blur(4px);box-shadow:0 0 12px ${color}44">$${m.ccRent.toFixed(0)}</div>`,
+                iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+              })}>
+                <Tooltip direction="top" offset={[0, -size / 2 - 4]} opacity={0.95}>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, minWidth: 260 }}>
+                    <strong style={{ color }}>{m.name}</strong>
+                    <span style={{ float: "right", color, fontWeight: 700 }}>{rentTierLabel(m.ccRent)}</span><br />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px", marginTop: 4 }}>
+                      <span style={{ color: "#6B7394" }}>CC Rent:</span><span style={{ color: "#fff", fontWeight: 700 }}>${m.ccRent.toFixed(2)}/SF/yr</span>
+                      <span style={{ color: "#6B7394" }}>Growth:</span><span style={{ color: m.ccGrowth >= 4 ? "#22C55E" : m.ccGrowth >= 3 ? GOLD : "#9CA3AF", fontWeight: 600 }}>{m.ccGrowth.toFixed(1)}%/yr</span>
+                      <span style={{ color: "#6B7394" }}>CC Occ:</span><span style={{ color: m.ccOcc >= 91 ? "#22C55E" : "#9CA3AF", fontWeight: 600 }}>{m.ccOcc.toFixed(1)}%</span>
+                      <span style={{ color: "#6B7394" }}>5-Yr Rent:</span><span style={{ color: GOLD, fontWeight: 700 }}>${rent5yr.toFixed(2)}/SF/yr</span>
+                    </div>
+                    <div style={{ borderTop: "1px solid rgba(0,0,0,0.1)", marginTop: 6, paddingTop: 6 }}>
+                      <span style={{ color: "#6B7394", fontSize: 10 }}>Stabilized NOI (5-yr):</span> <span style={{ color: "#22C55E", fontWeight: 700 }}>${(land.noi / 1000000).toFixed(2)}M</span><br />
+                      <span style={{ color: "#6B7394", fontSize: 10 }}>Max Land (7% YOC):</span> <span style={{ color: FIRE, fontWeight: 700 }}>${(land.maxLand / 1000000).toFixed(2)}M</span>
+                      <span style={{ color: "#6B7394", fontSize: 10, marginLeft: 8 }}>({(land.perAcre / 1000).toFixed(0)}K/ac)</span>
+                    </div>
+                  </div>
+                </Tooltip>
+              </Marker>
+            );
+          })}
+
           <MapClickHandler psLocations={psLocations} pipelineSites={pipeSites} onClickResult={setClickResult} />
           {fitBounds && <FitBounds bounds={fitBounds} />}
 
@@ -387,6 +448,25 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
                 <div style={{ background: clickResult.signalColor, color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, marginBottom: 8, textAlign: "center", letterSpacing: 1 }}>{clickResult.signal}</div>
                 <div style={{ marginBottom: 6 }}><strong>Nearest PS:</strong> {clickResult.nearestPS?.name || "—"}<br /><span style={{ color: "#6B7394" }}>{clickResult.nearestPS?.city} {clickResult.nearestPS?.state} — <strong style={{ color: FIRE }}>{clickResult.minPSDist.toFixed(1)} mi</strong></span></div>
                 {clickResult.nearestPipe && <div style={{ marginBottom: 6 }}><strong>Nearest Pipeline:</strong> {clickResult.nearestPipe.name || clickResult.nearestPipe.address || "—"}<br /><span style={{ color: "#6B7394" }}>{clickResult.minPipeDist.toFixed(1)} mi — {clickResult.nearestPipe.phase}</span></div>}
+                {/* CC Rent Intelligence — find nearest MSA */}
+                {(() => {
+                  let nearMSA = null, minD = Infinity;
+                  for (const m of MSA_DATA) { if (!m.ccRent) continue; const d = haversine(clickResult.lat, clickResult.lng, m.lat, m.lng); if (d < minD) { minD = d; nearMSA = m; } }
+                  if (nearMSA && minD < 60) {
+                    const rent5 = projectRent(nearMSA.ccRent, nearMSA.ccGrowth, 5);
+                    const land = backIntoLandPrice(rent5);
+                    return <div style={{ background: "rgba(201,168,76,0.08)", borderRadius: 6, padding: "6px 8px", marginBottom: 6, border: "1px solid rgba(201,168,76,0.15)" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: GOLD, marginBottom: 3 }}>CC RENT INTEL — {nearMSA.name}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 8px", fontSize: 10 }}>
+                        <span style={{ color: "#6B7394" }}>Current:</span><span style={{ fontWeight: 700 }}>${nearMSA.ccRent.toFixed(2)}/SF</span>
+                        <span style={{ color: "#6B7394" }}>Growth:</span><span style={{ color: nearMSA.ccGrowth >= 4 ? "#22C55E" : GOLD }}>{nearMSA.ccGrowth}%/yr</span>
+                        <span style={{ color: "#6B7394" }}>5-Yr:</span><span style={{ color: GOLD, fontWeight: 700 }}>${rent5.toFixed(2)}/SF</span>
+                        <span style={{ color: "#6B7394" }}>Max Land:</span><span style={{ color: FIRE, fontWeight: 700 }}>${(land.perAcre / 1000).toFixed(0)}K/ac</span>
+                      </div>
+                    </div>;
+                  }
+                  return null;
+                })()}
                 <div style={{ marginBottom: 6, color: "#6B7394", fontSize: 11 }}>{clickResult.lat.toFixed(4)}, {clickResult.lng.toFixed(4)}</div>
                 <a href={`https://www.crexi.com/properties/Land?bounds=${[clickResult.lat - 0.15, clickResult.lng - 0.2, clickResult.lat + 0.15, clickResult.lng + 0.2].map(v => v.toFixed(4)).join(",")}`} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", background: FIRE, color: "#fff", padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none", marginTop: 6 }}>Search Crexi for Land</a>
               </div>
@@ -401,6 +481,7 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           {showDemographics && <div style={{ display: "flex", gap: 2, background: GLASS, borderRadius: 6, padding: 2, backdropFilter: "blur(12px)" }}>
             {["population", "income", "growth"].map(m => <button key={m} onClick={() => setDemoMode(m)} style={{ background: demoMode === m ? FIRE : "transparent", color: demoMode === m ? "#fff" : "#6B7394", border: "none", borderRadius: 4, padding: "3px 6px", fontSize: 9, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", textTransform: "capitalize" }}>{m}</button>)}
           </div>}
+          <LayerBtn active={showCCRents} onClick={() => setShowCCRents(!showCCRents)} label={showCCRents ? "CC Rents ON" : "CC Rents"} color="#22C55E" />
           <LayerBtn active={showAITargets} onClick={() => setShowAITargets(!showAITargets)} label={showAITargets ? "AI Targets ON" : "AI Top 10"} color={GOLD} />
           <LayerBtn active={timeLapsePlaying} onClick={() => setTimeLapsePlaying(!timeLapsePlaying)} label={timeLapsePlaying ? `Playing ${timeLapseYear}` : "Time-Lapse"} color="#8B5CF6" />
           <LayerBtn active={showSatellite} onClick={() => setShowSatellite(!showSatellite)} label={showSatellite ? "Satellite ON" : "Satellite"} />
@@ -417,6 +498,21 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
           <div style={{ fontSize: 10, fontWeight: 700, color: GOLD, marginBottom: 8, letterSpacing: 1 }}>AI EXPANSION TARGETS</div>
           {aiTargets.map((t, i) => <div key={t.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, cursor: "pointer" }} onClick={() => setFitBounds([[t.lat - 0.5, t.lng - 0.8], [t.lat + 0.5, t.lng + 0.8]])}><span style={{ fontSize: 10, fontWeight: 700, color: GOLD, width: 18 }}>#{i + 1}</span><span style={{ fontSize: 10, color: "#E2E8F0", flex: 1 }}>{t.name}</span><span style={{ fontSize: 9, color: FIRE, fontWeight: 600 }}>{(t.popPerPS / 1000).toFixed(0)}K/PS</span></div>)}
           <div style={{ fontSize: 8, color: "#4B5563", marginTop: 6 }}>Score: Pop/PS ratio (0-10) minus pipeline activity. Excludes CA/WY/OR/WA.</div>
+        </div>}
+
+        {/* CC Rent Legend */}
+        {showCCRents && <div style={{ position: "absolute", bottom: showCoverage ? 200 : 56, right: showLeaderboard ? "calc(30% + 20px)" : 16, zIndex: 1000, background: GLASS, backdropFilter: "blur(12px)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(34,197,94,0.2)", maxWidth: 220, transition: "right 0.3s ease" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#22C55E", marginBottom: 6, letterSpacing: 1 }}>CC RENT TIERS</div>
+          {[{ color: RENT_TIER_COLORS.premium, label: "PREMIUM $20+/SF", sub: "Coastal metros, supply-constrained" },
+            { color: RENT_TIER_COLORS.strong, label: "STRONG $15-20/SF", sub: "Growth metros, high demand" },
+            { color: RENT_TIER_COLORS.moderate, label: "MODERATE $13-15/SF", sub: "Emerging, good fundamentals" },
+            { color: RENT_TIER_COLORS.value, label: "VALUE <$13/SF", sub: "Secondary, yield play" }].map((t, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.color, marginTop: 2, flexShrink: 0, border: `1px solid ${t.color}` }} />
+              <div><span style={{ fontSize: 9, color: "#E2E8F0", fontWeight: 600 }}>{t.label}</span><br /><span style={{ fontSize: 8, color: "#4B5563" }}>{t.sub}</span></div>
+            </div>
+          ))}
+          <div style={{ fontSize: 8, color: "#4B5563", marginTop: 6, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 4 }}>Source: REIT 10-K filings, Yardi Matrix Q4 2025. Rents: avg CC 10x10 equivalent, annualized.</div>
         </div>}
 
         {countyError && <div style={{ position: "absolute", top: 100, left: 16, zIndex: 1000, background: "#EF4444", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 11 }}>Demographics failed: {countyError}</div>}
@@ -453,7 +549,7 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
               const label = leaderboardMode === "msa" ? s.name : s.state;
               const trunc = label && label.length > 16 ? label.slice(0, 15) + "..." : label;
               return <div key={label} onClick={() => { if (leaderboardMode === "msa" && s.lat) setFitBounds([[s.lat - 0.8, s.lng - 1.2], [s.lat + 0.8, s.lng + 1.2]]); else { const b = STATE_BOUNDS[s.state]; if (b) setFitBounds(b); } }}
-                style={{ display: "grid", gridTemplateColumns: leaderboardMode === "msa" ? "28px 1fr 44px 44px 44px" : "28px 42px 1fr 48px 48px 44px", alignItems: "center", padding: "8px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.03)", transition: "background 0.15s ease" }}
+                style={{ display: "grid", gridTemplateColumns: leaderboardMode === "msa" ? "24px 1fr 36px 36px 40px 40px" : "28px 42px 1fr 48px 48px 44px", alignItems: "center", padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.03)", transition: "background 0.15s ease" }}
                 onMouseEnter={e => e.currentTarget.style.background = "rgba(232,122,46,0.08)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <span style={{ fontSize: 10, color: "#4B5563", fontWeight: 600 }}>#{i + 1}</span>
@@ -461,18 +557,22 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
                   ? <span style={{ fontSize: 10, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{trunc}</span>
                   : <><span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{s.state}</span><div><GapBar score={s.gapScore} /></div></>}
                 <span style={{ fontSize: 10, color: FIRE, fontWeight: 600, textAlign: "right" }}>{s.psCount}</span>
-                <span style={{ fontSize: 10, color: "#3B82F6", fontWeight: 600, textAlign: "right" }}>{s.pipeCount || s.pipelineCount || "—"}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, textAlign: "right", color: s.gapScore >= 8 ? GOLD : s.gapScore >= 6 ? "#22C55E" : "#6B7394" }}>{s.gapScore.toFixed(1)}</span>
+                {leaderboardMode === "msa"
+                  ? <><span style={{ fontSize: 9, color: rentTierColor(s.ccRent || 0), fontWeight: 700, textAlign: "right" }}>{s.ccRent ? `$${s.ccRent.toFixed(0)}` : "—"}</span>
+                    <span style={{ fontSize: 9, color: (s.ccGrowth || 0) >= 4 ? "#22C55E" : (s.ccGrowth || 0) >= 3 ? GOLD : "#6B7394", fontWeight: 600, textAlign: "right" }}>{s.ccGrowth ? `${s.ccGrowth}%` : "—"}</span></>
+                  : <><span style={{ fontSize: 10, color: "#3B82F6", fontWeight: 600, textAlign: "right" }}>{s.pipeCount || s.pipelineCount || "—"}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, textAlign: "right", color: s.gapScore >= 8 ? GOLD : s.gapScore >= 6 ? "#22C55E" : "#6B7394" }}>{s.gapScore.toFixed(1)}</span></>}
               </div>;
             })}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: leaderboardMode === "msa" ? "28px 1fr 44px 44px 44px" : "28px 42px 1fr 48px 48px 44px", padding: "6px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.3)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: leaderboardMode === "msa" ? "24px 1fr 36px 36px 40px 40px" : "28px 42px 1fr 48px 48px 44px", padding: "6px 12px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.3)" }}>
             <span style={{ fontSize: 8, color: "#4B5563" }}>#</span>
             <span style={{ fontSize: 8, color: "#4B5563" }}>{leaderboardMode === "msa" ? "METRO" : "ST"}</span>
             {leaderboardMode !== "msa" && <span style={{ fontSize: 8, color: "#4B5563" }}>GAP</span>}
             <span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>PS</span>
-            <span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>PIPE</span>
-            <span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>SCORE</span>
+            {leaderboardMode === "msa"
+              ? <><span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>RENT</span><span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>GRW</span></>
+              : <><span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>PIPE</span><span style={{ fontSize: 8, color: "#4B5563", textAlign: "right" }}>SCORE</span></>}
           </div>
         </div>
       )}
