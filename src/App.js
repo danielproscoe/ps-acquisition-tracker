@@ -438,6 +438,52 @@ function AppInner() {
     }
   };
 
+  // ─── AUTO ESRI ENRICHMENT — pulls ESRI 2025 demographics on site add/route ───
+  // Fires on: Submit Site, Approve & Route, direct add to tracker
+  // Sources: ESRI ArcGIS GeoEnrichment 2025 (current year) + 2030 (5-year projections)
+  // Data: Pop, HH, HHI, Home Value at 1-3-5 mi rings + growth CAGRs + renter %
+  // Cost: ~$0.03 per site (9 variables × 3 radii = 27 attributes @ $1/1K)
+  const autoEnrichESRI = async (region, siteId, site) => {
+    if (!site.coordinates) return;
+    const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
+    const ENRICH_URL = "https://geoenrich.arcgis.com/arcgis/rest/services/World/geoenrichmentserver/Geoenrichment/Enrich";
+    const VARS = ["AtRisk.TOTPOP_CY","KeyUSFacts.TOTPOP_FY","KeyUSFacts.TOTHH_CY","KeyUSFacts.TOTHH_FY","KeyUSFacts.MEDHINC_CY","KeyUSFacts.MEDHINC_FY","homevalue.MEDVAL_CY","OwnerRenter.OWNER_CY","OwnerRenter.RENTER_CY"];
+    try {
+      const [latS, lngS] = site.coordinates.split(",").map(v => parseFloat(v.trim()));
+      if (isNaN(latS) || isNaN(lngS)) return;
+      const enrich = async (radius) => {
+        const sa = JSON.stringify([{ geometry: { x: lngS, y: latS }, areaType: "RingBuffer", bufferUnits: "esriMiles", bufferRadii: [radius] }]);
+        const params = new URLSearchParams({ studyAreas: sa, analysisVariables: JSON.stringify(VARS), useData: JSON.stringify({ sourceCountry: "US" }), f: "json", token: ESRI_KEY });
+        const res = await fetch(ENRICH_URL + "?" + params.toString());
+        const data = await res.json();
+        return data.results?.[0]?.value?.FeatureSet?.[0]?.features?.[0]?.attributes || null;
+      };
+      const [r1, r3, r5] = await Promise.all([enrich(1), enrich(3), enrich(5)]);
+      if (!r3 || !r3.TOTPOP_CY) return;
+      const popGr = r3.TOTPOP_CY > 0 && r3.TOTPOP_FY > 0 ? ((Math.pow(r3.TOTPOP_FY / r3.TOTPOP_CY, 1 / 5) - 1) * 100).toFixed(2) + "%" : null;
+      const hhGr = r3.TOTHH_CY > 0 && r3.TOTHH_FY > 0 ? ((Math.pow(r3.TOTHH_FY / r3.TOTHH_CY, 1 / 5) - 1) * 100).toFixed(2) + "%" : null;
+      const incGr = r3.MEDHINC_CY > 0 && r3.MEDHINC_FY > 0 ? ((Math.pow(r3.MEDHINC_FY / r3.MEDHINC_CY, 1 / 5) - 1) * 100).toFixed(2) + "%" : null;
+      const rPct = (r3.OWNER_CY + r3.RENTER_CY) > 0 ? Math.round(r3.RENTER_CY / (r3.OWNER_CY + r3.RENTER_CY) * 100) + "%" : null;
+      const upd = {};
+      if (r1?.TOTPOP_CY) { upd.pop1mi = r1.TOTPOP_CY.toLocaleString(); upd.households1mi = r1.TOTHH_CY?.toLocaleString(); upd.income1mi = r1.MEDHINC_CY ? "$" + Math.round(r1.MEDHINC_CY).toLocaleString() : null; upd.homeValue1mi = r1.MEDVAL_CY ? "$" + Math.round(r1.MEDVAL_CY).toLocaleString() : null; }
+      upd.pop3mi = r3.TOTPOP_CY.toLocaleString(); upd.households3mi = r3.TOTHH_CY?.toLocaleString(); upd.income3mi = r3.MEDHINC_CY ? "$" + Math.round(r3.MEDHINC_CY).toLocaleString() : null; upd.homeValue3mi = r3.MEDVAL_CY ? "$" + Math.round(r3.MEDVAL_CY).toLocaleString() : null;
+      if (r5?.TOTPOP_CY) { upd.pop5mi = r5.TOTPOP_CY.toLocaleString(); upd.households5mi = r5.TOTHH_CY?.toLocaleString(); upd.income5mi = r5.MEDHINC_CY ? "$" + Math.round(r5.MEDHINC_CY).toLocaleString() : null; upd.homeValue5mi = r5.MEDVAL_CY ? "$" + Math.round(r5.MEDVAL_CY).toLocaleString() : null; }
+      upd.pop3mi_fy = r3.TOTPOP_FY?.toLocaleString(); upd.households3mi_fy = r3.TOTHH_FY?.toLocaleString(); upd.income3mi_fy = r3.MEDHINC_FY ? "$" + Math.round(r3.MEDHINC_FY).toLocaleString() : null;
+      if (popGr) { upd.popGrowth3mi = popGr; upd.growthRate = popGr; }
+      if (hhGr) upd.hhGrowth3mi = hhGr;
+      if (incGr) upd.incomeGrowth3mi = incGr;
+      if (rPct) upd.renterPct3mi = rPct;
+      upd.demoSource = "ESRI ArcGIS GeoEnrichment 2025 (current year estimates + 2030 projections)";
+      upd.demoPulledAt = new Date().toISOString();
+      for (const k of Object.keys(upd)) { if (upd[k] == null) delete upd[k]; }
+      fbUpdate(`${region}/${siteId}`, upd);
+      fbPush(`${region}/${siteId}/activityLog`, { action: `ESRI 2025 demographics auto-enriched: Pop ${upd.pop3mi}, HHI ${upd.income3mi}, Growth ${popGr}`, ts: new Date().toISOString(), by: "System" });
+      console.log("[ESRI] Enriched", site.name, "—", Object.keys(upd).length, "fields");
+    } catch (err) {
+      console.error("[ESRI] Enrichment failed for", site.name, err);
+    }
+  };
+
   // ─── FLYER PARSING ───
   const parseFlyer = async (file) => {
     setFlyerParsing(true);
@@ -599,8 +645,10 @@ function AppInner() {
       notify(`Added → ${REGIONS[form.region].label}`);
       setShareLink(null);
       autoGenerateVettingReport(form.region, id, site);
+      autoEnrichESRI(form.region, id, site); // ESRI 2025 current + projected
     } else {
       fbSet(`submissions/${id}`, { ...site, status: "pending" });
+      autoEnrichESRI("submissions", id, site); // ESRI 2025 even in pending queue
       notify("Submitted for review!");
       setShareLink(id);
     }
@@ -634,6 +682,7 @@ function AppInner() {
     });
     notify(`Recommended → ${routeLabel} (awaiting PS approval)`);
     autoGenerateVettingReport(routeTo, id, { ...site, region: routeTo });
+    autoEnrichESRI(routeTo, id, { ...site, region: routeTo }); // ESRI 2025 on route
   };
 
   // Step 2: PS (DW/MT/Jarrod) approves — moves to tracker
