@@ -15,7 +15,7 @@ export const generateDemographicsReport = (site) => {
   const fV = (v, pre) => { const n = pN(v); return n != null ? (pre || "") + n.toLocaleString() : "—"; };
   const fPct = (v) => v != null && v !== "" ? String(v) : "—";
   const fGrowth = (v) => { if (v == null || v === "") return "—"; const n = typeof v === "number" ? v : parseFloat(String(v)); if (isNaN(n)) return String(v); return (n >= 0 ? "+" : "") + n.toFixed(2) + "%"; };
-  const gColor = (v) => { if (v == null) return "#64748B"; const n = typeof v === "number" ? v : parseFloat(String(v)); return !isNaN(n) && n > 0 ? "#16A34A" : !isNaN(n) && n < 0 ? "#EF4444" : "#64748B"; };
+  const gColor = (v) => { if (v == null) return "#64748B"; const n = typeof v === "number" ? v : parseFloat(String(v)); return !isNaN(n) && n > 0 ? "#16A34A" : !isNaN(n) && n < 0 ? "#F59E0B" : "#64748B"; };
   const r = dr?.rings || {};
   const r1 = r[1] || {}; const r3 = r[3] || {}; const r5 = r[5] || {};
   const siteName = site.name || site.address || "Unknown Site";
@@ -24,17 +24,17 @@ export const generateDemographicsReport = (site) => {
   // Growth outlook
   const pg = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : null;
   const growthOutlook = pg != null ? (pg > 1.5 ? "High Growth" : pg > 0.5 ? "Growing" : pg > 0 ? "Stable Growth" : pg > -0.5 ? "Flat" : "Declining") : "N/A";
-  const outlookColor = pg != null ? (pg > 1.5 ? "#22C55E" : pg > 0.5 ? "#4ADE80" : pg > 0 ? "#FBBF24" : pg > -0.5 ? "#94A3B8" : "#EF4444") : "#64748B";
+  const outlookColor = pg != null ? (pg > 1.5 ? "#22C55E" : pg > 0.5 ? "#4ADE80" : pg > 0 ? "#FBBF24" : pg > -0.5 ? "#94A3B8" : "#F59E0B") : "#64748B";
 
   // Income tier
   const hhi3 = pN(site.income3mi);
   const incomeTier = hhi3 != null ? (hhi3 >= 90000 ? "PREMIUM" : hhi3 >= 75000 ? "AFFLUENT" : hhi3 >= 65000 ? "STRONG" : hhi3 >= 55000 ? "ADEQUATE" : "BELOW THRESHOLD") : "N/A";
-  const incomeColor = hhi3 != null ? (hhi3 >= 90000 ? "#C9A84C" : hhi3 >= 75000 ? "#22C55E" : hhi3 >= 65000 ? "#3B82F6" : hhi3 >= 55000 ? "#FBBF24" : "#EF4444") : "#64748B";
+  const incomeColor = hhi3 != null ? (hhi3 >= 90000 ? "#C9A84C" : hhi3 >= 75000 ? "#22C55E" : hhi3 >= 65000 ? "#3B82F6" : hhi3 >= 55000 ? "#FBBF24" : "#F59E0B") : "#64748B";
 
   // Pop signal
   const pop3 = pN(site.pop3mi);
   const popSignal = pop3 != null ? (pop3 >= 40000 ? "DENSE MARKET" : pop3 >= 25000 ? "SOLID DEMAND" : pop3 >= 10000 ? "EMERGING" : "THIN") : "N/A";
-  const popColor = pop3 != null ? (pop3 >= 40000 ? "#22C55E" : pop3 >= 25000 ? "#3B82F6" : pop3 >= 10000 ? "#FBBF24" : "#EF4444") : "#64748B";
+  const popColor = pop3 != null ? (pop3 >= 40000 ? "#22C55E" : pop3 >= 25000 ? "#3B82F6" : pop3 >= 10000 ? "#FBBF24" : "#F59E0B") : "#64748B";
 
   // Storage demand signals
   const hhRaw = pN(site.households3mi);
@@ -247,7 +247,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const iqLabel = iq?.label || "—";
   const iqBadgeColor = iqTier === "gold" ? "#C9A84C" : iqTier === "steel" ? "#2C3E6B" : "#94A3B8";
   const zoningScore = iq?.scores?.zoning;
-  const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
+  const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#92400E" : "#94A3B8";
   // ── CIRCULAR FLOW: cc, compColor, compLabel, satLevel, hhN, hvN, pop1, growthPct, growthColor,
   // keyStrength, keyRisk, sfCapita, sfCapitaColor, sfCapitaLabel all come from vettingIntel (v) above.
   // Previously duplicated here — now consumed from single source of truth.
@@ -256,7 +256,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const pop1 = v.pop1 || parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
   // Recommendation for exec summary
   const recommendation = iqScore >= 8.0 ? "AUTO-ADVANCE — Site meets all thresholds for review queue." : iqScore >= 6.0 ? "PRESENT FOR REVIEW — Strong candidate with noted concerns." : iqScore >= 4.0 ? "FLAGGED — Below target thresholds. Recommend pass unless override." : typeof iqScore === "number" ? "AUTO-PASS — Below minimum thresholds." : "INSUFFICIENT DATA — Complete research before scoring.";
-  const recColor = iqScore >= 8.0 ? "#16A34A" : iqScore >= 6.0 ? "#F59E0B" : typeof iqScore === "number" ? "#EF4444" : "#94A3B8";
+  const recColor = iqScore >= 8.0 ? "#16A34A" : iqScore >= 6.0 ? "#F59E0B" : typeof iqScore === "number" ? "#92400E" : "#94A3B8";
 
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
@@ -335,7 +335,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 .z-tree-arrow::after{content:'';position:absolute;right:0;top:-4px;border:5px solid transparent;border-left:6px solid #CBD5E1}
 
 /* SF/capita gauge bar */
-.sf-gauge{height:10px;border-radius:5px;background:linear-gradient(90deg,#16A34A 0%,#16A34A 33%,#3B82F6 33%,#3B82F6 60%,#EF4444 60%,#EF4444 100%);position:relative;margin:8px 0}
+.sf-gauge{height:10px;border-radius:5px;background:linear-gradient(90deg,#16A34A 0%,#16A34A 33%,#3B82F6 33%,#3B82F6 60%,#F59E0B 60%,#F59E0B 100%);position:relative;margin:8px 0}
 .sf-gauge-marker{position:absolute;top:-4px;width:4px;height:18px;background:#1E293B;border-radius:2px;transform:translateX(-50%)}
 
 @media (max-width:1000px){.toc-sidebar{display:none}}
@@ -462,9 +462,9 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
           <div style="font-size:8px;font-weight:700;color:#16A34A;letter-spacing:0.06em;margin-bottom:4px">KEY STRENGTH</div>
           <div style="font-size:11px;color:#D1FAE5;line-height:1.4">${keyStrength}</div>
         </div>
-        <div style="padding:10px 14px;border-radius:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15)">
-          <div style="font-size:8px;font-weight:700;color:#EF4444;letter-spacing:0.06em;margin-bottom:4px">KEY RISK</div>
-          <div style="font-size:11px;color:#FEE2E2;line-height:1.4">${keyRisk}</div>
+        <div style="padding:10px 14px;border-radius:8px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2)">
+          <div style="font-size:8px;font-weight:700;color:#C9A84C;letter-spacing:0.06em;margin-bottom:4px">KEY RISK</div>
+          <div style="font-size:11px;color:#FDE68A;line-height:1.4">${keyRisk}</div>
         </div>
       </div>
 
@@ -507,7 +507,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       const total = checks.length;
       const pct = Math.round((done / total) * 100);
       const grade = pct === 100 ? "COMPLETE" : pct >= 80 ? "NEAR COMPLETE" : pct >= 50 ? "IN PROGRESS" : "INCOMPLETE";
-      const gradeColor = pct === 100 ? "#16A34A" : pct >= 80 ? "#3B82F6" : pct >= 50 ? "#F59E0B" : "#EF4444";
+      const gradeColor = pct === 100 ? "#16A34A" : pct >= 80 ? "#16A34A" : pct >= 50 ? "#3B82F6" : "#64748B";
       const catSummary = (cat) => { const items = checks.filter(c => c.category === cat); const d = items.filter(c => c.done).length; return { done: d, total: items.length, pct: Math.round((d / items.length) * 100) }; };
       const z = catSummary("ZONING"); const u = catSummary("UTILITY"); const t = catSummary("TOPO");
       return `
@@ -527,17 +527,17 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       <div style="background:#FAFBFC;padding:16px 22px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
         ${[
           { label: "Zoning & Entitlements", ...z, color: "#1E2761" },
-          { label: "Utilities & Water", ...u, color: "#16A34A" },
-          { label: "Topography & Flood", ...t, color: "#E87A2E" },
+          { label: "Utilities & Water", ...u, color: "#1E2761" },
+          { label: "Topography & Flood", ...t, color: "#1E2761" },
         ].map(c => `<div class="hover-card" style="text-align:center;padding:14px;border-radius:10px;background:#fff;border:1px solid #E2E8F0">
           <div style="font-size:9px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">${c.label}</div>
-          <div style="width:100%;height:8px;border-radius:4px;background:#E2E8F0;overflow:hidden;margin-bottom:6px"><div style="width:${c.pct}%;height:100%;border-radius:4px;background:${c.pct === 100 ? "#16A34A" : c.pct >= 60 ? "#F59E0B" : "#EF4444"};transition:width 0.5s"></div></div>
+          <div style="width:100%;height:8px;border-radius:4px;background:#E2E8F0;overflow:hidden;margin-bottom:6px"><div style="width:${c.pct}%;height:100%;border-radius:4px;background:${c.pct === 100 ? "#16A34A" : "#16A34A"};transition:width 0.5s"></div></div>
           <div style="font-size:12px;font-weight:800;color:${c.pct === 100 ? "#16A34A" : "#64748B"}">${c.done}/${c.total}</div>
         </div>`).join("")}
       </div>
-      ${pct < 100 ? `<div style="background:#FEF2F2;padding:12px 22px;border-top:1px solid #FECACA">
-        <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:6px">OUTSTANDING RESEARCH ITEMS:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px">${checks.filter(c => !c.done).map(c => `<span style="font-size:9px;font-weight:600;color:#991B1B;background:#FEE2E2;padding:3px 10px;border-radius:5px">${c.label}</span>`).join("")}</div>
+      ${pct < 100 ? `<div style="background:#F1F5F9;padding:12px 22px;border-top:1px solid #CBD5E1">
+        <div style="font-size:10px;font-weight:700;color:#334155;margin-bottom:6px">OUTSTANDING RESEARCH ITEMS:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${checks.filter(c => !c.done).map(c => `<span style="font-size:9px;font-weight:600;color:#475569;background:#E2E8F0;padding:3px 10px;border-radius:5px">${c.label}</span>`).join("")}</div>
       </div>` : `<div style="background:#F0FDF4;padding:12px 22px;border-top:1px solid #BBF7D0;text-align:center">
         <span style="font-size:11px;font-weight:700;color:#166534">ALL RESEARCH ITEMS VERIFIED — REPORT IS INSTITUTIONAL-GRADE</span>
       </div>`}
@@ -559,7 +559,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       row("Priority", cleanPriority(site.priority)),
       row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none;font-weight:600">${site.coordinates} &#8599;</a>` : "—"),
       row("Listing", site.listingUrl ? `<a href="${site.listingUrl}" target="_blank" style="color:#F37C33;text-decoration:none;font-weight:600">View Listing &#8599;</a>` : "—"),
-      dom !== null ? row("Days on Market", `${dom} days`, { badge: true, badgeBg: dom > 365 ? "#FEE2E2" : dom > 180 ? "#FEF3C7" : "#DCFCE7", badgeColor: dom > 365 ? "#991B1B" : dom > 180 ? "#92400E" : "#166534" }) : "",
+      dom !== null ? row("Days on Market", `${dom} days`, { badge: true, badgeBg: dom > 365 ? "#FEF3C7" : dom > 180 ? "#FEF3C7" : "#DCFCE7", badgeColor: dom > 365 ? "#92400E" : dom > 180 ? "#92400E" : "#166534" }) : "",
     ].join("")}</table>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -585,8 +585,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       <div style="font-size:11px;color:#64748B;line-height:1.6;margin-top:10px">${
         zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." :
         zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2-6 months. Factor SUP costs (~$15K-$50K) and uncertainty into underwriting." :
-        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4-12 month timeline, significant cost ($25K-$75K+)." :
-        zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." :
+        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#92400E'>does not permit</strong> storage use. Rezoning required — political risk, 4-12 month timeline, significant cost ($25K-$75K+)." :
+        zoningClass === "prohibited" ? "Storage is <strong style='color:#92400E'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." :
         "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding."
       }</div>
     </div>
@@ -620,8 +620,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Timeline", site.supTimeline || "<em style='color:#F59E0B'>Typically 2-6 months</em>") : "",
       site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Est. Cost", site.supCost || "<em style='color:#F59E0B'>$15K-$50K typical</em>") : "",
       site.zoningClass === "conditional" || hasSUP ? row("Political Risk", site.politicalRisk || "<em style='color:#94A3B8'>Check recent applications</em>") : "",
-      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Timeline", site.rezoneTimeline || "<em style='color:#EF4444'>4-12 months typical</em>") : "",
-      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Est. Cost", site.rezoneCost || "<em style='color:#EF4444'>$25K-$75K+ typical</em>") : "",
+      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Timeline", site.rezoneTimeline || "<em style='color:#92400E'>4-12 months typical</em>") : "",
+      site.zoningClass === "rezone-required" || hasRezone ? row("Rezone Est. Cost", site.rezoneCost || "<em style='color:#92400E'>$25K-$75K+ typical</em>") : "",
       row("Planning Contact", site.planningContact || "<em style='color:#94A3B8'>Research needed</em>"),
       row("Planning Phone", site.planningPhone || "<em style='color:#94A3B8'>—</em>"),
       row("Planning Email", site.planningEmail || "<em style='color:#94A3B8'>—</em>"),
@@ -775,7 +775,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- Utility cards grid -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
       ${[
-        { label: "Water Service", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#EF4444" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
+        { label: "Water Service", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#F59E0B" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
         { label: "Sanitary Sewer", available: !!site.sewerProvider || site.sewerAvailable === true || /sewer|sanitary/i.test(combined) || hasSeptic, issue: site.sewerAvailable === false && !hasSeptic ? "Not available" : null, color: site.sewerAvailable === true ? "#16A34A" : !!site.sewerProvider ? "#16A34A" : /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#16A34A" : site.sewerAvailable === false ? "#F59E0B" : "#94A3B8", detail: site.sewerProvider || (hasSeptic ? "Septic — viable for storage" : null) },
         { label: "Electric Service", available: !!site.electricProvider || site.threePhase === true || /electric|power/i.test(combined), issue: site.threePhase === false ? "No 3-phase" : null, color: site.threePhase === true ? "#16A34A" : !!site.electricProvider ? "#16A34A" : /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.electricProvider ? (site.electricProvider + (site.threePhase === true ? " — 3-Phase" : "")) : null },
         { label: "Natural Gas", available: !!site.gasProvider || /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: !!site.gasProvider ? "#16A34A" : /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.gasProvider || null },
@@ -784,25 +784,25 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 
     <!-- Water & Sewer Infrastructure table -->
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("Water Provider", site.waterProvider || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Inside Service Boundary", site.insideServiceBoundary === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.insideServiceBoundary === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Distance to Water Main", site.distToWaterMain || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Water Main Size", site.waterMainSize || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Fire Flow Adequate", site.fireFlowAdequate === true ? '<span style="color:#16A34A;font-weight:700">YES — 1,500+ GPM confirmed</span>' : site.fireFlowAdequate === false ? '<span style="color:#EF4444;font-weight:700">NO — upgrade needed</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Sewer Provider", site.sewerProvider || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false && hasSeptic ? '<span style="color:#16A34A;font-weight:700">Septic — viable for storage</span>' : site.sewerAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — septic may work</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Upgrade needed ($15K-$40K)</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Water Provider", site.waterProvider || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — Extension Required</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Inside Service Boundary", site.insideServiceBoundary === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.insideServiceBoundary === false ? '<span style="color:#F59E0B;font-weight:700">NO</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Distance to Water Main", site.distToWaterMain || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Water Main Size", site.waterMainSize || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Fire Flow Adequate", site.fireFlowAdequate === true ? '<span style="color:#16A34A;font-weight:700">YES — 1,500+ GPM confirmed</span>' : site.fireFlowAdequate === false ? '<span style="color:#F59E0B;font-weight:700">NO — upgrade needed</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Sewer Provider", site.sewerProvider || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false && hasSeptic ? '<span style="color:#16A34A;font-weight:700">Septic — viable for storage</span>' : site.sewerAvailable === false ? '<span style="color:#F59E0B;font-weight:700">NO — septic may work</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Upgrade needed ($15K-$40K)</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Capacity / Moratorium", site.utilityCapacity || '<span style="color:#16A34A;font-weight:700">No moratorium identified</span>'),
     ].join("")}</table>
 
     <!-- Fee table -->
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-top:14px">${[
-      row("Water Tap Fee", site.waterTapFee || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Sewer Tap Fee", site.sewerTapFee || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Impact Fees", site.impactFees || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Line Extension Est.", site.lineExtensionCost || (site.distToWaterMain ? '<span style="color:#F59E0B;font-weight:600">Est. $50-$150/LF based on distance</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
-      row("Total Utility Budget", site.totalUtilityBudget || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Water Tap Fee", site.waterTapFee || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Sewer Tap Fee", site.sewerTapFee || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Impact Fees", site.impactFees || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Line Extension Est.", site.lineExtensionCost || (site.distToWaterMain ? '<span style="color:#F59E0B;font-weight:600">Est. $50-$150/LF based on distance</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>')),
+      row("Total Utility Budget", site.totalUtilityBudget || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
     ].join("")}</table>
 
     ${site.utilityNotes ? `<div style="margin-top:14px;padding:16px 20px;border-radius:12px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${h(site.utilityNotes).replace(/\n/g, '<br/>')}</div>` : ""}
@@ -818,20 +818,20 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- 4. TOPOGRAPHY & FLOOD -->
     <!-- ═══════════════════════════════════════════════ -->
     ${section("4", "Topography & Flood Assessment")}
-    <div class="hover-card" style="padding:14px 18px;border-radius:12px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="hover-card" style="padding:14px 18px;border-radius:12px;background:${hasFlood ? "#FFFBEB" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FDE68A" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified" : "No flood zone issues identified"}</span>
-      ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
+      ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#F59E0B" : "#16A34A")}
     </div>
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern — verify FEMA panel</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
-      row("FIRM Panel #", site.firmPanel || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Terrain", site.terrain || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Grade Change", site.gradeChange || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Drainage Direction", site.drainageDirection || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Grading Risk", site.gradingRisk || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Est. Grading Cost", site.gradingCost || (site.gradingRisk === "High" ? '<span style="color:#EF4444;font-weight:700">$150K-$400K+</span>' : site.gradingRisk === "Medium" ? '<span style="color:#F59E0B">$50K-$150K</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
-      row("Wetlands (NWI)", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present</span>' : site.wetlands === false ? '<span style="color:#16A34A;font-weight:700">None per NWI</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Soil Type", site.soilType || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern — verify FEMA panel</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>')),
+      row("FIRM Panel #", site.firmPanel || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Terrain", site.terrain || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Grade Change", site.gradeChange || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Drainage Direction", site.drainageDirection || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Grading Risk", site.gradingRisk || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Est. Grading Cost", site.gradingCost || (site.gradingRisk === "High" ? '<span style="color:#92400E;font-weight:700">$150K-$400K+</span>' : site.gradingRisk === "Medium" ? '<span style="color:#F59E0B">$50K-$150K</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>')),
+      row("Wetlands (NWI)", site.wetlands === true ? '<span style="color:#F59E0B;font-weight:700">Present</span>' : site.wetlands === false ? '<span style="color:#16A34A;font-weight:700">None per NWI</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Soil Type", site.soilType || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Issues noted — see summary" : "None identified"),
     ].join("")}</table>
     ${site.topoNotes ? `<div style="margin-top:14px;padding:16px 20px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${h(site.topoNotes).replace(/\n/g, '<br/>')}</div>` : ""}
@@ -847,17 +847,17 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- ═══════════════════════════════════════════════ -->
     ${section("5", "Site Access & Infrastructure")}
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("Road Frontage", site.roadFrontage || (/frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? '<span style="color:#16A34A;font-weight:600">Frontage noted — see summary</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
-      row("Frontage Road Name", site.frontageRoadName || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Road Type", site.roadType || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Traffic Data (VPD)", site.trafficData || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Median / Turn Restrictions", site.medianType || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Nearest Signal", site.nearestSignal || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Curb Cuts", site.curbCuts || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Driveway Grade", site.drivewayGrade || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Visibility", site.visibility || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Decel / Turn Lane", site.decelLane || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Landlocked Risk", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN</span>' : '<span style="color:#16A34A;font-weight:700">No concerns</span>'),
+      row("Road Frontage", site.roadFrontage || (/frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? '<span style="color:#16A34A;font-weight:600">Frontage noted — see summary</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>')),
+      row("Frontage Road Name", site.frontageRoadName || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Road Type", site.roadType || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Traffic Data (VPD)", site.trafficData || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Median / Turn Restrictions", site.medianType || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Nearest Signal", site.nearestSignal || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Curb Cuts", site.curbCuts || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Driveway Grade", site.drivewayGrade || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Visibility", site.visibility || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Decel / Turn Lane", site.decelLane || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Landlocked Risk", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#F59E0B;font-weight:700">ACCESS CONCERN</span>' : '<span style="color:#16A34A;font-weight:700">No concerns</span>'),
     ].join("")}</table>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -899,14 +899,14 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     </div>` : ""}
 
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("Population (3-mi)", popN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(popN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Population (3-mi)", popN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(popN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Population (1-mi)", pop1 > 0 ? fmtN(pop1) : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
-      row("Median HHI", incN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(incN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Households (3-mi)", hhN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(hhN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Median Home Value", hvN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(hvN) + '</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("5-Yr Pop Growth", growthPct !== null ? '<span style="color:#16A34A;font-weight:700">' + (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR</span>" : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Median HHI", incN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(incN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Households (3-mi)", hhN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(hhN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Median Home Value", hvN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(hvN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("5-Yr Pop Growth", growthPct !== null ? '<span style="color:#16A34A;font-weight:700">' + (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR</span>" : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Renter %", site.renterPct3mi ? String(site.renterPct3mi).replace(/%/g, "") + "%" : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
-      row("Demand Drivers", site.demandDrivers || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Demand Drivers", site.demandDrivers || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
     ].join("")}</table>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -951,7 +951,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       const sfc1_now = sfc(sf1mi, pop1v); const sfc3_now = sfc(sf3mi, pop3v) || (sfCapita ? sfCapita.toFixed(1) : null); const sfc5_now = sfc(sf5mi, pop5v);
       // 5-year projected SF/capita (constant supply, growing population)
       const sfc1_y5 = sfc(sf1mi, projPop(pop1v, 5)); const sfc3_y5 = sfc(sf3mi, projPop(pop3v, 5)); const sfc5_y5 = sfc(sf5mi, projPop(pop5v, 5));
-      const sfColor = (v) => { if (!v) return "#94A3B8"; const n = parseFloat(v); return n < 5 ? "#16A34A" : n <= 9 ? "#3B82F6" : "#EF4444"; };
+      const sfColor = (v) => { if (!v) return "#94A3B8"; const n = parseFloat(v); return n < 5 ? "#16A34A" : n <= 9 ? "#3B82F6" : "#F59E0B"; };
       const sfLabel2 = (v) => { if (!v) return "—"; const n = parseFloat(v); return n < 5 ? "Underserved" : n <= 7 ? "Moderate" : n <= 9 ? "Equilibrium" : n <= 12 ? "Well-supplied" : "Oversupplied"; };
       const barPct = (v) => v ? Math.min(100, Math.max(0, (parseFloat(v) / 15) * 100)) : 0;
       const yr = new Date().getFullYear();
@@ -990,7 +990,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
               const fw = r.primary ? 800 : 600;
               const fs = r.primary ? "15px" : "13px";
               const delta = (r.sfNow && r.sf5yr) ? (parseFloat(r.sf5yr) - parseFloat(r.sfNow)).toFixed(1) : null;
-              const deltaColor = delta ? (parseFloat(delta) < 0 ? "#16A34A" : "#EF4444") : "#94A3B8";
+              const deltaColor = delta ? (parseFloat(delta) < 0 ? "#16A34A" : "#F59E0B") : "#94A3B8";
               return `<tr style="background:${bg}${r.primary ? ";border-top:2px solid #1E276115;border-bottom:2px solid #1E276115" : ""}">
                 <td style="padding:${r.primary ? "14px" : "10px"} 14px;font-size:${r.primary ? "12px" : "11px"};font-weight:${r.primary ? 800 : 700};color:#1E2761;border-bottom:1px solid #F1F5F9">${r.label}${r.est ? ' <span style="font-size:8px;color:#94A3B8;font-weight:500">(est.)</span>' : ""}</td>
                 <td style="padding:10px 14px;font-size:${r.primary ? "13px" : "12px"};font-weight:${fw};color:#1E293B;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace">${r.pop ? r.pop.toLocaleString() : "—"}</td>
@@ -1013,8 +1013,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
             { label: "Underserved", range: "< 5.0", color: "#16A34A", bg: "#F0FDF4", desc: "Strong buy signal" },
             { label: "Moderate", range: "5.0 – 7.0", color: "#22C55E", bg: "#F0FDF4", desc: "Favorable demand" },
             { label: "Equilibrium", range: "7.0 – 9.0", color: "#F59E0B", bg: "#FFFBEB", desc: "Balanced market" },
-            { label: "Well-Supplied", range: "9.0 – 12.0", color: "#EF4444", bg: "#FEF2F2", desc: "Competitive" },
-            { label: "Oversupplied", range: "> 12.0", color: "#991B1B", bg: "#FEF2F2", desc: "Saturation risk" },
+            { label: "Well-Supplied", range: "9.0 – 12.0", color: "#92400E", bg: "#FFFBEB", desc: "Competitive" },
+            { label: "Oversupplied", range: "> 12.0", color: "#78350F", bg: "#FEF3C7", desc: "Saturation risk" },
           ].map((b, i) => `<div style="padding:12px 8px;text-align:center;background:${sfCapita !== null && ((b.label === "Underserved" && sfCapita < 5) || (b.label === "Moderate" && sfCapita >= 5 && sfCapita < 7) || (b.label === "Equilibrium" && sfCapita >= 7 && sfCapita <= 9) || (b.label === "Well-Supplied" && sfCapita > 9 && sfCapita <= 12) || (b.label === "Oversupplied" && sfCapita > 12)) ? b.bg : "#fff"};border-right:${i < 4 ? "1px solid #E2E8F0" : "none"}">
             <div style="font-size:8px;font-weight:800;color:${b.color};text-transform:uppercase;letter-spacing:0.06em">${b.label}</div>
             <div style="font-size:14px;font-weight:900;color:${b.color};font-family:'Space Mono',monospace;margin:4px 0">${b.range}</div>
@@ -1052,10 +1052,10 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
 
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Competitor Count", compLabel, { badge: true, badgeBg: compColor + "18", badgeColor: compColor }),
-      row("Known Operators", site.competitorNames || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Nearest Competitor", site.nearestCompetitor || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Est. Competing SF", site.competingSF || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
-      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand signal</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#EF4444;font-weight:700">Saturated — verify occupancy</span>' : '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>')),
+      row("Known Operators", site.competitorNames || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Nearest Competitor", site.nearestCompetitor || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Est. Competing SF", site.competingSF || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand signal</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#F59E0B;font-weight:700">Saturated — verify occupancy</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>')),
     ].join("")}</table>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -1072,7 +1072,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
       row("Contact", site.sellerBroker || "Not listed"),
       row("Days on Market", dom !== null ? dom + " days" : "Unknown"),
-      row("Listing Source", site.listingSource || '<span style="color:#DC2626;font-weight:600;font-size:10px;background:#FEF2F2;padding:2px 8px;border-radius:4px">Need Further Research</span>'),
+      row("Listing Source", site.listingSource || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Broker Notes", site.brokerNotes || '<span style="color:#94A3B8;font-weight:600;font-size:10px">No broker intel received</span>'),
     ].join("")}</table>
 
@@ -1094,7 +1094,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     ${section("11", "Red Flags & Action Items")}
     ${flags.length === 0
       ? `<div style="padding:16px 20px;border-radius:12px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
-      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:10px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px;flex-shrink:0">&#9888;</span> ${f}</div>`).join("")}</div>`
+      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:10px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;font-weight:600;color:#92400E;display:flex;align-items:center;gap:8px"><span style="font-size:14px;flex-shrink:0">&#9888;</span> ${f}</div>`).join("")}</div>`
     }
 
     <!-- 12. SUMMARY -->

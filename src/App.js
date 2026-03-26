@@ -39,6 +39,18 @@ import { useFirebaseData } from './hooks/useFirebaseData';
 import { useNavigation } from './hooks/useNavigation';
 import './App.css';
 
+// ─── Display name fallback: derive from Firebase key when name/address missing ───
+const siteDisplayName = (site) => {
+  if (site.name) return fixEncoding(site.name);
+  if (site.address) return fixEncoding(`${site.city || ""} ${site.state || ""} — ${site.address}`.trim().replace(/^[\s—]+/, ""));
+  // Derive from Firebase key: "mckinney-tx-n-mcdonald-st" → "Mckinney TX — N Mcdonald St"
+  const key = site.id || "";
+  if (/^[-\w]+$/.test(key) && key.length > 4 && !/^[0-9]+$/.test(key) && !key.startsWith("-O") && !key.startsWith("mmpi")) {
+    return key.split(/[-_]/).map((w, i) => w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(" ").replace(/(\w{2}) /, "$1 — ");
+  }
+  return `Site ${key}`;
+};
+
 // ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
 let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
 
@@ -1207,7 +1219,7 @@ function AppInner() {
                   <IntelCardHeader site={site} onClick={() => { if (hoveredBrief === site.id) return; goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{fixEncoding(site.name)}</span>
+                        <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{siteDisplayName(site)}</span>
                         {/* Call Briefing toggle — click only, no hover-to-open */}
                         <span
                           onClick={(e) => {
@@ -1244,7 +1256,7 @@ function AppInner() {
                         </select>
                         {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "1px 6px", borderRadius: 4, border: "1px solid #C9A84C", letterSpacing: "0.04em" }}>NEEDS REVIEW</span>}
                       </div>
-                      <div style={{ fontSize: 12, color: "#6B7394" }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
+                      <div style={{ fontSize: 12, color: "#6B7394" }}>{site.address || site.city || site.state ? `${site.address || ""}${site.city ? `, ${site.city}` : ""}${site.state ? `, ${site.state}` : ""}` : <span style={{ color: "#475569", fontStyle: "italic" }}>No address on file</span>}</div>
                       <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#6B7394", flexWrap: "wrap" }}>
                         {site.askingPrice && <span>Ask: <strong style={{ color: "#E2E8F0" }}>{site.askingPrice}</strong></span>}
                         {site.internalPrice && <span>Int: <strong style={{ color: "#E87A2E" }}>{site.internalPrice}</strong></span>}
@@ -2540,7 +2552,7 @@ function AppInner() {
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
                               <div style={{ flex: 1, minWidth: 250 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                                  <span style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0" }}>{fixEncoding(site.name)}</span>
+                                  <span style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0" }}>{siteDisplayName(site)}</span>
                                   <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
                                   <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
                                 </div>
@@ -2629,7 +2641,7 @@ function AppInner() {
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}
                       >
-                        <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{fixEncoding(site.name)}</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{siteDisplayName(site)}</span>
                         <SiteScoreBadge site={site} size="small" />
                         <Badge status={site.status} />
                         {site.status === "ps-rejected" && <span style={{ fontSize: 10, fontWeight: 800, color: "#DC2626", background: "rgba(220,38,38,0.12)", padding: "2px 10px", borderRadius: 5, border: "1px solid rgba(220,38,38,0.25)", textTransform: "uppercase", letterSpacing: "0.06em" }}>PS Rejected — {site.psRejectedBy || "PS"}</span>}
@@ -2690,7 +2702,7 @@ function AppInner() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-                      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{fixEncoding(site.name)}</h2>
+                      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{siteDisplayName(site)}</h2>
                       <Badge status={site.status} />
                       {!site.recommendedAt && site.status === "pending" && <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "3px 10px", borderRadius: 5, letterSpacing: "0.1em" }}>NEW</span>}
                     </div>
@@ -3091,7 +3103,7 @@ function AppInner() {
                 <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent)" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 6 }}>{fixEncoding(site.name)}</div>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 6 }}>{siteDisplayName(site)}</div>
                     <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 12 }}>{site.address}, {site.city}, {site.state}</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,.2)" }}>{site.market}</span>}
