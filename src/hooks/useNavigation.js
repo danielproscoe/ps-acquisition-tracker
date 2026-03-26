@@ -17,12 +17,17 @@ export function useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert
     }
   }, []);
 
+  // ─── Deep-link: ?site=SITE_ID opens directly to property detail ───
+  // Handled by useDeepLink hook in App.js (needs access to site data)
+  // This hook just preserves the URL param on initial load
   useEffect(() => {
-    // Set initial history state
+    // Set initial history state — preserve ?site= param if present
+    const params = new URLSearchParams(window.location.search);
+    const siteParam = params.get("site");
     window.history.replaceState(
       { tab: "dashboard", detailView: null, reviewDetailSite: null },
       "",
-      window.location.pathname
+      siteParam ? window.location.pathname + window.location.search : window.location.pathname
     );
     const onPopState = (e) => {
       const st = e.state;
@@ -55,7 +60,9 @@ export function useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert
     if (newTab === tab && !opts.force) {
       if (detailView) {
         setDetailView(null);
-        pushNav({ tab, detailView: null, reviewDetailSite: null });
+        const cleanUrl = new URL(window.location);
+        cleanUrl.searchParams.delete("site");
+        window.history.pushState({ tab, detailView: null, reviewDetailSite: null }, "", cleanUrl.toString());
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
@@ -91,8 +98,12 @@ export function useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert
 
   const goToDetail = useCallback((dv) => {
     setDetailView(dv);
-    if (dv) pushNav({ tab, detailView: dv, reviewDetailSite: null });
-  }, [tab, pushNav]);
+    if (dv) {
+      const url = new URL(window.location);
+      url.searchParams.set("site", dv.siteId);
+      window.history.pushState({ tab, detailView: dv, reviewDetailSite: null }, "", url.toString());
+    }
+  }, [tab]);
 
   return {
     tab, setTab,

@@ -134,6 +134,34 @@ function AppInner() {
     navigateTo,
     goToDetail,
   } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
+
+  // ─── Deep-link: ?site=SITE_ID opens directly to property detail ───
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (!loaded || deepLinkHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const siteParam = params.get("site");
+    if (!siteParam) return;
+    deepLinkHandled.current = true;
+    const regions = [
+      { key: "southwest", data: sw },
+      { key: "east", data: east },
+    ];
+    for (const r of regions) {
+      const found = r.data.find(s => s.id === siteParam);
+      if (found) {
+        setTab(r.key);
+        setDetailView({ regionKey: r.key, siteId: found.id });
+        return;
+      }
+    }
+    const subMatch = subs.find(s => s.id === siteParam);
+    if (subMatch) {
+      setTab("review");
+      setReviewDetailSite(subMatch.id);
+    }
+  }, [loaded, sw, east, subs, setTab, setDetailView, setReviewDetailSite]);
+
   const [newSiteCount, setNewSiteCount] = useState(0);
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
