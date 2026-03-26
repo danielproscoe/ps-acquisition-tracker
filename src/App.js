@@ -150,7 +150,7 @@ function AppInner() {
   const [filterState, setFilterState] = useState("all");
   const [highlightedSite, setHighlightedSite] = useState(null);
   // reviewExpandedSite removed — replaced by reviewDetailSite (full-page detail)
-  const [reviewTab, setReviewTab] = useState("mine");
+  const [reviewTab, setReviewTab] = useState("dw");
   const [shareLink, setShareLink] = useState(null);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
@@ -2520,9 +2520,9 @@ function AppInner() {
               const dwCount = subs.filter(s => s.status === "recommended" && (s.routedTo === "southwest" || s.region === "southwest")).length;
               const mtCount = subs.filter(s => s.status === "recommended" && (s.routedTo === "east" || s.region === "east")).length;
               const reviewTabs = [
-                { key: "mine", label: "Dan R.", count: myCount, color: "#C9A84C", icon: "📋" },
                 { key: "dw", label: "Daniel Wollent", count: dwCount, color: "#42A5F5", icon: "◆" },
                 { key: "mt", label: "Matthew Toussaint", count: mtCount, color: "#4CAF50", icon: "●" },
+                { key: "mine", label: "Dan R.", count: myCount, color: "#C9A84C", icon: "📋" },
               ];
               return (
                 <div style={{ marginBottom: 16 }}>
