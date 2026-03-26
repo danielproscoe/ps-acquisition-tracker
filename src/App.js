@@ -2861,11 +2861,41 @@ function AppInner() {
                 </div>
               )}
 
-              {/* Links */}
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: site.listingUrl ? 20 : 8, alignItems: "center" }}>
-                {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)" }}>🗺 Google Maps</a>}
-                {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a>}
-                <button onClick={() => { try { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); } }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 Storvex Deep Vet Report</button>
+              {/* ═══ QUICK ACCESS — Same as Tracker Detail ═══ */}
+              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 16, padding: "16px 16px 12px", marginBottom: 20, border: "1px solid rgba(201,168,76,0.1)" }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.12em", marginBottom: 10, paddingLeft: 2 }}>QUICK ACCESS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
+                {site.coordinates && (
+                  <button onClick={() => { window.open(`https://www.google.com/maps?q=${site.coordinates}`, "_blank"); }} style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(21,101,192,0.35)", letterSpacing: "0.04em", cursor: "pointer" }}>
+                    <span style={{ fontSize: 18 }}>🗺</span> Interactive Map
+                  </button>
+                )}
+                {site.coordinates && (
+                  <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #388E3C)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(46,125,50,0.35)", letterSpacing: "0.04em" }}>
+                    <span style={{ fontSize: 18 }}>🌍</span> Google Earth
+                  </a>
+                )}
+                {site.listingUrl && (
+                  <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #F59E0B)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(232,122,46,0.35)", letterSpacing: "0.04em" }}>
+                    <span style={{ fontSize: 18 }}>🔗</span> Property Listing
+                  </a>
+                )}
+                </div>
+                {/* Row 2 — Reports */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  <button onClick={() => {
+                    try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #0D47A1, #1565C0)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📊 Demos</button>
+                  <button onClick={() => {
+                    try { const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(232,122,46,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>🔬 Vet Report</button>
+                  <button onClick={() => {
+                    try { const iqPR = computeSiteScore(site); const rpt = generatePricingReport(site, iqPR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>💰 Pricing</button>
+                  <button onClick={() => {
+                    try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
+                </div>
               </div>
               {!site.listingUrl && (
                 <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 12, padding: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
