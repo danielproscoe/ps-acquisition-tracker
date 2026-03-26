@@ -4584,7 +4584,7 @@ function toggleMI(id,evt){
         <div class="mi-body">
           <strong>Weighted assessment of 10 utility readiness criteria. Municipal water is a HARD REQUIREMENT for fire suppression — self-storage facilities require 1,500+ GPM at 20 PSI residual.</strong>
           <div class="mi-formula">Utility Score = Σ (Criteria × Weight)<br>= ${utilScore}/100 → Grade ${utilGrade}</div>
-          ${utilChecks.map(c => `<div class="mi-row"><span class="mi-row-label">${c.done ? "✓" : "○"} ${c.l}</span><span class="mi-row-val">${c.w} pts ${c.done ? "(earned)" : "(missing)"}</span></div>`).join("")}
+          ${utilChecks.map(c => `<div class="mi-row"><span class="mi-row-label">${c.done ? "✓" : "○"} ${c.label || c.l || "—"}</span><span class="mi-row-val">${c.weight || c.w || 0} pts ${c.done ? "(earned)" : "(missing)"}</span></div>`).join("")}
           <div class="mi-row" style="border-top:1px solid #E2E8F0;padding-top:6px;margin-top:4px"><span class="mi-row-label">A ≥80</span><span class="mi-row-val">Development-ready — proceed</span></div>
           <div class="mi-row"><span class="mi-row-label">B (60-79)</span><span class="mi-row-val">Viable — verify remaining items</span></div>
           <div class="mi-row"><span class="mi-row-label">C (40-59)</span><span class="mi-row-val">Gaps exist — budget for extensions</span></div>
@@ -4598,7 +4598,7 @@ function toggleMI(id,evt){
         <div style="width:${utilScore}%;height:100%;border-radius:6px;background:linear-gradient(90deg,${utilColor},${utilColor}CC);transition:width 0.5s"></div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${utilChecks.map(c => `<span class="pill" style="background:${c.done ? '#16A34A' : '#94A3B8'}15;color:${c.done ? '#16A34A' : '#94A3B8'}">${c.done ? '✓' : '○'} ${c.l}</span>`).join("")}
+        ${utilChecks.map(c => `<span class="pill" style="background:${c.done ? '#16A34A' : '#94A3B8'}15;color:${c.done ? '#16A34A' : '#94A3B8'}">${c.done ? '✓' : '○'} ${c.label || c.l || "—"}</span>`).join("")}
       </div>
     </div>
   </div>
