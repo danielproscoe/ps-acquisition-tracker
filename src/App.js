@@ -53,6 +53,66 @@ const siteDisplayName = (site) => {
   return `Site ${key}`;
 };
 
+// ─── Email Recommendation Generator ───
+const REC_RECIPIENTS = { east: "Matt Toussaint", southwest: "Daniel Wollent", queue: "PS Team" };
+
+const generateRecEmail = (site, regionKey) => {
+  const recipient = REC_RECIPIENTS[regionKey] || "PS Team";
+  const iq = site.siteiqData || {};
+  const ccSPC = iq.ccSPC ? parseFloat(iq.ccSPC).toFixed(2) : "N/A";
+  const projCCSPC = iq.projectedCCSPC ? parseFloat(iq.projectedCCSPC).toFixed(2) : "N/A";
+  const zClass = site.zoningClassification || "TBD";
+  const coords = site.coordinates || "";
+  const pinDrop = coords ? `https://www.google.com/maps?q=${coords}` : "";
+  const dashLink = `https://storvex.vercel.app/?site=${site.id}`;
+  const listingLink = site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : "";
+  const subject = `Site Recommendation \u2014 ${site.city || ""} ${site.state || ""}, ${fixEncoding(site.name || site.address || site.id)} | CC SPC ${ccSPC}, ${zClass === "by-right" ? "By-Right" : zClass}`;
+
+  const body = `Hi ${recipient} and PS Team,
+
+Here\u2019s the full write-up on the ${site.city || ""} ${site.state || ""} site.
+
+Dashboard: ${dashLink}
+${pinDrop ? `Pin Drop: ${pinDrop}` : ""}
+${listingLink ? `Listing: ${listingLink}` : ""}
+
+THE SITE
+${site.acreage || "N/A"} acres \u2014 ${fixEncoding(site.address || "")}, ${site.city || ""}, ${site.state || ""}
+Asking: ${site.askingPrice || "TBD"}
+Broker: ${fixEncoding(site.sellerBroker || "N/A")}
+Zoning: ${fixEncoding(site.zoning || "TBD")} \u2014 ${zClass}
+
+COMPETITION \u2014 CC SPC
+CC SPC (Current): ${ccSPC} SF/capita
+CC SPC (Projected 5-Yr): ${projCCSPC} SF/capita
+CC Competitors (3-mi): ${iq.competitorCount ?? "N/A"}
+${site.competingCCSF ? `CC SF (3-mi): ${site.competingCCSF}` : ""}
+
+DEMOGRAPHICS (ESRI 2025)
+Population (3-mi): ${site.pop3mi || "N/A"}
+Median HHI (3-mi): ${site.income3mi || "N/A"}
+Households (3-mi): ${site.households3mi || "N/A"}
+Home Value (3-mi): ${site.homeValue3mi || "N/A"}
+Growth: ${site.popGrowth3mi ? `+${site.popGrowth3mi}%/yr` : "N/A"}
+
+PS PROXIMITY
+Nearest PS: ${iq.nearestPS ? `${iq.nearestPS} mi` : "N/A"}
+
+UTILITIES
+${fixEncoding(site.utilityNotes || `Water: ${site.waterProvider || "TBD"}. Sewer: ${site.sewerProvider || "TBD"}. Electric: ${site.electricProvider || "TBD"}.`)}
+
+LATEST UPDATE
+${fixEncoding(site.latestNote || "No recent updates.")} (${site.latestNoteDate || ""})
+
+Vetting report and full analysis on the dashboard. All attachments included.
+
+Best,
+Dan Roscoe
+DJR / Dan Roscoe Real Estate`;
+
+  return { subject, body, recipient };
+};
+
 // ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
 let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
 
@@ -1690,6 +1750,18 @@ function AppInner() {
                           <button onClick={() => {
                             try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📋 REC Package</button>
+                          <button onClick={() => {
+                            try {
+                              const { subject, body } = generateRecEmail(site, regionKey);
+                              const encodedSubject = encodeURIComponent(subject);
+                              navigator.clipboard.writeText(body).then(() => {
+                                notify("\u2709 Email body copied \u2014 paste into Outlook.");
+                                const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
+                                if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
+                              }).catch(() => notify("Could not copy to clipboard."));
+                              window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}`, "_blank");
+                            } catch (err) { notify("Email generation failed."); console.error(err); }
+                          }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(123,45,142,0.4), 0 0 0 1px rgba(123,45,142,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>{"\u2709"} Email Rec</button>
                         </div>
                         {/* Bottom Row — Small Icon Links */}
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -3632,8 +3704,8 @@ function AppInner() {
                   </a>
                 )}
                 </div>
-                {/* Row 2 — Reports */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {/* Row 2 — Reports + Email Rec */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
                   <button onClick={() => {
                     try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #0D47A1, #1565C0)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📊 Demos</button>
@@ -3646,6 +3718,19 @@ function AppInner() {
                   <button onClick={() => {
                     try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
+                  <button onClick={() => {
+                    try {
+                      const rk = site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue";
+                      const { subject, body } = generateRecEmail(site, rk);
+                      const encodedSubject = encodeURIComponent(subject);
+                      navigator.clipboard.writeText(body).then(() => {
+                        notify("\u2709 Email body copied to clipboard \u2014 paste into Outlook body.");
+                        const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
+                        if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
+                      }).catch(() => notify("Could not copy to clipboard."));
+                      window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}`, "_blank");
+                    } catch (err) { notify("Email generation failed."); console.error(err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{"\u2709"} Email Rec</button>
                 </div>
               </div>
               {!site.listingUrl && (
@@ -4034,8 +4119,8 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   </a>
                 )}
                 </div>
-                {/* Row 2 — Reports */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {/* Row 2 — Reports + Email Rec */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
                   <button onClick={() => {
                     try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #0D47A1, #1565C0)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📊 Demos</button>
@@ -4048,6 +4133,18 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   <button onClick={() => {
                     try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
+                  <button onClick={() => {
+                    try {
+                      const { subject, body } = generateRecEmail(site, dv.regionKey);
+                      const encodedSubject = encodeURIComponent(subject);
+                      navigator.clipboard.writeText(body).then(() => {
+                        notify("\u2709 Email body copied to clipboard \u2014 paste into Outlook body.");
+                        const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
+                        if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
+                      }).catch(() => notify("Could not copy to clipboard."));
+                      window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}`, "_blank");
+                    } catch (err) { notify("Email generation failed."); console.error(err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>{"\u2709"} Email Rec</button>
                 </div>
               </div>
 
