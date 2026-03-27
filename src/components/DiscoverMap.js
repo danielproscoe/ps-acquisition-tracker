@@ -416,6 +416,17 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
   return (
     <div style={{ display: "flex", height: "calc(100vh - 140px)", position: "relative", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ flex: 1, position: "relative" }}>
+        {/* NSA Integration Ready badge */}
+        <div style={{ position: "absolute", top: 12, right: 12, zIndex: 1000, display: "flex", gap: 8 }}>
+          <div style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.25)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: GOLD, boxShadow: `0 0 8px ${GOLD}88` }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: GOLD, letterSpacing: "0.06em" }}>{psLocations.length.toLocaleString()} PS LOCATIONS</span>
+          </div>
+          <div style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#86EFAC", letterSpacing: "0.06em" }}>NSA READY (+1,000)</span>
+          </div>
+        </div>
         <MapContainer center={USA_CENTER} zoom={4} style={{ height: "100%", width: "100%", borderRadius: 12, overflow: "hidden" }} zoomControl={false} ref={mapRef}>
           {showSatellite
             ? <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" maxZoom={19} />

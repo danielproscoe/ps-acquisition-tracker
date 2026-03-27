@@ -212,6 +212,9 @@ thead th.gold{background:rgba(201,168,76,.06);color:#C9A84C}
     </div>
   </div>
 
+  <div style="text-align:center;margin:24px 0 12px">
+    <button onclick="window.print()" style="padding:12px 32px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#E87A2E);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;letter-spacing:0.04em;box-shadow:0 4px 16px rgba(201,168,76,0.3)">Print / Save as PDF</button>
+  </div>
   <div class="footer">
     <span>STORVEX™ Demographic Intelligence — ESRI ArcGIS GeoEnrichment (Paid) — ${new Date().toLocaleDateString()}</span>
   </div>
