@@ -876,12 +876,13 @@ describe('Competition scoring via siteiqData.ccSPC (primary metric)', () => {
     expect(score({ siteiqData: { ccSPC: 4.3 } }).scores.competition).toBe(6);
   });
 
-  test('ccSPC 5.0-7.0 scores 5', () => {
-    expect(score({ siteiqData: { ccSPC: 6.0 } }).scores.competition).toBe(5);
+  test('ccSPC 5.0-7.0 scores 5 base (+1 growth forgiveness = 6 with baseSite 1.2% growth)', () => {
+    // baseSite.popGrowth3mi = 1.2% → growthScore 8 → forgiveness +1 on comp scores 2-5
+    expect(score({ siteiqData: { ccSPC: 6.0 } }).scores.competition).toBe(6); // base 5 + 1 forgiveness
   });
 
-  test('ccSPC 7.0-10.0 scores 4', () => {
-    expect(score({ siteiqData: { ccSPC: 8.5 } }).scores.competition).toBe(4);
+  test('ccSPC 7.0-10.0 scores 4 base (+1 growth forgiveness = 5 with baseSite 1.2% growth)', () => {
+    expect(score({ siteiqData: { ccSPC: 8.5 } }).scores.competition).toBe(5); // base 4 + 1 forgiveness
   });
 
   test('ccSPC takes priority over competitorCount', () => {
