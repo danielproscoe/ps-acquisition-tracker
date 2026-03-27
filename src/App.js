@@ -3435,6 +3435,25 @@ function AppInner() {
                       {/* NEW badge for unreviewed sites */}
                       {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
                       {site.status === "recommended" && <div style={{ marginTop: 4 }}><div style={{ fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>{site.recommendedComment && <div style={{ fontSize: 10, fontStyle: "italic", color: "#D6E4F7", marginTop: 2 }}>Note: {site.recommendedComment}</div>}</div>}
+                      {/* ═══ QUICK ACTION BUTTONS — Dan approve/reject on "mine" tab, DW/MT approve on their tabs ═══ */}
+                      {reviewTab === "mine" && (site.status === "pending" || site.status === "ps-rejected") && (
+                        <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <select value={ri.routeTo || site.region || ""} onChange={(e) => { e.stopPropagation(); setRI("routeTo", e.target.value); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", fontSize: 11, fontWeight: 600 }}>
+                            <option value="">Route to...</option>
+                            <option value="southwest">DW (Southwest)</option>
+                            <option value="east">MT (East)</option>
+                          </select>
+                          <button onClick={(e) => { e.stopPropagation(); if (!ri.routeTo && !site.region) { notify("Select DW or MT first"); return; } handleRecommend(site.id); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"; card.style.borderLeftColor = "#22C55E"; setTimeout(() => { card.style.boxShadow = ""; }, 1500); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>⚡ Approve & Route</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDecline(site.id, "Declined from queue"); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ Reject</button>
+                        </div>
+                      )}
+                      {/* DW/MT tabs — PS approve or reject buttons */}
+                      {(reviewTab === "dw" || reviewTab === "mt") && site.status === "recommended" && (
+                        <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <button onClick={(e) => { e.stopPropagation(); handlePSApprove(site.id); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"; card.style.borderLeftColor = "#22C55E"; setTimeout(() => { card.style.boxShadow = ""; }, 1500); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>⚡ PS Approve</button>
+                          <button onClick={(e) => { e.stopPropagation(); handlePSReject(site.id); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ PS Reject</button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
