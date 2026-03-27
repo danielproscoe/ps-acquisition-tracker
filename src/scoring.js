@@ -429,8 +429,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     siteOverrides[key] !== undefined ? siteOverrides[key] :
     overrides[key] !== undefined ? overrides[key] :
     fallback;
-  const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s.replace(/[^0-9.]/g, "")); };
-  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+  const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; const k = s.match(/([\d.]+)\s*[Kk]/); if (k) return parseFloat(k[1]) * 1000; const tokens = s.replace(/[^0-9.]/g, " ").trim().split(/\s+/); return tokens[0] ? parseFloat(tokens[0]) : NaN; };
+  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0] || "0");
   const askRaw = parseP(site.askingPrice);
   const intRaw = parseP(site.internalPrice);
   const landCost = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) ? askRaw : 0);
