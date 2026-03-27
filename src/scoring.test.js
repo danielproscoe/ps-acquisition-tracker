@@ -876,12 +876,12 @@ describe('Competition scoring via siteiqData.ccSPC (primary metric)', () => {
     expect(score({ siteiqData: { ccSPC: 4.3 } }).scores.competition).toBe(6);
   });
 
-  test('ccSPC 5.0-7.0 scores 4', () => {
-    expect(score({ siteiqData: { ccSPC: 6.0 } }).scores.competition).toBe(4);
+  test('ccSPC 5.0-7.0 scores 5', () => {
+    expect(score({ siteiqData: { ccSPC: 6.0 } }).scores.competition).toBe(5);
   });
 
-  test('ccSPC > 7.0 scores 2', () => {
-    expect(score({ siteiqData: { ccSPC: 8.5 } }).scores.competition).toBe(2);
+  test('ccSPC 7.0-10.0 scores 4', () => {
+    expect(score({ siteiqData: { ccSPC: 8.5 } }).scores.competition).toBe(4);
   });
 
   test('ccSPC takes priority over competitorCount', () => {
