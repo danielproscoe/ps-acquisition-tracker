@@ -2540,7 +2540,6 @@ function AppInner() {
           const all = [...sw, ...east];
           const now = Date.now();
           const DAY = 86400000;
-          const WEEK = 7 * DAY;
           const MONTH = 30 * DAY;
           const QUARTER = 90 * DAY;
 
@@ -2550,8 +2549,6 @@ function AppInner() {
           const activeSites = all.filter(s => activePhases.includes(s.phase));
           const ucSites = all.filter(s => s.phase === "Under Contract");
           const loiSites = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase));
-          const closedSites = all.filter(s => s.phase === "Closed");
-          const submittedSites = all.filter(s => ["Submitted to PS", "SiteScore Approved", "LOI", "LOI Sent", "LOI Signed", "PSA Sent", "Under Contract", "Closed"].includes(s.phase));
           const addedThisMonth = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < MONTH).length;
 
           // --- Price parsing ---
@@ -2573,10 +2570,6 @@ function AppInner() {
             const created = s.approvedAt || s.submittedAt;
             return created && (now - new Date(created).getTime()) < QUARTER;
           }).length;
-
-          // --- Consulting cost avoidance ---
-          const reportsGenerated = all.filter(s => s.summary && s.summary.length > 50).length;
-          const consultingAvoided = reportsGenerated * 18000; // $18K avg consulting vet per site
 
           // --- Phase velocity (avg days between phases for sites that advanced) ---
           const velocityData = [];
@@ -2604,64 +2597,108 @@ function AppInner() {
           return (
             <div style={{ animation: "fadeIn 0.3s ease-out" }}>
               {/* Executive Header */}
-              <div style={{ textAlign: "center", marginBottom: 28, padding: "24px 0" }}>
+              <div style={{ textAlign: "center", marginBottom: 20, padding: "20px 0" }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 8 }}>Storvex AI Acquisition Platform</div>
                 <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: "#E2E8F0", letterSpacing: "-0.02em" }}>Executive Intelligence Brief</h1>
                 <div style={{ fontSize: 12, color: "#6B7394", marginTop: 6 }}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} &middot; Real-time pipeline data</div>
               </div>
 
-              {/* Hero KPIs */}
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
-                {heroCard("Active Pipeline", totalPipeline, `${states.length} states`)}
+              {/* Section 1: Pipeline at a Glance */}
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+                {heroCard("Active Pipeline", totalPipeline, `${states.length} states · ${activeSites.length} active`)}
                 {heroCard("Pipeline Value", fmtVal(totalPipelineValue), `${activeSites.length} active sites`)}
-                {heroCard("Under Contract", ucSites.length, ucValue > 0 ? fmtVal(ucValue) : "—")}
-                {heroCard("LOI / PSA Active", loiSites.length, loiValue > 0 ? fmtVal(loiValue) : "—")}
+                {heroCard("Under Contract", ucSites.length, ucValue > 0 ? fmtVal(ucValue) : "\u2014")}
+                {heroCard("LOI / PSA Active", loiSites.length, loiValue > 0 ? fmtVal(loiValue) : "\u2014")}
               </div>
 
-              {/* SiteScore Prediction Accuracy */}
-              <div style={{ background: "linear-gradient(145deg, rgba(15,21,56,0.8), rgba(20,26,66,0.6))", borderRadius: 16, padding: "24px 28px", border: "1px solid rgba(201,168,76,0.12)", marginBottom: 20, position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #C9A84C60, transparent)" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#E2E8F0" }}>SiteScore Prediction Engine</h3>
-                    <div style={{ fontSize: 11, color: "#6B7394", marginTop: 2 }}>AI-powered site scoring validated against REIC decisions</div>
-                  </div>
-                  <div style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.2)" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C" }}>{vs.total} REIC Decisions Tracked</span>
+              {/* Section 2: Territory Performance */}
+              <div style={{ background: "rgba(15,21,56,0.6)", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24 }}>
+                <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 800, color: "#fff" }}>Territory Performance</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  {[
+                    { label: "Daniel Wollent", sub: "Southwest", data: sw, color: REGIONS.southwest.accent },
+                    { label: "Matthew Toussaint", sub: "East", data: east, color: REGIONS.east.accent },
+                  ].map(t => {
+                    const uc = t.data.filter(s => s.phase === "Under Contract").length;
+                    const loi = t.data.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
+                    const tVal = t.data.filter(s => activePhases.includes(s.phase)).reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+                    const tStates = [...new Set(t.data.map(s => s.state).filter(Boolean))];
+                    const scores = t.data.map(s => getSiteScore(s).score).filter(v => v > 0);
+                    const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "\u2014";
+                    return (
+                      <div key={t.label} style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.1)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{t.label}</div>
+                            <div style={{ fontSize: 10, color: "#94A3B8" }}>{t.sub} \u00B7 {t.data.length} sites \u00B7 {tStates.length} states</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                          {[
+                            { label: "Pipeline Value", value: fmtVal(tVal) },
+                            { label: "Under Contract", value: uc },
+                            { label: "LOI / PSA", value: loi },
+                            { label: "Total Sites", value: t.data.length },
+                            { label: "Avg SiteScore", value: avgScore },
+                            { label: "States", value: tStates.length },
+                          ].map(m => (
+                            <div key={m.label} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 8, background: "rgba(255,255,255,0.03)" }}>
+                              <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</div>
+                              <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{m.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Speed metrics row */}
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {[
+                    { label: "Vetted This Quarter", value: vettedThisQuarter },
+                    { label: "Added This Month", value: addedThisMonth },
+                    { label: "Avg Phase Velocity", value: `${avgVelocity}d` },
+                    { label: "States Covered", value: states.length },
+                  ].map(m => (
+                    <div key={m.label} style={{ flex: "1 1 100px", textAlign: "center", padding: "10px 8px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{m.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 3: SiteScore Intelligence */}
+              <div style={{ background: "rgba(15,21,56,0.6)", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#fff" }}>SiteScore Prediction Accuracy</h3>
+                  <div style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.2)" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C" }}>{vs.total} REIC Decisions</span>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-                  <div style={{ textAlign: "center", padding: "16px 12px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>
-                      {vs.approvalRate != null ? `${(vs.approvalRate * 100).toFixed(0)}%` : "—"}
-                    </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>Approval Rate</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  {/* Left: Key metrics */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {[
+                      { label: "Approval Rate", value: vs.approvalRate != null ? `${(vs.approvalRate * 100).toFixed(0)}%` : "\u2014" },
+                      { label: "Avg Score (Approved)", value: vs.avgScoreApproved != null ? vs.avgScoreApproved.toFixed(1) : "\u2014" },
+                      { label: "Avg Score (Rejected)", value: vs.avgScoreRejected != null ? vs.avgScoreRejected.toFixed(1) : "\u2014" },
+                      { label: "GREEN Sites", value: greenSites.length, gold: true },
+                    ].map(m => (
+                      <div key={m.label} style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "rgba(0,0,0,0.2)" }}>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: m.gold ? "#C9A84C" : "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{m.label}</div>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ textAlign: "center", padding: "16px 12px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>
-                      {vs.avgScoreApproved != null ? vs.avgScoreApproved.toFixed(1) : "—"}
-                    </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>Avg Score (Approved)</div>
-                  </div>
-                  <div style={{ textAlign: "center", padding: "16px 12px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>
-                      {vs.avgScoreRejected != null ? vs.avgScoreRejected.toFixed(1) : "—"}
-                    </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>Avg Score (Rejected)</div>
-                  </div>
-                  <div style={{ textAlign: "center", padding: "16px 12px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ fontSize: 32, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{greenSites.length}</div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>GREEN Sites</div>
-                  </div>
-                </div>
-                {/* Score band mini bars */}
-                {vs.total > 0 && (
-                  <div style={{ marginTop: 18, padding: "14px 16px", borderRadius: 10, background: "rgba(0,0,0,0.2)" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Score Band vs. REIC Approval</div>
+                  {/* Right: Score band chart */}
+                  <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Score Band vs. REIC Approval</div>
                     {vs.bandStats.map(b => (
-                      <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                        <div style={{ width: 50, fontSize: 11, fontWeight: 700, color: "#E2E8F0", textAlign: "right", paddingLeft: 6, borderLeft: `3px solid ${b.color}` }}>{b.label}</div>
-                        <div style={{ flex: 1, height: 20, borderRadius: 4, background: "rgba(15,21,56,0.5)", overflow: "hidden", display: "flex" }}>
+                      <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 46, fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "right", paddingLeft: 5, borderLeft: `3px solid ${b.color}` }}>{b.label}</div>
+                        <div style={{ flex: 1, height: 18, borderRadius: 4, background: "rgba(15,21,56,0.5)", overflow: "hidden", display: "flex" }}>
                           {b.total > 0 && (<>
                             <div style={{ width: `${(b.approved / Math.max(b.total, 1)) * 100}%`, background: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               {b.approved > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>{b.approved}</span>}
@@ -2671,153 +2708,38 @@ function AppInner() {
                             </div>
                           </>)}
                         </div>
-                        <div style={{ width: 60, fontSize: 10, color: "#94A3B8", textAlign: "right" }}>
-                          {b.total > 0 ? `${b.approved}/${b.total}` : "—"}
+                        <div style={{ width: 50, fontSize: 10, color: "#94A3B8", textAlign: "right" }}>
+                          {b.total > 0 ? `${b.approved}/${b.total}` : "\u2014"}
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-
-              {/* Platform Performance */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-                {/* Speed & Scale */}
-                <div style={{ background: "linear-gradient(145deg, rgba(15,21,56,0.8), rgba(20,26,66,0.6))", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.15)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>Speed & Scale</h3>
-                  </div>
-                  {[
-                    { label: "Sites Vetted This Quarter", value: vettedThisQuarter },
-                    { label: "Added This Month", value: addedThisMonth },
-                    { label: "Avg Phase Velocity", value: `${avgVelocity} days` },
-                    { label: "States Covered", value: states.length },
-                    { label: "Pipeline Processing", value: "30 min/site" },
-                  ].map(m => (
-                    <div key={m.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <span style={{ fontSize: 12, color: "#94A3B8" }}>{m.label}</span>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Cost Avoidance */}
-                <div style={{ background: "linear-gradient(145deg, rgba(15,21,56,0.8), rgba(20,26,66,0.6))", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.15)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>Value Created</h3>
-                  </div>
-                  {[
-                    { label: "Vetting Reports Generated", value: reportsGenerated },
-                    { label: "Consulting Fees Avoided", value: fmtVal(consultingAvoided) },
-                    { label: "Equivalent Analyst Labor", value: "3-4 FTEs" },
-                    { label: "Annual Labor Savings", value: "$300K-$400K" },
-                    { label: "Pipeline Throughput", value: "10-15 sites/day" },
-                  ].map(m => (
-                    <div key={m.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <span style={{ fontSize: 12, color: "#94A3B8" }}>{m.label}</span>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
 
-              {/* Territory Breakdown */}
-              <div style={{ background: "linear-gradient(145deg, rgba(15,21,56,0.8), rgba(20,26,66,0.6))", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 20 }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>Territory Performance</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  {[
-                    { label: "Daniel Wollent — Southwest", data: sw, color: REGIONS.southwest.accent },
-                    { label: "Matthew Toussaint — East", data: east, color: REGIONS.east.accent },
-                  ].map(t => {
-                    const uc = t.data.filter(s => s.phase === "Under Contract").length;
-                    const loi = t.data.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
-                    const prospect = t.data.filter(s => s.phase === "Prospect").length;
-                    const submitted = t.data.filter(s => s.phase === "Submitted to PS").length;
-                    const tStates = [...new Set(t.data.map(s => s.state).filter(Boolean))];
-                    return (
-                      <div key={t.label} style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.1)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0 }} />
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>{t.label}</div>
-                            <div style={{ fontSize: 10, color: "#6B7394" }}>{t.data.length} sites &middot; {tStates.length} states</div>
-                          </div>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                          {[
-                            { label: "Under Contract", value: uc },
-                            { label: "LOI / PSA", value: loi },
-                            { label: "Submitted to PS", value: submitted },
-                            { label: "Prospect", value: prospect },
-                          ].map(m => (
-                            <div key={m.label} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 8, background: "rgba(255,255,255,0.03)" }}>
-                              <div style={{ fontSize: 20, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</div>
-                              <div style={{ fontSize: 9, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>{m.label}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Platform Capabilities */}
-              <div style={{ background: "linear-gradient(145deg, rgba(15,21,56,0.8), rgba(20,26,66,0.6))", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 20 }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>Platform Capabilities</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
-                  {[
-                    { name: "AI Site Scoring", desc: "10-dimension composite score calibrated to PS criteria", status: "Live", color: "#94A3B8" },
-                    { name: "Automated Prospecting", desc: "Daily Crexi/LoopNet scans with demographic filtering", status: "Live", color: "#94A3B8" },
-                    { name: "Deep Vet Reports", desc: "Institutional vetting with ordinance citations & utility research", status: "Live", color: "#94A3B8" },
-                    { name: "Broker Pipeline", desc: "30-min response processing with auto-scoring", status: "Live", color: "#94A3B8" },
-                    { name: "Financial Modeling", desc: "Pro forma, IRR, sensitivity analysis per site", status: "Live", color: "#94A3B8" },
-                    { name: "REIC Validation", desc: "Prediction accuracy tracking against PS decisions", status: "Live", color: "#94A3B8" },
-                    { name: "Multi-Territory", desc: "DW Southwest + MT East with routing workflow", status: "Live", color: "#94A3B8" },
-                    { name: "NSA Integration", desc: "Ready to ingest 1,000+ NSA locations on merger close", status: "Ready", color: "#C9A84C" },
-                  ].map(c => (
-                    <div key={c.name} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.04)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0" }}>{c.name}</span>
-                        <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: `${c.color}15`, color: c.color, textTransform: "uppercase", letterSpacing: "0.06em" }}>{c.status}</span>
-                      </div>
-                      <div style={{ fontSize: 10, color: "#6B7394", lineHeight: 1.4 }}>{c.desc}</div>
-                    </div>
+              {/* Section 4: Platform Footer */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "14px 20px", borderRadius: 12, background: "rgba(15,21,56,0.6)", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 24 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {["SiteScore Engine", "ESRI Demographics", "Zoning Research", "Competition Analysis", "Automated Vetting", "REIC Validation"].map(cap => (
+                    <span key={cap} style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", padding: "4px 10px", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>{cap}</span>
                   ))}
                 </div>
-              </div>
-
-              {/* Competitive Advantage */}
-              <div style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.06), rgba(243,124,51,0.04))", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 20 }}>
-                <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>Competitive Moat</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-                  {[
-                    { stat: "3,400+", label: "PS locations mapped with proximity analysis" },
-                    { stat: `${totalPipeline}`, label: "Sites with deep institutional vetting" },
-                    { stat: `${states.length}`, label: "States with active pipeline coverage" },
-                    { stat: "12-18 mo", label: "Head start on any competitor platform" },
-                    { stat: "2 yrs", label: "Operator-trained scoring calibration" },
-                    { stat: "0", label: "Direct competitors in market" },
-                  ].map(c => (
-                    <div key={c.label} style={{ textAlign: "center", padding: "14px 10px" }}>
-                      <div style={{ fontSize: 24, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{c.stat}</div>
-                      <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4, lineHeight: 1.3 }}>{c.label}</div>
-                    </div>
-                  ))}
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", textAlign: "right", lineHeight: 1.6 }}>
+                  3,400+ PS Locations Indexed &middot; 0 Competing Platforms &middot; Patent Pending
                 </div>
               </div>
 
               {/* Print / Share */}
-              <div style={{ textAlign: "center", padding: "20px 0 6px" }}>
-                <button onClick={() => window.print()} style={{ padding: "12px 32px", borderRadius: 10, background: "linear-gradient(135deg, #C9A84C, #E87A2E)", color: "#fff", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", letterSpacing: "0.04em", boxShadow: "0 4px 20px rgba(201,168,76,0.3)" }}>
+              <div style={{ textAlign: "center", padding: "12px 0 6px" }}>
+                <button onClick={() => window.print()} style={{ padding: "10px 28px", borderRadius: 10, background: "linear-gradient(135deg, #C9A84C, #E87A2E)", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", letterSpacing: "0.04em", boxShadow: "0 4px 20px rgba(201,168,76,0.3)" }}>
                   Print / Save as PDF
                 </button>
               </div>
 
-              {/* Footer CTA */}
-              <div style={{ textAlign: "center", padding: "12px 0 10px" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 6 }}>Storvex AI &middot; Patent Pending (App. No. 64/009,393)</div>
-                <div style={{ fontSize: 11, color: "#4B5563" }}>&copy; {new Date().getFullYear()} DJR Real Estate LLC &middot; Proprietary & Confidential</div>
+              {/* Footer */}
+              <div style={{ textAlign: "center", padding: "10px 0 8px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Storvex AI &middot; Patent Pending (App. No. 64/009,393)</div>
+                <div style={{ fontSize: 10, color: "#4B5563" }}>&copy; {new Date().getFullYear()} DJR Real Estate LLC &middot; Proprietary &amp; Confidential</div>
               </div>
             </div>
           );
