@@ -1464,7 +1464,7 @@ function AppInner() {
                                     {/* Header */}
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em", textTransform: "uppercase" }}>STORVEX VALUATION ENGINE</span>
+                                        <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em", textTransform: "uppercase" }}>STORVEX VALUATION{fin.rateSource === "msa" ? " — MSA RENT" : ""}</span>
                                         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#43A047", boxShadow: "0 0 6px rgba(67,160,71,0.6)", animation: "sitescore-glow 2s ease-in-out infinite alternate" }} />
                                       </div>
                                       {verdict !== "—" && (

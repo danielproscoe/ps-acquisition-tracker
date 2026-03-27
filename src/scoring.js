@@ -490,9 +490,19 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const driveSF = Math.round(totalSF * drivePct);
 
   // ── Market Rate Intelligence ──
+  // Priority chain: (1) MSA CC rent from Discover/REIT data → (2) Income-tier proxy
+  // MSA data is $/SF/yr annualized from REIT 10-K filings; convert to $/SF/mo for model.
   const incTier = incN >= 90000 ? "premium" : incN >= 75000 ? "upper" : incN >= 60000 ? "mid" : "value";
-  const baseClimateRate = incTier === "premium" ? O('climateRatePremium', 1.45) : incTier === "upper" ? O('climateRateUpper', 1.25) : incTier === "mid" ? O('climateRateMid', 1.10) : O('climateRateValue', 0.95);
-  const baseDriveRate = incTier === "premium" ? O('driveRatePremium', 0.85) : incTier === "upper" ? O('driveRateUpper', 0.72) : incTier === "mid" ? O('driveRateMid', 0.62) : O('driveRateValue', 0.52);
+  const msaCCRent = site.siteiqData?.msaCCRent || null; // $/SF/yr from Discover MSA data
+  const msaCCGrowth = site.siteiqData?.msaCCGrowth || null; // Annual growth %
+  const rateSource = msaCCRent ? "msa" : "income-tier";
+  // MSA-sourced: convert annual to monthly, apply as base CC rate. Drive-up = 55% of CC rate.
+  const baseClimateRate = msaCCRent
+    ? Math.round((msaCCRent / 12) * 100) / 100
+    : (incTier === "premium" ? O('climateRatePremium', 1.45) : incTier === "upper" ? O('climateRateUpper', 1.25) : incTier === "mid" ? O('climateRateMid', 1.10) : O('climateRateValue', 0.95));
+  const baseDriveRate = msaCCRent
+    ? Math.round((msaCCRent / 12) * 0.55 * 100) / 100 // Drive-up = ~55% of CC rent
+    : (incTier === "premium" ? O('driveRatePremium', 0.85) : incTier === "upper" ? O('driveRateUpper', 0.72) : incTier === "mid" ? O('driveRateMid', 0.62) : O('driveRateValue', 0.52));
   const compAdj = compCount <= 2 ? 1.08 : compCount <= 5 ? 1.00 : compCount <= 8 ? 0.94 : 0.88;
   const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
   const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
@@ -595,7 +605,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     { yr: 4, label: "Year 4 — Stabilization", occRate: O('leaseUpY4Occ', 0.88), climDisc: 0.00, driveDisc: 0.00, desc: "At or near market rate. ECRIs pushing above street rate." },
     { yr: 5, label: "Year 5 — Mature", occRate: O('leaseUpY5Occ', 0.92), climDisc: 0.00, driveDisc: 0.00, desc: "Fully stabilized. ECRI revenue above street rate." },
   ];
-  const annualEsc = O('annualEscalation', 0.03);
+  // Annual escalation: use MSA-specific CC growth rate when available, else default 3%
+  const annualEsc = msaCCGrowth ? Math.round(msaCCGrowth / 100 * 1000) / 1000 : O('annualEscalation', 0.03);
 
   // ── OpEx Helper — single source of truth for fixed + variable operating expenses ──
   // COD AUDIT 2026-03-22: Extracted from 3 duplicate calculation sites (yearData, yrDataExt, sensitivity)
@@ -953,7 +964,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     // Facility
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
     // Rates
-    baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
+    baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc, rateSource, msaCCRent, msaCCGrowth,
     // Year data
     leaseUpSchedule, yearData,
     // NOI
