@@ -9,6 +9,9 @@
 input, select, textarea, button { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
 select option { background: #1a1a2e; color: #E2E8F0; }
 select option:checked { background: #E87A2E; color: #fff; }
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] > summary { margin-bottom: 4px; }
 
 /* ─── Scrollbar (fire accent) ─── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -51,31 +54,22 @@ button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.0
 
 /* ─── KPI Cards ─── */
 .kpi-number { animation: countUp 0.6s cubic-bezier(0.4,0,0.2,1); }
-.kpi-electric { animation: kpiElectric 4s ease-in-out infinite; }
-.kpi-electric:hover { box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 30px rgba(57,255,20,0.08), 0 0 60px rgba(232,122,46,0.06) !important; }
+.kpi-electric { box-shadow: 0 2px 16px rgba(0,0,0,0.2); }
+.kpi-electric:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important; }
 
 /* ─── Logo Spin ─── */
-.logo-auto-spin { animation: logoAutoSpin 2s linear infinite; }
+.logo-auto-spin { animation: logoAutoSpin 4s linear infinite; }
 .logo-click-spin { animation: logoClickSpin 1.2s cubic-bezier(0.2, 0, 0, 1) !important; }
 .logo-spin-container { overflow: visible; }
-.logo-spin-container:hover { box-shadow: 0 4px 30px rgba(232,122,46,0.4), 0 0 0 2px rgba(201,168,76,0.25) !important; }
+.logo-spin-container:hover { box-shadow: 0 4px 20px rgba(201,168,76,0.2), 0 0 0 1px rgba(201,168,76,0.15) !important; }
 
-/* ─── Electric Arc — subtle lightning crackle synced with burst phases ─── */
-.logo-spin-container {
-  --arc-color: rgba(57,255,20,0.7);
-  --arc-color-2: rgba(0,229,255,0.6);
-}
+/* ─── Logo glow (cleaned up — removed electric arc effects) ─── */
 .logo-auto-spin {
-  filter: drop-shadow(0 0 2px rgba(57,255,20,0.08));
-  animation: logoAutoSpin 2s linear infinite, electricFlicker 4s steps(2, end) infinite;
+  filter: drop-shadow(0 0 2px rgba(201,168,76,0.15));
+  animation: logoAutoSpin 4s linear infinite;
 }
 @keyframes electricFlicker {
-  0%, 89% { filter: drop-shadow(0 0 2px rgba(57,255,20,0.06)); }
-  90% { filter: drop-shadow(0 0 8px rgba(57,255,20,0.35)) drop-shadow(0 0 16px rgba(0,229,255,0.2)); }
-  93% { filter: drop-shadow(0 0 2px rgba(57,255,20,0.06)); }
-  95% { filter: drop-shadow(0 0 12px rgba(57,255,20,0.4)) drop-shadow(0 0 24px rgba(0,229,255,0.25)) drop-shadow(0 0 4px rgba(232,122,46,0.3)); }
-  97% { filter: drop-shadow(0 0 3px rgba(57,255,20,0.1)); }
-  100% { filter: drop-shadow(0 0 2px rgba(57,255,20,0.06)); }
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(201,168,76,0.1)); }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -116,25 +110,25 @@ button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.0
 @keyframes sitescore-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
 @keyframes sitescore-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(140deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(320deg); } 100% { transform: rotate(360deg); } }
 
-/* ─── Fire Theme ─── */
-@keyframes emberFloat { 0% { transform: translateY(0) translateX(0) scale(1); opacity: 0.7; } 50% { transform: translateY(-20px) translateX(8px) scale(0.6); opacity: 0.4; } 100% { transform: translateY(-40px) translateX(-5px) scale(0.2); opacity: 0; } }
-@keyframes fireGlow { 0% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } 50% { box-shadow: 0 0 30px rgba(201,168,76,0.25), 0 0 80px rgba(30,39,97,0.12); } 100% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } }
-@keyframes fireEdge { 0% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } 50% { border-image-source: linear-gradient(180deg, #FFD700, #C9A84C, #1E2761); } 100% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } }
+/* ─── Subtle Theme Animations ─── */
+@keyframes emberFloat { 0% { opacity: 0; } 100% { opacity: 0; } } /* disabled */
+@keyframes fireGlow { 0%, 100% { box-shadow: none; } } /* disabled — was too noisy */
+@keyframes fireEdge { 0%, 100% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } }
 @keyframes headerEmber { 0% { background-position: 0% 100%; } 100% { background-position: 100% 0%; } }
 
 /* ─── KPI & Nav ─── */
-@keyframes kpiPulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-@keyframes kpiElectric { 0% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } 50% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(57,255,20,0.05); } 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } }
+@keyframes kpiPulse { 0%, 100% { transform: scale(1); } } /* disabled */
+@keyframes kpiElectric { 0%, 100% { box-shadow: 0 2px 16px rgba(0,0,0,0.2); } } /* flattened */
 @keyframes navUnderlineFire { 0% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 0% 50%; } 100% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 100% 50%; } }
 
-/* ─── Turbine & Lightning ─── */
-@keyframes turbine-pulse { 0%, 100% { filter: drop-shadow(0 0 6px rgba(57,255,20,0.3)) drop-shadow(0 0 12px rgba(0,229,255,0.15)); } 25% { filter: drop-shadow(0 0 14px rgba(57,255,20,0.7)) drop-shadow(0 0 28px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(232,122,46,0.2)); } 50% { filter: drop-shadow(0 0 8px rgba(57,255,20,0.4)) drop-shadow(0 0 16px rgba(0,229,255,0.2)); } 75% { filter: drop-shadow(0 0 18px rgba(232,122,46,0.5)) drop-shadow(0 0 32px rgba(201,168,76,0.3)) drop-shadow(0 0 48px rgba(57,255,20,0.15)); } }
-@keyframes lightning-arc { 0% { opacity: 0; transform: scaleX(0); } 5% { opacity: 1; transform: scaleX(1); } 10% { opacity: 0.3; } 15% { opacity: 0.8; } 20% { opacity: 0; transform: scaleX(1); } 100% { opacity: 0; } }
+/* ─── Turbine & Lightning (toned down) ─── */
+@keyframes turbine-pulse { 0%, 100% { filter: drop-shadow(0 0 4px rgba(201,168,76,0.15)); } 50% { filter: drop-shadow(0 0 8px rgba(201,168,76,0.25)); } }
+@keyframes lightning-arc { 0%, 100% { opacity: 0; } } /* disabled */
 
-/* ─── Data Stream & Background ─── */
-@keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.8; transform: translateY(80vh) scale(1); } 50% { opacity: 0.4; } 90% { opacity: 0.2; } 100% { transform: translateY(-20px) scale(0.2); opacity: 0; } }
+/* ─── Data Stream & Background (toned down) ─── */
+@keyframes dataStream { 0%, 100% { opacity: 0; } } /* disabled */
 @keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
-@keyframes nodePulse { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 0.8; transform: scale(1.5); } 50% { opacity: 0.3; transform: scale(1); } 70% { opacity: 0.6; transform: scale(1.3); } 100% { opacity: 0; transform: scale(0.5); } }
+@keyframes nodePulse { 0%, 100% { opacity: 0; } } /* disabled */
 
 /* ─── Logo — Constant High-Speed Spin — Machine From The Future ─── */
 @keyframes logoAutoSpin {
@@ -182,138 +176,30 @@ button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.0
   50% { filter: drop-shadow(0 0 12px rgba(59,130,246,0.6)); }
 }
 
-/* ─── Spike Corona — jagged saw-blade ring, always visible, subtle horror motion ─── */
+/* ─── Logo subtle glow ring — clean, no saw-blade ─── */
 .logo-spin-container::before {
   content: '';
   position: absolute;
-  inset: -8px;
-  border-radius: 16px;
+  inset: -4px;
+  border-radius: 14px;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.5;
-  animation: sawSpin 3.3s linear infinite reverse;
-  background:
-    conic-gradient(from 0deg,
-      transparent 0deg, rgba(232,122,46,0.7) 2deg, transparent 5deg,
-      transparent 10deg, rgba(201,168,76,0.6) 12deg, transparent 15deg,
-      transparent 20deg, rgba(232,122,46,0.8) 22deg, transparent 25deg,
-      transparent 30deg, rgba(57,255,20,0.5) 32deg, transparent 35deg,
-      transparent 40deg, rgba(201,168,76,0.7) 42deg, transparent 45deg,
-      transparent 50deg, rgba(232,122,46,0.6) 52deg, transparent 55deg,
-      transparent 60deg, rgba(0,229,255,0.5) 62deg, transparent 65deg,
-      transparent 70deg, rgba(232,122,46,0.8) 72deg, transparent 75deg,
-      transparent 80deg, rgba(201,168,76,0.6) 82deg, transparent 85deg,
-      transparent 90deg, rgba(57,255,20,0.6) 92deg, transparent 95deg,
-      transparent 100deg, rgba(232,122,46,0.7) 102deg, transparent 105deg,
-      transparent 110deg, rgba(201,168,76,0.5) 112deg, transparent 115deg,
-      transparent 120deg, rgba(232,122,46,0.8) 122deg, transparent 125deg,
-      transparent 130deg, rgba(0,229,255,0.4) 132deg, transparent 135deg,
-      transparent 140deg, rgba(201,168,76,0.7) 142deg, transparent 145deg,
-      transparent 150deg, rgba(232,122,46,0.6) 152deg, transparent 155deg,
-      transparent 160deg, rgba(57,255,20,0.5) 162deg, transparent 165deg,
-      transparent 170deg, rgba(232,122,46,0.8) 172deg, transparent 175deg,
-      transparent 180deg, rgba(201,168,76,0.6) 182deg, transparent 185deg,
-      transparent 190deg, rgba(232,122,46,0.7) 192deg, transparent 195deg,
-      transparent 200deg, rgba(0,229,255,0.5) 202deg, transparent 205deg,
-      transparent 210deg, rgba(232,122,46,0.8) 212deg, transparent 215deg,
-      transparent 220deg, rgba(201,168,76,0.6) 222deg, transparent 225deg,
-      transparent 230deg, rgba(57,255,20,0.6) 232deg, transparent 235deg,
-      transparent 240deg, rgba(232,122,46,0.7) 242deg, transparent 245deg,
-      transparent 250deg, rgba(201,168,76,0.5) 252deg, transparent 255deg,
-      transparent 260deg, rgba(232,122,46,0.8) 262deg, transparent 265deg,
-      transparent 270deg, rgba(0,229,255,0.4) 272deg, transparent 275deg,
-      transparent 280deg, rgba(201,168,76,0.7) 282deg, transparent 285deg,
-      transparent 290deg, rgba(232,122,46,0.6) 292deg, transparent 295deg,
-      transparent 300deg, rgba(57,255,20,0.5) 302deg, transparent 305deg,
-      transparent 310deg, rgba(232,122,46,0.8) 312deg, transparent 315deg,
-      transparent 320deg, rgba(201,168,76,0.6) 322deg, transparent 325deg,
-      transparent 330deg, rgba(232,122,46,0.7) 332deg, transparent 335deg,
-      transparent 340deg, rgba(0,229,255,0.5) 342deg, transparent 345deg,
-      transparent 350deg, rgba(232,122,46,0.8) 352deg, transparent 355deg,
-      transparent 360deg
-    );
-  filter: blur(0.3px);
+  opacity: 0.3;
+  background: linear-gradient(135deg, rgba(201,168,76,0.3), rgba(30,39,97,0.2));
+  filter: blur(4px);
 }
 
-/* ─── Saw Teeth — second layer, counter-rotating jagged teeth with horror pulse ─── */
+/* Logo ::after — removed (was saw teeth layer) */
 .logo-spin-container::after {
-  content: '';
-  position: absolute;
-  inset: -12px;
-  border-radius: 18px;
-  z-index: -2;
-  pointer-events: none;
-  opacity: 0.35;
-  animation: sawSpin 2.7s linear infinite;
-  background:
-    conic-gradient(from 0deg,
-      transparent 0deg, rgba(232,122,46,0.9) 1.5deg, transparent 4deg,
-      transparent 12deg, rgba(201,168,76,0.8) 13.5deg, transparent 16deg,
-      transparent 24deg, rgba(232,122,46,0.9) 25.5deg, transparent 28deg,
-      transparent 36deg, rgba(201,168,76,0.7) 37.5deg, transparent 40deg,
-      transparent 48deg, rgba(232,122,46,0.9) 49.5deg, transparent 52deg,
-      transparent 60deg, rgba(201,168,76,0.8) 61.5deg, transparent 64deg,
-      transparent 72deg, rgba(232,122,46,0.9) 73.5deg, transparent 76deg,
-      transparent 84deg, rgba(201,168,76,0.7) 85.5deg, transparent 88deg,
-      transparent 96deg, rgba(232,122,46,0.9) 97.5deg, transparent 100deg,
-      transparent 108deg, rgba(201,168,76,0.8) 109.5deg, transparent 112deg,
-      transparent 120deg, rgba(232,122,46,0.9) 121.5deg, transparent 124deg,
-      transparent 132deg, rgba(201,168,76,0.7) 133.5deg, transparent 136deg,
-      transparent 144deg, rgba(232,122,46,0.9) 145.5deg, transparent 148deg,
-      transparent 156deg, rgba(201,168,76,0.8) 157.5deg, transparent 160deg,
-      transparent 168deg, rgba(232,122,46,0.9) 169.5deg, transparent 172deg,
-      transparent 180deg, rgba(201,168,76,0.7) 181.5deg, transparent 184deg,
-      transparent 192deg, rgba(232,122,46,0.9) 193.5deg, transparent 196deg,
-      transparent 204deg, rgba(201,168,76,0.8) 205.5deg, transparent 208deg,
-      transparent 216deg, rgba(232,122,46,0.9) 217.5deg, transparent 220deg,
-      transparent 228deg, rgba(201,168,76,0.7) 229.5deg, transparent 232deg,
-      transparent 240deg, rgba(232,122,46,0.9) 241.5deg, transparent 244deg,
-      transparent 252deg, rgba(201,168,76,0.8) 253.5deg, transparent 256deg,
-      transparent 264deg, rgba(232,122,46,0.9) 265.5deg, transparent 268deg,
-      transparent 276deg, rgba(201,168,76,0.7) 277.5deg, transparent 280deg,
-      transparent 288deg, rgba(232,122,46,0.9) 289.5deg, transparent 292deg,
-      transparent 300deg, rgba(201,168,76,0.8) 301.5deg, transparent 304deg,
-      transparent 312deg, rgba(232,122,46,0.9) 313.5deg, transparent 316deg,
-      transparent 324deg, rgba(201,168,76,0.7) 325.5deg, transparent 328deg,
-      transparent 336deg, rgba(232,122,46,0.9) 337.5deg, transparent 340deg,
-      transparent 348deg, rgba(201,168,76,0.8) 349.5deg, transparent 352deg,
-      transparent 360deg
-    );
-  filter: blur(0.5px);
+  display: none;
 }
 
-/* Corona intensity syncs with logo spin phases — brighter during bursts */
-@keyframes spikeCorona {
-  0%, 10% { opacity: 0.3; transform: scale(0.95) rotate(0deg); }
-  15% { opacity: 0.5; transform: scale(1.02) rotate(8deg); }
-  20% { opacity: 0.7; transform: scale(1.08) rotate(15deg); }
-  28%, 35% { opacity: 1; transform: scale(1.18) rotate(45deg); filter: blur(0.2px) drop-shadow(0 0 8px rgba(232,122,46,0.5)); }
-  45% { opacity: 0.5; transform: scale(1.05) rotate(60deg); }
-  50%, 55% { opacity: 0.3; transform: scale(0.98) rotate(75deg); }
-  60% { opacity: 0.35; transform: scale(0.96) rotate(82deg); }
-  65% { opacity: 0.4; transform: scale(1.0) rotate(88deg); }
-  70% { opacity: 0.6; transform: scale(1.08) rotate(95deg); }
-  75%, 80% { opacity: 0.95; transform: scale(1.15) rotate(120deg); filter: blur(0.2px) drop-shadow(0 0 6px rgba(201,168,76,0.5)); }
-  85% { opacity: 0.5; transform: scale(1.05) rotate(140deg); }
-  90% { opacity: 0.35; transform: scale(1.0) rotate(155deg); }
-  95% { opacity: 0.3; transform: scale(0.97) rotate(170deg); }
-  100% { opacity: 0.3; transform: scale(0.95) rotate(180deg); }
-}
+/* Corona & saw animations — disabled for clean institutional look */
+@keyframes spikeCorona { 0%, 100% { opacity: 0; } }
+@keyframes sawSpin { 0%, 100% { opacity: 0; } }
 
-/* Saw blade — continuous counter-rotation for that mechanical horror feel */
-@keyframes sawSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Subtle breathing pulse on the outer saw teeth — unsettling organic rhythm */
-@keyframes sawPulse {
-  0% { opacity: 0.25; transform: rotate(var(--saw-angle, 0deg)) scale(1); filter: blur(0.5px); }
-  30% { opacity: 0.45; transform: rotate(var(--saw-angle, 0deg)) scale(1.06); filter: blur(0.3px) drop-shadow(0 0 4px rgba(232,122,46,0.3)); }
-  50% { opacity: 0.35; transform: rotate(var(--saw-angle, 0deg)) scale(1.02); filter: blur(0.4px); }
-  70% { opacity: 0.5; transform: rotate(var(--saw-angle, 0deg)) scale(1.08); filter: blur(0.2px) drop-shadow(0 0 6px rgba(201,168,76,0.25)); }
-  100% { opacity: 0.25; transform: rotate(var(--saw-angle, 0deg)) scale(1); filter: blur(0.5px); }
-}
+/* sawPulse — disabled for clean look */
+@keyframes sawPulse { 0%, 100% { opacity: 0; } }
 
 @keyframes logoClickSpin { 0% { transform: rotate(0deg); } 50% { transform: rotate(1080deg); } 100% { transform: rotate(2160deg); } }
 

@@ -2254,12 +2254,12 @@ function AppInner() {
         <div style={{ display: "flex", gap: 4, overflowX: "auto", padding: "6px 0 4px", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
-            { key: "executive", label: "Executive" },
-            { key: "discover", label: "Discover" },
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
-            { key: "quickscore", label: "Quick Score" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
+            { key: "quickscore", label: "Quick Score" },
+            { key: "executive", label: "Executive" },
+            { key: "discover", label: "Discover" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#E87A2E"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 16px rgba(232,122,46,0.4)"; } }}
@@ -2278,26 +2278,21 @@ function AppInner() {
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 32 }}>
               {[
-                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => navigateTo("summary"), sub: "View summary →" },
-                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review"), sub: "Review queue →" },
-                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => navigateTo("southwest"), sub: "Open tracker →" },
-                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => navigateTo("east"), sub: "Open tracker →" },
+                { label: "Pipeline", value: sw.length + east.length, action: () => navigateTo("summary"), sub: "View summary" },
+                { label: "Pending Review", value: pendingN, action: () => navigateTo("review"), sub: "Review queue" },
+                { label: "Daniel Wollent", value: sw.length, action: () => navigateTo("southwest"), sub: "Southwest tracker" },
+                { label: "Matthew Toussaint", value: east.length, action: () => navigateTo("east"), sub: "East tracker" },
               ].map((kpi, kpiIdx) => (
-                <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ ...STYLES.kpiCard(kpi.color), animationDelay: `${kpiIdx * 0.08}s` }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px) scale(1.02)"; e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.3), 0 0 30px ${kpi.color}25, inset 0 1px 0 rgba(255,255,255,0.08)`; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = `0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)`; }}>
-                  {/* Ambient glow line */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${kpi.color}40, transparent)`, opacity: 0.8 }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 1 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
-                    <span style={{ fontSize: 18, opacity: 0.7, filter: "grayscale(0.15)" }}>{kpi.icon}</span>
-                  </div>
-                  <div className="kpi-number" style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginTop: 8, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", position: "relative", zIndex: 1, textShadow: `0 0 30px ${kpi.color}30` }}>{kpi.value}</div>
-                  <div style={{ fontSize: 10, color: kpi.color, marginTop: 6, fontWeight: 700, letterSpacing: "0.02em", position: "relative", zIndex: 1 }}>{kpi.sub}</div>
-                  {/* Bottom fire accent line */}
-                  <div style={{ position: "absolute", bottom: 0, left: "10%", right: "10%", height: 2, background: `linear-gradient(90deg, transparent, ${kpi.color}50, transparent)`, borderRadius: 2 }} />
+                <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ cursor: "pointer", background: "rgba(15,21,56,0.75)", borderRadius: 14, padding: "28px 24px", minWidth: 140, boxShadow: "0 2px 16px rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.06)", transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden", animationDelay: `${kpiIdx * 0.08}s` }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.2)"; }}>
+                  {/* Top accent line */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #1E2761, #C9A84C)" }} />
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
+                  <div className="kpi-number" style={{ fontSize: 44, fontWeight: 900, color: "#fff", marginTop: 12, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1 }}>{kpi.value}</div>
+                  <div style={{ fontSize: 11, color: "#C9A84C", marginTop: 10, fontWeight: 600, letterSpacing: "0.02em" }}>{kpi.sub} →</div>
                 </div>
               ))}
             </div>
@@ -2322,10 +2317,10 @@ function AppInner() {
               }
               if (actionItems.length === 0) return null;
               return (
-                <div className="card-reveal" style={{ background: "linear-gradient(135deg, rgba(232,122,46,0.06), rgba(201,168,76,0.04))", borderRadius: 14, padding: 16, marginBottom: 16, border: "1px solid rgba(232,122,46,0.15)", animationDelay: "0.35s" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", boxShadow: "0 0 10px rgba(232,122,46,0.5)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Action Required</span>
+                <div className="card-reveal" style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, marginBottom: 24, borderLeft: "3px solid #C9A84C", border: "1px solid rgba(201,168,76,0.1)", borderLeftWidth: 3, borderLeftColor: "#C9A84C", animationDelay: "0.35s" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9A84C" }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.1em" }}>Action Required</span>
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {actionItems.map(ai => (
@@ -2355,27 +2350,26 @@ function AppInner() {
               const loiCount = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
               const greenCount = all.filter(s => getSiteScore(s).score >= 8.0).length;
               return (
-                <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: 10, flex: 1, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 28, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 12, flex: 1, flexWrap: "wrap" }}>
                     {[
-                      { label: "Added this week", value: addedThisWeek, color: "#3B82F6", action: () => navigateTo("summary") },
-                      { label: "Under Contract", value: ucCount, color: "#16A34A", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "LOI Active", value: loiCount, color: "#F59E0B", action: () => navigateTo("summary", { phase: "LOI" }) },
-                      { label: "GREEN Sites", value: greenCount, color: "#22C55E", action: () => navigateTo("summary") },
+                      { label: "Added this week", value: addedThisWeek, action: () => navigateTo("summary") },
+                      { label: "Under Contract", value: ucCount, action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                      { label: "LOI Active", value: loiCount, action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "GREEN Sites", value: greenCount, action: () => navigateTo("summary") },
                     ].map((v, vi) => (
-                      <div key={v.label} onClick={v.action} className="card-reveal funnel-bar" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.92)", borderRadius: 12, padding: "10px 14px", border: `1px solid ${v.color}18`, textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, backdropFilter: "blur(8px)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden", cursor: "pointer" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 4px 16px ${v.color}18`; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                      <div key={v.label} onClick={v.action} className="card-reveal" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, transition: "all 0.2s ease", cursor: "pointer" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
                       >
-                        <div style={{ fontSize: 20, fontWeight: 900, color: v.color, fontFamily: "'Space Mono', monospace", position: "relative", zIndex: 1 }}>{v.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.04em", position: "relative", zIndex: 1 }}>{v.label}</div>
-                        <div style={{ position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2, background: `linear-gradient(90deg, transparent, ${v.color}40, transparent)` }} />
+                        <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{v.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>{v.label}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize: 10, color: "#94A3B8", textAlign: "right", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: 10, color: "#64748B", textAlign: "right", whiteSpace: "nowrap" }}>
                     Data as of {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}<br />
-                    <span style={{ fontWeight: 600 }}>{all.length} active sites</span>
+                    <span style={{ fontWeight: 600, color: "#94A3B8" }}>{all.length} active sites</span>
                   </div>
                 </div>
               );
@@ -2432,161 +2426,108 @@ function AppInner() {
               if (!hasData) return null;
 
               return (
-                <div className="card-reveal" style={{ background: "linear-gradient(145deg, rgba(15,15,20,0.96) 0%, rgba(25,25,32,0.94) 100%)", borderRadius: 16, padding: 0, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
-                  {/* Top ember line */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 5%, #F37C33 30%, #FFB347 50%, #F37C33 70%, transparent 95%)" }} />
+                <div className="card-reveal" style={{ background: "rgba(15,21,56,0.6)", borderRadius: 14, padding: 0, marginBottom: 24, boxShadow: "0 2px 16px rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.06)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
 
                   {/* Header */}
-                  <div style={{ padding: "18px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #F37C33, #D45500)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(243,124,51,0.4)" }}>⚡</div>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "rgba(15,21,56,0.4)", letterSpacing: "0.02em" }}>Deal Momentum</h3>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.7)", fontWeight: 500, marginTop: 1 }}>Pipeline value & recent activity</div>
-                      </div>
+                  <div style={{ padding: "20px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#E2E8F0", letterSpacing: "-0.01em" }}>Deal Momentum</h3>
+                      <div style={{ fontSize: 11, color: "#64748B", fontWeight: 500, marginTop: 2 }}>Pipeline value & recent activity</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", animation: "fireGlow 2s ease-in-out infinite" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#86EFAC" }}>{all.length} ACTIVE</span>
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>{all.length} active</div>
                   </div>
 
                   {/* Pipeline Value Metrics */}
-                  <div style={{ padding: "16px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, overflow: "hidden" }}>
+                  <div style={{ padding: "20px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, overflow: "hidden" }}>
                     {[
-                      { label: "LOI / PSA PIPELINE", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI" }) },
-                      { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                      { label: "LOI / PSA Pipeline", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "Under Contract", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                      { label: "Prospect Pool", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, action: () => navigateTo("summary", { phase: "Prospect" }) },
                     ].map(m => (
-                      <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "12px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.25s ease" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = `rgba(255,255,255,0.07)`; e.currentTarget.style.borderColor = `${m.color}40`; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                      <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.2s ease" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; }}
                       >
-                        <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: m.color, lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{m.label}</div>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)", marginTop: 2 }}>{m.count} site{m.count !== 1 ? "s" : ""}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: "#E2E8F0", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 6 }}>{m.label}</div>
+                        <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>{m.count} site{m.count !== 1 ? "s" : ""}</div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Phase Distribution Mini Bars */}
-                  <div style={{ padding: "14px 24px 0" }}>
-                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 40 }}>
-                      {phaseGroups.map(g => (
-                        <div key={g.label} onClick={g.count > 0 ? g.action : undefined} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: g.count > 0 ? "pointer" : "default", transition: "all 0.2s ease" }}
-                          onMouseEnter={(e) => { if (g.count > 0) e.currentTarget.style.transform = "translateY(-2px)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
-                        >
-                          <div style={{ fontSize: 12, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: g.count > 0 ? g.color : "rgba(148,163,184,0.3)" }}>{g.count}</div>
-                          <div style={{ width: "100%", height: Math.max(4, (g.count / maxPhaseCount) * 24), borderRadius: 3, background: g.count > 0 ? `linear-gradient(180deg, ${g.color}CC, ${g.color}66)` : "rgba(255,255,255,0.04)", transition: "all 0.5s ease" }} />
-                          <div style={{ fontSize: 8, fontWeight: 600, color: "rgba(148,163,184,0.4)", textTransform: "uppercase" }}>{g.label}</div>
+                  {/* Phase Distribution — Horizontal Stacked Bar */}
+                  <div style={{ padding: "18px 24px 0" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Phase Distribution</div>
+                    <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: "rgba(255,255,255,0.04)" }}>
+                      {phaseGroups.filter(g => g.count > 0).map(g => {
+                        const totalCount = phaseGroups.reduce((s, x) => s + x.count, 0) || 1;
+                        return (
+                          <div key={g.label} onClick={g.action} title={`${g.label}: ${g.count}`} style={{ width: `${(g.count / totalCount) * 100}%`, background: g.color, cursor: "pointer", transition: "all 0.3s ease", opacity: 0.8, minWidth: g.count > 0 ? 4 : 0 }}
+                            onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.8"; }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
+                      {phaseGroups.filter(g => g.count > 0).map(g => (
+                        <div key={g.label} onClick={g.action} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: g.color, opacity: 0.8 }} />
+                          <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500 }}>{g.label} <strong style={{ color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{g.count}</strong></span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Recent Activity Feed */}
+                  {/* Recent Activity Feed — collapsible */}
                   {recentMoves.length > 0 && (
-                    <div style={{ padding: "16px 24px 20px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>RECENT ACTIVITY</div>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)" }}>Last 30 days</div>
-                      </div>
-                      <div style={{ maxHeight: 160, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(243,124,51,0.3) transparent" }}>
-                        {recentMoves.slice(0, 10).map((m, idx) => (
-                          <div key={m.name + idx + m.date} onClick={() => { goToDetail({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", borderRadius: 6, transition: "all 0.2s ease" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.paddingLeft = "8px"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "0"; }}
-                          >
-                            <span style={{ fontSize: 12 }}>{moveIcon(m.to)}</span>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name} <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)" }}>({m.region})</span></div>
-                              <div style={{ fontSize: 10, color: "rgba(148,163,184,0.6)" }}>{m.from} → {m.to}</div>
+                    <div style={{ padding: "18px 24px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 16 }}>
+                      <details>
+                        <summary style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", listStyle: "none", userSelect: "none" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em" }}>Recent Activity ({recentMoves.length})</div>
+                          <div style={{ fontSize: 10, color: "#64748B" }}>Last 30 days</div>
+                        </summary>
+                        <div style={{ maxHeight: 180, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(201,168,76,0.3) transparent", marginTop: 10 }}>
+                          {recentMoves.slice(0, 10).map((m, idx) => (
+                            <div key={m.name + idx + m.date} onClick={() => { goToDetail({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", transition: "all 0.15s ease" }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.04)"; e.currentTarget.style.paddingLeft = "8px"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "0"; }}
+                            >
+                              <span style={{ fontSize: 11 }}>{moveIcon(m.to)}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name} <span style={{ fontSize: 9, color: "#64748B" }}>({m.region})</span></div>
+                                <div style={{ fontSize: 10, color: "#94A3B8" }}>{m.from} → {m.to}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: advancePhases.includes(m.to) ? "rgba(34,197,94,0.08)" : m.to === "Dead" ? "rgba(220,38,38,0.08)" : "rgba(201,168,76,0.08)", color: advancePhases.includes(m.to) ? "#86EFAC" : m.to === "Dead" ? "#FCA5A5" : "#C9A84C", letterSpacing: "0.05em" }}>{moveLabel(m.to)}</span>
+                                <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>{m.daysAgo === 0 ? "Today" : m.daysAgo === 1 ? "Yesterday" : `${m.daysAgo}d ago`}</div>
+                              </div>
                             </div>
-                            <div style={{ textAlign: "right" }}>
-                              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: advancePhases.includes(m.to) ? "rgba(34,197,94,0.1)" : m.to === "Dead" ? "rgba(220,38,38,0.1)" : "rgba(59,130,246,0.1)", color: advancePhases.includes(m.to) ? "#86EFAC" : m.to === "Dead" ? "#FCA5A5" : "#93C5FD", letterSpacing: "0.05em" }}>{moveLabel(m.to)}</span>
-                              <div style={{ fontSize: 9, color: "rgba(148,163,184,0.35)", marginTop: 2 }}>{m.daysAgo === 0 ? "Today" : m.daysAgo === 1 ? "Yesterday" : `${m.daysAgo}d ago`}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </details>
                     </div>
                   )}
                 </div>
               );
             })()}
 
-            {/* ═══ PIPELINE FUNNEL — Interactive ═══ */}
-            {(() => {
-              const all = [...sw, ...east];
-              const funnelStages = [
-                { label: "Review Queue", count: pendingN, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
-                { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
-                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "SiteScore Approved", count: all.filter(s => s.phase === "SiteScore Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "SiteScore Approved" }) },
-                { label: "LOI / PSA", count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
-                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
-              ];
-              const declined = all.filter(s => s.phase === "Declined" || s.phase === "Dead").length;
-              return (
-                <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(243,124,51,0.2), rgba(255,179,71,0.3), rgba(243,124,51,0.2), transparent)" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F4F6FA" }}>Pipeline Funnel</h3>
-                    {declined > 0 && <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 600 }}>{declined} declined/dead</span>}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-                    {funnelStages.map((stage, idx) => {
-                      const widthPct = stage.count > 0 ? Math.max(25, 30 + (1 - idx / (funnelStages.length - 1)) * 70) : 25;
-                      return (
-                        <div key={stage.label} onClick={stage.count > 0 ? stage.action : undefined} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, cursor: stage.count > 0 ? "pointer" : "default" }}>
-                          <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#6B7394", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
-                          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-                            <div className={stage.count > 0 ? "funnel-bar" : ""} style={{
-                              width: `${widthPct}%`,
-                              background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "rgba(15,21,56,0.3)",
-                              borderRadius: idx === 0 ? "10px 10px 6px 6px" : idx === funnelStages.length - 1 ? "6px 6px 10px 10px" : 6,
-                              padding: "8px 12px",
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)",
-                              minHeight: 28,
-                            }}>
-                              <span style={{ fontSize: stage.count > 0 ? 16 : 12, fontWeight: 800, color: stage.count > 0 ? "#fff" : "#CBD5E1", fontFamily: "'Space Mono', monospace", position: "relative", zIndex: 1 }}>
-                                {stage.count}
-                              </span>
-                            </div>
-                          </div>
-                          <div style={{ width: 50, fontSize: 10, color: "#94A3B8", flexShrink: 0 }}>
-                            {stage.count > 0 ? "→" : ""}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
-                    Click any stage to navigate — sites flow left to right
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Pipeline Funnel removed — redundant with Deal Momentum phase bars. Data available in Executive tab. */}
 
             {/* Pipeline comparison cards removed — side-by-side phase counts created competitive optics between DW and MT trackers */}
 
             {/* ── Tools Strip — compact access to admin views ── */}
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12, padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16, padding: "14px 0", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
               {[
                 { key: "submit", label: "Submit Site", icon: "+" },
                 { key: "summary", label: "Pipeline Summary", icon: "S" },
                 { key: "validation", label: "Validation", icon: "V" },
                 { key: "inputs", label: "Valuation Engine", icon: "E" },
               ].map(t => (
-                <button key={t.key} onClick={() => navigateTo(t.key)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#6B7394", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 5 }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#C9A84C"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.2)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#6B7394"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: "#4B5563", background: "rgba(255,255,255,0.06)", borderRadius: 3, padding: "1px 4px" }}>{t.icon}</span>
+                <button key={t.key} onClick={() => navigateTo(t.key)} style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6 }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#C9A84C"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; e.currentTarget.style.background = "rgba(201,168,76,0.04)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#94A3B8"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#64748B", background: "rgba(255,255,255,0.05)", borderRadius: 3, padding: "2px 5px" }}>{t.icon}</span>
                   {t.label}
                 </button>
               ))}
