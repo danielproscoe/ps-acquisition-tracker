@@ -332,22 +332,42 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
     return () => clearInterval(id); // P0 fix: always clean up
   }, [timeLapsePlaying]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── AI Expansion Targets (P0 fix #7: corrected scoring) ───
+  // ─── AI Expansion Targets v2 — Multi-Factor Scoring ───
+  // Weights: CC Supply (30%) + Rent Growth (20%) + CC Occupancy (15%) + PS Coverage Gap (20%) + Pop Scale (15%)
+  // PS cares about: low CC SPC in growing markets with high CC occupancy and thin PS coverage.
   const aiTargets = useMemo(() => {
     if (!showAITargets || psLocations.length === 0) return [];
     const excluded = new Set(["CA", "WY", "OR", "WA"]);
-    return MSA_DATA.filter(m => !m.states.some(s => excluded.has(s))).map(m => {
+    return MSA_DATA.filter(m => !m.states.some(s => excluded.has(s)) && m.ccRent).map(m => {
       let psCount = 0;
       for (const ps of psLocations) { if (haversine(m.lat, m.lng, ps.lat, ps.lng) <= 25) psCount++; }
       let pipeCount = 0;
       for (const s of pipeSites) { if (haversine(m.lat, m.lng, s._lat, s._lng) <= 25) pipeCount++; }
       const popPerPS = psCount > 0 ? m.pop / psCount : m.pop;
-      // Normalized 0-10: ratio score (people per PS / 50K) minus pipeline penalty (0.5 per site)
-      const ratioScore = Math.min(10, popPerPS / 50000);
-      const pipelinePenalty = Math.min(5, pipeCount * 0.5);
-      const score = Math.max(0, ratioScore - pipelinePenalty);
-      return { ...m, psCount, pipeCount, popPerPS, score };
-    }).sort((a, b) => b.score - a.score).slice(0, 10);
+      const comp = REIT_PRESENCE[m.name];
+      const totalComp = comp ? comp.exr + comp.cube + comp.lsi + psCount : psCount;
+      // Estimate CC SPC: assume 70K avg CC SF per facility, divide by MSA pop / 100K
+      const estCCSF = totalComp * 70000;
+      const ccSPC = m.pop > 0 ? estCCSF / (m.pop / 100000) / 100000 : 0; // normalize
+
+      // Factor 1: CC Supply Score (30%) — lower CC SPC = higher score. Cap at 20 SPC.
+      const ccSupplyScore = ccSPC <= 2 ? 10 : ccSPC <= 4 ? 8 : ccSPC <= 7 ? 6 : ccSPC <= 12 ? 4 : ccSPC <= 20 ? 2 : 0;
+      // Factor 2: Rent Growth (20%) — higher growth = more demand signal
+      const growthScore = m.ccGrowth >= 5 ? 10 : m.ccGrowth >= 4 ? 8 : m.ccGrowth >= 3 ? 6 : m.ccGrowth >= 2 ? 4 : 2;
+      // Factor 3: CC Occupancy (15%) — high occ = constrained supply
+      const occScore = m.ccOcc >= 93 ? 10 : m.ccOcc >= 91 ? 8 : m.ccOcc >= 89 ? 6 : m.ccOcc >= 87 ? 4 : 2;
+      // Factor 4: PS Coverage Gap (20%) — high pop-per-PS = underserved by PS specifically
+      const gapScore = popPerPS >= 500000 ? 10 : popPerPS >= 300000 ? 8 : popPerPS >= 200000 ? 7 : popPerPS >= 100000 ? 5 : 3;
+      // Factor 5: Population Scale (15%) — bigger market = more units absorbed
+      const popScore = m.pop >= 5000000 ? 10 : m.pop >= 3000000 ? 8 : m.pop >= 2000000 ? 7 : m.pop >= 1000000 ? 5 : 3;
+
+      const composite = ccSupplyScore * 0.30 + growthScore * 0.20 + occScore * 0.15 + gapScore * 0.20 + popScore * 0.15;
+      // Pipeline penalty (already prospecting here)
+      const penalty = Math.min(2, pipeCount * 0.3);
+      const score = Math.max(0, composite - penalty);
+
+      return { ...m, psCount, pipeCount, popPerPS, score, ccSPC: ccSPC.toFixed(1), ccSupplyScore, growthScore, occScore, gapScore, popScore, totalComp };
+    }).sort((a, b) => b.score - a.score).slice(0, 15);
   }, [showAITargets, psLocations, pipeSites]);
 
   // ─── State Leaderboard ───
@@ -433,10 +453,17 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
           {showAITargets && aiTargets.map((t, i) => (
             <Marker key={`ai-${t.name}`} position={[t.lat, t.lng]} icon={aiTargetIcon}>
               <Tooltip direction="top" offset={[0, -14]} opacity={0.95}>
-                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, minWidth: 200 }}>
-                  <strong style={{ color: GOLD }}>#{i + 1} {t.name}</strong><br />
-                  <span style={{ color: "#6B7394" }}>Pop: {(t.pop / 1000000).toFixed(1)}M | PS: {t.psCount} | Pipeline: {t.pipeCount}</span><br />
-                  <span style={{ color: FIRE, fontWeight: 700 }}>{(t.popPerPS / 1000).toFixed(0)}K people per PS</span>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, minWidth: 260 }}>
+                  <strong style={{ color: GOLD }}>#{i + 1} {t.name}</strong>
+                  <span style={{ float: "right", fontSize: 10, fontWeight: 800, color: t.score >= 7 ? GOLD : "#22C55E" }}>{t.score.toFixed(1)}/10</span><br />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 10px", marginTop: 4 }}>
+                    <span style={{ color: "#6B7394" }}>CC Rent:</span><span style={{ fontWeight: 700 }}>${t.ccRent.toFixed(2)}/SF</span>
+                    <span style={{ color: "#6B7394" }}>Growth:</span><span style={{ color: t.ccGrowth >= 4 ? "#22C55E" : GOLD, fontWeight: 600 }}>{t.ccGrowth}%/yr</span>
+                    <span style={{ color: "#6B7394" }}>CC Occ:</span><span style={{ fontWeight: 600 }}>{t.ccOcc}%</span>
+                    <span style={{ color: "#6B7394" }}>PS Here:</span><span style={{ color: FIRE, fontWeight: 700 }}>{t.psCount}</span>
+                    <span style={{ color: "#6B7394" }}>Competitors:</span><span style={{ fontWeight: 600 }}>{t.totalComp}</span>
+                    <span style={{ color: "#6B7394" }}>Pop/PS:</span><span style={{ color: FIRE, fontWeight: 700 }}>{(t.popPerPS / 1000).toFixed(0)}K</span>
+                  </div>
                 </div>
               </Tooltip>
             </Marker>
@@ -583,10 +610,18 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
           {[{ color: "rgba(232,122,46,0.50)", label: "0-10 mi — Dense PS Coverage" }, { color: "rgba(201,168,76,0.45)", label: "10-20 mi — Moderate" }, { color: "rgba(30,39,97,0.55)", label: "20-35 mi — Expansion Sweet Spot" }, { color: "rgba(100,100,100,0.30)", label: ">35 mi — Outside Footprint" }].map((item, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: item.color }} /><span style={{ fontSize: 10, color: "#9CA3AF" }}>{item.label}</span></div>)}
         </div>}
 
-        {showAITargets && aiTargets.length > 0 && <div style={{ position: "absolute", bottom: showCoverage ? 200 : 56, left: 16, zIndex: 1000, background: GLASS, backdropFilter: "blur(12px)", borderRadius: 10, padding: "10px 14px", border: `1px solid ${GOLD}33`, maxWidth: 280 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: GOLD, marginBottom: 8, letterSpacing: 1 }}>AI EXPANSION TARGETS</div>
-          {aiTargets.map((t, i) => <div key={t.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, cursor: "pointer" }} onClick={() => setFitBounds([[t.lat - 0.5, t.lng - 0.8], [t.lat + 0.5, t.lng + 0.8]])}><span style={{ fontSize: 10, fontWeight: 700, color: GOLD, width: 18 }}>#{i + 1}</span><span style={{ fontSize: 10, color: "#E2E8F0", flex: 1 }}>{t.name}</span><span style={{ fontSize: 9, color: FIRE, fontWeight: 600 }}>{(t.popPerPS / 1000).toFixed(0)}K/PS</span></div>)}
-          <div style={{ fontSize: 8, color: "#4B5563", marginTop: 6 }}>Score: Pop/PS ratio (0-10) minus pipeline activity. Excludes CA/WY/OR/WA.</div>
+        {showAITargets && aiTargets.length > 0 && <div style={{ position: "absolute", bottom: showCoverage ? 200 : 56, left: 16, zIndex: 1000, background: GLASS, backdropFilter: "blur(12px)", borderRadius: 10, padding: "10px 14px", border: `1px solid ${GOLD}33`, maxWidth: 340 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: GOLD, marginBottom: 8, letterSpacing: 1 }}>AI EXPANSION TARGETS — TOP 15</div>
+          {aiTargets.map((t, i) => <div key={t.name} style={{ display: "grid", gridTemplateColumns: "22px 1fr 36px 36px 30px", alignItems: "center", gap: 4, marginBottom: 3, cursor: "pointer", padding: "2px 0" }} onClick={() => setFitBounds([[t.lat - 0.5, t.lng - 0.8], [t.lat + 0.5, t.lng + 0.8]])}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(201,168,76,0.08)"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: i < 3 ? GOLD : i < 7 ? "#C9A84C88" : "#4B5563" }}>#{i + 1}</span>
+            <span style={{ fontSize: 10, color: "#E2E8F0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name.length > 18 ? t.name.slice(0, 17) + "…" : t.name}</span>
+            <span style={{ fontSize: 9, color: t.ccGrowth >= 4 ? "#22C55E" : GOLD, fontWeight: 600, textAlign: "right" }}>{t.ccGrowth}%g</span>
+            <span style={{ fontSize: 9, color: FIRE, fontWeight: 600, textAlign: "right" }}>${t.ccRent.toFixed(0)}/SF</span>
+            <span style={{ fontSize: 9, fontWeight: 700, textAlign: "right", color: t.score >= 7 ? GOLD : t.score >= 5 ? "#22C55E" : "#6B7394" }}>{t.score.toFixed(1)}</span>
+          </div>)}
+          <div style={{ fontSize: 8, color: "#4B5563", marginTop: 6, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 4 }}>Multi-factor: CC Supply (30%) + Rent Growth (20%) + CC Occ (15%) + PS Gap (20%) + Pop (15%). Excl. CA/WY/OR/WA.</div>
         </div>}
 
         {/* CC Rent Legend */}
