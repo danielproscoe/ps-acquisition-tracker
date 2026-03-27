@@ -216,15 +216,28 @@ export const computeSiteScore = (site, siteScoreConfig) => {
 
   if (effectiveSPC !== null) {
     compMethod = 'ccSPC';
-    if (effectiveSPC < 1.5) compScore = 10;       // severely underserved
-    else if (effectiveSPC <= 3.0) compScore = 8;   // underserved
-    else if (effectiveSPC <= 5.0) compScore = 6;   // moderate
-    else if (effectiveSPC <= 7.0) compScore = 4;   // well-supplied
-    else compScore = 2;                             // oversupplied
+    // Expanded tiers: PS cares about CC SPC up to 15-20 in growing markets.
+    // Above 20 = hard saturated regardless of growth.
+    if (effectiveSPC < 1.5) compScore = 10;       // severely underserved — strong buy
+    else if (effectiveSPC <= 3.0) compScore = 8;   // underserved — good opportunity
+    else if (effectiveSPC <= 5.0) compScore = 6;   // moderate supply — viable
+    else if (effectiveSPC <= 7.0) compScore = 5;   // moderate-high — needs growth
+    else if (effectiveSPC <= 10.0) compScore = 4;  // well-supplied — growth dependent
+    else if (effectiveSPC <= 15.0) compScore = 3;  // high supply — only if booming growth
+    else if (effectiveSPC <= 20.0) compScore = 2;  // near-saturated — marginal
+    else { compScore = 0; flags.push("CC SPC > 20 — market saturated for CC storage"); }
+
+    // Growth forgiveness: strong pop growth (2%+ CAGR) bumps comp score up 1 point.
+    // Rationale: booming markets absorb new CC supply faster. A 7 CC SPC market
+    // growing at 3%/yr will be a 5 CC SPC market in 5 years (relative to pop).
+    if (growthScore >= 8 && compScore >= 2 && compScore <= 5) {
+      compScore = Math.min(10, compScore + 1);
+      flags.push("Growth forgiveness: pop growth \u22651% offsets CC SPC (+1 comp score)");
+    }
 
     // Pipeline flood flag: if projected is 2+ tiers worse than current
     if (ccSPCValid && projCCSPCValid) {
-      const tierOf = (v) => v < 1.5 ? 5 : v <= 3.0 ? 4 : v <= 5.0 ? 3 : v <= 7.0 ? 2 : 1;
+      const tierOf = (v) => v < 1.5 ? 7 : v <= 3.0 ? 6 : v <= 5.0 ? 5 : v <= 7.0 ? 4 : v <= 10.0 ? 3 : v <= 15.0 ? 2 : 1;
       const currTier = tierOf(parseFloat(ccSPC));
       const projTier = tierOf(parseFloat(projCCSPC));
       if (currTier - projTier >= 2) {
