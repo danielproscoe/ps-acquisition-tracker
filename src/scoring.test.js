@@ -924,8 +924,8 @@ describe('Competition scoring via projectedCCSPC (v4.0)', () => {
   });
 
   test('uses current when it is the worse value', () => {
-    // current 6.0 (score 4), projected 2.0 (score 8) → uses 6.0 → score 4
-    expect(score({ siteiqData: { ccSPC: 6.0, projectedCCSPC: 2.0 } }).scores.competition).toBe(4);
+    // current 6.0 → base 5 (≤7.0 tier) + 1 growth forgiveness (baseSite 1.2% CAGR) = 6
+    expect(score({ siteiqData: { ccSPC: 6.0, projectedCCSPC: 2.0 } }).scores.competition).toBe(6);
   });
 
   test('both equal — uses that value', () => {
