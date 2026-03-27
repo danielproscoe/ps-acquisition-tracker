@@ -189,7 +189,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   if (/\d+['\s]*(?:frontage|front|linear)/i.test(summary) || /frontage/i.test(summary)) accessScore = Math.min(10, accessScore + 2);
   if (/landlocked|no\s*access|easement\s*only/i.test(summary)) { accessScore = 0; hardFail = true; flags.push("FAIL: Landlocked / no road access"); }
-  if (/flood/i.test(summary)) accessScore = Math.max(1, accessScore - 2);
+  if (/flood/i.test(summary) && !/no flood|zone x|fema clear|minimal flood|clear flood|outside flood/i.test(summary)) accessScore = Math.max(1, accessScore - 2);
   if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) accessScore = Math.min(10, accessScore + 2);
   scores.access = Math.min(10, Math.max(0, accessScore));
 

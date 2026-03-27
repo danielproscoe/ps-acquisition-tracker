@@ -585,6 +585,16 @@ describe('Access & size scoring', () => {
     expect(result.scores.access).toBe(6); // 8 - 2
   });
 
+  test('"No flood" does NOT trigger flood penalty', () => {
+    const result = score({ acreage: '4.0', summary: 'No flood. 350\' frontage.' });
+    expect(result.scores.access).toBe(10); // 8 base + 2 frontage, no flood penalty
+  });
+
+  test('"Zone X" with flood mention does NOT trigger flood penalty', () => {
+    const result = score({ acreage: '4.0', summary: 'Zone X — FEMA clear. No flood concerns.' });
+    expect(result.scores.access).toBe(8); // 8 base, no frontage keyword, no flood penalty
+  });
+
   test('subdivisible large tract adds +2', () => {
     const result = score({ acreage: '8.0', summary: 'could subdivide split the parcel' });
     expect(result.scores.access).toBe(7); // 5 + 2
