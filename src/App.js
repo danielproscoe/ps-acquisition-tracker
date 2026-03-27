@@ -3615,6 +3615,69 @@ function AppInner() {
                 </div>
               </div>
 
+              {/* ═══ VALUATION MINI-CARD — Tracker Detail Page ═══ */}
+              {(() => {
+                try {
+                  const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                  if (!fin || !fin.totalSF) return null;
+                  const stabNOI = fin.stabNOI || 0;
+                  const strike = fin.landPrices?.[1];
+                  const walk = fin.landPrices?.[0];
+                  const homerun = fin.landPrices?.[2];
+                  const verdict = fin.landVerdict || "—";
+                  const vColor = fin.verdictColor || "#6B7394";
+                  const yoc = fin.yocStab;
+                  const askRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")) || (String(site.askingPrice || "").match(/([\d.]+)\s*[Mm]/)?.[1] ? parseFloat(String(site.askingPrice).match(/([\d.]+)\s*[Mm]/)[1]) * 1000000 : 0);
+                  const hasAsk = askRaw > 0;
+                  const askVsS = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
+                  return (
+                    <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 14, background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))", border: "1px solid rgba(46,125,50,0.15)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em" }}>STORVEX VALUATION{fin.rateSource === "msa" ? " — MSA RENT" : ""}</span>
+                        {verdict !== "—" && <span style={{ fontSize: 12, fontWeight: 900, color: vColor, padding: "4px 12px", borderRadius: 6, background: `${vColor}15`, border: `1px solid ${vColor}30` }}>{verdict}</span>}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>EST. FACILITY</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(fin.totalSF / 1000).toFixed(0)}K SF</div>
+                          <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.stories > 1 ? `${fin.stories}-Story` : "1-Story"} | {Math.round(fin.climatePct * 100)}% CC</div>
+                        </div>
+                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>STAB. NOI (Y5)</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1e6 ? `$${(stabNOI / 1e6).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
+                          <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
+                        </div>
+                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 3 }}>STRIKE PRICE</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1e6 ? `$${(strike.maxLand / 1e6).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "—"}</div>
+                          <div style={{ fontSize: 10, color: "#6B7394" }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
+                        </div>
+                        {hasAsk && yoc !== "N/A" && (
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 9 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 7.5 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 9 ? "#22C55E" : parseFloat(yoc) >= 7.5 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                            <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
+                          </div>
+                        )}
+                      </div>
+                      {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
+                        <div style={{ marginTop: 10, position: "relative", height: 28, borderRadius: 6, overflow: "hidden", background: "rgba(255,255,255,.04)" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
+                          <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
+                          <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
+                          <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", display: "flex", justifyContent: "space-between", width: "100%", padding: "0 10px" }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444" }}>WALK {walk.maxLand >= 1e6 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C" }}>STRIKE {strike?.maxLand >= 1e6 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#22C55E" }}>HOME RUN {homerun.maxLand >= 1e6 ? `$${(homerun.maxLand/1e6).toFixed(1)}M` : `$${(homerun.maxLand/1000).toFixed(0)}K`}</span>
+                          </div>
+                          {hasAsk && (() => { const range = walk.maxLand - homerun.maxLand; const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50; return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />; })()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {/* ═══ COMMAND CENTER — All actions in one spot ═══ */}
               <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 16, padding: "16px 16px 12px", marginBottom: 20, border: "1px solid rgba(201,168,76,0.1)" }}>
                 <div style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.12em", marginBottom: 10, paddingLeft: 2 }}>QUICK ACCESS</div>
