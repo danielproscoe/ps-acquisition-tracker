@@ -2182,15 +2182,11 @@ function AppInner() {
         <div style={{ display: "flex", gap: 4, overflowX: "auto", padding: "6px 0 4px", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
-            { key: "discover", label: "\uD83C\uDF0E Discover" },
-            { key: "summary", label: "Summary" },
+            { key: "discover", label: "Discover" },
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
-            { key: "submit", label: "Submit Site" },
             { key: "quickscore", label: "Quick Score" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
-            { key: "validation", label: "Validation" },
-            { key: "inputs", label: "\u26A1 Valuation Engine" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#E87A2E"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 16px rgba(232,122,46,0.4)"; } }}
@@ -2505,6 +2501,23 @@ function AppInner() {
             })()}
 
             {/* Pipeline comparison cards removed — side-by-side phase counts created competitive optics between DW and MT trackers */}
+
+            {/* ── Tools Strip — compact access to admin views ── */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12, padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              {[
+                { key: "submit", label: "Submit Site", icon: "+" },
+                { key: "summary", label: "Pipeline Summary", icon: "S" },
+                { key: "validation", label: "Validation", icon: "V" },
+                { key: "inputs", label: "Valuation Engine", icon: "E" },
+              ].map(t => (
+                <button key={t.key} onClick={() => navigateTo(t.key)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#6B7394", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 5 }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#C9A84C"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.2)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#6B7394"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#4B5563", background: "rgba(255,255,255,0.06)", borderRadius: 3, padding: "1px 4px" }}>{t.icon}</span>
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
