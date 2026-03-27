@@ -2797,22 +2797,26 @@ function AppInner() {
                   <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
                     <SiteScoreBadge site={qr.site} iq={qr.iq} />
                     <div>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: qr.iq.classColor }}>{qr.iq.score.toFixed(2)}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: qr.iq.classColor, letterSpacing: "0.08em" }}>{qr.iq.label} — {qr.iq.classification}</div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: qr.iq.classColor || "#C9A84C" }}>{(qr.iq.score || 0).toFixed(2)}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: qr.iq.classColor || "#C9A84C", letterSpacing: "0.08em" }}>{qr.iq.label || "—"} — {qr.iq.classification || "—"}</div>
                     </div>
                   </div>
                   {/* Dimension Breakdown */}
                   <div style={{ display: "grid", gap: 4, marginBottom: 16 }}>
-                    {(qr.iq.breakdown || []).map((d, i) => (
-                      <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 40px 1fr 40px", alignItems: "center", gap: 6, fontSize: 11 }}>
-                        <span style={{ color: "#94A3B8", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</span>
-                        <span style={{ color: "#6B7394", fontSize: 9, textAlign: "right" }}>{(d.weight * 100).toFixed(0)}%</span>
-                        <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${(d.raw / 10) * 100}%`, borderRadius: 3, background: d.raw >= 8 ? "#22C55E" : d.raw >= 6 ? "#C9A84C" : d.raw >= 4 ? "#F59E0B" : "#EF4444", transition: "width 0.3s" }} />
+                    {(qr.iq.breakdown || []).filter(d => d && d.label).map((d, i) => {
+                      const raw = d.raw != null ? d.raw : 5;
+                      const weight = d.weight != null ? d.weight : 0;
+                      return (
+                        <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 40px 1fr 40px", alignItems: "center", gap: 6, fontSize: 11 }}>
+                          <span style={{ color: "#94A3B8", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</span>
+                          <span style={{ color: "#6B7394", fontSize: 9, textAlign: "right" }}>{(weight * 100).toFixed(0)}%</span>
+                          <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${(raw / 10) * 100}%`, borderRadius: 3, background: raw >= 8 ? "#22C55E" : raw >= 6 ? "#C9A84C" : raw >= 4 ? "#F59E0B" : "#EF4444", transition: "width 0.3s" }} />
+                          </div>
+                          <span style={{ color: raw >= 8 ? "#22C55E" : raw >= 6 ? "#C9A84C" : raw >= 4 ? "#F59E0B" : "#EF4444", fontWeight: 700, textAlign: "right" }}>{raw.toFixed(1)}</span>
                         </div>
-                        <span style={{ color: d.raw >= 8 ? "#22C55E" : d.raw >= 6 ? "#C9A84C" : d.raw >= 4 ? "#F59E0B" : "#EF4444", fontWeight: 700, textAlign: "right" }}>{d.raw.toFixed(1)}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {/* Flags */}
                   {qr.iq.flags.length > 0 && (
