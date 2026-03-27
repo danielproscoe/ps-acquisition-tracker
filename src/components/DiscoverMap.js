@@ -168,7 +168,7 @@ function CoverageGrid({ grid }) {
 }
 
 // ─── Main Component ───
-export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
+export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyzeLocation }) {
   const [showCoverage, setShowCoverage] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showSatellite, setShowSatellite] = useState(false);
@@ -469,6 +469,29 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick }) {
                 })()}
                 <div style={{ marginBottom: 6, color: "#6B7394", fontSize: 11 }}>{clickResult.lat.toFixed(4)}, {clickResult.lng.toFixed(4)}</div>
                 <a href={`https://www.crexi.com/properties/Land?bounds=${[clickResult.lat - 0.15, clickResult.lng - 0.2, clickResult.lat + 0.15, clickResult.lng + 0.2].map(v => v.toFixed(4)).join(",")}`} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", background: FIRE, color: "#fff", padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none", marginTop: 6 }}>Search Crexi for Land</a>
+                {onAnalyzeLocation && <button onClick={() => {
+                  // Build analysis payload with all available intel from click
+                  const payload = {
+                    coordinates: `${clickResult.lat.toFixed(6)}, ${clickResult.lng.toFixed(6)}`,
+                    nearestPS: clickResult.minPSDist ? clickResult.minPSDist.toFixed(1) : null,
+                    nearestPSName: clickResult.nearestPS?.name || null,
+                    nearestPSCity: clickResult.nearestPS ? `${clickResult.nearestPS.city} ${clickResult.nearestPS.state}` : null,
+                  };
+                  // Find nearest MSA for rent intel
+                  let nearMSA = null, minMSADist = Infinity;
+                  for (const m of MSA_DATA) { if (!m.ccRent) continue; const d = haversine(clickResult.lat, clickResult.lng, m.lat, m.lng); if (d < minMSADist) { minMSADist = d; nearMSA = m; } }
+                  if (nearMSA && minMSADist < 80) {
+                    payload.msaName = nearMSA.name;
+                    payload.ccRent = nearMSA.ccRent;
+                    payload.ccGrowth = nearMSA.ccGrowth;
+                    payload.ccOcc = nearMSA.ccOcc;
+                    payload.rentTier = nearMSA.tier;
+                  }
+                  // Find state from nearest PS
+                  if (clickResult.nearestPS?.state) payload.state = clickResult.nearestPS.state;
+                  onAnalyzeLocation(payload);
+                  setClickResult(null);
+                }} style={{ display: "block", width: "100%", textAlign: "center", background: `linear-gradient(135deg, ${NAVY}, ${STEEL})`, color: GOLD, padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, border: `1px solid ${GOLD}44`, cursor: "pointer", marginTop: 4, fontFamily: "'Inter',sans-serif", letterSpacing: "0.04em" }}>Analyze This Location</button>}
               </div>
             </Popup>
           )}

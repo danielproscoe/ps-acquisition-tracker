@@ -188,6 +188,7 @@ function AppInner() {
   const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("review");
+  const [discoverIntel, setDiscoverIntel] = useState(null); // Pre-fill from Discover map click
   const [flyerFile, setFlyerFile] = useState(null);
   const [flyerParsing, setFlyerParsing] = useState(false);
   const [flyerPreview, setFlyerPreview] = useState(null);
@@ -681,6 +682,14 @@ function AppInner() {
       messages: {},
       docs: {},
       activityLog: { [uid()]: { action: "Site submitted", ts: now, by: "User" } },
+      // Discover intel — attached when submitted from Discover map click
+      ...(discoverIntel ? {
+        siteiqData: {
+          nearestPS: discoverIntel.nearestPS ? parseFloat(discoverIntel.nearestPS) : null,
+          ...(discoverIntel.ccRent ? { msaCCRent: discoverIntel.ccRent, msaCCGrowth: discoverIntel.ccGrowth, msaCCOcc: discoverIntel.ccOcc, msaRentTier: discoverIntel.rentTier } : {}),
+        },
+        discoverSource: { msaName: discoverIntel.msaName || null, nearestPSName: discoverIntel.nearestPSName || null, nearestPSCity: discoverIntel.nearestPSCity || null, analyzedAt: now },
+      } : {}),
     };
     // Upload all attached files to Firebase Storage
     const allFiles = [];
@@ -717,6 +726,7 @@ function AppInner() {
       setShareLink(id);
     }
     setForm(emptyForm);
+    setDiscoverIntel(null);
     setFlyerFile(null);
     if (flyerPreview) URL.revokeObjectURL(flyerPreview);
     setFlyerPreview(null);
@@ -2513,6 +2523,18 @@ function AppInner() {
                 navigateTo(regionKey);
               }
             }}
+            onAnalyzeLocation={(payload) => {
+              // Pre-fill submit form with Discover intel and switch to Submit tab
+              setForm(prev => ({
+                ...prev,
+                coordinates: payload.coordinates || prev.coordinates,
+                state: payload.state || prev.state,
+              }));
+              setDiscoverIntel(payload);
+              setSubmitMode("review");
+              navigateTo("submit");
+              notify(`Location loaded — ${payload.coordinates}${payload.msaName ? ` (${payload.msaName} MSA)` : ""}`);
+            }}
           />
         )}
 
@@ -2594,6 +2616,35 @@ function AppInner() {
           <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
             <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
               <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Submit Site</h2>
+              {/* Discover Intel Banner — shown when navigating from Discover map */}
+              {discoverIntel && (
+                <div style={{ background: "linear-gradient(135deg, rgba(30,39,97,0.15), rgba(201,168,76,0.08))", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 10, padding: "12px 14px", marginBottom: 14, position: "relative" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>DISCOVER INTEL — PRE-LOADED</span>
+                    <button onClick={() => setDiscoverIntel(null)} style={{ background: "none", border: "none", color: "#6B7394", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>x</button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 6 }}>
+                    <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>COORDINATES</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{discoverIntel.coordinates}</div>
+                    </div>
+                    {discoverIntel.nearestPS && <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>NEAREST PS</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#E87A2E" }}>{discoverIntel.nearestPS} mi</div>
+                      <div style={{ fontSize: 8, color: "#6B7394" }}>{discoverIntel.nearestPSCity || ""}</div>
+                    </div>}
+                    {discoverIntel.msaName && <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>MSA MARKET</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{discoverIntel.msaName}</div>
+                    </div>}
+                    {discoverIntel.ccRent && <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC RENT</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#22C55E" }}>${discoverIntel.ccRent.toFixed(2)}/SF</div>
+                      <div style={{ fontSize: 8, color: "#6B7394" }}>{discoverIntel.ccGrowth}% growth | {discoverIntel.rentTier}</div>
+                    </div>}
+                  </div>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "rgba(15,21,56,0.3)", borderRadius: 10, padding: 3 }}>
                 {[["direct", "⚡ Direct to Tracker"], ["review", "📋 Send to Review"]].map(([k, l]) => (
                   <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', sans-serif", background: submitMode === k ? "rgba(15,21,56,0.5)" : "transparent", color: submitMode === k ? "#E2E8F0" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
