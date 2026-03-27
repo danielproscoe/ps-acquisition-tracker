@@ -1359,7 +1359,7 @@ function AppInner() {
                         {msgs.length > 0 && <span style={{ color: "#E87A2E" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
-                        {site.latestNote && <span style={{ color: "#C9A84C", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 3, background: "rgba(201,168,76,0.08)", padding: "1px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", animation: "pulseOnce 1.5s ease-out" }} title="Hover card for latest intel">🔥 Intel</span>}
+                        {(site.latestNote || generateAutoBlurb(site)) && <span style={{ color: site.latestNote ? "#C9A84C" : "#6B7394", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 3, background: site.latestNote ? "rgba(201,168,76,0.08)" : "rgba(107,115,148,0.08)", padding: "1px 8px", borderRadius: 6, border: site.latestNote ? "1px solid rgba(201,168,76,0.15)" : "1px solid rgba(107,115,148,0.15)", animation: site.latestNote ? "pulseOnce 1.5s ease-out" : "none" }} title="Hover card for latest intel">{site.latestNote ? "🔥" : "📊"} Intel</span>}
                       </div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1565C0, #2C3E6B)", color: "#fff", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(21,101,192,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(21,101,192,0.3)"; }}>📊 Detail</button>
@@ -4898,15 +4898,59 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
   );
 }
 
+// Auto-generate intel blurb from structured Firebase fields when no manual latestNote exists.
+// Ensures every site card has hoverable intel — no blank tooltips.
+function generateAutoBlurb(site) {
+  const parts = [];
+  // Phase + score
+  const phase = site.phase || "Prospect";
+  const score = site.siteiqData?.score || (site.summary?.match(/SiteScore\s+([\d.]+)/)?.[1]);
+  if (score) parts.push(`SiteScore ${score}. Phase: ${phase}.`);
+  else parts.push(`Phase: ${phase}.`);
+  // Zoning
+  if (site.zoningClassification === "by-right") parts.push(`Zoning: ${site.zoning || "Commercial"} - BY RIGHT.`);
+  else if (site.zoningClassification === "conditional") parts.push(`Zoning: ${site.zoning || "?"} - CONDITIONAL (SUP/CUP required).`);
+  else if (site.zoningClassification) parts.push(`Zoning: ${site.zoning || "?"} - ${site.zoningClassification}.`);
+  else if (site.zoning) parts.push(`Zoning: ${site.zoning}.`);
+  // Price + acreage
+  if (site.askingPrice && site.acreage) parts.push(`${site.askingPrice} on ${site.acreage}ac.`);
+  else if (site.askingPrice) parts.push(`Ask: ${site.askingPrice}.`);
+  // Demographics
+  const pop = site.pop3mi; const hhi = site.income3mi; const growth = site.growthRate || site.popGrowth3mi;
+  if (pop || hhi) {
+    let demo = [];
+    if (pop) demo.push(`${pop} pop`);
+    if (hhi) demo.push(`$${String(hhi).replace(/^\$/, '')} HHI`);
+    if (growth) demo.push(`${growth}% growth`);
+    parts.push(`3-mi: ${demo.join(", ")}.`);
+  }
+  // Competition
+  if (site.ccSPC || site.siteiqData?.ccSPC) parts.push(`CC SPC: ${site.ccSPC || site.siteiqData.ccSPC}.`);
+  // PS proximity
+  if (site.siteiqData?.nearestPS) parts.push(`Nearest PS: ${site.siteiqData.nearestPS} mi.`);
+  // Broker
+  if (site.sellerBroker) parts.push(`Broker: ${site.sellerBroker.split(" - ")[0].split(" — ")[0]}.`);
+  // Water
+  if (site.waterHookupStatus === "by-right") parts.push("Water: by-right.");
+  else if (site.waterHookupStatus === "by-request") parts.push("Water: by-request (extension needed).");
+  else if (site.waterHookupStatus === "no-provider") parts.push("Water: NO PROVIDER - red flag.");
+  // Demand drivers
+  if (site.demandDrivers) parts.push(`Drivers: ${site.demandDrivers.substring(0, 80)}${site.demandDrivers.length > 80 ? "..." : ""}`);
+  return parts.length > 1 ? parts.join(" ") : null;
+}
+
 // Intel tooltip wrapper — isolates hover state per card (no parent re-renders)
 // Uses a ref-based delay to prevent flicker on rapid mouse movement
+// Falls back to auto-generated blurb when no manual latestNote exists
 function IntelCardHeader({ site, onClick, children }) {
   const [show, setShow] = useState(false);
   const timerRef = useRef(null);
-  const enter = () => { if (!site.latestNote) return; clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setShow(true), 120); };
+  const blurb = site.latestNote || generateAutoBlurb(site);
+  const blurbDate = site.latestNote ? site.latestNoteDate : (site.latestNote ? null : "Auto");
+  const enter = () => { if (!blurb) return; clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setShow(true), 120); };
   const leave = () => { clearTimeout(timerRef.current); setShow(false); };
   useEffect(() => () => clearTimeout(timerRef.current), []);
-  const lines = show && site.latestNote ? site.latestNote.split("\n").filter(l => l.trim()) : [];
+  const lines = show && blurb ? blurb.split("\n").filter(l => l.trim()) : [];
   return (
     <div onMouseEnter={enter} onMouseLeave={leave} onClick={onClick} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative", zIndex: show ? 100 : 1 }}>
       {show && lines.length > 0 && (
@@ -4918,7 +4962,7 @@ function IntelCardHeader({ site, onClick, children }) {
                 <div style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest Intel</div>
                 <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>Storvex Pipeline Intelligence</div>
               </div>
-              {site.latestNoteDate && <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, background: "rgba(201,168,76,0.1)", padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", whiteSpace: "nowrap" }}>{site.latestNoteDate}</span>}
+              {blurbDate && <span style={{ fontSize: 10, color: blurbDate === "Auto" ? "#6B7394" : "#94A3B8", fontWeight: 700, background: blurbDate === "Auto" ? "rgba(107,115,148,0.1)" : "rgba(201,168,76,0.1)", padding: "3px 10px", borderRadius: 6, border: blurbDate === "Auto" ? "1px solid rgba(107,115,148,0.15)" : "1px solid rgba(201,168,76,0.15)", whiteSpace: "nowrap" }}>{blurbDate === "Auto" ? "Auto-Intel" : blurbDate}</span>}
             </div>
             <div style={{ background: "#080B1A", padding: "14px 20px" }}>
               {lines.map((line, i) => (
