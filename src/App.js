@@ -2631,7 +2631,7 @@ function AppInner() {
                           <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0 }} />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{t.label}</div>
-                            <div style={{ fontSize: 10, color: "#94A3B8" }}>{t.sub} \u00B7 {t.data.length} sites \u00B7 {tStates.length} states</div>
+                            <div style={{ fontSize: 10, color: "#94A3B8" }}>{t.sub} · {t.data.length} sites · {tStates.length} states</div>
                           </div>
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
