@@ -189,6 +189,8 @@ function AppInner() {
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("review");
   const [discoverIntel, setDiscoverIntel] = useState(null); // Pre-fill from Discover map click
+  const [quickScoreForm, setQuickScoreForm] = useState({ name: "", address: "", city: "", state: "", acreage: "", askingPrice: "", zoning: "", zoningStatus: "", pop3mi: "", income3mi: "", households3mi: "", homeValue3mi: "", growthRate: "", nearestPS: "", competitors: "", ccSPC: "", ccRent: "", ccGrowth: "", coordinates: "" });
+  const [quickScoreResult, setQuickScoreResult] = useState(null);
   const [flyerFile, setFlyerFile] = useState(null);
   const [flyerParsing, setFlyerParsing] = useState(false);
   const [flyerPreview, setFlyerPreview] = useState(null);
@@ -2185,6 +2187,7 @@ function AppInner() {
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
             { key: "submit", label: "Submit Site" },
+            { key: "quickscore", label: "Quick Score" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
             { key: "validation", label: "Validation" },
             { key: "inputs", label: "\u26A1 Valuation Engine" },
@@ -2709,6 +2712,139 @@ function AppInner() {
             </div>
           </div>
         )}
+
+        {/* ═══ QUICK SCORE — Self-Service SiteScore ═══ */}
+        {tab === "quickscore" && (() => {
+          const [qs, setQs] = [quickScoreForm, setQuickScoreForm];
+          const runScore = () => {
+            if (!qs.acreage) { notify("Enter acreage to score."); return; }
+            const mockSite = {
+              name: qs.name || "Quick Score",
+              address: qs.address || "",
+              city: qs.city || "",
+              state: qs.state || "",
+              acreage: qs.acreage,
+              askingPrice: qs.askingPrice || "",
+              zoning: qs.zoning || "",
+              pop3mi: qs.pop3mi || "",
+              income3mi: qs.income3mi || "",
+              households3mi: qs.households3mi || "",
+              homeValue3mi: qs.homeValue3mi || "",
+              popGrowth3mi: qs.growthRate || "",
+              coordinates: qs.coordinates || "",
+              summary: qs.zoning ? `${qs.zoning} — ${qs.zoningStatus || "unknown"}` : "",
+              siteiqData: {
+                nearestPS: qs.nearestPS ? parseFloat(qs.nearestPS) : null,
+                competitorCount: qs.competitors ? parseInt(qs.competitors) : null,
+                ccSPC: qs.ccSPC ? parseFloat(qs.ccSPC) : null,
+                msaCCRent: qs.ccRent ? parseFloat(qs.ccRent) : null,
+                msaCCGrowth: qs.ccGrowth ? parseFloat(qs.ccGrowth) : null,
+              },
+            };
+            const iqResult = computeSiteScore(mockSite);
+            const finResult = computeSiteFinancials(mockSite, VALUATION_OVERRIDES, {});
+            setQuickScoreResult({ iq: iqResult, fin: finResult, site: mockSite });
+          };
+          const qr = quickScoreResult;
+          const sInp = { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box" };
+          return (
+            <div style={{ animation: "fadeIn .3s ease-out", display: "grid", gridTemplateColumns: qr ? "1fr 1fr" : "1fr", gap: 20, alignItems: "start" }}>
+              {/* Input Panel */}
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 24 }}>
+                <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700 }}>Quick Score</h2>
+                <p style={{ margin: "0 0 16px", fontSize: 12, color: "#6B7394" }}>Instant SiteScore + financial snapshot — no submission required.</p>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>NAME</label><input style={sInp} value={qs.name} onChange={e => setQs({...qs, name: e.target.value})} placeholder="Site name" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>STATE</label><input style={sInp} value={qs.state} onChange={e => setQs({...qs, state: e.target.value})} placeholder="TX" maxLength={2} /></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em" }}>ACREAGE *</label><input style={{...sInp, borderColor: "rgba(201,168,76,0.3)"}} value={qs.acreage} onChange={e => setQs({...qs, acreage: e.target.value})} placeholder="3.5" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>ASKING PRICE</label><input style={sInp} value={qs.askingPrice} onChange={e => setQs({...qs, askingPrice: e.target.value})} placeholder="$1,500,000" /></div>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#E87A2E", letterSpacing: "0.08em", marginTop: 6, borderTop: "1px solid rgba(255,255,255,.06)", paddingTop: 10 }}>DEMOGRAPHICS (ESRI 3-MI)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>POPULATION</label><input style={sInp} value={qs.pop3mi} onChange={e => setQs({...qs, pop3mi: e.target.value})} placeholder="42,000" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>MED. HHI</label><input style={sInp} value={qs.income3mi} onChange={e => setQs({...qs, income3mi: e.target.value})} placeholder="$85,000" /></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>HOUSEHOLDS</label><input style={sInp} value={qs.households3mi} onChange={e => setQs({...qs, households3mi: e.target.value})} placeholder="15,000" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>HOME VALUE</label><input style={sInp} value={qs.homeValue3mi} onChange={e => setQs({...qs, homeValue3mi: e.target.value})} placeholder="$320,000" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>GROWTH %</label><input style={sInp} value={qs.growthRate} onChange={e => setQs({...qs, growthRate: e.target.value})} placeholder="2.1" /></div>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#E87A2E", letterSpacing: "0.08em", marginTop: 6, borderTop: "1px solid rgba(255,255,255,.06)", paddingTop: 10 }}>MARKET INTEL</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>ZONING</label><input style={sInp} value={qs.zoning} onChange={e => setQs({...qs, zoning: e.target.value})} placeholder="C-3" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>NEAREST PS (mi)</label><input style={sInp} value={qs.nearestPS} onChange={e => setQs({...qs, nearestPS: e.target.value})} placeholder="8.5" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC COMPETITORS</label><input style={sInp} value={qs.competitors} onChange={e => setQs({...qs, competitors: e.target.value})} placeholder="3" /></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC SPC</label><input style={sInp} value={qs.ccSPC} onChange={e => setQs({...qs, ccSPC: e.target.value})} placeholder="3.2" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC RENT $/SF/yr</label><input style={sInp} value={qs.ccRent} onChange={e => setQs({...qs, ccRent: e.target.value})} placeholder="15.40" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC GROWTH %</label><input style={sInp} value={qs.ccGrowth} onChange={e => setQs({...qs, ccGrowth: e.target.value})} placeholder="4.2" /></div>
+                  </div>
+                  <button onClick={runScore} style={{ marginTop: 8, padding: "14px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, letterSpacing: "0.04em", boxShadow: "0 4px 20px rgba(232,122,46,0.4)" }}>SCORE THIS SITE</button>
+                </div>
+              </div>
+              {/* Results Panel */}
+              {qr && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 24, animation: "fadeIn .3s ease-out" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Results</h2>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#6B7394" }}>{qs.name || "Quick Score"}</span>
+                  </div>
+                  {/* SiteScore Badge */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                    <SiteScoreBadge site={qr.site} iq={qr.iq} />
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: qr.iq.classColor }}>{qr.iq.score.toFixed(2)}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: qr.iq.classColor, letterSpacing: "0.08em" }}>{qr.iq.label} — {qr.iq.classification}</div>
+                    </div>
+                  </div>
+                  {/* Dimension Breakdown */}
+                  <div style={{ display: "grid", gap: 4, marginBottom: 16 }}>
+                    {(qr.iq.breakdown || []).map((d, i) => (
+                      <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 40px 1fr 40px", alignItems: "center", gap: 6, fontSize: 11 }}>
+                        <span style={{ color: "#94A3B8", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</span>
+                        <span style={{ color: "#6B7394", fontSize: 9, textAlign: "right" }}>{(d.weight * 100).toFixed(0)}%</span>
+                        <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${(d.raw / 10) * 100}%`, borderRadius: 3, background: d.raw >= 8 ? "#22C55E" : d.raw >= 6 ? "#C9A84C" : d.raw >= 4 ? "#F59E0B" : "#EF4444", transition: "width 0.3s" }} />
+                        </div>
+                        <span style={{ color: d.raw >= 8 ? "#22C55E" : d.raw >= 6 ? "#C9A84C" : d.raw >= 4 ? "#F59E0B" : "#EF4444", fontWeight: 700, textAlign: "right" }}>{d.raw.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Flags */}
+                  {qr.iq.flags.length > 0 && (
+                    <div style={{ marginBottom: 16, padding: "8px 10px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", letterSpacing: "0.08em", marginBottom: 4 }}>FLAGS</div>
+                      {qr.iq.flags.map((f, i) => <div key={i} style={{ fontSize: 11, color: "#FCA5A5", marginBottom: 2 }}>{f}</div>)}
+                    </div>
+                  )}
+                  {/* Financial Snapshot */}
+                  {qr.fin && qr.fin.totalSF > 0 && (
+                    <div style={{ padding: "12px 14px", borderRadius: 10, background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))", border: "1px solid rgba(46,125,50,0.15)" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em", marginBottom: 8 }}>VALUATION SNAPSHOT{qr.fin.rateSource === "msa" ? " — MSA RENT" : ""}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Est. Facility</div><div style={{ fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>{(qr.fin.totalSF / 1000).toFixed(0)}K SF</div><div style={{ fontSize: 9, color: "#6B7394" }}>{qr.fin.stories > 1 ? `${qr.fin.stories}-Story` : "1-Story"} | {Math.round(qr.fin.climatePct * 100)}% CC</div></div>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Stab. NOI (Y5)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#22C55E" }}>{qr.fin.stabNOI >= 1000000 ? `$${(qr.fin.stabNOI / 1e6).toFixed(2)}M` : `$${(qr.fin.stabNOI / 1000).toFixed(0)}K`}</div></div>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Strike Price (9% YOC)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C" }}>{qr.fin.landPrices?.[1]?.maxLand >= 1e6 ? `$${(qr.fin.landPrices[1].maxLand / 1e6).toFixed(2)}M` : qr.fin.landPrices?.[1]?.maxLand > 0 ? `$${(qr.fin.landPrices[1].maxLand / 1000).toFixed(0)}K` : "—"}</div></div>
+                        {qr.fin.yocStab !== "N/A" && <div><div style={{ fontSize: 9, color: "#6B7394" }}>YOC @ Ask</div><div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(qr.fin.yocStab) >= 9 ? "#22C55E" : parseFloat(qr.fin.yocStab) >= 7.5 ? "#C9A84C" : "#EF4444" }}>{qr.fin.yocStab}%</div></div>}
+                      </div>
+                      {qr.fin.landVerdict && <div style={{ marginTop: 8, textAlign: "center", fontSize: 13, fontWeight: 900, color: qr.fin.verdictColor, padding: "6px 12px", borderRadius: 6, background: `${qr.fin.verdictColor}12`, border: `1px solid ${qr.fin.verdictColor}25` }}>{qr.fin.landVerdict}</div>}
+                    </div>
+                  )}
+                  {/* Submit to Queue */}
+                  <button onClick={() => {
+                    setForm({ ...form, name: qs.name || "", address: qs.address || "", city: qs.city || "", state: qs.state || "", acreage: qs.acreage || "", askingPrice: qs.askingPrice || "", zoning: qs.zoning || "", coordinates: qs.coordinates || "" });
+                    navigateTo("submit");
+                    notify("Fields loaded — complete and submit.");
+                  }} style={{ marginTop: 12, width: "100%", padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Submit to Review Queue</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ═══ REVIEW ═══ */}
         {tab === "review" && !reviewDetailSite && (
