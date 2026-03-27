@@ -433,7 +433,9 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0] || "0");
   const askRaw = parseP(site.askingPrice);
   const intRaw = parseP(site.internalPrice);
-  const landCost = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) ? askRaw : 0);
+  const landCostRaw = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) ? askRaw : 0);
+  // GUARDRAIL: Cap land cost at $50M — anything higher is a parsing error (annotated field concatenation)
+  const landCost = landCostRaw > 50000000 ? 0 : landCostRaw;
   const safeInt = (v) => {
     if (v == null || v === "") return 0;
     const s = String(v);
@@ -692,8 +694,12 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     };
   });
 
-  const stabNOI = yearData[4].noi;
-  const stabRev = yearData[4].totalRev;
+  const stabNOIRaw = yearData[4].noi;
+  const stabRevRaw = yearData[4].totalRev;
+  // GUARDRAIL: If NOI is more negative than -$5M or revenue is 0 but NOI < -$1M, flag as error
+  const valuationError = stabNOIRaw < -5000000 || (stabRevRaw <= 0 && stabNOIRaw < -1000000) || landCost === 0 && landCostRaw > 50000000;
+  const stabNOI = valuationError ? 0 : stabNOIRaw;
+  const stabRev = valuationError ? 0 : stabRevRaw;
 
   // Construction costs + totalDevCost computed above (before yearData — needed for bottom-up OpEx)
   const yocStab = stabNOI > 0 && totalDevCost > 0 ? ((stabNOI / totalDevCost) * 100).toFixed(1) : "N/A";
@@ -981,7 +987,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     // Year data
     leaseUpSchedule, yearData,
     // NOI
-    stabNOI, stabRev,
+    stabNOI, stabRev, valuationError,
     // Construction + Carry
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
     contingencyPct, contingency, buildCosts, totalHardCost, totalHardPerSF,

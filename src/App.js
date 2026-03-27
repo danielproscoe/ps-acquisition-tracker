@@ -1551,9 +1551,9 @@ function AppInner() {
                                         <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
                                       </div>
                                       {hasAsk && yoc !== "N/A" && (
-                                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "8px 10px", border: `1px solid ${parseFloat(yoc) >= 9 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 7.5 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "8px 10px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
                                           <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 2 }}>YOC @ ASK</div>
-                                          <div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(yoc) >= 9 ? "#22C55E" : parseFloat(yoc) >= 7.5 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                                          <div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
                                           <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>{askVsStrike ? (parseFloat(askVsStrike) <= 0 ? `${Math.abs(parseFloat(askVsStrike))}% below strike` : `${askVsStrike}% above strike`) : ""}</div>
                                         </div>
                                       )}
@@ -3070,7 +3070,7 @@ function AppInner() {
                         <div><div style={{ fontSize: 9, color: "#6B7394" }}>Est. Facility</div><div style={{ fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>{(qr.fin.totalSF / 1000).toFixed(0)}K SF</div><div style={{ fontSize: 9, color: "#6B7394" }}>{qr.fin.stories > 1 ? `${qr.fin.stories}-Story` : "1-Story"} | {Math.round(qr.fin.climatePct * 100)}% CC</div></div>
                         <div><div style={{ fontSize: 9, color: "#6B7394" }}>Stab. NOI (Y5)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#22C55E" }}>{qr.fin.stabNOI >= 1000000 ? `$${(qr.fin.stabNOI / 1e6).toFixed(2)}M` : `$${(qr.fin.stabNOI / 1000).toFixed(0)}K`}</div></div>
                         <div><div style={{ fontSize: 9, color: "#6B7394" }}>Strike Price (9% YOC)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C" }}>{qr.fin.landPrices?.[1]?.maxLand >= 1e6 ? `$${(qr.fin.landPrices[1].maxLand / 1e6).toFixed(2)}M` : qr.fin.landPrices?.[1]?.maxLand > 0 ? `$${(qr.fin.landPrices[1].maxLand / 1000).toFixed(0)}K` : "—"}</div></div>
-                        {qr.fin.yocStab !== "N/A" && <div><div style={{ fontSize: 9, color: "#6B7394" }}>YOC @ Ask</div><div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(qr.fin.yocStab) >= 9 ? "#22C55E" : parseFloat(qr.fin.yocStab) >= 7.5 ? "#C9A84C" : "#EF4444" }}>{qr.fin.yocStab}%</div></div>}
+                        {qr.fin.yocStab !== "N/A" && <div><div style={{ fontSize: 9, color: "#6B7394" }}>YOC @ Ask</div><div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(qr.fin.yocStab) >= 8 ? "#22C55E" : parseFloat(qr.fin.yocStab) >= 6 ? "#C9A84C" : "#EF4444" }}>{qr.fin.yocStab}%</div></div>}
                       </div>
                       {qr.fin.landVerdict && <div style={{ marginTop: 8, textAlign: "center", fontSize: 13, fontWeight: 900, color: qr.fin.verdictColor, padding: "6px 12px", borderRadius: 6, background: `${qr.fin.verdictColor}12`, border: `1px solid ${qr.fin.verdictColor}25` }}>{qr.fin.landVerdict}</div>}
                     </div>
@@ -3577,9 +3577,9 @@ function AppInner() {
                           <div style={{ fontSize: 10, color: "#6B7394" }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
                         </div>
                         {hasAsk && yoc !== "N/A" && (
-                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 9 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 7.5 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
                             <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 9 ? "#22C55E" : parseFloat(yoc) >= 7.5 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
                             <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
                           </div>
                         )}
@@ -3948,9 +3948,9 @@ function AppInner() {
                           <div style={{ fontSize: 10, color: "#6B7394" }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
                         </div>
                         {hasAsk && yoc !== "N/A" && (
-                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 9 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 7.5 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
                             <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 9 ? "#22C55E" : parseFloat(yoc) >= 7.5 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
                             <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
                           </div>
                         )}
