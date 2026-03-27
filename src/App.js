@@ -3377,7 +3377,7 @@ function AppInner() {
                       {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
                       {site.status === "recommended" && <div style={{ marginTop: 4 }}><div style={{ fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>{site.recommendedComment && <div style={{ fontSize: 10, fontStyle: "italic", color: "#D6E4F7", marginTop: 2 }}>Note: {site.recommendedComment}</div>}</div>}
                       {/* ═══ QUICK ACTION BUTTONS — Dan approve/reject on "mine" tab, DW/MT approve on their tabs ═══ */}
-                      {reviewTab === "mine" && (site.status === "pending" || site.status === "ps-rejected") && (
+                      {reviewTab === "mine" && (site.status === "pending" || site.status === "ps-rejected") && (<>
                         <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                           <select value={ri.routeTo || site.region || ""} onChange={(e) => { e.stopPropagation(); setRI("routeTo", e.target.value); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", fontSize: 11, fontWeight: 600 }}>
                             <option value="">Route to...</option>
@@ -3405,7 +3405,7 @@ function AppInner() {
                             <button onClick={(e) => { e.stopPropagation(); handleDecline(site.id, ri.declineReason || "Declined from queue"); setRI("showDeclinePanel", false); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 30px rgba(220,38,38,0.4)"; card.style.borderLeftColor = "#EF4444"; setTimeout(() => { card.style.boxShadow = ""; }, 1200); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#DC2626,#991B1B)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Reject & Log</button>
                           </div>
                         )}
-                      )}
+                      </>)}
                       {/* DW/MT tabs — PS approve or reject buttons with reason capture */}
                       {(reviewTab === "dw" || reviewTab === "mt") && site.status === "recommended" && (
                         <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8 }}>
