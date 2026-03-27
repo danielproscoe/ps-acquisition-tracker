@@ -946,9 +946,9 @@ describe('Competition scoring via projectedCCSPC (v4.0)', () => {
   });
 
   test('pipeline flood caps score at 4 even if effective SPC would score higher', () => {
-    // current 0.5 (score 10, tier 5), projected 8.0 (score 2, tier 1) → flood, effective=8.0, score=2, capped at min(2,4)=2
+    // current 0.5 (tier 7), projected 8.0 (tier 3) → flood, effective=8.0 → base 4, +1 forgiveness=5, flood cap=4
     const result = score({ siteiqData: { ccSPC: 0.5, projectedCCSPC: 8.0 } });
-    expect(result.scores.competition).toBe(2);
+    expect(result.scores.competition).toBe(4);
     expect(result.flags.some(f => f.includes('Pipeline flood'))).toBe(true);
   });
 
