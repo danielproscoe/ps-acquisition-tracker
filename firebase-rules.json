@@ -1,22 +1,70 @@
 {
   "rules": {
     ".read": "auth != null",
-    ".write": "auth != null",
+    ".write": false,
+
     "config": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      "siteiq_weights": {
+        ".validate": "newData.hasChild('dimensions')"
+      },
+      "killed_sites": {
+        "$siteId": {
+          ".validate": "newData.hasChild('address') && newData.hasChild('killedAt')"
+        }
+      },
+      "scoring_calibration": {
+        "$entryId": {
+          ".validate": "newData.hasChild('reason') && newData.hasChild('date')"
+        }
+      },
+      "valuation_overrides": {
+        ".validate": true
+      }
     },
+
     "submissions": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      "$siteId": {
+        ".validate": "newData.hasChild('address') || newData.hasChild('name')"
+      }
     },
+
     "southwest": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      "$siteId": {
+        ".validate": "newData.hasChild('address') || newData.hasChild('name') || !newData.exists()"
+      }
     },
+
     "east": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      "$siteId": {
+        ".validate": "newData.hasChild('address') || newData.hasChild('name') || !newData.exists()"
+      }
+    },
+
+    "scans": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["completedAt", "type"]
+    },
+
+    "userLogs": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid",
+        ".read": "auth != null"
+      }
+    },
+
+    "$other": {
+      ".validate": false
     }
   }
 }

@@ -101,6 +101,39 @@ describe('SITE_SCORE_DEFAULTS', () => {
     const sum = SITE_SCORE_DEFAULTS.reduce((s, d) => s + d.weight, 0);
     expect(sum).toBeCloseTo(1.0, 2);
   });
+
+  // ─── DRIFT PREVENTION — v4.0 locked weight table (QC audit 2026-03-26) ───
+  // If this test fails, it means someone changed SITE_SCORE_DEFAULTS weights
+  // without updating CLAUDE.md §6h and Scoring Integrity Rule #1.
+  // Update BOTH the code AND the docs, then update this table to match.
+  test('v4.0 locked weights match expected table (drift prevention)', () => {
+    const expected = {
+      population: 0.14,
+      growth: 0.18,
+      income: 0.10,
+      households: 0.04,
+      homeValue: 0.04,
+      zoning: 0.16,
+      access: 0.07,
+      competition: 0.25,
+      marketTier: 0.02,
+    };
+    const actual = {};
+    SITE_SCORE_DEFAULTS.forEach(d => { actual[d.key] = d.weight; });
+    Object.entries(expected).forEach(([key, weight]) => {
+      expect(actual[key]).toBeCloseTo(weight, 3);
+    });
+  });
+
+  test('all required dimension keys present (no psProximity — binary gate only)', () => {
+    const keys = SITE_SCORE_DEFAULTS.map(d => d.key);
+    expect(keys).toEqual(expect.arrayContaining([
+      'population', 'growth', 'income', 'households', 'homeValue',
+      'zoning', 'access', 'competition', 'marketTier',
+    ]));
+    expect(keys).not.toContain('psProximity');
+    expect(keys).not.toContain('pricing');
+  });
 });
 
 describe('normalizeSiteScoreWeights', () => {
