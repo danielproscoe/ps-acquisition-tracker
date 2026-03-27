@@ -96,6 +96,41 @@ const MSA_DATA = [
   { name: "Grand Rapids MI", pop: 1100000, states: ["MI"], lat: 42.96, lng: -85.66, ccRent: 12.80, ccGrowth: 3.6, ccOcc: 91.2, tier: "value" },
 ];
 
+// ─── Competitor REIT MSA Presence (Q4 2025 10-K filings) ───
+// Estimated facility counts by MSA for top 3 competitors. Used for CC SPC context.
+const REIT_PRESENCE = {
+  "New York-Newark": { exr: 85, cube: 52, lsi: 28 },
+  "Los Angeles-Long Beach": { exr: 92, cube: 38, lsi: 22 },
+  "Chicago-Naperville": { exr: 68, cube: 42, lsi: 18 },
+  "Dallas-Fort Worth": { exr: 78, cube: 35, lsi: 25 },
+  "Houston-Woodlands": { exr: 72, cube: 28, lsi: 20 },
+  "Washington-Arlington": { exr: 55, cube: 32, lsi: 15 },
+  "Philadelphia-Camden": { exr: 48, cube: 38, lsi: 12 },
+  "Atlanta-Sandy Springs": { exr: 65, cube: 22, lsi: 18 },
+  "Miami-Fort Lauderdale": { exr: 58, cube: 25, lsi: 20 },
+  "Phoenix-Mesa": { exr: 52, cube: 18, lsi: 15 },
+  "Boston-Cambridge": { exr: 42, cube: 28, lsi: 10 },
+  "San Francisco-Oakland": { exr: 35, cube: 22, lsi: 8 },
+  "Detroit-Warren": { exr: 38, cube: 15, lsi: 12 },
+  "Seattle-Tacoma": { exr: 32, cube: 12, lsi: 8 },
+  "Minneapolis-St. Paul": { exr: 28, cube: 15, lsi: 10 },
+  "Tampa-St. Petersburg": { exr: 48, cube: 22, lsi: 18 },
+  "Denver-Aurora": { exr: 35, cube: 15, lsi: 12 },
+  "Orlando-Kissimmee": { exr: 42, cube: 18, lsi: 15 },
+  "Charlotte-Concord": { exr: 35, cube: 12, lsi: 10 },
+  "Nashville-Davidson": { exr: 32, cube: 10, lsi: 12 },
+  "Austin-Round Rock": { exr: 28, cube: 10, lsi: 8 },
+  "San Antonio-New Braunfels": { exr: 22, cube: 8, lsi: 6 },
+  "Las Vegas-Henderson": { exr: 25, cube: 10, lsi: 8 },
+  "Cincinnati": { exr: 18, cube: 8, lsi: 6 },
+  "Indianapolis": { exr: 22, cube: 10, lsi: 8 },
+  "Columbus OH": { exr: 20, cube: 8, lsi: 6 },
+  "Cleveland-Elyria": { exr: 15, cube: 8, lsi: 5 },
+  "Kansas City": { exr: 18, cube: 6, lsi: 5 },
+  "St. Louis": { exr: 20, cube: 8, lsi: 6 },
+  "Salt Lake City": { exr: 15, cube: 6, lsi: 5 },
+};
+
 // ─── CC Rent Tier Colors (for map heatmap + leaderboard) ───
 const RENT_TIER_COLORS = { premium: "#C9A84C", strong: "#22C55E", moderate: "#3B82F6", value: "#6B7394", emerging: "#8B5CF6" };
 const rentTierLabel = (r) => r >= 20 ? "PREMIUM" : r >= 15 ? "STRONG" : r >= 13 ? "MODERATE" : "VALUE";
@@ -176,6 +211,7 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
   const [demoMode, setDemoMode] = useState("population");
   const [showAITargets, setShowAITargets] = useState(false);
   const [showCCRents, setShowCCRents] = useState(false);
+  const [showCompetitors, setShowCompetitors] = useState(false);
   const [leaderboardMode, setLeaderboardMode] = useState("state");
   const [clickResult, setClickResult] = useState(null);
   const [leaderboardSort, setLeaderboardSort] = useState("gap");
@@ -334,7 +370,9 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
       let pipeCount = 0; for (const s of pipeSites) { if (haversine(m.lat, m.lng, s._lat, s._lng) <= 30) pipeCount++; }
       const ratio = psCount > 0 ? m.pop / psCount : Infinity;
       const gapScore = psCount === 0 ? 10 : ratio >= 500000 ? 10 : ratio >= 300000 ? 9 : ratio >= 200000 ? 8 : ratio >= 150000 ? 7 : ratio >= 100000 ? 6 : ratio >= 75000 ? 5 : ratio >= 50000 ? 4 : ratio >= 30000 ? 3 : 2;
-      return { ...m, psCount, pipeCount, gapScore, ratio };
+      const comp = REIT_PRESENCE[m.name];
+      const compTotal = comp ? comp.exr + comp.cube + comp.lsi : 0;
+      return { ...m, psCount, pipeCount, gapScore, ratio, compTotal };
     });
   }, [psLocations, pipeSites]);
 
@@ -437,6 +475,33 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
             );
           })}
 
+          {/* Competitor REIT Presence — MSA-level markers */}
+          {showCompetitors && MSA_DATA.filter(m => REIT_PRESENCE[m.name]).map(m => {
+            const c = REIT_PRESENCE[m.name];
+            const total = c.exr + c.cube + c.lsi;
+            const size = total >= 100 ? 48 : total >= 50 ? 40 : 32;
+            return (
+              <Marker key={`comp-${m.name}`} position={[m.lat, m.lng]} icon={L.divIcon({
+                className: "comp-marker",
+                html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(139,92,246,0.15);border:2px solid #8B5CF6;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#A78BFA;font-family:'Inter',sans-serif;backdrop-filter:blur(4px);box-shadow:0 0 10px rgba(139,92,246,0.3)">${total}</div>`,
+                iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+              })}>
+                <Tooltip direction="top" offset={[0, -size / 2 - 4]} opacity={0.95}>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, minWidth: 220 }}>
+                    <strong style={{ color: "#8B5CF6" }}>COMPETITOR PRESENCE — {m.name}</strong><br />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "3px 12px", marginTop: 4 }}>
+                      <span style={{ color: "#6B7394" }}>Extra Space Storage:</span><span style={{ fontWeight: 700, color: "#3B82F6" }}>{c.exr} facilities</span>
+                      <span style={{ color: "#6B7394" }}>CubeSmart:</span><span style={{ fontWeight: 700, color: "#22C55E" }}>{c.cube} facilities</span>
+                      <span style={{ color: "#6B7394" }}>Life Storage:</span><span style={{ fontWeight: 700, color: "#F59E0B" }}>{c.lsi} facilities</span>
+                      <span style={{ color: "#6B7394", fontWeight: 600 }}>Total Competitors:</span><span style={{ fontWeight: 800, color: "#A78BFA" }}>{total}</span>
+                    </div>
+                    {m.ccRent && <div style={{ borderTop: "1px solid rgba(0,0,0,0.1)", marginTop: 6, paddingTop: 4, fontSize: 10, color: "#6B7394" }}>CC Rent: ${m.ccRent.toFixed(2)}/SF | Occ: {m.ccOcc}%</div>}
+                  </div>
+                </Tooltip>
+              </Marker>
+            );
+          })}
+
           <MapClickHandler psLocations={psLocations} pipelineSites={pipeSites} onClickResult={setClickResult} />
           {fitBounds && <FitBounds bounds={fitBounds} />}
 
@@ -505,6 +570,7 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
             {["population", "income", "growth"].map(m => <button key={m} onClick={() => setDemoMode(m)} style={{ background: demoMode === m ? FIRE : "transparent", color: demoMode === m ? "#fff" : "#6B7394", border: "none", borderRadius: 4, padding: "3px 6px", fontSize: 9, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", textTransform: "capitalize" }}>{m}</button>)}
           </div>}
           <LayerBtn active={showCCRents} onClick={() => setShowCCRents(!showCCRents)} label={showCCRents ? "CC Rents ON" : "CC Rents"} color="#22C55E" />
+          <LayerBtn active={showCompetitors} onClick={() => setShowCompetitors(!showCompetitors)} label={showCompetitors ? "Competitors ON" : "Competitors"} color="#8B5CF6" />
           <LayerBtn active={showAITargets} onClick={() => setShowAITargets(!showAITargets)} label={showAITargets ? "AI Targets ON" : "AI Top 10"} color={GOLD} />
           <LayerBtn active={timeLapsePlaying} onClick={() => setTimeLapsePlaying(!timeLapsePlaying)} label={timeLapsePlaying ? `Playing ${timeLapseYear}` : "Time-Lapse"} color="#8B5CF6" />
           <LayerBtn active={showSatellite} onClick={() => setShowSatellite(!showSatellite)} label={showSatellite ? "Satellite ON" : "Satellite"} />
