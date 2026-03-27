@@ -5,8 +5,10 @@ import React, { useState, useEffect, useRef } from "react";
 export default function EF({ label, value, onSave, placeholder, multi }) {
   const [local, setLocal] = useState(value || "");
   const prevValue = useRef(value);
+  const focused = useRef(false);
   useEffect(() => {
-    if (value !== prevValue.current) {
+    // Don't overwrite local state while user is actively typing
+    if (!focused.current && value !== prevValue.current) {
       setLocal(value || "");
       prevValue.current = value;
     }
@@ -24,7 +26,10 @@ export default function EF({ label, value, onSave, placeholder, multi }) {
     boxSizing: "border-box",
     resize: multi ? "vertical" : "none",
   };
+  const handleFocus = () => { focused.current = true; };
   const handleBlur = () => {
+    focused.current = false;
+    prevValue.current = local;
     if (local !== (value || "")) onSave(local);
   };
   return (
@@ -48,6 +53,7 @@ export default function EF({ label, value, onSave, placeholder, multi }) {
           style={{ ...st, minHeight: 60 }}
           value={local}
           onChange={(e) => setLocal(e.target.value)}
+          onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={placeholder}
         />
@@ -56,6 +62,7 @@ export default function EF({ label, value, onSave, placeholder, multi }) {
           style={st}
           value={local}
           onChange={(e) => setLocal(e.target.value)}
+          onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={placeholder}
         />
