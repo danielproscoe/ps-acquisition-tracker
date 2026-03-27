@@ -44,18 +44,23 @@ export function normalizePriority(p) {
 export function PriorityBadge({ priority }) {
   const p = normalizePriority(priority);
   const c = PRIORITY_COLORS[p] || "#CBD5E1";
+  // Extract just the text label (e.g., "Hot" from "🔥 Hot")
+  const label = p ? p.replace(/^[^\s]+\s/, "") : "";
   return p && p !== "⚪ None" ? (
     <span
       style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: c,
-        background: c + "18",
-        padding: "2px 8px",
-        borderRadius: 6,
+        fontSize: 9,
+        fontWeight: 600,
+        color: "#94A3B8",
+        background: "transparent",
+        padding: "2px 6px",
+        borderRadius: 5,
+        border: `1px solid ${c}30`,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
       }}
     >
-      {p}
+      {label}
     </span>
   ) : null;
 }
