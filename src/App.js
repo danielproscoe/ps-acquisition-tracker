@@ -3444,14 +3444,53 @@ function AppInner() {
                             <option value="east">MT (East)</option>
                           </select>
                           <button onClick={(e) => { e.stopPropagation(); if (!ri.routeTo && !site.region) { notify("Select DW or MT first"); return; } handleRecommend(site.id); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"; card.style.borderLeftColor = "#22C55E"; setTimeout(() => { card.style.boxShadow = ""; }, 1500); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>⚡ Approve & Route</button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDecline(site.id, "Declined from queue"); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ Reject</button>
+                          <button onClick={(e) => { e.stopPropagation(); setRI("showDeclinePanel", !ri.showDeclinePanel); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: ri.showDeclinePanel ? "rgba(220,38,38,0.2)" : "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ Reject{ri.showDeclinePanel ? " ▾" : ""}</button>
                         </div>
+                        {ri.showDeclinePanel && (
+                          <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8, padding: 12, background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: 10 }}>
+                            <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ width: "100%", marginBottom: 8, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", fontSize: 11 }}>
+                              <option value="">Select reason...</option>
+                              <option value="Demographics — population or income too low">Demographics — population or income too low</option>
+                              <option value="Competition — market oversaturated">Competition — market oversaturated</option>
+                              <option value="Zoning — prohibited or rezone too risky">Zoning — prohibited or rezone too risky</option>
+                              <option value="Pricing — land cost too high for market">Pricing — land cost too high for market</option>
+                              <option value="Access — site access or visibility concerns">Access — site access or visibility concerns</option>
+                              <option value="Utilities — water/sewer not available">Utilities — water/sewer not available</option>
+                              <option value="Location — too far from PS footprint">Location — too far from PS footprint</option>
+                              <option value="Site constraints — topo, flood, shape, environmental">Site constraints — topo, flood, shape, environmental</option>
+                              <option value="Other">Other</option>
+                            </select>
+                            <textarea value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Notes — why are we passing? (feeds SiteScore learning)" rows={2} style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", background: "rgba(15,21,56,0.4)", color: "#E2E8F0", fontSize: 11, resize: "vertical", fontFamily: "inherit", outline: "none" }} />
+                            <button onClick={(e) => { e.stopPropagation(); handleDecline(site.id, ri.declineReason || "Declined from queue"); setRI("showDeclinePanel", false); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 30px rgba(220,38,38,0.4)"; card.style.borderLeftColor = "#EF4444"; setTimeout(() => { card.style.boxShadow = ""; }, 1200); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#DC2626,#991B1B)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Reject & Log</button>
+                          </div>
+                        )}
                       )}
-                      {/* DW/MT tabs — PS approve or reject buttons */}
+                      {/* DW/MT tabs — PS approve or reject buttons with reason capture */}
                       {(reviewTab === "dw" || reviewTab === "mt") && site.status === "recommended" && (
-                        <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <button onClick={(e) => { e.stopPropagation(); handlePSApprove(site.id); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"; card.style.borderLeftColor = "#22C55E"; setTimeout(() => { card.style.boxShadow = ""; }, 1500); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>⚡ PS Approve</button>
-                          <button onClick={(e) => { e.stopPropagation(); handlePSReject(site.id); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ PS Reject</button>
+                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <button onClick={(e) => { e.stopPropagation(); handlePSApprove(site.id); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"; card.style.borderLeftColor = "#22C55E"; setTimeout(() => { card.style.boxShadow = ""; }, 1500); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>⚡ PS Approve</button>
+                            <button onClick={(e) => { e.stopPropagation(); setRI("showRejectPanel", !ri.showRejectPanel); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: ri.showRejectPanel ? "rgba(220,38,38,0.2)" : "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ Reject{ri.showRejectPanel ? " ▾" : ""}</button>
+                          </div>
+                          {ri.showRejectPanel && (
+                            <div style={{ marginTop: 8, padding: 12, background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: 10 }}>
+                              <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ width: "100%", marginBottom: 8, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", fontSize: 11 }}>
+                                <option value="">Select reason...</option>
+                                <option value="Demographics — population or income too low">Demographics — population or income too low</option>
+                                <option value="Competition — market oversaturated">Competition — market oversaturated</option>
+                                <option value="Zoning — prohibited or rezone too risky">Zoning — prohibited or rezone too risky</option>
+                                <option value="Pricing — land cost too high for market">Pricing — land cost too high for market</option>
+                                <option value="Access — site access or visibility concerns">Access — site access or visibility concerns</option>
+                                <option value="Utilities — water/sewer not available">Utilities — water/sewer not available</option>
+                                <option value="Location — too far from PS footprint">Location — too far from PS footprint</option>
+                                <option value="Site constraints — topo, flood, shape, environmental">Site constraints — topo, flood, shape, environmental</option>
+                                <option value="Already under review — duplicate">Already under review — duplicate</option>
+                                <option value="Other">Other</option>
+                              </select>
+                              <textarea value={ri.psFeedback || ""} onChange={(e) => setRI("psFeedback", e.target.value)} placeholder="Feedback notes — what specifically didn't work? (logged for learning)" rows={2} style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", background: "rgba(15,21,56,0.4)", color: "#E2E8F0", fontSize: 11, resize: "vertical", fontFamily: "inherit", outline: "none" }} />
+                              <button onClick={(e) => { e.stopPropagation(); if (!ri.declineReason) { notify("Select a rejection reason — it feeds the learning engine"); return; } handlePSReject(site.id); setRI("showRejectPanel", false); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 30px rgba(220,38,38,0.4)"; card.style.borderLeftColor = "#EF4444"; setTimeout(() => { card.style.boxShadow = ""; }, 1200); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#DC2626,#991B1B)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Confirm Reject & Log to Learning Engine</button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
