@@ -3944,7 +3944,7 @@ function AppInner() {
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
                   <button onClick={() => {
                     try {
-                      const rk = site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue";
+                      const rk = dv.regionKey || (site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue");
                       const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
                       const rec = generateRecEmail(site, rk, fin);
                       if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
@@ -4332,7 +4332,7 @@ function AppInner() {
                     recPrice = recInt;
                     recYOC = recNOI / (recInt + recBPC) * 100;
                     recLabel = "INTERNAL TARGET";
-                    recColor = recYOC >= 9 ? "#22C55E" : recYOC >= 7.5 ? "#C9A84C" : "#EF4444";
+                    recColor = recYOC >= 9 ? "#22C55E" : recYOC > 0 ? "#C9A84C" : "#EF4444";
                   } else if (recStrike > 0) {
                     recPrice = recStrike;
                     recYOC = recNOI / (recStrike + recBPC) * 100;
@@ -4343,6 +4343,12 @@ function AppInner() {
                     recYOC = 8.0;
                     recLabel = "MINIMUM PITCHABLE";
                     recColor = "#C9A84C";
+                  } else if (recAsk > 0) {
+                    // Fallback: strike/pitch unachievable — show YOC at ask
+                    recPrice = recAsk;
+                    recYOC = recNOI / (recAsk + recBPC) * 100;
+                    recLabel = "YOC AT ASKING";
+                    recColor = recYOC >= 7.5 ? "#C9A84C" : "#E87A2E";
                   } else return null;
                   // Discount to ask
                   const discPct = recAsk > 0 ? (((recAsk - recPrice) / recAsk) * 100) : 0;
@@ -4373,7 +4379,9 @@ function AppInner() {
                           </div>
                           <div style={{ fontSize: 11, color: "#6B7394", marginTop: 4, lineHeight: 1.5 }}>
                             Based on {(recSF/1000).toFixed(0)}K SF facility, {recNOI >= 1e6 ? `$${(recNOI/1e6).toFixed(2)}M` : `$${Math.round(recNOI/1e3)}K`} stabilized NOI{grStr ? `, ${grStr}` : ""}.
-                            {askYOC > 0 ? ` At the ${fmtP(recAsk)} ask: ${askYOC.toFixed(1)}% YOC${askYOC >= 9 ? " — already hits target." : askYOC >= 7.5 ? " — workable with minor negotiation." : askYOC >= 6 ? " — needs reduction to hit strike." : " — significant gap to strike."}` : ""}
+                            {recLabel === "YOC AT ASKING"
+                              ? ` PS strike/pitch unachievable at current rents — build costs (${fmtP(recBPC)}) exceed NOI capacity. ${recYOC > 5 ? "Site works if rents grow or ask drops." : "Significant gap — negotiate hard or pass."}`
+                              : askYOC > 0 ? ` At the ${fmtP(recAsk)} ask: ${askYOC.toFixed(1)}% YOC${askYOC >= 9 ? " — already hits target." : askYOC >= 7.5 ? " — workable with minor negotiation." : askYOC >= 6 ? " — needs reduction to hit strike." : " — significant gap to strike."}` : ""}
                           </div>
                         </div>
                       </div>
@@ -4430,9 +4438,9 @@ function AppInner() {
                             <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
                           </div>
                           {hasAsk && yoc !== "N/A" && (
-                            <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                            <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : "rgba(201,168,76,0.2)"}` }}>
                               <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
-                              <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) > 0 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
                               <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
                             </div>
                           )}
@@ -4445,7 +4453,7 @@ function AppInner() {
                             <span style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>LAND PRICE CALCULATOR</span>
                             <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9A84C", boxShadow: "0 0 6px rgba(201,168,76,0.6)", animation: "sitescore-glow 2s ease-in-out infinite alternate" }} />
                           </div>
-                          {calcYOC !== null && <span style={{ fontSize: 12, fontWeight: 900, color: calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444", padding: "4px 12px", borderRadius: 6, background: `${calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444"}15`, border: `1px solid ${calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444"}30` }}>{calcYOC.toFixed(1)}% YOC</span>}
+                          {calcYOC !== null && (() => { const yocC = calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444"; return <span style={{ fontSize: 12, fontWeight: 900, color: yocC, padding: "4px 12px", borderRadius: 6, background: `${yocC}15`, border: `1px solid ${yocC}30` }}>{calcYOC.toFixed(1)}% YOC</span>; })()}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "start" }}>
                           <div>
@@ -4458,9 +4466,9 @@ function AppInner() {
                             <input type="text" inputMode="numeric" placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"} value={rawPrice ? `$${Number(rawPrice.replace(/[^0-9]/g, "")).toLocaleString()}` : ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const digits = e.target.value.replace(/[^0-9]/g, ""); setCustomPurchasePrice(prev => ({ ...prev, [siteId]: digits })); }} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
                             <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{ppa ? `$${ppa.toLocaleString()}/ac` : hasAsk ? `Ask: $${askRaw.toLocaleString()}` : "Enter price"}</div>
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.08)" : calcYOC >= 7 ? "rgba(201,168,76,0.06)" : "rgba(239,68,68,0.06)") : "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 12px", border: `1px solid ${calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.2)" : calcYOC >= 7 ? "rgba(201,168,76,0.15)" : "rgba(239,68,68,0.15)") : "rgba(255,255,255,0.06)"}` }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.08)" : "rgba(201,168,76,0.06)") : "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 12px", border: `1px solid ${calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.2)" : "rgba(201,168,76,0.15)") : "rgba(255,255,255,0.06)"}` }}>
                             <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 4 }}>PROJECTED YOC</div>
-                            <div style={{ fontSize: 36, fontWeight: 900, color: calcYOC !== null ? (calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444") : "#3A3F5C", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{calcYOC !== null ? `${calcYOC.toFixed(1)}%` : "—"}</div>
+                            <div style={{ fontSize: 36, fontWeight: 900, color: calcYOC !== null ? (calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444") : "#3A3F5C", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{calcYOC !== null ? `${calcYOC.toFixed(1)}%` : "—"}</div>
                             <div style={{ fontSize: 9, color: "#6B7394", marginTop: 4, fontWeight: 600, textAlign: "center" }}>{effAc > 0 && effFin?.totalSF ? `${(effFin.totalSF/1000).toFixed(0)}K SF on ${effAc} ac` : ""}</div>
                           </div>
                         </div>
