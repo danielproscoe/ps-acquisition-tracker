@@ -275,6 +275,7 @@ function AppInner() {
   const [demoExpanded, setDemoExpanded] = useState(false);
   const [scoreExpanded, setScoreExpanded] = useState(false);
   const [customPurchasePrice, setCustomPurchasePrice] = useState({}); // { siteId: "$1,200,000" }
+  const [customLandAcreage, setCustomLandAcreage] = useState({}); // { siteId: "4.5" }
   const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
   const [demoRowExpanded, setDemoRowExpanded] = useState(null); // which demographics row is expanded (key string)
   const [hoveredMetric, setHoveredMetric] = useState(null); // which key metric box tooltip is showing
@@ -1378,7 +1379,8 @@ function AppInner() {
               const docs = site.docs ? Object.entries(site.docs) : [];
               const logs = site.activityLog ? Object.values(site.activityLog) : [];
               const mi = msgInputs[site.id] || { from: "Dan R", text: "" };
-              const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+              const domRaw = site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) : null;
+              const dom = (domRaw !== null && !isNaN(domRaw) && domRaw >= 0) ? domRaw : null;
 
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `2px solid ${isOpen ? "#C9A84C" : "rgba(201,168,76,0.25)"}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(201,168,76,0.08), 0 0 0 1px rgba(201,168,76,0.15), 0 0 60px rgba(201,168,76,0.04)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
@@ -3387,7 +3389,8 @@ function AppInner() {
           const iqR = computeSiteScore(site);
           const ri = reviewInputs[site.id] || {};
           const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
-          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+          const domRaw3 = site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) : null;
+          const dom = (domRaw3 !== null && !isNaN(domRaw3) && domRaw3 >= 0) ? domRaw3 : null;
           return (
             <div style={{ animation: "fadeIn .3s ease-out", position: "relative", maxWidth: 1100, margin: "0 auto" }}>
               <button onClick={() => setReviewDetailSite(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(232,122,46,0.25)", background: "rgba(232,122,46,0.08)", color: "#E87A2E", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 16 }}>← Back to Review Queue</button>
@@ -3407,7 +3410,9 @@ function AppInner() {
                     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
                       {site.askingPrice && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Asking Price</div><div style={{ fontSize: 20, fontWeight: 900, color: "#C9A84C" }}>{site.askingPrice.toString().startsWith("$") ? site.askingPrice : `$${Number(site.askingPrice).toLocaleString()}`}</div></div>}
                       {site.acreage && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Acreage</div><div style={{ fontSize: 20, fontWeight: 900, color: "#E2E8F0" }}>{site.acreage} ac</div></div>}
-                      {site.zoning && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Zoning</div><div style={{ fontSize: 20, fontWeight: 900, color: "#E2E8F0" }}>{site.zoning}</div></div>}
+                      {site.zoning && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Zoning</div><div style={{ fontSize: 20, fontWeight: 900, color: /by.?right|permitted/i.test(site.zoningClassification || site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#E2E8F0" }}>{site.zoning}</div></div>}
+                      {site.pop3mi && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>3MI Pop</div><div style={{ fontSize: 20, fontWeight: 900, color: "#A78BFA" }}>{fmtN(site.pop3mi)}</div></div>}
+                      {(() => { const gr = site.popGrowth3mi || site.growthRate; if (!gr && gr !== 0) return null; const n = typeof gr === "number" ? gr : parseFloat(String(gr)); if (isNaN(n)) return null; return <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>5Yr Growth</div><div style={{ fontSize: 20, fontWeight: 900, color: n >= 1.5 ? "#22C55E" : n >= 0 ? "#FBBF24" : "#EF4444" }}>{n >= 0 ? "+" : ""}{n.toFixed(1)}%</div></div>; })()}
                       {dom !== null && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Days on Market</div><div style={{ fontSize: 20, fontWeight: 900, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#E2E8F0" }}>{dom}</div></div>}
                     </div>
                   </div>
@@ -3895,7 +3900,8 @@ function AppInner() {
           const prevSite = idx > 0 ? allSites[idx - 1] : null;
           const nextSite = idx < allSites.length - 1 ? allSites[idx + 1] : null;
           const iqR = getSiteScore(site);
-          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+          const domRaw4 = site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) : null;
+          const dom = (domRaw4 !== null && !isNaN(domRaw4) && domRaw4 >= 0) ? domRaw4 : null;
           const docs = site.docs ? Object.entries(site.docs) : [];
           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
@@ -3936,7 +3942,7 @@ function AppInner() {
                       {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                     </div>
                     {/* ── Asking Price & Acreage — top-level KPIs ── */}
-                    {(site.askingPrice || site.internalPrice || site.acreage) && (
+                    {(site.askingPrice || site.internalPrice || site.acreage || site.zoning || site.pop3mi || site.popGrowth3mi || site.growthRate) && (
                       <div style={{ display: "flex", gap: 16, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
                         {(site.askingPrice || site.internalPrice) && <div style={{ background: "rgba(232,122,46,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(232,122,46,0.2)" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ASKING </span>
@@ -3950,6 +3956,18 @@ function AppInner() {
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>PER ACRE </span>
                           <span style={{ fontSize: 16, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>${Math.round(lc / ac).toLocaleString()}</span>
                         </div> : null; })()}
+                        {site.zoning && <div style={{ background: "rgba(34,197,94,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(34,197,94,0.15)" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ZONING </span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: /by.?right|permitted/i.test(site.zoningClassification || site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{site.zoning}</span>
+                        </div>}
+                        {site.pop3mi && <div style={{ background: "rgba(139,92,246,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(139,92,246,0.15)" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>3MI POP </span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: "#A78BFA", fontFamily: "'Space Mono', monospace" }}>{fmtN(site.pop3mi)}</span>
+                        </div>}
+                        {(() => { const gr = site.popGrowth3mi || site.growthRate; if (!gr && gr !== 0) return null; const n = typeof gr === "number" ? gr : parseFloat(String(gr)); if (isNaN(n)) return null; return <div style={{ background: n >= 1.5 ? "rgba(34,197,94,0.08)" : n >= 0 ? "rgba(250,204,21,0.08)" : "rgba(239,68,68,0.08)", borderRadius: 8, padding: "6px 14px", border: `1px solid ${n >= 1.5 ? "rgba(34,197,94,0.15)" : n >= 0 ? "rgba(250,204,21,0.15)" : "rgba(239,68,68,0.15)"}` }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>5YR GROWTH </span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: n >= 1.5 ? "#22C55E" : n >= 0 ? "#FBBF24" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{n >= 0 ? "+" : ""}{n.toFixed(1)}%</span>
+                        </div>; })()}
                       </div>
                     )}
                   </div>
@@ -3962,7 +3980,7 @@ function AppInner() {
                 </div>
               </div>
 
-              {/* ═══ VALUATION MINI-CARD — Tracker Detail Page ═══ */}
+              {/* ═══ VALUATION + LAND PRICE CALCULATOR — Tracker Detail Page ═══ */}
               {(() => {
                 try {
                   const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
@@ -3977,55 +3995,76 @@ function AppInner() {
                   const askRaw = fin.landCost || 0;
                   const hasAsk = askRaw > 0;
                   const askVsS = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
+                  const siteId = site.id || site.key || "";
+                  const rawPrice = customPurchasePrice[siteId] || "";
+                  const rawAc = customLandAcreage[siteId] || "";
+                  const customVal = parsePrice(rawPrice);
+                  const customAc = rawAc ? parseFloat(rawAc) : null;
+                  const defaultAc = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]) || 0;
+                  const effAc = (customAc && !isNaN(customAc) && customAc > 0) ? customAc : defaultAc;
+                  const effFin = (customAc && !isNaN(customAc) && customAc > 0 && customAc !== defaultAc) ? computeSiteFinancials({ ...site, acreage: String(customAc) }, VALUATION_OVERRIDES, site.overrides || {}) : fin;
+                  const effBPC = effFin ? ((effFin.buildCosts || 0) + (effFin.carryCosts || 0) + (effFin.workingCapital || 0)) : 0;
+                  const effNOI = effFin?.stabNOI || stabNOI;
+                  const usePrice = !isNaN(customVal) && customVal > 0 ? customVal : askRaw;
+                  const calcYOC = usePrice > 0 && effNOI > 0 ? (effNOI / (usePrice + effBPC) * 100) : null;
+                  const ppa = (usePrice > 0 && effAc > 0) ? Math.round(usePrice / effAc) : null;
                   return (
-                    <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 14, background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))", border: "1px solid rgba(46,125,50,0.15)" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em" }}>STORVEX VALUATION{fin.rateSource === "msa" ? " — MSA RENT" : ""}</span>
-                        {verdict !== "—" && <span style={{ fontSize: 12, fontWeight: 900, color: vColor, padding: "4px 12px", borderRadius: 6, background: `${vColor}15`, border: `1px solid ${vColor}30` }}>{verdict}</span>}
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
-                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>EST. FACILITY</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(fin.totalSF / 1000).toFixed(0)}K SF</div>
-                          <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.stories > 1 ? `${fin.stories}-Story` : "1-Story"} | {Math.round(fin.climatePct * 100)}% CC</div>
+                    <div style={{ marginBottom: 20, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(46,125,50,0.15)" }}>
+                      {/* Top row — Storvex Valuation stats */}
+                      <div style={{ padding: "16px 18px 12px", background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em" }}>STORVEX VALUATION{fin.rateSource === "msa" ? " — MSA RENT" : ""}</span>
+                          {verdict !== "—" && <span style={{ fontSize: 12, fontWeight: 900, color: vColor, padding: "4px 12px", borderRadius: 6, background: `${vColor}15`, border: `1px solid ${vColor}30` }}>{verdict}</span>}
                         </div>
-                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>STAB. NOI (Y5)</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1e6 ? `$${(stabNOI / 1e6).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
-                          <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
-                        </div>
-                        {(() => {
-                          const siteId = site.id || site.key || "";
-                          const rawInput = customPurchasePrice[siteId] || "";
-                          const customVal = parsePrice(rawInput);
-                          const buildPlusCarry = (fin.buildCosts || 0) + (fin.carryCosts || 0) + (fin.workingCapital || 0);
-                          const customYOC = !isNaN(customVal) && customVal > 0 && stabNOI > 0 ? (stabNOI / (customVal + buildPlusCarry) * 100) : null;
-                          return (
-                            <div style={{ background: "rgba(201,168,76,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(201,168,76,0.15)" }}>
-                              <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>PURCHASE PRICE</div>
-                              <input
-                                type="text"
-                                placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"}
-                                value={rawInput}
-                                onChange={(e) => setCustomPurchasePrice(prev => ({ ...prev, [siteId]: e.target.value }))}
-                                style={{ width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 5, padding: "5px 10px", fontSize: 16, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }}
-                              />
-                              <div style={{ fontSize: 12, fontWeight: 800, color: customYOC !== null ? (customYOC >= 8 ? "#22C55E" : customYOC >= 6 ? "#C9A84C" : "#EF4444") : "#6B7394", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
-                                {customYOC !== null ? `→ ${customYOC.toFixed(1)}% YOC` : "Enter offer price"}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                        {hasAsk && yoc !== "N/A" && (
-                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
-                            <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
-                            <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>EST. FACILITY</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(fin.totalSF / 1000).toFixed(0)}K SF</div>
+                            <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.stories > 1 ? `${fin.stories}-Story` : "1-Story"} | {Math.round(fin.climatePct * 100)}% CC</div>
                           </div>
-                        )}
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>STAB. NOI (Y5)</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1e6 ? `$${(stabNOI / 1e6).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
+                            <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
+                          </div>
+                          {hasAsk && yoc !== "N/A" && (
+                            <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                              <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* ── LAND PRICE CALCULATOR — type acreage + price, get live YOC ── */}
+                      <div style={{ padding: "14px 18px 16px", background: "linear-gradient(135deg, rgba(201,168,76,0.04), rgba(30,39,97,0.06))", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>LAND PRICE CALCULATOR</span>
+                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9A84C", boxShadow: "0 0 6px rgba(201,168,76,0.6)", animation: "sitescore-glow 2s ease-in-out infinite alternate" }} />
+                          </div>
+                          {calcYOC !== null && <span style={{ fontSize: 12, fontWeight: 900, color: calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444", padding: "4px 12px", borderRadius: 6, background: `${calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444"}15`, border: `1px solid ${calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444"}30` }}>{calcYOC.toFixed(1)}% YOC</span>}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "start" }}>
+                          <div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#42A5F5", letterSpacing: "0.08em", marginBottom: 4 }}>TARGET ACREAGE</div>
+                            <input type="text" placeholder={site.acreage ? `${site.acreage}` : "0"} value={rawAc} onClick={(e) => e.stopPropagation()} onChange={(e) => setCustomLandAcreage(prev => ({ ...prev, [siteId]: e.target.value }))} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(66,165,245,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{rawAc ? `${rawAc} ac` : `Full site: ${site.acreage || "—"} ac`}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>OFFER PRICE</div>
+                            <input type="text" placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"} value={rawPrice} onClick={(e) => e.stopPropagation()} onChange={(e) => setCustomPurchasePrice(prev => ({ ...prev, [siteId]: e.target.value }))} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{ppa ? `$${ppa.toLocaleString()}/ac` : hasAsk ? `Ask: $${askRaw.toLocaleString()}` : "Enter price"}</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.08)" : calcYOC >= 7 ? "rgba(201,168,76,0.06)" : "rgba(239,68,68,0.06)") : "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 12px", border: `1px solid ${calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.2)" : calcYOC >= 7 ? "rgba(201,168,76,0.15)" : "rgba(239,68,68,0.15)") : "rgba(255,255,255,0.06)"}` }}>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 4 }}>PROJECTED YOC</div>
+                            <div style={{ fontSize: 36, fontWeight: 900, color: calcYOC !== null ? (calcYOC >= 9 ? "#22C55E" : calcYOC >= 7 ? "#C9A84C" : "#EF4444") : "#3A3F5C", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{calcYOC !== null ? `${calcYOC.toFixed(1)}%` : "—"}</div>
+                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 4, fontWeight: 600, textAlign: "center" }}>{effAc > 0 && effFin?.totalSF ? `${(effFin.totalSF/1000).toFixed(0)}K SF on ${effAc} ac` : ""}</div>
+                          </div>
+                        </div>
                       </div>
                       {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
-                        <div style={{ marginTop: 10, position: "relative", height: 28, borderRadius: 6, overflow: "hidden", background: "rgba(255,255,255,.04)" }}>
+                        <div style={{ position: "relative", height: 28, background: "rgba(255,255,255,.04)" }}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
                           <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
                           <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
