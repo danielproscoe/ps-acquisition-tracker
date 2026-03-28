@@ -3573,7 +3573,7 @@ function AppInner() {
                         </div>
                         <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
                           <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 3 }}>STRIKE PRICE</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1e6 ? `$${(strike.maxLand / 1e6).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "—"}</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1e6 ? `$${(strike.maxLand / 1e6).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "$0"}</div>
                           <div style={{ fontSize: 10, color: "#6B7394" }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
                         </div>
                         {hasAsk && yoc !== "N/A" && (
@@ -3900,23 +3900,23 @@ function AppInner() {
                       <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
                       {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                     </div>
-                    {/* ── Land Cost & Acreage — top-level KPIs ── */}
-                    {(() => { try { const _f = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {}); const lc = _f?.landCost || 0; const ac = _f?.acres || 0; const ppa = (lc > 0 && ac > 0) ? Math.round(lc / ac) : null; return (
-                      <div style={{ display: "flex", gap: 16, marginTop: 14, alignItems: "center" }}>
-                        {lc > 0 && <div style={{ background: "rgba(232,122,46,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(232,122,46,0.2)" }}>
+                    {/* ── Asking Price & Acreage — top-level KPIs ── */}
+                    {(site.askingPrice || site.internalPrice || site.acreage) && (
+                      <div style={{ display: "flex", gap: 16, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
+                        {(site.askingPrice || site.internalPrice) && <div style={{ background: "rgba(232,122,46,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(232,122,46,0.2)" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ASKING </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: "#E87A2E", fontFamily: "'Space Mono', monospace" }}>{lc >= 1e6 ? `$${(lc/1e6).toFixed(2)}M` : `$${(lc/1000).toFixed(0)}K`}</span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: "#E87A2E", fontFamily: "'Space Mono', monospace" }}>{site.askingPrice || site.internalPrice}</span>
                         </div>}
-                        {ac > 0 && <div style={{ background: "rgba(21,101,192,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(21,101,192,0.2)" }}>
+                        {site.acreage && <div style={{ background: "rgba(21,101,192,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(21,101,192,0.2)" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ACREAGE </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace" }}>{ac.toFixed(2)} ac</span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace" }}>{site.acreage} ac</span>
                         </div>}
-                        {ppa !== null && <div style={{ background: "rgba(201,168,76,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(201,168,76,0.15)" }}>
+                        {(() => { const lc = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0; const ac = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (lc > 0 && ac > 0) ? <div style={{ background: "rgba(201,168,76,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(201,168,76,0.15)" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>PER ACRE </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>${ppa.toLocaleString()}</span>
-                        </div>}
+                          <span style={{ fontSize: 16, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>${Math.round(lc / ac).toLocaleString()}</span>
+                        </div> : null; })()}
                       </div>
-                    ); } catch { return null; } })()}
+                    )}
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div onClick={() => setScoreExpanded(!scoreExpanded)} style={{ cursor: "pointer", transition: "transform 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"} onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"} title="Click for full SiteScore breakdown">
@@ -3961,7 +3961,7 @@ function AppInner() {
                         </div>
                         <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
                           <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 3 }}>STRIKE PRICE</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1e6 ? `$${(strike.maxLand / 1e6).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "—"}</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1e6 ? `$${(strike.maxLand / 1e6).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "$0"}</div>
                           <div style={{ fontSize: 10, color: "#6B7394" }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
                         </div>
                         {hasAsk && yoc !== "N/A" && (

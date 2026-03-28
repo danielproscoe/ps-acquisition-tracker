@@ -735,14 +735,15 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   ];
   const valuations = capRates.map(c => ({ ...c, value: Math.round(stabNOI / c.rate) }));
 
-  // ── Land Price Guide — calibrated to current pipeline economics ──
-  // Walk Away 5.0% = absolute floor — deal must clear cost of capital.
-  // Strike 6.0% = REC approval zone — produces actionable land prices near market ask.
-  // Home Run 7.5% = exceptional — significant value creation above hurdle.
+  // ── Land Price Guide — PS development pipeline targets ──
+  // Walk Away 7.5% = floor for strategic sites (EVP+ approval required below this).
+  // Strike 9.0% = standard REC approval zone — PS targets 8-9% YOC.
+  // Home Run 10.5% = exceptional — deal-of-the-year territory.
+  // When max land is negative, shows $0 — means build costs alone exceed budget at that YOC.
   const landTargets = [
-    { label: "Walk Away", yoc: O('yocMax', 0.05), color: "#EF4444", tag: "MAX" },
-    { label: "Strike Price", yoc: O('yocStrike', 0.06), color: "#C9A84C", tag: "TARGET" },
-    { label: "Home Run", yoc: O('yocMin', 0.075), color: "#16A34A", tag: "STEAL" },
+    { label: "Walk Away", yoc: O('yocMax', 0.075), color: "#EF4444", tag: "MAX" },
+    { label: "Strike Price", yoc: O('yocStrike', 0.09), color: "#C9A84C", tag: "TARGET" },
+    { label: "Home Run", yoc: O('yocMin', 0.105), color: "#16A34A", tag: "STEAL" },
   ];
   const landPrices = landTargets.map(t => {
     const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts - carryCosts - workingCapital) : 0;
