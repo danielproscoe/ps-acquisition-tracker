@@ -46,7 +46,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const incRaw = parseNum(site.income3mi);
   const hasDemoData = popRaw > 0 || incRaw > 0;
 
-  // --- 1. DEMOGRAPHICS — POPULATION (16%) §6h calibrated ---
+  // --- 1. DEMOGRAPHICS — POPULATION (14%) §6h calibrated v4.0 ---
   let popScore = 5;
   if (popRaw > 0) {
     if (popRaw >= 40000) popScore = 10;
@@ -69,7 +69,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   scores.income = incScore;
 
-  // --- 2b. GROWTH (21%) — ESRI 5-year population CAGR ---
+  // --- 2b. GROWTH (18%) — ESRI 5-year population CAGR (v4.0) ---
   let growthScore = 5; // default when no ESRI data
   // Read growth rate from multiple possible fields: popGrowth3mi (primary), growthRate, siteiqData.growthRate
   const growthFieldRaw = site.popGrowth3mi || site.growthRate || (site.siteiqData?.growthRate != null ? String(site.siteiqData.growthRate) : null);
@@ -97,7 +97,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     flags.push("Growth corridor exemption: pop under 5K but high growth — scored 2");
   }
 
-  // --- 2c. HOUSEHOLDS (5%) — 3-mi household count (demand proxy) ---
+  // --- 2c. HOUSEHOLDS (4%) — 3-mi household count (demand proxy) (v4.0) ---
   let hhScore = 5;
   const hhRaw = parseNum(site.households3mi);
   if (hhRaw > 0) {
@@ -109,7 +109,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   }
   scores.households = hhScore;
 
-  // --- 2d. HOME VALUE (5%) — 3-mi median home value (affluence signal) ---
+  // --- 2d. HOME VALUE (4%) — 3-mi median home value (affluence signal) (v4.0) ---
   let hvScore = 5;
   const hvRaw = parseNum(site.homeValue3mi);
   if (hvRaw > 0) {
@@ -498,7 +498,11 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // One-story (3.5+ ac): PS suburban format — 65/35 climate/drive-up per standard PS 1-story layout
   const isMultiStory = !isNaN(acres) && acres < O('multiStoryThreshold', 3.5) && acres >= 2.5;
   const stories = isMultiStory ? O('multiStoryFloors', 3) : 1;
-  const footprint = !isNaN(acres) ? Math.round(acres * 43560 * O('coverageRatio', 0.35)) : 60000;
+  const rawFootprint = !isNaN(acres) ? Math.round(acres * 43560 * O('coverageRatio', 0.35)) : 60000;
+  // Cap footprint to realistic PS facility sizes — PS builds 80K-120K gross SF max.
+  // Without cap, large sites (10+ ac) produce 200K+ SF facilities with inflated NOI/land prices.
+  const maxFootprint = O('maxFootprint', 120000);
+  const footprint = Math.min(rawFootprint, maxFootprint);
   const grossSF = footprint * stories;
   // Net-to-gross efficiency — corridors, office, hallways, mechanical reduce leasable space
   const netToGross = O('netToGross', 0.90);
