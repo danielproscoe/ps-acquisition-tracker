@@ -3944,7 +3944,7 @@ function AppInner() {
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
                   <button onClick={() => {
                     try {
-                      const rk = dv.regionKey || (site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue");
+                      const rk = site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue";
                       const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
                       const rec = generateRecEmail(site, rk, fin);
                       if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
@@ -4571,15 +4571,18 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
                   <button onClick={() => {
                     try {
-                      const { subject, body } = generateRecEmail(site, dv.regionKey);
-                      const encodedSubject = encodeURIComponent(subject);
-                      navigator.clipboard.writeText(body).then(() => {
-                        notify("\u2709 Email body copied to clipboard \u2014 paste into Outlook body.");
+                      const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                      const rec = generateRecEmail(site, dv.regionKey, fin);
+                      if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
+                      const encodedSubject = encodeURIComponent(rec.subject);
+                      const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
+                      navigator.clipboard.writeText(rec.body).then(() => {
+                        notify("\u2709 Email body copied \u2014 paste into Outlook body.");
                         const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
                         if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
                       }).catch(() => notify("Could not copy to clipboard."));
-                      window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}`, "_blank");
-                    } catch (err) { notify("Email generation failed."); console.error(err); }
+                      window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
+                    } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>{"\u2709"} Email Rec</button>
                 </div>
               </div>
