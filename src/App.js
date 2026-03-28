@@ -1259,7 +1259,7 @@ function AppInner() {
           if (c.key === "sitescore") return getSiteScore(s).score;
           if (c.key === "pricePerAcre") {
             const p = parsePrice(s.askingPrice);
-            const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
+            const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
             return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
           }
           if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
@@ -1283,7 +1283,7 @@ function AppInner() {
         if (c.key === "sitescore") return getSiteScore(s).score;
         if (c.key === "pricePerAcre") {
           const p = parsePrice(s.askingPrice);
-          const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
+          const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
           return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
         }
         if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
@@ -1921,7 +1921,7 @@ function AppInner() {
                           { label: "Households (3-mi)", val: fP(site.households3mi), icon: "🏠" },
                           { label: "Median Home Value (3-mi)", val: fP(site.homeValue3mi, "$"), icon: "🏡" },
                           { label: "Acreage", val: site.acreage ? site.acreage + " ac" : null, icon: "📐" },
-                          { label: "Price / Acre", val: (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
+                          { label: "Price / Acre", val: (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
                           { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
                           { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
                         ].filter(r => r.val != null);
@@ -3911,7 +3911,7 @@ function AppInner() {
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ACREAGE </span>
                           <span style={{ fontSize: 16, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace" }}>{site.acreage} ac</span>
                         </div>}
-                        {(() => { const lc = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0; const ac = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (lc > 0 && ac > 0) ? <div style={{ background: "rgba(201,168,76,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(201,168,76,0.15)" }}>
+                        {(() => { const lc = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0; const ac = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (lc > 0 && ac > 0) ? <div style={{ background: "rgba(201,168,76,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(201,168,76,0.15)" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>PER ACRE </span>
                           <span style={{ fontSize: 16, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>${Math.round(lc / ac).toLocaleString()}</span>
                         </div> : null; })()}
@@ -4290,7 +4290,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         const hhRaw = pN(site.households3mi); const hvRaw = pN(site.homeValue3mi);
                         const gVal = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : null;
                         const iq = site.siteiqData || {};
-                        const pricePerAc = (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? Math.round(p / a) : null; })();
+                        const pricePerAc = (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? Math.round(p / a) : null; })();
                         // Helper: metric row inside expansion
                         const MRow = ({ label, value, bench, benchLabel, color, pctOf }) => (
                           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid rgba(201,168,76,0.04)" }}>
@@ -4545,7 +4545,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                             </div>);
                           }
                           if (dK === "access") {
-                            const acreage = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+                            const acreage = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
                             const sizeSignal = acreage >= 3.5 && acreage <= 5 ? "IDEAL SIZE" : acreage >= 2.5 ? "VIABLE" : acreage >= 5 && acreage <= 7 ? "LARGE" : "REVIEW";
                             const sizeC = acreage >= 3.5 && acreage <= 5 ? "#22C55E" : acreage >= 2.5 ? "#3B82F6" : "#F59E0B";
                             return (<div>
@@ -4680,7 +4680,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
               {(() => {
                 const askRaw = parsePrice(site.askingPrice);
                 const intRaw = parsePrice(site.internalPrice);
-                const acRaw = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+                const acRaw = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
                 const popRaw = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
                 const incRaw = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
                 const hhRaw = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
@@ -4845,7 +4845,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                 const hhRaw = pN2(site.households3mi);
                 const hvRaw = pN2(site.homeValue3mi);
                 const pop1Raw = pN2(site.pop1mi);
-                const acreageVal = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
+                const acreageVal = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
                 const pricePerAcVal = (() => { const p = parsePrice(site.askingPrice); return (!isNaN(p) && p > 0 && !isNaN(acreageVal) && acreageVal > 0) ? Math.round(p / acreageVal) : null; })();
                 const psDist2 = site.siteiqData?.nearestPS ? (typeof site.siteiqData.nearestPS === "number" ? site.siteiqData.nearestPS : parseFloat(site.siteiqData.nearestPS)) : null;
                 const demoRows = [
