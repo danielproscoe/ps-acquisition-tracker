@@ -4453,7 +4453,7 @@ function AppInner() {
                             <span style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>LAND PRICE CALCULATOR</span>
                             <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9A84C", boxShadow: "0 0 6px rgba(201,168,76,0.6)", animation: "sitescore-glow 2s ease-in-out infinite alternate" }} />
                           </div>
-                          {calcYOC !== null && (() => { const yocC = calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444"; return <span style={{ fontSize: 12, fontWeight: 900, color: yocC, padding: "4px 12px", borderRadius: 6, background: `${yocC}15`, border: `1px solid ${yocC}30` }}>{calcYOC.toFixed(1)}% YOC</span>; })()}
+                          {calcYOC !== null && <span style={{ fontSize: 12, fontWeight: 900, color: calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444", padding: "4px 12px", borderRadius: 6, background: `${calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444"}15`, border: `1px solid ${calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444"}30` }}>{calcYOC.toFixed(1)}% YOC</span>}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "start" }}>
                           <div>
