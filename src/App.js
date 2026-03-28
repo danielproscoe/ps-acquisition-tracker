@@ -4048,7 +4048,7 @@ function AppInner() {
                   const siteId = site.id || site.key || "";
                   const rawPrice = customPurchasePrice[siteId] || "";
                   const rawAc = customLandAcreage[siteId] || "";
-                  const customVal = parsePrice(rawPrice);
+                  const customVal = rawPrice ? parseInt(rawPrice.replace(/[^0-9]/g, ""), 10) || 0 : 0;
                   const customAc = rawAc ? parseFloat(rawAc) : null;
                   const defaultAc = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]) || 0;
                   const effAc = (customAc && !isNaN(customAc) && customAc > 0) ? customAc : defaultAc;
@@ -4098,12 +4098,12 @@ function AppInner() {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "start" }}>
                           <div>
                             <div style={{ fontSize: 8, fontWeight: 700, color: "#42A5F5", letterSpacing: "0.08em", marginBottom: 4 }}>TARGET ACREAGE</div>
-                            <input type="text" placeholder={site.acreage ? `${site.acreage}` : "0"} value={rawAc} onClick={(e) => e.stopPropagation()} onChange={(e) => setCustomLandAcreage(prev => ({ ...prev, [siteId]: e.target.value }))} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(66,165,245,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
-                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{rawAc ? `${rawAc} ac` : `Full site: ${site.acreage || "—"} ac`}</div>
+                            <input type="text" inputMode="decimal" placeholder={defaultAc > 0 ? String(defaultAc) : "0"} value={rawAc} onClick={(e) => e.stopPropagation()} onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ""); setCustomLandAcreage(prev => ({ ...prev, [siteId]: v })); }} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(66,165,245,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{rawAc ? `${rawAc} ac` : `Full site: ${defaultAc || "—"} ac`}</div>
                           </div>
                           <div>
                             <div style={{ fontSize: 8, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>OFFER PRICE</div>
-                            <input type="text" placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"} value={rawPrice} onClick={(e) => e.stopPropagation()} onChange={(e) => setCustomPurchasePrice(prev => ({ ...prev, [siteId]: e.target.value }))} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+                            <input type="text" inputMode="numeric" placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"} value={rawPrice ? `$${Number(rawPrice.replace(/[^0-9]/g, "")).toLocaleString()}` : ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const digits = e.target.value.replace(/[^0-9]/g, ""); setCustomPurchasePrice(prev => ({ ...prev, [siteId]: digits })); }} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
                             <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{ppa ? `$${ppa.toLocaleString()}/ac` : hasAsk ? `Ask: $${askRaw.toLocaleString()}` : "Enter price"}</div>
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.08)" : calcYOC >= 7 ? "rgba(201,168,76,0.06)" : "rgba(239,68,68,0.06)") : "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 12px", border: `1px solid ${calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.2)" : calcYOC >= 7 ? "rgba(201,168,76,0.15)" : "rgba(239,68,68,0.15)") : "rgba(255,255,255,0.06)"}` }}>
