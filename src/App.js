@@ -2632,7 +2632,7 @@ function AppInner() {
                       >
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>{ai.icon} {ai.who} — <span style={{ color: ai.color }}>{ai.count} site{ai.count !== 1 ? "s" : ""} awaiting review</span></div>
-                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — SiteScore {getSiteScore(ai.top).score}</div>
+                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — {getSiteScore(ai.top).label}</div>
                         </div>
                         <span style={{ fontSize: 12, color: ai.color, fontWeight: 700 }}>Review →</span>
                       </div>
@@ -3594,7 +3594,7 @@ function AppInner() {
                           <button onClick={(e) => { e.stopPropagation(); handleSmartDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard & Learn</button>
                         </div>
                       )}
-                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{site.summary.substring(0, 180)}{site.summary.length > 180 ? "…" : ""}</div>}
+                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{(() => { const s = site.summary.replace(/SiteScore\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim(); return s.substring(0, 180) + (s.length > 180 ? "…" : ""); })()}</div>}
                       {/* NEW badge for unreviewed sites */}
                       {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 700, color: "#C9A84C", background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.2)" }}>NEW</span>}
                       {site.status === "recommended" && <div style={{ marginTop: 4 }}><div style={{ fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>{site.recommendedComment && <div style={{ fontSize: 10, fontStyle: "italic", color: "#D6E4F7", marginTop: 2 }}>Note: {site.recommendedComment}</div>}</div>}
@@ -6258,11 +6258,9 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
 // Ensures every site card has hoverable intel — no blank tooltips.
 function generateAutoBlurb(site) {
   const parts = [];
-  // Phase + score
+  // Phase only — never embed a hardcoded score number (scores change, stale numbers cause drift)
   const phase = site.phase || "Prospect";
-  const score = site.siteiqData?.score || (site.summary?.match(/SiteScore\s+([\d.]+)/)?.[1]);
-  if (score) parts.push(`SiteScore ${score}. Phase: ${phase}.`);
-  else parts.push(`Phase: ${phase}.`);
+  parts.push(`Phase: ${phase}.`);
   // Zoning
   if (site.zoningClassification === "by-right") parts.push(`Zoning: ${site.zoning || "Commercial"} - BY RIGHT.`);
   else if (site.zoningClassification === "conditional") parts.push(`Zoning: ${site.zoning || "?"} - CONDITIONAL (SUP/CUP required).`);
@@ -6301,7 +6299,9 @@ function generateAutoBlurb(site) {
 function IntelCardHeader({ site, onClick, children }) {
   const [show, setShow] = useState(false);
   const timerRef = useRef(null);
-  const blurb = site.latestNote || generateAutoBlurb(site);
+  const rawBlurb = site.latestNote || generateAutoBlurb(site);
+  // Strip hardcoded SiteScore numbers from blurbs — scores change, stale numbers cause drift
+  const blurb = rawBlurb ? rawBlurb.replace(/SiteScore\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim() : null;
   const blurbDate = site.latestNote ? site.latestNoteDate : (site.latestNote ? null : "Auto");
   const enter = () => { if (!blurb) return; clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setShow(true), 120); };
   const leave = () => { clearTimeout(timerRef.current); setShow(false); };
