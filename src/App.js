@@ -4031,6 +4031,75 @@ function AppInner() {
                 );
               })()}
 
+              {/* ═══ STORVEX LAND PRICE INTELLIGENCE — Blunt Recommendation Banner ═══ */}
+              {(() => {
+                try {
+                  const recFin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                  if (!recFin || !recFin.stabNOI) return null;
+                  const recNOI = recFin.stabNOI;
+                  const recBPC = (recFin.buildCosts || 0) + (recFin.carryCosts || 0) + (recFin.workingCapital || 0);
+                  const recSF = recFin.totalSF || 0;
+                  const recStrike = recFin.landPrices?.[1]?.maxLand || 0;
+                  const recWalk = recFin.landPrices?.[0]?.maxLand || 0;
+                  const recPitch = recNOI > 0 ? Math.round(recNOI / 0.08 - recBPC) : 0;
+                  const recAsk = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0;
+                  const recInt = parsePrice(site.internalPrice) || 0;
+                  // Determine the recommended price and YOC
+                  let recPrice = 0, recYOC = 0, recLabel = "", recContext = "", recColor = "#22C55E";
+                  if (recInt > 0) {
+                    recPrice = recInt;
+                    recYOC = recNOI / (recInt + recBPC) * 100;
+                    recLabel = "INTERNAL TARGET";
+                    recColor = recYOC >= 9 ? "#22C55E" : recYOC >= 7.5 ? "#C9A84C" : "#EF4444";
+                  } else if (recStrike > 0) {
+                    recPrice = recStrike;
+                    recYOC = recNOI / (recStrike + recBPC) * 100;
+                    recLabel = "STRIKE PRICE";
+                    recColor = "#22C55E";
+                  } else if (recPitch > 0) {
+                    recPrice = recPitch;
+                    recYOC = 8.0;
+                    recLabel = "MINIMUM PITCHABLE";
+                    recColor = "#C9A84C";
+                  } else return null;
+                  // Discount to ask
+                  const discPct = recAsk > 0 ? (((recAsk - recPrice) / recAsk) * 100) : 0;
+                  const discStr = discPct > 0 ? `${discPct.toFixed(0)}% below ask` : discPct < 0 ? `${Math.abs(discPct).toFixed(0)}% above ask` : "";
+                  // YOC at asking
+                  const askYOC = recAsk > 0 ? (recNOI / (recAsk + recBPC) * 100) : 0;
+                  // Growth context
+                  const gr = site.popGrowth3mi || site.growthRate;
+                  const grN = gr != null ? (typeof gr === "number" ? gr : parseFloat(String(gr))) : NaN;
+                  const grStr = !isNaN(grN) && grN > 0 ? `${grN.toFixed(1)}% growth corridor` : "";
+                  // Build the narrative
+                  const fmtP = (p) => p >= 1e6 ? `$${(p/1e6).toFixed(2)}M` : `$${Math.round(p/1e3).toLocaleString()}K`;
+                  return (
+                    <div style={{ marginBottom: 16, borderRadius: 12, overflow: "hidden", border: `1px solid ${recColor}30`, background: `linear-gradient(135deg, ${recColor}08, rgba(15,21,56,0.6))` }}>
+                      <div style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16 }}>
+                        <div style={{ flexShrink: 0, width: 56, height: 56, borderRadius: 12, background: `${recColor}15`, border: `2px solid ${recColor}40`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: recColor, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{recYOC.toFixed(1)}%</div>
+                          <div style={{ fontSize: 7, fontWeight: 700, color: recColor, letterSpacing: "0.08em", marginTop: 1 }}>YOC</div>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontSize: 8, fontWeight: 800, color: recColor, letterSpacing: "0.12em" }}>STORVEX RECOMMENDATION</span>
+                            <span style={{ fontSize: 8, fontWeight: 700, color: "#4A5074", letterSpacing: "0.08em" }}>{recLabel}</span>
+                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 900, color: "#E2E8F0", lineHeight: 1.4 }}>
+                            Come in at <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{fmtP(recPrice)}</span> for a <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{recYOC.toFixed(1)}%</span> YOC
+                            {discStr ? <span style={{ color: "#94A3B8", fontWeight: 600 }}> — {discStr}</span> : ""}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#6B7394", marginTop: 4, lineHeight: 1.5 }}>
+                            Based on {(recSF/1000).toFixed(0)}K SF facility, {recNOI >= 1e6 ? `$${(recNOI/1e6).toFixed(2)}M` : `$${Math.round(recNOI/1e3)}K`} stabilized NOI{grStr ? `, ${grStr}` : ""}.
+                            {askYOC > 0 ? ` At the ${fmtP(recAsk)} ask: ${askYOC.toFixed(1)}% YOC${askYOC >= 9 ? " — already hits target." : askYOC >= 7.5 ? " — workable with minor negotiation." : askYOC >= 6 ? " — needs reduction to hit strike." : " — significant gap to strike."}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {/* ═══ VALUATION + LAND PRICE CALCULATOR — Tracker Detail Page ═══ */}
               {(() => {
                 try {
