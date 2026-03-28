@@ -483,29 +483,56 @@ function AppInner() {
 
   const handleSendToReview = (region, id, site) => {
     const now = new Date().toISOString();
-    const sub = { ...site, status: "pending", region, submittedAt: now, sentBackToReview: true };
-    delete sub.messages; delete sub.docs; delete sub.activityLog;
-    fbSet(`submissions/${id}`, sub);
-    fbRemove(`${region}/${id}`);
-    fbPush(`${region}/${id}/activityLog`, { action: "Sent back to Review Queue", ts: now, by: "Dan R" });
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const existingDocs = site.docs || {};
+    const existingActivityLog = site.activityLog || {};
+    const logId = uid();
+    const sub = { ...site, status: "pending", region, submittedAt: now, sentBackToReview: true,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [logId]: { action: "Sent back to Review Queue", ts: now, by: "Dan R" } },
+      latestNote: `Sent back to Review Queue ${dateStr}.`,
+      latestNoteDate: dateStr,
+    };
+    delete sub.messages; delete sub._region; delete sub._iqResult;
+    // Atomic: write to submissions + remove from tracker
+    const batchUpdates = {};
+    batchUpdates[`submissions/${id}`] = sub;
+    batchUpdates[`${region}/${id}`] = null;
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`${site.name} → Review Queue`);
+    }).catch((err) => {
+      console.error("Send to review error:", err);
+      notify(`Error: ${err.message}`);
+    });
     setExpandedSite(null);
-    notify(`${site.name} → Review Queue`);
   };
 
   // Reject a site from DW/MT tracker review → routes back to submissions as ps-rejected
   const handleTrackerReject = (region, id, site, rejectedBy) => {
     const now = new Date().toISOString();
-    const sub = { ...site, status: "ps-rejected", region, psRejectedBy: rejectedBy, psRejectReason: "Rejected during tracker review", psRejectedAt: now, sentBackToReview: true };
-    delete sub.messages; delete sub.docs; delete sub.activityLog;
-    delete sub._region; delete sub._iqResult;
-    fbSet(`submissions/${id}`, sub);
-    fbRemove(`${region}/${id}`);
-    fbPush("config/scoring_calibration", {
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const existingDocs = site.docs || {};
+    const existingActivityLog = site.activityLog || {};
+    const logId = uid();
+    const calibId = uid();
+    const sub = { ...site, status: "ps-rejected", region, psRejectedBy: rejectedBy, psRejectReason: "Rejected during tracker review", psRejectedAt: now, sentBackToReview: true,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [logId]: { action: `Rejected by ${rejectedBy} during tracker review`, ts: now, by: rejectedBy, type: "rejection" } },
+      latestNote: `Rejected by ${rejectedBy} ${dateStr} during tracker review.`,
+      latestNoteDate: dateStr,
+    };
+    delete sub.messages; delete sub._region; delete sub._iqResult;
+    const batchUpdates = {};
+    batchUpdates[`submissions/${id}`] = sub;
+    batchUpdates[`${region}/${id}`] = null;
+    batchUpdates[`config/scoring_calibration/${calibId}`] = {
       siteId: id, siteName: site.name || "", action: "rejected_from_tracker",
       reason: "Rejected during tracker review", address: site.address || "", state: site.state || "",
       ts: now, by: rejectedBy,
-    });
-    notify(`✗ ${site.name} rejected by ${rejectedBy} — routed back to Review Queue`);
+    };
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`✗ ${site.name} rejected by ${rejectedBy} — routed back to Review Queue`);
+    }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
   };
 
   // ─── GEOCODE & DEMOGRAPHICS ───
@@ -810,7 +837,13 @@ function AppInner() {
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
     const approvalComment = ri.approvalComment || "";
     const now = new Date().toISOString();
-    fbUpdate(`submissions/${id}`, {
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    // Validate minimum fields for routing
+    if (!site.coordinates && !site.address) {
+      notify("Cannot route — site has no address or coordinates");
+      return;
+    }
+    const updates = {
       status: "recommended",
       region: routeTo,
       recommendedBy: "Dan R.",
@@ -818,10 +851,16 @@ function AppInner() {
       recommendedComment: approvalComment,
       reviewNote: ri.note || "",
       routedTo: routeTo,
-    });
+      latestNote: `Recommended to ${routeLabel} ${dateStr}.${approvalComment ? " " + approvalComment : ""} Awaiting PS approval.`,
+      latestNoteDate: dateStr,
+    };
+    fbUpdate(`submissions/${id}`, updates);
+    // Activity log on the submission (not tracker — site isn't there yet)
+    fbPush(`submissions/${id}/activityLog`, { action: `Recommended → ${routeLabel}`, comment: approvalComment, ts: now, by: "Dan R.", type: "recommendation" });
     notify(`Recommended → ${routeLabel} (awaiting PS approval)`);
-    autoGenerateVettingReport(routeTo, id, { ...site, region: routeTo });
-    autoEnrichESRI(routeTo, id, { ...site, region: routeTo }); // ESRI 2025 on route
+    // Vetting report + ESRI enrichment target submissions path (site not in tracker yet)
+    autoGenerateVettingReport("queue", id, { ...site, region: routeTo });
+    autoEnrichESRI("queue", id, { ...site, region: routeTo });
   };
 
   // Step 2: PS (DW/MT/Jarrod) approves — moves to tracker
@@ -833,13 +872,19 @@ function AppInner() {
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
     const psApprovalComment = ri.psApprovalComment || "";
     const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const activityAction = `PS Approved → routed to ${routeLabel}`;
+    const approver = ri.reviewer || "PS";
+    // Preserve existing docs, messages, activity log from review phase
+    const existingDocs = site.docs || {};
+    const existingMessages = site.messages || {};
+    const existingActivityLog = site.activityLog || {};
     const t = {
       ...site,
       region: routeTo,
       status: "tracking",
       approvedAt: now,
-      approvedBy: ri.reviewer || "PS",
+      approvedBy: approver,
       approvedComment: psApprovalComment,
       reviewedBy: site.recommendedBy || "Dan R",
       reviewNote: site.reviewNote || ri.note || "",
@@ -857,22 +902,36 @@ function AppInner() {
       zoning: site.zoning || "",
       market: site.market || "",
       priority: "⚪ None",
-      messages: {},
-      docs: {},
-      activityLog: { [uid()]: { action: activityAction, comment: psApprovalComment, ts: now, by: ri.reviewer || "PS", type: "approval" } },
+      messages: existingMessages,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [uid()]: { action: activityAction, comment: psApprovalComment, ts: now, by: approver, type: "approval" } },
+      latestNote: `PS Approved ${dateStr}. Routed to ${routeLabel}.${psApprovalComment ? " " + psApprovalComment : ""}`,
+      latestNoteDate: dateStr,
     };
-    fbSet(`${routeTo}/${id}`, t);
-    fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now, approvedComment: psApprovalComment });
-    // Log to scoring calibration — approved sites help calibrate model accuracy
+    // Clean transient UI properties
+    delete t._region; delete t._iqResult;
+    // Atomic multi-path write: add to tracker + remove from submissions + log calibration
     const iqR = computeSiteScore(site);
-    fbPush("config/scoring_calibration", {
+    const calibId = uid();
+    const batchUpdates = {};
+    // Write full tracker record
+    batchUpdates[`${routeTo}/${id}`] = t;
+    // Remove from submissions (clean up)
+    batchUpdates[`submissions/${id}`] = null;
+    // Log to scoring calibration
+    batchUpdates[`config/scoring_calibration/${calibId}`] = {
       siteId: id, siteName: site.name || "", action: "approved_by_ps",
       siteScore: iqR ? iqR.score : null,
       classification: iqR ? iqR.classification : null,
       address: site.address || "", state: site.state || "",
-      ts: now, by: ri.reviewer || "PS", routedTo: routeTo,
+      ts: now, by: approver, routedTo: routeTo,
+    };
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`PS Approved → ${routeLabel} tracker`);
+    }).catch((err) => {
+      console.error("PS Approve error:", err);
+      notify(`Error approving site: ${err.message}`);
     });
-    notify(`PS Approved → ${routeLabel} tracker`);
   };
 
   // handleApprove removed — replaced by two-step: handleRecommend (Dan) → handlePSApprove (PS)
@@ -881,17 +940,30 @@ function AppInner() {
     const p = subs.filter((s) => s.status === "pending");
     if (!p.length) return;
     const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const updates = {};
     p.forEach((s) => {
       const ri = reviewInputs[s.id] || {};
       const routeTo = ri.routeTo || s.region || "southwest";
+      const routeLabel = REGIONS[routeTo]?.label || routeTo;
       updates[`submissions/${s.id}/status`] = "recommended";
       updates[`submissions/${s.id}/region`] = routeTo;
       updates[`submissions/${s.id}/routedTo`] = routeTo;
       updates[`submissions/${s.id}/recommendedBy`] = "Dan R.";
       updates[`submissions/${s.id}/recommendedAt`] = now;
+      updates[`submissions/${s.id}/latestNote`] = `Batch-recommended to ${routeLabel} ${dateStr}. Awaiting PS approval.`;
+      updates[`submissions/${s.id}/latestNoteDate`] = dateStr;
+      const logId = uid();
+      updates[`submissions/${s.id}/activityLog/${logId}`] = { action: `Batch-recommended → ${routeLabel}`, ts: now, by: "Dan R.", type: "recommendation" };
     });
     update(ref(db, "/"), updates).then(() => {
+      // Trigger ESRI enrichment + vetting reports after batch write succeeds
+      p.forEach((s) => {
+        const ri = reviewInputs[s.id] || {};
+        const routeTo = ri.routeTo || s.region || "southwest";
+        autoGenerateVettingReport("queue", s.id, { ...s, region: routeTo });
+        autoEnrichESRI("queue", s.id, { ...s, region: routeTo });
+      });
       notify(`Recommended ${p.length} sites (awaiting PS approval)`);
     }).catch((err) => {
       console.error(err);
@@ -986,12 +1058,28 @@ function AppInner() {
       // Direct to tracker — skip recommendation step
       const region = destination === "mt-tracker" ? "east" : "southwest";
       const regionLabel = destination === "mt-tracker" ? "MT Tracker" : "DW Tracker";
-      const t = { ...site, region, status: "tracking", approvedAt: now, approvedBy: "Dan R.", phase: site.phase || "Prospect", coordinates: site.coordinates || "", callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}` };
-      delete t.messages; delete t.docs; delete t.activityLog; delete t._region; delete t._iqResult;
-      fbSet(`${region}/${id}`, t);
-      fbRemove(`submissions/${id}`);
-      fbPush(`${region}/${id}/activityLog`, { action: `Direct-routed to ${regionLabel} by Dan R.`, ts: now, by: "Dan R" });
-      notify(`Routed directly to ${regionLabel}`);
+      const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const existingDocs = site.docs || {};
+      const existingMessages = site.messages || {};
+      const existingActivityLog = site.activityLog || {};
+      const logId = uid();
+      const t = { ...site, region, status: "tracking", approvedAt: now, approvedBy: "Dan R.", phase: site.phase || "Prospect", coordinates: site.coordinates || "", callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}`,
+        docs: existingDocs, messages: existingMessages,
+        activityLog: { ...existingActivityLog, [logId]: { action: `Direct-routed to ${regionLabel} by Dan R.`, ts: now, by: "Dan R" } },
+        latestNote: `Direct-routed to ${regionLabel} ${dateStr} by Dan R.`,
+        latestNoteDate: dateStr,
+      };
+      delete t._region; delete t._iqResult;
+      // Atomic: write to tracker + remove from submissions
+      const batchUpdates = {};
+      batchUpdates[`${region}/${id}`] = t;
+      batchUpdates[`submissions/${id}`] = null;
+      update(ref(db, "/"), batchUpdates).then(() => {
+        notify(`Routed directly to ${regionLabel}`);
+      }).catch((err) => {
+        console.error("Direct route error:", err);
+        notify(`Error routing: ${err.message}`);
+      });
     } else if (destination === "mt") {
       fbUpdate(`submissions/${id}`, { status: "recommended", routedTo: "east", recommendedTo: "Matthew Toussaint", recommendedBy: "Dan R.", recommendedAt: now, reviewNote: ri.note || "" });
       notify("Routed to Matthew Toussaint for review");
@@ -1004,24 +1092,41 @@ function AppInner() {
   // Move a site from one tracker to the other (east ↔ southwest) or back to review queue
   const handleTrackerRoute = (fromRegion, id, site, destination) => {
     const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const person = fromRegion === "east" ? "Matthew Toussaint" : "Daniel Wollent";
     if (destination === "review") {
-      // Send back to review queue
-      const sub = { ...site, status: "pending", region: fromRegion, submittedAt: now, sentBackToReview: true };
-      delete sub.messages; delete sub.docs; delete sub.activityLog; delete sub._region; delete sub._iqResult;
-      fbSet(`submissions/${id}`, sub);
-      fbRemove(`${fromRegion}/${id}`);
-      notify(`${site.name} sent back to Review Queue`);
+      const existingDocs = site.docs || {};
+      const existingActivityLog = site.activityLog || {};
+      const logId = uid();
+      const sub = { ...site, status: "pending", region: fromRegion, submittedAt: now, sentBackToReview: true,
+        docs: existingDocs,
+        activityLog: { ...existingActivityLog, [logId]: { action: `Sent back to Review Queue by ${person}`, ts: now, by: person } },
+        latestNote: `Sent back to Review Queue ${dateStr} by ${person}.`,
+        latestNoteDate: dateStr,
+      };
+      delete sub.messages; delete sub._region; delete sub._iqResult;
+      const batchUpdates = {};
+      batchUpdates[`submissions/${id}`] = sub;
+      batchUpdates[`${fromRegion}/${id}`] = null;
+      update(ref(db, "/"), batchUpdates).then(() => {
+        notify(`${site.name} sent back to Review Queue`);
+      }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
     } else if (destination === "other") {
-      // Move to the other tracker
       const toRegion = fromRegion === "east" ? "southwest" : "east";
       const toLabel = toRegion === "east" ? "MT Tracker" : "DW Tracker";
-      const moved = { ...site, region: toRegion };
+      const logId = uid();
+      const moved = { ...site, region: toRegion,
+        activityLog: { ...(site.activityLog || {}), [logId]: { action: `Transferred from ${fromRegion === "east" ? "MT" : "DW"} tracker`, ts: now, by: person } },
+        latestNote: `Transferred to ${toLabel} ${dateStr}.`,
+        latestNoteDate: dateStr,
+      };
       delete moved._region; delete moved._iqResult;
-      fbSet(`${toRegion}/${id}`, moved);
-      fbRemove(`${fromRegion}/${id}`);
-      fbPush(`${toRegion}/${id}/activityLog`, { action: `Transferred from ${fromRegion === "east" ? "MT" : "DW"} tracker`, ts: now, by: person });
-      notify(`${site.name} moved to ${toLabel}`);
+      const batchUpdates = {};
+      batchUpdates[`${toRegion}/${id}`] = moved;
+      batchUpdates[`${fromRegion}/${id}`] = null;
+      update(ref(db, "/"), batchUpdates).then(() => {
+        notify(`${site.name} moved to ${toLabel}`);
+      }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
     }
   };
 
@@ -1130,28 +1235,40 @@ function AppInner() {
     const site = subs.find(s => s.id === id);
     if (!site) return;
     const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const region = (site.routedTo || site.region || "southwest").toLowerCase();
     const regionPath = region === "east" ? "east" : "southwest";
     const regionLabel = regionPath === "east" ? "MT Tracker" : "DW Tracker";
+    const existingDocs = site.docs || {};
+    const existingActivityLog = site.activityLog || {};
+    const logId = uid();
+    const calibId = uid();
     const t = { ...site, region: regionPath, status: "tracking", phase: site.phase || "Prospect",
       resubmittedToPS: true, resubmittedAt: now, coordinates: site.coordinates || "",
-      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}` };
-    delete t.messages; delete t.docs; delete t.activityLog; delete t._region; delete t._iqResult;
+      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}`,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [logId]: { action: `Re-sent to PS via ${regionLabel} after rejection`, ts: now, by: "Dan R" } },
+      latestNote: `Re-sent to PS via ${regionLabel} ${dateStr} after rejection.`,
+      latestNoteDate: dateStr,
+    };
+    delete t._region; delete t._iqResult; delete t.messages;
     // Clear rejection fields
     delete t.psRejectedBy; delete t.psRejectReason; delete t.psFeedback; delete t.psRejectedAt;
     delete t.declineReason; delete t.declinedAt; delete t.reviewedBy; delete t.reviewNote;
     delete t.siteScoreAtDecline; delete t.classificationAtDecline;
-    t.status = "tracking";
-    fbSet(`${regionPath}/${id}`, t);
-    fbRemove(`submissions/${id}`);
-    fbPush(`${regionPath}/${id}/activityLog`, { action: `Re-sent to PS via ${regionLabel} after rejection`, ts: now, by: "Dan R" });
-    fbPush("config/scoring_calibration", {
+    // Atomic: write to tracker + remove from submissions + log calibration
+    const batchUpdates = {};
+    batchUpdates[`${regionPath}/${id}`] = t;
+    batchUpdates[`submissions/${id}`] = null;
+    batchUpdates[`config/scoring_calibration/${calibId}`] = {
       siteId: id, siteName: site.name || "", action: "resubmitted_to_ps",
       reason: "Sent back to PS after rejection/decline",
       address: site.address || "", state: site.state || "",
       ts: now, by: "Dan R", routedTo: regionLabel,
-    });
-    notify(`${site.name || "Site"} sent back to PS via ${regionLabel}`);
+    };
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`${site.name || "Site"} sent back to PS via ${regionLabel}`);
+    }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
   };
 
   // Smart discard: logs to killed_sites + learns pattern + removes
@@ -4011,21 +4128,36 @@ function AppInner() {
                       {site.siteiqData?.ccSPC != null && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.siteiqData.ccSPC < 1.5 ? "Severely underserved" : site.siteiqData.ccSPC < 3 ? "Underserved" : site.siteiqData.ccSPC < 5 ? "Moderate" : "Well-supplied"} CC</div>}
                     </div>
                   </div>
-                  {/* Source Attribution — sleek, dimmed, always visible */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                      {[
-                        { label: "Demographics", src: "ESRI ArcGIS 2025" },
-                        { label: "Zoning", src: site.zoningSource ? "Municipal Ordinance" : site.zoningTableAccessed ? "Verified" : "Broker / Listing" },
-                        { label: "Competition", src: "SiteScore\u2122 Engine" },
-                        { label: "Proximity", src: "PS Locations DB" },
-                      ].map(s => (
-                        <span key={s.label} style={{ fontSize: 9, color: "#4A5074", fontWeight: 600, letterSpacing: "0.03em" }}>
-                          <span style={{ color: "#6B7394" }}>{s.label}:</span> {s.src}
-                        </span>
-                      ))}
+                  {/* Source Attribution — prominent data provenance bar */}
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+                    {/* ESRI headline — the premium data source */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.04))", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "3px 10px" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>ESRI Premium</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#8B99C4" }}>2025–2030 Geocoded Radial Rings</span>
+                      </div>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(76,201,130,0.08)", border: "1px solid rgba(76,201,130,0.2)", borderRadius: 4, padding: "3px 8px" }}>
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4CC982", display: "inline-block" }}></span>
+                        <span style={{ fontSize: 9, fontWeight: 600, color: "#4CC982", letterSpacing: "0.04em" }}>LIVE</span>
+                      </div>
                     </div>
-                    {site.zoningVerifyDate && <span style={{ fontSize: 9, color: "#4A5074", fontWeight: 600 }}>Verified {site.zoningVerifyDate}</span>}
+                    {/* Other sources row */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                        {[
+                          { label: "Zoning", src: site.zoningSource ? "Municipal Ordinance" : site.zoningTableAccessed ? "Verified" : "Broker / Listing", verified: !!site.zoningSource || !!site.zoningTableAccessed },
+                          { label: "Competition", src: "SiteScore\u2122 Engine", verified: true },
+                          { label: "Proximity", src: "PS Locations DB (3,112)", verified: true },
+                          { label: "Valuation", src: "Storvex Model", verified: true },
+                        ].map(s => (
+                          <span key={s.label} style={{ fontSize: 10, color: s.verified ? "#8B99C4" : "#4A5074", fontWeight: 600, letterSpacing: "0.02em" }}>
+                            <span style={{ color: s.verified ? "#6B7394" : "#3D4565" }}>{s.label}:</span>{" "}
+                            <span style={{ color: s.verified ? "#A0B0D8" : "#4A5074" }}>{s.src}</span>
+                          </span>
+                        ))}
+                      </div>
+                      {site.zoningVerifyDate && <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600, fontStyle: "italic" }}>Verified {site.zoningVerifyDate}</span>}
+                    </div>
                   </div>
                 </div>
                 );
