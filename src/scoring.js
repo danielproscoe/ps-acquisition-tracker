@@ -735,16 +735,14 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   ];
   const valuations = capRates.map(c => ({ ...c, value: Math.round(stabNOI / c.rate) }));
 
-  // ── Land Price Guide — REIT-tight thresholds (recalibrated 2026-03-22) ──
-  // Prior: 7.0/8.5/10.0% — too loose, 7% walk-away let marginal deals through.
-  // Recalibrated: 7.5/9.0/10.5% — PS REC discipline without killing every deal.
-  // 7.5% walk-away = floor for strategic/irreplaceable sites (EVP+ approval).
-  // 9.0% strike = standard REC approval zone (PS targets 8-9% YOC on dev pipeline).
-  // 10.5% home run = genuinely exceptional — deal-of-the-year territory.
+  // ── Land Price Guide — calibrated to current pipeline economics ──
+  // Walk Away 5.0% = absolute floor — deal must clear cost of capital.
+  // Strike 6.0% = REC approval zone — produces actionable land prices near market ask.
+  // Home Run 7.5% = exceptional — significant value creation above hurdle.
   const landTargets = [
-    { label: "Walk Away", yoc: O('yocMax', 0.075), color: "#EF4444", tag: "MAX" },
-    { label: "Strike Price", yoc: O('yocStrike', 0.09), color: "#C9A84C", tag: "TARGET" },
-    { label: "Home Run", yoc: O('yocMin', 0.105), color: "#16A34A", tag: "STEAL" },
+    { label: "Walk Away", yoc: O('yocMax', 0.05), color: "#EF4444", tag: "MAX" },
+    { label: "Strike Price", yoc: O('yocStrike', 0.06), color: "#C9A84C", tag: "TARGET" },
+    { label: "Home Run", yoc: O('yocMin', 0.075), color: "#16A34A", tag: "STEAL" },
   ];
   const landPrices = landTargets.map(t => {
     const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts - carryCosts - workingCapital) : 0;
