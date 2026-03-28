@@ -197,7 +197,7 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
             const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
             const isActive = activeBar === f.key;
             return (
-              <div key={f.key} ref={el => { barRefs.current[f.key] = el; }} onClick={(e) => handleBarClick(e, f.key)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 24, cursor: "pointer" }}>
+              <div key={f.key} ref={el => { barRefs.current[f.key] = el; }} onClick={(e) => handleBarClick(e, f.key)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleBarClick(e, f.key); } }} tabIndex={0} role="button" aria-label={`${f.label} score: ${iq.scores[f.key] || 0} out of 10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: 24, cursor: "pointer", outline: "none" }}>
                 <div style={{ fontSize: 9, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
                 <div style={{ width: isActive ? 20 : 16, height: 40, borderRadius: 4, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden", transition: "width 0.15s ease", border: isActive ? `1px solid ${c}80` : "1px solid transparent" }}>
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 4, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 8px ${c}50` : "none" }} />

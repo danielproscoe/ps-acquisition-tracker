@@ -915,6 +915,60 @@ describe('Competition scoring via siteiqData.ccSPC (primary metric)', () => {
   test('ccSPC exactly 5.0 scores 6 (upper bound of 3.0-5.0 tier)', () => {
     expect(score({ siteiqData: { ccSPC: 5.0 } }).scores.competition).toBe(6);
   });
+
+  test('ccSPC 10.0-15.0 scores 3 (high supply — extended tier)', () => {
+    // Growth forgiveness does NOT apply here because base score is 3, which is in range 2-5,
+    // but baseSite growth 1.2% → growthScore 8 → +1 forgiveness → 4
+    expect(score({ siteiqData: { ccSPC: 12.0 } }).scores.competition).toBe(4); // 3 base + 1 forgiveness
+  });
+
+  test('ccSPC 15.0-20.0 scores 2 (near-saturated — extended tier)', () => {
+    // 2 base + 1 growth forgiveness (baseSite 1.2% growth) = 3
+    expect(score({ siteiqData: { ccSPC: 18.0 } }).scores.competition).toBe(3); // 2 base + 1 forgiveness
+  });
+
+  test('ccSPC > 20.0 scores 0 (saturated — hard floor)', () => {
+    // No growth forgiveness applies to score 0
+    const result = score({ siteiqData: { ccSPC: 25.0 } });
+    expect(result.scores.competition).toBe(0);
+    expect(result.flags.some(f => f.includes('saturated'))).toBe(true);
+  });
+
+  test('ccSPC 10.0-15.0 with NO growth forgiveness scores 3', () => {
+    // Set growth to 0% → growthScore 4 (below 8 threshold) → no forgiveness
+    expect(score({ siteiqData: { ccSPC: 12.0 }, popGrowth3mi: '0.0' }).scores.competition).toBe(3);
+  });
+
+  // ─── Boundary tests (EYP audit — verify tier edges) ───
+  test('ccSPC exactly 1.5 scores 8 (lower bound of 1.5-3.0 tier)', () => {
+    expect(score({ siteiqData: { ccSPC: 1.5 } }).scores.competition).toBe(8);
+  });
+
+  test('ccSPC exactly 3.0 scores 8 (upper bound of 1.5-3.0 tier, inclusive)', () => {
+    expect(score({ siteiqData: { ccSPC: 3.0 } }).scores.competition).toBe(8);
+  });
+
+  test('ccSPC exactly 5.0 scores 6 (upper bound of 3.0-5.0 tier, inclusive)', () => {
+    expect(score({ siteiqData: { ccSPC: 5.0 } }).scores.competition).toBe(6);
+  });
+
+  test('ccSPC exactly 7.0 scores 6 (base 5 + growth forgiveness from 1.2% CAGR)', () => {
+    // Base score 5 (5.0-7.0 tier), growth forgiveness +1 (baseSite has 1.2% CAGR → growthScore 8) = 6
+    expect(score({ siteiqData: { ccSPC: 7.0 } }).scores.competition).toBe(6);
+  });
+
+  test('ccSPC exactly 10.0 scores 5 (base 4 + growth forgiveness from 1.2% CAGR)', () => {
+    // Base score 4 (7.0-10.0 tier), growth forgiveness +1 (baseSite has 1.2% CAGR → growthScore 8) = 5
+    expect(score({ siteiqData: { ccSPC: 10.0 } }).scores.competition).toBe(5);
+  });
+
+  test('ccSPC exactly 15.0 scores 3 (upper bound of 10.0-15.0 tier, inclusive)', () => {
+    expect(score({ siteiqData: { ccSPC: 15.0 }, popGrowth3mi: '0.0' }).scores.competition).toBe(3);
+  });
+
+  test('ccSPC exactly 20.0 scores 2 (upper bound of 15.0-20.0 tier, inclusive)', () => {
+    expect(score({ siteiqData: { ccSPC: 20.0 }, popGrowth3mi: '0.0' }).scores.competition).toBe(2);
+  });
 });
 
 // ─── 17c. COMPETITION — PROJECTED CC SPC (v4.0) ───

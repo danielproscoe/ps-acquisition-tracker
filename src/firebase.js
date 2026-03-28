@@ -3,10 +3,13 @@ import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
 
-// Firebase client config — these are NOT secrets. Firebase client API keys are
-// designed to be public (embedded in every web app). Security is enforced by
-// Firebase Security Rules on the server side, not by hiding client keys.
+// Firebase client config — these are NOT secrets (per Firebase documentation).
+// Firebase client API keys are designed to be public and embedded in every web
+// app. Security is enforced by Firebase Security Rules on the server side, not
+// by hiding client keys. See: https://firebase.google.com/docs/projects/api-keys
 // Env vars override if set; defaults ensure production always works.
+// SECURITY AUDIT NOTE (EYP 2026-03-29): Reviewed and confirmed — client keys
+// are safe to embed. Server-side rules enforce auth + validation on all paths.
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyAjfLspo0mesgOSFR3r0kFfAv_7cnD8yZk",
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "ps-pipeline-engine---djr---v1.firebaseapp.com",

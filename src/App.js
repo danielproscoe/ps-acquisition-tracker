@@ -389,7 +389,7 @@ function AppInner() {
   }, [loaded, sw, east, subs, setTab, setDetailView, setReviewDetailSite]);
 
   const [newSiteCount, setNewSiteCount] = useState(0);
-  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
+  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", zoningClassification: "unknown", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("review");
   const [discoverIntel, setDiscoverIntel] = useState(null); // Pre-fill from Discover map click
@@ -558,6 +558,16 @@ function AppInner() {
   const updateSiteField = (region, id, field, value) => {
     // Sanitize string values on write
     const cleanVal = typeof value === "string" ? sanitizeString(value) : value;
+    // --- Phase backward navigation guard ---
+    if (field === "phase") {
+      const site = [...sw, ...east].find(s => s.id === id);
+      const oldPhase = site?.phase || "Unknown";
+      const oldIdx = PHASES.indexOf(oldPhase);
+      const newIdx = PHASES.indexOf(value);
+      if (oldIdx >= 0 && newIdx >= 0 && newIdx < oldIdx && !["Declined", "Dead"].includes(value)) {
+        if (!window.confirm(`Move "${site?.name || site?.address || id}" backward from "${oldPhase}" to "${value}"?`)) return;
+      }
+    }
     fbUpdate(`${region}/${id}`, { [field]: cleanVal });
     // --- Pipeline Velocity: Track phase transitions ---
     if (field === "phase") {
@@ -620,9 +630,14 @@ function AppInner() {
   };
 
   const handleRemove = (region, id) => {
+    // Snapshot the site data for undo
+    const allSites = [...sw, ...east, ...subs];
+    const siteData = allSites.find(s => s.id === id);
     fbRemove(`${region}/${id}`);
-    notify("Removed.");
     setExpandedSite(null);
+    // Undo toast — 8-second window to restore
+    const undoTimer = setTimeout(() => setToast(null), 8000);
+    setToast({ text: "Site removed.", undo: () => { clearTimeout(undoTimer); if (siteData) { const { id: _id, ...rest } = siteData; fbSet(`${region}/${id}`, rest); } notify("Restored."); } });
   };
 
   const handleSendToReview = (region, id, site) => {
@@ -913,6 +928,7 @@ function AppInner() {
       dateOnMarket: "",
       acreage: sanitizeString(form.acreage),
       zoning: sanitizeString(form.zoning),
+      zoningClassification: form.zoningClassification || "unknown",
       market: "",
       priority: "⚪ None",
       messages: {},
@@ -2479,9 +2495,9 @@ function AppInner() {
       {transitioning && <div className="tab-transition-overlay" />}
       {/* Styles moved to App.css — only inline overrides below */}
 
-      {/* Toast */}
+      {/* Toast — supports plain string or { text, undo } for undo actions */}
       {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, background: "linear-gradient(135deg, rgba(15,15,20,0.97), rgba(30,20,15,0.95))", color: "#fff", padding: "12px 22px", borderRadius: 14, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(243,124,51,0.2), 0 0 30px rgba(243,124,51,0.08)", animation: "toastSlide 0.35s cubic-bezier(0.4,0,0.2,1)", borderLeft: "3px solid transparent", borderImage: "linear-gradient(180deg, #FFB347, #F37C33, #D45500) 1", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.6)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate", flexShrink: 0 }} />{toast}</div>
+        <div style={{ position: "fixed", top: 24, right: 24, background: "linear-gradient(135deg, rgba(15,15,20,0.97), rgba(30,20,15,0.95))", color: "#fff", padding: "12px 22px", borderRadius: 14, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(243,124,51,0.2), 0 0 30px rgba(243,124,51,0.08)", animation: "toastSlide 0.35s cubic-bezier(0.4,0,0.2,1)", borderLeft: "3px solid transparent", borderImage: "linear-gradient(180deg, #FFB347, #F37C33, #D45500) 1", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.6)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate", flexShrink: 0 }} />{typeof toast === "object" && toast.text ? toast.text : toast}{typeof toast === "object" && toast.undo && <button onClick={() => { toast.undo(); setToast(null); }} style={{ marginLeft: 8, padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(243,124,51,0.4)", background: "rgba(243,124,51,0.15)", color: "#FFB347", fontSize: 12, fontWeight: 800, cursor: "pointer", letterSpacing: "0.04em" }}>UNDO</button>}</div>
       )}
 
       {/* SiteScore Weight Config Modal */}
@@ -3209,8 +3225,9 @@ function AppInner() {
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Acreage</label><input style={inp} value={form.acreage} onChange={(e) => setForm({ ...form, acreage: e.target.value })} placeholder="e.g. 3.5" /></div>
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Asking Price</label><input style={inp} value={form.askingPrice} onChange={(e) => setForm({ ...form, askingPrice: e.target.value })} placeholder="e.g. $1,200,000" /></div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Zoning</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Zoning District</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Zoning Classification</label><select style={{ ...inp, cursor: "pointer" }} value={form.zoningClassification || "unknown"} onChange={(e) => setForm({ ...form, zoningClassification: e.target.value })}><option value="unknown">Unknown</option><option value="by-right">By-Right</option><option value="conditional">Conditional (SUP/CUP)</option><option value="rezone-required">Rezone Required</option><option value="prohibited">Prohibited</option></select></div>
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Seller / Broker</label><input style={inp} value={form.sellerBroker} onChange={(e) => setForm({ ...form, sellerBroker: e.target.value })} placeholder="Broker name" /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
