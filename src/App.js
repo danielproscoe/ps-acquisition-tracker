@@ -153,7 +153,7 @@ const generateRecEmail = (site, regionKey, financials) => {
     else if (fin.landVerdict === "STRETCH") recLine += ". Good site, but asking is above PS strike targets.";
   }
   if (!recLine && site.summary) {
-    recLine = fixEncoding(site.summary).replace(/SiteScore\s+[\d.]+\/10\s+\w+\.\s*/i, "").substring(0, 200).trim();
+    recLine = fixEncoding(site.summary).replace(/(?:SiteScore|SiteIQ|Site\s*Score|Site\s*IQ)\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").substring(0, 200).trim();
   }
 
   // ── WATER ──
@@ -3594,7 +3594,7 @@ function AppInner() {
                           <button onClick={(e) => { e.stopPropagation(); handleSmartDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard & Learn</button>
                         </div>
                       )}
-                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{(() => { const s = site.summary.replace(/SiteScore\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim(); return s.substring(0, 180) + (s.length > 180 ? "…" : ""); })()}</div>}
+                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{(() => { const s = site.summary.replace(/(?:SiteScore|SiteIQ|Site\s*Score|Site\s*IQ)\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim(); return s.substring(0, 180) + (s.length > 180 ? "…" : ""); })()}</div>}
                       {/* NEW badge for unreviewed sites */}
                       {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 700, color: "#C9A84C", background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.2)" }}>NEW</span>}
                       {site.status === "recommended" && <div style={{ marginTop: 4 }}><div style={{ fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>{site.recommendedComment && <div style={{ fontSize: 10, fontStyle: "italic", color: "#D6E4F7", marginTop: 2 }}>Note: {site.recommendedComment}</div>}</div>}
@@ -6301,7 +6301,7 @@ function IntelCardHeader({ site, onClick, children }) {
   const timerRef = useRef(null);
   const rawBlurb = site.latestNote || generateAutoBlurb(site);
   // Strip hardcoded SiteScore numbers from blurbs — scores change, stale numbers cause drift
-  const blurb = rawBlurb ? rawBlurb.replace(/SiteScore\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim() : null;
+  const blurb = rawBlurb ? rawBlurb.replace(/(?:SiteScore|SiteIQ|Site\s*Score|Site\s*IQ)\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim() : null;
   const blurbDate = site.latestNote ? site.latestNoteDate : (site.latestNote ? null : "Auto");
   const enter = () => { if (!blurb) return; clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setShow(true), 120); };
   const leave = () => { clearTimeout(timerRef.current); setShow(false); };
