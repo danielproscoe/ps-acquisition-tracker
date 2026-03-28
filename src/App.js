@@ -4010,6 +4010,22 @@ function AppInner() {
                       {site.siteiqData?.ccSPC != null && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.siteiqData.ccSPC < 1.5 ? "Severely underserved" : site.siteiqData.ccSPC < 3 ? "Underserved" : site.siteiqData.ccSPC < 5 ? "Moderate" : "Well-supplied"} CC</div>}
                     </div>
                   </div>
+                  {/* Source Attribution — sleek, dimmed, always visible */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      {[
+                        { label: "Demographics", src: "ESRI ArcGIS 2025" },
+                        { label: "Zoning", src: site.zoningSource ? "Municipal Ordinance" : site.zoningTableAccessed ? "Verified" : "Broker / Listing" },
+                        { label: "Competition", src: "SiteScore\u2122 Engine" },
+                        { label: "Proximity", src: "PS Locations DB" },
+                      ].map(s => (
+                        <span key={s.label} style={{ fontSize: 9, color: "#4A5074", fontWeight: 600, letterSpacing: "0.03em" }}>
+                          <span style={{ color: "#6B7394" }}>{s.label}:</span> {s.src}
+                        </span>
+                      ))}
+                    </div>
+                    {site.zoningVerifyDate && <span style={{ fontSize: 9, color: "#4A5074", fontWeight: 600 }}>Verified {site.zoningVerifyDate}</span>}
+                  </div>
                 </div>
                 );
               })()}
