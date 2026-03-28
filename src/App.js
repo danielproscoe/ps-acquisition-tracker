@@ -94,7 +94,11 @@ const generateRecEmail = (site, regionKey, financials) => {
   const pricePerAc = fin && fin.landCost > 0 && fin.acres > 0 ? $k(Math.round(fin.landCost / fin.acres)) : null;
 
   // ── Subject Line ──
-  const subject = `Site Recommendation \u2014 ${site.city || ""} ${site.state || ""}, ${fixEncoding(site.name || site.address || site.id)}${ccSPC ? ` | CC SPC ${ccSPC}` : ""}${zClass === "by-right" ? ", By-Right" : ""}`;
+  // Subject: avoid duplicate city when name already contains it
+  const siteName = fixEncoding(site.name || site.address || site.id);
+  const cityState = `${site.city || ""} ${site.state || ""}`.trim();
+  const subjectSite = siteName.toLowerCase().includes((site.city || "").toLowerCase()) ? siteName : `${cityState}, ${siteName}`;
+  const subject = `Site Recommendation \u2014 ${subjectSite}${ccSPC ? ` | CC SPC ${ccSPC}` : ""}${zClass === "by-right" ? ", By-Right" : ""}`;
 
   // ── Build TO line ──
   const toEmails = [];
@@ -2034,13 +2038,13 @@ function AppInner() {
                               const rec = generateRecEmail(site, regionKey, fin);
                               if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
                               const encodedSubject = encodeURIComponent(rec.subject);
-                              const toParam = rec.toEmails.length ? `&to=${rec.toEmails.map(e => encodeURIComponent(e)).join(",")}` : "";
+                              const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
                               navigator.clipboard.writeText(rec.body).then(() => {
                                 notify("\u2709 Email body copied \u2014 paste into Outlook body.");
                                 const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
                                 if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
                               }).catch(() => notify("Could not copy to clipboard."));
-                              window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}${toParam}`, "_blank");
+                              window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
                             } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(123,45,142,0.4), 0 0 0 1px rgba(123,45,142,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>{"\u2709"} Email Rec</button>
                         </div>
@@ -3945,13 +3949,13 @@ function AppInner() {
                       const rec = generateRecEmail(site, rk, fin);
                       if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
                       const encodedSubject = encodeURIComponent(rec.subject);
-                      const toParam = rec.toEmails.length ? `&to=${rec.toEmails.map(e => encodeURIComponent(e)).join(",")}` : "";
+                      const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
                       navigator.clipboard.writeText(rec.body).then(() => {
                         notify("\u2709 Email body copied \u2014 paste into Outlook body.");
                         const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
                         if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
                       }).catch(() => notify("Could not copy to clipboard."));
-                      window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}${toParam}`, "_blank");
+                      window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
                     } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{"\u2709"} Email Rec</button>
                 </div>
