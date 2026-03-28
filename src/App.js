@@ -4847,14 +4847,44 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   }
                   if (key === "internal") {
                     const lines = [];
+                    const sf = intFin?.totalSF || 0;
+                    const noi = intFin?.stabNOI || 0;
+                    const bpc = intFin ? ((intFin.buildCosts || 0) + (intFin.carryCosts || 0) + (intFin.workingCapital || 0)) : 0;
+                    const strikeP = intFin?.landPrices?.[1]?.maxLand || 0;
+                    const walkP = intFin?.landPrices?.[0]?.maxLand || 0;
+                    const pitchP = noi > 0 ? Math.round(noi / 0.08 - bpc) : 0;
                     if (!isNaN(intRaw) && intRaw > 0) {
-                      if (phase === "Under Contract") lines.push(`Under contract at $${intRaw.toLocaleString()}`);
-                      else if (phase === "LOI") lines.push(`LOI submitted at $${intRaw.toLocaleString()}`);
-                      else if (phase === "PSA Sent") lines.push(`PSA sent at $${intRaw.toLocaleString()}`);
-                      else lines.push(`Internal price target: $${intRaw.toLocaleString()}`);
-                      if (!isNaN(askRaw) && askRaw > 0) { const disc = (((askRaw - intRaw) / askRaw) * 100).toFixed(1); lines.push(`${disc}% discount to asking ($${askRaw.toLocaleString()})`); }
-                      if (site.summary) { const s = site.summary; if (s.toLowerCase().includes("counter")) lines.push("Negotiation history in recent summary"); }
-                    } else { lines.push("No internal pricing established yet"); lines.push("Awaiting broker response or initial valuation"); }
+                      const yoc = noi > 0 ? (noi / (intRaw + bpc) * 100).toFixed(1) : "N/A";
+                      if (phase === "Under Contract") lines.push(`Under contract at $${intRaw.toLocaleString()} (${yoc}% YOC)`);
+                      else if (phase === "LOI" || phase === "PSA Sent") lines.push(`${phase} at $${intRaw.toLocaleString()} (${yoc}% YOC)`);
+                      else lines.push(`Internal target: $${intRaw.toLocaleString()} (${yoc}% YOC)`);
+                      if (!isNaN(askRaw) && askRaw > 0) lines.push(`${(((askRaw - intRaw) / askRaw) * 100).toFixed(1)}% discount to $${askRaw.toLocaleString()} ask`);
+                    } else {
+                      // Intelligent Storvex recommendation
+                      lines.push("STORVEX LAND PRICE INTELLIGENCE");
+                      if (sf > 0 && noi > 0) {
+                        lines.push(`Projected facility: ${(sf/1000).toFixed(0)}K SF \u2192 $${(noi >= 1e6 ? (noi/1e6).toFixed(2)+"M" : Math.round(noi/1e3)+"K")} stabilized NOI`);
+                        if (strikeP > 0) {
+                          const strikeYOC = (noi / (strikeP + bpc) * 100).toFixed(1);
+                          lines.push(`Strike price: $${strikeP >= 1e6 ? (strikeP/1e6).toFixed(2)+"M" : Math.round(strikeP/1e3).toLocaleString()+"K"} (${strikeYOC}% YOC) \u2014 ideal entry`);
+                          if (!isNaN(askRaw) && askRaw > 0) {
+                            const askDisc = (((askRaw - strikeP) / askRaw) * 100).toFixed(0);
+                            lines.push(`This is ${askDisc}% below the $${askRaw.toLocaleString()} ask \u2014 ${parseInt(askDisc) >= 20 ? "aggressive but defensible" : parseInt(askDisc) >= 10 ? "reasonable negotiating position" : "close to ask, strong if justified"}`);
+                          }
+                        } else if (pitchP > 0) {
+                          lines.push(`9% YOC not achievable at current pricing. Target: $${pitchP >= 1e6 ? (pitchP/1e6).toFixed(2)+"M" : Math.round(pitchP/1e3).toLocaleString()+"K"} for 8.0% YOC \u2014 minimum pitchable return`);
+                        } else {
+                          lines.push("Valuation below threshold \u2014 economics don't support acquisition at current pricing");
+                        }
+                        if (!isNaN(askRaw) && askRaw > 0) {
+                          const askYOC = (noi / (askRaw + bpc) * 100).toFixed(1);
+                          lines.push(`At the asking price: ${askYOC}% YOC \u2014 ${parseFloat(askYOC) >= 9 ? "already hits strike target" : parseFloat(askYOC) >= 7.5 ? "workable, needs minor negotiation" : parseFloat(askYOC) >= 6 ? "needs 15-25% reduction to hit strike" : "significant gap \u2014 deep discount or pass"}`);
+                        }
+                      } else {
+                        lines.push("Insufficient data for valuation \u2014 awaiting demographics or comp analysis");
+                      }
+                    }
+                    lines.push("Click to set your own internal target price");
                     return lines;
                   }
                   if (key === "acreage") {
