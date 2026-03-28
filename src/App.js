@@ -54,63 +54,203 @@ const siteDisplayName = (site) => {
 };
 
 // ─── Email Recommendation Generator ───
-const REC_RECIPIENTS = { east: "Matt Toussaint", southwest: "Daniel Wollent", queue: "PS Team" };
+const REC_RECIPIENTS = {
+  east: { name: "Matt Toussaint", email: "mtoussaint@publicstorage.com" },
+  southwest: { name: "Daniel Wollent", email: "dwollent@publicstorage.com" },
+  queue: { name: "PS Team", email: "" },
+};
 
-const generateRecEmail = (site, regionKey) => {
-  const recipient = REC_RECIPIENTS[regionKey] || "PS Team";
+// Validate listing URL — prevent bad links from going to DW/MT
+const validateListingUrl = (url) => {
+  if (!url) return { valid: false, url: "", warning: "NO LISTING LINK" };
+  const cleaned = url.trim();
+  const withProto = cleaned.startsWith("http") ? cleaned : `https://${cleaned}`;
+  try {
+    const parsed = new URL(withProto);
+    const validDomains = ["crexi.com", "loopnet.com", "costar.com", "ten-x.com", "landflip.com", "land.com", "landandfarm.com", "landwatch.com", "realtor.com", "zillow.com"];
+    const host = parsed.hostname.replace(/^www\./, "");
+    const recognized = validDomains.some(d => host === d || host.endsWith("." + d));
+    return { valid: true, url: withProto, warning: recognized ? "" : `Unrecognized domain: ${host}` };
+  } catch { return { valid: false, url: withProto, warning: "MALFORMED URL" }; }
+};
+
+const generateRecEmail = (site, regionKey, financials) => {
+  const recip = REC_RECIPIENTS[regionKey] || REC_RECIPIENTS.queue;
   const iq = site.siteiqData || {};
-  const ccSPC = iq.ccSPC ? parseFloat(iq.ccSPC).toFixed(2) : "N/A";
-  const projCCSPC = iq.projectedCCSPC ? parseFloat(iq.projectedCCSPC).toFixed(2) : "N/A";
+  const ccSPC = iq.ccSPC ? parseFloat(iq.ccSPC).toFixed(1) : null;
+  const projCCSPC = iq.projectedCCSPC ? parseFloat(iq.projectedCCSPC).toFixed(1) : null;
   const zClass = site.zoningClassification || "TBD";
   const coords = site.coordinates || "";
   const pinDrop = coords ? `https://www.google.com/maps?q=${coords}` : "";
   const dashLink = `https://storvex.vercel.app/?site=${site.id}`;
-  const listingLink = site.listingUrl ? (site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`) : "";
-  const subject = `Site Recommendation \u2014 ${site.city || ""} ${site.state || ""}, ${fixEncoding(site.name || site.address || site.id)} | CC SPC ${ccSPC}, ${zClass === "by-right" ? "By-Right" : zClass}`;
+  const listing = validateListingUrl(site.listingUrl);
 
-  const body = `Hi ${recipient} and PS Team,
+  // ── Financials (compute if not provided) ──
+  const fin = financials || (() => { try { return computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {}); } catch { return null; } })();
+  const $k = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${Math.round(v / 1000)}K` : `$${v.toLocaleString()}`;
 
-Here\u2019s the full write-up on the ${site.city || ""} ${site.state || ""} site.
+  // ── Parse acreage ──
+  const acreageRaw = site.acreage || "";
+  const pricePerAc = fin && fin.landCost > 0 && fin.acres > 0 ? $k(Math.round(fin.landCost / fin.acres)) : null;
 
-Dashboard: ${dashLink}
-${pinDrop ? `Pin Drop: ${pinDrop}` : ""}
-${listingLink ? `Listing: ${listingLink}` : ""}
+  // ── Subject Line ──
+  const subject = `Site Recommendation \u2014 ${site.city || ""} ${site.state || ""}, ${fixEncoding(site.name || site.address || site.id)}${ccSPC ? ` | CC SPC ${ccSPC}` : ""}${zClass === "by-right" ? ", By-Right" : ""}`;
 
-THE SITE
-${site.acreage || "N/A"} acres \u2014 ${fixEncoding(site.address || "")}, ${site.city || ""}, ${site.state || ""}
-Asking: ${site.askingPrice || "TBD"}
-Broker: ${fixEncoding(site.sellerBroker || "N/A")}
-Zoning: ${fixEncoding(site.zoning || "TBD")} \u2014 ${zClass}
+  // ── Build TO line ──
+  const toEmails = [];
+  if (recip.email) toEmails.push(recip.email);
+  if (regionKey === "east" && REC_RECIPIENTS.southwest.email) toEmails.push(REC_RECIPIENTS.southwest.email);
+  if (regionKey === "southwest" && REC_RECIPIENTS.east.email) toEmails.push(REC_RECIPIENTS.east.email);
 
-COMPETITION \u2014 CC SPC
-CC SPC (Current): ${ccSPC} SF/capita
-CC SPC (Projected 5-Yr): ${projCCSPC} SF/capita
-CC Competitors (3-mi): ${iq.competitorCount ?? "N/A"}
-${site.competingCCSF ? `CC SF (3-mi): ${site.competingCCSF}` : ""}
+  // ── ZONING VERDICT ──
+  let zoningLine = "";
+  if (site.zoningUseTerm && site.zoningOrdinanceSection) {
+    zoningLine = `"${fixEncoding(site.zoningUseTerm)}" is permitted ${zClass === "by-right" ? "by right" : zClass === "conditional" ? "(conditional \u2014 SUP/CUP)" : ""} in the ${site.zoning || ""} District per the city\u2019s use table (${fixEncoding(site.zoningOrdinanceSection)}${site.zoningSource ? `, ${fixEncoding(site.zoningSource)}` : ""}). ${zClass === "by-right" ? "No SUP, no hearing. Administrative site plan only." : ""}`;
+  } else if (site.zoningNotes) {
+    zoningLine = `${site.zoning || "TBD"} \u2014 ${zClass}. ${fixEncoding(site.zoningNotes)}`;
+  } else {
+    zoningLine = `${site.zoning || "TBD"} \u2014 ${zClass}. Ordinance verification pending.`;
+  }
 
-DEMOGRAPHICS (ESRI 2025)
-Population (3-mi): ${site.pop3mi || "N/A"}
-Median HHI (3-mi): ${site.income3mi || "N/A"}
-Households (3-mi): ${site.households3mi || "N/A"}
-Home Value (3-mi): ${site.homeValue3mi || "N/A"}
-Growth: ${site.popGrowth3mi ? `+${site.popGrowth3mi}%/yr` : "N/A"}
+  // ── COMPETITION VERDICT ──
+  let compLine = "";
+  if (ccSPC) {
+    const ccLabel = parseFloat(ccSPC) < 1.5 ? "severely underserved" : parseFloat(ccSPC) < 3.0 ? "underserved" : parseFloat(ccSPC) < 5.0 ? "moderate supply" : parseFloat(ccSPC) < 7.0 ? "well-supplied" : "oversupplied";
+    compLine = `CC SPC ${ccSPC} SF/capita (${ccLabel})${projCCSPC ? `, projected ${projCCSPC} at 5-yr` : ""}.`;
+    if (site.competingCCSF) compLine += ` ${fixEncoding(site.competingCCSF)} CC SF within 3 mi.`;
+    if (iq.competitorCount === 0) compLine += " No purpose-built Class-A indoor CC storage in the market today.";
+    else if (site.competitorNames) compLine += ` Competitors: ${fixEncoding(site.competitorNames)}.`;
+  } else {
+    compLine = `Competition assessment pending.`;
+  }
 
-PS PROXIMITY
-Nearest PS: ${iq.nearestPS ? `${iq.nearestPS} mi` : "N/A"}
+  // ── PRICING VERDICT ──
+  let pricingLine = "";
+  if (fin && !fin.valuationError && fin.mktClimateRate) {
+    const ccRate = `$${fin.mktClimateRate.toFixed(2)}/SF/mo`;
+    const facilSF = fin.totalSF ? `${(fin.totalSF / 1000).toFixed(0)}K SF` : "";
+    pricingLine = `CC rents ~${ccRate}. At that rent with ${facilSF ? `an ${facilSF} facility` : "this site"}, stabilized NOI comes in around ${$k(fin.stabNOI)}, which puts YOC at ${fin.yocStab}% on ${$k(fin.totalDevCost)} total development cost.`;
+    if (fin.landPrices && fin.landPrices[1] && fin.landPrices[1].maxLand > 0) {
+      const strike = fin.landPrices[1];
+      pricingLine += ` Strike price: ${$k(strike.maxLand)}${strike.perAcre ? ` (${$k(strike.perAcre)}/ac)` : ""}.`;
+      if (fin.askVsStrike) {
+        const delta = parseFloat(fin.askVsStrike);
+        pricingLine += ` Asking is ${Math.abs(delta)}% ${delta > 0 ? "above" : "below"} strike${delta <= 0 ? " \u2014 room to negotiate" : ""}.`;
+      }
+    }
+  }
 
-UTILITIES
-${fixEncoding(site.utilityNotes || `Water: ${site.waterProvider || "TBD"}. Sewer: ${site.sewerProvider || "TBD"}. Electric: ${site.electricProvider || "TBD"}.`)}
+  // ── RECOMMENDATION ──
+  let recLine = "";
+  if (fin && fin.landVerdict) {
+    recLine = fin.landVerdict;
+    if (fin.landVerdict === "STRONG BUY" || fin.landVerdict === "BUY") recLine += ". By-right everything, strong fundamentals, cheap land with margin.";
+    else if (fin.landVerdict === "NEGOTIATE") recLine += ". Fundamentals support the site \u2014 price needs work.";
+    else if (fin.landVerdict === "STRETCH") recLine += ". Good site, but asking is above PS strike targets.";
+  }
+  if (!recLine && site.summary) {
+    recLine = fixEncoding(site.summary).replace(/SiteScore\s+[\d.]+\/10\s+\w+\.\s*/i, "").substring(0, 200).trim();
+  }
 
-LATEST UPDATE
-${fixEncoding(site.latestNote || "No recent updates.")} (${site.latestNoteDate || ""})
+  // ── WATER ──
+  let waterLine = "";
+  if (site.waterHookupStatus || site.waterProvider) {
+    const hookup = site.waterHookupStatus || "TBD";
+    waterLine = `Water is ${hookup === "by-right" ? "by right" : hookup} \u2014 site is ${site.insideServiceBoundary ? "inside" : "outside"} ${fixEncoding(site.waterProvider || "municipal")} service area.`;
+    if (site.utilityCapacity) waterLine += ` ${fixEncoding(site.utilityCapacity)}.`;
+    if (site.waterContact) waterLine += ` Contact: ${fixEncoding(site.waterContact)}.`;
+  }
 
-Vetting report and full analysis on the dashboard. All attachments included.
+  // ── GROWTH CONTEXT ──
+  let growthLine = "";
+  const growth = site.popGrowth3mi || site.growthRate;
+  const parts = [];
+  if (site.pop3mi) parts.push(`${site.pop3mi} 3-mi population`);
+  if (site.income3mi) parts.push(`${site.income3mi} median HHI`);
+  if (growth) parts.push(`${growth}% annual growth`);
+  if (site.demandDrivers) parts.push(fixEncoding(site.demandDrivers));
+  if (parts.length) growthLine = parts.join(". ") + ".";
 
-Best,
-Dan Roscoe
-DJR / Dan Roscoe Real Estate`;
+  // ── WATCH ITEMS ──
+  const watchLines = [];
+  if (site.overlayDistrict) watchLines.push(fixEncoding(site.overlayDistrict) + (site.overlayCostImpact ? ` Estimated overlay premium: ${fixEncoding(site.overlayCostImpact)}.` : ""));
+  if (site.facadeReqs) watchLines.push(`Facade: ${fixEncoding(site.facadeReqs)}`);
+  if (site.floodZone && site.floodZone !== "Zone X" && site.floodZone !== "X") watchLines.push(`Flood zone: ${fixEncoding(site.floodZone)}`);
+  if (site.terrain && site.terrain !== "flat") watchLines.push(`Topography: ${fixEncoding(site.terrain)}${site.gradeChange ? ` \u2014 ${fixEncoding(site.gradeChange)}` : ""}`);
+  if (site.totalUtilityBudget) watchLines.push(`Utility budget: ${fixEncoding(site.totalUtilityBudget)}`);
+  if (zClass === "conditional") watchLines.push(`SUP/CUP required${site.supTimeline ? ` \u2014 est. ${fixEncoding(site.supTimeline)}` : ""}${site.supCost ? `, ${fixEncoding(site.supCost)}` : ""}.${site.politicalRisk ? ` Political risk: ${fixEncoding(site.politicalRisk)}.` : ""}`);
 
-  return { subject, body, recipient };
+  // ── RENT GROWTH TARGET (if YOC below 8%) ──
+  let rentTargetLine = "";
+  if (fin && !fin.valuationError && fin.yocStab && parseFloat(fin.yocStab) < 8 && fin.mktClimateRate > 0 && fin.totalDevCost > 0 && fin.totalSF > 0) {
+    // Target NOI for 8% YOC, back into required CC rate
+    const targetNOI = fin.totalDevCost * 0.08;
+    const targetRev = targetNOI / (1 - (fin.stabRev > 0 ? (fin.yearData[4].opex / fin.stabRev) : 0.22));
+    const targetCCRate = fin.climateSF > 0 ? (targetRev / (fin.climateSF * 0.92 * (1 + (fin.ecriSchedule[4] || 0)) * 12 + fin.driveSF * 0.92 * (fin.mktDriveRate / fin.mktClimateRate) * (1 + (fin.ecriSchedule[4] || 0)) * 12) * (fin.climateSF / fin.totalSF)) : 0;
+    if (targetCCRate > 0 && targetCCRate < 5) {
+      const liftPct = ((targetCCRate / fin.mktClimateRate - 1) * 100).toFixed(0);
+      rentTargetLine = `To hit 8%, rents need to grow to about $${targetCCRate.toFixed(2)}/SF \u2014 a ${liftPct}% lift over the stabilization window.`;
+    }
+  }
+
+  // ── LAND BASIS ──
+  let landBasisLine = "";
+  if (fin && fin.landCost > 0 && fin.acres > 0) {
+    landBasisLine = `The land basis at ${$k(fin.landCost)} (${$k(Math.round(fin.landCost / fin.acres))}/net ac) ${fin.landVerdict === "STRONG BUY" || fin.landVerdict === "BUY" ? "has room" : fin.landVerdict === "NEGOTIATE" ? "is workable" : "is tight"}.`;
+  }
+
+  // ── Assemble Body ──
+  const lines = [];
+
+  // Header
+  lines.push(`${fixEncoding(site.address || site.name || "")}, ${site.city || ""} ${site.state || ""} ${site.zip || ""}`);
+  lines.push("");
+
+  // Clean links block
+  lines.push(`    \u27A4 Acres: ${fixEncoding(acreageRaw) || "N/A"}`);
+  lines.push(`    \u27A4 Asking: ${fixEncoding(site.askingPrice || "TBD")}${pricePerAc ? ` (${pricePerAc}/ac)` : ""}`);
+  lines.push(`    \u27A4 Storvex: ${dashLink}`);
+  if (pinDrop) lines.push(`    \u27A4 Pin Drop: ${pinDrop}`);
+  lines.push(`    \u27A4 Property Listing: ${listing.valid ? listing.url : "MISSING \u2014 add listing URL before sending"}`);
+  lines.push("");
+
+  // Executive snapshot — the decision block
+  if (zoningLine) { lines.push(`Zoning is clean \u2014 ${zoningLine}`); lines.push(""); }
+  if (waterLine) { lines.push(`${waterLine}`); lines.push(""); }
+  if (compLine) { lines.push(`${compLine}`); lines.push(""); }
+  if (growthLine) { lines.push(`${growthLine}`); lines.push(""); }
+  if (iq.nearestPS) { lines.push(`Nearest PS: ${iq.nearestPS} mi.`); lines.push(""); }
+
+  // Watch items
+  if (watchLines.length) {
+    lines.push("The watch items:");
+    lines.push("");
+    watchLines.forEach(w => lines.push(w));
+    lines.push("");
+  }
+
+  // Financial analysis
+  if (pricingLine) { lines.push(pricingLine); lines.push(""); }
+  if (rentTargetLine) { lines.push(rentTargetLine); lines.push(""); }
+  if (landBasisLine) { lines.push(landBasisLine); lines.push(""); }
+
+  // Bottom line
+  if (recLine) {
+    lines.push(`Bottom line: ${recLine} Full vetting report and survey are in Storvex.`);
+  } else {
+    lines.push("Full vetting report and analysis on the dashboard.");
+  }
+  lines.push("");
+  lines.push("");
+  lines.push("Best regards,");
+  lines.push("");
+  lines.push("Daniel P. Roscoe");
+  lines.push("");
+  lines.push("E: Droscoe@DJRrealestate.com");
+  lines.push("C: 312-805-5996");
+
+  const body = lines.join("\n");
+  return { subject, body, recipient: recip.name, toEmails, listingWarning: listing.warning };
 };
 
 // ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
@@ -1890,15 +2030,18 @@ function AppInner() {
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📋 REC Package</button>
                           <button onClick={() => {
                             try {
-                              const { subject, body } = generateRecEmail(site, regionKey);
-                              const encodedSubject = encodeURIComponent(subject);
-                              navigator.clipboard.writeText(body).then(() => {
-                                notify("\u2709 Email body copied \u2014 paste into Outlook.");
+                              const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                              const rec = generateRecEmail(site, regionKey, fin);
+                              if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
+                              const encodedSubject = encodeURIComponent(rec.subject);
+                              const toParam = rec.toEmails.length ? `&to=${rec.toEmails.map(e => encodeURIComponent(e)).join(",")}` : "";
+                              navigator.clipboard.writeText(rec.body).then(() => {
+                                notify("\u2709 Email body copied \u2014 paste into Outlook body.");
                                 const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
                                 if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
                               }).catch(() => notify("Could not copy to clipboard."));
-                              window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}`, "_blank");
-                            } catch (err) { notify("Email generation failed."); console.error(err); }
+                              window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}${toParam}`, "_blank");
+                            } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(123,45,142,0.4), 0 0 0 1px rgba(123,45,142,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>{"\u2709"} Email Rec</button>
                         </div>
                         {/* Bottom Row — Small Icon Links */}
@@ -3798,15 +3941,18 @@ function AppInner() {
                   <button onClick={() => {
                     try {
                       const rk = site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue";
-                      const { subject, body } = generateRecEmail(site, rk);
-                      const encodedSubject = encodeURIComponent(subject);
-                      navigator.clipboard.writeText(body).then(() => {
-                        notify("\u2709 Email body copied to clipboard \u2014 paste into Outlook body.");
+                      const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                      const rec = generateRecEmail(site, rk, fin);
+                      if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
+                      const encodedSubject = encodeURIComponent(rec.subject);
+                      const toParam = rec.toEmails.length ? `&to=${rec.toEmails.map(e => encodeURIComponent(e)).join(",")}` : "";
+                      navigator.clipboard.writeText(rec.body).then(() => {
+                        notify("\u2709 Email body copied \u2014 paste into Outlook body.");
                         const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
                         if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
                       }).catch(() => notify("Could not copy to clipboard."));
-                      window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}`, "_blank");
-                    } catch (err) { notify("Email generation failed."); console.error(err); }
+                      window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodedSubject}${toParam}`, "_blank");
+                    } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{"\u2709"} Email Rec</button>
                 </div>
               </div>
