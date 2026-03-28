@@ -3589,11 +3589,28 @@ function AppInner() {
                           <div style={{ fontSize: 18, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1e6 ? `$${(stabNOI / 1e6).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
                           <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
                         </div>
-                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 3 }}>STRIKE PRICE</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1e6 ? `$${(strike.maxLand / 1e6).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "$0"}</div>
-                          <div style={{ fontSize: 10, color: "#6B7394" }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
-                        </div>
+                        {(() => {
+                          const siteId = site.id || site.key || "";
+                          const rawInput = customPurchasePrice[siteId] || "";
+                          const customVal = parsePrice(rawInput);
+                          const buildPlusCarry = (fin.buildCosts || 0) + (fin.carryCosts || 0) + (fin.workingCapital || 0);
+                          const customYOC = !isNaN(customVal) && customVal > 0 && stabNOI > 0 ? (stabNOI / (customVal + buildPlusCarry) * 100) : null;
+                          return (
+                            <div style={{ background: "rgba(201,168,76,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(201,168,76,0.15)" }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>PURCHASE PRICE</div>
+                              <input
+                                type="text"
+                                placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"}
+                                value={rawInput}
+                                onChange={(e) => setCustomPurchasePrice(prev => ({ ...prev, [siteId]: e.target.value }))}
+                                style={{ width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 5, padding: "5px 10px", fontSize: 16, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }}
+                              />
+                              <div style={{ fontSize: 12, fontWeight: 800, color: customYOC !== null ? (customYOC >= 8 ? "#22C55E" : customYOC >= 6 ? "#C9A84C" : "#EF4444") : "#6B7394", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
+                                {customYOC !== null ? `→ ${customYOC.toFixed(1)}% YOC` : "Enter offer price"}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {hasAsk && yoc !== "N/A" && (
                           <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
                             <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
@@ -3977,11 +3994,28 @@ function AppInner() {
                           <div style={{ fontSize: 18, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1e6 ? `$${(stabNOI / 1e6).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
                           <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
                         </div>
-                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 3 }}>STRIKE PRICE</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1e6 ? `$${(strike.maxLand / 1e6).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "$0"}</div>
-                          <div style={{ fontSize: 10, color: "#6B7394" }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
-                        </div>
+                        {(() => {
+                          const siteId = site.id || site.key || "";
+                          const rawInput = customPurchasePrice[siteId] || "";
+                          const customVal = parsePrice(rawInput);
+                          const buildPlusCarry = (fin.buildCosts || 0) + (fin.carryCosts || 0) + (fin.workingCapital || 0);
+                          const customYOC = !isNaN(customVal) && customVal > 0 && stabNOI > 0 ? (stabNOI / (customVal + buildPlusCarry) * 100) : null;
+                          return (
+                            <div style={{ background: "rgba(201,168,76,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(201,168,76,0.15)" }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>PURCHASE PRICE</div>
+                              <input
+                                type="text"
+                                placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"}
+                                value={rawInput}
+                                onChange={(e) => setCustomPurchasePrice(prev => ({ ...prev, [siteId]: e.target.value }))}
+                                style={{ width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 5, padding: "5px 10px", fontSize: 16, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }}
+                              />
+                              <div style={{ fontSize: 12, fontWeight: 800, color: customYOC !== null ? (customYOC >= 8 ? "#22C55E" : customYOC >= 6 ? "#C9A84C" : "#EF4444") : "#6B7394", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
+                                {customYOC !== null ? `→ ${customYOC.toFixed(1)}% YOC` : "Enter offer price"}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {hasAsk && yoc !== "N/A" && (
                           <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
                             <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
