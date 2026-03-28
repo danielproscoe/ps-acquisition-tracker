@@ -279,6 +279,7 @@ function AppInner() {
   const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
   const [demoRowExpanded, setDemoRowExpanded] = useState(null); // which demographics row is expanded (key string)
   const [hoveredMetric, setHoveredMetric] = useState(null); // which key metric box tooltip is showing
+  const [editingInternalPrice, setEditingInternalPrice] = useState({}); // { siteId: "2400000" } — inline editing state
   // hoveredCard removed — tooltip hover is now local per-card to prevent full re-render flicker
   const [valuationOverrides, setValuationOverrides] = useState({}); // Valuation Inputs page overrides
 
@@ -4920,9 +4921,29 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   return [];
                 };
 
+                // Intelligent Internal Price — compute strike/pitchable suggestion
+                const intFin = (() => { try { return computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {}); } catch { return null; } })();
+                const intStrike = intFin?.landPrices?.[1]?.maxLand || 0; // 9% YOC strike
+                const intWalk = intFin?.landPrices?.[0]?.maxLand || 0; // 7.5% YOC walk
+                const intNOI = intFin?.stabNOI || 0;
+                const intBPC = intFin ? ((intFin.buildCosts || 0) + (intFin.carryCosts || 0) + (intFin.workingCapital || 0)) : 0;
+                // If strike is positive, suggest it. If not, find price for 8% YOC ("pitchable")
+                const pitchablePrice = intNOI > 0 ? Math.round(intNOI / 0.08 - intBPC) : 0;
+                const suggestedPrice = intStrike > 0 ? intStrike : (pitchablePrice > 0 ? pitchablePrice : 0);
+                const suggestedYOC = suggestedPrice > 0 && intNOI > 0 ? (intNOI / (suggestedPrice + intBPC) * 100) : 0;
+                const suggestedLabel = intStrike > 0 ? "STRIKE 9%" : (pitchablePrice > 0 ? "TARGET 8%" : "");
+                // Actual internal price and its YOC
+                const intPriceRaw = parsePrice(site.internalPrice) || 0;
+                const intPriceYOC = intPriceRaw > 0 && intNOI > 0 ? (intNOI / (intPriceRaw + intBPC) * 100) : 0;
+                const intSiteId = site.id || site.key || "";
+                const intEditing = editingInternalPrice[intSiteId];
+                const intDisplayPrice = intPriceRaw > 0 ? intPriceRaw : suggestedPrice;
+                const intDisplayYOC = intPriceRaw > 0 ? intPriceYOC : suggestedYOC;
+                const intIsSuggested = intPriceRaw <= 0 && suggestedPrice > 0;
+
                 const metricItems = [
                   { key: "asking", label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
-                  { key: "internal", label: "INTERNAL", val: site.internalPrice ? fmtPrice(site.internalPrice) : "---", color: "#E87A2E" },
+                  { key: "internal", label: intIsSuggested ? suggestedLabel : "INTERNAL", val: intDisplayPrice > 0 ? `$${(intDisplayPrice >= 1e6 ? (intDisplayPrice/1e6).toFixed(2) + "M" : Math.round(intDisplayPrice/1e3) + "K")}` : "---", color: intIsSuggested ? "#6B7394" : "#E87A2E", sub: intDisplayYOC > 0 ? `${intDisplayYOC.toFixed(1)}% YOC` : null, isSuggested: intIsSuggested, isInternal: true },
                   { key: "acreage", label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "---", color: "#E2E8F0" },
                   { key: "zoning", label: "ZONING", val: site.zoning || "---", color: "#C9A84C" },
                   { key: "pop", label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "---", color: "#E2E8F0" },
@@ -4934,12 +4955,19 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                     {metricItems.map((m) => {
                       const isHov = hoveredMetric === m.key;
                       const ttLines = isHov ? buildTooltip(m.key) : [];
+                      const isInternalEditing = m.isInternal && intEditing != null;
                       return (
                         <div key={m.key} style={{ position: "relative" }}
                           onMouseEnter={() => setHoveredMetric(m.key)} onMouseLeave={() => setHoveredMetric(null)}>
-                          <div style={{ background: isHov ? "rgba(30,39,97,0.85)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: "14px 16px", border: isHov ? "1px solid rgba(201,168,76,0.35)" : "1px solid rgba(201,168,76,0.08)", cursor: "pointer", transition: "all 0.2s ease", transform: isHov ? "translateY(-2px)" : "none", boxShadow: isHov ? "0 8px 32px rgba(201,168,76,0.15)" : "none" }}>
+                          <div onClick={m.isInternal && !isInternalEditing ? () => setEditingInternalPrice(prev => ({ ...prev, [intSiteId]: intPriceRaw > 0 ? String(intPriceRaw) : "" })) : undefined} style={{ background: isHov ? "rgba(30,39,97,0.85)" : m.isSuggested ? "rgba(232,122,46,0.04)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: "14px 16px", border: isHov ? "1px solid rgba(201,168,76,0.35)" : m.isSuggested ? "1px dashed rgba(232,122,46,0.2)" : "1px solid rgba(201,168,76,0.08)", cursor: m.isInternal ? "pointer" : "pointer", transition: "all 0.2s ease", transform: isHov ? "translateY(-2px)" : "none", boxShadow: isHov ? "0 8px 32px rgba(201,168,76,0.15)" : "none" }}>
                             <div style={{ fontSize: 9, fontWeight: 700, color: isHov ? "#C9A84C" : "#6B7394", letterSpacing: "0.1em", marginBottom: 4, transition: "color 0.2s" }}>{m.label}</div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                            {isInternalEditing ? (
+                              <input autoFocus type="text" inputMode="numeric" value={intEditing ? `$${Number(intEditing.replace(/[^0-9]/g, "")).toLocaleString()}` : ""} placeholder="$0" onClick={(e) => e.stopPropagation()} onChange={(e) => { const d = e.target.value.replace(/[^0-9]/g, ""); setEditingInternalPrice(prev => ({ ...prev, [intSiteId]: d })); }} onKeyDown={(e) => { if (e.key === "Enter") { e.target.blur(); } }} onBlur={() => { const val = parseInt((intEditing || "").replace(/[^0-9]/g, ""), 10) || 0; if (val > 0) { const region = site._region || site.routedTo || site.region || ""; const path = region === "east" || region === "Matthew Toussaint" ? `east/${intSiteId}` : region === "southwest" || region === "Daniel Wollent" ? `southwest/${intSiteId}` : `submissions/${intSiteId}`; fbUpdate(path, { internalPrice: `$${val.toLocaleString()}` }); } setEditingInternalPrice(prev => { const n = { ...prev }; delete n[intSiteId]; return n; }); }} style={{ width: "100%", background: "transparent", border: "none", borderBottom: "2px solid #E87A2E", fontSize: 18, fontWeight: 800, color: "#E87A2E", fontFamily: "'Space Mono', monospace", outline: "none", padding: 0 }} />
+                            ) : (
+                              <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontStyle: m.isSuggested ? "italic" : "normal" }}>{m.val}</div>
+                            )}
+                            {m.sub && !isInternalEditing && <div style={{ fontSize: 9, fontWeight: 700, color: intDisplayYOC >= 9 ? "#22C55E" : intDisplayYOC >= 7.5 ? "#C9A84C" : "#EF4444", marginTop: 2 }}>{m.sub}</div>}
+                            {m.isInternal && !isInternalEditing && <div style={{ fontSize: 8, color: "#4A5074", marginTop: 2, fontWeight: 600 }}>{m.isSuggested ? "Click to set price" : "Click to edit"}</div>}
                           </div>
                           {isHov && ttLines.length > 0 && (
                             <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", minWidth: 320, maxWidth: 420, zIndex: 9999, borderRadius: 14, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.2), 0 0 40px rgba(30,39,97,0.4)", paddingTop: 4, pointerEvents: "none" }}>
