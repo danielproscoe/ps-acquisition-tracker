@@ -1547,7 +1547,7 @@ function AppInner() {
                                       </div>
                                       <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,.06)" }}>
                                         <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 2 }}>STRIKE PRICE</div>
-                                        <div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1000000 ? `$${(strike.maxLand / 1000000).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "—"}</div>
+                                        <div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{strike?.maxLand >= 1000000 ? `$${(strike.maxLand / 1000000).toFixed(2)}M` : strike?.maxLand > 0 ? `$${(strike.maxLand / 1000).toFixed(0)}K` : "$0"}</div>
                                         <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>@ {(strike?.yoc * 100).toFixed(1)}% YOC</div>
                                       </div>
                                       {hasAsk && yoc !== "N/A" && (
@@ -2399,10 +2399,10 @@ function AppInner() {
               recentMoves.sort((a, b) => a.daysAgo - b.daysAgo);
 
               // --- Pipeline value by stage ---
-              const parsePrice = (p) => { if (!p) return 0; const s = String(p).replace(/[$,]/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s) || 0; };
-              const loiValue = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-              const ucValue = all.filter(s => s.phase === "Under Contract").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-              const prospectValue = all.filter(s => s.phase === "Prospect").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const _parseP = (p) => { const v = parsePrice(p); return isNaN(v) ? 0 : v; };
+              const loiValue = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).reduce((sum, s) => sum + _parseP(s.askingPrice), 0);
+              const ucValue = all.filter(s => s.phase === "Under Contract").reduce((sum, s) => sum + _parseP(s.askingPrice), 0);
+              const prospectValue = all.filter(s => s.phase === "Prospect").reduce((sum, s) => sum + _parseP(s.askingPrice), 0);
               const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
 
               // --- Phase distribution for mini bars ---
@@ -2552,11 +2552,11 @@ function AppInner() {
           const addedThisMonth = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < MONTH).length;
 
           // --- Price parsing ---
-          const parsePrice = (p) => { if (!p) return 0; const s = String(p).replace(/[$,]/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s) || 0; };
+          const _parseP2 = (p) => { const v = parsePrice(p); return isNaN(v) ? 0 : v; };
           const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
-          const totalPipelineValue = activeSites.reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-          const ucValue = ucSites.reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-          const loiValue = loiSites.reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+          const totalPipelineValue = activeSites.reduce((sum, s) => sum + _parseP2(s.askingPrice), 0);
+          const ucValue = ucSites.reduce((sum, s) => sum + _parseP2(s.askingPrice), 0);
+          const loiValue = loiSites.reduce((sum, s) => sum + _parseP2(s.askingPrice), 0);
 
           // --- SiteScore Accuracy ---
           const vs = computeValidationStats(all);
@@ -3069,7 +3069,7 @@ function AppInner() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <div><div style={{ fontSize: 9, color: "#6B7394" }}>Est. Facility</div><div style={{ fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>{(qr.fin.totalSF / 1000).toFixed(0)}K SF</div><div style={{ fontSize: 9, color: "#6B7394" }}>{qr.fin.stories > 1 ? `${qr.fin.stories}-Story` : "1-Story"} | {Math.round(qr.fin.climatePct * 100)}% CC</div></div>
                         <div><div style={{ fontSize: 9, color: "#6B7394" }}>Stab. NOI (Y5)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#22C55E" }}>{qr.fin.stabNOI >= 1000000 ? `$${(qr.fin.stabNOI / 1e6).toFixed(2)}M` : `$${(qr.fin.stabNOI / 1000).toFixed(0)}K`}</div></div>
-                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Strike Price (9% YOC)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C" }}>{qr.fin.landPrices?.[1]?.maxLand >= 1e6 ? `$${(qr.fin.landPrices[1].maxLand / 1e6).toFixed(2)}M` : qr.fin.landPrices?.[1]?.maxLand > 0 ? `$${(qr.fin.landPrices[1].maxLand / 1000).toFixed(0)}K` : "—"}</div></div>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Strike Price (9% YOC)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C" }}>{qr.fin.landPrices?.[1]?.maxLand >= 1e6 ? `$${(qr.fin.landPrices[1].maxLand / 1e6).toFixed(2)}M` : qr.fin.landPrices?.[1]?.maxLand > 0 ? `$${(qr.fin.landPrices[1].maxLand / 1000).toFixed(0)}K` : "$0"}</div></div>
                         {qr.fin.yocStab !== "N/A" && <div><div style={{ fontSize: 9, color: "#6B7394" }}>YOC @ Ask</div><div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(qr.fin.yocStab) >= 8 ? "#22C55E" : parseFloat(qr.fin.yocStab) >= 6 ? "#C9A84C" : "#EF4444" }}>{qr.fin.yocStab}%</div></div>}
                       </div>
                       {qr.fin.landVerdict && <div style={{ marginTop: 8, textAlign: "center", fontSize: 13, fontWeight: 900, color: qr.fin.verdictColor, padding: "6px 12px", borderRadius: 6, background: `${qr.fin.verdictColor}12`, border: `1px solid ${qr.fin.verdictColor}25` }}>{qr.fin.landVerdict}</div>}
@@ -4678,7 +4678,6 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
 
               {/* KEY METRICS STRIP — with hover tooltips */}
               {(() => {
-                const parsePrice = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s.replace(/[^0-9.]/g, "")); };
                 const askRaw = parsePrice(site.askingPrice);
                 const intRaw = parsePrice(site.internalPrice);
                 const acRaw = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
