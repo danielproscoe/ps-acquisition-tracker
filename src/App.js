@@ -3928,57 +3928,90 @@ function AppInner() {
                 <span style={{ fontSize: 9, color: "#4A5080", fontWeight: 500 }}>← → keys · Esc back</span>
               </div>
 
-              {/* HERO HEADER */}
-              <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #1E2761 60%, #2C3E6B 100%)", borderRadius: 16, padding: "32px 36px", marginBottom: 20, position: "relative", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)", opacity: 0.6 }} />
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent)" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 6 }}>{siteDisplayName(site)}</div>
-                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 12 }}>{site.address}, {site.city}, {site.state}</div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,.2)" }}>{site.market}</span>}
-                      <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
-                      {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
-                    </div>
-                    {/* ── Asking Price & Acreage — top-level KPIs ── */}
-                    {(site.askingPrice || site.internalPrice || site.acreage || site.zoning || site.pop3mi || site.popGrowth3mi || site.growthRate) && (
-                      <div style={{ display: "flex", gap: 16, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
-                        {(site.askingPrice || site.internalPrice) && <div style={{ background: "rgba(232,122,46,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(232,122,46,0.2)" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ASKING </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: "#E87A2E", fontFamily: "'Space Mono', monospace" }}>{site.askingPrice || site.internalPrice}</span>
-                        </div>}
-                        {site.acreage && <div style={{ background: "rgba(21,101,192,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(21,101,192,0.2)" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ACREAGE </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace" }}>{site.acreage} ac</span>
-                        </div>}
-                        {(() => { const lc = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0; const ac = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (lc > 0 && ac > 0) ? <div style={{ background: "rgba(201,168,76,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(201,168,76,0.15)" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>PER ACRE </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>${Math.round(lc / ac).toLocaleString()}</span>
-                        </div> : null; })()}
-                        {site.zoning && <div style={{ background: "rgba(34,197,94,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(34,197,94,0.15)" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ZONING </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: /by.?right|permitted/i.test(site.zoningClassification || site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{site.zoning}</span>
-                        </div>}
-                        {site.pop3mi && <div style={{ background: "rgba(139,92,246,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(139,92,246,0.15)" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>3MI POP </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: "#A78BFA", fontFamily: "'Space Mono', monospace" }}>{fmtN(site.pop3mi)}</span>
-                        </div>}
-                        {(() => { const gr = site.popGrowth3mi || site.growthRate; if (!gr && gr !== 0) return null; const n = typeof gr === "number" ? gr : parseFloat(String(gr)); if (isNaN(n)) return null; return <div style={{ background: n >= 1.5 ? "rgba(34,197,94,0.08)" : n >= 0 ? "rgba(250,204,21,0.08)" : "rgba(239,68,68,0.08)", borderRadius: 8, padding: "6px 14px", border: `1px solid ${n >= 1.5 ? "rgba(34,197,94,0.15)" : n >= 0 ? "rgba(250,204,21,0.15)" : "rgba(239,68,68,0.15)"}` }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>5YR GROWTH </span>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: n >= 1.5 ? "#22C55E" : n >= 0 ? "#FBBF24" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{n >= 0 ? "+" : ""}{n.toFixed(1)}%</span>
-                        </div>; })()}
+              {/* HERO HEADER — Executive Snapshot */}
+              {(() => {
+                const askP = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0;
+                const acVal = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]) || 0;
+                const ppaVal = (askP > 0 && acVal > 0) ? Math.round(askP / acVal) : 0;
+                const gr = site.popGrowth3mi || site.growthRate;
+                const grN = gr != null ? (typeof gr === "number" ? gr : parseFloat(String(gr))) : NaN;
+                const hhi = site.income3mi;
+                const hhiStr = hhi ? (String(hhi).startsWith("$") ? hhi : "$" + fmtN(hhi)) : null;
+                const nearPS = site.siteiqData?.nearestPS;
+                const nearPSStr = nearPS != null ? `${nearPS} mi` : null;
+                const zColor = /by.?right|permitted|no.?zoning|unrestrict|ETJ/i.test((site.zoningClassification || "") + " " + (site.zoning || "") + " " + (site.summary || "")) ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#E2E8F0";
+                const kpiCell = { background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.06)", minWidth: 0 };
+                const kpiLabel = { fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 4, whiteSpace: "nowrap" };
+                const kpiVal = { fontSize: 17, fontWeight: 900, fontFamily: "'Space Mono', monospace", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+                return (
+                <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #1E2761 60%, #2C3E6B 100%)", borderRadius: 16, padding: "28px 32px 20px", marginBottom: 20, position: "relative", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)", opacity: 0.6 }} />
+                  {/* Top row: Name + Score */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{siteDisplayName(site)}</div>
+                      <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 8 }}>{site.address}, {site.city}, {site.state}</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,.2)" }}>{site.market}</span>}
+                        <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
+                        {dom !== null && <span style={{ fontSize: 11, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#6B7394", fontWeight: 600 }}>{dom}d on market</span>}
+                        {site.sellerBroker && <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600 }}>Broker: <strong style={{ color: "#C9A84C" }}>{site.sellerBroker}</strong></span>}
                       </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div onClick={() => setScoreExpanded(!scoreExpanded)} style={{ cursor: "pointer", transition: "transform 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"} onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"} title="Click for full SiteScore breakdown">
+                    </div>
+                    <div onClick={() => setScoreExpanded(!scoreExpanded)} style={{ cursor: "pointer", flexShrink: 0, transition: "transform 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"} onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"} title="Click for full SiteScore breakdown">
                       <SiteScoreBadge site={site} iq={iqR} />
                     </div>
-                    <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>Broker: <strong style={{ color: "#E2E8F0" }}>{site.sellerBroker || "—"}</strong></div>
+                  </div>
+                  {/* KPI Grid — 2 rows × 4 columns */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                    {/* Row 1: Deal Metrics */}
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>ASKING PRICE</div>
+                      <div style={{ ...kpiVal, color: "#E87A2E" }}>{askP > 0 ? `$${(askP >= 1e6 ? (askP/1e6).toFixed(2) + "M" : (askP/1e3).toFixed(0) + "K")}` : "—"}</div>
+                      {site.internalPrice && <div style={{ fontSize: 9, color: "#E87A2E", marginTop: 2, fontWeight: 600 }}>Int: {site.internalPrice}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>ACREAGE</div>
+                      <div style={{ ...kpiVal, color: "#42A5F5" }}>{acVal > 0 ? `${acVal} ac` : "—"}</div>
+                      {ppaVal > 0 && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>${ppaVal.toLocaleString()}/ac</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>ZONING</div>
+                      <div style={{ ...kpiVal, color: zColor, fontSize: site.zoning && site.zoning.length > 12 ? 13 : 17 }}>{site.zoning || "—"}</div>
+                      {site.zoningClassification && <div style={{ fontSize: 9, color: zColor, marginTop: 2, fontWeight: 700, textTransform: "uppercase" }}>{site.zoningClassification}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>NEAREST PS</div>
+                      <div style={{ ...kpiVal, color: nearPS != null ? (nearPS <= 5 ? "#22C55E" : nearPS <= 15 ? "#42A5F5" : "#F59E0B") : "#3A3F5C" }}>{nearPSStr || "—"}</div>
+                      {nearPS != null && nearPS <= 5 && <div style={{ fontSize: 9, color: "#22C55E", marginTop: 2, fontWeight: 600 }}>Validated submarket</div>}
+                    </div>
+                    {/* Row 2: Market Metrics */}
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>3MI POPULATION</div>
+                      <div style={{ ...kpiVal, color: "#A78BFA" }}>{site.pop3mi ? fmtN(site.pop3mi) : "—"}</div>
+                      {site.households3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{fmtN(site.households3mi)} HH</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>5YR GROWTH</div>
+                      <div style={{ ...kpiVal, color: !isNaN(grN) ? (grN >= 1.5 ? "#22C55E" : grN >= 0 ? "#FBBF24" : "#EF4444") : "#3A3F5C" }}>{!isNaN(grN) ? `${grN >= 0 ? "+" : ""}${grN.toFixed(1)}%` : "—"}</div>
+                      {!isNaN(grN) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{grN >= 2 ? "High growth" : grN >= 1 ? "Moderate growth" : grN >= 0 ? "Stable" : "Declining"}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>MEDIAN HHI</div>
+                      <div style={{ ...kpiVal, color: "#E2E8F0" }}>{hhiStr || "—"}</div>
+                      {site.homeValue3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>Home: ${fmtN(site.homeValue3mi)}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>COMPETITION</div>
+                      <div style={{ ...kpiVal, color: site.siteiqData?.ccSPC != null ? (site.siteiqData.ccSPC < 3 ? "#22C55E" : site.siteiqData.ccSPC < 5 ? "#FBBF24" : "#EF4444") : (site.siteiqData?.competitorCount != null ? "#E2E8F0" : "#3A3F5C") }}>
+                        {site.siteiqData?.ccSPC != null ? `${site.siteiqData.ccSPC} SPC` : site.siteiqData?.competitorCount != null ? `${site.siteiqData.competitorCount} nearby` : "—"}
+                      </div>
+                      {site.siteiqData?.ccSPC != null && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.siteiqData.ccSPC < 1.5 ? "Severely underserved" : site.siteiqData.ccSPC < 3 ? "Underserved" : site.siteiqData.ccSPC < 5 ? "Moderate" : "Well-supplied"} CC</div>}
+                    </div>
                   </div>
                 </div>
-              </div>
+                );
+              })()}
 
               {/* ═══ VALUATION + LAND PRICE CALCULATOR — Tracker Detail Page ═══ */}
               {(() => {
