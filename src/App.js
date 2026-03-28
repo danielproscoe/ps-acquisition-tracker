@@ -671,6 +671,125 @@ const generateVettingReport = (site, nearestPSDistance, iqResult) => {
 </div></body></html>`;
 };
 
+// ─── Email Recommendation Generator — creates full HTML email for Outlook draft ───
+const generateEmailRec = (site, siteId) => {
+  const p = (v) => v ? String(v).replace(/[^0-9.]/g, "") : "0";
+  const fmt = (v) => v || "—";
+  const fmtPrice = (v) => { const n = parseInt(p(v)); return n ? "$" + n.toLocaleString() : "—"; };
+  const acres = parseFloat(p(site.acreage)) || 0;
+  const priceNum = parseInt(p(site.askingPrice)) || 0;
+  const pricePerAc = acres > 0 && priceNum > 0 ? "$" + Math.round(priceNum / acres).toLocaleString() + "/AC" : "—";
+
+  // Projected economics
+  const siteCoverage = acres >= 3.5 ? 0.35 : 0.25;
+  const landSF = acres * 43560;
+  const buildSF = Math.round(landSF * siteCoverage);
+  const ccPct = acres >= 3.5 ? 0.65 : 0.75;
+  const duPct = 1 - ccPct;
+  const ccSF = Math.round(buildSF * ccPct);
+  const duSF = Math.round(buildSF * duPct);
+  const costPerSF = acres >= 3.5 ? 65 : 95;
+  const buildCost = buildSF * costPerSF;
+  const totalBasis = priceNum + buildCost;
+  const ccRentSF = 1.40; const duRentSF = 0.75; const occ = 0.87;
+  const noiAnn = Math.round((ccSF * ccRentSF * 12 * occ) + (duSF * duRentSF * 12 * occ));
+  const yoc = totalBasis > 0 ? ((noiAnn / totalBasis) * 100).toFixed(1) : "—";
+
+  const zoningClass = site.zoningClassification || "unknown";
+  const zoningGreen = zoningClass === "by-right";
+  const waterStatus = (site.waterHookupStatus || "unknown").toLowerCase();
+  const waterGreen = waterStatus === "by-right";
+
+  const deepLink = `https://storvex.vercel.app/?site=${siteId}`;
+  const listingLink = site.listingUrl || "#";
+  const pinLink = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates.replace(/\s/g, "")}` : "#";
+
+  const greenBold = (text) => `<span style="color:#1B7A2B;font-weight:bold">${text}</span>`;
+  const row = (label, value, alt) => `<tr style="background:${alt ? "#f5f7fa" : "transparent"}"><td style="padding:6px 12px;font-weight:bold;width:200px">${label}</td><td style="padding:6px 12px">${value}</td></tr>`;
+  const demoRow = (label, v1, v3, v5, alt) => `<tr style="background:${alt ? "#f5f7fa" : "transparent"}"><td style="padding:6px 12px;font-weight:bold">${label}</td><td style="padding:6px 12px;text-align:center">${v1}</td><td style="padding:6px 12px;text-align:center;font-weight:bold">${v3}</td><td style="padding:6px 12px;text-align:center">${v5}</td></tr>`;
+
+  const html = `<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.6">
+<p>Flagging a site for review — ${site.market || site.city + ", " + site.state}. ${zoningGreen ? "By-right zoning" : "Zoning: " + (zoningClass || "TBD")}, ${waterGreen ? "by-right water" : "water: " + (waterStatus || "TBD")}${site.siteiqData?.nearestPS ? ", " + site.siteiqData.nearestPS + " mi to nearest PS" : ""}.</p>
+
+<p style="font-size:18px;font-weight:bold;color:#1E2761;margin-bottom:2px">${site.name || site.address}</p>
+<p style="color:#555;margin-top:0">${site.city}, ${site.state} ${site.address ? "| " + site.address : ""}</p>
+
+<table style="border-collapse:collapse;width:100%;max-width:640px;margin:16px 0">
+<tr style="background-color:#1E2761;color:white"><td style="padding:8px 12px;font-weight:bold" colspan="2">SITE SUMMARY</td></tr>
+${row("Acreage", fmt(site.acreage), true)}
+${row("Asking Price", fmtPrice(site.askingPrice) + (pricePerAc !== "—" ? " (" + pricePerAc + ")" : ""), false)}
+${row("Zoning", fmt(site.zoning) + " — " + (zoningGreen ? greenBold("BY-RIGHT") : zoningClass.toUpperCase()) + (site.zoningUseTerm ? ' ("' + site.zoningUseTerm + '")' : ""), true)}
+${row("Water", (waterGreen ? greenBold("BY-RIGHT") : waterStatus.toUpperCase()) + (site.waterProvider ? " — " + site.waterProvider : ""), false)}
+${row("Overlays", site.overlayDistrict ? fmt(site.overlayDistrict) : "—", true)}
+${row("Frontage", site.roadFrontage ? fmt(site.roadFrontage) : "—", false)}
+${row("PS Proximity", site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi to nearest PS" : "—", true)}
+</table>
+
+<table style="border-collapse:collapse;width:100%;max-width:640px;margin:16px 0">
+<tr style="background-color:#1E2761;color:white"><td style="padding:8px 12px;font-weight:bold" colspan="4">DEMOGRAPHICS — ESRI 2025</td></tr>
+<tr style="background:#C9A84C;color:#1E2761;font-weight:bold"><td style="padding:6px 12px"></td><td style="padding:6px 12px;text-align:center">1-Mile</td><td style="padding:6px 12px;text-align:center">3-Mile</td><td style="padding:6px 12px;text-align:center">5-Mile</td></tr>
+${demoRow("Population", fmt(site.pop1mi), fmt(site.pop3mi), fmt(site.pop5mi), true)}
+${demoRow("Median HHI", fmt(site.income1mi), fmt(site.income3mi), fmt(site.income5mi), false)}
+${demoRow("Households", fmt(site.households1mi), fmt(site.households3mi), fmt(site.households5mi), true)}
+${demoRow("Home Value", fmt(site.homeValue1mi), fmt(site.homeValue3mi), fmt(site.homeValue5mi), false)}
+${demoRow("Growth CAGR", fmt(site.popGrowth3mi || site.growthRate), fmt(site.popGrowth3mi || site.growthRate), fmt(site.popGrowth3mi || site.growthRate), true)}
+</table>
+
+<table style="border-collapse:collapse;width:100%;max-width:640px;margin:16px 0">
+<tr style="background-color:#1E2761;color:white"><td style="padding:8px 12px;font-weight:bold" colspan="2">COMPETITION &amp; PROJECTED ECONOMICS</td></tr>
+${row("CC SPC (Current)", fmt(site.ccSPC || (site.siteiqData?.ccSPC ? site.siteiqData.ccSPC + " SF/capita" : "—")), true)}
+${row("CC SPC (5-Yr)", fmt(site.projectedCCSPC || (site.siteiqData?.projectedCCSPC ? site.siteiqData.projectedCCSPC + " SF/capita" : "—")), false)}
+${row("Competitors (3 mi)", fmt(site.competitorNames), true)}
+${row("Build Plate", "~" + buildSF.toLocaleString() + " SF (" + Math.round(ccPct*100) + "% CC / " + Math.round(duPct*100) + "% drive-up) on " + acres + " AC", false)}
+${row("Est. Build Cost", "~$" + (buildCost/1e6).toFixed(2) + "M ($" + costPerSF + "/SF)", true)}
+${row("Stabilized NOI (Yr 3)", "~$" + noiAnn.toLocaleString(), false)}
+${row("Projected YOC", "<span style='font-weight:bold;color:#1B7A2B'>~" + yoc + "% (on $" + (totalBasis/1e6).toFixed(2) + "M total basis)</span>", true)}
+</table>
+
+<p style="margin:16px 0">
+<a href="${deepLink}" style="color:#1E2761;font-weight:bold;text-decoration:underline">Review Site on Storvex</a>
+&nbsp;&nbsp;|&nbsp;&nbsp;
+<a href="${listingLink}" style="color:#1E2761;text-decoration:underline">Property Listing</a>
+&nbsp;&nbsp;|&nbsp;&nbsp;
+<a href="${pinLink}" style="color:#1E2761;text-decoration:underline">View Location</a>
+</p>
+
+<p>REC package deck, ALTA survey, subdivision plat, and broker flyer attached.</p>
+
+<p>Best,<br>Dan Roscoe<br>DJR / Dan Roscoe Real Estate</p>
+</div>`;
+
+  return html;
+};
+
+const handleEmailRec = async (site, siteId) => {
+  const html = generateEmailRec(site, siteId);
+  const subject = encodeURIComponent(`Site Recommendation — ${site.name || site.address}, ${site.city} ${site.state}`);
+  // Copy HTML to clipboard
+  try {
+    const blob = new Blob([html], { type: "text/html" });
+    await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]);
+  } catch (e) {
+    // Fallback: select + copy from hidden div
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    div.style.position = "fixed"; div.style.left = "-9999px";
+    document.body.appendChild(div);
+    const range = document.createRange(); range.selectNodeContents(div);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    document.execCommand("copy");
+    document.body.removeChild(div);
+  }
+  // Open Outlook compose (no To: field)
+  window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${subject}`, "_blank");
+  // Toast
+  const toast = document.createElement("div");
+  toast.textContent = "✅ Email copied — paste into Outlook body (Ctrl+V)";
+  toast.style.cssText = "position:fixed;bottom:24px;right:24px;background:#1B7A2B;color:#fff;padding:14px 24px;border-radius:12px;font-size:14px;font-weight:700;z-index:99999;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:fadeIn 0.2s";
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+};
+
 // ─── Zoning & Utility Report — merged into generateVettingReport above ───
 const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
   const iq = iqResult || {};
@@ -1332,6 +1451,120 @@ function EF({ label, value, onSave, placeholder, multi }) {
   );
 }
 
+// ─── Call Briefing Tooltip ─── McKinsey-level hover card with live-editable notes
+function CallBriefTooltip({ site, region, briefDraft, setBriefDraft, onSave, onClose, getSiteScore: getIQ }) {
+  const iq = getIQ ? getIQ(site) : null;
+  const score = iq?.composite ?? iq?.score ?? null;
+  const cls = score >= 8 ? "GREEN" : score >= 6 ? "YELLOW" : score >= 4 ? "ORANGE" : "RED";
+  const clsColor = { GREEN: "#22C55E", YELLOW: "#FBBF24", ORANGE: "#F97316", RED: "#EF4444" }[cls] || "#6B7394";
+  const zoning = site.zoning || "—";
+  const zoningCls = (site.zoningClassification || "").toLowerCase();
+  const zoningColor = zoningCls.includes("by-right") ? "#22C55E" : zoningCls.includes("conditional") ? "#FBBF24" : zoningCls.includes("rezone") ? "#F97316" : "#94A3B8";
+  const waterStatus = (site.waterHookupStatus || "").toLowerCase();
+  const waterColor = waterStatus === "by-right" ? "#22C55E" : waterStatus === "by-request" ? "#FBBF24" : waterStatus === "no-provider" ? "#EF4444" : "#94A3B8";
+
+  const textRef = useRef(null);
+  useEffect(() => { if (textRef.current) textRef.current.focus(); }, []);
+
+  const metrics = [
+    { label: "ASKING", value: site.askingPrice || "—", color: "#E2E8F0" },
+    { label: "ACRES", value: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0" },
+    { label: "3MI POP", value: site.pop3mi ? Number(site.pop3mi).toLocaleString() : "—", color: "#E2E8F0" },
+    { label: "3MI HHI", value: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : `$${Number(site.income3mi).toLocaleString()}`) : "—", color: "#E2E8F0" },
+  ];
+
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{
+      position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
+      marginTop: 2, borderRadius: 14, overflow: "hidden",
+      background: "linear-gradient(170deg, #0c0e1a 0%, #111827 50%, #0f1629 100%)",
+      border: "1px solid rgba(201,168,76,0.2)",
+      boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08), 0 0 40px rgba(201,168,76,0.04)",
+      animation: "fadeIn 0.12s ease-out",
+    }}>
+      {/* Gold accent bar */}
+      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)" }} />
+
+      {/* Header strip */}
+      <div style={{ padding: "12px 16px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: "#F4F6FA", letterSpacing: "-0.01em" }}>CALL BRIEFING</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: clsColor, background: `${clsColor}15`, padding: "2px 8px", borderRadius: 5, border: `1px solid ${clsColor}30` }}>
+            {score ? `${score.toFixed(1)} ${cls}` : "—"}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: "#6B7394" }}>{site.phase || "Prospect"}</span>
+        </div>
+        <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ background: "none", border: "none", color: "#6B7394", fontSize: 14, cursor: "pointer", padding: "2px 6px", borderRadius: 4, lineHeight: 1 }} title="Close">✕</button>
+      </div>
+
+      {/* Key metrics row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, padding: "0 12px 10px" }}>
+        {metrics.map((m, i) => (
+          <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.1em", marginBottom: 2 }}>{m.label}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Zoning + Water status pills */}
+      <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, background: `${zoningColor}10`, padding: "4px 10px", borderRadius: 6, border: `1px solid ${zoningColor}25` }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>ZONING</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: zoningColor }}>{zoning}{zoningCls ? ` · ${zoningCls.replace(/-/g, " ")}` : ""}</span>
+        </div>
+        {site.waterHookupStatus && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: `${waterColor}10`, padding: "4px 10px", borderRadius: 6, border: `1px solid ${waterColor}25` }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>WATER</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: waterColor }}>{site.waterHookupStatus.replace(/-/g, " ")}</span>
+          </div>
+        )}
+        {site.sellerBroker && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(201,168,76,0.06)", padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.12)" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>BROKER</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C" }}>{site.sellerBroker}</span>
+          </div>
+        )}
+        {site.siteiqData?.nearestPS != null && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(99,102,241,0.08)", padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(99,102,241,0.15)" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>NEAREST PS</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#818CF8" }}>{site.siteiqData.nearestPS} mi</span>
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)", margin: "0 12px" }} />
+
+      {/* Editable briefing notes */}
+      <div style={{ padding: "10px 12px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em" }}>BRIEFING NOTES</span>
+          <span style={{ fontSize: 8, color: "#4A5080", fontWeight: 600 }}>auto-saves on close</span>
+        </div>
+        <textarea
+          ref={textRef}
+          value={briefDraft}
+          onChange={(e) => setBriefDraft(e.target.value)}
+          onBlur={() => onSave(briefDraft)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { if (e.key === "Escape") { onSave(briefDraft); onClose(); } e.stopPropagation(); }}
+          placeholder="Type call notes here — auto-saves when you close..."
+          style={{
+            width: "100%", minHeight: 80, maxHeight: 200, padding: "10px 12px",
+            borderRadius: 10, border: "1px solid rgba(201,168,76,0.1)",
+            background: "rgba(15,21,56,0.6)", color: "#E2E8F0",
+            fontSize: 12, fontFamily: "'Inter', sans-serif", lineHeight: 1.6,
+            resize: "vertical", outline: "none", boxSizing: "border-box",
+            transition: "border-color 0.15s",
+          }}
+          onFocus={(e) => { e.target.style.borderColor = "rgba(232,122,46,0.3)"; }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Seed Data REMOVED (v3) ───
 // All 47 sites (33 DW + 14 MT) are in Firebase with verified data.
 // Seed data was stale (missing coordinates, demographics, acreage) and risked overwriting live data.
@@ -1392,6 +1625,10 @@ export default function App() {
   const [showSiteScoreDetail, setShowSiteScoreDetail] = useState({});
   // vettingReport removed — auto-generates on site add
   const [showIQConfig, setShowIQConfig] = useState(false);
+  const [hoveredBrief, setHoveredBrief] = useState(null); // site id for call briefing tooltip
+  const [briefDraft, setBriefDraft] = useState(""); // local draft for editable briefing
+  const hoverTimerRef = useRef(null);
+  const briefSaveTimerRef = useRef(null);
   const [iqWeights, setIqWeights] = useState(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
@@ -2009,6 +2246,7 @@ export default function App() {
       { key: "dateOnMarket", header: "Date on Market", width: 16 },
       { key: "dom", header: "Days on Market", width: 16 },
       { key: "summary", header: "Summary / Notes", width: 50 },
+      { key: "callBrief", header: "Call Briefing", width: 50 },
       { key: "coordinates", header: "Coordinates", width: 24 },
       { key: "listingUrl", header: "Listing URL", width: 36 },
       { key: "approvedAt", header: "Date Added", width: 14 },
@@ -2149,12 +2387,53 @@ export default function App() {
               const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
+                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
                   <div onClick={() => { setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                         <span onClick={(e) => { e.stopPropagation(); setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
+                        {/* Call Briefing toggle */}
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (hoveredBrief === site.id) {
+                              // Save and close
+                              if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
+                              setHoveredBrief(null);
+                            } else {
+                              // Open
+                              setBriefDraft(site.callBrief || "");
+                              setHoveredBrief(site.id);
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(232,122,46,0.15)";
+                            e.currentTarget.style.borderColor = "rgba(232,122,46,0.3)";
+                            if (hoveredBrief !== site.id) {
+                              clearTimeout(hoverTimerRef.current);
+                              hoverTimerRef.current = setTimeout(() => {
+                                setBriefDraft(site.callBrief || "");
+                                setHoveredBrief(site.id);
+                              }, 400);
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)";
+                            e.currentTarget.style.borderColor = site.callBrief ? "rgba(232,122,46,0.2)" : "rgba(201,168,76,0.1)";
+                            clearTimeout(hoverTimerRef.current);
+                          }}
+                          style={{
+                            fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
+                            border: site.callBrief ? "1px solid rgba(232,122,46,0.2)" : "1px solid rgba(201,168,76,0.1)",
+                            background: site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)",
+                            color: site.callBrief ? "#E87A2E" : "#6B7394",
+                            transition: "all 0.15s", letterSpacing: "0.04em", userSelect: "none",
+                          }}
+                          title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}
+                        >
+                          {site.callBrief ? "BRIEF" : "+BRIEF"}
+                        </span>
                         <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
@@ -2181,6 +2460,23 @@ export default function App() {
                     </div>
                     <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
                   </div>
+                  {/* Call Briefing Tooltip */}
+                  {hoveredBrief === site.id && (
+                    <CallBriefTooltip
+                      site={site}
+                      region={regionKey}
+                      briefDraft={briefDraft}
+                      setBriefDraft={setBriefDraft}
+                      getSiteScore={getSiteScore}
+                      onSave={(val) => {
+                        if (val !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", val);
+                      }}
+                      onClose={() => {
+                        if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
+                        setHoveredBrief(null);
+                      }}
+                    />
+                  )}
 
                   {/* Expanded */}
                   {isOpen && (
@@ -2385,6 +2681,15 @@ export default function App() {
                       <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: 14, margin: "10px 0", border: "1px solid rgba(201,168,76,0.08)" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.08em" }}>Recent Summary</div>
                         <EF multi label="" value={site.summary || ""} onSave={(v) => saveField(regionKey, site.id, "summary", v)} placeholder="Deal notes, updates…" />
+                      </div>
+
+                      {/* Call Briefing — editable notes for MT/DW calls */}
+                      <div style={{ background: "linear-gradient(135deg, rgba(232,122,46,0.04) 0%, rgba(15,21,56,0.5) 100%)", borderRadius: 10, padding: 14, margin: "0 0 10px", border: "1px solid rgba(232,122,46,0.12)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Call Briefing</span>
+                          <span style={{ fontSize: 8, color: "#4A5080", fontWeight: 600 }}>visible on hover card</span>
+                        </div>
+                        <EF multi label="" value={site.callBrief || ""} onSave={(v) => saveField(regionKey, site.id, "callBrief", v)} placeholder="Quick talking points for MT/DW call — pricing recommendation, key risks, next steps..." />
                       </div>
 
                       {/* ── Editable Detail Fields ── */}
@@ -3904,6 +4209,7 @@ export default function App() {
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
                   <button disabled={!nextSite} onClick={() => { if (nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!nextSite)}>Next →</button>
                 </div>
+                <button onClick={() => handleEmailRec(site, dv.siteId)} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #C9A84C 0%, #E87A2E 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px rgba(201,168,76,0.35)", transition: "all 0.2s" }}>📧 Create Email Rec</button>
                 <span style={{ fontSize: 9, color: "#4A5080", fontWeight: 500 }}>← → keys · Esc back</span>
               </div>
 
