@@ -1274,6 +1274,7 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig, valuation
     ecriSchedule,
     capRates, valuations,
     landTargets, landPrices, askVsStrike, landVerdict, verdictColor,
+    isLargeTract, effectivePadAcres, excessAcres, padLandCost, padScenario,
     loanLTV, loanRate, loanAmort, equityPct, loanAmount, equityRequired, monthlyLoanRate, numPmts, monthlyPmt, annualDS, dscrStab, cashAfterDS, cashOnCash,
     exitCapRate, yrDataExt, exitValue, exitLoanBal, exitEquityProceeds, irrCashFlows, irrPct, equityMultiple,
     m1Rate, m2ClimRate, m2DriveRate, m3ClimRate, popDensityFactor, consensusClimRate, rateConfidence, rateConfColor,
@@ -2906,14 +2907,14 @@ function switchSiteInputs(siteId) {
     </div>` : ""}
   </div>
   <div class="mi" onclick="toggleMI('lpformula',event)" style="font-size:12px;color:#94A3B8;margin-bottom:20px;padding:12px 16px;background:rgba(15,21,56,0.4);border-radius:10px;border:1px solid rgba(201,168,76,0.08);cursor:pointer">
-    <strong style="color:#C9A84C">Formula:</strong> <span class="mono" style="color:#E2E8F0">Max Land Price = (Stabilized NOI ÷ Target YOC%) − Build Costs</span> <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em>
-    <div style="margin-top:6px"><strong style="color:#C9A84C">Inputs:</strong> Stabilized NOI = <span class="mono" style="color:#16A34A">${fmtD(stabNOI)}</span> | Build Costs (Hard + Soft) = <span class="mono" style="color:#E87A2E">${fmtD(buildCosts)}</span></div>
+    <strong style="color:#C9A84C">Formula:</strong> <span class="mono" style="color:#E2E8F0">Max Land Price = (Stabilized NOI ÷ Target YOC%) − Build Costs − Carry Costs − Working Capital</span> <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em>
+    <div style="margin-top:6px"><strong style="color:#C9A84C">Inputs:</strong> Stabilized NOI = <span class="mono" style="color:#16A34A">${fmtD(stabNOI)}</span> | Build Costs = <span class="mono" style="color:#E87A2E">${fmtD(buildCosts)}</span> | Carry = <span class="mono" style="color:#E87A2E">${fmtD(carryCosts)}</span> | WC = <span class="mono" style="color:#E87A2E">${fmtD(workingCapital)}</span></div>
   </div>
   <div id="mi-lpformula" class="mi-panel"><div class="mi-panel-inner">
     <div class="mi-header"><div class="mi-title">Reverse-Engineering Land Value from NOI</div><div class="mi-conf mi-conf-high">SiteScore™ Proprietary</div></div>
     <div class="mi-body">
       <strong>This is SiteScore™'s core value proposition to PS. Instead of relying on land comps (which are scarce and often non-comparable), we derive what the land IS WORTH based on what the completed storage facility WILL PRODUCE.</strong>
-      <div class="mi-formula">Step 1: Project stabilized NOI → ${fmtD(stabNOI)}/yr<br>Step 2: Set target YOC (PS hurdle) → 8.5%<br>Step 3: Calculate total development budget → ${fmtD(stabNOI)} ÷ 0.085 = ${fmtD(Math.round(stabNOI/0.085))}<br>Step 4: Subtract build costs → ${fmtD(Math.round(stabNOI/0.085))} − ${fmtD(buildCosts)} = <strong style="color:#C9A84C">${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</strong><br><br>This is the MAXIMUM PS should pay for this land and still hit their development return target.</div>
+      <div class="mi-formula">Step 1: Project stabilized NOI → ${fmtD(stabNOI)}/yr<br>Step 2: Set target YOC (PS hurdle) → ${(landPrices[1].yoc*100).toFixed(1)}%<br>Step 3: Calculate total development budget → ${fmtD(stabNOI)} ÷ ${(landPrices[1].yoc*100).toFixed(1)}% = ${fmtD(Math.round(stabNOI/landPrices[1].yoc))}<br>Step 4: Subtract all non-land costs → ${fmtD(Math.round(stabNOI/landPrices[1].yoc))} − ${fmtD(buildCosts)} (build) − ${fmtD(carryCosts)} (carry) − ${fmtD(workingCapital)} (WC) = <strong style="color:#C9A84C">${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</strong><br><br>This is the MAXIMUM PS should pay for this land and still hit their development return target.</div>
       <div class="mi-row"><span class="mi-row-label">Why Not Use Land Comps?</span><span class="mi-row-val">Vacant land transactions are infrequent, parcels are heterogeneous (different sizes, shapes, zoning, access), and comp adjustments are subjective. SiteScore™'s income approach is objective, repeatable, and directly tied to the investment thesis.</span></div>
       <div class="mi-row"><span class="mi-row-label">Competitive Edge for PS</span><span class="mi-row-val">No other tool in the self-storage industry provides real-time land pricing derived from projected facility performance. PS land brokers currently rely on gut feel and comp-based BOVs. SiteScore™ replaces guesswork with a data-driven pricing engine that updates dynamically as market inputs change.</span></div>
       <div class="mi-source">Source: SiteScore™ proprietary pricing model | Patent Pending — Serial No. 99712640</div>
@@ -2928,7 +2929,7 @@ function switchSiteInputs(siteId) {
       <div id="mi-lp${lpIdx}" class="mi-panel" style="text-align:left"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">${lp.label} — ${lp.tag} Price</div><div class="mi-conf mi-conf-high">Computed</div></div>
         <div class="mi-body">
-          <div class="mi-formula">Target YOC: ${(lp.yoc*100).toFixed(1)}%<br>Total Budget: ${fmtD(stabNOI)} ÷ ${(lp.yoc*100).toFixed(1)}% = ${fmtD(Math.round(stabNOI/lp.yoc))}<br>Less Build Costs: (${fmtD(buildCosts)})<br>Max Land: <strong style="color:${lp.color}">${lp.maxLand > 0 ? fmtM(lp.maxLand) : "$0"}</strong>${lp.perAcre > 0 ? ` ($${lp.perAcre.toLocaleString()}/ac)` : ""}</div>
+          <div class="mi-formula">Target YOC: ${(lp.yoc*100).toFixed(1)}%<br>Total Budget: ${fmtD(stabNOI)} ÷ ${(lp.yoc*100).toFixed(1)}% = ${fmtD(Math.round(stabNOI/lp.yoc))}<br>Less Build Costs: (${fmtD(buildCosts)})<br>Less Carry Costs: (${fmtD(carryCosts)})<br>Less Working Capital: (${fmtD(workingCapital)})<br>Max Land: <strong style="color:${lp.color}">${lp.maxLand > 0 ? fmtM(lp.maxLand) : "$0"}</strong>${lp.perAcre > 0 ? ` ($${lp.perAcre.toLocaleString()}/ac)` : ""}</div>
           <div class="mi-row"><span class="mi-row-label">When to Use</span><span class="mi-row-val">${lpIdx === 0 ? "WALK AWAY — absolute maximum. Only for strategic/irreplaceable sites where PS has no alternative. Requires EVP approval and strategic justification." : lpIdx === 1 ? "STRIKE — PS's development sweet spot. 250-350bps spread over acquisition cap. Standard REC approval path." : "HOME RUN — exceptional pricing. Maximum margin of safety. Deal-of-the-year territory."}</span></div>
           <div class="mi-source">Source: SiteScore™ reverse-engineering | NOI: ${fmtD(stabNOI)} | Build costs: ${fmtD(buildCosts)}</div>
         </div>
@@ -2974,31 +2975,36 @@ function switchSiteInputs(siteId) {
     <div class="insight-box">
       <div class="insight-title">How This Works</div>
       <div>This model reverse-engineers the maximum land price from the facility's projected performance. Instead of asking "what does this land cost?" — it answers <strong style="color:#C9A84C">"what SHOULD this land cost?"</strong> based on what the storage facility will produce.</div>
-      <div style="margin-top:10px">The formula backs into land price by subtracting known build costs from the total capital budget implied by each yield target:</div>
+      <div style="margin-top:10px">The formula backs into land price by subtracting ALL non-land development costs from the total capital budget implied by each yield target:</div>
       <div style="margin-top:8px;padding:12px;background:rgba(15,21,56,0.5);border-radius:8px;border:1px solid rgba(201,168,76,0.08)">
         <div class="mono" style="font-size:12px;color:#E2E8F0;line-height:2">
           <div>Total Dev Budget = Stabilized NOI ÷ Target YOC%</div>
-          <div>Max Land Price = Total Dev Budget − Hard Costs − Soft Costs</div>
-          <div style="margin-top:4px;color:#C9A84C">Strike Example: ${fmtD(stabNOI)} ÷ 9.0% = ${fmtD(Math.round(stabNOI / 0.09))} − ${fmtD(buildCosts)} = <strong>${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</strong></div>
+          <div>Max Land Price = Total Dev Budget − Build Costs − Carry Costs − Working Capital</div>
+          <div style="margin-top:4px;color:#C9A84C">Strike Example: ${fmtD(stabNOI)} ÷ ${(landPrices[1].yoc*100).toFixed(1)}% = ${fmtD(Math.round(stabNOI / landPrices[1].yoc))} − ${fmtD(buildCosts)} − ${fmtD(carryCosts)} − ${fmtD(workingCapital)} = <strong>${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</strong></div>
         </div>
       </div>
     </div>
     <div style="margin-top:16px">
       <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Full YOC Sensitivity — Land Price Matrix</div>
       <table style="font-size:11px">
-        <thead><tr><th>Target YOC</th><th>Total Dev Budget</th><th>Less Build Costs</th><th>Max Land Price</th><th>Per Acre</th><th>Signal</th></tr></thead>
+        <thead><tr><th>Target YOC</th><th>Total Dev Budget</th><th>Less All Costs</th><th>Max Land Price</th><th>Per Acre</th><th>Signal</th></tr></thead>
         <tbody>
           ${[0.065, 0.07, 0.075, 0.08, 0.085, 0.09, 0.095, 0.10, 0.11, 0.12].map(yoc => {
             const budget = stabNOI > 0 ? Math.round(stabNOI / yoc) : 0;
-            const maxL = Math.max(budget - buildCosts, 0);
+            // EY AUDIT FIX 2026-03-28: Must deduct ALL non-land costs (build + carry + WC) to match
+            // scoring.js landPrices computation. Prior code only deducted buildCosts — understated
+            // deductions and overstated max land prices in the sensitivity table.
+            const allNonLandCosts = buildCosts + carryCosts + workingCapital;
+            const maxL = Math.max(budget - allNonLandCosts, 0);
             const pa = !isNaN(acres) && acres > 0 && maxL > 0 ? Math.round(maxL / acres) : 0;
-            const isStrike = yoc === 0.085;
-            const signal = yoc <= 0.07 ? "Too Aggressive" : yoc <= 0.075 ? "Walk Away" : yoc <= 0.085 ? "Aggressive" : yoc <= 0.095 ? "Strike Zone" : yoc <= 0.105 ? "Conservative" : "Home Run";
-            const sigColor = yoc <= 0.07 ? "#EF4444" : yoc <= 0.08 ? "#E87A2E" : yoc <= 0.09 ? "#C9A84C" : yoc <= 0.10 ? "#16A34A" : "#16A34A";
+            // EY AUDIT FIX 2026-03-28: Strike marker uses actual O()-overridden YOC, not hardcoded 0.085
+            const isStrike = Math.abs(yoc - landPrices[1].yoc) < 0.001;
+            const signal = yoc <= 0.07 ? "Too Aggressive" : yoc <= landPrices[0].yoc ? "Walk Away" : yoc < landPrices[1].yoc ? "Aggressive" : yoc <= landPrices[1].yoc + 0.005 ? "Strike Zone" : yoc <= landPrices[2].yoc ? "Conservative" : "Home Run";
+            const sigColor = yoc <= 0.07 ? "#EF4444" : yoc <= 0.08 ? "#E87A2E" : yoc <= landPrices[1].yoc ? "#C9A84C" : yoc <= 0.10 ? "#16A34A" : "#16A34A";
             return `<tr style="${isStrike ? "background:rgba(201,168,76,0.08);border-left:3px solid #C9A84C" : ""}">
               <td class="mono" style="font-weight:700;${isStrike ? "color:#C9A84C" : ""}">${(yoc*100).toFixed(1)}%${isStrike ? " ◆" : ""}</td>
               <td class="mono">${budget > 0 ? fmtM(budget) : "N/A"}</td>
-              <td class="mono" style="color:#6B7394">(${fmtD(buildCosts)})</td>
+              <td class="mono" style="color:#6B7394">(${fmtD(allNonLandCosts)})</td>
               <td class="mono" style="font-weight:700;color:${maxL > 0 ? "#E2E8F0" : "#EF4444"}">${maxL > 0 ? fmtM(maxL) : "$0"}</td>
               <td class="mono">${pa > 0 ? "$" + pa.toLocaleString() : "—"}</td>
               <td><span class="tag" style="background:${sigColor}20;color:${sigColor}">${signal}</span></td>
@@ -3024,14 +3030,67 @@ function switchSiteInputs(siteId) {
       <div class="insight-box">
         <div class="insight-title">Why These YOC Targets?</div>
         <div style="font-size:11px;color:#94A3B8;line-height:1.8">
-          <div><strong style="color:#EF4444">7.0% (Max/Ceiling)</strong> — Below PS's typical hurdle. Only justified for irreplaceable locations (freeway visibility, zero competition, top-5 metro growth). Requires EVP+ approval.</div>
-          <div style="margin-top:6px"><strong style="color:#C9A84C">8.5% (Strike/Target)</strong> — PS's development sweet spot. 250-350bps spread over acquisition cap rates. Provides cushion for construction overruns and slower-than-modeled lease-up.</div>
-          <div style="margin-top:6px"><strong style="color:#16A34A">10.0% (Min/Floor)</strong> — Conservative / home run. Maximum margin of safety. Easiest internal approval path. Typically achievable in secondary/tertiary markets with lower land costs.</div>
+          <div><strong style="color:#EF4444">${(landPrices[0].yoc*100).toFixed(1)}% (Max/Ceiling)</strong> — Below PS's typical hurdle. Only justified for irreplaceable locations (freeway visibility, zero competition, top-5 metro growth). Requires EVP+ approval.</div>
+          <div style="margin-top:6px"><strong style="color:#C9A84C">${(landPrices[1].yoc*100).toFixed(1)}% (Strike/Target)</strong> — PS's development sweet spot. 250-350bps spread over acquisition cap rates. Provides cushion for construction overruns and slower-than-modeled lease-up.</div>
+          <div style="margin-top:6px"><strong style="color:#16A34A">${(landPrices[2].yoc*100).toFixed(1)}% (Min/Floor)</strong> — Conservative / home run. Maximum margin of safety. Easiest internal approval path. Typically achievable in secondary/tertiary markets with lower land costs.</div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+${padScenario ? `
+<!-- PAD SUBDIVISION SCENARIO — Large Tract Intelligence -->
+<div style="margin:16px 0;padding:16px;background:rgba(201,168,76,0.06);border:2px solid rgba(201,168,76,0.2);border-radius:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div>
+      <div style="font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.1em;text-transform:uppercase">Large Tract Intelligence — Pad Subdivision Scenario</div>
+      <div style="font-size:12px;color:#94A3B8;margin-top:4px">Site is ${acres} ac but PS facility only needs ~${effectivePadAcres} ac — ${excessAcres} ac excess</div>
+    </div>
+    <span class="tag" style="background:rgba(201,168,76,0.15);color:#C9A84C;font-weight:800">SUBDIVISION VIABLE</span>
+  </div>
+  <div class="grid3" style="margin-bottom:12px">
+    <div class="metric-box">
+      <div class="label">Effective Pad</div>
+      <div class="value" style="font-size:22px;color:#E2E8F0">${effectivePadAcres} ac</div>
+      <div style="font-size:10px;color:#6B7394">of ${acres} ac total</div>
+    </div>
+    <div class="metric-box">
+      <div class="label">Pad-Only Land Cost</div>
+      <div class="value" style="font-size:22px;color:#C9A84C">${padLandCost > 0 ? fmtM(padLandCost) : "N/A"}</div>
+      <div style="font-size:10px;color:#6B7394">at $${padScenario.pricePerAcre > 0 ? padScenario.pricePerAcre.toLocaleString() : "—"}/ac</div>
+    </div>
+    <div class="metric-box" style="border-color:${padScenario.padVerdictColor}40">
+      <div class="label">Pad-Only Verdict</div>
+      <div class="value" style="font-size:22px;color:${padScenario.padVerdictColor}">${padScenario.padVerdict}</div>
+      <div style="font-size:10px;color:#6B7394">YOC: ${padScenario.padYOC}% | Ask vs Strike: ${padScenario.padAskVsStrike !== null ? (parseFloat(padScenario.padAskVsStrike) > 0 ? "+" : "") + padScenario.padAskVsStrike + "%" : "—"}</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:16px">
+    <div style="flex:1;padding:12px;background:rgba(15,21,56,0.4);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
+      <div style="font-size:10px;font-weight:700;color:#6B7394;margin-bottom:8px">FULL PARCEL (${acres} ac)</div>
+      <div style="font-size:11px;color:#94A3B8;line-height:1.8">
+        <div>Land Cost: <span class="mono" style="color:#E2E8F0">${fmtD(landCost)}</span></div>
+        <div>Total Dev: <span class="mono" style="color:#E2E8F0">${fmtD(totalDevCost)}</span></div>
+        <div>YOC: <span class="mono" style="color:${yocStab !== "N/A" && parseFloat(yocStab) >= 8 ? "#16A34A" : "#F59E0B"}">${yocStab}%</span></div>
+        <div>Verdict: <span style="color:${verdictColor};font-weight:700">${landVerdict}</span></div>
+      </div>
+    </div>
+    <div style="flex:1;padding:12px;background:rgba(201,168,76,0.04);border-radius:8px;border:1px solid rgba(201,168,76,0.15)">
+      <div style="font-size:10px;font-weight:700;color:#C9A84C;margin-bottom:8px">PAD ONLY (~${effectivePadAcres} ac)</div>
+      <div style="font-size:11px;color:#94A3B8;line-height:1.8">
+        <div>Land Cost: <span class="mono" style="color:#C9A84C">${fmtD(padLandCost)}</span></div>
+        <div>Total Dev: <span class="mono" style="color:#C9A84C">${fmtD(padScenario.padTotalDev)}</span></div>
+        <div>YOC: <span class="mono" style="color:${padScenario.padYOC !== "N/A" && parseFloat(padScenario.padYOC) >= 8 ? "#16A34A" : "#C9A84C"}">${padScenario.padYOC}%</span></div>
+        <div>Verdict: <span style="color:${padScenario.padVerdictColor};font-weight:700">${padScenario.padVerdict}</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:10px;font-size:11px;color:#94A3B8">
+    <strong style="color:#C9A84C">Strategy:</strong> ${padScenario.note}
+  </div>
+</div>
+` : ""}
 
 <!-- DETAILED OPEX BREAKDOWN v4.0 -->
 <div id="sec-P11" class="section expand-trigger" onclick="toggleExpand('opexdetail')" style="scroll-margin-top:20px">
@@ -4081,6 +4140,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
     ecriSchedule,
     capRates, valuations,
     landTargets, landPrices, askVsStrike, landVerdict, verdictColor,
+    isLargeTract, effectivePadAcres, excessAcres, padLandCost, padScenario,
     loanLTV, loanRate, loanAmort, equityPct, loanAmount, equityRequired, monthlyLoanRate, numPmts, monthlyPmt, annualDS, dscrStab, cashAfterDS, cashOnCash,
     exitCapRate, yrDataExt, exitValue, exitLoanBal, exitEquityProceeds, irrCashFlows, irrPct, equityMultiple,
     m1Rate, m2ClimRate, m2DriveRate, m3ClimRate, popDensityFactor, consensusClimRate, rateConfidence, rateConfColor,
@@ -4305,7 +4365,7 @@ function toggleMI(id,evt){
           <strong>Measures the gap between asking price and maximum land price at target development yield.</strong>
           <div class="mi-formula">Ask vs Strike = (Asking - Strike) ÷ Strike × 100<br>= (${fmtD(landCost)} - ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}) ÷ ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}<br>= <strong style="color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'}">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</strong></div>
           <div class="mi-row"><span class="mi-row-label">Asking Price</span><span class="mi-row-val">${fmtD(landCost)}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Strike Price (8.5% YOC)</span><span class="mi-row-val">${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Strike Price (${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "9.0"}% YOC)</span><span class="mi-row-val">${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Negotiation Room</span><span class="mi-row-val">${parseFloat(askVsStrike) > 0 ? fmtD(landCost - (landPrices[1] ? landPrices[1].maxLand : 0)) + " reduction needed" : "Already below strike"}</span></div>
           <div class="mi-source">Source: SiteScore Financial Engine | Strike = NOI ÷ Target YOC − Construction Costs</div>
         </div>
@@ -4818,6 +4878,18 @@ function toggleMI(id,evt){
       </div>
     </div>` : ""}
   </div>
+  ${padScenario ? `
+  <div style="margin-top:12px;padding:12px 14px;background:#FFFBEB;border:1px solid #F59E0B40;border-radius:8px">
+    <div style="font-size:10px;font-weight:800;color:#92400E;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">Large Tract — Pad Subdivision Scenario</div>
+    <div style="font-size:11px;color:#78350F;line-height:1.6">
+      Site is <strong>${acres} ac</strong> but facility only needs <strong>~${effectivePadAcres} ac</strong>.
+      Pad-only land cost: <strong>${fmtM(padLandCost)}</strong> at $${padScenario.pricePerAcre.toLocaleString()}/ac.
+      Pad YOC: <strong>${padScenario.padYOC}%</strong>.
+      Verdict (pad only): <strong style="color:${padScenario.padVerdictColor}">${padScenario.padVerdict}</strong>
+      ${padScenario.padAskVsStrike !== null ? ` (${parseFloat(padScenario.padAskVsStrike) > 0 ? "+" : ""}${padScenario.padAskVsStrike}% vs strike)` : ""}.
+      Excess <strong>${excessAcres} ac</strong> can be marketed separately.
+    </div>
+  </div>` : ""}
 </div>
 
 <!-- ═══════════════ SECTION 9: INSTITUTIONAL METRICS & REIT BENCHMARKING ═══════════════ -->

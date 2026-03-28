@@ -375,12 +375,11 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const hvExplain = hvRaw > 0 ? `3-mi home value: $${hvRaw.toLocaleString()} → ${hvRaw >= 500000 ? "$500K+ = 10" : hvRaw >= 350000 ? "$350K+ = 9" : hvRaw >= 250000 ? "$250K+ = 8" : hvRaw >= 180000 ? "$180K+ = 6" : hvRaw >= 120000 ? "$120K+ = 4" : "<$120K = 2"}` : "No data — default 5";
   const psDist = nearestPS !== undefined && nearestPS !== null ? parseFloat(String(nearestPS)) : NaN;
   const psExplain = !isNaN(psDist) ? `Nearest PS: ${psDist.toFixed(1)} mi → ${psDist <= 5 ? "≤5mi = 10" : psDist <= 10 ? "≤10mi = 9" : psDist <= 15 ? "≤15mi = 7" : psDist <= 25 ? "≤25mi = 5" : psDist <= 35 ? "≤35mi = 3" : ">35mi = FAIL"}` : "No data — default 5";
-  const zoningBaseLabel = zClass === "by-right" ? "10" : zClass === "conditional" ? "6" : zClass === "rezone-required" ? "2" : "0";
   const zoningExplain = explicitClassSet ? `Classification: ${zClass} → ${scores.zoning}` : (scores.zoning === 5 ? "Unverified — capped at 5 (set zoningClassification to unlock)" : isNoZoning ? `ETJ/no-zoning → ${scores.zoning}` : `Regex-matched: score ${scores.zoning}`);
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
   const compExplain = compMethod === 'ccSPC'
-    ? `CC SPC: ${effectiveSPC.toFixed(1)} SF/capita (${ccSPCValid && projCCSPCValid ? `current ${parseFloat(ccSPC).toFixed(1)}, projected ${parseFloat(projCCSPC).toFixed(1)} — using worse` : ccSPCValid ? 'current' : 'projected'}) → ${effectiveSPC < 1.5 ? "<1.5 = 10" : effectiveSPC <= 3.0 ? "1.5-3.0 = 8" : effectiveSPC <= 5.0 ? "3.0-5.0 = 6" : effectiveSPC <= 7.0 ? "5.0-7.0 = 4" : ">7.0 = 2"}`
+    ? `CC SPC: ${effectiveSPC.toFixed(1)} SF/capita (${ccSPCValid && projCCSPCValid ? `current ${parseFloat(ccSPC).toFixed(1)}, projected ${parseFloat(projCCSPC).toFixed(1)} — using worse` : ccSPCValid ? 'current' : 'projected'}) → ${effectiveSPC < 1.5 ? "<1.5 = 10" : effectiveSPC <= 3.0 ? "1.5-3.0 = 8" : effectiveSPC <= 5.0 ? "3.0-5.0 = 6" : effectiveSPC <= 7.0 ? "5.0-7.0 = 5" : effectiveSPC <= 10.0 ? "7.0-10.0 = 4" : effectiveSPC <= 15.0 ? "10.0-15.0 = 3" : effectiveSPC <= 20.0 ? "15.0-20.0 = 2" : ">20.0 = 0 (saturated)"}`
     : compCount !== undefined && compCount !== null ? `${compCount} competitors → ${compCount <= 1 ? "0-1 = 10" : compCount <= 3 ? "2-3 = 6" : "4+ = 3"}` : "Keyword-based estimate";
 
 
@@ -437,9 +436,10 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0] || "0");
   const askRaw = parsePrice(site.askingPrice);
   const intRaw = parsePrice(site.internalPrice);
-  const landCostRaw = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) ? askRaw : 0);
+  const landCostRaw = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) && askRaw > 0 ? askRaw : 0);
   // GUARDRAIL: Cap land cost at $50M — anything higher is a parsing error (annotated field concatenation)
-  const landCost = landCostRaw > 50000000 ? 0 : landCostRaw;
+  // EY AUDIT FIX 2026-03-28: Also reject negative land costs (defensive against bad parsePrice input)
+  const landCost = landCostRaw > 50000000 || landCostRaw < 0 ? 0 : landCostRaw;
   const safeInt = (v) => {
     if (v == null || v === "") return 0;
     const s = String(v);
@@ -454,8 +454,9 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const pop1 = safeInt(site.pop1mi);
   const growthStr = site.popGrowth3mi || site.growthRate || "";
   const growthPct = parseFloat(String(growthStr).replace(/[^0-9.\-]/g, "")) || 0;
-  const compCount = site.siteiqData?.competitorCount || 0;
-  const nearestPS = site.siteiqData?.nearestPS || null;
+  // EY AUDIT FIX 2026-03-28: Use ?? instead of || — 0 competitors is valid (best score), not falsy
+  const compCount = site.siteiqData?.competitorCount ?? 0;
+  const nearestPS = site.siteiqData?.nearestPS ?? null;
 
   // ── Operator Profile — PS vs. Generic vs. Independent ──
   // PS operates at 78.4% NOI margin (Q4 2025) due to self-management, scale economies,
@@ -472,22 +473,24 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
       gaPct: O('gaPct', 0.010), badDebtPct: O('badDebtPct', 0.015), reservePerSF: O('reservePerSF', 0.15),
       noiMarginBenchmark: "78.4% (PSA Q4 2025)"
     },
+    // EY AUDIT FIX 2026-03-28: Route generic/independent profiles through O() overrides
+    // so site-level and global overrides apply consistently to ALL operator profiles.
     generic: {
       label: "Institutional Operator (Industry Average)",
-      propTaxRate: 0.012, insurancePerSF: 0.45, mgmtFeePct: 0.06,
-      basePayroll: 65000, payrollBurden: 1.30, baseFTE: 1.0,
-      climateUtilPerSF: 1.10, driveUtilPerSF: 0.25,
-      rmPerSF: 0.35, marketingPct: 0.03, marketingLeaseUpPct: 0.05,
-      gaPct: 0.015, badDebtPct: 0.02, reservePerSF: 0.20,
+      propTaxRate: O('propTaxRate_generic', 0.012), insurancePerSF: O('insurancePerSF_generic', 0.45), mgmtFeePct: O('mgmtFeePct_generic', 0.06),
+      basePayroll: O('basePayroll_generic', 65000), payrollBurden: O('payrollBurden_generic', 1.30), baseFTE: O('baseFTE_generic', 1.0),
+      climateUtilPerSF: O('climateUtilPerSF_generic', 1.10), driveUtilPerSF: O('driveUtilPerSF_generic', 0.25),
+      rmPerSF: O('rmPerSF_generic', 0.35), marketingPct: O('marketingPct_generic', 0.03), marketingLeaseUpPct: O('marketingLeaseUpPct_generic', 0.05),
+      gaPct: O('gaPct_generic', 0.015), badDebtPct: O('badDebtPct_generic', 0.02), reservePerSF: O('reservePerSF_generic', 0.20),
       noiMarginBenchmark: "62-66% (industry average)"
     },
     independent: {
       label: "Independent / Mom-and-Pop Operator",
-      propTaxRate: 0.012, insurancePerSF: 0.50, mgmtFeePct: 0.08,
-      basePayroll: 55000, payrollBurden: 1.35, baseFTE: 1.5,
-      climateUtilPerSF: 1.20, driveUtilPerSF: 0.30,
-      rmPerSF: 0.40, marketingPct: 0.04, marketingLeaseUpPct: 0.06,
-      gaPct: 0.020, badDebtPct: 0.025, reservePerSF: 0.25,
+      propTaxRate: O('propTaxRate_independent', 0.012), insurancePerSF: O('insurancePerSF_independent', 0.50), mgmtFeePct: O('mgmtFeePct_independent', 0.08),
+      basePayroll: O('basePayroll_independent', 55000), payrollBurden: O('payrollBurden_independent', 1.35), baseFTE: O('baseFTE_independent', 1.5),
+      climateUtilPerSF: O('climateUtilPerSF_independent', 1.20), driveUtilPerSF: O('driveUtilPerSF_independent', 0.30),
+      rmPerSF: O('rmPerSF_independent', 0.40), marketingPct: O('marketingPct_independent', 0.04), marketingLeaseUpPct: O('marketingLeaseUpPct_independent', 0.06),
+      gaPct: O('gaPct_independent', 0.020), badDebtPct: O('badDebtPct_independent', 0.025), reservePerSF: O('reservePerSF_independent', 0.25),
       noiMarginBenchmark: "55-60% (independent operators)"
     }
   };
@@ -498,7 +501,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // One-story (3.5+ ac): PS suburban format — 65/35 climate/drive-up per standard PS 1-story layout
   const isMultiStory = !isNaN(acres) && acres < O('multiStoryThreshold', 3.5) && acres >= 2.5;
   const stories = isMultiStory ? O('multiStoryFloors', 3) : 1;
-  const rawFootprint = !isNaN(acres) ? Math.round(acres * 43560 * O('coverageRatio', 0.35)) : 60000;
+  const coverageRatio = O('coverageRatio', 0.35);
+  const rawFootprint = !isNaN(acres) ? Math.round(acres * 43560 * coverageRatio) : 60000;
   // Cap footprint to realistic PS facility sizes — PS builds 80K-120K gross SF max.
   // Without cap, large sites (10+ ac) produce 200K+ SF facilities with inflated NOI/land prices.
   const maxFootprint = O('maxFootprint', 120000);
@@ -511,6 +515,26 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const drivePct = 1 - climatePct;
   const climateSF = Math.round(totalSF * climatePct);
   const driveSF = Math.round(totalSF * drivePct);
+
+  // ── Large Tract Intelligence — Pad Subdivision Scenario ──
+  // EY AUDIT FIX 2026-03-28: When a parcel is larger than needed for the facility (footprint
+  // was capped by maxFootprint), the full parcel price overstates land cost for the usable pad.
+  // Calculate effective pad acreage and pro-rata land cost. This lets PS evaluate BOTH:
+  //   (1) Full parcel — total asking price (worst case, if seller won't subdivide)
+  //   (2) Pad-only — pro-rated price for the ~5ac pad (realistic scenario for 10+ ac tracts)
+  // The effective pad acreage = building footprint / coverage ratio / 43560 + buffer
+  const effectivePadAcres = !isNaN(acres) && acres > 0 && rawFootprint > maxFootprint
+    ? Math.round((maxFootprint / coverageRatio / 43560 + 0.5) * 10) / 10 // +0.5ac buffer for setbacks/drives
+    : acres;
+  const isLargeTract = !isNaN(acres) && acres > 0 && effectivePadAcres < acres;
+  const excessAcres = isLargeTract ? Math.round((acres - effectivePadAcres) * 10) / 10 : 0;
+  const pricePerAcreRaw = !isNaN(acres) && acres > 0 && landCost > 0 ? landCost / acres : 0;
+  const padLandCost = isLargeTract && pricePerAcreRaw > 0
+    ? Math.round(effectivePadAcres * pricePerAcreRaw)
+    : landCost;
+  // NOTE: padLandCost is used ONLY for the pad-only scenario in landPrices and valuation.
+  // The primary model still uses full landCost for conservative underwriting.
+  // padLandCost is surfaced as an alternative "if subdivisible" scenario.
 
   // ── Market Rate Intelligence ──
   // Priority chain: (1) MSA CC rent from Discover/REIT data → (2) Income-tier proxy
@@ -609,8 +633,9 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const avgDrawPct = O('avgDrawPct', 0.55);
   const constructionLoan = Math.round(buildCosts * constLoanLTC);
   const constructionInterest = Math.round(constructionLoan * constLoanRate * constructionYears * avgDrawPct);
-  const constructionPropTax = Math.round(landCost * 0.012 * constructionYears); // land only during construction
-  const constructionInsurance = Math.round(buildCosts * 0.004 * constructionYears); // builder's risk
+  // EY AUDIT FIX 2026-03-28: Route through O() override system — prior hardcoded rates bypassed overrides
+  const constructionPropTax = Math.round(landCost * O('constructionPropTaxRate', 0.012) * constructionYears); // land only during construction
+  const constructionInsurance = Math.round(buildCosts * O('constructionInsuranceRate', 0.004) * constructionYears); // builder's risk
   const carryCosts = constructionInterest + constructionPropTax + constructionInsurance;
   const workingCapital = Math.round(buildCosts * O('workingCapitalPct', 0.02));
 
@@ -629,11 +654,20 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     { yr: 5, label: "Year 5 — Mature", occRate: O('leaseUpY5Occ', 0.92), climDisc: 0.00, driveDisc: 0.00, desc: "Fully stabilized. ECRI revenue above street rate." },
   ];
   // Annual escalation: use MSA-specific CC growth rate when available, else default 3%
-  const annualEsc = msaCCGrowth ? Math.round(msaCCGrowth / 100 * 1000) / 1000 : O('annualEscalation', 0.03);
+  // EY AUDIT FIX 2026-03-28: Parse msaCCGrowth as float with NaN guard — raw string like "N/A"
+  // would propagate NaN through every Math.pow(1 + annualEsc, i) in all revenue projections.
+  const msaCCGrowthParsed = msaCCGrowth != null ? parseFloat(String(msaCCGrowth)) : NaN;
+  const annualEsc = !isNaN(msaCCGrowthParsed) ? Math.round(msaCCGrowthParsed / 100 * 1000) / 1000 : O('annualEscalation', 0.03);
 
   // ── OpEx Helper — single source of truth for fixed + variable operating expenses ──
   // COD AUDIT 2026-03-22: Extracted from 3 duplicate calculation sites (yearData, yrDataExt, sensitivity)
   // to eliminate maintenance drift. Any OpEx change is now made once.
+  // EY AUDIT NOTE 2026-03-28 — Property Tax Methodology:
+  // Property tax is assessed on totalDevCost (land + all hard/soft costs + carry + working capital).
+  // Real-world assessed value is typically land + improvement value (≈ totalDevCost minus carry/WC).
+  // Using totalDevCost is a CONSERVATIVE simplification that overstates property tax by ~4-5%,
+  // which is intentional for underwriting (safe side). This is standard CRE development modeling
+  // practice — assessors often assess at or near replacement cost in the first 5 years.
   const calcOpEx = (yr, rev) => {
     const fixed = Math.round(totalDevCost * op.propTaxRate * Math.pow(1.02, yr))
       + Math.round(totalSF * op.insurancePerSF * Math.pow(1.03, yr))
@@ -705,7 +739,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const stabNOIRaw = yearData[4].noi;
   const stabRevRaw = yearData[4].totalRev;
   // GUARDRAIL: If NOI is more negative than -$5M or revenue is 0 but NOI < -$1M, flag as error
-  const valuationError = stabNOIRaw < -5000000 || (stabRevRaw <= 0 && stabNOIRaw < -1000000) || landCost === 0 && landCostRaw > 50000000;
+  // EY AUDIT FIX 2026-03-28: Explicit parentheses for all && within || chains — prevents precedence ambiguity
+  const valuationError = stabNOIRaw < -5000000 || (stabRevRaw <= 0 && stabNOIRaw < -1000000) || (landCost === 0 && landCostRaw > 50000000);
   const stabNOI = valuationError ? 0 : stabNOIRaw;
   const stabRev = valuationError ? 0 : stabRevRaw;
 
@@ -736,7 +771,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     { label: `Market (${(O('capRateMarket', 0.0575) * 100).toFixed(2)}%)`, rate: O('capRateMarket', 0.0575) },
     { label: `Aggressive (${(O('capRateAggressive', 0.05) * 100).toFixed(1)}%)`, rate: O('capRateAggressive', 0.05) },
   ];
-  const valuations = capRates.map(c => ({ ...c, value: Math.round(stabNOI / c.rate) }));
+  // EY AUDIT FIX 2026-03-28: Guard against division by zero if cap rate overridden to 0
+  const valuations = capRates.map(c => ({ ...c, value: c.rate > 0 ? Math.round(stabNOI / c.rate) : 0 }));
 
   // ── Land Price Guide — PS development pipeline targets ──
   // Walk Away 7.5% = floor for strategic sites (EVP+ approval required below this).
@@ -757,6 +793,33 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const landVerdict = askVsStrike !== null ? (parseFloat(askVsStrike) <= -15 ? "STRONG BUY" : parseFloat(askVsStrike) <= 0 ? "BUY" : parseFloat(askVsStrike) <= 15 ? "NEGOTIATE" : parseFloat(askVsStrike) <= 30 ? "STRETCH" : "ABOVE STRIKE") : "APPROVED";
   const verdictColor = landVerdict === "STRONG BUY" ? "#16A34A" : landVerdict === "BUY" ? "#22C55E" : landVerdict === "NEGOTIATE" ? "#F59E0B" : landVerdict === "STRETCH" ? "#E87A2E" : landVerdict === "ABOVE STRIKE" ? "#E87A2E" : landVerdict === "APPROVED" ? "#16A34A" : "#6B7394";
 
+  // ── Pad-Only Scenario (large tracts) — alternative pricing if seller will subdivide ──
+  // EY AUDIT FIX 2026-03-28: When parcel > usable pad, show a "pad-only" valuation scenario
+  // so PS can evaluate the deal on a per-pad basis, not penalized by excess acreage.
+  const padScenario = isLargeTract ? (() => {
+    const padAskVsStrike = padLandCost > 0 && landPrices[1].maxLand > 0
+      ? ((padLandCost / landPrices[1].maxLand - 1) * 100).toFixed(0) : null;
+    const padVerdict = padAskVsStrike !== null
+      ? (parseFloat(padAskVsStrike) <= -15 ? "STRONG BUY" : parseFloat(padAskVsStrike) <= 0 ? "BUY" : parseFloat(padAskVsStrike) <= 15 ? "NEGOTIATE" : parseFloat(padAskVsStrike) <= 30 ? "STRETCH" : "ABOVE STRIKE")
+      : "APPROVED";
+    const padVerdictColor = padVerdict === "STRONG BUY" ? "#16A34A" : padVerdict === "BUY" ? "#22C55E" : padVerdict === "NEGOTIATE" ? "#F59E0B" : padVerdict === "STRETCH" || padVerdict === "ABOVE STRIKE" ? "#E87A2E" : "#16A34A";
+    // YOC on pad-only land cost
+    const padTotalDev = padLandCost + buildCosts + carryCosts + workingCapital;
+    const padYOC = stabNOI > 0 && padTotalDev > 0 ? ((stabNOI / padTotalDev) * 100).toFixed(1) : "N/A";
+    return {
+      effectivePadAcres,
+      excessAcres,
+      padLandCost,
+      pricePerAcre: pricePerAcreRaw > 0 ? Math.round(pricePerAcreRaw) : 0,
+      padAskVsStrike,
+      padVerdict,
+      padVerdictColor,
+      padTotalDev,
+      padYOC,
+      note: `Site is ${acres} ac but facility only needs ~${effectivePadAcres} ac. If seller will subdivide, pad-only cost is ${padLandCost > 0 ? "$" + padLandCost.toLocaleString() : "TBD"} at $${Math.round(pricePerAcreRaw).toLocaleString()}/ac. Excess ${excessAcres} ac can be marketed separately or resold.`,
+    };
+  })() : null;
+
   // ── Debt Service & Capital Stack ──
   const loanLTV = O('loanLTV', 0.65);
   const loanRate = O('loanRate', 0.0675);
@@ -766,7 +829,13 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const equityRequired = totalDevCost - loanAmount; // Derived from loan to guarantee Sources = Uses balance exactly
   const monthlyLoanRate = loanRate / 12;
   const numPmts = loanAmort * 12;
-  const monthlyPmt = loanAmount > 0 ? loanAmount * (monthlyLoanRate * Math.pow(1 + monthlyLoanRate, numPmts)) / (Math.pow(1 + monthlyLoanRate, numPmts) - 1) : 0;
+  // EY AUDIT FIX 2026-03-28: Guard against loanRate=0 which produces 0/0=NaN in amortization formula.
+  // At 0% interest, monthly payment = principal / number of payments (straight-line).
+  const monthlyPmt = loanAmount > 0
+    ? (monthlyLoanRate > 0
+      ? loanAmount * (monthlyLoanRate * Math.pow(1 + monthlyLoanRate, numPmts)) / (Math.pow(1 + monthlyLoanRate, numPmts) - 1)
+      : (numPmts > 0 ? loanAmount / numPmts : 0))
+    : 0;
   const annualDS = Math.round(monthlyPmt * 12);
   const dscrStab = annualDS > 0 ? (noiDetail / annualDS).toFixed(2) : "N/A";
   const cashAfterDS = noiDetail - annualDS;
@@ -777,10 +846,12 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // Prior to 2026-03-22 audit: hardcoded to 10, holdPeriod slider was non-functional.
   const holdPeriod = Math.max(5, Math.min(20, Math.round(O('holdPeriod', 10))));
   const exitCapRate = O('exitCapRate', 0.06);
+  // EY AUDIT FIX 2026-03-28: Stabilized occupancy routed through O() — was hardcoded 0.92
+  const stabilizedOcc = O('stabilizedOcc', 0.92);
   const yrDataExt = [];
   for (let i = 0; i < holdPeriod; i++) {
     const esc = Math.pow(1 + annualEsc, i);
-    const occ = i < 5 ? leaseUpSchedule[i].occRate : 0.92;
+    const occ = i < 5 ? leaseUpSchedule[i].occRate : stabilizedOcc;
     const cDisc = i < 5 ? leaseUpSchedule[i].climDisc : 0;
     const dDisc = i < 5 ? leaseUpSchedule[i].driveDisc : 0;
     // AUDIT FIX 2026-03-22: Same nullish coalescing fix as yearData loop — 0 is valid, not falsy.
@@ -795,12 +866,15 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     const noi = rev - opex;
     yrDataExt.push({ yr: i + 1, occ, rev, opex, noi, cR, dR, ecriMult });
   }
-  const exitValue = Math.round(yrDataExt[holdPeriod - 1].noi / exitCapRate);
+  // EY AUDIT FIX 2026-03-28: Guard against division by zero on exit cap rate override
+  const exitValue = exitCapRate > 0 ? Math.round(yrDataExt[holdPeriod - 1].noi / exitCapRate) : 0;
   const exitLoanBal = (() => { let bal = loanAmount; for (let i = 0; i < holdPeriod * 12; i++) { bal = bal * (1 + monthlyLoanRate) - monthlyPmt; } return Math.round(Math.max(bal, 0)); })();
   const exitEquityProceeds = exitValue - exitLoanBal;
   const irrCashFlows = [-equityRequired, ...yrDataExt.map((y, i) => { const cf = y.noi - annualDS; return i === holdPeriod - 1 ? cf + exitEquityProceeds : cf; })];
   const calcNPV = (rate) => irrCashFlows.reduce((npv, cf, t) => npv + cf / Math.pow(1 + rate, t), 0);
-  let irrLow = -0.1, irrHigh = 0.5;
+  // EY AUDIT FIX 2026-03-28: Expanded bisection range from [-0.1, 0.5] to [-0.5, 2.0]
+  // Prior range missed IRRs below -10% (distressed sites) and above 50% (exceptional deals).
+  let irrLow = -0.5, irrHigh = 2.0;
   for (let iter = 0; iter < 100; iter++) { const mid = (irrLow + irrHigh) / 2; if (calcNPV(mid) > 0) irrLow = mid; else irrHigh = mid; }
   const irrPct = ((irrLow + irrHigh) / 2 * 100).toFixed(1);
   const equityMultiple = equityRequired > 0 ? ((irrCashFlows.slice(1).reduce((s, v) => s + v, 0)) / equityRequired).toFixed(2) : "N/A";
@@ -818,25 +892,27 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
       { label: "Base Case", adj: 0 },
       { label: "Occ +5pts", adj: 0.05 },
     ];
-    const stabFixed = yearData[4].fixedOpex;
-    const varPctSum = op.mgmtFeePct + op.marketingPct + op.gaPct + op.badDebtPct;
+    // EY AUDIT FIX 2026-03-28: Use calcOpEx for BOTH fixed and variable costs in the
+    // stabilized grid cell. Prior code used raw varPctSum (stabilized marketing rate) which
+    // excluded the Y1 lease-up marketing premium. Grid is Y5 stabilized, so calcOpEx(4, rev)
+    // correctly applies stabilized rates. This ensures the 3x3 grid matches the base case exactly.
     const grid = rentScenarios.map(r => occScenarios.map(o => {
-      const adjOcc = Math.min(0.97, Math.max(0.50, 0.92 + o.adj));
+      const adjOcc = Math.min(0.97, Math.max(0.50, stabilizedOcc + o.adj));
       const esc4 = Math.pow(1 + annualEsc, 4);
       const adjClimRate = Math.round(mktClimateRate * esc4 * r.factor * 100) / 100;
       const adjDriveRate = Math.round(mktDriveRate * esc4 * r.factor * 100) / 100;
       // AUDIT FIX 2026-03-22: Consistent nullish coalescing (ecriSchedule[4]=0 is valid).
       const ecri5 = 1 + (ecriSchedule[4] != null ? ecriSchedule[4] : 0);
       const adjRev = Math.round((climateSF * adjOcc * adjClimRate * ecri5 * 12) + (driveSF * adjOcc * adjDriveRate * ecri5 * 12));
-      const adjVarOpex = Math.round(adjRev * varPctSum);
-      const adjOpex = stabFixed + adjVarOpex;
+      const adjOpexResult = calcOpEx(4, adjRev); // Y5 stabilized — single source of truth
+      const adjOpex = adjOpexResult.total;
       const adjNOI = adjRev - adjOpex;
       const adjYOC = totalDevCost > 0 ? ((adjNOI / totalDevCost) * 100).toFixed(1) : "N/A";
       // IRR sensitivity — recompute N-year DCF for each scenario
       const adjCFs = [-equityRequired];
       for (let yr = 0; yr < holdPeriod; yr++) {
         const e = Math.pow(1 + annualEsc, yr);
-        const oc = yr < 5 ? leaseUpSchedule[yr].occRate + o.adj : adjOcc;
+        const oc = yr < 5 ? leaseUpSchedule[yr].occRate + o.adj : stabilizedOcc + o.adj;
         const ocCl = Math.min(0.97, Math.max(0.10, oc));
         const cD = yr < 5 ? leaseUpSchedule[yr].climDisc : 0;
         const dD = yr < 5 ? leaseUpSchedule[yr].driveDisc : 0;
@@ -845,13 +921,15 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
         const em = 1 + (ecriSchedule[emIdx] != null ? ecriSchedule[emIdx] : 0);
         const yRev = Math.round(climateSF * ocCl * mktClimateRate * e * (1 - cD) * r.factor * em * 12)
           + Math.round(driveSF * ocCl * mktDriveRate * e * (1 - dD) * r.factor * em * 12);
-        // COD AUDIT 2026-03-22: Use calcOpEx helper for fixed costs, keep varPctSum for rent-adjusted variable costs
-        const { fixed: yFix } = calcOpEx(yr, yRev);
-        const yVar = Math.round(yRev * varPctSum);
-        const yNoi = yRev - yFix - yVar;
+        // EY AUDIT FIX 2026-03-28: Use calcOpEx for ALL costs (fixed + variable) — single source
+        // of truth. Prior code split fixed (calcOpEx) from variable (manual varPctSum), which
+        // used stabilized marketing rate for all years instead of lease-up rate for Y1.
+        // calcOpEx handles the Y1 vs Y2+ marketing switch internally.
+        const { total: yOpex } = calcOpEx(yr, yRev);
+        const yNoi = yRev - yOpex;
         const yCF = yNoi - annualDS;
         if (yr === holdPeriod - 1) {
-          const exitVal = Math.round(yNoi / exitCapRate);
+          const exitVal = exitCapRate > 0 ? Math.round(yNoi / exitCapRate) : 0;
           const exitBal = exitLoanBal;
           adjCFs.push(yCF + exitVal - exitBal);
         } else {
@@ -859,8 +937,9 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
         }
       }
       const npvCalc = (rate) => adjCFs.reduce((npv, cf, t) => npv + cf / Math.pow(1 + rate, t), 0);
-      let lo = -0.1, hi = 0.5;
-      for (let it = 0; it < 80; it++) { const m = (lo + hi) / 2; if (npvCalc(m) > 0) lo = m; else hi = m; }
+      // EY AUDIT FIX 2026-03-28: Match expanded bisection range from main IRR solver
+      let lo = -0.5, hi = 2.0;
+      for (let it = 0; it < 100; it++) { const m = (lo + hi) / 2; if (npvCalc(m) > 0) lo = m; else hi = m; }
       const adjIRR = ((lo + hi) / 2 * 100).toFixed(1);
       return { rentLabel: r.label, occLabel: o.label, occ: adjOcc, rev: adjRev, noi: adjNOI, yoc: adjYOC, irr: adjIRR };
     }));
@@ -897,16 +976,19 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const popDensityFactor = popN >= 40000 ? 1.12 : popN >= 25000 ? 1.05 : popN >= 15000 ? 1.00 : 0.93;
   const m3ClimRate = Math.round(baseClimateRate * popDensityFactor * compAdj * 100) / 100;
   const consensusClimRate = Math.round((m1Rate + m2ClimRate + m3ClimRate) / 3 * 100) / 100;
-  const rateConfidence = Math.abs(m1Rate - consensusClimRate) / consensusClimRate < 0.08 ? "HIGH" : Math.abs(m1Rate - consensusClimRate) / consensusClimRate < 0.15 ? "MODERATE" : "LOW";
+  // EY AUDIT FIX 2026-03-28: Guard against division by zero if all three rate methods produce 0
+  const rateConfidence = consensusClimRate > 0
+    ? (Math.abs(m1Rate - consensusClimRate) / consensusClimRate < 0.08 ? "HIGH" : Math.abs(m1Rate - consensusClimRate) / consensusClimRate < 0.15 ? "MODERATE" : "LOW")
+    : "LOW";
   const rateConfColor = rateConfidence === "HIGH" ? "#16A34A" : rateConfidence === "MODERATE" ? "#F59E0B" : "#EF4444";
 
   // ── Institutional Metrics ──
-  const stabOccSF = Math.round(totalSF * 0.92);
+  const stabOccSF = Math.round(totalSF * stabilizedOcc);
   const revPAF = stabRev > 0 ? (stabRev / totalSF).toFixed(2) : "N/A";
   const revPOF = stabRev > 0 && stabOccSF > 0 ? (stabRev / stabOccSF).toFixed(2) : "N/A";
   const noiPerSF = stabNOI > 0 ? (stabNOI / totalSF).toFixed(2) : "N/A";
   const noiMarginPct = stabRev > 0 ? ((stabNOI / stabRev) * 100).toFixed(1) : "N/A";
-  const mktAcqCap = 0.0575;
+  const mktAcqCap = O('mktAcqCap', 0.0575); // EY AUDIT FIX 2026-03-28: route through override system
   const devSpread = parseFloat(yocStab) > 0 ? (parseFloat(yocStab) - mktAcqCap * 100).toFixed(1) : "N/A";
   const impliedLandCap = landCost > 0 && stabNOI > 0 ? ((stabNOI / landCost) * 100).toFixed(1) : "N/A";
 
@@ -938,7 +1020,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
 
   // Unlevered IRR — isolates asset quality from capital structure
   const unleveredCFs = [-totalDevCost, ...yrDataExt.map((y, i) => i === holdPeriod - 1 ? y.noi + exitValue : y.noi)];
-  let uIrrLow = -0.1, uIrrHigh = 0.5;
+  // EY AUDIT FIX 2026-03-28: Expanded bisection range — consistent across all 4 IRR solvers
+  let uIrrLow = -0.5, uIrrHigh = 2.0;
   for (let iter = 0; iter < 100; iter++) {
     const mid = (uIrrLow + uIrrHigh) / 2;
     const npv = unleveredCFs.reduce((s, cf, t) => s + cf / Math.pow(1 + mid, t), 0);
@@ -964,13 +1047,14 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     { label: "Base (6.00%)", rate: 0.06 },
     { label: "Bear (7.00%)", rate: 0.07 },
   ].map(s => {
-    const eVal = Math.round(yrDataExt[holdPeriod - 1].noi / s.rate);
+    const eVal = s.rate > 0 ? Math.round(yrDataExt[holdPeriod - 1].noi / s.rate) : 0;
     const eProceeds = eVal - exitLoanBal;
     const cfs = [-equityRequired, ...yrDataExt.map((y, i) => {
       const cf = y.noi - annualDS;
       return i === holdPeriod - 1 ? cf + eProceeds : cf;
     })];
-    let lo = -0.1, hi = 0.5;
+    // EY AUDIT FIX 2026-03-28: Expanded bisection range — consistent with main + sensitivity IRR solvers
+    let lo = -0.5, hi = 2.0;
     for (let it = 0; it < 100; it++) {
       const m = (lo + hi) / 2;
       const npv = cfs.reduce((n, c, t) => n + c / Math.pow(1 + m, t), 0);
@@ -1014,6 +1098,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     capRates, valuations,
     // Land pricing
     landTargets, landPrices, askVsStrike, landVerdict, verdictColor,
+    // Large tract pad scenario
+    isLargeTract, effectivePadAcres, excessAcres, padLandCost, padScenario,
     // Capital stack
     loanLTV, loanRate, loanAmort, equityPct, loanAmount, equityRequired, monthlyLoanRate, numPmts, monthlyPmt, annualDS, dscrStab, cashAfterDS, cashOnCash,
     // DCF
