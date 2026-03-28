@@ -1820,7 +1820,7 @@ function switchSiteInputs(siteId) {
         </div>
       </div></div>
     </div>
-    <div class="metric-box mi-active mi" onclick="toggleMI('yoc',event)"><div class="label">Yield on Cost</div><div class="value" style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : parseFloat(yocStab) >= 7 ? "#F59E0B" : "#EF4444"}">${yocStab}%</div><em class="mi-hint">i</em>
+    <div class="metric-box mi-active mi" onclick="toggleMI('yoc',event)"><div class="label">Yield on Cost</div><div class="value" style="color:${parseFloat(yocStab) >= 8 ? "#16A34A" : parseFloat(yocStab) >= 6 ? "#F59E0B" : "#EF4444"}">${yocStab}%</div><em class="mi-hint">i</em>
       <div id="mi-yoc" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Yield on Cost Analysis</div><div class="mi-conf ${parseFloat(yocStab) >= 8 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(yocStab) >= 9 ? "Strong" : parseFloat(yocStab) >= 7.5 ? "Acceptable" : "Below Target"}</div></div>
         <div class="mi-body">
@@ -1898,7 +1898,7 @@ function switchSiteInputs(siteId) {
   <div id="exec" class="expand-panel">
     <div class="insight-box">
       <div class="insight-title">Investment Thesis</div>
-      ${landCost > 0 && totalDevCost > 0 ? `<div>This ${!isNaN(acres) ? acres.toFixed(1) + "-acre" : ""} ${site.state || ""} site requires a total capital deployment of <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> (${landCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}% land / ${Math.round(hardCost/totalDevCost*100)}% hard / ${Math.round(softCost/totalDevCost*100)}% soft / ${contingency > 0 ? Math.round(contingency/totalDevCost*100) : 0}% contingency). At stabilization (Year 5), the facility produces <strong style="color:#16A34A">${fmtM(stabNOI)}</strong> NOI at a <strong>${noiMarginPct}% margin</strong> (PS benchmark: 78.4%), implying a <strong style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : "#F59E0B"}">${yocStab}% yield on cost</strong> — ${parseFloat(yocStab) >= 9 ? "well above" : parseFloat(yocStab) >= 7.5 ? "above" : "near"} PS's ~8% development hurdle. Development spread of <strong>${devSpread} bps</strong> over the ${(mktAcqCap*100).toFixed(1)}% acquisition cap rate ${parseFloat(devSpread) >= 1.5 ? "justifies" : "may not justify"} construction risk. NPV at PS's 9.26% WACC: <strong style="color:${npvAtWACC >= 0 ? "#16A34A" : "#EF4444"}">${fmtM(npvAtWACC)}</strong> — ${npvAtWACC >= 0 ? "creates shareholder value" : "does not exceed cost of capital"}.</div>` : "<div>Pricing data pending — investment thesis will populate when land cost is confirmed.</div>"}
+      ${landCost > 0 && totalDevCost > 0 ? `<div>This ${!isNaN(acres) ? acres.toFixed(1) + "-acre" : ""} ${site.state || ""} site requires a total capital deployment of <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> (${landCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}% land / ${Math.round(hardCost/totalDevCost*100)}% hard / ${Math.round(softCost/totalDevCost*100)}% soft / ${contingency > 0 ? Math.round(contingency/totalDevCost*100) : 0}% contingency). At stabilization (Year 5), the facility produces <strong style="color:#16A34A">${fmtM(stabNOI)}</strong> NOI at a <strong>${noiMarginPct}% margin</strong> (PS benchmark: 78.4%), implying a <strong style="color:${parseFloat(yocStab) >= 8 ? "#16A34A" : "#F59E0B"}">${yocStab}% yield on cost</strong> — ${parseFloat(yocStab) >= 8 ? "above" : parseFloat(yocStab) >= 6 ? "near" : "below"} PS's development hurdle. Development spread of <strong>${devSpread} bps</strong> over the ${(mktAcqCap*100).toFixed(1)}% acquisition cap rate ${parseFloat(devSpread) >= 1.5 ? "justifies" : "may not justify"} construction risk. NPV at PS's 9.26% WACC: <strong style="color:${npvAtWACC >= 0 ? "#16A34A" : "#EF4444"}">${fmtM(npvAtWACC)}</strong> — ${npvAtWACC >= 0 ? "creates shareholder value" : "does not exceed cost of capital"}.</div>` : "<div>Pricing data pending — investment thesis will populate when land cost is confirmed.</div>"}
     </div>
     <div style="margin-top:16px">
       <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Return Waterfall</div>
@@ -2682,7 +2682,7 @@ function switchSiteInputs(siteId) {
       <div style="background:rgba(15,21,56,0.5);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.08)">
         <div class="mi" onclick="toggleMI('dcyoc',event)" style="display:flex;justify-content:space-between;margin-bottom:10px;cursor:pointer;padding:4px;border-radius:6px">
           <span style="font-size:12px;color:#6B7394">Yield on Cost (Stabilized) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></span>
-          <span class="mono" style="font-size:18px;font-weight:800;color:${parseFloat(yocStab) >= 9 ? "#16A34A" : parseFloat(yocStab) >= 7 ? "#F59E0B" : "#EF4444"}">${yocStab}%</span>
+          <span class="mono" style="font-size:18px;font-weight:800;color:${parseFloat(yocStab) >= 8 ? "#16A34A" : parseFloat(yocStab) >= 6 ? "#F59E0B" : "#EF4444"}">${yocStab}%</span>
         </div>
         <div id="mi-dcyoc" class="mi-panel"><div class="mi-panel-inner">
           <div class="mi-header"><div class="mi-title">Yield on Cost — The #1 PS Development Metric</div><div class="mi-conf mi-conf-high">Computed</div></div>
@@ -3932,7 +3932,7 @@ function switchSiteInputs(siteId) {
           ${row.map((cell, ci) => {
             const isBase = ri === 1 && ci === 1;
             const bg = isBase ? "rgba(201,168,76,0.12)" : "rgba(15,21,56,0.6)";
-            const yocColor = parseFloat(cell.yoc) >= 9 ? "#16A34A" : parseFloat(cell.yoc) >= 7 ? "#C9A84C" : "#EF4444";
+            const yocColor = parseFloat(cell.yoc) >= 8 ? "#16A34A" : parseFloat(cell.yoc) >= 6 ? "#C9A84C" : "#EF4444";
             const irrColor = parseFloat(cell.irr) >= 15 ? "#16A34A" : parseFloat(cell.irr) >= 10 ? "#C9A84C" : "#EF4444";
             return `<td style="background:${bg};padding:8px;text-align:center;border:1px solid rgba(201,168,76,0.1);${isBase ? "border:2px solid #C9A84C;" : ""}">
               <div style="font-size:14px;font-weight:800;color:${yocColor}">${cell.yoc}%</div>
@@ -5058,7 +5058,7 @@ function toggleMI(id,evt){
         ${row.map((cell, ci) => {
           const isBase = ri === 1 && ci === 1;
           const bg = isBase ? "#FFF7ED" : "#FFFFFF";
-          const yocColor = parseFloat(cell.yoc) >= 9 ? "#16A34A" : parseFloat(cell.yoc) >= 7 ? "#D97706" : "#EF4444";
+          const yocColor = parseFloat(cell.yoc) >= 8 ? "#16A34A" : parseFloat(cell.yoc) >= 6 ? "#D97706" : "#EF4444";
           const irrColor = parseFloat(cell.irr) >= 15 ? "#16A34A" : parseFloat(cell.irr) >= 10 ? "#D97706" : "#EF4444";
           return `<td style="background:${bg};padding:10px;text-align:center;border:1px solid #E2E8F0;${isBase ? "border:2px solid #C9A84C;font-weight:700;" : ""}">
             <div style="font-size:16px;font-weight:800;color:${yocColor}">${cell.yoc}%</div>

@@ -1,6 +1,11 @@
 // ─── Scoring Engine — SiteScore & Financial Models ───
 // Extracted from App.js for reuse across modules
 
+// ─── Price Parser — single source of truth for parsing annotated price fields ───
+// Handles "$1,300,000 ($109K/ac gross, ~$161K/ac net of pond)" → 1300000
+// Handles "$1.5M" → 1500000, "500K" → 500000
+export const parsePrice = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const hit = s.match(/\$?\s*([\d.]+)\s*([MmKk])?/); if (!hit) return NaN; const n = parseFloat(hit[1]); if (hit[2] && /[Mm]/.test(hit[2])) return n * 1000000; if (hit[2] && /[Kk]/.test(hit[2])) return n * 1000; return n; };
+
 // ─── SiteScore™ v4.0 — 9-Dimension + Binary Gate Scoring Engine ───
 // Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
 // Default weights: Pop 14%, Growth 18%, HHI 10%, Households 4%, HomeValue 4%, Zoning 16%, Access 7%, Competition 25%, MarketTier 2%
@@ -429,7 +434,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     siteOverrides[key] !== undefined ? siteOverrides[key] :
     overrides[key] !== undefined ? overrides[key] :
     fallback;
-  const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; const k = s.match(/([\d.]+)\s*[Kk]/); if (k) return parseFloat(k[1]) * 1000; const tokens = s.replace(/[^0-9.]/g, " ").trim().split(/\s+/); return tokens[0] ? parseFloat(tokens[0]) : NaN; };
+  const parseP = (v) => { if (!v) return NaN; const s = String(v).replace(/,/g, ""); const hit = s.match(/\$?\s*([\d.]+)\s*([MmKk])?/); if (!hit) return NaN; const n = parseFloat(hit[1]); if (hit[2] && /[Mm]/.test(hit[2])) return n * 1000000; if (hit[2] && /[Kk]/.test(hit[2])) return n * 1000; return n; };
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0] || "0");
   const askRaw = parseP(site.askingPrice);
   const intRaw = parseP(site.internalPrice);

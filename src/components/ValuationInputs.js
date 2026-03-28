@@ -1001,7 +1001,7 @@ export default function ValuationInputs({ overrides, onSave, fbSet, activeSite, 
                     {rentRow.map((cell, ci) => {
                       const isBase = ri === 1 && ci === 1;
                       const yocVal = parseFloat(cell.yoc);
-                      const yocColor = yocVal >= 9.0 ? '#16A34A' : yocVal >= 7.5 ? '#F59E0B' : '#EF4444';
+                      const yocColor = yocVal >= 8.0 ? '#16A34A' : yocVal >= 6.0 ? '#F59E0B' : '#EF4444';
                       return (
                         <td key={ci} style={{ padding: '8px 12px', textAlign: 'center', background: isBase ? 'rgba(201,168,76,0.08)' : 'transparent', border: isBase ? '1px solid rgba(201,168,76,0.2)' : '1px solid rgba(255,255,255,0.02)', borderRadius: isBase ? 6 : 0 }}>
                           <div style={{ fontWeight: 800, color: yocColor, fontFamily: "'Space Mono', monospace", fontSize: 13 }}>{cell.yoc}%</div>

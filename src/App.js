@@ -24,7 +24,7 @@ import {
   MSG_COLORS, DOC_TYPES, SITE_SCORE_DEFAULTS, STYLES,
   normalizeSiteScoreWeights,
 } from './utils';
-import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeVettingIntel, buildSitePackage, computeValidationStats } from './scoring';
+import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeVettingIntel, buildSitePackage, computeValidationStats, parsePrice } from './scoring';
 import {
   generateVettingReport as _generateVettingReport,
   generatePricingReport as _generatePricingReport,
@@ -1258,7 +1258,7 @@ function AppInner() {
         cols.map((c) => {
           if (c.key === "sitescore") return getSiteScore(s).score;
           if (c.key === "pricePerAcre") {
-            const p = parseFloat(String(s.askingPrice || "").replace(/[^0-9.]/g, ""));
+            const p = parsePrice(s.askingPrice);
             const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
             return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
           }
@@ -1282,7 +1282,7 @@ function AppInner() {
       summCols.map((c) => {
         if (c.key === "sitescore") return getSiteScore(s).score;
         if (c.key === "pricePerAcre") {
-          const p = parseFloat(String(s.askingPrice || "").replace(/[^0-9.]/g, ""));
+          const p = parsePrice(s.askingPrice);
           const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
           return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
         }
@@ -1518,7 +1518,7 @@ function AppInner() {
                                 const homerun = fin.landPrices?.[2]; // Home run (10.5%)
                                 const verdict = fin.landVerdict || "—";
                                 const verdictColor = fin.verdictColor || "#6B7394";
-                                const askRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")) || (String(site.askingPrice || "").match(/([\d.]+)\s*[Mm]/)?.[1] ? parseFloat(String(site.askingPrice).match(/([\d.]+)\s*[Mm]/)[1]) * 1000000 : 0);
+                                const askRaw = fin.landCost || 0;
                                 const hasAsk = askRaw > 0;
                                 const askVsStrike = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
                                 return (
@@ -1921,7 +1921,7 @@ function AppInner() {
                           { label: "Households (3-mi)", val: fP(site.households3mi), icon: "🏠" },
                           { label: "Median Home Value (3-mi)", val: fP(site.homeValue3mi, "$"), icon: "🏡" },
                           { label: "Acreage", val: site.acreage ? site.acreage + " ac" : null, icon: "📐" },
-                          { label: "Price / Acre", val: (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
+                          { label: "Price / Acre", val: (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
                           { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
                           { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
                         ].filter(r => r.val != null);
@@ -3551,7 +3551,7 @@ function AppInner() {
                   const verdict = fin.landVerdict || "—";
                   const vColor = fin.verdictColor || "#6B7394";
                   const yoc = fin.yocStab;
-                  const askRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")) || (String(site.askingPrice || "").match(/([\d.]+)\s*[Mm]/)?.[1] ? parseFloat(String(site.askingPrice).match(/([\d.]+)\s*[Mm]/)[1]) * 1000000 : 0);
+                  const askRaw = fin.landCost || 0;
                   const hasAsk = askRaw > 0;
                   const askVsS = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
                   return (
@@ -3900,6 +3900,23 @@ function AppInner() {
                       <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
                       {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                     </div>
+                    {/* ── Land Cost & Acreage — top-level KPIs ── */}
+                    {(() => { const lc = parsePrice(site.askingPrice); const ac = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); const ppa = (!isNaN(lc) && lc > 0 && !isNaN(ac) && ac > 0) ? Math.round(lc / ac) : null; return (
+                      <div style={{ display: "flex", gap: 16, marginTop: 14, alignItems: "center" }}>
+                        {!isNaN(lc) && lc > 0 && <div style={{ background: "rgba(232,122,46,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(232,122,46,0.2)" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>LAND COST </span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: "#E87A2E", fontFamily: "'Space Mono', monospace" }}>{lc >= 1e6 ? `$${(lc/1e6).toFixed(2)}M` : `$${(lc/1000).toFixed(0)}K`}</span>
+                        </div>}
+                        {!isNaN(ac) && ac > 0 && <div style={{ background: "rgba(21,101,192,0.1)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(21,101,192,0.2)" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>ACREAGE </span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace" }}>{ac.toFixed(2)} ac</span>
+                        </div>}
+                        {ppa !== null && <div style={{ background: "rgba(201,168,76,0.08)", borderRadius: 8, padding: "6px 14px", border: "1px solid rgba(201,168,76,0.15)" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.06em" }}>PER ACRE </span>
+                          <span style={{ fontSize: 16, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>${ppa.toLocaleString()}</span>
+                        </div>}
+                      </div>
+                    ); })()}
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div onClick={() => setScoreExpanded(!scoreExpanded)} style={{ cursor: "pointer", transition: "transform 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"} onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"} title="Click for full SiteScore breakdown">
@@ -3922,7 +3939,7 @@ function AppInner() {
                   const verdict = fin.landVerdict || "—";
                   const vColor = fin.verdictColor || "#6B7394";
                   const yoc = fin.yocStab;
-                  const askRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")) || (String(site.askingPrice || "").match(/([\d.]+)\s*[Mm]/)?.[1] ? parseFloat(String(site.askingPrice).match(/([\d.]+)\s*[Mm]/)[1]) * 1000000 : 0);
+                  const askRaw = fin.landCost || 0;
                   const hasAsk = askRaw > 0;
                   const askVsS = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
                   return (
@@ -4273,7 +4290,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         const hhRaw = pN(site.households3mi); const hvRaw = pN(site.homeValue3mi);
                         const gVal = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : null;
                         const iq = site.siteiqData || {};
-                        const pricePerAc = (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? Math.round(p / a) : null; })();
+                        const pricePerAc = (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? Math.round(p / a) : null; })();
                         // Helper: metric row inside expansion
                         const MRow = ({ label, value, bench, benchLabel, color, pctOf }) => (
                           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid rgba(201,168,76,0.04)" }}>
@@ -4830,7 +4847,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                 const hvRaw = pN2(site.homeValue3mi);
                 const pop1Raw = pN2(site.pop1mi);
                 const acreageVal = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
-                const pricePerAcVal = (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(acreageVal) && acreageVal > 0) ? Math.round(p / acreageVal) : null; })();
+                const pricePerAcVal = (() => { const p = parsePrice(site.askingPrice); return (!isNaN(p) && p > 0 && !isNaN(acreageVal) && acreageVal > 0) ? Math.round(p / acreageVal) : null; })();
                 const psDist2 = site.siteiqData?.nearestPS ? (typeof site.siteiqData.nearestPS === "number" ? site.siteiqData.nearestPS : parseFloat(site.siteiqData.nearestPS)) : null;
                 const demoRows = [
                   { key: "population", label: "Population (3-mi)", val: fP2(site.pop3mi), icon: "👥" },
