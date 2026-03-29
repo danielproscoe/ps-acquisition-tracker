@@ -1,4 +1,5 @@
-// Vercel Serverless Function — Creates Gmail draft via REST API (no googleapis dep)
+// Vercel Serverless Function — Sends Email Rec to Outlook via Gmail API
+// One click: generates email → sends from Gmail → arrives in Outlook → forward to DW
 const https = require("https");
 
 function httpsPost(url, headers, body) {
@@ -19,13 +20,16 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
-  const { subject, html } = req.body || {};
+  const { subject, html, mode } = req.body || {};
   if (!subject || !html) return res.status(400).json({ error: "subject and html required" });
 
   const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN } = process.env;
   if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
     return res.status(500).json({ error: "Gmail OAuth credentials not configured" });
   }
+
+  const OUTLOOK_EMAIL = "Droscoe@DJRrealestate.com";
+  const GMAIL_FROM = "daniel.p.roscoe@gmail.com";
 
   try {
     // Step 1: Exchange refresh token for access token
@@ -39,34 +43,61 @@ module.exports = async (req, res) => {
 
     // Step 2: Build RFC 2822 MIME message
     const mime = [
+      `From: ${GMAIL_FROM}`,
+      `To: ${OUTLOOK_EMAIL}`,
+      `Subject: ${subject}`,
       "Content-Type: text/html; charset=utf-8",
       "MIME-Version: 1.0",
-      `Subject: ${subject}`,
       "",
       html
     ].join("\r\n");
 
     const encoded = Buffer.from(mime).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-    // Step 3: Create Gmail draft via REST API
-    const draftBody = JSON.stringify({ message: { raw: encoded } });
-    const draftResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
-      "Authorization": `Bearer ${tokenData.access_token}`,
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(draftBody)
-    }, draftBody);
-
-    const draftData = JSON.parse(draftResp.body);
-    if (draftData.id) {
-      const messageId = draftData.message?.id;
-      const draftUrl = `https://mail.google.com/mail/u/0/#drafts?compose=${messageId}`;
-      return res.status(200).json({ success: true, draftId: draftData.id, messageId, draftUrl });
-    } else {
-      console.error("Draft creation failed:", draftResp.body);
+    if (mode === "draft") {
+      // Create Gmail draft (fallback mode)
+      const draftBody = JSON.stringify({ message: { raw: encoded } });
+      const draftResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+        "Authorization": `Bearer ${tokenData.access_token}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(draftBody)
+      }, draftBody);
+      const draftData = JSON.parse(draftResp.body);
+      if (draftData.id) {
+        const messageId = draftData.message?.id;
+        return res.status(200).json({ success: true, mode: "draft", draftId: draftData.id, messageId, draftUrl: `https://mail.google.com/mail/u/0/#drafts?compose=${messageId}` });
+      }
       return res.status(500).json({ error: "Draft creation failed: " + (draftData.error?.message || "unknown") });
     }
+
+    // Step 3: SEND email from Gmail to Outlook
+    const sendBody = JSON.stringify({ raw: encoded });
+    const sendResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      "Authorization": `Bearer ${tokenData.access_token}`,
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(sendBody)
+    }, sendBody);
+
+    const sendData = JSON.parse(sendResp.body);
+    if (sendData.id) {
+      return res.status(200).json({ success: true, mode: "sent", messageId: sendData.id, sentTo: OUTLOOK_EMAIL });
+    } else {
+      console.error("Send failed:", sendResp.body);
+      // Fallback: create draft instead
+      const draftBody = JSON.stringify({ message: { raw: encoded } });
+      const draftResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+        "Authorization": `Bearer ${tokenData.access_token}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(draftBody)
+      }, draftBody);
+      const draftData = JSON.parse(draftResp.body);
+      if (draftData.id) {
+        return res.status(200).json({ success: true, mode: "draft-fallback", draftId: draftData.id, messageId: draftData.message?.id, note: "Send failed, created draft instead" });
+      }
+      return res.status(500).json({ error: "Both send and draft failed: " + (sendData.error?.message || "unknown") });
+    }
   } catch (err) {
-    console.error("Gmail draft creation failed:", err.message);
+    console.error("Email rec failed:", err.message);
     return res.status(500).json({ error: err.message });
   }
 };
