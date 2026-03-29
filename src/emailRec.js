@@ -243,7 +243,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     '<div style="background:#0A0F1E;padding:28px;border-top:3px solid #C9A84C">',
     '<div style="height:2px;background:linear-gradient(90deg,#C9A84C,transparent);width:80px;margin-bottom:18px"></div>',
     '<div style="font-size:12px;color:#94A3B8;margin-bottom:14px">Best regards,</div>',
-    '<div style="font-size:22px;font-weight:900;color:#F8FAFC;letter-spacing:-0.01em;margin-bottom:3px">Daniel P. Roscoe</div>',
+    '<div style="font-family:\'Dancing Script\',\'Brush Script MT\',\'Segoe Script\',cursive;font-size:32px;color:#C9A84C;margin-bottom:6px;line-height:1.1">Daniel P. Roscoe</div>',
     '<div style="font-size:12px;font-weight:600;color:#94A3B8;margin-bottom:14px">Owner, <span style="color:#C9A84C;font-weight:800">Storvex\u2122</span></div>',
     '<div style="margin-bottom:18px"><a href="mailto:Droscoe@DJRrealestate.com" style="font-size:12px;color:#C9A84C;text-decoration:none;font-weight:600">Droscoe@DJRrealestate.com</a><span style="color:#475569"> &middot; </span><span style="font-size:12px;color:#94A3B8">312-805-5996</span></div>',
     '<div style="padding-top:14px;border-top:1px solid #1E293B">',
