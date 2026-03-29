@@ -3,7 +3,7 @@
 // Returns { previewHTML, emailBody, subject, toEmails, listingWarning, recipient }
 
 import { escapeHtml, fixEncoding } from './utils';
-import { computeSiteFinancials } from './scoring';
+import { computeSiteFinancials, computeDualStrategies } from './scoring';
 
 const REC_RECIPIENTS = {
   east: { name: "Matt", email: "mtoussaint@publicstorage.com" },
@@ -11,7 +11,7 @@ const REC_RECIPIENTS = {
   queue: { name: "PS Team", email: "" },
 };
 
-export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
+export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualStrategiesOverride) => {
   const h = escapeHtml;
   const fe = (v) => fixEncoding(v || "");
   const recip = REC_RECIPIENTS[regionKey] || REC_RECIPIENTS.queue;
@@ -29,6 +29,10 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   let fin = null;
   try { fin = computeSiteFinancials(site, valuationOverrides || {}, site.overrides || {}); } catch (e) { /* skip */ }
   const $k = (v) => v >= 1000000 ? "$" + (v / 1000000).toFixed(1) + "M" : v >= 1000 ? "$" + Math.round(v / 1000) + "K" : "$" + Math.round(v).toLocaleString();
+
+  // ── Dual-Strategy Layout Analysis ──
+  let dual = dualStrategiesOverride || null;
+  if (!dual) { try { dual = computeDualStrategies(site, valuationOverrides || {}, site.overrides || {}); } catch { /* skip */ } }
 
   const acreageRaw = fe(site.acreage || "").replace(/\s*\(.*?\)\s*/g, "").trim();
   const askClean = fe(site.askingPrice || "TBD").replace(/\s*\(.*?\)\s*/g, "").trim();
@@ -212,6 +216,70 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     (site.competingCCSF ? h(fe(site.competingCCSF)) + ' CC SF within 3 mi. ' : '') +
     'Competitors: ' + h(fe(site.competitorNames)) + '</div>' : '') +
     '</td></tr></table></div>' : '',
+
+    // ── DEVELOPMENT STRATEGIES — side-by-side layout comparison ──
+    dual ? (() => {
+      const sA = dual.strategyA;
+      const sB = dual.strategyB;
+      const isRecA = dual.recommendation === "A";
+      const isRecB = dual.recommendation === "B";
+      const recBorder = "#C9A84C"; // gold for recommended
+      const altBorder = "#475569"; // steel for alternative
+      const recBg = "rgba(201,168,76,0.04)";
+      const altBg = "transparent";
+
+      const stratCol = (s, isRec) => {
+        const border = isRec ? recBorder : altBorder;
+        const bg = isRec ? recBg : altBg;
+        const badge = isRec ? '<div style="background:#C9A84C;color:#0A0F1E;font-size:8px;font-weight:900;text-align:center;padding:5px 0;letter-spacing:0.16em;text-transform:uppercase;border-radius:6px 6px 0 0">RECOMMENDED</div>' : '<div style="background:#334155;color:#94A3B8;font-size:8px;font-weight:700;text-align:center;padding:5px 0;letter-spacing:0.12em;text-transform:uppercase;border-radius:6px 6px 0 0">ALTERNATIVE</div>';
+        const row = (label, value, highlight) => {
+          const c = highlight ? "#15803D" : "#0F172A";
+          const w = highlight ? "900" : "700";
+          const sz = highlight ? "15px" : "12px";
+          const rbg = highlight ? "#F0FDF4" : "transparent";
+          return '<tr style="background:' + rbg + '"><td style="padding:8px 12px;font-size:11px;color:#64748B;font-weight:600;border-bottom:1px solid #F1F5F9">' + label + '</td>' +
+            '<td style="padding:8px 12px;font-size:' + sz + ';color:' + c + ';font-weight:' + w + ';text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + value + '</td></tr>';
+        };
+        return '<td style="width:50%;padding:0 6px;vertical-align:top"><div style="border:2px solid ' + border + ';border-radius:8px;overflow:hidden;background:' + bg + '">' +
+          badge +
+          '<div style="padding:12px 14px 6px;text-align:center">' +
+          '<div style="font-size:18px;font-weight:900;color:#0F172A">' + h(s.productType) + '</div>' +
+          '<div style="font-size:10px;color:#64748B;margin-top:2px">' + s.ccDuSplit + ' CC/DU</div>' +
+          '</div>' +
+          '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">' +
+          row("Pad Acreage", s.padAcres + " ac") +
+          (s.excessAcres > 0 ? row("Excess Land", s.excessAcres + " ac") : '') +
+          row("Pad Land Cost", $k(s.padLandCost)) +
+          row("Build Plate", "~" + Math.round(s.totalSF / 1000) + "K SF") +
+          row("Build Cost", $k(s.buildCost)) +
+          row("Total Investment", $k(s.totalInvestment)) +
+          row("CC Rent", "$" + s.mktClimateRate.toFixed(2) + "/SF/mo") +
+          row("Stabilized NOI", $k(s.stabNOI)) +
+          row("Projected YOC", s.yoc + "%", true) +
+          row("Rec. Offer", recOfferStr(s)) +
+          '</table>' +
+          '<div style="padding:10px 12px;text-align:center"><span style="display:inline-block;padding:4px 14px;border-radius:100px;background:' + s.verdictColor + '15;color:' + s.verdictColor + ';font-size:11px;font-weight:800;letter-spacing:0.04em">' + h(s.verdict) + '</span></div>' +
+          (s.padPosition ? '<div style="padding:0 12px 12px;font-size:10px;color:#64748B;line-height:1.5;border-top:1px solid #F1F5F9;padding-top:8px"><strong style="color:#475569">Pad:</strong> ' + h(s.padPosition) + '</div>' : '') +
+          '</div></td>';
+      };
+
+      const recOfferStr = (s) => s.recOffer > 0 ? $k(s.recOffer) + (s.recOfferPerAc > 0 ? " (" + $k(s.recOfferPerAc) + "/ac)" : "") : "TBD";
+
+      return '<div style="padding:0 28px 20px;background:#FFFFFF">' +
+        '<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:8px"><tr>' +
+        '<td><span style="font-size:10px;font-weight:800;color:#1E293B;text-transform:uppercase;letter-spacing:0.14em">DEVELOPMENT STRATEGIES</span></td>' +
+        '<td style="text-align:right"><span style="font-size:9px;color:#C9A84C;font-weight:700;letter-spacing:0.06em">DUAL LAYOUT ANALYSIS</span></td>' +
+        '</tr></table>' +
+        '<table cellpadding="0" cellspacing="0" style="width:100%"><tr>' +
+        stratCol(sA, isRecA) +
+        stratCol(sB, isRecB) +
+        '</tr></table>' +
+        '<div style="margin-top:12px;padding:12px 16px;border-radius:6px;background:#0F172A;border-left:3px solid #C9A84C">' +
+        '<div style="font-size:9px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">RECOMMENDATION</div>' +
+        '<div style="font-size:12px;color:#E2E8F0;line-height:1.6">' +
+        '<strong style="color:#C9A84C">Strategy ' + dual.recommendation + '</strong> \u2014 ' + h(dual.recommendationReason) +
+        '</div></div></div>';
+    })() : '',
 
     // ── PROJECTED ECONOMICS — light table ──
     fin && fin.totalSF > 0 ? '<div style="padding:0 28px 20px;background:#FFFFFF">' +

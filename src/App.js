@@ -24,7 +24,7 @@ import {
   MSG_COLORS, DOC_TYPES, SITE_SCORE_DEFAULTS, STYLES,
   normalizeSiteScoreWeights,
 } from './utils';
-import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeVettingIntel, buildSitePackage, computeValidationStats, parsePrice } from './scoring';
+import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeDualStrategies, computeVettingIntel, buildSitePackage, computeValidationStats, parsePrice } from './scoring';
 import {
   generateVettingReport as _generateVettingReport,
   generatePricingReport as _generatePricingReport,
@@ -1777,13 +1777,14 @@ function AppInner() {
                               {[
                                 { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
                                 { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "rgba(201,168,76,0.1)") : "#94A3B8" },
-                                { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0" },
+                                { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0", badge: parseFloat(String(site.acreage || "0").replace(/[^0-9.]/g, "")) >= 2.5 ? "2 LAYOUTS" : null },
                                 { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#E2E8F0" },
                                 { label: "3MI MED INC", val: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : "$" + fmtN(site.income3mi)) : "—", color: "#E2E8F0" },
                               ].map((m, idx) => (
-                                <div key={idx} style={{ background: "rgba(255,255,255,.07)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(255,255,255,.08)" }}>
+                                <div key={idx} style={{ background: "rgba(255,255,255,.07)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(255,255,255,.08)", position: "relative" }}>
                                   <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 4 }}>{m.label}</div>
                                   <div style={{ fontSize: 16, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                                  {m.badge && <span style={{ position: "absolute", top: 4, right: 6, fontSize: 7, fontWeight: 800, color: "#C9A84C", background: "rgba(201,168,76,0.12)", padding: "2px 5px", borderRadius: 4, letterSpacing: "0.06em" }}>{m.badge}</span>}
                                 </div>
                               ))}
                             </div>
@@ -2225,7 +2226,7 @@ function AppInner() {
                           { label: "Growth Outlook", val: gOutlook, icon: "🔮", color: oColor },
                           { label: "Households (3-mi)", val: fP(site.households3mi), icon: "🏠" },
                           { label: "Median Home Value (3-mi)", val: fP(site.homeValue3mi, "$"), icon: "🏡" },
-                          { label: "Acreage", val: site.acreage ? site.acreage + " ac" : null, icon: "📐" },
+                          { label: "Acreage", val: site.acreage ? site.acreage + " ac" + (parseFloat(String(site.acreage || "0").replace(/[^0-9.]/g, "")) >= 2.5 ? " · 2 layouts" : "") : null, icon: "📐" },
                           { label: "Price / Acre", val: (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
                           { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
                           { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },

@@ -1,7 +1,7 @@
 // ─── Unit Tests for SiteScore Scoring Engine ───
 // McKinsey Audit: TEST-02 — scoring engine correctness verification
 // Expanded suite: 50+ test cases covering all edge cases, hard fails, bonuses, penalties
-import { computeSiteScore, computeSiteFinancials } from './scoring';
+import { computeSiteScore, computeSiteFinancials, computeDualStrategies } from './scoring';
 import { SITE_SCORE_DEFAULTS } from './utils';
 
 // ─── Shared Fixtures ───
@@ -1899,5 +1899,90 @@ describe('computeValidationStats', () => {
     expect(result.total).toBe(2);
     expect(result.avgScoreApproved).toBeNull();
     expect(result.avgScoreRejected).toBe(5.0);
+  });
+});
+
+// ─── computeDualStrategies — Dual Layout Analysis ───
+describe('computeDualStrategies', () => {
+  const largeSite = {
+    ...baseSite,
+    acreage: '7.0',
+    askingPrice: '$1,050,000',
+  };
+
+  test('generates both one-story and multi-story strategies for a 7ac site', () => {
+    const result = computeDualStrategies(largeSite);
+    expect(result).not.toBeNull();
+    expect(result.strategyA).toBeDefined();
+    expect(result.strategyB).toBeDefined();
+    expect(result.strategyA.stories).toBe(1);
+    expect(result.strategyB.stories).toBe(3);
+    expect(result.strategyA.label).toBe('One-Story Primary');
+    expect(result.strategyB.label).toBe('Multi-Story Compact');
+    expect(result.recommendation).toMatch(/^[AB]$/);
+    expect(result.recommendationReason).toBeTruthy();
+  });
+
+  test('multi-story uses smaller pad acreage than one-story', () => {
+    const result = computeDualStrategies(largeSite);
+    expect(result.strategyB.padAcres).toBeLessThan(result.strategyA.padAcres);
+    expect(result.strategyB.excessAcres).toBeGreaterThan(result.strategyA.excessAcres);
+  });
+
+  test('pad land costs are pro-rated by pad acreage', () => {
+    const result = computeDualStrategies(largeSite);
+    expect(result.strategyA.padLandCost).toBeGreaterThan(result.strategyB.padLandCost);
+    expect(result.strategyA.padLandCost).toBeLessThanOrEqual(1050000);
+    expect(result.strategyB.padLandCost).toBeLessThanOrEqual(1050000);
+  });
+
+  test('returns null for sites under 2.5 acres', () => {
+    const tinySite = { ...baseSite, acreage: '2.0' };
+    expect(computeDualStrategies(tinySite)).toBeNull();
+  });
+
+  test('generates strategies for a 3.0ac site', () => {
+    const smallSite = { ...baseSite, acreage: '3.0', askingPrice: '$450,000' };
+    const result = computeDualStrategies(smallSite);
+    expect(result).not.toBeNull();
+    expect(result.strategyA.stories).toBe(1);
+    expect(result.strategyB.stories).toBe(3);
+  });
+
+  test('uses site-specific pad position when available', () => {
+    const siteWithPad = { ...largeSite, strategyA_padPosition: 'East 5ac fronting US-31', strategyB_padPosition: 'NW corner 3ac' };
+    const result = computeDualStrategies(siteWithPad);
+    expect(result.strategyA.padPosition).toBe('East 5ac fronting US-31');
+    expect(result.strategyB.padPosition).toBe('NW corner 3ac');
+  });
+
+  test('falls back to generic pad position when not specified', () => {
+    const result = computeDualStrategies(largeSite);
+    expect(result.strategyA.padPosition).toContain('frontage');
+    expect(result.strategyB.padPosition).toContain('Compact');
+  });
+
+  test('respects site-level strategy override', () => {
+    const overrideSite = { ...largeSite, strategyRecommendation: 'B', strategyReason: 'Multi-story better for this site' };
+    const result = computeDualStrategies(overrideSite);
+    expect(result.recommendation).toBe('B');
+    expect(result.recommendationReason).toBe('Multi-story better for this site');
+  });
+
+  test('both strategies have valid financial data', () => {
+    const result = computeDualStrategies(largeSite);
+    for (const s of [result.strategyA, result.strategyB]) {
+      expect(s.totalSF).toBeGreaterThan(0);
+      expect(s.buildCost).toBeGreaterThan(0);
+      expect(s.stabNOI).toBeGreaterThan(0);
+      expect(parseFloat(s.yoc)).toBeGreaterThan(0);
+      expect(s.verdict).toBeTruthy();
+    }
+  });
+
+  test('CC/DU splits differ between strategies', () => {
+    const result = computeDualStrategies(largeSite);
+    expect(result.strategyA.ccDuSplit).toBe('65/35');
+    expect(result.strategyB.ccDuSplit).toBe('75/25');
   });
 });
