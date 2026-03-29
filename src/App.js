@@ -3928,7 +3928,46 @@ function AppInner() {
                 <div style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.12em", marginBottom: 10, paddingLeft: 2 }}>QUICK ACCESS</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
                 {site.coordinates && (
-                  <button onClick={() => { window.open(`https://www.google.com/maps?q=${site.coordinates}`, "_blank"); }} style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(21,101,192,0.35)", letterSpacing: "0.04em", cursor: "pointer" }}>
+                  <button onClick={() => {
+                    const [lat, lng] = site.coordinates.split(",").map(c => parseFloat(c.trim()));
+                    if (isNaN(lat) || isNaN(lng)) { window.open(`https://www.google.com/maps?q=${site.coordinates}`, "_blank"); return; }
+                    const hav = `function hav(a,b,c,d){var R=3958.8,dL=(c-a)*Math.PI/180,dN=(d-b)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dN/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}`;
+                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${site.name || "Site"} — PS Proximity Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',system-ui,sans-serif}#map{width:100vw;height:100vh}
+.info-panel{position:fixed;top:16px;left:16px;z-index:1000;background:rgba(10,10,14,0.92);backdrop-filter:blur(16px);border-radius:14px;padding:20px 24px;color:#fff;border:1px solid rgba(201,168,76,0.2);box-shadow:0 12px 48px rgba(0,0,0,0.5);max-width:340px}
+.info-title{font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.01em}.info-sub{font-size:12px;color:#94A3B8;margin-top:4px}
+.info-badges{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.info-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px}
+.legend{position:fixed;bottom:16px;left:16px;z-index:1000;background:rgba(10,10,14,0.92);backdrop-filter:blur(16px);border-radius:10px;padding:12px 16px;border:1px solid rgba(201,168,76,0.15);display:flex;gap:16px;align-items:center}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#fff}
+.dot-site{width:12px;height:12px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2px solid #fff;border-radius:50%}
+.dot-ps{width:12px;height:12px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%}
+.dot-ring{width:12px;height:12px;border:2px dashed #C9A84C;border-radius:50%}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.8);opacity:0}}</style></head>
+<body><div id="map"></div>
+<div class="info-panel"><div class="info-title">${(site.name || "Subject Site").replace(/"/g, "&quot;")}</div>
+<div class="info-sub">${(site.address || "").replace(/"/g, "&quot;")}, ${(site.city || "").replace(/"/g, "&quot;")} ${site.state || ""}</div>
+<div class="info-badges">${site.acreage ? `<span class="info-badge" style="background:rgba(21,101,192,0.15);color:#42A5F5">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span class="info-badge" style="background:rgba(201,168,76,0.15);color:#C9A84C">${site.askingPrice}</span>` : ""}${site.zoning ? `<span class="info-badge" style="background:rgba(46,125,50,0.15);color:#66BB6A">${site.zoning}</span>` : ""}</div></div>
+<div class="legend"><div class="leg-item"><div class="dot-site"></div>Subject Site</div><div class="leg-item"><div class="dot-ps"></div>PS Locations</div><div class="leg-item"><div class="dot-ring"></div>3-Mile Radius</div></div>
+<script>${hav}
+var map=L.map("map",{attributionControl:false}).setView([${lat},${lng}],12);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(map);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,opacity:0.6}).addTo(map);
+var sI=L.divIcon({className:"",html:'<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:pulse 2s ease-in-out infinite"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div>',iconSize:[36,36],iconAnchor:[18,18]});
+L.marker([${lat},${lng}],{icon:sI,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-weight:900;font-size:14px;color:#1565C0">${(site.name || "Subject Site").replace(/'/g, "\\'")}</div>');
+L.circle([${lat},${lng}],{radius:4828,color:"#C9A84C",weight:2,opacity:0.5,fillColor:"#C9A84C",fillOpacity:0.04,dashArray:"8,6"}).addTo(map);
+fetch("/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
+var lines=csv.trim().split("\\n"),cnt=0,pI=L.divIcon({className:"",html:'<div style="width:16px;height:16px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<7)continue;var pLa=parseFloat(p[5]),pLn=parseFloat(p[6]);if(isNaN(pLa)||isNaN(pLn))continue;
+var d=hav(${lat},${lng},pLa,pLn);if(d<=25){cnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
+m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#E87A2E">'+p[0]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi from subject</div>',{direction:"auto",offset:[0,-8]});
+m.bindPopup('<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">'+p[0]+'</span></div><div style="font-size:12px;font-weight:600;color:#334155">'+p[1]+'</div><div style="font-size:11px;color:#64748B;margin-top:3px">'+p[2]+'</div><div style="font-size:11px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">'+d.toFixed(1)+' mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>');}}
+document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(232,122,46,0.15);color:#E87A2E">'+cnt+' PS within 25mi</span>';
+});<\/script></body></html>`;
+                    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                    window.open(URL.createObjectURL(blob), "_blank");
+                  }} style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(21,101,192,0.35)", letterSpacing: "0.04em", cursor: "pointer" }}>
                     <span style={{ fontSize: 18 }}>🗺</span> Interactive Map
                   </button>
                 )}
