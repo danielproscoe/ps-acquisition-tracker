@@ -1123,124 +1123,84 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   };
 };
 
-// ─── Dual-Strategy Layout Engine — Side-by-Side Development Scenarios ───
-// For every site, models BOTH one-story and multi-story layouts with independent
-// full financial stacks (build cost, NOI, YOC, verdict). PS leadership evaluates
-// which product type maximizes return. Each strategy specifies pad acreage needed,
-// excess land marketable separately, and site-specific pad position (from vetting).
-// Pad position fields (strategyA_padPosition, strategyB_padPosition) are populated
+// ─── Optimal Layout Engine — Best Single Layout Recommendation ───
+// Recommends ONE layout per site: one-story (PS preferred) for 3.5+ ac,
+// multi-story only when the site is too small (2.5–3.5 ac). Includes
+// site-specific pad position analysis (which portion of the parcel to take)
+// and pricing recommendation. Pad position field (padPosition) is populated
 // by Claude during §6d vetting based on aerial/frontage/parcel shape analysis.
-export const computeDualStrategies = (site, overrides = {}, siteOverrides = {}) => {
+export const computeOptimalLayout = (site, overrides = {}, siteOverrides = {}) => {
   const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0] || "0");
-  if (isNaN(acres) || acres < 2.5) return null; // Below minimum PS site size
+  if (isNaN(acres) || acres < 2.5) return null;
 
   const askRaw = parsePrice(site.askingPrice);
   const intRaw = parsePrice(site.internalPrice);
   const landCostRaw = !isNaN(intRaw) && intRaw > 0 ? intRaw : (!isNaN(askRaw) && askRaw > 0 ? askRaw : 0);
   const landCost = landCostRaw > 50000000 || landCostRaw < 0 ? 0 : landCostRaw;
   const pricePerAcre = acres > 0 && landCost > 0 ? landCost / acres : 0;
-
   const $k = (v) => v >= 1000000 ? "$" + (v / 1000000).toFixed(1) + "M" : v >= 1000 ? "$" + Math.round(v / 1000) + "K" : "$" + Math.round(v).toLocaleString();
 
-  // ── Strategy A: One-Story Primary (PS preferred suburban format) ──
-  // Force one-story by setting multiStoryThreshold to 0 (acres < 0 = false → one-story)
-  const overridesA = { ...overrides, multiStoryThreshold: 0 };
-  let finA = null;
-  try { finA = computeSiteFinancials(site, overridesA, siteOverrides); } catch { /* skip */ }
+  // ── Product type selection: one-story is HIGHLY preferred. Multi-story only below 3.0ac ──
+  // 3.0ac one-story: ~41K net SF (tight but viable PS suburban format)
+  // 3.5ac one-story: ~48K net SF (comfortable)
+  // Below 3.0ac: multi-story 3-story is the only way to get competitive SF
+  const isMultiStory = acres < 3.0;
+  const layoutOverrides = isMultiStory
+    ? { ...overrides, multiStoryThreshold: 999 }  // force multi-story
+    : { ...overrides, multiStoryThreshold: 0 };    // force one-story
 
-  // ── Strategy B: Multi-Story Compact (3-story on a compact pad) ──
-  // Multi-story's value proposition is using LESS land. Model it on the multi-story sweet spot
-  // (2.5-3.5ac), not the full parcel. This produces a smaller footprint + 3 stories = competitive SF
-  // while freeing excess acreage for resale. Cap at actual acres if site is already small.
-  const multiPadTarget = Math.min(acres, 3.5);
-  const siteB = { ...site, acreage: String(multiPadTarget) };
-  const overridesB = { ...overrides, multiStoryThreshold: 999 };
-  let finB = null;
-  try { finB = computeSiteFinancials(siteB, overridesB, siteOverrides); } catch { /* skip */ }
+  let fin = null;
+  try { fin = computeSiteFinancials(site, layoutOverrides, siteOverrides); } catch { /* skip */ }
+  if (!fin) return null;
 
-  if (!finA || !finB) return null;
-
-  // ── Pad acreage calculation for each strategy ──
-  // Strategy A: pad = footprint / coverage / 43560 + buffer, capped at total acres
-  // Strategy B: pad = the compact target (multiPadTarget), already modeled on that acreage
+  // ── Pad acreage — how much of the parcel the facility needs ──
   const coverageRatio = siteOverrides.coverageRatio || overrides.coverageRatio || 0.35;
-  const padAcresA = Math.min(Math.round((finA.footprint / coverageRatio / 43560 + 0.5) * 10) / 10, acres);
-  const padAcresB = Math.round(multiPadTarget * 10) / 10;
-  const excessA = Math.max(0, Math.round((acres - padAcresA) * 10) / 10);
-  const excessB = Math.max(0, Math.round((acres - padAcresB) * 10) / 10);
-  const padLandCostA = pricePerAcre > 0 ? Math.round(padAcresA * pricePerAcre) : landCost;
-  const padLandCostB = pricePerAcre > 0 ? Math.round(padAcresB * pricePerAcre) : landCost;
+  const padAcres = Math.min(Math.round((fin.footprint / coverageRatio / 43560 + 0.5) * 10) / 10, acres);
+  const excessAcres = Math.max(0, Math.round((acres - padAcres) * 10) / 10);
+  const padLandCost = pricePerAcre > 0 && excessAcres > 0 ? Math.round(padAcres * pricePerAcre) : landCost;
 
-  // ── Recalculate YOC on pad-only land cost (not full parcel) ──
-  const padTotalDevA = padLandCostA + finA.buildCosts + finA.carryCosts + finA.workingCapital;
-  const padTotalDevB = padLandCostB + finB.buildCosts + finB.carryCosts + finB.workingCapital;
-  const padYocA = finA.stabNOI > 0 && padTotalDevA > 0 ? ((finA.stabNOI / padTotalDevA) * 100).toFixed(1) : "N/A";
-  const padYocB = finB.stabNOI > 0 && padTotalDevB > 0 ? ((finB.stabNOI / padTotalDevB) * 100).toFixed(1) : "N/A";
+  // ── YOC on pad-only land cost ──
+  const padTotalDev = padLandCost + fin.buildCosts + fin.carryCosts + fin.workingCapital;
+  const padYoc = fin.stabNOI > 0 && padTotalDev > 0 ? ((fin.stabNOI / padTotalDev) * 100).toFixed(1) : "N/A";
 
-  // ── Recommended offer at Strike YOC (9%) for each strategy ──
+  // ── Recommended offer at Strike YOC (9%) ──
   const strikeYOC = siteOverrides.yocStrike || overrides.yocStrike || 0.09;
-  const recOfferA = finA.stabNOI > 0 ? Math.max(0, Math.round(finA.stabNOI / strikeYOC - finA.buildCosts - finA.carryCosts - finA.workingCapital)) : 0;
-  const recOfferB = finB.stabNOI > 0 ? Math.max(0, Math.round(finB.stabNOI / strikeYOC - finB.buildCosts - finB.carryCosts - finB.workingCapital)) : 0;
-  const recOfferPerAcA = recOfferA > 0 && padAcresA > 0 ? Math.round(recOfferA / padAcresA) : 0;
-  const recOfferPerAcB = recOfferB > 0 && padAcresB > 0 ? Math.round(recOfferB / padAcresB) : 0;
+  const recOffer = fin.stabNOI > 0 ? Math.max(0, Math.round(fin.stabNOI / strikeYOC - fin.buildCosts - fin.carryCosts - fin.workingCapital)) : 0;
+  const recOfferPerAc = recOffer > 0 && padAcres > 0 ? Math.round(recOffer / padAcres) : 0;
 
-  // ── Verdict for each strategy (based on pad land cost vs strike price) ──
-  const verdictCalc = (padCost, recOffer) => {
-    if (padCost <= 0 || recOffer <= 0) return { verdict: "UNDER REVIEW", color: "#6B7394" };
-    const pct = ((padCost / recOffer - 1) * 100);
+  // ── Verdict ──
+  const verdictCalc = (padCost, offer) => {
+    if (padCost <= 0 || offer <= 0) return { verdict: "UNDER REVIEW", color: "#6B7394" };
+    const pct = ((padCost / offer - 1) * 100);
     if (pct <= -15) return { verdict: "STRONG BUY", color: "#16A34A" };
     if (pct <= 0) return { verdict: "BUY", color: "#22C55E" };
     if (pct <= 15) return { verdict: "NEGOTIATE", color: "#F59E0B" };
     if (pct <= 30) return { verdict: "STRETCH", color: "#E87A2E" };
     return { verdict: "ABOVE STRIKE", color: "#EF4444" };
   };
-  const vA = verdictCalc(padLandCostA, recOfferA);
-  const vB = verdictCalc(padLandCostB, recOfferB);
+  const v = verdictCalc(padLandCost, recOffer);
 
   // ── Pad position — site-specific from vetting, generic fallback ──
-  const padPositionA = site.strategyA_padPosition || "Front pad — maximize road frontage & signage visibility";
-  const padPositionB = site.strategyB_padPosition || "Compact pad — minimize land cost, retain excess for resale";
+  const padPosition = site.padPosition || (isMultiStory
+    ? "Compact pad — maximize density on limited acreage"
+    : "Front pad — maximize road frontage & signage visibility");
 
-  // ── Recommendation — higher YOC wins; if within 0.3%, prefer one-story (PS preferred) ──
-  const yocAn = parseFloat(padYocA) || 0;
-  const yocBn = parseFloat(padYocB) || 0;
-  const yocDelta = yocAn - yocBn;
-  let recommendation = "A";
-  let recommendationReason = "";
-  if (yocDelta >= -0.3) {
-    recommendation = "A";
-    recommendationReason = yocDelta > 0.3
-      ? `One-story delivers ${padYocA}% YOC vs ${padYocB}% multi-story — superior return on ${padAcresA}ac pad.`
-      : `Similar YOC (${padYocA}% vs ${padYocB}%) — one-story preferred (PS suburban format, lower build cost, faster lease-up).`;
-  } else {
-    recommendation = "B";
-    recommendationReason = `Multi-story delivers ${padYocB}% YOC vs ${padYocA}% one-story — higher density on ${padAcresB}ac pad offsets build cost premium. Excess ${excessB}ac marketable separately.`;
-  }
-
-  // Allow site-level override from vetting
-  if (site.strategyRecommendation) {
-    recommendation = site.strategyRecommendation;
-    recommendationReason = site.strategyReason || recommendationReason;
-  }
-
-  const buildStrategy = (label, tag, fin, padAcres, excess, padLandCost, padTotalDev, padYoc, recOffer, recOfferPerAc, v, padPosition) => ({
-    label,
-    tag,
+  return {
     productType: fin.stories > 1 ? `${fin.stories}-Story` : "1-Story",
     stories: fin.stories,
+    isMultiStory,
     ccDuSplit: `${Math.round((fin.climatePct || 0.65) * 100)}/${Math.round((fin.drivePct || 0.35) * 100)}`,
     totalSF: fin.totalSF,
     climateSF: fin.climateSF,
     driveSF: fin.driveSF,
     grossSF: fin.grossSF,
     padAcres,
-    excessAcres: Math.max(0, excess),
+    excessAcres,
     padLandCost,
     padTotalDev,
     buildCost: fin.buildCosts,
     totalInvestment: padTotalDev,
     stabNOI: fin.stabNOI,
-    stabRev: fin.stabRev,
     yoc: padYoc,
     recOffer,
     recOfferPerAc,
@@ -1250,16 +1210,12 @@ export const computeDualStrategies = (site, overrides = {}, siteOverrides = {}) 
     mktClimateRate: fin.mktClimateRate,
     mktDriveRate: fin.mktDriveRate,
     totalHardPerSF: fin.totalHardPerSF,
-  });
-
-  return {
-    strategyA: buildStrategy("One-Story Primary", "A", finA, padAcresA, excessA, padLandCostA, padTotalDevA, padYocA, recOfferA, recOfferPerAcA, vA, padPositionA),
-    strategyB: buildStrategy("Multi-Story Compact", "B", finB, padAcresB, excessB, padLandCostB, padTotalDevB, padYocB, recOfferB, recOfferPerAcB, vB, padPositionB),
-    recommendation,
-    recommendationReason,
     totalAcres: acres,
     askingPrice: landCost > 0 ? $k(landCost) : "TBD",
     pricePerAcre: pricePerAcre > 0 ? Math.round(pricePerAcre) : 0,
+    rationale: isMultiStory
+      ? `Site is ${acres}ac — below 3.5ac one-story threshold. ${fin.stories}-story layout maximizes rentable SF on a compact footprint.`
+      : `${fin.stories > 0 ? "1" : fin.stories}-story PS suburban format on ${padAcres}ac pad.${excessAcres > 0 ? ` Excess ${excessAcres}ac marketable separately.` : ""}`,
   };
 };
 
