@@ -151,8 +151,8 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     '<div style="font-size:13px;color:#94A3B8;margin-top:4px">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + '</div>',
     // Action buttons — PROMINENT
     '<table cellpadding="0" cellspacing="0" style="margin-top:16px"><tr>',
-    listingUrl ? '<td style="padding-right:8px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:10px 20px;background:#1E293B;border:1px solid #334155;border-radius:6px;color:#E2E8F0;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:0.04em">View Listing</a></td>' : "",
-    pinDrop ? '<td style="padding-right:8px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:10px 20px;background:#1E293B;border:1px solid #334155;border-radius:6px;color:#E2E8F0;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:0.04em">Pin Drop</a></td>' : "",
+    listingUrl ? '<td style="padding-right:8px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:10px 20px;background:#2563EB;border-radius:6px;color:#FFFFFF;font-size:12px;font-weight:800;text-decoration:none;letter-spacing:0.04em">View Listing</a></td>' : "",
+    pinDrop ? '<td style="padding-right:8px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:10px 20px;background:#10B981;border-radius:6px;color:#FFFFFF;font-size:12px;font-weight:800;text-decoration:none;letter-spacing:0.04em">Pin Drop</a></td>' : "",
     '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:10px 24px;background:#C9A84C;border-radius:6px;color:#0A0F1E;font-size:12px;font-weight:900;text-decoration:none;letter-spacing:0.04em">Open in Storvex</a></td>',
     '</tr></table>',
     '</div>',
