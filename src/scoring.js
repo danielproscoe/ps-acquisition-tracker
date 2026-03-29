@@ -1148,21 +1148,26 @@ export const computeDualStrategies = (site, overrides = {}, siteOverrides = {}) 
   let finA = null;
   try { finA = computeSiteFinancials(site, overridesA, siteOverrides); } catch { /* skip */ }
 
-  // ── Strategy B: Multi-Story Compact (3-story, smaller footprint) ──
-  // Force multi-story by setting multiStoryThreshold absurdly high (acres < 999 = true → multi-story)
+  // ── Strategy B: Multi-Story Compact (3-story on a compact pad) ──
+  // Multi-story's value proposition is using LESS land. Model it on the multi-story sweet spot
+  // (2.5-3.5ac), not the full parcel. This produces a smaller footprint + 3 stories = competitive SF
+  // while freeing excess acreage for resale. Cap at actual acres if site is already small.
+  const multiPadTarget = Math.min(acres, 3.5);
+  const siteB = { ...site, acreage: String(multiPadTarget) };
   const overridesB = { ...overrides, multiStoryThreshold: 999 };
   let finB = null;
-  try { finB = computeSiteFinancials(site, overridesB, siteOverrides); } catch { /* skip */ }
+  try { finB = computeSiteFinancials(siteB, overridesB, siteOverrides); } catch { /* skip */ }
 
   if (!finA || !finB) return null;
 
   // ── Pad acreage calculation for each strategy ──
-  // Pad = building footprint / coverage ratio / 43560 + 0.5ac buffer (setbacks, drives, detention)
+  // Strategy A: pad = footprint / coverage / 43560 + buffer, capped at total acres
+  // Strategy B: pad = the compact target (multiPadTarget), already modeled on that acreage
   const coverageRatio = siteOverrides.coverageRatio || overrides.coverageRatio || 0.35;
   const padAcresA = Math.min(Math.round((finA.footprint / coverageRatio / 43560 + 0.5) * 10) / 10, acres);
-  const padAcresB = Math.min(Math.round((finB.footprint / coverageRatio / 43560 + 0.5) * 10) / 10, acres);
-  const excessA = Math.round((acres - padAcresA) * 10) / 10;
-  const excessB = Math.round((acres - padAcresB) * 10) / 10;
+  const padAcresB = Math.round(multiPadTarget * 10) / 10;
+  const excessA = Math.max(0, Math.round((acres - padAcresA) * 10) / 10);
+  const excessB = Math.max(0, Math.round((acres - padAcresB) * 10) / 10);
   const padLandCostA = pricePerAcre > 0 ? Math.round(padAcresA * pricePerAcre) : landCost;
   const padLandCostB = pricePerAcre > 0 ? Math.round(padAcresB * pricePerAcre) : landCost;
 
