@@ -136,18 +136,14 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
   const emailBody = [
     '<div style="font-family:' + SANS + ';max-width:700px;margin:0 auto;border-radius:0;overflow:hidden;background:#FFFFFF">',
 
-    // ══ DARK HERO HEADER ══
-    '<table cellpadding="0" cellspacing="0" style="width:100%;background:#0A0F1E"><tr>' +
-    '<td style="padding:12px 28px"><span style="font-size:10px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.22em">STORVEX</span></td>' +
-    '<td style="padding:12px 28px;text-align:right"><span style="font-size:9px;color:#64748B;letter-spacing:0.08em">' + dateStr + '</span></td>' +
-    '</tr></table>',
-
     // ══ EXECUTIVE BANNER — one paragraph tells the whole story ══
     (() => {
       // Build the recommendation offer string
-      const recOfferAmt = layout ? layout.recOffer : (fin && fin.landPrices && fin.landPrices[1] ? (fin.landCost > 0 && fin.landPrices[1].maxLand > fin.landCost && !site.offerAboveAskReason ? fin.landCost : fin.landPrices[1].maxLand) : 0);
-      const recOfferAcStr = layout ? (layout.recOfferPerAc > 0 ? $k(layout.recOfferPerAc) + "/ac" : "") : (fin && fin.acres > 0 && recOfferAmt > 0 ? $k(Math.round(recOfferAmt / fin.acres)) + "/ac" : "");
+      // When strike is unachievable (recOffer=0), fall back to asking price — "at ask" is the recommendation
       const askAmt = fin ? fin.landCost : 0;
+      const rawRecOffer = layout ? layout.recOffer : (fin && fin.landPrices && fin.landPrices[1] ? (fin.landCost > 0 && fin.landPrices[1].maxLand > fin.landCost && !site.offerAboveAskReason ? fin.landCost : fin.landPrices[1].maxLand) : 0);
+      const recOfferAmt = rawRecOffer > 0 ? rawRecOffer : (askAmt > 0 ? askAmt : 0);
+      const recOfferAcStr = recOfferAmt > 0 && fin && fin.acres > 0 ? $k(Math.round(recOfferAmt / fin.acres)) + "/ac" : (layout && layout.recOfferPerAc > 0 ? $k(layout.recOfferPerAc) + "/ac" : "");
       // Plate and build info
       const plateSF = layout ? layout.totalSF : (fin ? fin.totalSF : 0);
       const plateStr = plateSF > 0 ? Math.round(plateSF / 1000) + "K SF" : "";
