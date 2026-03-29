@@ -30,7 +30,8 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   try { fin = computeSiteFinancials(site, valuationOverrides || {}, site.overrides || {}); } catch (e) { /* skip */ }
   const $k = (v) => v >= 1000000 ? "$" + (v / 1000000).toFixed(1) + "M" : v >= 1000 ? "$" + Math.round(v / 1000) + "K" : "$" + Math.round(v).toLocaleString();
 
-  const acreageRaw = fe(site.acreage || "");
+  const acreageRaw = fe(site.acreage || "").replace(/\s*\(.*?\)\s*/g, "").trim();
+  const askClean = fe(site.askingPrice || "TBD").replace(/\s*\(.*?\)\s*/g, "").trim();
   const pricePerAc = fin && fin.landCost > 0 && fin.acres > 0 ? $k(Math.round(fin.landCost / fin.acres)) : null;
 
   const siteName = fe(site.name || site.address || site.id);
@@ -172,7 +173,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     // ── KPI BAR ──
     '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#0D1229;border-top:1px solid rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.04)"><tr>',
     kpi("ACREAGE", h(acreageRaw) || "\u2014", ""),
-    kpi("ASKING", h(fe(site.askingPrice || "TBD")), pricePerAc ? pricePerAc + "/ac" : ""),
+    kpi("ASKING", h(askClean), pricePerAc ? pricePerAc + "/ac" : ""),
     kpi("ZONING", zClass === "by-right" ? pill("BY-RIGHT", "#10B98120", "#10B981") : zClass === "conditional" ? pill("CONDITIONAL", "#F59E0B20", "#F59E0B") : pill("TBD", "rgba(255,255,255,0.06)", "#64748B"), ""),
     kpi("NEAREST PS", h(nearPS) || "\u2014", ""),
     '</tr></table>',
@@ -183,6 +184,14 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     (hookup ? pill(hookup.toUpperCase().replace("-", " "), waterColor + "18", waterColor) + '&nbsp;&nbsp;' : '') +
     (zoningNote ? '<span style="font-size:11px;color:rgba(255,255,255,0.35)">' + zoningNote + '</span>' : '') +
     '</td></tr></table>',
+
+    // ── GREETING + NARRATIVE ──
+    '<div style="padding:20px 28px 0;background:' + SLATE + '">',
+    '<div style="font-size:14px;color:rgba(255,255,255,0.55);line-height:1.75">',
+    recip.name !== "PS Team" ? h(recip.name) + ',<br><br>' : '',
+    'Wanted to bring a strong site to your attention' + (site.market ? ' in the ' + h(fe(site.market)) + ' corridor' : (site.city ? ' in ' + h(site.city) : '')) + '. ',
+    'Full analysis with interactive maps, competition landscape, and projected economics is available on <a href="' + h(dashLink) + '" style="color:' + GOLD + ';font-weight:700;text-decoration:none;border-bottom:1px solid ' + GOLD + '40">Storvex</a>.',
+    '</div></div>',
 
     // ── DEMOGRAPHICS — dark table, 1-3-5 mile ──
     '<div style="padding:24px 28px 0;background:' + SLATE + '">',
@@ -198,7 +207,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     '<td style="padding:10px 12px;font-size:9px;font-weight:800;color:' + GOLD + ';text-align:right;text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + '">3-MI</td>' +
     '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.2);text-align:right;text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + '">5-MI</td></tr>',
     dRow("Population", pop1, pop3, pop5, {}),
-    dRow("Growth (5yr CAGR)", h(growth ? "+" + String(growth).replace("+", "") : "\u2014"), h(growth ? "+" + String(growth).replace("+", "") : "\u2014"), h(growth ? "+" + String(growth).replace("+", "") : "\u2014"), { color: "#10B981" }),
+    dRow("Growth (5yr CAGR)", "\u2014", h(growth ? "+" + String(growth).replace("+", "") : "\u2014"), "\u2014", { color: "#10B981" }),
     dRow("Median HHI", hhi1, hhi3, hhi5, {}),
     dRow("Households", hh1, hh3, hh5, {}),
     dRow("Home Value", hv1, hv3, hv5, {}),
