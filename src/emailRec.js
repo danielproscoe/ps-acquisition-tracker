@@ -173,8 +173,8 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     '<div style="padding:24px 28px;background:#FFFFFF">',
     '<div style="font-size:14px;color:#1E293B;line-height:1.75">',
     recip.name !== "PS Team" ? h(recip.name) + ',<br><br>' : '',
-    'Wanted to bring a strong site to your attention' + (site.market ? ' in the ' + h(fe(site.market)) + ' corridor' : (site.city ? ' in ' + h(site.city) : '')) + '. ',
-    'Full analysis with interactive maps, competition landscape, and projected economics is available on <a href="' + h(dashLink) + '" style="color:#C9A84C;font-weight:700;text-decoration:underline">Storvex</a>.',
+    'Submitting a site for review' + (site.market ? ' in the ' + h(fe(site.market)) + ' corridor' : (site.city ? ' in ' + h(site.city) : '')) + '. ',
+    'Key metrics below. Complete analysis, interactive mapping, and projected economics available on <a href="' + h(dashLink) + '" style="color:#C9A84C;font-weight:700;text-decoration:underline">Storvex</a>.',
     '</div></div>',
 
     // ── DEMOGRAPHICS TABLE — light ──
