@@ -37,7 +37,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   const siteName = fe(site.name || site.address || site.id);
   const cityState = ((site.city || "") + " " + (site.state || "")).trim();
   const subjectSite = siteName.toLowerCase().includes((site.city || "").toLowerCase()) ? siteName : cityState + ", " + siteName;
-  const subject = "Site Recommendation \u2014 " + subjectSite + (ccSPC ? " | CC SPC " + ccSPC : "") + (zClass === "by-right" ? ", By-Right" : "");
+  const subject = "Site Recommendation - " + subjectSite + (ccSPC ? " | CC SPC " + ccSPC : "") + (zClass === "by-right" ? ", By-Right" : "");
 
   const toEmails = [];
   if (recip.email) toEmails.push(recip.email);
@@ -127,156 +127,127 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   };
 
   // ════════════════════════════════════════════════
-  // ASSEMBLE EMAIL — full dark-mode institutional
+  // ASSEMBLE EMAIL — dark header + light body (Outlook-safe)
   // ════════════════════════════════════════════════
   const emailBody = [
-    '<div style="font-family:' + SANS + ';max-width:700px;margin:0 auto;border-radius:16px;overflow:hidden;background:' + NAVY + '">',
+    '<div style="font-family:' + SANS + ';max-width:700px;margin:0 auto;border-radius:0;overflow:hidden;background:#FFFFFF">',
 
-    // ── MASTHEAD ──
-    '<table cellpadding="0" cellspacing="0" style="width:100%;background:' + NAVY + '"><tr>' +
-    '<td style="padding:14px 28px"><table cellpadding="0" cellspacing="0"><tr>' +
-    '<td style="padding-right:8px"><div style="width:7px;height:7px;background:#10B981;border-radius:50%;box-shadow:0 0 8px rgba(16,185,129,0.5)"></div></td>' +
-    '<td><span style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.22em;font-family:' + MONO + '">STORVEX\u2122</span></td>' +
-    '</tr></table></td>' +
-    '<td style="padding:14px 28px;text-align:right"><span style="font-size:9px;color:rgba(255,255,255,0.2);font-family:' + MONO + ';letter-spacing:0.1em">' + dateStr.toUpperCase() + '</span></td>' +
+    // ══ DARK HERO HEADER ══
+    '<table cellpadding="0" cellspacing="0" style="width:100%;background:#0A0F1E"><tr>' +
+    '<td style="padding:12px 28px"><span style="font-size:10px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.22em">STORVEX</span></td>' +
+    '<td style="padding:12px 28px;text-align:right"><span style="font-size:9px;color:#64748B;letter-spacing:0.08em">' + dateStr + '</span></td>' +
     '</tr></table>',
 
-    // ── HERO ──
-    '<div style="padding:8px 28px 28px;background:linear-gradient(180deg,' + NAVY + ' 0%,#0D1229 100%)">',
-    // Location
-    '<div style="font-size:12px;font-weight:600;color:' + GOLD + ';text-transform:uppercase;letter-spacing:0.2em;font-family:' + MONO + ';margin-bottom:10px">SITE ACQUISITION RECOMMENDATION</div>',
-    '<div style="font-size:34px;font-weight:900;color:#FFFFFF;letter-spacing:-0.03em;line-height:1.1">' + h(fe(site.address || site.name || "")) + '</div>',
-    '<div style="font-size:13px;color:rgba(255,255,255,0.4);margin-top:6px;letter-spacing:0.02em">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + (site.zip ? " " + h(site.zip) : "") + '</div>',
-
-    // Big verdict + YOC
-    '<table cellpadding="0" cellspacing="0" style="width:100%;margin-top:24px"><tr>',
-    // Left: verdict pill
-    '<td style="vertical-align:middle">' +
-    '<div style="display:inline-block;padding:8px 20px;background:' + verdictColor + '18;border:1px solid ' + verdictColor + '40;border-radius:100px">' +
-    '<span style="font-size:12px;font-weight:900;color:' + verdictColor + ';letter-spacing:0.06em;font-family:' + MONO + '">' + h(bannerText) + '</span></div>' +
-    '</td>',
-    // Right: YOC hero number
-    yocStr ? '<td style="text-align:right;vertical-align:middle">' +
-    '<div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.18em;font-family:' + MONO + ';margin-bottom:4px">PROJECTED YOC</div>' +
-    '<div style="font-size:42px;font-weight:900;color:#10B981;font-family:' + MONO + ';letter-spacing:-0.03em;line-height:1">' + yocStr + '</div>' +
-    '</td>' : '',
+    // ══ VERDICT BANNER — high contrast, impossible to miss ══
+    '<table cellpadding="0" cellspacing="0" style="width:100%;background:' + verdictColor + '"><tr>' +
+    '<td style="padding:14px 28px"><span style="font-size:13px;font-weight:900;color:#FFFFFF;letter-spacing:0.08em">' + h(bannerText) + '</span></td>' +
+    (yocStr ? '<td style="padding:14px 28px;text-align:right"><span style="font-size:10px;color:rgba(255,255,255,0.7);letter-spacing:0.08em">PROJECTED YOC </span><span style="font-size:20px;font-weight:900;color:#FFFFFF">' + yocStr + '</span></td>' : '') +
     '</tr></table>',
 
-    // Action links
-    '<table cellpadding="0" cellspacing="0" style="margin-top:20px"><tr>',
-    listingUrl ? '<td style="padding-right:6px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:7px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:rgba(255,255,255,0.4);font-size:10px;font-weight:600;text-decoration:none;letter-spacing:0.08em;font-family:' + MONO + '">Listing \u2197</a></td>' : "",
-    pinDrop ? '<td style="padding-right:6px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:7px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:rgba(255,255,255,0.4);font-size:10px;font-weight:600;text-decoration:none;letter-spacing:0.08em;font-family:' + MONO + '">Pin Drop \u2197</a></td>' : "",
-    '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:7px 18px;background:linear-gradient(135deg,' + GOLD + ',' + GOLD + 'cc);border-radius:8px;color:' + NAVY + ';font-size:10px;font-weight:900;text-decoration:none;letter-spacing:0.08em;font-family:' + MONO + '">Full Analysis \u2192</a></td>',
+    // ══ SITE HEADER — dark ══
+    '<div style="background:#0A0F1E;padding:24px 28px 20px">',
+    '<div style="font-size:10px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.18em;margin-bottom:8px">SITE ACQUISITION RECOMMENDATION</div>',
+    '<div style="font-size:28px;font-weight:900;color:#FFFFFF;letter-spacing:-0.02em;line-height:1.15">' + h(fe(site.address || site.name || "")) + '</div>',
+    '<div style="font-size:13px;color:#94A3B8;margin-top:4px">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + '</div>',
+    // Action buttons — PROMINENT
+    '<table cellpadding="0" cellspacing="0" style="margin-top:16px"><tr>',
+    listingUrl ? '<td style="padding-right:8px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:10px 20px;background:#1E293B;border:1px solid #334155;border-radius:6px;color:#E2E8F0;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:0.04em">View Listing</a></td>' : "",
+    pinDrop ? '<td style="padding-right:8px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:10px 20px;background:#1E293B;border:1px solid #334155;border-radius:6px;color:#E2E8F0;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:0.04em">Pin Drop</a></td>' : "",
+    '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:10px 24px;background:#C9A84C;border-radius:6px;color:#0A0F1E;font-size:12px;font-weight:900;text-decoration:none;letter-spacing:0.04em">Open in Storvex</a></td>',
     '</tr></table>',
     '</div>',
 
-    // ── KPI BAR ──
-    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#0D1229;border-top:1px solid rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.04)"><tr>',
-    kpi("ACREAGE", h(acreageRaw) || "\u2014", ""),
-    kpi("ASKING", h(askClean), pricePerAc ? pricePerAc + "/ac" : ""),
-    kpi("ZONING", zClass === "by-right" ? pill("BY-RIGHT", "#10B98120", "#10B981") : zClass === "conditional" ? pill("CONDITIONAL", "#F59E0B20", "#F59E0B") : pill("TBD", "rgba(255,255,255,0.06)", "#64748B"), ""),
-    kpi("NEAREST PS", h(nearPS) || "\u2014", ""),
+    // ══ KPI BAR — dark, 4 columns ══
+    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#0F172A"><tr>',
+    '<td style="padding:16px;text-align:center;width:25%;border-right:1px solid #1E293B"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.12em">ACREAGE</div><div style="font-size:20px;font-weight:900;color:#F1F5F9;margin-top:4px">' + (h(acreageRaw) || "-") + '</div></td>',
+    '<td style="padding:16px;text-align:center;width:25%;border-right:1px solid #1E293B"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.12em">ASKING</div><div style="font-size:18px;font-weight:900;color:#F1F5F9;margin-top:4px">' + h(askClean) + '</div>' + (pricePerAc ? '<div style="font-size:10px;color:#64748B;margin-top:2px">' + pricePerAc + '/ac</div>' : '') + '</td>',
+    '<td style="padding:16px;text-align:center;width:25%;border-right:1px solid #1E293B"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.12em">ZONING</div><div style="margin-top:6px">' + (zClass === "by-right" ? '<span style="background:#16A34A;color:#fff;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:800">BY-RIGHT</span>' : zClass === "conditional" ? '<span style="background:#F59E0B;color:#fff;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:800">CONDITIONAL</span>' : '<span style="background:#475569;color:#fff;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:800">TBD</span>') + '</div></td>',
+    '<td style="padding:16px;text-align:center;width:25%"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.12em">NEAREST PS</div><div style="font-size:20px;font-weight:900;color:#F1F5F9;margin-top:4px">' + (h(nearPS) || "-") + '</div></td>',
     '</tr></table>',
 
-    // ── STATUS BADGES ── (water + zoning + competition in one row)
-    '<table cellpadding="0" cellspacing="0" style="width:100%;background:#0D1229;padding:0"><tr>',
-    '<td style="padding:14px 28px">' +
-    (hookup ? pill(hookup.toUpperCase().replace("-", " "), waterColor + "18", waterColor) + '&nbsp;&nbsp;' : '') +
-    (zoningNote ? '<span style="font-size:11px;color:rgba(255,255,255,0.35)">' + zoningNote + '</span>' : '') +
-    '</td></tr></table>',
+    // ══════════════════════════════════════
+    // LIGHT BODY — white background, high contrast
+    // ══════════════════════════════════════
 
-    // ── GREETING + NARRATIVE ──
-    '<div style="padding:20px 28px 0;background:' + SLATE + '">',
-    '<div style="font-size:14px;color:rgba(255,255,255,0.55);line-height:1.75">',
+    // ── GREETING ──
+    '<div style="padding:24px 28px;background:#FFFFFF">',
+    '<div style="font-size:14px;color:#1E293B;line-height:1.75">',
     recip.name !== "PS Team" ? h(recip.name) + ',<br><br>' : '',
     'Wanted to bring a strong site to your attention' + (site.market ? ' in the ' + h(fe(site.market)) + ' corridor' : (site.city ? ' in ' + h(site.city) : '')) + '. ',
-    'Full analysis with interactive maps, competition landscape, and projected economics is available on <a href="' + h(dashLink) + '" style="color:' + GOLD + ';font-weight:700;text-decoration:none;border-bottom:1px solid ' + GOLD + '40">Storvex</a>.',
+    'Full analysis with interactive maps, competition landscape, and projected economics is available on <a href="' + h(dashLink) + '" style="color:#C9A84C;font-weight:700;text-decoration:underline">Storvex</a>.',
     '</div></div>',
 
-    // ── DEMOGRAPHICS — dark table, 1-3-5 mile ──
-    '<div style="padding:24px 28px 0;background:' + SLATE + '">',
+    // ── DEMOGRAPHICS TABLE — light ──
+    '<div style="padding:0 28px 20px;background:#FFFFFF">',
     '<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:6px"><tr>' +
-    '<td><span style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:0.18em;font-family:' + MONO + '">DEMOGRAPHICS</span></td>' +
-    '<td style="text-align:right"><span style="font-size:9px;color:rgba(201,168,76,0.5);font-family:' + MONO + ';letter-spacing:0.08em">ESRI PREMIUM 2025</span></td>' +
+    '<td><span style="font-size:10px;font-weight:800;color:#1E293B;text-transform:uppercase;letter-spacing:0.14em">DEMOGRAPHICS</span></td>' +
+    '<td style="text-align:right"><span style="font-size:9px;color:#C9A84C;font-weight:700;letter-spacing:0.06em">ESRI PREMIUM 2025</span></td>' +
     '</tr></table>',
-    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">',
-    // Header
-    '<tr style="background:rgba(255,255,255,0.02)">' +
-    '<td style="padding:10px 16px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + '"></td>' +
-    '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.2);text-align:right;text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + '">1-MI</td>' +
-    '<td style="padding:10px 12px;font-size:9px;font-weight:800;color:' + GOLD + ';text-align:right;text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + '">3-MI</td>' +
-    '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.2);text-align:right;text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + '">5-MI</td></tr>',
-    dRow("Population", pop1, pop3, pop5, {}),
-    dRow("Growth (5yr CAGR)", "\u2014", h(growth ? "+" + String(growth).replace("+", "") : "\u2014"), "\u2014", { color: "#10B981" }),
-    dRow("Median HHI", hhi1, hhi3, hhi5, {}),
-    dRow("Households", hh1, hh3, hh5, {}),
-    dRow("Home Value", hv1, hv3, hv5, {}),
-    dRow("Renter %", "", renter, "", {}),
+    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden">',
+    '<tr style="background:#0F172A">' +
+    '<td style="padding:10px 14px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.1em"></td>' +
+    '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:#94A3B8;text-align:right;text-transform:uppercase;letter-spacing:0.1em">1-MI</td>' +
+    '<td style="padding:10px 12px;font-size:9px;font-weight:800;color:#C9A84C;text-align:right;text-transform:uppercase;letter-spacing:0.1em">3-MI</td>' +
+    '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:#94A3B8;text-align:right;text-transform:uppercase;letter-spacing:0.1em">5-MI</td></tr>',
+    // Light rows
+    '<tr style="background:#FFFFFF"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">Population</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(pop1) + '</td><td style="padding:10px 12px;font-size:13px;color:#0F172A;font-weight:900;text-align:right;border-bottom:1px solid #F1F5F9">' + h(pop3) + '</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(pop5) + '</td></tr>',
+    '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">Growth (5yr CAGR)</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">-</td><td style="padding:10px 12px;font-size:13px;color:#16A34A;font-weight:900;text-align:right;border-bottom:1px solid #F1F5F9">' + h(growth ? "+" + String(growth).replace("+", "") : "-") + '</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">-</td></tr>',
+    '<tr style="background:#FFFFFF"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">Median HHI</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hhi1) + '</td><td style="padding:10px 12px;font-size:13px;color:#0F172A;font-weight:900;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hhi3) + '</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hhi5) + '</td></tr>',
+    '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">Households</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hh1) + '</td><td style="padding:10px 12px;font-size:13px;color:#0F172A;font-weight:900;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hh3) + '</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hh5) + '</td></tr>',
+    '<tr style="background:#FFFFFF"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">Home Value</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hv1) + '</td><td style="padding:10px 12px;font-size:13px;color:#0F172A;font-weight:900;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hv3) + '</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9">' + h(hv5) + '</td></tr>',
+    renter ? '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600">Renter %</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right"></td><td style="padding:10px 12px;font-size:13px;color:#0F172A;font-weight:900;text-align:right">' + h(renter) + '</td><td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right"></td></tr>' : '',
     '</table></div>',
 
-    // ── CC SPC ANALYSIS ──
-    ccSPC ? '<div style="padding:20px 28px;background:' + SLATE + '">' +
-    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;background:' + ccColor + '08;border:1px solid ' + ccColor + '20">' +
-    '<tr><td style="padding:16px 20px">' +
-    '<table cellpadding="0" cellspacing="0" style="width:100%"><tr>' +
-    '<td><div style="font-size:8px;font-weight:700;color:' + ccColor + ';text-transform:uppercase;letter-spacing:0.16em;font-family:' + MONO + ';opacity:0.7">CC STORAGE PER CAPITA</div>' +
-    '<div style="font-size:32px;font-weight:900;color:' + ccColor + ';font-family:' + MONO + ';letter-spacing:-0.02em;margin-top:4px">' + ccSPC + ' <span style="font-size:14px;font-weight:600;opacity:0.6">SF/capita</span></div>' +
-    '<div style="font-size:11px;color:' + ccColor + ';opacity:0.7;margin-top:4px;font-weight:600">' + ccLabel + '</div></td>' +
-    (projCCSPC ? '<td style="text-align:right"><div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + '">5-YR PROJECTED</div>' +
-    '<div style="font-size:24px;font-weight:800;color:rgba(255,255,255,0.5);font-family:' + MONO + ';margin-top:4px">' + projCCSPC + '</div></td>' : '') +
+    // ── CC SPC — light card ──
+    ccSPC ? '<div style="padding:0 28px 20px;background:#FFFFFF">' +
+    '<table cellpadding="0" cellspacing="0" style="width:100%;border:2px solid ' + ccColor + ';border-radius:8px;overflow:hidden"><tr>' +
+    '<td style="padding:16px 20px;background:' + ccColor + '08"><table cellpadding="0" cellspacing="0" style="width:100%"><tr>' +
+    '<td><div style="font-size:9px;font-weight:800;color:' + ccColor + ';text-transform:uppercase;letter-spacing:0.12em">CC STORAGE PER CAPITA</div>' +
+    '<div style="font-size:28px;font-weight:900;color:' + ccColor + ';margin-top:4px">' + ccSPC + ' <span style="font-size:12px;font-weight:600;color:#64748B">SF/capita</span></div>' +
+    '<div style="font-size:11px;color:#475569;margin-top:2px;font-weight:600">' + ccLabel + '</div></td>' +
+    (projCCSPC ? '<td style="text-align:right"><div style="font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.1em">5-YR PROJECTED</div>' +
+    '<div style="font-size:22px;font-weight:800;color:#475569;margin-top:4px">' + projCCSPC + '</div></td>' : '') +
     '</tr></table>' +
-    (site.competitorNames ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid ' + ccColor + '15;font-size:11px;color:rgba(255,255,255,0.3);line-height:1.5">' +
+    (site.competitorNames ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #E2E8F0;font-size:11px;color:#64748B;line-height:1.5">' +
     (site.competingCCSF ? h(fe(site.competingCCSF)) + ' CC SF within 3 mi. ' : '') +
     'Competitors: ' + h(fe(site.competitorNames)) + '</div>' : '') +
     '</td></tr></table></div>' : '',
 
-    // ── PROJECTED ECONOMICS ──
-    fin && fin.totalSF > 0 ? '<div style="padding:0 28px 24px;background:' + SLATE + '">' +
-    '<div style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:0.18em;font-family:' + MONO + ';margin-bottom:10px">PROJECTED ECONOMICS</div>' +
-    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">' +
-    eRow("Build Plate", "~" + Math.round(fin.totalSF / 1000) + "K SF \u00B7 " + (fin.stories > 1 ? fin.stories + "-story" : "1-story") + " \u00B7 " + Math.round((fin.climatePct || 0.65) * 100) + "/" + Math.round((fin.drivePct || 0.35) * 100) + " CC/DU", false) +
-    eRow("Build Cost", $k(fin.totalDevCost || 0) + " (" + $k(fin.totalHardPerSF || 0) + "/SF)", false) +
-    eRow("Total Investment", $k((fin.landCost || 0) + (fin.totalDevCost || 0)), false) +
-    eRow("Stabilized NOI (Yr 3)", $k(fin.stabNOI || 0), false) +
-    (fin.yocStab ? eRow("Projected YOC", fin.yocStab + "%", true) : "") +
-    (fin.landPrices && fin.landPrices[1] && fin.landPrices[1].maxLand > 0 ? eRow("Recommended Offer", $k(fin.landPrices[1].maxLand) + (fin.landPrices[1].perAcre ? " (" + $k(fin.landPrices[1].perAcre) + "/ac)" : ""), false) : "") +
+    // ── PROJECTED ECONOMICS — light table ──
+    fin && fin.totalSF > 0 ? '<div style="padding:0 28px 20px;background:#FFFFFF">' +
+    '<div style="font-size:10px;font-weight:800;color:#1E293B;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:8px">PROJECTED ECONOMICS</div>' +
+    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden">' +
+    '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #E2E8F0">Build Plate</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#0F172A;text-align:right;border-bottom:1px solid #E2E8F0">~' + Math.round(fin.totalSF / 1000) + 'K SF / ' + (fin.stories > 1 ? fin.stories + "-story" : "1-story") + ' / ' + Math.round((fin.climatePct || 0.65) * 100) + '/' + Math.round((fin.drivePct || 0.35) * 100) + ' CC/DU</td></tr>' +
+    '<tr><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #E2E8F0">Build Cost</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#0F172A;text-align:right;border-bottom:1px solid #E2E8F0">' + $k(fin.totalDevCost || 0) + ' (' + $k(fin.totalHardPerSF || 0) + '/SF)</td></tr>' +
+    '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #E2E8F0">Total Investment</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#0F172A;text-align:right;border-bottom:1px solid #E2E8F0">' + $k((fin.landCost || 0) + (fin.totalDevCost || 0)) + '</td></tr>' +
+    '<tr><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #E2E8F0">Stabilized NOI (Yr 3)</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#16A34A;text-align:right;border-bottom:1px solid #E2E8F0">' + $k(fin.stabNOI || 0) + '</td></tr>' +
+    (fin.yocStab ? '<tr style="background:#F0FDF4"><td style="padding:12px 14px;font-size:13px;color:#15803D;font-weight:800">Projected YOC</td><td style="padding:12px 14px;font-size:22px;font-weight:900;color:#15803D;text-align:right">' + fin.yocStab + '%</td></tr>' : '') +
+    (fin.landPrices && fin.landPrices[1] && fin.landPrices[1].maxLand > 0 ? '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600">Recommended Offer</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#0F172A;text-align:right">' + $k(fin.landPrices[1].maxLand) + (fin.landPrices[1].perAcre ? ' (' + $k(fin.landPrices[1].perAcre) + '/ac)' : '') + '</td></tr>' : '') +
     '</table></div>' : '',
 
-    // ── WATCH ITEMS ──
-    watches.length ? '<div style="padding:0 28px 20px;background:' + SLATE + '">' +
-    '<div style="padding:14px 18px;border-radius:10px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1)">' +
-    '<div style="font-size:9px;font-weight:700;color:#F59E0B;text-transform:uppercase;letter-spacing:0.14em;font-family:' + MONO + ';margin-bottom:8px;opacity:0.7">WATCH ITEMS</div>' +
-    watches.map(function(w) { return '<div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:4px;padding-left:12px;border-left:2px solid rgba(245,158,11,0.3)">' + w + '</div>'; }).join("") +
+    // ── WATCH ITEMS — light ──
+    watches.length ? '<div style="padding:0 28px 20px;background:#FFFFFF">' +
+    '<div style="padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A">' +
+    '<div style="font-size:9px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:6px">WATCH ITEMS</div>' +
+    watches.map(function(w) { return '<div style="font-size:12px;color:#78350F;margin-bottom:3px;padding-left:10px;border-left:2px solid #F59E0B">' + w + '</div>'; }).join("") +
     '</div></div>' : '',
 
-    // ── VERDICT ──
-    '<div style="padding:0 28px 28px;background:' + SLATE + '">',
-    '<div style="padding:20px 24px;border-radius:12px;background:linear-gradient(135deg,rgba(201,168,76,0.06),rgba(201,168,76,0.02));border:1px solid rgba(201,168,76,0.12)">',
-    '<div style="font-size:9px;font-weight:800;color:' + GOLD + ';text-transform:uppercase;letter-spacing:0.18em;font-family:' + MONO + ';margin-bottom:10px;opacity:0.6">STORVEX\u2122 VERDICT</div>',
-    verdict ? '<div style="font-size:14px;color:rgba(255,255,255,0.7);font-weight:600;line-height:1.7">' + h(verdict + ". " + (verdict === "STRONG BUY" || verdict === "BUY" ? "Strong fundamentals, margin in the land." : verdict === "NEGOTIATE" ? "Fundamentals support \u2014 price needs work." : "Good site, asking above strike.")) + '</div>' : '',
+    // ── VERDICT — light card with dark accent ──
+    '<div style="padding:0 28px 24px;background:#FFFFFF">',
+    '<div style="padding:18px 22px;border-radius:8px;background:#0F172A;border-left:4px solid #C9A84C">',
+    '<div style="font-size:9px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.16em;margin-bottom:8px">STORVEX VERDICT</div>',
+    verdict ? '<div style="font-size:14px;color:#E2E8F0;font-weight:600;line-height:1.7">' + h(verdict + ". " + (verdict === "STRONG BUY" || verdict === "BUY" ? "Strong fundamentals, margin in the land." : verdict === "NEGOTIATE" ? "Fundamentals support - price needs work." : "Good site, asking above strike.")) + '</div>' : '',
     '</div></div>',
 
-    // ── SIGNATURE — premium institutional ──
-    '<div style="background:linear-gradient(180deg,#080C18 0%,' + NAVY + ' 100%);padding:32px 28px 28px;border-top:1px solid rgba(201,168,76,0.08)">',
-    // Gold accent line
-    '<div style="height:2px;background:linear-gradient(90deg,' + GOLD + ',' + GOLD + '60,transparent);width:80px;margin-bottom:20px"></div>',
-    '<div style="font-size:13px;color:rgba(255,255,255,0.25);margin-bottom:16px;letter-spacing:0.02em">Best regards,</div>',
-    // Name — large, commanding
-    '<div style="font-size:24px;font-weight:900;color:#F8FAFC;letter-spacing:-0.02em;margin-bottom:4px">Daniel P. Roscoe</div>',
-    // Title with Storvex gold
-    '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.06em;margin-bottom:16px">Owner <span style="color:rgba(255,255,255,0.15)">\u2022</span> <span style="color:' + GOLD + ';font-weight:800">Storvex\u2122</span></div>',
-    // Contact row — email link + phone
-    '<table cellpadding="0" cellspacing="0" style="margin-bottom:20px"><tr>',
-    '<td style="padding-right:16px"><a href="mailto:Droscoe@DJRrealestate.com" style="font-size:12px;color:' + GOLD + ';text-decoration:none;font-weight:600;font-family:' + MONO + ';letter-spacing:0.02em;border-bottom:1px solid ' + GOLD + '30">Droscoe@DJRrealestate.com</a></td>',
-    '<td><span style="font-size:12px;color:rgba(255,255,255,0.3);font-family:' + MONO + '">312-805-5996</span></td>',
-    '</tr></table>',
-    // AI tagline with pulse dot
-    '<div style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.03)">',
-    '<table cellpadding="0" cellspacing="0"><tr>',
-    '<td style="padding-right:8px;vertical-align:middle"><div style="width:6px;height:6px;background:#10B981;border-radius:50%;box-shadow:0 0 8px rgba(16,185,129,0.4)"></div></td>',
-    '<td style="vertical-align:middle"><span style="font-size:9px;color:rgba(255,255,255,0.15);text-transform:uppercase;letter-spacing:0.22em;font-family:' + MONO + '">Generated by state-of-the-art AI review at Storvex\u2122</span></td>',
-    '</tr></table>',
-    '</div></div>',
+    // ══ DARK SIGNATURE FOOTER ══
+    '<div style="background:#0A0F1E;padding:28px;border-top:3px solid #C9A84C">',
+    '<div style="font-size:12px;color:#64748B;margin-bottom:12px">Best regards,</div>',
+    '<div style="font-size:22px;font-weight:900;color:#F8FAFC;letter-spacing:-0.01em;margin-bottom:3px">Daniel P. Roscoe</div>',
+    '<div style="font-size:12px;font-weight:600;color:#94A3B8;margin-bottom:14px">Owner, <span style="color:#C9A84C;font-weight:800">Storvex</span></div>',
+    '<div style="height:1px;background:linear-gradient(90deg,#C9A84C,transparent);width:160px;margin-bottom:12px"></div>',
+    '<div style="margin-bottom:16px"><a href="mailto:Droscoe@DJRrealestate.com" style="font-size:12px;color:#C9A84C;text-decoration:none;font-weight:600">Droscoe@DJRrealestate.com</a><span style="color:#334155"> &middot; </span><span style="font-size:12px;color:#64748B">312-805-5996</span></div>',
+    '<div style="font-size:8px;color:#334155;text-transform:uppercase;letter-spacing:0.2em">Generated by state-of-the-art AI review at Storvex</div>',
+    '</div>',
 
     '</div>',
   ].join("");
