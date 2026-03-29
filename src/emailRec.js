@@ -302,17 +302,24 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     + '<script>'
     + 'function copyEmail(){'
     + "var el=document.querySelector('.page');"
+    + "var b=document.getElementById('copyBtn');"
+    + 'try{'
     + "var blob=new Blob([el.innerHTML],{type:'text/html'});"
     + "var text=new Blob([el.innerText],{type:'text/plain'});"
     + "navigator.clipboard.write([new ClipboardItem({'text/html':blob,'text/plain':text})]).then(function(){"
-    + "var b=document.getElementById('copyBtn');b.textContent='Copied!';b.style.background='#10B981';b.style.color='#fff';"
-    + "setTimeout(function(){b.textContent='Copy for Gmail';b.style.background='linear-gradient(135deg,#C9A84C,#E8B84A)';b.style.color='#0A0F1E';},2000);"
-    + '}).catch(function(){'
-    + 'var r=document.createRange();r.selectNodeContents(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);'
-    + "document.execCommand('copy');s.removeAllRanges();"
-    + "var b=document.getElementById('copyBtn');b.textContent='Copied!';b.style.background='#10B981';"
-    + "setTimeout(function(){b.textContent='Copy for Gmail';b.style.background='linear-gradient(135deg,#C9A84C,#E8B84A)';},2000);"
-    + '});}'
+    + "b.textContent='\\u2713 Copied!';b.style.background='#10B981';b.style.color='#fff';"
+    + "setTimeout(function(){b.textContent='Copy for Gmail';b.style.background='linear-gradient(135deg,#C9A84C,#E8B84A)';b.style.color='#0A0F1E';},2500);"
+    + '}).catch(function(){fallbackCopy(el,b)});'
+    + '}catch(e){fallbackCopy(el,b)}'
+    + '}'
+    + 'function fallbackCopy(el,b){'
+    + 'var r=document.createRange();r.selectNodeContents(el);'
+    + 'var s=window.getSelection();s.removeAllRanges();s.addRange(r);'
+    + "try{document.execCommand('copy');"
+    + "b.textContent='\\u2713 Copied! (Ctrl+V to paste)';b.style.background='#10B981';b.style.color='#fff';"
+    + "}catch(e2){b.textContent='Select All + Copy manually';b.style.background='#F59E0B';b.style.color='#000';}"
+    + "setTimeout(function(){s.removeAllRanges();b.textContent='Copy for Gmail';b.style.background='linear-gradient(135deg,#C9A84C,#E8B84A)';b.style.color='#0A0F1E';},3000);"
+    + '}'
     + '</script></body></html>';
 
   return { previewHTML, emailBody, subject, toEmails, listingWarning, recipient: recip.name };
