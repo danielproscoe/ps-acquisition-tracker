@@ -227,7 +227,9 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
         return '<tr style="background:' + rbg + '"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">' + label + '</td>' +
           '<td style="padding:10px 14px;font-size:' + sz + ';color:' + c + ';font-weight:' + w + ';text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + value + '</td></tr>';
       };
-      const recOfferStr = layout.recOffer > 0 ? $k(layout.recOffer) + (layout.recOfferPerAc > 0 ? " (" + $k(layout.recOfferPerAc) + "/ac)" : "") : "TBD";
+      const recOfferStr = layout.recOffer > 0
+        ? $k(layout.recOffer) + (layout.recOfferPerAc > 0 ? " (" + $k(layout.recOfferPerAc) + "/ac)" : "") + (layout.recOfferCapped ? ' \u2713 at ask' : '')
+        : "TBD";
 
       return '<div style="padding:0 28px 20px;background:#FFFFFF">' +
         '<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:8px"><tr>' +
@@ -261,7 +263,16 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
     '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #E2E8F0">Total Investment</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#0F172A;text-align:right;border-bottom:1px solid #E2E8F0">' + $k((fin.landCost || 0) + (fin.totalDevCost || 0)) + '</td></tr>' +
     '<tr><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #E2E8F0">Stabilized NOI (Yr 3)</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#16A34A;text-align:right;border-bottom:1px solid #E2E8F0">' + $k(fin.stabNOI || 0) + '</td></tr>' +
     (fin.yocStab ? '<tr style="background:#F0FDF4"><td style="padding:12px 14px;font-size:13px;color:#15803D;font-weight:800">Projected YOC</td><td style="padding:12px 14px;font-size:22px;font-weight:900;color:#15803D;text-align:right">' + fin.yocStab + '%</td></tr>' : '') +
-    (fin.landPrices && fin.landPrices[1] && fin.landPrices[1].maxLand > 0 ? '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600">Recommended Offer</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#0F172A;text-align:right">' + $k(fin.landPrices[1].maxLand) + (fin.landPrices[1].perAcre ? ' (' + $k(fin.landPrices[1].perAcre) + '/ac)' : '') + '</td></tr>' : '') +
+    (fin.landPrices && fin.landPrices[1] && fin.landPrices[1].maxLand > 0 ? (() => {
+      // HARD RULE: Never recommend offering above asking price unless offerAboveAskReason is set
+      const strikeMax = fin.landPrices[1].maxLand;
+      const askLand = fin.landCost || 0;
+      const hasOverride = !!(site.offerAboveAskReason);
+      const cappedOffer = (!hasOverride && askLand > 0 && strikeMax > askLand) ? askLand : strikeMax;
+      const cappedPerAc = fin.acres > 0 ? Math.round(cappedOffer / fin.acres) : 0;
+      const wasAbove = (!hasOverride && askLand > 0 && strikeMax > askLand);
+      return '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600">Recommended Offer</td><td style="padding:10px 14px;font-size:13px;font-weight:800;color:#0F172A;text-align:right">' + $k(cappedOffer) + (cappedPerAc ? ' (' + $k(cappedPerAc) + '/ac)' : '') + (wasAbove ? ' <span style="color:#16A34A;font-size:10px">\u2713 at ask</span>' : '') + '</td></tr>';
+    })() : '') +
     '</table></div>' : '',
 
     // ── WATCH ITEMS — light ──
