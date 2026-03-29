@@ -247,11 +247,8 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
         '<td><span style="font-size:10px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.22em">STORVEX</span></td>' +
         '<td style="text-align:right"><span style="font-size:9px;color:#64748B;letter-spacing:0.08em">' + dateStr + '</span></td>' +
         '</tr></table>' +
-        // Verdict pill
-        '<div style="margin-bottom:14px">' +
-        '<span style="display:inline-block;padding:6px 18px;border-radius:100px;background:' + verdictColor + ';color:#FFFFFF;font-size:12px;font-weight:900;letter-spacing:0.08em">' + h(verdict || bannerText) + '</span>' +
-        (yocStr ? '<span style="margin-left:12px;font-size:22px;font-weight:900;color:#FFFFFF;font-family:' + MONO + '">' + yocStr + ' <span style="font-size:10px;font-weight:600;color:#94A3B8">YOC</span></span>' : '') +
-        '</div>' +
+        // YOC hero number (no verdict label)
+        (yocStr ? '<div style="margin-bottom:14px"><span style="font-size:28px;font-weight:900;color:#FFFFFF;font-family:' + MONO + '">' + yocStr + '</span><span style="font-size:11px;font-weight:600;color:#94A3B8;margin-left:6px">PROJECTED YOC</span></div>' : '') +
         // Site address — large
         '<div style="font-size:28px;font-weight:900;color:#FFFFFF;letter-spacing:-0.02em;line-height:1.15;margin-bottom:4px">' + h(fe(site.address || site.name || "")) + '</div>' +
         '<div style="font-size:13px;color:#64748B;margin-bottom:20px">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + '</div>' +
