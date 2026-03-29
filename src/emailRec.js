@@ -128,44 +128,53 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   const recBannerText = recLine || (fin && fin.yocStab ? "Projected " + fin.yocStab + "% YOC" : "Site under review");
   const recBannerColor = (fin && fin.landVerdict === "STRONG BUY") || (fin && fin.landVerdict === "BUY") ? "#16A34A" : (fin && fin.landVerdict === "NEGOTIATE") ? "#F59E0B" : "#3B82F6";
 
-  // Assemble email body
+  // Assemble email body — institutional AI aesthetic
   const emailBody = [
-    '<div style="font-family:Calibri,sans-serif;max-width:680px;margin:0 auto;color:#1E293B;line-height:1.6">',
-    // ── STORVEX RECOMMENDATION BANNER ──
-    '<div style="background:linear-gradient(135deg,' + recBannerColor + ',' + recBannerColor + 'dd);padding:10px 28px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between">',
-    '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:9px;font-weight:800;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.12em">STORVEX\u2122 RECOMMENDATION</span></div>',
-    '<div style="font-size:11px;font-weight:800;color:#fff;letter-spacing:0.04em">' + h(recBannerText).substring(0, 60) + '</div>',
+    '<div style="font-family:\'Inter\',\'SF Pro Display\',Calibri,system-ui,sans-serif;max-width:680px;margin:0 auto;color:#0F172A;line-height:1.6;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0;box-shadow:0 4px 24px rgba(0,0,0,0.06)">',
+    // ── TOP BAR — AI signal ──
+    '<div style="background:#0F172A;padding:8px 28px;display:flex;align-items:center;justify-content:space-between">',
+    '<div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;background:#22C55E;border-radius:50%;box-shadow:0 0 6px rgba(34,197,94,0.6)"></div><span style="font-size:9px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.16em;font-family:\'SF Mono\',\'Fira Code\',monospace">STORVEX\u2122 AI-POWERED SITE INTELLIGENCE</span></div>',
+    '<span style="font-size:9px;color:#475569;font-family:\'SF Mono\',monospace;letter-spacing:0.06em">' + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + '</span>',
     '</div>',
-    // ── HEADER ──
-    '<div style="background:linear-gradient(135deg,#0A0E2A,#1E2761);padding:28px 28px 20px">',
-    '<div style="font-size:22px;font-weight:900;color:#C9A84C;letter-spacing:-0.01em">' + h(fe(site.address || site.name || "")) + '</div>',
-    '<div style="font-size:14px;color:#D6E4F7;margin-top:4px;font-weight:500">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + " " + h(site.zip || "") + '</div>',
-    // ── Premium action buttons ──
-    '<table cellpadding="0" cellspacing="0" style="margin-top:16px"><tr>',
-    listingUrl ? '<td style="padding-right:8px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:9px 20px;background:linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08));border:1px solid rgba(201,168,76,0.5);border-radius:6px;color:#C9A84C;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:0.06em;text-transform:uppercase">\u25B8 LISTING</a></td>' : "",
-    pinDrop ? '<td style="padding-right:8px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:9px 20px;background:linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08));border:1px solid rgba(201,168,76,0.5);border-radius:6px;color:#C9A84C;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:0.06em;text-transform:uppercase">\u25B8 PIN DROP</a></td>' : "",
-    '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:9px 22px;background:linear-gradient(135deg,#C9A84C,#E8B84A);border:none;border-radius:6px;color:#0A0E2A;font-size:11px;font-weight:900;text-decoration:none;letter-spacing:0.06em;text-transform:uppercase;box-shadow:0 2px 12px rgba(201,168,76,0.4)">\u26A1 OPEN IN STORVEX</a></td>',
+    // ── VERDICT STRIP ──
+    '<div style="background:' + recBannerColor + ';padding:12px 28px;display:flex;align-items:center;justify-content:space-between">',
+    '<span style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.14em">RECOMMENDATION</span>',
+    '<span style="font-size:12px;font-weight:900;color:#fff;font-family:\'SF Mono\',monospace;letter-spacing:0.04em">' + h(recBannerText).substring(0, 60) + '</span>',
+    '</div>',
+    // ── HEADER — dark, clean, geometric ──
+    '<div style="background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%);padding:32px 28px 24px">',
+    '<div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:8px;font-family:\'SF Mono\',monospace">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + " " + h(site.zip || "") + '</div>',
+    '<div style="font-size:26px;font-weight:900;color:#F8FAFC;letter-spacing:-0.02em;line-height:1.2">' + h(fe(site.address || site.name || "")) + '</div>',
+    // ── Action pills ──
+    '<table cellpadding="0" cellspacing="0" style="margin-top:20px"><tr>',
+    listingUrl ? '<td style="padding-right:6px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:8px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:20px;color:#94A3B8;font-size:10px;font-weight:700;text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;font-family:\'SF Mono\',monospace">LISTING \u2192</a></td>' : "",
+    pinDrop ? '<td style="padding-right:6px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:8px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:20px;color:#94A3B8;font-size:10px;font-weight:700;text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;font-family:\'SF Mono\',monospace">PIN DROP \u2192</a></td>' : "",
+    '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:8px 20px;background:linear-gradient(135deg,#C9A84C,#E8B84A);border:none;border-radius:20px;color:#0F172A;font-size:10px;font-weight:900;text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;font-family:\'SF Mono\',monospace;box-shadow:0 2px 12px rgba(201,168,76,0.3)">STORVEX \u26A1</a></td>',
     '</tr></table></div>',
-    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#F8FAFC;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0"><tr>',
-    '<td style="padding:14px 16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:9px;font-weight:700;color:#6B7394;text-transform:uppercase;letter-spacing:0.08em">Acreage</div><div style="font-size:16px;font-weight:800;color:#1E2761;margin-top:2px">' + (h(acreageRaw) || "N/A") + '</div></td>',
-    '<td style="padding:14px 16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:9px;font-weight:700;color:#6B7394;text-transform:uppercase;letter-spacing:0.08em">Asking</div><div style="font-size:16px;font-weight:800;color:#1E2761;margin-top:2px">' + h(fe(site.askingPrice || "TBD")) + (pricePerAc ? ' <span style="font-size:11px;color:#6B7394">(' + pricePerAc + '/ac)</span>' : '') + '</div></td>',
-    '<td style="padding:14px 16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:9px;font-weight:700;color:#6B7394;text-transform:uppercase;letter-spacing:0.08em">Zoning</div><div style="margin-top:4px">' + zoningBadge + '</div></td>',
-    '<td style="padding:14px 16px;text-align:center;border-bottom:1px solid #E2E8F0;width:25%"><div style="font-size:9px;font-weight:700;color:#6B7394;text-transform:uppercase;letter-spacing:0.08em">Nearest PS</div><div style="font-size:16px;font-weight:800;color:#1E2761;margin-top:2px">' + (h(nearPS) || "\u2014") + '</div></td></tr></table>',
-    '<div style="padding:24px 28px;background:#fff;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0">',
+    // ── KPI GRID — monospace data cards ──
+    '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#F8FAFC"><tr>',
+    '<td style="padding:16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:8px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.14em;font-family:\'SF Mono\',monospace">ACREAGE</div><div style="font-size:20px;font-weight:900;color:#0F172A;margin-top:4px;font-family:\'SF Mono\',monospace">' + (h(acreageRaw) || "\u2014") + '</div></td>',
+    '<td style="padding:16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:8px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.14em;font-family:\'SF Mono\',monospace">ASKING</div><div style="font-size:18px;font-weight:900;color:#0F172A;margin-top:4px;font-family:\'SF Mono\',monospace">' + h(fe(site.askingPrice || "TBD")) + '</div>' + (pricePerAc ? '<div style="font-size:10px;color:#94A3B8;font-family:\'SF Mono\',monospace;margin-top:2px">' + pricePerAc + '/ac</div>' : '') + '</td>',
+    '<td style="padding:16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:8px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.14em;font-family:\'SF Mono\',monospace">ZONING</div><div style="margin-top:6px">' + zoningBadge + '</div></td>',
+    '<td style="padding:16px;text-align:center;border-bottom:1px solid #E2E8F0;width:25%"><div style="font-size:8px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.14em;font-family:\'SF Mono\',monospace">NEAREST PS</div><div style="font-size:20px;font-weight:900;color:#0F172A;margin-top:4px;font-family:\'SF Mono\',monospace">' + (h(nearPS) || "\u2014") + '</div></td></tr></table>',
+    // ── BODY — clean white with geometric section dividers ──
+    '<div style="padding:28px;background:#fff">',
     section("Zoning", zoningDetail),
     waterLine ? section("Water", waterLine) : "",
     compLine ? section("Competition", compLine) : "",
-    '<div style="margin-bottom:18px">' + secHead("Demographics (ESRI 2025)") + '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:6px">' + demoRows + '</table></div>',
-    econRows ? '<div style="margin-bottom:18px">' + secHead("Projected Economics") + '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:6px">' + econRows + '</table></div>' : "",
-    watches.length ? '<div style="margin-bottom:18px;padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px"><div style="font-size:10px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Watch Items</div>' + watches.map(function(w) { return '<div style="font-size:12px;color:#78350F;margin-bottom:4px">\u2022 ' + w + '</div>'; }).join("") + '</div>' : "",
-    recLine ? '<div style="margin-bottom:18px;padding:16px 20px;background:linear-gradient(135deg,#0A0E2A,#1E2761);border-radius:8px;border-left:4px solid #C9A84C"><div style="font-size:9px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">STORVEX\u2122 VERDICT</div><div style="font-size:14px;color:#E2E8F0;font-weight:700;line-height:1.5">' + h(recLine) + '</div></div>' : "",
+    '<div style="margin-bottom:20px">' + secHead("Demographics (ESRI 2025)") + '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:8px;border-radius:6px;overflow:hidden;border:1px solid #E2E8F0">' + demoRows + '</table></div>',
+    econRows ? '<div style="margin-bottom:20px">' + secHead("Projected Economics") + '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:8px;border-radius:6px;overflow:hidden;border:1px solid #E2E8F0">' + econRows + '</table></div>' : "",
+    watches.length ? '<div style="margin-bottom:20px;padding:14px 18px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px"><div style="font-size:9px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;font-family:\'SF Mono\',monospace">WATCH ITEMS</div>' + watches.map(function(w) { return '<div style="font-size:12px;color:#78350F;margin-bottom:4px;padding-left:12px;border-left:2px solid #FBBF24">' + w + '</div>'; }).join("") + '</div>' : "",
+    recLine ? '<div style="margin-bottom:20px;padding:18px 22px;background:#0F172A;border-radius:8px;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,#C9A84C,#E8B84A)"></div><div style="font-size:8px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:8px;font-family:\'SF Mono\',monospace">STORVEX\u2122 VERDICT</div><div style="font-size:14px;color:#E2E8F0;font-weight:600;line-height:1.6">' + h(recLine) + '</div></div>' : "",
     '</div>',
-    '<div style="background:linear-gradient(135deg,#0A0E2A,#1E2761);padding:24px 28px;border-radius:0 0 8px 8px;border-top:3px solid #C9A84C">',
-    '<div style="font-size:13px;color:#94A3B8;margin-bottom:12px;letter-spacing:0.03em">Best regards,</div>',
-    '<div style="font-family:\'Dancing Script\',\'Segoe Script\',\'Brush Script MT\',cursive;font-size:30px;color:#C9A84C;margin-bottom:4px;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.3)">Daniel P. Roscoe</div>',
-    '<div style="font-size:12px;font-weight:600;color:#D6E4F7;letter-spacing:0.04em;margin-bottom:8px">Owner, <span style="color:#C9A84C;font-weight:800">Storvex\u2122</span></div>',
-    '<div style="height:1px;background:linear-gradient(90deg,#C9A84C,transparent);width:200px;margin-bottom:10px"></div>',
-    '<div style="font-size:11px;color:#6B7394">E: <a href="mailto:Droscoe@DJRrealestate.com" style="color:#94A3B8;text-decoration:none">Droscoe@DJRrealestate.com</a> <span style="color:#2C3E6B">\u2022</span> C: 312-805-5996</div>',
+    // ── FOOTER — signature ──
+    '<div style="background:#0F172A;padding:28px;border-top:1px solid #1E293B">',
+    '<div style="font-size:13px;color:#64748B;margin-bottom:14px;letter-spacing:0.02em">Best regards,</div>',
+    '<div style="font-size:20px;font-weight:900;color:#F8FAFC;letter-spacing:-0.01em;margin-bottom:2px">Daniel P. Roscoe</div>',
+    '<div style="font-size:12px;font-weight:600;color:#94A3B8;letter-spacing:0.04em;margin-bottom:14px">Owner, <span style="color:#C9A84C;font-weight:800">Storvex\u2122</span></div>',
+    '<div style="height:1px;background:linear-gradient(90deg,#C9A84C 0%,transparent 60%);width:180px;margin-bottom:12px"></div>',
+    '<div style="font-size:11px;color:#475569;font-family:\'SF Mono\',monospace">Droscoe@DJRrealestate.com <span style="color:#334155">\u00B7</span> 312-805-5996</div>',
+    '<div style="margin-top:12px;display:flex;align-items:center;gap:6px"><div style="width:4px;height:4px;background:#C9A84C;border-radius:50%"></div><span style="font-size:8px;color:#475569;text-transform:uppercase;letter-spacing:0.16em;font-family:\'SF Mono\',monospace">AI-Powered Site Intelligence</span></div>',
     '</div></div>',
   ].join("");
 
