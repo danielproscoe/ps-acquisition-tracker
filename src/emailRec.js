@@ -148,10 +148,12 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     listingUrl ? '<a href="' + h(listingUrl) + '" style="display:inline-block;padding:8px 18px;background:#F8FAFC;color:#1E2761;font-size:12px;font-weight:700;text-decoration:none;border-radius:5px;border:1px solid #E2E8F0;margin:0 4px">Property Listing</a>' : "",
     pinDrop ? '<a href="' + h(pinDrop) + '" style="display:inline-block;padding:8px 18px;background:#F8FAFC;color:#1E2761;font-size:12px;font-weight:700;text-decoration:none;border-radius:5px;border:1px solid #E2E8F0;margin:0 4px">View Location</a>' : "",
     '</div></div>',
-    '<div style="background:#1E2761;padding:18px 28px;border-radius:0 0 8px 8px">',
-    '<div style="font-size:12px;color:#94A3B8;margin-bottom:8px">Best regards,</div>',
-    '<div style="font-size:13px;font-weight:700;color:#D6E4F7">Daniel P. Roscoe | Owner, Storvex\u2122</div>',
-    '<div style="font-size:11px;color:#6B7394;margin-top:2px">E: Droscoe@DJRrealestate.com | C: 312-805-5996</div>',
+    '<div style="background:linear-gradient(135deg,#0A0E2A,#1E2761);padding:24px 28px;border-radius:0 0 8px 8px;border-top:3px solid #C9A84C">',
+    '<div style="font-size:12px;color:#6B7394;margin-bottom:10px;letter-spacing:0.03em">Best regards,</div>',
+    '<div style="font-family:\'Dancing Script\',\'Segoe Script\',\'Brush Script MT\',cursive;font-size:28px;color:#C9A84C;margin-bottom:6px;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.3)">Daniel P. Roscoe</div>',
+    '<div style="height:1px;background:linear-gradient(90deg,#C9A84C,transparent);width:200px;margin-bottom:10px"></div>',
+    '<div style="font-size:12px;font-weight:700;color:#D6E4F7;letter-spacing:0.04em">Daniel P. Roscoe <span style="color:#6B7394">|</span> Owner, <span style="color:#C9A84C">Storvex\u2122</span></div>',
+    '<div style="font-size:11px;color:#6B7394;margin-top:4px">E: <a href="mailto:Droscoe@DJRrealestate.com" style="color:#94A3B8;text-decoration:none">Droscoe@DJRrealestate.com</a> <span style="color:#2C3E6B">\u2022</span> C: 312-805-5996</div>',
     '</div></div>',
   ].join("");
 
@@ -159,7 +161,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   const previewHTML = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'
     + '<title>Email Rec \u2014 ' + h(siteName) + '</title>'
     + '<style>'
-    + "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');"
+    + "@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;500;600;700;800;900&display=swap');"
     + '*{margin:0;padding:0;box-sizing:border-box}'
     + "body{font-family:'Inter',Calibri,sans-serif;background:#F1F5F9;padding:40px 20px}"
     + '@media print{body{background:#fff;padding:0}.no-print{display:none!important}.page{box-shadow:none!important;border:none!important}}'
