@@ -1,11 +1,11 @@
-﻿// src/App.js — SiteScore Acquisition Tracker
+// src/App.js — SiteScore Acquisition Tracker (Refactored)
 // © 2026 DJR Real Estate LLC. All rights reserved.
 // Proprietary and confidential. Unauthorized reproduction or distribution prohibited.
 // Firebase Realtime Database — live shared data across all 3 users
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, storage } from "./firebase";
-import { ref, onValue, set, push, remove, update } from "firebase/database";
+import { ref, update } from "firebase/database";
 import {
   ref as storageRef,
   uploadBytes,
@@ -13,1596 +13,388 @@ import {
   deleteObject,
 } from "firebase/storage";
 // xlsx is lazy-loaded on demand (Export Excel) to reduce initial bundle ~500KB
-// import * as XLSX from "xlsx";  ← moved to dynamic import()
 
-// ─── CSV Parser ───
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map((line) => {
-    const vals = [];
-    let cur = "",
-      inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') inQ = !inQ;
-      else if (c === "," && !inQ) {
-        vals.push(cur.trim());
-        cur = "";
-      } else cur += c;
+// ─── Extracted Modules ───
+import {
+  parseCSV, uid, fmt$, fmtN, fmtPrice, mapsLink, earthLink,
+  debounce, safeNum, escapeHtml, buildDemoReport, fetchDemographics,
+  stripEmoji, cleanPriority,
+  sanitizeString, fixEncoding, isValidCoordinates, isValidState, isValidPrice, isValidAcreage,
+  REGIONS, STATUS_COLORS, PHASES, PHASE_MIGRATION, PRIORITIES, PRIORITY_COLORS,
+  MSG_COLORS, DOC_TYPES, SITE_SCORE_DEFAULTS, STYLES,
+  normalizeSiteScoreWeights,
+} from './utils';
+import { computeSiteScore as _computeSiteScore, computeSiteFinancials, computeVettingIntel, buildSitePackage, computeValidationStats, parsePrice } from './scoring';
+import {
+  generateVettingReport as _generateVettingReport,
+  generatePricingReport as _generatePricingReport,
+  generateRECPackage as _generateRECPackage,
+  generateDemographicsReport,
+} from './reports';
+import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF, CallBriefTooltip } from './components';
+import { SortBar, SORT_OPTIONS } from './components/SortBar';
+import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
+import ValuationInputs from './components/ValuationInputs';
+import { DiscoverMap } from './components/DiscoverMap';
+import { useFirebaseData } from './hooks/useFirebaseData';
+import { useNavigation } from './hooks/useNavigation';
+import 'leaflet/dist/leaflet.css';
+import './App.css';
+
+// ─── Display name fallback: derive from Firebase key when name/address missing ───
+const siteDisplayName = (site) => {
+  if (site.name) return fixEncoding(site.name);
+  if (site.address) return fixEncoding(`${site.city || ""} ${site.state || ""} — ${site.address}`.trim().replace(/^[\s—]+/, ""));
+  // Derive from Firebase key: "mckinney-tx-n-mcdonald-st" → "Mckinney TX — N Mcdonald St"
+  const key = site.id || "";
+  if (/^[-\w]+$/.test(key) && key.length > 4 && !/^[0-9]+$/.test(key) && !key.startsWith("-O") && !key.startsWith("mmpi")) {
+    return key.split(/[-_]/).map((w, i) => w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(" ").replace(/(\w{2}) /, "$1 — ");
+  }
+  return `Site ${key}`;
+};
+
+// ─── Email Recommendation Generator ───
+const REC_RECIPIENTS = {
+  east: { name: "Matt Toussaint", email: "mtoussaint@publicstorage.com" },
+  southwest: { name: "Daniel Wollent", email: "dwollent@publicstorage.com" },
+  queue: { name: "PS Team", email: "" },
+};
+
+// Validate listing URL — prevent bad links from going to DW/MT
+const validateListingUrl = (url) => {
+  if (!url) return { valid: false, url: "", warning: "NO LISTING LINK" };
+  const cleaned = url.trim();
+  const withProto = cleaned.startsWith("http") ? cleaned : `https://${cleaned}`;
+  try {
+    const parsed = new URL(withProto);
+    const validDomains = ["crexi.com", "loopnet.com", "costar.com", "ten-x.com", "landflip.com", "land.com", "landandfarm.com", "landwatch.com", "realtor.com", "zillow.com"];
+    const host = parsed.hostname.replace(/^www\./, "");
+    const recognized = validDomains.some(d => host === d || host.endsWith("." + d));
+    return { valid: true, url: withProto, warning: recognized ? "" : `Unrecognized domain: ${host}` };
+  } catch { return { valid: false, url: withProto, warning: "MALFORMED URL" }; }
+};
+
+const generateRecEmail = (site, regionKey, financials) => {
+  const recip = REC_RECIPIENTS[regionKey] || REC_RECIPIENTS.queue;
+  const iq = site.siteiqData || {};
+  const ccSPC = iq.ccSPC ? parseFloat(iq.ccSPC).toFixed(1) : null;
+  const projCCSPC = iq.projectedCCSPC ? parseFloat(iq.projectedCCSPC).toFixed(1) : null;
+  const zClass = site.zoningClassification || "TBD";
+  const coords = site.coordinates || "";
+  const pinDrop = coords ? `https://www.google.com/maps?q=${coords}` : "";
+  const dashLink = `https://storvex.vercel.app/?site=${site.id}`;
+  const listing = validateListingUrl(site.listingUrl);
+
+  // ── Financials (compute if not provided) ──
+  const fin = financials || (() => { try { return computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {}); } catch { return null; } })();
+  const $k = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${Math.round(v / 1000)}K` : `$${v.toLocaleString()}`;
+
+  // ── Parse acreage ──
+  const acreageRaw = site.acreage || "";
+  const pricePerAc = fin && fin.landCost > 0 && fin.acres > 0 ? $k(Math.round(fin.landCost / fin.acres)) : null;
+
+  // ── Subject Line ──
+  // Subject: avoid duplicate city when name already contains it
+  const siteName = fixEncoding(site.name || site.address || site.id);
+  const cityState = `${site.city || ""} ${site.state || ""}`.trim();
+  const subjectSite = siteName.toLowerCase().includes((site.city || "").toLowerCase()) ? siteName : `${cityState}, ${siteName}`;
+  const subject = `Site Recommendation \u2014 ${subjectSite}${ccSPC ? ` | CC SPC ${ccSPC}` : ""}${zClass === "by-right" ? ", By-Right" : ""}`;
+
+  // ── Build TO line ──
+  const toEmails = [];
+  if (recip.email) toEmails.push(recip.email);
+  if (regionKey === "east" && REC_RECIPIENTS.southwest.email) toEmails.push(REC_RECIPIENTS.southwest.email);
+  if (regionKey === "southwest" && REC_RECIPIENTS.east.email) toEmails.push(REC_RECIPIENTS.east.email);
+
+  // ── ZONING VERDICT ──
+  let zoningLine = "";
+  if (site.zoningUseTerm && site.zoningOrdinanceSection) {
+    zoningLine = `"${fixEncoding(site.zoningUseTerm)}" is permitted ${zClass === "by-right" ? "by right" : zClass === "conditional" ? "(conditional \u2014 SUP/CUP)" : ""} in the ${site.zoning || ""} District per the city\u2019s use table (${fixEncoding(site.zoningOrdinanceSection)}${site.zoningSource ? `, ${fixEncoding(site.zoningSource)}` : ""}). ${zClass === "by-right" ? "No SUP, no hearing. Administrative site plan only." : ""}`;
+  } else if (site.zoningNotes) {
+    zoningLine = `${site.zoning || "TBD"} \u2014 ${zClass}. ${fixEncoding(site.zoningNotes)}`;
+  } else {
+    zoningLine = `${site.zoning || "TBD"} \u2014 ${zClass}. Ordinance verification pending.`;
+  }
+
+  // ── COMPETITION VERDICT ──
+  let compLine = "";
+  if (ccSPC) {
+    const ccLabel = parseFloat(ccSPC) < 1.5 ? "severely underserved" : parseFloat(ccSPC) < 3.0 ? "underserved" : parseFloat(ccSPC) < 5.0 ? "moderate supply" : parseFloat(ccSPC) < 7.0 ? "well-supplied" : "oversupplied";
+    compLine = `CC SPC ${ccSPC} SF/capita (${ccLabel})${projCCSPC ? `, projected ${projCCSPC} at 5-yr` : ""}.`;
+    if (site.competingCCSF) compLine += ` ${fixEncoding(site.competingCCSF)} CC SF within 3 mi.`;
+    if (iq.competitorCount === 0) compLine += " No purpose-built Class-A indoor CC storage in the market today.";
+    else if (site.competitorNames) compLine += ` Competitors: ${fixEncoding(site.competitorNames)}.`;
+  } else {
+    compLine = `Competition assessment pending.`;
+  }
+
+  // ── PRICING VERDICT ──
+  let pricingLine = "";
+  if (fin && !fin.valuationError && fin.mktClimateRate) {
+    const ccRate = `$${fin.mktClimateRate.toFixed(2)}/SF/mo`;
+    const facilSF = fin.totalSF ? `${(fin.totalSF / 1000).toFixed(0)}K SF` : "";
+    pricingLine = `CC rents ~${ccRate}. At that rent with ${facilSF ? `an ${facilSF} facility` : "this site"}, stabilized NOI comes in around ${$k(fin.stabNOI)}, which puts YOC at ${fin.yocStab}% on ${$k(fin.totalDevCost)} total development cost.`;
+    if (fin.landPrices && fin.landPrices[1] && fin.landPrices[1].maxLand > 0) {
+      const strike = fin.landPrices[1];
+      pricingLine += ` Strike price: ${$k(strike.maxLand)}${strike.perAcre ? ` (${$k(strike.perAcre)}/ac)` : ""}.`;
+      if (fin.askVsStrike) {
+        const delta = parseFloat(fin.askVsStrike);
+        pricingLine += ` Asking is ${Math.abs(delta)}% ${delta > 0 ? "above" : "below"} strike${delta <= 0 ? " \u2014 room to negotiate" : ""}.`;
+      }
     }
-    vals.push(cur.trim());
-    const obj = {};
-    headers.forEach((h, idx) => {
-      obj[h] = vals[idx] || "";
-    });
-    return obj;
-  });
-}
+  }
 
-// ─── Constants ───
-const REGIONS = {
-  southwest: { label: "Daniel Wollent", color: "#1565C0", accent: "#42A5F5" },
-  east: { label: "Matthew Toussaint", color: "#2D5F2D", accent: "#4CAF50" },
-};
-const STATUS_COLORS = {
-  pending: { bg: "#FFFBEB", text: "#92700C", dot: "#C9A84C", label: "Pending" },
-  recommended: { bg: "#E0E7FF", text: "#3730A3", dot: "#6366F1", label: "Dan R. Approved" },
-  approved: { bg: "#E8F5E9", text: "#2E7D32", dot: "#4CAF50", label: "⚡ Approved to Tracker" },
-  declined: { bg: "#FFEBEE", text: "#B71C1C", dot: "#EF5350", label: "Declined" },
-  tracking: { bg: "#FFF8F0", text: "#BF360C", dot: "#F37C33", label: "In Tracker" },
-};
-const PHASES = [
-  "Prospect",
-  "Submitted to PS",
-  "SiteScore Approved",
-  "LOI",
-  "PSA Sent",
-  "Under Contract",
-  "Closed",
-  "Declined",
-  "Dead",
-];
-// Legacy phase migration map — consolidates old 14-phase system to new 8-phase pipeline
-const PHASE_MIGRATION = {
-  "Incoming": "Prospect",
-  "Scored": "Prospect",
-  "Submitted to Client": "Submitted to PS",
-  "Client Approved": "SiteScore Approved",
-  "PS Approved": "SiteScore Approved",
-  "SiteIQ Approved": "SiteScore Approved",
-  "StorageIQ Approved": "SiteScore Approved",
-  "Client Revisions": "Submitted to PS",
-  "Client Declined": "Declined",
-  "LOI Sent": "LOI",
-  "LOI Signed": "LOI",
-  "Due Diligence": "Under Contract",
-};
-const PRIORITIES = ["🔥 Hot", "🟡 Warm", "🔵 Cold", "⚪ None"];
-const PRIORITY_COLORS = {
-  "🔥 Hot": "#EF4444",
-  "🟡 Warm": "#F59E0B",
-  "🔵 Cold": "#3B82F6",
-  "⚪ None": "#CBD5E1",
-};
-const MSG_COLORS = {
-  "Dan R": { bg: "#FFF3E0", border: "#F37C33", text: "#E65100" },
-  "Daniel Wollent": { bg: "#EFF6FF", border: "#42A5F5", text: "#1565C0" },
-  "Matthew Toussaint": { bg: "#F0FDF4", border: "#4CAF50", text: "#2D5F2D" },
-};
-const DOC_TYPES = [
-  "Flyer",
-  "Survey",
-  "Geotech",
-  "PSA",
-  "LOI",
-  "Appraisal",
-  "Environmental",
-  "Title",
-  "Plat",
-  "Other",
-];
+  // ── RECOMMENDATION ──
+  let recLine = "";
+  if (fin && fin.landVerdict) {
+    recLine = fin.landVerdict;
+    if (fin.landVerdict === "STRONG BUY" || fin.landVerdict === "BUY") recLine += ". By-right everything, strong fundamentals, cheap land with margin.";
+    else if (fin.landVerdict === "NEGOTIATE") recLine += ". Fundamentals support the site \u2014 price needs work.";
+    else if (fin.landVerdict === "STRETCH") recLine += ". Good site, but asking is above PS strike targets.";
+  }
+  if (!recLine && site.summary) {
+    recLine = fixEncoding(site.summary).replace(/(?:SiteScore|SiteIQ|Site\s*Score|Site\s*IQ)\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").substring(0, 200).trim();
+  }
 
-// ─── SiteScore™ Configurable Weight System v2.0 ───
-// Immutable defaults. Live config is a deep copy merged with Firebase overrides.
-// Persisted at Firebase path: config/siteiq_weights
-const SITE_SCORE_DEFAULTS = [
-  { key: "population", label: "Population", icon: "👥", weight: 0.20, tip: "3-mile population density", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "growth", label: "Growth", icon: "📈", weight: 0.25, tip: "Pop growth CAGR — 5yr projected trend", source: "ESRI 2025→2030 projections", group: "demographics" },
-  { key: "income", label: "Med. Income", icon: "💰", weight: 0.10, tip: "Median HHI within 3 miles", source: "ESRI / Census ACS", group: "demographics" },
-  { key: "pricing", label: "Pricing", icon: "💲", weight: 0.08, tip: "Price per acre vs. acquisition targets", source: "Asking price / acreage", group: "deal" },
-  { key: "zoning", label: "Zoning", icon: "📋", weight: 0.15, tip: "By-right / conditional / prohibited", source: "Zoning field + summary", group: "entitlements" },
-  { key: "access", label: "Site Access", icon: "🛣️", weight: 0.07, tip: "Acreage, frontage, flood, access", source: "Site data + summary", group: "physical" },
-  { key: "competition", label: "Competition", icon: "🏢", weight: 0.07, tip: "Storage competitor density", source: "Competitor data / summary", group: "market" },
-  { key: "marketTier", label: "Market Tier", icon: "📍", weight: 0.08, tip: "Target market priority ranking", source: "Market field / config", group: "market" },
-];
+  // ── WATER ──
+  let waterLine = "";
+  if (site.waterHookupStatus || site.waterProvider) {
+    const hookup = site.waterHookupStatus || "TBD";
+    waterLine = `Water is ${hookup === "by-right" ? "by right" : hookup} \u2014 site is ${site.insideServiceBoundary ? "inside" : "outside"} ${fixEncoding(site.waterProvider || "municipal")} service area.`;
+    if (site.utilityCapacity) waterLine += ` ${fixEncoding(site.utilityCapacity)}.`;
+    if (site.waterContact) waterLine += ` Contact: ${fixEncoding(site.waterContact)}.`;
+  }
 
-// Live mutable config — starts as copy of defaults, merged with Firebase on load
+  // ── GROWTH CONTEXT ──
+  let growthLine = "";
+  const growth = site.popGrowth3mi || site.growthRate;
+  const parts = [];
+  if (site.pop3mi) parts.push(`${site.pop3mi} 3-mi population`);
+  if (site.income3mi) parts.push(`${site.income3mi} median HHI`);
+  if (growth) parts.push(`${growth}% annual growth`);
+  if (site.demandDrivers) parts.push(fixEncoding(site.demandDrivers));
+  if (parts.length) growthLine = parts.join(". ") + ".";
+
+  // ── WATCH ITEMS ──
+  const watchLines = [];
+  if (site.overlayDistrict) watchLines.push(fixEncoding(site.overlayDistrict) + (site.overlayCostImpact ? ` Estimated overlay premium: ${fixEncoding(site.overlayCostImpact)}.` : ""));
+  if (site.facadeReqs) watchLines.push(`Facade: ${fixEncoding(site.facadeReqs)}`);
+  if (site.floodZone && site.floodZone !== "Zone X" && site.floodZone !== "X") watchLines.push(`Flood zone: ${fixEncoding(site.floodZone)}`);
+  if (site.terrain && site.terrain !== "flat") watchLines.push(`Topography: ${fixEncoding(site.terrain)}${site.gradeChange ? ` \u2014 ${fixEncoding(site.gradeChange)}` : ""}`);
+  if (site.totalUtilityBudget) watchLines.push(`Utility budget: ${fixEncoding(site.totalUtilityBudget)}`);
+  if (zClass === "conditional") watchLines.push(`SUP/CUP required${site.supTimeline ? ` \u2014 est. ${fixEncoding(site.supTimeline)}` : ""}${site.supCost ? `, ${fixEncoding(site.supCost)}` : ""}.${site.politicalRisk ? ` Political risk: ${fixEncoding(site.politicalRisk)}.` : ""}`);
+
+  // ── RENT GROWTH TARGET (if YOC below 8%) ──
+  let rentTargetLine = "";
+  if (fin && !fin.valuationError && fin.yocStab && parseFloat(fin.yocStab) < 8 && fin.mktClimateRate > 0 && fin.totalDevCost > 0 && fin.totalSF > 0) {
+    // Target NOI for 8% YOC, back into required CC rate
+    const targetNOI = fin.totalDevCost * 0.08;
+    const targetRev = targetNOI / (1 - (fin.stabRev > 0 ? (fin.yearData[4].opex / fin.stabRev) : 0.22));
+    const targetCCRate = fin.climateSF > 0 ? (targetRev / (fin.climateSF * 0.92 * (1 + (fin.ecriSchedule[4] || 0)) * 12 + fin.driveSF * 0.92 * (fin.mktDriveRate / fin.mktClimateRate) * (1 + (fin.ecriSchedule[4] || 0)) * 12) * (fin.climateSF / fin.totalSF)) : 0;
+    if (targetCCRate > 0 && targetCCRate < 5) {
+      const liftPct = ((targetCCRate / fin.mktClimateRate - 1) * 100).toFixed(0);
+      rentTargetLine = `To hit 8%, rents need to grow to about $${targetCCRate.toFixed(2)}/SF \u2014 a ${liftPct}% lift over the stabilization window.`;
+    }
+  }
+
+  // ── LAND BASIS ──
+  let landBasisLine = "";
+  if (fin && fin.landCost > 0 && fin.acres > 0) {
+    landBasisLine = `The land basis at ${$k(fin.landCost)} (${$k(Math.round(fin.landCost / fin.acres))}/net ac) ${fin.landVerdict === "STRONG BUY" || fin.landVerdict === "BUY" ? "has room" : fin.landVerdict === "NEGOTIATE" ? "is workable" : "is tight"}.`;
+  }
+
+  // ── Assemble Body ──
+  const lines = [];
+
+  // Header
+  lines.push(`${fixEncoding(site.address || site.name || "")}, ${site.city || ""} ${site.state || ""} ${site.zip || ""}`);
+  lines.push("");
+
+  // Clean links block
+  lines.push(`    \u27A4 Acres: ${fixEncoding(acreageRaw) || "N/A"}`);
+  lines.push(`    \u27A4 Asking: ${fixEncoding(site.askingPrice || "TBD")}${pricePerAc ? ` (${pricePerAc}/ac)` : ""}`);
+  lines.push(`    \u27A4 Storvex: ${dashLink}`);
+  if (pinDrop) lines.push(`    \u27A4 Pin Drop: ${pinDrop}`);
+  lines.push(`    \u27A4 Property Listing: ${listing.valid ? listing.url : "MISSING \u2014 add listing URL before sending"}`);
+  lines.push("");
+
+  // Executive snapshot — the decision block
+  if (zoningLine) { lines.push(`Zoning is clean \u2014 ${zoningLine}`); lines.push(""); }
+  if (waterLine) { lines.push(`${waterLine}`); lines.push(""); }
+  if (compLine) { lines.push(`${compLine}`); lines.push(""); }
+  if (growthLine) { lines.push(`${growthLine}`); lines.push(""); }
+  if (iq.nearestPS) { lines.push(`Nearest PS: ${iq.nearestPS} mi.`); lines.push(""); }
+
+  // Watch items
+  if (watchLines.length) {
+    lines.push("The watch items:");
+    lines.push("");
+    watchLines.forEach(w => lines.push(w));
+    lines.push("");
+  }
+
+  // Financial analysis
+  if (pricingLine) { lines.push(pricingLine); lines.push(""); }
+  if (rentTargetLine) { lines.push(rentTargetLine); lines.push(""); }
+  if (landBasisLine) { lines.push(landBasisLine); lines.push(""); }
+
+  // Bottom line
+  if (recLine) {
+    lines.push(`Bottom line: ${recLine} Full vetting report and survey are in Storvex.`);
+  } else {
+    lines.push("Full vetting report and analysis on the dashboard.");
+  }
+  lines.push("");
+  lines.push("");
+  lines.push("Best regards,");
+  lines.push("");
+  lines.push("Daniel P. Roscoe");
+  lines.push("");
+  lines.push("E: Droscoe@DJRrealestate.com");
+  lines.push("C: 312-805-5996");
+
+  const body = lines.join("\n");
+  return { subject, body, recipient: recip.name, toEmails, listingWarning: listing.warning };
+};
+
+// ─── Mutable SiteScore Config (merged with Firebase overrides at runtime) ───
 let SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map(d => ({ ...d }));
 
-// Auto-normalize so weights always sum to 1.0
-const normalizeSiteScoreWeights = (dims) => {
-  const total = dims.reduce((s, d) => s + d.weight, 0);
-  if (total > 0 && Math.abs(total - 1.0) > 0.001) {
-    dims.forEach(d => { d.weight = d.weight / total; });
-  }
-  return dims;
-};
+// ─── Mutable Valuation Overrides (merged from Firebase config/valuation_overrides at runtime) ───
+let VALUATION_OVERRIDES = {};
 
-// Get normalized weight by key
 const getIQWeight = (key) => {
   const dim = SITE_SCORE_CONFIG.find(d => d.key === key);
   return dim ? dim.weight : 0;
 };
 
-// ─── Helpers ───
-const uid = () =>
-  Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const fmt$ = (v) => {
-  if (!v) return "";
-  const n = Number(String(v).replace(/[^0-9.]/g, ""));
-  return isNaN(n) ? v : "$" + n.toLocaleString();
-};
-const fmtN = (v) => {
-  if (!v) return "";
-  const n = Number(String(v).replace(/[^0-9.]/g, ""));
-  return isNaN(n) ? v : n.toLocaleString();
-};
-const fmtPrice = (v) => {
-  if (!v || v === "TBD" || v === "—") return v || "—";
-  // Already has $X.XXM format with parenthetical — extract just the leading price
-  const mMatch = String(v).match(/^\$?([\d,.]+)\s*[Mm]/);
-  if (mMatch) return "$" + parseFloat(mMatch[1].replace(/,/g, "")).toFixed(2).replace(/\.?0+$/, "") + "M";
-  // $700K format — extract number before K
-  const kMatch = String(v).match(/^\$?([\d,.]+)\s*[Kk]/);
-  if (kMatch) return "$" + parseFloat(kMatch[1].replace(/,/g, "")).toFixed(0) + "K";
-  // Raw number like $1,300,000 or 1300000 — only parse leading digits
-  const leadMatch = String(v).match(/^\$?([\d,.]+)/);
-  const n = leadMatch ? Number(leadMatch[1].replace(/,/g, "")) : NaN;
-  if (isNaN(n) || n === 0) return v;
-  if (n >= 1000000) return "$" + (n / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
-  if (n >= 1000) return "$" + Math.round(n / 1000) + "K";
-  return "$" + n.toLocaleString();
-};
-const mapsLink = (c) =>
-  c ? `https://www.google.com/maps?q=${encodeURIComponent(c)}` : "";
-const earthLink = (c) =>
-  c ? `https://earth.google.com/web/search/${encodeURIComponent(c)}` : "";
+// ─── Wrappers — pass mutable config automatically so call sites don't change ───
+const computeSiteScore = (site) => _computeSiteScore(site, SITE_SCORE_CONFIG);
+const generateVettingReport = (site, psD, iq) => _generateVettingReport(site, psD, iq, SITE_SCORE_CONFIG);
+const generatePricingReport = (site, iq, allSites) => _generatePricingReport(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES, allSites);
+const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES);
+// SiteScoreBadge wrapper — auto-injects computeSiteScore so call sites stay clean
+const SiteScoreBadge = (props) => <_SiteScoreBadge {...props} computeSiteScore={computeSiteScore} />;
 
-// ─── Shared Style Constants ───
-const STYLES = {
-  cardBase: { background: "rgba(15,21,56,0.6)", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(201,168,76,0.08)", overflow: "hidden", backdropFilter: "blur(12px)", transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)" },
-  kpiCard: (borderColor) => ({ cursor: "pointer", background: "linear-gradient(145deg, rgba(15,21,56,0.85) 0%, rgba(10,14,42,0.95) 100%)", borderRadius: 16, padding: "22px 24px", minWidth: 140, boxShadow: `0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)`, borderLeft: `3px solid ${borderColor}`, transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden" }),
-  labelMicro: { fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 },
-  btnPrimary: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#E87A2E 0%,#C9A84C 50%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(232,122,46,0.35), 0 0 0 1px rgba(232,122,46,0.15)", transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden" },
-  btnGhost: { padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(232,122,46,0.25)", background: "rgba(232,122,46,0.06)", color: "#E87A2E", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)" },
-  frostedHeader: { background: "linear-gradient(165deg, rgba(15,21,56,0.98) 0%, rgba(10,14,42,0.97) 50%, rgba(15,21,56,0.98) 100%)", backdropFilter: "blur(24px) saturate(1.8)", WebkitBackdropFilter: "blur(24px) saturate(1.8)", padding: "0 24px", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 40px rgba(0,0,0,0.5), 0 1px 0 rgba(232,122,46,0.2)" },
-};
+// ─── Module-scope sort orders (stable, never change) ───
+const PRIORITY_ORDER = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
+const PHASE_ORDER = Object.fromEntries(PHASES.map((p, i) => [p, i]));
 
-// ─── Debounce Helper ───
-const debounce = (fn, ms) => {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-};
-
-// ─── Demographics Helper — reads ESRI GeoEnrichment data from Firebase ───
-// Data: 2025 current-year estimates + 2030 five-year projections (ESRI paid)
-// Radii: 1-mile, 3-mile, 5-mile (written by refresh-demos-esri.mjs scheduled task)
-const buildDemoReport = (site) => {
-  if (!site) return null;
-  const parseNum = (v) => { if (!v) return null; const n = parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
-  const rings = {
-    1: { pop: parseNum(site.pop1mi), hh: parseNum(site.households1mi), medIncome: parseNum(site.income1mi), homeValue: parseNum(site.homeValue1mi), renterPct: site.renterPct1mi, popGrowth: site.popGrowth1mi },
-    3: { pop: parseNum(site.pop3mi), hh: parseNum(site.households3mi), medIncome: parseNum(site.income3mi), homeValue: parseNum(site.homeValue3mi), renterPct: site.renterPct3mi, popGrowth: site.popGrowth3mi },
-    5: { pop: parseNum(site.pop5mi), hh: parseNum(site.households5mi), medIncome: parseNum(site.income5mi), homeValue: parseNum(site.homeValue5mi), renterPct: site.renterPct5mi, popGrowth: site.popGrowth5mi },
-  };
-  // 3mi projections
-  const pop3mi_fy = parseNum(site.pop3mi_fy);
-  const income3mi_fy = parseNum(site.income3mi_fy);
-  const households3mi_fy = parseNum(site.households3mi_fy);
-  // Growth metrics
-  const hhGrowth3mi = site.hhGrowth3mi;
-  const incomeGrowth3mi = site.incomeGrowth3mi;
-  // Growth outlook based on actual ESRI pop growth
-  const pg = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : 0;
-  const pop3 = rings[3].pop || 0;
-  let growthOutlook = "Stable";
-  if (pg > 1.5) growthOutlook = "High Growth";
-  else if (pg > 0.5) growthOutlook = "Growing";
-  else if (pg > 0) growthOutlook = "Stable Growth";
-  else if (pg < -0.5) growthOutlook = "Declining";
-  else growthOutlook = "Flat";
-  const hasDemoData = rings[3].pop || rings[3].medIncome;
-  return hasDemoData ? {
-    rings,
-    pop3mi: site.pop3mi || null,
-    income3mi: site.income3mi || null,
-    growthOutlook,
-    pop3mi_fy: site.pop3mi_fy || null,
-    income3mi_fy: site.income3mi_fy || null,
-    households3mi_fy: site.households3mi_fy || null,
-    hhGrowth3mi,
-    incomeGrowth3mi,
-    popGrowth3mi: site.popGrowth3mi || null,
-    source: site.demoSource || "ESRI ArcGIS GeoEnrichment 2025",
-    pulledAt: site.demoPulledAt || null,
-  } : null;
-};
-// Legacy Census fallback (only used if ESRI data not yet available)
-const fetchDemographics = async (coordinates) => {
-  if (!coordinates) return null;
-  const parts = coordinates.split(",").map((s) => s.trim());
-  if (parts.length !== 2) return null;
-  const [lat, lng] = parts.map(Number);
-  if (isNaN(lat) || isNaN(lng)) return null;
-  try {
-    const geoRes = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lng}&format=json&showall=false`);
-    const geoData = await geoRes.json();
-    if (geoData.status !== "OK" || !geoData.Block?.FIPS) return { error: "Could not determine census tract" };
-    const blockFips = geoData.Block.FIPS;
-    const stFips = geoData.State?.FIPS || blockFips.substring(0, 2);
-    const coFips = blockFips.substring(2, 5);
-    const trFips = blockFips.substring(5, 11);
-    const acsRes = await fetch(`https://api.census.gov/data/2022/acs/acs5?get=B01003_001E,B19013_001E,B11001_001E&for=tract:${trFips}&in=state:${stFips}%20county:${coFips}`);
-    const acsData = await acsRes.json();
-    if (!acsData || acsData.length < 2) return { error: "No ACS data for tract" };
-    const row = acsData[1];
-    const pop = parseInt(row[0], 10); const income = parseInt(row[1], 10); const hh = parseInt(row[2], 10);
-    const tPop = isNaN(pop) ? 0 : pop; const incVal = isNaN(income) || income < 0 ? 0 : income; const tHh = isNaN(hh) ? 0 : hh;
-    const rings = { 1: { pop: Math.round(tPop * 0.8), hh: Math.round(tHh * 0.8), medIncome: incVal }, 3: { pop: Math.round(tPop * 8), hh: Math.round(tHh * 8), medIncome: incVal }, 5: { pop: Math.round(tPop * 18), hh: Math.round(tHh * 18), medIncome: incVal } };
-    return { rings, pop3mi: rings[3].pop ? rings[3].pop.toLocaleString() : null, income3mi: incVal ? "$" + incVal.toLocaleString() : null, growthOutlook: "Stable", source: "Census ACS 5-Year (2022) — fallback" };
-  } catch (err) { console.error("Demographics fetch error:", err); return { error: "Failed to fetch demographics" }; }
-};
-
-// ─── Vetting Report Generator ───
-// stripEmoji: removes emoji/special Unicode chars that corrupt in plain-text/PDF renders
-const stripEmoji = (str) => String(str || "").replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]|[\u{20E3}]|[\u{E0020}-\u{E007F}]/gu, "").trim();
-const cleanPriority = (p) => { const s = stripEmoji(p); return s || "None"; };
-const generateVettingReport = (site, nearestPSDistance, iqResult) => {
-  const popN = parseInt(String(site.pop3mi).replace(/[^0-9]/g, ""), 10);
-  const incN = parseInt(String(site.income3mi).replace(/[^0-9]/g, ""), 10);
-  const acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
-  const demoScore = (popN && incN) ? (popN >= 40000 && incN >= 60000 ? "PASS" : popN >= 20000 && incN >= 50000 ? "MARGINAL" : "BELOW THRESHOLD") : null;
-  const demoColor = demoScore === "PASS" ? "#16A34A" : demoScore === "MARGINAL" ? "#F59E0B" : "#EF4444";
-  let sizingText = "TBD", sizingColor = "#94A3B8", sizingTag = "PENDING";
-  if (!isNaN(acres)) {
-    if (acres >= 3.5 && acres <= 5) { sizingText = `${acres} ac — PRIMARY (one-story climate-controlled)`; sizingColor = "#16A34A"; sizingTag = "PASS"; }
-    else if (acres >= 2.5 && acres < 3.5) { sizingText = `${acres} ac — SECONDARY (multi-story 3-4 story)`; sizingColor = "#16A34A"; sizingTag = "PASS"; }
-    else if (acres < 2.5) { sizingText = `${acres} ac — Below minimum threshold`; sizingColor = "#EF4444"; sizingTag = "FAIL"; }
-    else if (acres > 5 && acres <= 7) { sizingText = `${acres} ac — Viable if subdivisible`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
-    else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
-  }
-  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
-  const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS >= 5 ? "#16A34A" : site.siteiqData.nearestPS >= 2.5 ? "#F59E0B" : "#EF4444") : "#94A3B8";
-  // Z&U intelligence parsing
-  const combined = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
-  const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
-  const hasSUP = /(conditional|sup\b|cup\b|special\s*use)/i.test(combined);
-  const hasRezone = /rezone/i.test(combined);
-  const hasOverlay = /overlay/i.test(combined);
-  const hasFlood = /flood/i.test(combined);
-  const hasUtilities = /(utilit|water|sewer|electric|gas\b)/i.test(combined);
-  const hasSeptic = /septic/i.test(combined);
-  const hasWell = /\bwell\b/i.test(combined);
-  const zoningClass = site.zoningClassification || "unknown";
-  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
-  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
-  const statusPill = (text, color) => `<span style="display:inline-block;padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color}30">${text}</span>`;
-  // Flags — merged from both reports
-  const flags = [];
-  if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
-  if (zoningClass === "unknown") flags.push("Zoning classification not confirmed — verify with local planning");
-  if (zoningClass === "prohibited") flags.push("Storage use PROHIBITED in current zoning district");
-  if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
-  if (!site.coordinates) flags.push("No coordinates — cannot verify location");
-  if (!isNaN(acres) && acres < 2.5) flags.push("Below minimum acreage threshold");
-  if (popN && popN < 10000) flags.push("3-mi population below 10,000 minimum");
-  if (incN && incN < 60000) flags.push("3-mi median HHI below $60,000 target");
-  if (!site.askingPrice || site.askingPrice === "TBD") flags.push("No confirmed asking price");
-  if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
-  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
-  // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
-  if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
-  if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
-  const iq = iqResult || (typeof computeSiteScore === "function" ? computeSiteScore(site) : null);
-  const iqScore = iq?.score || "—";
-  const iqTier = iq?.tier || "gray";
-  const iqLabel = iq?.label || "—";
-  const iqBadgeColor = iqTier === "gold" ? "#C9A84C" : iqTier === "steel" ? "#2C3E6B" : "#94A3B8";
-  const zoningScore = iq?.scores?.zoning;
-  const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
-  const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
-  const section = (num, title, icon) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#F37C33,#D45500);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(243,124,51,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${icon} ${title}</h2></div>`;
-  const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
-  const dom = site.dateOnMarket && site.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Vetting Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#F37C33,#D45500);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(243,124,51,0.4),0 0 0 2px rgba(243,124,51,0.15);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(243,124,51,0.5)}.print-btn:active{transform:scale(0.97)}.print-btn svg{width:18px;height:18px;fill:#fff}</style></head><body>
-  <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
-  <div class="report">
-  <!-- HEADER -->
-  <div style="background:linear-gradient(135deg,#0A0A0C 0%,#1E2761 60%,#2C3E6B 100%);padding:36px 40px;position:relative;overflow:hidden">
-    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#F37C33,#FFB347,#F37C33,transparent)"></div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#1E2761);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(201,168,76,0.4)"><span style="font-size:16px;font-weight:900;color:#fff;font-family:'Space Mono'">IQ</span></div>
-          <div><div style="font-size:10px;color:#94A3B8;letter-spacing:0.12em;text-transform:uppercase">Site Vetting Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
+// ─── Error Boundary — prevents total app crash on report/render errors ───
+class ErrorBoundary extends React.PureComponent {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error("ErrorBoundary caught:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, textAlign: "center", background: "#0A0E2A", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>&#9888;&#65039;</div>
+          <h1 style={{ color: "#C9A84C", fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Something went wrong</h1>
+          <p style={{ color: "#94A3B8", fontSize: 14, maxWidth: 500, marginBottom: 24 }}>
+            {this.state.error?.message || "An unexpected error occurred."}
+          </p>
+          <button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+            Reload Application
+          </button>
         </div>
-        <div style="font-size:12px;color:#94A3B8;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${iqBadgeColor}18;border:1px solid ${iqBadgeColor}40">
-          <span style="font-size:28px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono'">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</span>
-          <div><div style="font-size:9px;color:#94A3B8;letter-spacing:0.08em">SITESCORE</div><div style="font-size:11px;font-weight:800;color:${iqBadgeColor}">${iqLabel}</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- KEY METRICS BAR -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
-    ${[
-      { l: "ACREAGE", v: site.acreage ? site.acreage + " ac" : "—" },
-      { l: "ASKING PRICE", v: site.askingPrice || "—" },
-      { l: "3-MI POP", v: site.pop3mi ? fmtN(site.pop3mi) : "—" },
-      { l: "3-MI MED INC", v: site.income3mi ? ("$" + fmtN(site.income3mi)) : "—" },
-    ].map(m => `<div style="padding:16px 12px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">${m.l}</div><div style="font-size:16px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
-  </div>
-
-  <div style="padding:24px 40px 40px">
-    <!-- RESEARCH COMPLETENESS GATE -->
-    ${(() => {
-      const checks = [
-        { label: "Zoning District Identified", done: !!site.zoning, category: "ZONING" },
-        { label: "Zoning Classification Confirmed", done: !!site.zoningClassification && site.zoningClassification !== "unknown", category: "ZONING" },
-        { label: "Ordinance Source Cited", done: !!site.zoningSource, category: "ZONING" },
-        { label: "Planning Dept Contact Found", done: !!site.planningContact, category: "ZONING" },
-        { label: "Permitted Use Table Reviewed", done: !!site.zoningNotes && site.zoningNotes.length > 20, category: "ZONING" },
-        { label: "Water Provider Identified", done: !!site.waterProvider, category: "UTILITY" },
-        { label: "Water Availability Confirmed", done: site.waterAvailable === true || site.waterAvailable === false, category: "UTILITY" },
-        { label: "Sewer Provider Identified", done: !!site.sewerProvider, category: "UTILITY" },
-        { label: "Sewer Availability Confirmed", done: site.sewerAvailable === true || site.sewerAvailable === false, category: "UTILITY" },
-        { label: "Electric Provider + 3-Phase", done: !!site.electricProvider, category: "UTILITY" },
-        { label: "Tap/Impact Fees Documented", done: !!site.tapFees, category: "UTILITY" },
-        { label: "FEMA Flood Zone Checked", done: !!site.floodZone, category: "TOPO" },
-        { label: "Terrain Assessment", done: !!site.terrain, category: "TOPO" },
-        { label: "Wetlands Checked (NWI)", done: site.wetlands === true || site.wetlands === false, category: "TOPO" },
-      ];
-      const done = checks.filter(c => c.done).length;
-      const total = checks.length;
-      const pct = Math.round((done / total) * 100);
-      const grade = pct === 100 ? "COMPLETE" : pct >= 80 ? "NEAR COMPLETE" : pct >= 50 ? "IN PROGRESS" : "INCOMPLETE";
-      const gradeColor = pct === 100 ? "#16A34A" : pct >= 80 ? "#3B82F6" : pct >= 50 ? "#F59E0B" : "#EF4444";
-      const catSummary = (cat) => { const items = checks.filter(c => c.category === cat); const d = items.filter(c => c.done).length; return { done: d, total: items.length, pct: Math.round((d / items.length) * 100) }; };
-      const z = catSummary("ZONING"); const u = catSummary("UTILITY"); const t = catSummary("TOPO");
-      return `
-    <div style="margin-bottom:24px;border-radius:12px;overflow:hidden;border:2px solid ${gradeColor}30">
-      <div style="background:linear-gradient(135deg,#0A0A0C,#1E2761);padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:48px;height:48px;border-radius:10px;background:${gradeColor}15;border:2px solid ${gradeColor}40;display:flex;align-items:center;justify-content:center">
-            <span style="font-size:20px;font-weight:900;color:${gradeColor};font-family:'Space Mono',monospace">${pct}%</span>
-          </div>
-          <div>
-            <div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:0.02em">Research Completeness</div>
-            <div style="font-size:10px;color:#94A3B8;margin-top:2px">Institutional-grade due diligence &mdash; ${done}/${total} items verified against primary sources</div>
-          </div>
-        </div>
-        <span style="padding:6px 16px;border-radius:8px;font-size:12px;font-weight:800;background:${gradeColor}18;color:${gradeColor};border:1px solid ${gradeColor}30;letter-spacing:0.06em">${grade}</span>
-      </div>
-      <div style="background:#FAFBFC;padding:14px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-        ${[
-          { label: "Zoning & Entitlements", ...z, color: "#1E2761" },
-          { label: "Utilities & Water", ...u, color: "#16A34A" },
-          { label: "Topography & Flood", ...t, color: "#E87A2E" },
-        ].map(c => `<div style="text-align:center;padding:12px;border-radius:8px;background:#fff;border:1px solid #E2E8F0">
-          <div style="font-size:9px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${c.label}</div>
-          <div style="width:100%;height:6px;border-radius:3px;background:#E2E8F0;overflow:hidden;margin-bottom:4px"><div style="width:${c.pct}%;height:100%;border-radius:3px;background:${c.pct === 100 ? "#16A34A" : c.pct >= 60 ? "#F59E0B" : "#EF4444"};transition:width 0.5s"></div></div>
-          <div style="font-size:11px;font-weight:700;color:${c.pct === 100 ? "#16A34A" : "#64748B"}">${c.done}/${c.total}</div>
-        </div>`).join("")}
-      </div>
-      ${pct < 100 ? `<div style="background:#FEF2F2;padding:10px 20px;border-top:1px solid #FECACA">
-        <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:4px">&#9888; OUTSTANDING RESEARCH ITEMS:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px">${checks.filter(c => !c.done).map(c => `<span style="font-size:9px;font-weight:600;color:#991B1B;background:#FEE2E2;padding:2px 8px;border-radius:4px">${c.label}</span>`).join("")}</div>
-      </div>` : `<div style="background:#F0FDF4;padding:10px 20px;border-top:1px solid #BBF7D0;text-align:center">
-        <span style="font-size:11px;font-weight:700;color:#166534">&#10003; ALL RESEARCH ITEMS VERIFIED &mdash; REPORT IS INSTITUTIONAL-GRADE</span>
-      </div>`}
-    </div>`;
-    })()}
-
-    <!-- 1. PROPERTY OVERVIEW -->
-    ${section("1", "Property Overview", "")}
-    <table>${[
-      row("Name", site.name || "—", { bold: true }),
-      row("Address", `${site.address || "—"}, ${site.city || "—"}, ${site.state || "—"}`),
-      row("Market", site.market || "—"),
-      row("Acreage", site.acreage || "—"),
-      row("Asking Price", site.askingPrice || "—", { bold: true }),
-      row("Internal Price", site.internalPrice || "—"),
-      row("Phase", site.phase || "Prospect", { badge: true, badgeBg: site.phase === "Under Contract" ? "#DCFCE7" : "#FFF7ED", badgeColor: site.phase === "Under Contract" ? "#166534" : "#9A3412" }),
-      row("Priority", cleanPriority(site.priority)),
-      row("Coordinates", site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="color:#1565C0;text-decoration:none">${site.coordinates} ↗</a>` : "—"),
-      row("Listing", site.listingUrl ? `<a href="${site.listingUrl}" target="_blank" style="color:#F37C33;text-decoration:none">View Listing ↗</a>` : "—"),
-      dom !== null ? row("Days on Market", `${dom} days`, { badge: true, badgeBg: dom > 365 ? "#FEE2E2" : dom > 180 ? "#FEF3C7" : "#DCFCE7", badgeColor: dom > 365 ? "#991B1B" : dom > 180 ? "#92400E" : "#166534" }) : "",
-    ].join("")}</table>
-
-    <!-- 2. ZONING & ENTITLEMENTS — HARD VET -->
-    ${section("2", "Zoning & Entitlements — Can We Get Indoor Storage Here?", "")}
-    <div style="padding:16px 20px;border-radius:10px;background:${zoningColor}08;border:2px solid ${zoningColor}35;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
-        ${statusPill(zoningLabel, zoningColor)}
-      </div>
-      <div style="font-size:12px;color:#64748B;line-height:1.6">${
-        zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." :
-        zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." :
-        zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." :
-        zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." :
-        "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding."
-      }</div>
-    </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Zoning District", site.zoning || "Not confirmed", { bold: true }),
-      row("Classification", zoningLabel, { badge: true, badgeBg: zoningColor + "18", badgeColor: zoningColor }),
-      row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
-      row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
-      row("Zoning Score", zoningScore != null ? `<span style="font-weight:900;color:${zoningScoreColor};font-family:'Space Mono',monospace">${zoningScore.toFixed(1)}/10</span>` : "—"),
-      row("Ordinance Source", site.zoningSource || "<em style='color:#94A3B8'>Not yet researched</em>"),
-      row("Planning Contact", site.planningContact || "<em style='color:#94A3B8'>Research needed</em>"),
-    ].join("")}</table>
-    ${site.zoningNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.zoningNotes}</div>` : ""}
-    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0F4FF;border-left:3px solid #1E2761;font-size:9px;color:#475569;line-height:1.6">
-      <strong style="color:#1E2761;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      Zoning classification sourced from municipal ordinance permitted use table. Ordinance databases searched: ecode360.com, Municode.com, American Legal Publishing, Code Publishing Co., and jurisdiction websites. Storage use terms searched: "storage warehouse," "mini-warehouse," "self-service storage," "self-storage," "personal storage," "indoor storage," "warehouse (mini/self-service)." Overlay districts identified via zoning map review. Supplemental standards extracted from district-specific regulations. Planning department contact sourced from jurisdiction website. Verification date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
-    </div>
-    <!-- Supplemental Standards Grid -->
-    <div style="margin-top:16px"><div style="font-size:11px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Supplemental Standards</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${[
-        { label: "Facade / Materials", icon: "&#127959;", text: /facade|material|masonry|brick/i.test(combined) ? "Requirements noted — see summary" : "No specific requirements identified" },
-        { label: "Setbacks", icon: "&#128208;", text: /setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks apply" },
-        { label: "Height Limits", icon: "&#128207;", text: /height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district height limits" },
-        { label: "Screening / Landscape", icon: "&#127807;", text: /screen|landscape|buffer/i.test(combined) ? "Screening / landscaping required" : "Standard requirements" },
-        { label: "Signage", icon: "&#129707;", text: /sign/i.test(combined) ? "Signage requirements noted" : "Standard district signage rules" },
-        { label: "Parking", icon: "&#127359;", text: /parking/i.test(combined) ? "Parking requirements noted" : "Per district standards" },
-      ].map(s => `<div style="padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:14px">${s.icon}</span><span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em">${s.label}</span></div><div style="font-size:12px;color:#64748B">${s.text}</div></div>`).join("")}
-    </div></div>
-
-    <!-- 3. UTILITIES & WATER — HARD VET -->
-    ${section("3", "Utilities & Water — Can We Hook Up?", "")}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      ${[
-        { label: "Water Service", icon: "&#128167;", available: !!site.waterProvider || site.waterAvailable === true || /water|municipal|city\s*water/i.test(combined), issue: site.waterAvailable === false ? "Extension required" : hasWell ? "Well water noted" : null, color: site.waterAvailable === true ? "#16A34A" : site.waterAvailable === false ? "#EF4444" : !!site.waterProvider ? "#16A34A" : /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.waterProvider || null },
-        { label: "Sanitary Sewer", icon: "&#128703;", available: !!site.sewerProvider || site.sewerAvailable === true || /sewer|sanitary/i.test(combined) || hasSeptic, issue: site.sewerAvailable === false && !hasSeptic ? "Not available" : null, color: site.sewerAvailable === true ? "#16A34A" : !!site.sewerProvider ? "#16A34A" : /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#16A34A" : site.sewerAvailable === false ? "#F59E0B" : "#94A3B8", detail: site.sewerProvider || (hasSeptic ? "Septic — viable for storage (low wastewater)" : null) },
-        { label: "Electric Service", icon: "&#9889;", available: !!site.electricProvider || site.threePhase === true || /electric|power/i.test(combined), issue: site.threePhase === false ? "No 3-phase" : null, color: site.threePhase === true ? "#16A34A" : !!site.electricProvider ? "#16A34A" : /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.electricProvider ? (site.electricProvider + (site.threePhase === true ? " — 3-Phase ✓" : "")) : null },
-        { label: "Natural Gas", icon: "&#128293;", available: !!site.gasProvider || /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: !!site.gasProvider ? "#16A34A" : /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8", detail: site.gasProvider || null },
-        { label: "Stormwater", icon: "&#127783;", available: /storm|drainage|detention/i.test(combined), issue: hasFlood ? "Flood zone concern" : null, color: hasFlood ? "#EF4444" : /storm|drainage/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
-        { label: "Telecom / Fiber", icon: "&#128225;", available: /fiber|telecom|internet|broadband/i.test(combined), issue: null, color: /fiber|telecom/i.test(combined) ? "#16A34A" : "#94A3B8", detail: null },
-      ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.detail ? `<strong style="color:#1E293B">${u.detail}</strong>` : u.available ? "Available per verified research" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned — verify with jurisdiction or utility provider"}</div></div>`).join("")}
-    </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Water Provider", site.waterProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("Water Available", site.waterAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES — Municipal</span>' : site.waterAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO — Extension Required</span>' : "<em style='color:#94A3B8'>Not confirmed — verify with provider</em>"),
-      row("Sewer Provider", site.sewerProvider || "<em style='color:#94A3B8'>Research needed</em>"),
-      row("Sewer Available", site.sewerAvailable === true ? '<span style="color:#16A34A;font-weight:700">YES</span>' : site.sewerAvailable === false ? '<span style="color:#EF4444;font-weight:700">NO</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Electric (3-Phase)", site.threePhase === true ? '<span style="color:#16A34A;font-weight:700">3-Phase Available</span>' : site.threePhase === false ? '<span style="color:#F59E0B;font-weight:700">Not available — upgrade needed</span>' : "<em style='color:#94A3B8'>Not confirmed</em>"),
-      row("Tap/Impact Fees", site.tapFees || "<em style='color:#94A3B8'>Check jurisdiction fee schedule</em>"),
-    ].join("")}</table>
-    ${site.utilityNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F0F9FF;border:1px solid #BAE6FD;font-size:12px;line-height:1.7;color:#0C4A6E">${site.utilityNotes}</div>` : `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;line-height:1.5;color:#92400E"><strong>&#9888; Research Checklist:</strong> Water provider + service boundary | Sewer availability | Distance to mains | Tap fees | Electric (3-phase) | Gas | Capacity constraints</div>`}
-    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#F0FFF4;border-left:3px solid #16A34A;font-size:9px;color:#475569;line-height:1.6">
-      <strong style="color:#16A34A;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      Water/sewer provider identified via city utility department website, county records, and state regulatory databases (TCEQ CCN maps for TX, state DEQ/utility commission for other states). Service boundary verified via municipal GIS portals and utility district maps. Tap/impact fees sourced from published jurisdiction fee schedules (commercial/warehouse classification). Electric provider identified via utility service territory maps; 3-phase availability checked against provider service records. Distance to nearest water/sewer main estimated via GIS infrastructure layers where available. Capacity constraints checked against published moratoriums and allocation notices.
-    </div>
-
-    <!-- 4. TOPOGRAPHY & FLOOD -->
-    ${section("4", "Topography & Flood Assessment", "")}
-    <div style="padding:14px 18px;border-radius:10px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified in site data" : "No flood zone issues identified"}</span>
-      ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
-    </div>
-    <table>${[
-      row("FEMA Flood Zone", site.floodZone || (hasFlood ? '<span style="color:#F59E0B;font-weight:700">Flood concern noted — verify FEMA panel</span>' : "<em style='color:#94A3B8'>Check msc.fema.gov</em>")),
-      row("Terrain", site.terrain || "<em style='color:#94A3B8'>Review Google Earth / county contours</em>"),
-      row("Wetlands", site.wetlands === true ? '<span style="color:#EF4444;font-weight:700">Present — reduces developable area</span>' : site.wetlands === false ? '<span style="color:#16A34A">None identified</span>' : "<em style='color:#94A3B8'>Check NWI mapper</em>"),
-      row("Grading Risk", site.gradingRisk || "<em style='color:#94A3B8'>Assess from aerial/contours</em>"),
-      row("Environmental", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
-    ].join("")}</table>
-    ${site.topoNotes ? `<div style="margin-top:12px;padding:14px 18px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;line-height:1.7;color:#475569">${site.topoNotes}</div>` : ""}
-    <div style="margin-top:10px;padding:10px 16px;border-radius:6px;background:#FFF7ED;border-left:3px solid #E87A2E;font-size:9px;color:#475569;line-height:1.6">
-      <strong style="color:#E87A2E;font-size:9px;letter-spacing:0.05em">RESEARCH METHODOLOGY</strong><br/>
-      FEMA flood zone designation sourced from FEMA Flood Map Service Center (msc.fema.gov) — FIRM panel number and zone classification recorded. Topographic assessment via Google Earth elevation profiles, USGS TopoView, and county GIS contour data. Wetlands checked via U.S. Fish & Wildlife Service National Wetlands Inventory (NWI) mapper. Soil data from USDA Web Soil Survey where available. Grading cost estimates based on industry benchmarks: flat-2% = no concern, 2-5% = $50K-$150K, 5-10% = $150K-$400K+, >10% = potentially prohibitive. Environmental screening via EPA NEPAssist and state environmental databases.
-    </div>
-
-    <!-- 5. SITE ACCESS & INFRASTRUCTURE -->
-    ${section("5", "Site Access & Infrastructure", "")}
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Road Frontage", /frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed"),
-      row("Curb Cuts", /curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "Not confirmed — verify on aerial"),
-      row("Road Type", /highway|arterial|collector|divided|two.?lane/i.test(combined) ? "Road classification noted" : "Not assessed"),
-      row("Visibility", /visib/i.test(combined) ? "Visibility noted" : "Not assessed"),
-      row("Landlocked", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? '<span style="color:#EF4444;font-weight:700">ACCESS CONCERN — verify road frontage</span>' : "No landlocked concerns identified"),
-    ].join("")}</table>
-
-    <!-- 6. DEMOGRAPHICS -->
-    ${section("6", "Demographics (3-Mile Radius)", "")}
-    <table>${[
-      row("Population", site.pop3mi ? fmtN(site.pop3mi) : "Not available"),
-      row("Median Income", site.income3mi ? ("$" + fmtN(site.income3mi)) : "Not available"),
-      demoScore ? row("Demo Score", demoScore, { badge: true, badgeBg: demoColor + "18", badgeColor: demoColor }) : "",
-    ].join("")}</table>
-
-    <!-- 7. SITE SIZING -->
-    ${section("7", "Site Sizing Assessment", "")}
-    <div style="padding:14px 18px;border-radius:10px;background:${sizingColor}0A;border:1px solid ${sizingColor}25;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:13px;font-weight:600;color:#1E293B">${sizingText}</span>
-      <span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;background:${sizingColor}18;color:${sizingColor}">${sizingTag}</span>
-    </div>
-
-    <!-- 8. BROKER -->
-    ${section("8", "Broker / Seller", "")}
-    <table>${[
-      row("Contact", site.sellerBroker || "Not listed"),
-      row("Date on Market", site.dateOnMarket || "Unknown"),
-    ].join("")}</table>
-
-    <!-- 9. RECOMMENDED NEXT STEPS -->
-    ${section("9", "Recommended Next Steps", "")}
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-      ${[
-        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify indoor storage permissibility" } : null,
-        zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements, and precedent" } : null,
-        zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
-        !hasUtilities ? { pri: "HIGH", color: "#EF4444", text: "Confirm water & sewer availability — contact provider and verify service boundary" } : null,
-        hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
-        hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
-        { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
-      ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
-    </div>
-
-    <!-- 10. RED FLAGS -->
-    ${section("10", "Red Flags & Action Items", "")}
-    ${flags.length === 0
-      ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
-      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
+      );
     }
-
-    <!-- 11. SUMMARY -->
-    ${section("11", "Summary & Deal Notes", "")}
-    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
-
-    ${iq && iq.scores ? (() => {
-      const dims = [
-        { key: "population", label: "Population", weight: 0.20 },
-        { key: "growth", label: "Growth", weight: 0.25 },
-        { key: "income", label: "Income", weight: 0.10 },
-        { key: "pricing", label: "Pricing", weight: 0.08 },
-        { key: "zoning", label: "Zoning", weight: 0.15 },
-        { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "competition", label: "Competition", weight: 0.07 },
-        { key: "marketTier", label: "Market Tier", weight: 0.08 },
-      ];
-      return `
-    <!-- SITESCORE SCORECARD -->
-    ${section("IQ", "SiteScore Scorecard", "")}
-    <!-- Visual Bar Chart -->
-    <div style="display:flex;gap:8px;align-items:flex-end;height:140px;padding:20px 0 0;margin-bottom:16px">
-      ${dims.map(d => {
-        const v = iq.scores[d.key] || 0;
-        const pct = Math.max(5, (v / 10) * 100);
-        const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-          <div style="font-size:14px;font-weight:900;color:${c};font-family:'Space Mono',monospace">${v.toFixed ? v.toFixed(1) : v}</div>
-          <div style="width:100%;height:80px;border-radius:6px;background:#F1F5F9;position:relative;overflow:hidden">
-            <div style="position:absolute;bottom:0;left:0;right:0;height:${pct}%;border-radius:6px;background:linear-gradient(180deg,${c},${c}88);transition:height 0.5s"></div>
-          </div>
-          <div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.02em;text-align:center;line-height:1.2">${d.label}</div>
-        </div>`;
-      }).join("")}
-    </div>
-    <!-- Detail Table -->
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">
-      <thead><tr style="background:#FAFBFC">${["Dimension", "Score", "Weight", "Weighted"].map(h => `<th style="padding:8px 12px;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;text-align:left;border-bottom:2px solid #E2E8F0">${h}</th>`).join("")}</tr></thead>
-      <tbody>${dims.map((d, i) => { const v = iq.scores[d.key] || 0; return `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 12px;font-size:12px;font-weight:600;color:#1E293B">${d.label}</td><td style="padding:8px 12px;font-size:13px;font-weight:800;color:${v >= 7 ? "#16A34A" : v >= 4 ? "#F59E0B" : "#EF4444"};font-family:'Space Mono',monospace">${typeof v === "number" ? v.toFixed(1) : "—"}</td><td style="padding:8px 12px;font-size:11px;color:#94A3B8">${(d.weight * 100).toFixed(0)}%</td><td style="padding:8px 12px;font-size:12px;font-weight:700;color:#475569">${(v * d.weight).toFixed(2)}</td></tr>`; }).join("")}
-      <tr style="background:#1E2761"><td colspan="3" style="padding:10px 12px;font-size:12px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.04em">Composite Score</td><td style="padding:10px 12px;font-size:18px;font-weight:900;color:#F37C33;font-family:'Space Mono',monospace">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</td></tr>
-      </tbody></table>`;
-    })() : ""}
-  </div>
-
-  <!-- SOURCES & METHODOLOGY APPENDIX -->
-  <div style="padding:28px 40px 20px;border-top:2px solid #1E2761">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#1E2761,#2C3E6B);display:flex;align-items:center;justify-content:center;font-size:11px;color:#C9A84C;font-weight:900">&#167;</div>
-      <h2 style="margin:0;font-size:14px;font-weight:800;color:#1E2761;letter-spacing:0.02em">Sources &amp; Methodology</h2>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Zoning &amp; Entitlements</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; Municipal zoning ordinance (ecode360, Municode, American Legal, Code Publishing)<br/>
-          &bull; Permitted use table — exact district column verified<br/>
-          &bull; Overlay district maps via jurisdiction GIS portal<br/>
-          &bull; Planning department direct contact for confirmation
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#16A34A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Utilities &amp; Water</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; City/county utility department + published fee schedules<br/>
-          &bull; TCEQ CCN maps (TX) / state utility commission databases<br/>
-          &bull; Municipal GIS infrastructure layers (water/sewer mains)<br/>
-          &bull; Electric utility service territory maps — 3-phase verification
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#E87A2E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Topography &amp; Environmental</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; FEMA Flood Map Service Center (msc.fema.gov) — FIRM panels<br/>
-          &bull; Google Earth elevation profiles + USGS TopoView<br/>
-          &bull; National Wetlands Inventory (NWI) mapper — USFWS<br/>
-          &bull; USDA Web Soil Survey + EPA NEPAssist screening
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0">
-        <div style="font-size:9px;font-weight:800;color:#2C3E6B;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Demographics &amp; Scoring</div>
-        <div style="font-size:8.5px;color:#64748B;line-height:1.5">
-          &bull; Licensed ESRI 2025 estimates + 2030 five-year projections<br/>
-          &bull; U.S. Census Bureau ACS 5-Year (population, HHI, households)<br/>
-          &bull; SiteScore&trade; composite scoring: 8 weighted dimensions, 0&ndash;10 scale<br/>
-          &bull; PS proximity: Haversine distance against 3,400+ owned locations
-        </div>
-      </div>
-    </div>
-    <div style="padding:10px 14px;border-radius:6px;background:#0A0A0C;font-size:8px;color:#64748B;line-height:1.6;text-align:center">
-      This report was generated by SiteScore&trade;, a proprietary AI-powered acquisition intelligence platform developed by DJR Real Estate LLC.
-      All zoning, utility, and environmental findings are sourced from primary municipal records, federal databases, and licensed data providers.
-      Findings should be independently verified prior to capital commitment. Report date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
-    </div>
-  </div>
-
-  <!-- FOOTER -->
-  <div style="background:#0A0A0C;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#64748B">Report generated by <span style="color:#C9A84C;font-weight:700">SiteScore&trade; AI-Powered Data</span> · Patent Pending</div>
-    <div style="font-size:11px;color:#64748B"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
-  </div>
-</div></body></html>`;
-};
-
-// ─── Email Recommendation Generator — creates full HTML email for Outlook draft ───
-const generateEmailRec = (site, siteId) => {
-  const p = (v) => v ? String(v).replace(/[^0-9.]/g, "") : "0";
-  const fmt = (v) => v || "—";
-  const fmtPrice = (v) => { const n = parseInt(p(v)); return n ? "$" + n.toLocaleString() : "—"; };
-  const acres = parseFloat(p(site.acreage)) || 0;
-  const priceNum = parseInt(p(site.askingPrice)) || 0;
-  const pricePerAc = acres > 0 && priceNum > 0 ? "$" + Math.round(priceNum / acres).toLocaleString() + "/AC" : "—";
-
-  // Projected economics
-  const siteCoverage = acres >= 3.5 ? 0.35 : 0.25;
-  const landSF = acres * 43560;
-  const buildSF = Math.round(landSF * siteCoverage);
-  const ccPct = acres >= 3.5 ? 0.65 : 0.75;
-  const duPct = 1 - ccPct;
-  const ccSF = Math.round(buildSF * ccPct);
-  const duSF = Math.round(buildSF * duPct);
-  const costPerSF = acres >= 3.5 ? 65 : 95;
-  const buildCost = buildSF * costPerSF;
-  const totalBasis = priceNum + buildCost;
-  const ccRentSF = 1.40; const duRentSF = 0.75; const occ = 0.87;
-  const noiAnn = Math.round((ccSF * ccRentSF * 12 * occ) + (duSF * duRentSF * 12 * occ));
-  const yoc = totalBasis > 0 ? ((noiAnn / totalBasis) * 100).toFixed(1) : "—";
-
-  const zoningClass = site.zoningClassification || "unknown";
-  const zoningGreen = zoningClass === "by-right";
-  const waterStatus = (site.waterHookupStatus || "unknown").toLowerCase();
-  const waterGreen = waterStatus === "by-right";
-
-  const deepLink = `https://storvex.vercel.app/?site=${siteId}`;
-  const listingLink = site.listingUrl || "#";
-  const pinLink = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates.replace(/\s/g, "")}` : "#";
-
-  const greenBold = (text) => `<span style="color:#1B7A2B;font-weight:bold">${text}</span>`;
-  const row = (label, value, alt) => `<tr style="background:${alt ? "#f5f7fa" : "transparent"}"><td style="padding:6px 12px;font-weight:bold;width:200px">${label}</td><td style="padding:6px 12px">${value}</td></tr>`;
-  const demoRow = (label, v1, v3, v5, alt) => `<tr style="background:${alt ? "#f5f7fa" : "transparent"}"><td style="padding:6px 12px;font-weight:bold">${label}</td><td style="padding:6px 12px;text-align:center">${v1}</td><td style="padding:6px 12px;text-align:center;font-weight:bold">${v3}</td><td style="padding:6px 12px;text-align:center">${v5}</td></tr>`;
-
-  const html = `<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.6">
-<p>Flagging a site for review — ${site.market || site.city + ", " + site.state}. ${zoningGreen ? "By-right zoning" : "Zoning: " + (zoningClass || "TBD")}, ${waterGreen ? "by-right water" : "water: " + (waterStatus || "TBD")}${site.siteiqData?.nearestPS ? ", " + site.siteiqData.nearestPS + " mi to nearest PS" : ""}.</p>
-
-<p style="font-size:18px;font-weight:bold;color:#1E2761;margin-bottom:2px">${site.name || site.address}</p>
-<p style="color:#555;margin-top:0">${site.city}, ${site.state} ${site.address ? "| " + site.address : ""}</p>
-
-<table style="border-collapse:collapse;width:100%;max-width:640px;margin:16px 0">
-<tr style="background-color:#1E2761;color:white"><td style="padding:8px 12px;font-weight:bold" colspan="2">SITE SUMMARY</td></tr>
-${row("Acreage", fmt(site.acreage), true)}
-${row("Asking Price", fmtPrice(site.askingPrice) + (pricePerAc !== "—" ? " (" + pricePerAc + ")" : ""), false)}
-${row("Zoning", fmt(site.zoning) + " — " + (zoningGreen ? greenBold("BY-RIGHT") : zoningClass.toUpperCase()) + (site.zoningUseTerm ? ' ("' + site.zoningUseTerm + '")' : ""), true)}
-${row("Water", (waterGreen ? greenBold("BY-RIGHT") : waterStatus.toUpperCase()) + (site.waterProvider ? " — " + site.waterProvider : ""), false)}
-${row("Overlays", site.overlayDistrict ? fmt(site.overlayDistrict) : "—", true)}
-${row("Frontage", site.roadFrontage ? fmt(site.roadFrontage) : "—", false)}
-${row("PS Proximity", site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi to nearest PS" : "—", true)}
-</table>
-
-<table style="border-collapse:collapse;width:100%;max-width:640px;margin:16px 0">
-<tr style="background-color:#1E2761;color:white"><td style="padding:8px 12px;font-weight:bold" colspan="4">DEMOGRAPHICS — ESRI 2025</td></tr>
-<tr style="background:#C9A84C;color:#1E2761;font-weight:bold"><td style="padding:6px 12px"></td><td style="padding:6px 12px;text-align:center">1-Mile</td><td style="padding:6px 12px;text-align:center">3-Mile</td><td style="padding:6px 12px;text-align:center">5-Mile</td></tr>
-${demoRow("Population", fmt(site.pop1mi), fmt(site.pop3mi), fmt(site.pop5mi), true)}
-${demoRow("Median HHI", fmt(site.income1mi), fmt(site.income3mi), fmt(site.income5mi), false)}
-${demoRow("Households", fmt(site.households1mi), fmt(site.households3mi), fmt(site.households5mi), true)}
-${demoRow("Home Value", fmt(site.homeValue1mi), fmt(site.homeValue3mi), fmt(site.homeValue5mi), false)}
-${demoRow("Growth CAGR", fmt(site.popGrowth3mi || site.growthRate), fmt(site.popGrowth3mi || site.growthRate), fmt(site.popGrowth3mi || site.growthRate), true)}
-</table>
-
-<table style="border-collapse:collapse;width:100%;max-width:640px;margin:16px 0">
-<tr style="background-color:#1E2761;color:white"><td style="padding:8px 12px;font-weight:bold" colspan="2">COMPETITION &amp; PROJECTED ECONOMICS</td></tr>
-${row("CC SPC (Current)", fmt(site.ccSPC || (site.siteiqData?.ccSPC ? site.siteiqData.ccSPC + " SF/capita" : "—")), true)}
-${row("CC SPC (5-Yr)", fmt(site.projectedCCSPC || (site.siteiqData?.projectedCCSPC ? site.siteiqData.projectedCCSPC + " SF/capita" : "—")), false)}
-${row("Competitors (3 mi)", fmt(site.competitorNames), true)}
-${row("Build Plate", "~" + buildSF.toLocaleString() + " SF (" + Math.round(ccPct*100) + "% CC / " + Math.round(duPct*100) + "% drive-up) on " + acres + " AC", false)}
-${row("Est. Build Cost", "~$" + (buildCost/1e6).toFixed(2) + "M ($" + costPerSF + "/SF)", true)}
-${row("Stabilized NOI (Yr 3)", "~$" + noiAnn.toLocaleString(), false)}
-${row("Projected YOC", "<span style='font-weight:bold;color:#1B7A2B'>~" + yoc + "% (on $" + (totalBasis/1e6).toFixed(2) + "M total basis)</span>", true)}
-</table>
-
-<p style="margin:16px 0">
-<a href="${deepLink}" style="color:#1E2761;font-weight:bold;text-decoration:underline">Review Site on Storvex</a>
-&nbsp;&nbsp;|&nbsp;&nbsp;
-<a href="${listingLink}" style="color:#1E2761;text-decoration:underline">Property Listing</a>
-&nbsp;&nbsp;|&nbsp;&nbsp;
-<a href="${pinLink}" style="color:#1E2761;text-decoration:underline">View Location</a>
-</p>
-
-<p>REC package deck, ALTA survey, subdivision plat, and broker flyer attached.</p>
-
-<p>Best,<br>Dan Roscoe<br>DJR / Dan Roscoe Real Estate</p>
-</div>`;
-
-  return html;
-};
-
-const handleEmailRec = async (site, siteId) => {
-  const html = generateEmailRec(site, siteId);
-  const subject = encodeURIComponent(`Site Recommendation — ${site.name || site.address}, ${site.city} ${site.state}`);
-  // Copy HTML to clipboard
-  try {
-    const blob = new Blob([html], { type: "text/html" });
-    await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]);
-  } catch (e) {
-    // Fallback: select + copy from hidden div
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    div.style.position = "fixed"; div.style.left = "-9999px";
-    document.body.appendChild(div);
-    const range = document.createRange(); range.selectNodeContents(div);
-    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-    document.execCommand("copy");
-    document.body.removeChild(div);
+    return this.props.children;
   }
-  // Open Outlook compose (no To: field)
-  window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${subject}`, "_blank");
-  // Toast
-  const toast = document.createElement("div");
-  toast.textContent = "✅ Email copied — paste into Outlook body (Ctrl+V)";
-  toast.style.cssText = "position:fixed;bottom:24px;right:24px;background:#1B7A2B;color:#fff;padding:14px 24px;border-radius:12px;font-size:14px;font-weight:700;z-index:99999;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:fadeIn 0.2s";
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
-};
-
-// ─── Zoning & Utility Report — merged into generateVettingReport above ───
-const _REMOVED_generateZoningUtilityReport = (site, iqResult) => {
-  const iq = iqResult || {};
-  const iqScore = typeof iq.composite === "number" ? iq.composite : (iq.score || "—");
-  const zoningClass = site.zoningClassification || "unknown";
-  const zoningLabel = { "by-right": "BY-RIGHT (Permitted)", "conditional": "CONDITIONAL (SUP/CUP Required)", "rezone-required": "REZONE REQUIRED", "prohibited": "PROHIBITED", "unknown": "UNKNOWN — Research Required" }[zoningClass] || zoningClass.toUpperCase();
-  const zoningColor = zoningClass === "by-right" ? "#16A34A" : zoningClass === "conditional" ? "#F59E0B" : zoningClass === "rezone-required" ? "#EF4444" : zoningClass === "prohibited" ? "#991B1B" : "#94A3B8";
-  const zoningBadgeBg = zoningClass === "by-right" ? "#F0FDF4" : zoningClass === "conditional" ? "#FFFBEB" : zoningClass === "rezone-required" ? "#FEF2F2" : zoningClass === "prohibited" ? "#FEF2F2" : "#F8FAFC";
-  const summary = (site.summary || "").toLowerCase();
-  const zoning = (site.zoning || "").toLowerCase();
-  const combined = zoning + " " + summary;
-
-  // Parse zoning intel from summary
-  const hasByRight = /(by\s*right|permitted|storage\s*(?:by|permitted))/i.test(combined);
-  const hasSUP = /(conditional|sup\b|cup\b|special\s*use)/i.test(combined);
-  const hasRezone = /rezone/i.test(combined);
-  const hasOverlay = /overlay/i.test(combined);
-  const hasFlood = /flood/i.test(combined);
-  const hasUtilities = /(utilit|water|sewer|electric|gas\b)/i.test(combined);
-  const hasSeptic = /septic/i.test(combined);
-  const hasWell = /\bwell\b/i.test(combined);
-
-  // Zoning score from IQ
-  const zoningScore = iq?.scores?.zoning;
-  const zoningScoreColor = zoningScore >= 8 ? "#16A34A" : zoningScore >= 5 ? "#F59E0B" : zoningScore > 0 ? "#EF4444" : "#94A3B8";
-
-  const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:200px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
-  const section = (num, title) => `<div style="display:flex;align-items:center;gap:10px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #1E2761"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#5E35B1,#7C4DFF);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900;box-shadow:0 2px 8px rgba(94,53,177,0.3)">${num}</div><h2 style="margin:0;font-size:16px;font-weight:800;color:#1E2761;letter-spacing:0.02em">${title}</h2></div>`;
-  const statusPill = (text, color) => `<span style="display:inline-block;padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color}30">${text}</span>`;
-
-  const flags = [];
-  if (zoningClass === "unknown") flags.push("Zoning classification not confirmed — verify with local planning");
-  if (zoningClass === "prohibited") flags.push("Storage use PROHIBITED in current zoning district");
-  if (zoningClass === "rezone-required") flags.push("Rezone required — timeline and political risk apply");
-  if (hasFlood) flags.push("Flood zone identified — verify FEMA panel and insurance cost");
-  if (!hasUtilities && !hasSeptic) flags.push("Utility availability not confirmed — verify water hookup (HARD REQUIREMENT for fire suppression)");
-  if (site.waterAvailable === false) flags.push("⚠ WATER HOOKUP NOT CONFIRMED — municipal water is a HARD REQUIREMENT for fire suppression. Septic OK for sewer.");
-  // NOTE: Septic is VIABLE for sewer (storage has minimal wastewater). But WATER is non-negotiable — fire code requires municipal pressure.
-  if (hasWell) flags.push("Well water noted — may need municipal connection for commercial use");
-  if (hasOverlay) flags.push("Overlay district applies — additional standards may affect design/cost");
-  if (!site.zoning) flags.push("No zoning district recorded — critical data gap");
-
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Zoning & Utility Report — ${site.name || "Site"}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#F8FAFC;color:#1E293B;padding:0}@media print{body{background:#fff}.no-print{display:none!important}.report{box-shadow:none}}.report{max-width:800px;margin:0 auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.08)}table{width:100%;border-collapse:collapse}.print-btn{position:fixed;bottom:28px;right:28px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#5E35B1,#7C4DFF);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(94,53,177,0.4);transition:all 0.2s ease;z-index:9999}.print-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(94,53,177,0.5)}.save-btn{position:fixed;bottom:28px;right:200px;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#1E2761,#2C3E6B);color:#fff;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(30,39,97,0.4);transition:all 0.2s ease;z-index:9999}.save-btn:hover{transform:translateY(-2px)}</style></head><body>
-  <button class="print-btn no-print" onclick="window.print()"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>Print / Save PDF</button>
-  <div class="report">
-
-  <!-- HEADER -->
-  <div style="background:linear-gradient(135deg,#1a0a2e 0%,#2d1b69 40%,#5E35B1 100%);padding:36px 40px;position:relative;overflow:hidden">
-    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#7C4DFF,#B388FF,#7C4DFF,transparent)"></div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#7C4DFF,#B388FF);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(124,77,255,0.4)"><span style="font-size:18px;font-weight:900;color:#fff;font-family:'Space Mono'">Z&U</span></div>
-          <div><div style="font-size:10px;color:#B388FF;letter-spacing:0.12em;text-transform:uppercase">Zoning & Utility Report</div><div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;margin-top:2px">${site.name || "Unnamed Site"}</div></div>
-        </div>
-        <div style="font-size:12px;color:#B388FF;margin-top:4px">${site.address || ""}, ${site.city || ""}, ${site.state || ""} &nbsp;|&nbsp; ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:${zoningColor}18;border:1px solid ${zoningColor}40">
-          <span style="font-size:11px;font-weight:800;color:${zoningColor};text-transform:uppercase">${zoningLabel}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- KEY METRICS BAR -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);background:#FAFBFC;border-bottom:1px solid #E2E8F0">
-    ${[
-      { label: "Zoning District", value: site.zoning || "Unknown", color: "#5E35B1" },
-      { label: "Classification", value: zoningLabel.split(" (")[0], color: zoningColor },
-      { label: "Acreage", value: site.acreage ? `${site.acreage} ac` : "TBD", color: "#1E293B" },
-      { label: "Zoning Score", value: zoningScore != null ? `${zoningScore.toFixed(1)}/10` : "—", color: zoningScoreColor },
-    ].map(m => `<div style="padding:16px 20px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:9px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">${m.label}</div><div style="font-size:16px;font-weight:800;color:${m.color};font-family:'Space Mono',monospace">${m.value}</div></div>`).join("")}
-  </div>
-
-  <div style="padding:32px 40px">
-
-    <!-- 1. ZONING CLASSIFICATION -->
-    ${section("1", "Zoning Classification")}
-    <div style="padding:16px 20px;border-radius:10px;background:${zoningBadgeBg};border:1px solid ${zoningColor}25;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <span style="font-size:15px;font-weight:700;color:#1E293B">District: <strong>${site.zoning || "Not recorded"}</strong></span>
-        ${statusPill(zoningLabel, zoningColor)}
-      </div>
-      <div style="font-size:12px;color:#64748B;line-height:1.6">
-        ${zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." : ""}
-        ${zoningClass === "conditional" ? "Self-storage is allowed as a <strong style='color:#F59E0B'>conditional / special use</strong>. Requires public hearing and approval. Timeline: typically 2–6 months. Factor SUP costs (~$15K–$50K) and uncertainty into underwriting." : ""}
-        ${zoningClass === "rezone-required" ? "Current zoning <strong style='color:#EF4444'>does not permit</strong> storage use. Rezoning required — political risk, 4–12 month timeline, significant cost ($25K–$75K+). Evaluate carefully." : ""}
-        ${zoningClass === "prohibited" ? "Storage is <strong style='color:#991B1B'>explicitly prohibited</strong> with no conditional path. Rezone is the only option and may face strong opposition." : ""}
-        ${zoningClass === "unknown" ? "Zoning classification has <strong>not been confirmed</strong>. The permitted use table for this jurisdiction must be reviewed before proceeding. See Section 3 for next steps." : ""}
-      </div>
-    </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Zoning District", site.zoning || "Not recorded", { bold: true }),
-      row("Classification", zoningLabel, { badge: true, badgeBg: zoningBadgeBg, badgeColor: zoningColor }),
-      row("Storage Use Term", hasByRight ? "Permitted (by right)" : hasSUP ? "Conditional / SUP / CUP" : hasRezone ? "Rezone required" : "Not determined"),
-      row("Overlay Districts", hasOverlay ? "Yes — additional standards apply (check summary)" : "None identified"),
-    ].join("")}</table>
-
-    <!-- 2. SUPPLEMENTAL STANDARDS -->
-    ${section("2", "Supplemental Standards & Requirements")}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
-      ${[
-        { label: "Facade / Materials", icon: "🏗", text: /facade|material|masonry|brick/i.test(combined) ? "Requirements noted — see summary" : "No specific requirements identified" },
-        { label: "Setbacks", icon: "📐", text: /setback/i.test(combined) ? "Setback requirements noted" : "Standard district setbacks apply" },
-        { label: "Height Limits", icon: "📏", text: /height\s*limit|max.*height|story.*limit/i.test(combined) ? "Height restrictions noted" : "Standard district height limits" },
-        { label: "Screening / Landscape", icon: "🌿", text: /screen|landscape|buffer/i.test(combined) ? "Screening / landscaping required" : "Standard requirements" },
-        { label: "Signage", icon: "🪧", text: /sign/i.test(combined) ? "Signage requirements noted" : "Standard district signage rules" },
-        { label: "Parking", icon: "🅿", text: /parking/i.test(combined) ? "Parking requirements noted" : "Per district standards" },
-      ].map(s => `<div style="padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:14px">${s.icon}</span><span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em">${s.label}</span></div><div style="font-size:12px;color:#64748B">${s.text}</div></div>`).join("")}
-    </div>
-
-    <!-- 3. UTILITY ASSESSMENT -->
-    ${section("3", "Utility Infrastructure")}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      ${[
-        { label: "Water Service", icon: "💧", available: /water|municipal|city\s*water/i.test(combined), issue: hasWell ? "Well water noted" : null, color: /water|municipal/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Sanitary Sewer", icon: "🚿", available: /sewer|sanitary/i.test(combined), issue: hasSeptic ? "Septic system" : null, color: /sewer/i.test(combined) ? "#16A34A" : hasSeptic ? "#F59E0B" : "#94A3B8" },
-        { label: "Electric Service", icon: "⚡", available: /electric|power/i.test(combined), issue: null, color: /electric|power/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Natural Gas", icon: "🔥", available: /\bgas\b|natural\s*gas/i.test(combined), issue: null, color: /\bgas\b/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Stormwater", icon: "🌧", available: /storm|drainage|detention/i.test(combined), issue: hasFlood ? "Flood zone concern" : null, color: hasFlood ? "#EF4444" : /storm|drainage/i.test(combined) ? "#16A34A" : "#94A3B8" },
-        { label: "Telecom / Fiber", icon: "📡", available: /fiber|telecom|internet|broadband/i.test(combined), issue: null, color: /fiber|telecom/i.test(combined) ? "#16A34A" : "#94A3B8" },
-      ].map(u => `<div style="padding:14px 16px;border-radius:10px;background:${u.color}08;border:1px solid ${u.color}20"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">${u.icon}</span><span style="font-size:12px;font-weight:700;color:#1E293B">${u.label}</span></div>${statusPill(u.available ? "Confirmed" : u.issue ? u.issue : "Not Confirmed", u.color)}</div><div style="font-size:11px;color:#64748B;margin-top:4px">${u.available ? "Available per listing/summary data" : u.issue ? u.issue + " — verify capacity for commercial use" : "Not mentioned in listing data — verify with jurisdiction or utility provider"}</div></div>`).join("")}
-    </div>
-
-    <!-- 4. FLOOD ZONE -->
-    ${section("4", "Flood Zone & Environmental")}
-    <div style="padding:14px 18px;border-radius:10px;background:${hasFlood ? "#FEF2F2" : "#F0FDF4"};border:1px solid ${hasFlood ? "#FECACA" : "#BBF7D0"};display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <span style="font-size:13px;font-weight:600;color:#1E293B">${hasFlood ? "Flood zone concern identified in site data" : "No flood zone issues identified"}</span>
-      ${statusPill(hasFlood ? "FLOOD RISK" : "CLEAR", hasFlood ? "#EF4444" : "#16A34A")}
-    </div>
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("FEMA Flood Zone", hasFlood ? "Flood zone identified — verify FEMA panel" : "Not identified (verify FEMA map)"),
-      row("Environmental Concerns", /environmental|contamina|brownfield|phase\s*[12i]/i.test(combined) ? "Environmental issues noted — see summary" : "None identified"),
-      row("Wetlands", /wetland/i.test(combined) ? "Wetlands noted — may affect buildable area" : "None identified"),
-      row("Topography", /slope|grade|topo|steep|flat/i.test(combined) ? "Topography notes in summary" : "Not assessed — review aerial imagery"),
-    ].join("")}</table>
-
-    <!-- 5. ACCESS & INFRASTRUCTURE -->
-    ${section("5", "Site Access & Infrastructure")}
-    <table style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">${[
-      row("Road Frontage", /frontage|\d+['']?\s*(?:ft|feet|linear)/i.test(combined) ? "Frontage noted — see summary" : "Not confirmed"),
-      row("Curb Cuts", /curb\s*cut|driveway|ingress|egress/i.test(combined) ? "Access points noted" : "Not confirmed — verify on aerial"),
-      row("Road Type", /highway|arterial|collector|divided|two.?lane/i.test(combined) ? "Road classification noted" : "Not assessed"),
-      row("Visibility", /visib/i.test(combined) ? "Visibility noted" : "Not assessed"),
-      row("Landlocked", /landlocked|no\s*(?:road|access)|easement\s*only/i.test(combined) ? `<span style="color:#EF4444;font-weight:700">ACCESS CONCERN</span>` : "No landlocked concerns identified"),
-    ].join("")}</table>
-
-    <!-- 6. NEXT STEPS -->
-    ${section("6", "Recommended Next Steps")}
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-      ${[
-        zoningClass === "unknown" ? { pri: "HIGH", color: "#EF4444", text: "Locate permitted use table for this jurisdiction and verify storage permissibility" } : null,
-        zoningClass === "conditional" ? { pri: "MED", color: "#F59E0B", text: "Research SUP/CUP process — timeline, cost, hearing requirements, and precedent" } : null,
-        zoningClass === "rezone-required" ? { pri: "HIGH", color: "#EF4444", text: "Evaluate rezone feasibility — comp plan alignment, political climate, timeline" } : null,
-        !hasUtilities ? { pri: "MED", color: "#F59E0B", text: "Confirm utility availability — contact water/sewer provider and electric utility" } : null,
-        hasFlood ? { pri: "HIGH", color: "#EF4444", text: "Order FEMA flood certification and evaluate flood insurance cost impact" } : null,
-        hasSeptic ? { pri: "LOW", color: "#3B82F6", text: "Septic noted — viable for storage (minimal wastewater: restrooms/office only). Confirm system capacity with county." } : null,
-        hasOverlay ? { pri: "LOW", color: "#3B82F6", text: "Review overlay district standards — may impose facade, signage, or landscaping requirements" } : null,
-        { pri: "LOW", color: "#3B82F6", text: "Verify all utility tap fees and connection costs for budget modeling" },
-      ].filter(Boolean).map(s => `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-radius:8px;background:${s.color}08;border:1px solid ${s.color}18"><span style="font-size:10px;font-weight:800;color:${s.color};background:${s.color}15;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-top:1px">${s.pri}</span><span style="font-size:12px;color:#1E293B;line-height:1.5">${s.text}</span></div>`).join("")}
-    </div>
-
-    <!-- 7. RED FLAGS -->
-    ${section("7", "Red Flags & Action Items")}
-    ${flags.length === 0
-      ? `<div style="padding:14px 18px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;font-size:13px;font-weight:600">No red flags identified</div>`
-      : `<div style="display:flex;flex-direction:column;gap:6px">${flags.map(f => `<div style="padding:10px 16px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:12px;font-weight:600;color:#991B1B;display:flex;align-items:center;gap:8px"><span style="font-size:14px">&#9888;</span> ${f}</div>`).join("")}</div>`
-    }
-
-    <!-- 8. DEAL NOTES -->
-    ${section("8", "Zoning & Utility Notes")}
-    <div style="padding:16px 20px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;line-height:1.7;color:#475569">${site.summary || "No notes"}</div>
-
-  </div>
-
-  <!-- FOOTER -->
-  <div style="background:#1a0a2e;padding:20px 40px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:11px;color:#7C4DFF">Report generated by <span style="color:#B388FF;font-weight:700">SiteScore Acquisition Pipeline 4.0</span> · Patent Pending</div>
-    <div style="font-size:11px;color:#7C4DFF"><span style="color:#C9A84C;font-weight:700">DJR Real Estate LLC</span> &nbsp;|&nbsp; Confidential</div>
-  </div>
-</div></body></html>`;
-};
-
-// ─── SiteScore™ v3 — Calibrated Site Scoring Engine ───
-// Matches CLAUDE.md §6h framework. Uses structured data fields, not regex on summary text.
-// Weights: Pop 20%, Growth 25%, HHI 10%, Pricing 8%, Zoning 15%, Access 7%, Competition 7%, Market 8%
-// Hard FAIL: pop <5K, HHI <$55K, landlocked
-const computeSiteScore = (site) => {
-  const scores = {};
-  const flags = [];
-  let hardFail = false;
-  const summary = (site.summary || "").toLowerCase();
-  const combinedText = ((site.zoning || "") + " " + (site.summary || "")).toLowerCase();
-
-  // --- HELPERS ---
-  const parseNum = (v) => { const n = parseInt(String(v || "").replace(/[^0-9]/g, ""), 10); return isNaN(n) ? 0 : n; };
-  let acres = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, ""));
-  if (isNaN(acres) || acres === 0) {
-    const acMatch = (site.askingPrice || "").match(/([\d,.]+)\s*(?:\+\/-)?\s*(?:acres?|ac\b)/i);
-    if (acMatch) acres = parseFloat(acMatch[1].replace(/,/g, ""));
-  }
-  const popRaw = parseNum(site.pop3mi);
-  const incRaw = parseNum(site.income3mi);
-  const hasDemoData = popRaw > 0 || incRaw > 0;
-
-  // --- 1. DEMOGRAPHICS — POPULATION (25%) §6h calibrated ---
-  let popScore = 5;
-  if (popRaw > 0) {
-    if (popRaw >= 40000) popScore = 10;
-    else if (popRaw >= 25000) popScore = 8;
-    else if (popRaw >= 15000) popScore = 6;
-    else if (popRaw >= 10000) popScore = 5;
-    else if (popRaw >= 5000) popScore = 3;
-    else { popScore = 0; hardFail = true; flags.push("FAIL: 3-mi pop under 5,000"); }
-  }
-  scores.population = popScore;
-
-  // --- 2. DEMOGRAPHICS — HHI (15%) §6h calibrated ---
-  let incScore = 5;
-  if (incRaw > 0) {
-    if (incRaw >= 90000) incScore = 10;
-    else if (incRaw >= 75000) incScore = 8;
-    else if (incRaw >= 65000) incScore = 6;
-    else if (incRaw >= 55000) incScore = 4;
-    else { incScore = 0; hardFail = true; flags.push("FAIL: 3-mi HHI under $55K"); }
-  }
-  scores.income = incScore;
-
-  // --- 2b. GROWTH (15%) — ESRI 5-year population CAGR ---
-  let growthScore = 5; // default when no ESRI data
-  const growthRaw = site.popGrowth3mi ? parseFloat(String(site.popGrowth3mi).replace(/[^0-9.\-+]/g, "")) : null;
-  if (growthRaw !== null && !isNaN(growthRaw)) {
-    if (growthRaw >= 2.0) growthScore = 10;       // booming — Sun Belt corridors
-    else if (growthRaw >= 1.5) growthScore = 9;    // strong growth
-    else if (growthRaw >= 1.0) growthScore = 8;    // healthy above-national
-    else if (growthRaw >= 0.5) growthScore = 6;    // moderate positive
-    else if (growthRaw >= 0.0) growthScore = 4;    // flat — no tailwind
-    else if (growthRaw >= -0.5) growthScore = 2;   // declining — headwind
-    else { growthScore = 0; flags.push("WARN: 3-mi pop declining > -0.5%/yr"); }
-  }
-  scores.growth = growthScore;
-
-  // --- 2c. PRICING (8%) — Price per acre vs. acquisition targets ---
-  // Thresholds: ≤$150K/ac=10, ≤$250K=8, ≤$400K=6, ≤$600K=4, >$600K=2, no data=5
-  let pricingScore = 5; // default when price or acreage missing
-  const priceRaw = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, ""));
-  if (!isNaN(priceRaw) && priceRaw > 0 && !isNaN(acres) && acres > 0) {
-    const ppa = priceRaw / acres; // price per acre
-    if (ppa <= 150000) pricingScore = 10;
-    else if (ppa <= 250000) pricingScore = 8;
-    else if (ppa <= 400000) pricingScore = 6;
-    else if (ppa <= 600000) pricingScore = 4;
-    else pricingScore = 2;
-  } else if (!isNaN(priceRaw) && priceRaw > 0 && !isNaN(acres) && acres === 0) {
-    // Price exists but no acreage — can't compute PPA, leave default
-  }
-  scores.pricing = pricingScore;
-
-  // --- 3. ZONING (15%) §6c methodology ---
-  // Prefer structured zoningClassification field; fall back to regex on zoning + summary text
-  // SOURCE NOTE: ETJ / unincorporated / no zoning = 10/10 (BEST outcome for storage).
-  // Under Texas law (Ch. 231 LGC), counties have no zoning authority. ETJ grants platting control only, NOT use restrictions.
-  // We actively target unzoned land — it's a HUGE positive, not a neutral score.
-  let zoningScore = 3;
-  const zClass = site.zoningClassification;
-  if (zClass && zClass !== "unknown") {
-    if (zClass === "by-right") zoningScore = 10;
-    else if (zClass === "conditional") zoningScore = 6;
-    else if (zClass === "rezone-required") zoningScore = 2;
-    else if (zClass === "prohibited") { zoningScore = 0; flags.push("Zoning prohibits storage"); }
-  } else {
-    // "no zoning", "unincorporated", "ETJ", "unrestricted" = 10/10 — best possible outcome
-    const noZoning = /(no\s*zoning|unincorporated|unrestricted|\bETJ\b|county\s*[-—]\s*no\s*zon)/i;
-    const byRight = /(by\s*right|permitted|storage\s*(?:by|permitted)|(?:^|\s)(?:cs|gb|mu|b[- ]?\d|c[- ]?\d|m[- ]?\d)\b|commercial|industrial|business|pud\s*allow)/i;
-    const conditional = /(conditional|sup\b|cup\b|special\s*use|overlay|variance|needs?\s*sup)/i;
-    const prohibited = /(prohibited|residential\s*only|(?:^|\s)ag\b|agriculture|not\s*permitted)/i;
-    const rezoning = /(rezone|rezoning\s*required)/i;
-    if (noZoning.test(combinedText)) zoningScore = 10; // No zoning = unrestricted = best score
-    else if (byRight.test(combinedText)) zoningScore = 10;
-    else if (conditional.test(combinedText)) zoningScore = 6;
-    else if (rezoning.test(combinedText)) zoningScore = 2;
-    else if (prohibited.test(combinedText)) { zoningScore = 0; flags.push("Zoning prohibits storage"); }
-    else if ((site.zoning || "").trim()) zoningScore = 5;
-  }
-  scores.zoning = zoningScore;
-
-  // --- 5. ACCESS & VISIBILITY (10%) ---
-  let accessScore = 5;
-  if (!isNaN(acres) && acres > 0) {
-    if (acres >= 3.5 && acres <= 5) accessScore = 8;
-    else if (acres >= 2.5 && acres < 3.5) accessScore = 6;
-    else if (acres > 5 && acres <= 7) accessScore = 7;
-    else if (acres > 7) accessScore = 5;
-    else if (acres >= 2) accessScore = 4;
-    else accessScore = 2;
-  }
-  if (/\d+['\s]*(?:frontage|front|linear)/i.test(summary) || /frontage/i.test(summary)) accessScore = Math.min(10, accessScore + 2);
-  if (/landlocked|no\s*access|easement\s*only/i.test(summary)) { accessScore = 0; hardFail = true; flags.push("FAIL: Landlocked / no road access"); }
-  if (/flood/i.test(summary)) accessScore = Math.max(1, accessScore - 2);
-  if (/take\s*half|subdivis|split/i.test(summary) && !isNaN(acres) && acres > 5) accessScore = Math.min(10, accessScore + 2);
-  scores.access = Math.min(10, Math.max(0, accessScore));
-
-  // --- 6. COMPETITION (5%) ---
-  let compScore = 6;
-  const compCount = site.siteiqData?.competitorCount;
-  if (compCount !== undefined && compCount !== null) {
-    if (compCount <= 1) compScore = 10;
-    else if (compCount <= 3) compScore = 6;
-    else compScore = 3;
-  } else {
-    if (/no\s*(?:nearby|existing)\s*(?:storage|competition|competitor)/i.test(summary) || /low\s*competition/i.test(summary)) compScore = 9;
-    else if (/storage\s*(?:next\s*door|adjacent|nearby)/i.test(summary) || /high\s*competition/i.test(summary) || /saturated/i.test(summary)) compScore = 3;
-    else if (/competitor/i.test(summary)) compScore = 5;
-  }
-  scores.competition = compScore;
-
-  // --- 7. MARKET TIER (10%) ---
-  let tierScore = 2;
-  const tier = site.siteiqData?.marketTier;
-  if (tier === 1) tierScore = 10;
-  else if (tier === 2) tierScore = 8;
-  else if (tier === 3) tierScore = 6;
-  else if (tier === 4) tierScore = 4;
-  else {
-    const mkt = (site.market || "").toLowerCase();
-    if (/cinc|nky|n\.?\s*ky|northern\s*kent/i.test(mkt)) tierScore = 10;
-    else if (/ind|indy/i.test(mkt)) tierScore = 10;
-    else if (/independence|springboro|s\.?\s*dayton/i.test(mkt)) tierScore = 8;
-    else if (/tn|tenn|nashville|murfreesboro|clarksville|lebanon/i.test(mkt)) tierScore = 6;
-    else if (/dfw|dallas|austin|houston|san\s*ant/i.test(mkt)) tierScore = 4;
-  }
-  scores.marketTier = tierScore;
-
-  // --- COMPOSITE (weighted sum, 0-10 scale) — uses configurable weights ---
-  const weightedSum =
-    (popScore * getIQWeight("population")) + (growthScore * getIQWeight("growth")) +
-    (incScore * getIQWeight("income")) + (pricingScore * getIQWeight("pricing")) +
-    (zoningScore * getIQWeight("zoning")) + (scores.access * getIQWeight("access")) +
-    (compScore * getIQWeight("competition")) + (tierScore * getIQWeight("marketTier"));
-  let adjusted = Math.round(weightedSum * 10) / 10;
-
-  // --- PHASE BONUS ---
-  const phase = (site.phase || "").toLowerCase();
-  if (/under contract|closed/i.test(phase)) adjusted = Math.min(10, adjusted + 0.3);
-  else if (/psa sent/i.test(phase)) adjusted = Math.min(10, adjusted + 0.2);
-  else if (/^loi$/i.test(phase)) adjusted = Math.min(10, adjusted + 0.15);
-  else if (/sitescore approved|sitescore approved|ps approved/i.test(phase)) adjusted = Math.min(10, adjusted + 0.1);
-
-  // --- STALE LISTING PENALTY ---
-  if (site.dateOnMarket) {
-    const dom = Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000);
-    if (dom > 1000) { adjusted = Math.max(0, adjusted - 0.5); flags.push("Stale: " + dom + " DOM"); }
-  }
-
-  // --- BROKER INTEL BONUSES (from siteiqData) ---
-  if (site.siteiqData?.brokerConfirmedZoning) adjusted = Math.min(10, adjusted + 0.3);
-  if (site.siteiqData?.surveyClean) adjusted = Math.min(10, adjusted + 0.2);
-
-  // --- WATER HOOKUP — HARD REQUIREMENT ---
-  // SOURCE NOTE: Water hookup is a MUST for self-storage. Fire suppression (sprinkler systems)
-  // requires municipal-grade pressure and flow. We don't need to be IN a MUD — we just need
-  // to be able to HOOK UP to the nearest water main. Line extension is a cost item, not a
-  // deal killer. The deal killer is if there's NO water main within reasonable distance.
-  // Septic is fine for sewer (storage has minimal wastewater), but water is non-negotiable.
-  if (site.waterAvailable === false) {
-    if (site.waterProvider && site.waterProvider.length > 10) {
-      // Provider identified but not currently connected — line extension likely needed. Flag but don't kill.
-      flags.push("⚠ WATER: Not currently connected — line extension to nearest main required. Verify distance & cost.");
-      adjusted = Math.max(0, adjusted - 0.3);
-    } else {
-      // No provider identified at all — high risk
-      flags.push("⚠ WATER: No water provider identified — verify hookup feasibility (HARD REQUIREMENT for fire suppression)");
-      adjusted = Math.max(0, adjusted - 1.0);
-    }
-  }
-
-  // --- RESEARCH COMPLETENESS — HARD VET BEFORE SCORE ---
-  // SiteScore incorporates depth of due diligence research.
-  // Sites with verified primary-source research score higher than unvetted sites.
-  // Source: CLAUDE.md §6h — "HARD VET, then SiteScore, not the other way around"
-  const vetChecks = [
-    !!site.zoningSource,                                          // Ordinance cited
-    !!site.zoningClassification && site.zoningClassification !== "unknown",  // Classification confirmed
-    !!site.zoningNotes && site.zoningNotes.length > 20,           // Permitted use table reviewed
-    !!site.waterProvider,                                          // Water provider identified
-    site.waterAvailable === true || site.waterAvailable === false, // Water availability confirmed
-    !!site.sewerProvider,                                          // Sewer provider identified
-    !!site.electricProvider,                                       // Electric provider identified
-    !!site.floodZone,                                              // FEMA flood zone checked
-    !!site.planningContact,                                        // Planning dept contact found
-  ];
-  const vetDone = vetChecks.filter(Boolean).length;
-  const vetPct = vetDone / vetChecks.length;
-  // Full vet (100%) = +0.5 bonus. Partial vet scales linearly. Zero vet = -0.3 penalty.
-  if (vetPct === 1) { adjusted = Math.min(10, adjusted + 0.5); }
-  else if (vetPct >= 0.7) { adjusted = Math.min(10, adjusted + 0.3); }
-  else if (vetPct >= 0.4) { /* no adjustment — neutral */ }
-  else if (vetPct > 0) { adjusted = Math.max(0, adjusted - 0.1); }
-  else { adjusted = Math.max(0, adjusted - 0.3); flags.push("No deep vet research completed"); }
-
-  const final = Math.round(adjusted * 10) / 10;
-
-  // --- CLASSIFICATION (§6h) ---
-  let classification, classColor;
-  if (hardFail) { classification = "RED"; classColor = "#DC2626"; }
-  else if (final >= 7.5) { classification = "GREEN"; classColor = "#16A34A"; }
-  else if (final >= 5.5) { classification = "YELLOW"; classColor = "#D97706"; }
-  else if (final >= 3.0) { classification = "ORANGE"; classColor = "#EA580C"; }
-  else { classification = "RED"; classColor = "#DC2626"; }
-
-  const breakdown = [
-    { label: "Population", key: "population", score: scores.population, weight: getIQWeight("population") },
-    { label: "Growth", key: "growth", score: scores.growth, weight: getIQWeight("growth") },
-    { label: "Income", key: "income", score: scores.income, weight: getIQWeight("income") },
-    { label: "Pricing", key: "pricing", score: scores.pricing, weight: getIQWeight("pricing") },
-    { label: "Zoning", key: "zoning", score: scores.zoning, weight: getIQWeight("zoning") },
-    { label: "Access", key: "access", score: scores.access, weight: getIQWeight("access") },
-    { label: "Competition", key: "competition", score: scores.competition, weight: getIQWeight("competition") },
-    { label: "Market Tier", key: "marketTier", score: scores.marketTier, weight: getIQWeight("marketTier") },
-  ];
-  return {
-    score: final, scores, flags, hardFail, hasDemoData, classification, classColor, breakdown,
-    tier: final >= 8 ? "gold" : final >= 6 ? "steel" : "gray",
-    label: final >= 9 ? "ELITE" : final >= 8 ? "PRIME" : final >= 7 ? "STRONG" : final >= 6 ? "VIABLE" : final >= 4 ? "MARGINAL" : "WEAK",
-  };
-};
-
-// ─── SiteScore Badge Component ───
-function SiteScoreBadge({ site, size = "normal", iq: iqProp }) {
-  const iq = iqProp || computeSiteScore(site);
-  const s = iq.score;
-  const isGold = iq.tier === "gold";
-  const isSteel = iq.tier === "steel";
-  const isSmall = size === "small";
-
-  const tierColors = {
-    gold: { bg: "linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)", glow: "0 0 24px rgba(201,168,76,0.5), 0 0 48px rgba(201,168,76,0.2), 0 0 4px rgba(255,215,0,0.8)", text: "#0a0a0a", ring: "#C9A84C", labelBg: "linear-gradient(135deg, #FFFBEB, #FFF8ED)" },
-    steel: { bg: "linear-gradient(135deg, #1a1a2e, #2C3E6B, #1a1a2e)", glow: "0 2px 12px rgba(44,62,107,0.35), 0 0 2px rgba(243,124,51,0.2)", text: "#fff", ring: "#F37C33", labelBg: "linear-gradient(135deg, #E8EAF6, #F0F2FF)" },
-    gray: { bg: "linear-gradient(135deg, #3a3a4a, #4a4a5a, #3a3a4a)", glow: "0 2px 8px rgba(0,0,0,0.2)", text: "#94A3B8", ring: "#64748B", labelBg: "rgba(15,21,56,0.3)" },
-  };
-  const tc = tierColors[iq.tier];
-
-  if (isSmall) {
-    return (
-      <span style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "3px 10px", borderRadius: 8,
-        background: typeof tc.labelBg === "string" && tc.labelBg.startsWith("linear") ? tc.labelBg : tc.labelBg,
-        border: `1px solid ${tc.ring}28`,
-        fontSize: 11, fontWeight: 700, color: iq.tier === "gold" ? "#D45500" : iq.tier === "steel" ? "#1E2761" : "#64748B",
-        fontFamily: "'Space Mono', monospace",
-        transition: "all 0.3s ease",
-        boxShadow: iq.tier === "gold" ? "0 0 8px rgba(243,124,51,0.15)" : "none",
-      }}>
-        <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", opacity: 0.7 }}>IQ</span>
-        {s.toFixed(1)}
-        {iq.classification && <span style={{ width: 6, height: 6, borderRadius: "50%", background: iq.classColor, flexShrink: 0 }} title={iq.classification} />}
-      </span>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-      {/* Score Circle */}
-      <div style={{
-        position: "relative",
-        width: 68, height: 68, borderRadius: "50%",
-        background: tc.bg,
-        boxShadow: tc.glow,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-        ...(isGold ? { animation: "sitescore-glow 2s ease-in-out infinite alternate" } : {}),
-      }}>
-        {isGold && <><div style={{
-          position: "absolute", inset: -4, borderRadius: "50%",
-          border: "2px solid #F37C33",
-          opacity: 0.6,
-          animation: "sitescore-ring 2s ease-in-out infinite alternate",
-        }} /><div style={{
-          position: "absolute", inset: -8, borderRadius: "50%",
-          border: "1px solid rgba(243,124,51,0.2)",
-          opacity: 0.3,
-          animation: "sitescore-ring 3s ease-in-out infinite alternate",
-        }} /></>}
-        <div style={{ textAlign: "center", lineHeight: 1 }}>
-          <div style={{ fontSize: 24, fontWeight: 900, color: tc.text, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em" }}>{s.toFixed(1)}</div>
-        </div>
-      </div>
-      {/* Label + Breakdown */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{
-            fontSize: 12, fontWeight: 800, letterSpacing: "0.12em",
-            color: iq.tier === "gold" ? "#D45500" : iq.tier === "steel" ? "#1E2761" : "#64748B",
-            textTransform: "uppercase",
-            padding: "4px 10px", borderRadius: 6,
-            background: typeof tc.labelBg === "string" && tc.labelBg.startsWith("linear") ? tc.labelBg : tc.labelBg,
-            boxShadow: iq.tier === "gold" ? "0 0 12px rgba(243,124,51,0.12)" : "none",
-          }}>{iq.label}</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.08em" }}>SiteScore™</span>
-          {iq.classification && <span style={{ fontSize: 10, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "2px 7px", borderRadius: 4, letterSpacing: "0.06em" }}>{iq.classification}</span>}
-        </div>
-        {iq.flags && iq.flags.length > 0 && (
-          <div style={{ display: "flex", gap: 3, marginTop: 2, flexWrap: "wrap" }}>
-            {iq.flags.map((f, i) => (
-              <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>
-            ))}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "flex-end", height: 64 }}>
-          {[
-            { key: "population", label: "POP" },
-            { key: "growth", label: "GRO" },
-            { key: "income", label: "INC" },
-            { key: "pricing", label: "PPA" },
-            { key: "zoning", label: "ZN" },
-            { key: "access", label: "ACC" },
-            { key: "competition", label: "CP" },
-            { key: "marketTier", label: "MKT" },
-          ].map((f) => {
-            const v = iq.scores[f.key] || 0;
-            const pct = Math.max(8, (v / 10) * 100);
-            const c = v >= 8 ? "#F37C33" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
-            return (
-              <div key={f.key} title={`${f.label}: ${v}/10`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 32 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: c, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{v}</div>
-                <div style={{ width: 20, height: 44, borderRadius: 4, background: "rgba(0,0,0,0.06)", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, borderRadius: 4, background: `linear-gradient(180deg, ${c}, ${c}99)`, transition: "height 0.5s cubic-bezier(0.4,0,0.2,1)", boxShadow: v >= 8 ? `0 0 8px ${c}50` : "none" }} />
-                </div>
-                <div style={{ fontSize: 8, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.02em", lineHeight: 1 }}>{f.label}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
 }
-
-// ─── Components ───
-function Badge({ status }) {
-  const s = STATUS_COLORS[status] || STATUS_COLORS.pending;
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        background: s.bg,
-        color: s.text,
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: s.dot,
-        }}
-      />
-      {s.label || status}
-    </span>
-  );
-}
-
-function normalizePriority(p) {
-  if (!p) return p;
-  const map = { hot: "🔥 Hot", warm: "🟡 Warm", cold: "🔵 Cold", none: "⚪ None" };
-  const key = p.replace(/^[^a-zA-Z]+/, "").trim().toLowerCase();
-  return map[key] || p;
-}
-
-function PriorityBadge({ priority }) {
-  const p = normalizePriority(priority);
-  const c = PRIORITY_COLORS[p] || "#CBD5E1";
-  return p && p !== "⚪ None" ? (
-    <span
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: c,
-        background: c + "18",
-        padding: "2px 8px",
-        borderRadius: 6,
-      }}
-    >
-      {p}
-    </span>
-  ) : null;
-}
-
-function EF({ label, value, onSave, placeholder, multi }) {
-  const [local, setLocal] = useState(value || "");
-  const prevValue = useRef(value);
-  useEffect(() => {
-    if (value !== prevValue.current) {
-      setLocal(value || "");
-      prevValue.current = value;
-    }
-  }, [value]);
-  const st = {
-    width: "100%",
-    padding: multi ? "8px 10px" : "6px 10px",
-    borderRadius: 8,
-    border: "1px solid rgba(201,168,76,0.12)",
-    fontSize: 13,
-    fontFamily: "'Inter', sans-serif",
-    background: "rgba(15,21,56,0.5)",
-    color: "#E2E8F0",
-    outline: "none",
-    boxSizing: "border-box",
-    resize: multi ? "vertical" : "none",
-  };
-  const debouncedSave = useCallback(debounce((v) => onSave(v), 400), [onSave]);
-  const handleBlur = () => {
-    if (local !== (value || "")) debouncedSave(local);
-  };
-  return (
-    <div>
-      {label && (
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: "#6B7394",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            marginBottom: 3,
-          }}
-        >
-          {label}
-        </div>
-      )}
-      {multi ? (
-        <textarea
-          style={{ ...st, minHeight: 60 }}
-          value={local}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-        />
-      ) : (
-        <input
-          style={st}
-          value={local}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Call Briefing Tooltip ─── McKinsey-level hover card with live-editable notes
-function CallBriefTooltip({ site, region, briefDraft, setBriefDraft, onSave, onClose, getSiteScore: getIQ }) {
-  const iq = getIQ ? getIQ(site) : null;
-  const score = iq?.composite ?? iq?.score ?? null;
-  const cls = score >= 8 ? "GREEN" : score >= 6 ? "YELLOW" : score >= 4 ? "ORANGE" : "RED";
-  const clsColor = { GREEN: "#22C55E", YELLOW: "#FBBF24", ORANGE: "#F97316", RED: "#EF4444" }[cls] || "#6B7394";
-  const zoning = site.zoning || "—";
-  const zoningCls = (site.zoningClassification || "").toLowerCase();
-  const zoningColor = zoningCls.includes("by-right") ? "#22C55E" : zoningCls.includes("conditional") ? "#FBBF24" : zoningCls.includes("rezone") ? "#F97316" : "#94A3B8";
-  const waterStatus = (site.waterHookupStatus || "").toLowerCase();
-  const waterColor = waterStatus === "by-right" ? "#22C55E" : waterStatus === "by-request" ? "#FBBF24" : waterStatus === "no-provider" ? "#EF4444" : "#94A3B8";
-
-  const textRef = useRef(null);
-  useEffect(() => { if (textRef.current) textRef.current.focus(); }, []);
-
-  const metrics = [
-    { label: "ASKING", value: site.askingPrice || "—", color: "#E2E8F0" },
-    { label: "ACRES", value: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0" },
-    { label: "3MI POP", value: site.pop3mi ? Number(site.pop3mi).toLocaleString() : "—", color: "#E2E8F0" },
-    { label: "3MI HHI", value: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : `$${Number(site.income3mi).toLocaleString()}`) : "—", color: "#E2E8F0" },
-  ];
-
-  return (
-    <div onClick={(e) => e.stopPropagation()} style={{
-      position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
-      marginTop: 2, borderRadius: 14, overflow: "hidden",
-      background: "linear-gradient(170deg, #0c0e1a 0%, #111827 50%, #0f1629 100%)",
-      border: "1px solid rgba(201,168,76,0.2)",
-      boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08), 0 0 40px rgba(201,168,76,0.04)",
-      animation: "fadeIn 0.12s ease-out",
-    }}>
-      {/* Gold accent bar */}
-      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)" }} />
-
-      {/* Header strip */}
-      <div style={{ padding: "12px 16px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: "#F4F6FA", letterSpacing: "-0.01em" }}>CALL BRIEFING</span>
-          <span style={{ fontSize: 10, fontWeight: 700, color: clsColor, background: `${clsColor}15`, padding: "2px 8px", borderRadius: 5, border: `1px solid ${clsColor}30` }}>
-            {score ? `${score.toFixed(1)} ${cls}` : "—"}
-          </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: "#6B7394" }}>{site.phase || "Prospect"}</span>
-        </div>
-        <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ background: "none", border: "none", color: "#6B7394", fontSize: 14, cursor: "pointer", padding: "2px 6px", borderRadius: 4, lineHeight: 1 }} title="Close">✕</button>
-      </div>
-
-      {/* Key metrics row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, padding: "0 12px 10px" }}>
-        {metrics.map((m, i) => (
-          <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.1em", marginBottom: 2 }}>{m.label}</div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Zoning + Water status pills */}
-      <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, background: `${zoningColor}10`, padding: "4px 10px", borderRadius: 6, border: `1px solid ${zoningColor}25` }}>
-          <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>ZONING</span>
-          <span style={{ fontSize: 10, fontWeight: 700, color: zoningColor }}>{zoning}{zoningCls ? ` · ${zoningCls.replace(/-/g, " ")}` : ""}</span>
-        </div>
-        {site.waterHookupStatus && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: `${waterColor}10`, padding: "4px 10px", borderRadius: 6, border: `1px solid ${waterColor}25` }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>WATER</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: waterColor }}>{site.waterHookupStatus.replace(/-/g, " ")}</span>
-          </div>
-        )}
-        {site.sellerBroker && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(201,168,76,0.06)", padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.12)" }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>BROKER</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C" }}>{site.sellerBroker}</span>
-          </div>
-        )}
-        {site.siteiqData?.nearestPS != null && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(99,102,241,0.08)", padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(99,102,241,0.15)" }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.06em" }}>NEAREST PS</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#818CF8" }}>{site.siteiqData.nearestPS} mi</span>
-          </div>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.12), transparent)", margin: "0 12px" }} />
-
-      {/* Editable briefing notes */}
-      <div style={{ padding: "10px 12px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em" }}>BRIEFING NOTES</span>
-          <span style={{ fontSize: 8, color: "#4A5080", fontWeight: 600 }}>auto-saves on close</span>
-        </div>
-        <textarea
-          ref={textRef}
-          value={briefDraft}
-          onChange={(e) => setBriefDraft(e.target.value)}
-          onBlur={() => onSave(briefDraft)}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => { if (e.key === "Escape") { onSave(briefDraft); onClose(); } e.stopPropagation(); }}
-          placeholder="Type call notes here — auto-saves when you close..."
-          style={{
-            width: "100%", minHeight: 80, maxHeight: 200, padding: "10px 12px",
-            borderRadius: 10, border: "1px solid rgba(201,168,76,0.1)",
-            background: "rgba(15,21,56,0.6)", color: "#E2E8F0",
-            fontSize: 12, fontFamily: "'Inter', sans-serif", lineHeight: 1.6,
-            resize: "vertical", outline: "none", boxSizing: "border-box",
-            transition: "border-color 0.15s",
-          }}
-          onFocus={(e) => { e.target.style.borderColor = "rgba(232,122,46,0.3)"; }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── Seed Data REMOVED (v3) ───
-// All 47 sites (33 DW + 14 MT) are in Firebase with verified data.
-// Seed data was stale (missing coordinates, demographics, acreage) and risked overwriting live data.
-// New sites are added via Submit Site form, Bulk Import, or Claude's §6h broker response pipeline.
-const DW_SEED = [];
-const MT_SEED = [];
 
 // ═══ MAIN APP ═══
-export default function App() {
-  const [loaded, setLoaded] = useState(false);
-  const [subs, setSubs] = useState([]);
-  const [east, setEast] = useState([]);
-  const [sw, setSw] = useState([]);
-  const [tab, setTab] = useState("dashboard");
-  const [transitioning, setTransitioning] = useState(false);
-  const navigateTo = useCallback((newTab, opts = {}) => {
-    if (opts.reviewSiteId) { setReviewDetailSite(opts.reviewSiteId); setTab("review"); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    if (newTab === tab && !opts.force) { if (opts.phase) setFilterPhase(opts.phase); if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } return; }
-    setTransitioning(true);
-    setTimeout(() => {
-      setTab(newTab);
-      setDetailView(null);
-      if (newTab !== "review") setReviewDetailSite(null);
-      if (opts.phase) setFilterPhase(opts.phase); else setFilterPhase("all");
-      if (opts.siteId) { setExpandedSite(opts.siteId); setTimeout(() => { const el = document.getElementById(`site-${opts.siteId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); } else { setExpandedSite(null); }
-      if (newTab === "review") setShowNewAlert(false);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => setTransitioning(false), 350);
-    }, 280);
-  }, [tab]);
+function AppInner() {
+  // UI-only state that stays in AppInner
   const [toast, setToast] = useState(null);
   const [expandedSite, setExpandedSite] = useState(null);
-  const [detailView, setDetailView] = useState(null); // { regionKey, siteId }
   const [showNewAlert, setShowNewAlert] = useState(false);
+  const [filterPhase, setFilterPhase] = useState("all");
+  const [reicPrompt, setReicPrompt] = useState(null); // { region, id, siteName, newPhase }
+
+  // ─── FIREBASE DATA HOOK ───
+  const {
+    authReady, loaded,
+    subs, setSubs,
+    east, setEast,
+    sw, setSw,
+    configVersion, setConfigVersion,
+    iqWeights, setIqWeights,
+    killedSites, declinePatterns,
+    fbSet, fbUpdate, fbPush, fbRemove,
+  } = useFirebaseData({
+    onWeightsChange: (normalized) => {
+      SITE_SCORE_CONFIG = normalizeSiteScoreWeights(normalized);
+    },
+  });
+
+  // ─── NAVIGATION HOOK ───
+  const {
+    tab, setTab,
+    transitioning, setTransitioning,
+    detailView, setDetailView,
+    reviewDetailSite, setReviewDetailSite,
+    pushNav,
+    navigateTo,
+    goToDetail,
+  } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
+
+  // ─── PS Locations (loaded once for Discover tab map) ───
+  const [psLocations, setPsLocations] = useState([]);
+  useEffect(() => {
+    fetch("/ps-locations.csv")
+      .then(r => r.text())
+      .then(csv => {
+        const lines = csv.trim().split("\n");
+        const locs = [];
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(",");
+          if (parts.length < 7) continue;
+          const lat = parseFloat(parts[5]), lng = parseFloat(parts[6]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          locs.push({ num: parts[0], name: parts[1], address: parts[2], city: parts[3], state: parts[4], lat, lng });
+        }
+        setPsLocations(locs);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ─── Deep-link: ?site=SITE_ID opens directly to property detail ───
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (!loaded || deepLinkHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const siteParam = params.get("site");
+    if (!siteParam) return;
+    deepLinkHandled.current = true;
+    const regions = [
+      { key: "southwest", data: sw },
+      { key: "east", data: east },
+    ];
+    for (const r of regions) {
+      const found = r.data.find(s => s.id === siteParam);
+      if (found) {
+        setTab(r.key);
+        setDetailView({ regionKey: r.key, siteId: found.id });
+        return;
+      }
+    }
+    const subMatch = subs.find(s => s.id === siteParam);
+    if (subMatch) {
+      setTab("review");
+      setReviewDetailSite(subMatch.id);
+    }
+  }, [loaded, sw, east, subs, setTab, setDetailView, setReviewDetailSite]);
+
   const [newSiteCount, setNewSiteCount] = useState(0);
-  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", sellerBroker: "", coordinates: "", listingUrl: "" };
+  const emptyForm = { name: "", address: "", city: "", state: "", notes: "", region: "southwest", acreage: "", askingPrice: "", zoning: "", zoningClassification: "unknown", sellerBroker: "", coordinates: "", listingUrl: "" };
   const [form, setForm] = useState(emptyForm);
   const [submitMode, setSubmitMode] = useState("review");
+  const [discoverIntel, setDiscoverIntel] = useState(null); // Pre-fill from Discover map click
+  const [quickScoreForm, setQuickScoreForm] = useState({ name: "", address: "", city: "", state: "", acreage: "", askingPrice: "", zoning: "", zoningStatus: "", pop3mi: "", income3mi: "", households3mi: "", homeValue3mi: "", growthRate: "", nearestPS: "", competitors: "", ccSPC: "", ccRent: "", ccGrowth: "", coordinates: "" });
+  const [quickScoreResult, setQuickScoreResult] = useState(null);
   const [flyerFile, setFlyerFile] = useState(null);
   const [flyerParsing, setFlyerParsing] = useState(false);
   const [flyerPreview, setFlyerPreview] = useState(null);
@@ -1613,23 +405,39 @@ export default function App() {
   const [msgInputs, setMsgInputs] = useState({});
   const [sortBy, setSortBy] = useState("city");
   const [filterState, setFilterState] = useState("all");
-  const [filterPhase, setFilterPhase] = useState("all");
   const [highlightedSite, setHighlightedSite] = useState(null);
   // reviewExpandedSite removed — replaced by reviewDetailSite (full-page detail)
-  const [reviewTab, setReviewTab] = useState("mine");
-  const [reviewDetailSite, setReviewDetailSite] = useState(null); // site ID for full-page review detail
+  const [reviewTab, setReviewTab] = useState("dw");
   const [shareLink, setShareLink] = useState(null);
-  const [seeded, setSeeded] = useState(false);
   const [demoLoading, setDemoLoading] = useState({});
   const [demoReport, setDemoReport] = useState({});
   const [showSiteScoreDetail, setShowSiteScoreDetail] = useState({});
   // vettingReport removed — auto-generates on site add
   const [showIQConfig, setShowIQConfig] = useState(false);
   const [hoveredBrief, setHoveredBrief] = useState(null); // site id for call briefing tooltip
-  const [briefDraft, setBriefDraft] = useState(""); // local draft for editable briefing
   const hoverTimerRef = useRef(null);
-  const briefSaveTimerRef = useRef(null);
-  const [iqWeights, setIqWeights] = useState(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
+  const [demoExpanded, setDemoExpanded] = useState(false);
+  const [scoreExpanded, setScoreExpanded] = useState(false);
+  const [customPurchasePrice, setCustomPurchasePrice] = useState({}); // { siteId: "$1,200,000" }
+  const [customLandAcreage, setCustomLandAcreage] = useState({}); // { siteId: "4.5" }
+  const [scoreDimExpanded, setScoreDimExpanded] = useState(null); // which SiteScore dimension row is expanded (key string)
+  const [demoRowExpanded, setDemoRowExpanded] = useState(null); // which demographics row is expanded (key string)
+  const [hoveredMetric, setHoveredMetric] = useState(null); // which key metric box tooltip is showing
+  const [editingInternalPrice, setEditingInternalPrice] = useState({}); // { siteId: "2400000" } — inline editing state
+  // hoveredCard removed — tooltip hover is now local per-card to prevent full re-render flicker
+  const [valuationOverrides, setValuationOverrides] = useState({}); // Valuation Inputs page overrides
+
+  // ─── LOAD VALUATION OVERRIDES FROM FIREBASE ───
+  useEffect(() => {
+    if (!loaded) return;
+    const { onValue, ref: dbRef } = require("firebase/database");
+    const unsub = onValue(dbRef(db, "config/valuation_overrides"), (snap) => {
+      const val = snap.val() || {};
+      setValuationOverrides(val);
+      VALUATION_OVERRIDES = val; // Sync module-level mutable for report wrappers
+    });
+    return () => unsub();
+  }, [loaded]);
 
   // ─── KEYBOARD NAVIGATION — Arrow keys to toggle between properties ───
   useEffect(() => {
@@ -1671,56 +479,7 @@ export default function App() {
     document.head.appendChild(link);
   }, []);
 
-  // ─── FIREBASE REAL-TIME LISTENERS ───
-  useEffect(() => {
-    const subsRef = ref(db, "submissions");
-    const eastRef = ref(db, "east");
-    const swRef = ref(db, "southwest");
-    const metaRef = ref(db, "meta/seeded");
-
-    const unsubSeed = onValue(metaRef, (snap) => {
-      setSeeded(!!snap.val());
-    });
-
-    // SiteScore weight config listener — merges Firebase overrides into live config
-    const iqRef = ref(db, "config/siteiq_weights");
-    const unsubIQ = onValue(iqRef, (snap) => {
-      const val = snap.val();
-      if (val?.dimensions) {
-        const merged = SITE_SCORE_DEFAULTS.map(d => {
-          const override = val.dimensions.find(o => o.key === d.key);
-          return { ...d, weight: override ? override.weight : d.weight };
-        });
-        SITE_SCORE_CONFIG = normalizeSiteScoreWeights(merged);
-        setIqWeights(merged.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
-      }
-    });
-
-    const unsubSubs = onValue(subsRef, (snap) => {
-      const val = snap.val();
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setSubs(arr);
-    });
-    const unsubEast = onValue(eastRef, (snap) => {
-      const val = snap.val();
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setEast(arr);
-      setLoaded(true);
-    });
-    const unsubSw = onValue(swRef, (snap) => {
-      const val = snap.val();
-      const arr = val ? Object.entries(val).map(([id, d]) => ({ ...d, id })) : [];
-      setSw(arr);
-    });
-
-    return () => {
-      unsubSubs();
-      unsubEast();
-      unsubSw();
-      unsubSeed();
-      unsubIQ();
-    };
-  }, []);
+  // Auth and Firebase listeners are now in useFirebaseData hook
 
   // ─── PHASE MIGRATION — one-time remap of legacy phases ───
   const [migrated, setMigrated] = useState(false);
@@ -1746,48 +505,6 @@ export default function App() {
     setMigrated(true);
   }, [loaded, sw, east, subs, migrated]);
 
-  // ─── SEED ON FIRST LOAD ───
-  useEffect(() => {
-    if (!loaded || seeded) return;
-    const now = new Date().toISOString();
-    const make = (d, reg) => ({
-      ...d,
-      region: reg,
-      id: uid(),
-      status: "tracking",
-      submittedAt: now,
-      approvedAt: now,
-      phase: "Prospect",
-      acreage: d.acreage || "",
-      zoning: d.zoning || "",
-      askingPrice: d.askingPrice || "",
-      internalPrice: d.internalPrice || "",
-      income3mi: d.income3mi || "",
-      pop3mi: d.pop3mi || "",
-      sellerBroker: d.sellerBroker || "",
-      summary: d.summary || "",
-      coordinates: d.coordinates || "",
-      market: d.market || "",
-      priority: "⚪ None",
-      messages: {},
-      activityLog: {},
-      docs: {},
-    });
-    const dwSites = DW_SEED.map((d) => make(d, "southwest"));
-    const mtSites = MT_SEED.map((d) => make(d, "east"));
-    const updates = {};
-    dwSites.forEach((s) => {
-      updates[`southwest/${s.id}`] = s;
-    });
-    mtSites.forEach((s) => {
-      updates[`east/${s.id}`] = s;
-    });
-    updates["meta/seeded"] = true;
-    import("firebase/database").then(({ ref: fbRef, update: fbUpdate }) => {
-      fbUpdate(ref(db, "/"), updates).catch(console.error);
-    });
-  }, [loaded, seeded]);
-
   // ─── ALERT for pending sites ───
   useEffect(() => {
     if (!loaded) return;
@@ -1809,6 +526,7 @@ export default function App() {
       if (reviewId && subs.find((s) => s.id === reviewId)) {
         setTab("review");
         setReviewDetailSite(reviewId);
+        setDetailView({ regionKey: "queue", siteId: reviewId });
         setShowNewAlert(false);
         window.scrollTo({ top: 0 });
       }
@@ -1820,41 +538,81 @@ export default function App() {
     setTimeout(() => setToast(null), 2800);
   };
 
-  // ─── FIREBASE WRITE HELPERS ───
-  const fbSet = (path, value) => set(ref(db, path), value);
-  const fbUpdate = (path, value) => update(ref(db, path), value);
-  const fbPush = (path, value) => push(ref(db, path), value);
-  const fbRemove = (path) => remove(ref(db, path));
+  const handleSaveWeights = () => {
+    const totalW = iqWeights.reduce((s, d) => s + d.weight, 0);
+    if (totalW <= 0) { setToast("Error: weights sum to zero — cannot save"); return; }
+    const normalized = iqWeights.map(d => ({ ...d, weight: d.weight / totalW }));
+    SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
+    normalizeSiteScoreWeights(SITE_SCORE_CONFIG);
+    setConfigVersion(v => v + 1); // Invalidate siteScoreCache
+    fbSet("config/siteiq_weights", {
+      dimensions: normalized.map(d => ({ key: d.key, weight: Math.round(d.weight * 1000) / 1000 })),
+      updatedAt: new Date().toISOString(),
+      updatedBy: "Dashboard",
+      version: "2.0",
+    });
+    setShowIQConfig(false);
+    notify("SiteScore weights saved & applied");
+  };
 
   const updateSiteField = (region, id, field, value) => {
-    fbUpdate(`${region}/${id}`, { [field]: value });
+    // Sanitize string values on write
+    const cleanVal = typeof value === "string" ? sanitizeString(value) : value;
+    // --- Phase backward navigation guard ---
+    if (field === "phase") {
+      const site = [...sw, ...east].find(s => s.id === id);
+      const oldPhase = site?.phase || "Unknown";
+      const oldIdx = PHASES.indexOf(oldPhase);
+      const newIdx = PHASES.indexOf(value);
+      if (oldIdx >= 0 && newIdx >= 0 && newIdx < oldIdx && !["Declined", "Dead"].includes(value)) {
+        if (!window.confirm(`Move "${site?.name || site?.address || id}" backward from "${oldPhase}" to "${value}"?`)) return;
+      }
+    }
+    fbUpdate(`${region}/${id}`, { [field]: cleanVal });
     // --- Pipeline Velocity: Track phase transitions ---
     if (field === "phase") {
       const site = [...sw, ...east].find(s => s.id === id);
       const oldPhase = site?.phase || "Unknown";
       if (oldPhase !== value) {
+        const now = new Date().toISOString();
         fbPush(`${region}/${id}/phaseHistory`, {
           from: oldPhase,
           to: value,
-          changedAt: new Date().toISOString(),
+          changedAt: now,
           by: "User",
         });
         fbPush(`${region}/${id}/activityLog`, {
           action: `Phase: ${oldPhase} → ${value}`,
-          ts: new Date().toISOString(),
+          ts: now,
           by: "User",
         });
+        // --- REIC Validation: Snapshot SiteScore on "Submitted to PS" ---
+        if (value === "Submitted to PS" && !site.reicOutcome && site) {
+          const iq = computeSiteScore(site);
+          fbUpdate(`${region}/${id}`, {
+            reicOutcome: "pending",
+            reicSubmittedAt: now,
+            scoreAtReicSubmit: iq.score,
+            scoresAtReicSubmit: iq.scores,
+            classAtReicSubmit: iq.classification,
+          });
+        }
+        // --- REIC Validation: Prompt for outcome on resolution phases ---
+        if (site?.reicOutcome === "pending" && ["Under Contract", "Closed", "Declined", "Dead"].includes(value)) {
+          setReicPrompt({ region, id, siteName: site.name || site.address, newPhase: value });
+        }
       }
     }
   };
 
   const saveField = (region, id, field, value) => {
+    const cleanVal = typeof value === "string" ? sanitizeString(value) : value;
     const logEntry = {
-      action: `${field} updated`,
+      action: `${sanitizeString(field)} updated`,
       ts: new Date().toISOString(),
       by: "User",
     };
-    fbUpdate(`${region}/${id}`, { [field]: value });
+    fbUpdate(`${region}/${id}`, { [field]: cleanVal });
     fbPush(`${region}/${id}/activityLog`, logEntry);
   };
 
@@ -1872,20 +630,68 @@ export default function App() {
   };
 
   const handleRemove = (region, id) => {
+    // Snapshot the site data for undo
+    const allSites = [...sw, ...east, ...subs];
+    const siteData = allSites.find(s => s.id === id);
     fbRemove(`${region}/${id}`);
-    notify("Removed.");
     setExpandedSite(null);
+    // Undo toast — 8-second window to restore
+    const undoTimer = setTimeout(() => setToast(null), 8000);
+    setToast({ text: "Site removed.", undo: () => { clearTimeout(undoTimer); if (siteData) { const { id: _id, ...rest } = siteData; fbSet(`${region}/${id}`, rest); } notify("Restored."); } });
   };
 
   const handleSendToReview = (region, id, site) => {
     const now = new Date().toISOString();
-    const sub = { ...site, status: "pending", region, submittedAt: now, sentBackToReview: true };
-    delete sub.messages; delete sub.docs; delete sub.activityLog;
-    fbSet(`submissions/${id}`, sub);
-    fbRemove(`${region}/${id}`);
-    fbPush(`${region}/${id}/activityLog`, { action: "Sent back to Review Queue", ts: now, by: "Dan R" });
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const existingDocs = site.docs || {};
+    const existingActivityLog = site.activityLog || {};
+    const logId = uid();
+    const sub = { ...site, status: "pending", region, submittedAt: now, sentBackToReview: true,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [logId]: { action: "Sent back to Review Queue", ts: now, by: "Dan R" } },
+      latestNote: `Sent back to Review Queue ${dateStr}.`,
+      latestNoteDate: dateStr,
+    };
+    delete sub.messages; delete sub._region; delete sub._iqResult;
+    // Atomic: write to submissions + remove from tracker
+    const batchUpdates = {};
+    batchUpdates[`submissions/${id}`] = sub;
+    batchUpdates[`${region}/${id}`] = null;
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`${site.name} → Review Queue`);
+    }).catch((err) => {
+      console.error("Send to review error:", err);
+      notify(`Error: ${err.message}`);
+    });
     setExpandedSite(null);
-    notify(`${site.name} → Review Queue`);
+  };
+
+  // Reject a site from DW/MT tracker review → routes back to submissions as ps-rejected
+  const handleTrackerReject = (region, id, site, rejectedBy) => {
+    const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const existingDocs = site.docs || {};
+    const existingActivityLog = site.activityLog || {};
+    const logId = uid();
+    const calibId = uid();
+    const sub = { ...site, status: "ps-rejected", region, psRejectedBy: rejectedBy, psRejectReason: "Rejected during tracker review", psRejectedAt: now, sentBackToReview: true,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [logId]: { action: `Rejected by ${rejectedBy} during tracker review`, ts: now, by: rejectedBy, type: "rejection" } },
+      latestNote: `Rejected by ${rejectedBy} ${dateStr} during tracker review.`,
+      latestNoteDate: dateStr,
+    };
+    delete sub.messages; delete sub._region; delete sub._iqResult;
+    const batchUpdates = {};
+    batchUpdates[`submissions/${id}`] = sub;
+    batchUpdates[`${region}/${id}`] = null;
+    batchUpdates[`config/scoring_calibration/${calibId}`] = {
+      siteId: id, siteName: site.name || "", action: "rejected_from_tracker",
+      reason: "Rejected during tracker review", address: site.address || "", state: site.state || "",
+      ts: now, by: rejectedBy,
+    };
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`✗ ${site.name} rejected by ${rejectedBy} — routed back to Review Queue`);
+    }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
   };
 
   // ─── GEOCODE & DEMOGRAPHICS ───
@@ -1927,6 +733,7 @@ export default function App() {
 
   // ─── AUTO VETTING REPORT — runs on site add, saves to Firebase Storage ───
   const autoGenerateVettingReport = (region, siteId, site) => {
+    const fbRegion = region === "queue" ? "submissions" : region;
     try {
       const iqR = computeSiteScore(site);
       const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
@@ -1939,11 +746,57 @@ export default function App() {
       const path = `docs/${siteId}/${docId}_${fileName}`;
       const sRef = storageRef(storage, path);
       uploadBytes(sRef, file).then(() => getDownloadURL(sRef)).then((url) => {
-        fbPush(`${region}/${siteId}/docs`, { id: docId, name: fileName, type: "Other", url, path, uploadedAt: now });
-        fbPush(`${region}/${siteId}/activityLog`, { action: "Vetting report auto-generated & saved", ts: now, by: "System" });
+        fbPush(`${fbRegion}/${siteId}/docs`, { id: docId, name: fileName, type: "Other", url, path, uploadedAt: now });
+        fbPush(`${fbRegion}/${siteId}/activityLog`, { action: "Vetting report auto-generated & saved", ts: now, by: "System" });
       }).catch((err) => console.error("Vetting report auto-save error:", err));
     } catch (err) {
       console.error("Vetting report generation error:", err);
+    }
+  };
+
+  // ─── AUTO ESRI ENRICHMENT — pulls ESRI 2025 demographics on site add/route ───
+  // Fires on: Submit Site, Approve & Route, direct add to tracker
+  // Sources: ESRI ArcGIS GeoEnrichment 2025 (current year) + 2030 (5-year projections)
+  // Data: Pop, HH, HHI, Home Value at 1-3-5 mi rings + growth CAGRs + renter %
+  // Cost: ~$0.03 per site (9 variables × 3 radii = 27 attributes @ $1/1K)
+  const autoEnrichESRI = async (region, siteId, site) => {
+    if (!site.coordinates) return;
+    const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
+    const ENRICH_URL = "https://geoenrich.arcgis.com/arcgis/rest/services/World/geoenrichmentserver/Geoenrichment/Enrich";
+    const VARS = ["AtRisk.TOTPOP_CY","KeyUSFacts.TOTPOP_FY","KeyUSFacts.TOTHH_CY","KeyUSFacts.TOTHH_FY","KeyUSFacts.MEDHINC_CY","KeyUSFacts.MEDHINC_FY","homevalue.MEDVAL_CY","OwnerRenter.OWNER_CY","OwnerRenter.RENTER_CY"];
+    try {
+      const [latS, lngS] = site.coordinates.split(",").map(v => parseFloat(v.trim()));
+      if (isNaN(latS) || isNaN(lngS)) return;
+      const enrich = async (radius) => {
+        const sa = JSON.stringify([{ geometry: { x: lngS, y: latS }, areaType: "RingBuffer", bufferUnits: "esriMiles", bufferRadii: [radius] }]);
+        const params = new URLSearchParams({ studyAreas: sa, analysisVariables: JSON.stringify(VARS), useData: JSON.stringify({ sourceCountry: "US" }), f: "json", token: ESRI_KEY });
+        const res = await fetch(ENRICH_URL + "?" + params.toString());
+        const data = await res.json();
+        return data.results?.[0]?.value?.FeatureSet?.[0]?.features?.[0]?.attributes || null;
+      };
+      const [r1, r3, r5] = await Promise.all([enrich(1), enrich(3), enrich(5)]);
+      if (!r3 || !r3.TOTPOP_CY) return;
+      const popGr = r3.TOTPOP_CY > 0 && r3.TOTPOP_FY > 0 ? ((Math.pow(r3.TOTPOP_FY / r3.TOTPOP_CY, 1 / 5) - 1) * 100).toFixed(2) + "%" : null;
+      const hhGr = r3.TOTHH_CY > 0 && r3.TOTHH_FY > 0 ? ((Math.pow(r3.TOTHH_FY / r3.TOTHH_CY, 1 / 5) - 1) * 100).toFixed(2) + "%" : null;
+      const incGr = r3.MEDHINC_CY > 0 && r3.MEDHINC_FY > 0 ? ((Math.pow(r3.MEDHINC_FY / r3.MEDHINC_CY, 1 / 5) - 1) * 100).toFixed(2) + "%" : null;
+      const rPct = (r3.OWNER_CY + r3.RENTER_CY) > 0 ? Math.round(r3.RENTER_CY / (r3.OWNER_CY + r3.RENTER_CY) * 100) + "%" : null;
+      const upd = {};
+      if (r1?.TOTPOP_CY) { upd.pop1mi = r1.TOTPOP_CY.toLocaleString(); upd.households1mi = r1.TOTHH_CY?.toLocaleString(); upd.income1mi = r1.MEDHINC_CY ? "$" + Math.round(r1.MEDHINC_CY).toLocaleString() : null; upd.homeValue1mi = r1.MEDVAL_CY ? "$" + Math.round(r1.MEDVAL_CY).toLocaleString() : null; }
+      upd.pop3mi = r3.TOTPOP_CY.toLocaleString(); upd.households3mi = r3.TOTHH_CY?.toLocaleString(); upd.income3mi = r3.MEDHINC_CY ? "$" + Math.round(r3.MEDHINC_CY).toLocaleString() : null; upd.homeValue3mi = r3.MEDVAL_CY ? "$" + Math.round(r3.MEDVAL_CY).toLocaleString() : null;
+      if (r5?.TOTPOP_CY) { upd.pop5mi = r5.TOTPOP_CY.toLocaleString(); upd.households5mi = r5.TOTHH_CY?.toLocaleString(); upd.income5mi = r5.MEDHINC_CY ? "$" + Math.round(r5.MEDHINC_CY).toLocaleString() : null; upd.homeValue5mi = r5.MEDVAL_CY ? "$" + Math.round(r5.MEDVAL_CY).toLocaleString() : null; }
+      upd.pop3mi_fy = r3.TOTPOP_FY?.toLocaleString(); upd.households3mi_fy = r3.TOTHH_FY?.toLocaleString(); upd.income3mi_fy = r3.MEDHINC_FY ? "$" + Math.round(r3.MEDHINC_FY).toLocaleString() : null;
+      if (popGr) { upd.popGrowth3mi = popGr; upd.growthRate = popGr; }
+      if (hhGr) upd.hhGrowth3mi = hhGr;
+      if (incGr) upd.incomeGrowth3mi = incGr;
+      if (rPct) upd.renterPct3mi = rPct;
+      upd.demoSource = "ESRI ArcGIS GeoEnrichment 2025 (current year estimates + 2030 projections)";
+      upd.demoPulledAt = new Date().toISOString();
+      for (const k of Object.keys(upd)) { if (upd[k] == null) delete upd[k]; }
+      fbUpdate(`${region}/${siteId}`, upd);
+      fbPush(`${region}/${siteId}/activityLog`, { action: `ESRI 2025 demographics auto-enriched: Pop ${upd.pop3mi}, HHI ${upd.income3mi}, Growth ${popGr}`, ts: new Date().toISOString(), by: "System" });
+      console.log("[ESRI] Enriched", site.name, "—", Object.keys(upd).length, "fields");
+    } catch (err) {
+      console.error("[ESRI] Enrichment failed for", site.name, err);
     }
   };
 
@@ -1953,8 +806,10 @@ export default function App() {
     setFlyerFile(file);
     // Preview
     if (file.type.startsWith("image/")) {
+      if (flyerPreview) URL.revokeObjectURL(flyerPreview); // Prevent blob URL memory leak
       setFlyerPreview(URL.createObjectURL(file));
     } else {
+      if (flyerPreview) URL.revokeObjectURL(flyerPreview);
       setFlyerPreview(null);
     }
     try {
@@ -2032,33 +887,61 @@ export default function App() {
 
   // ─── SUBMIT ───
   const handleSubmit = async () => {
+    // Required field validation
     if (!form.name || !form.address || !form.city || !form.state) {
       notify("Fill name, address, city, state.");
       return;
     }
+    // Field-level validation
+    if (!isValidState(form.state)) { notify("Invalid state abbreviation."); return; }
+    if (form.coordinates && !isValidCoordinates(form.coordinates)) { notify("Invalid coordinates format. Use: lat, lng"); return; }
+    if (form.askingPrice && !isValidPrice(form.askingPrice)) { notify("Invalid asking price."); return; }
+    if (form.acreage && !isValidAcreage(form.acreage)) { notify("Invalid acreage value."); return; }
+    if (!REGIONS[form.region]) { notify("Invalid region."); return; }
+
+    // Killed site dedup check — prevent re-submitting discarded sites
+    const killed = isKilledSite(form.address, form.coordinates);
+    if (killed) {
+      const killedDate = killed.killedAt ? new Date(killed.killedAt).toLocaleDateString() : "unknown date";
+      if (!window.confirm(`This site was previously discarded on ${killedDate}.\nReason: ${killed.declineReason || "Unknown"}\n${killed.psFeedback ? `PS Feedback: ${killed.psFeedback}\n` : ""}\nSubmit anyway?`)) return;
+    }
+
     const now = new Date().toISOString();
     const id = uid();
     const site = {
-      ...form,
+      name: sanitizeString(form.name),
+      address: sanitizeString(form.address),
+      city: sanitizeString(form.city),
+      state: sanitizeString(form.state).toUpperCase().slice(0, 2),
+      region: form.region,
       id,
       submittedAt: now,
       phase: "Prospect",
-      askingPrice: form.askingPrice || "",
+      askingPrice: sanitizeString(form.askingPrice),
       internalPrice: "",
       income3mi: "",
       pop3mi: "",
-      sellerBroker: form.sellerBroker || "",
-      summary: form.notes || "",
-      coordinates: form.coordinates || "",
-      listingUrl: form.listingUrl || "",
+      sellerBroker: sanitizeString(form.sellerBroker),
+      summary: sanitizeString(form.notes),
+      coordinates: sanitizeString(form.coordinates),
+      listingUrl: sanitizeString(form.listingUrl),
       dateOnMarket: "",
-      acreage: form.acreage || "",
-      zoning: form.zoning || "",
+      acreage: sanitizeString(form.acreage),
+      zoning: sanitizeString(form.zoning),
+      zoningClassification: form.zoningClassification || "unknown",
       market: "",
       priority: "⚪ None",
       messages: {},
       docs: {},
       activityLog: { [uid()]: { action: "Site submitted", ts: now, by: "User" } },
+      // Discover intel — attached when submitted from Discover map click
+      ...(discoverIntel ? {
+        siteiqData: {
+          nearestPS: discoverIntel.nearestPS ? parseFloat(discoverIntel.nearestPS) : null,
+          ...(discoverIntel.ccRent ? { msaCCRent: discoverIntel.ccRent, msaCCGrowth: discoverIntel.ccGrowth, msaCCOcc: discoverIntel.ccOcc, msaRentTier: discoverIntel.rentTier } : {}),
+        },
+        discoverSource: { msaName: discoverIntel.msaName || null, nearestPSName: discoverIntel.nearestPSName || null, nearestPSCity: discoverIntel.nearestPSCity || null, analyzedAt: now },
+      } : {}),
     };
     // Upload all attached files to Firebase Storage
     const allFiles = [];
@@ -2087,13 +970,17 @@ export default function App() {
       notify(`Added → ${REGIONS[form.region].label}`);
       setShareLink(null);
       autoGenerateVettingReport(form.region, id, site);
+      autoEnrichESRI(form.region, id, site); // ESRI 2025 current + projected
     } else {
       fbSet(`submissions/${id}`, { ...site, status: "pending" });
+      autoEnrichESRI("submissions", id, site); // ESRI 2025 even in pending queue
       notify("Submitted for review!");
       setShareLink(id);
     }
     setForm(emptyForm);
+    setDiscoverIntel(null);
     setFlyerFile(null);
+    if (flyerPreview) URL.revokeObjectURL(flyerPreview);
     setFlyerPreview(null);
     setAttachments([]);
     if (flyerRef.current) flyerRef.current.value = "";
@@ -2108,17 +995,32 @@ export default function App() {
     const ri = reviewInputs[id] || {};
     const routeTo = ri.routeTo || site.region || "southwest";
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
+    const approvalComment = ri.approvalComment || "";
     const now = new Date().toISOString();
-    fbUpdate(`submissions/${id}`, {
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    // Validate minimum fields for routing
+    if (!site.coordinates && !site.address) {
+      notify("Cannot route — site has no address or coordinates");
+      return;
+    }
+    const updates = {
       status: "recommended",
       region: routeTo,
       recommendedBy: "Dan R.",
       recommendedAt: now,
+      recommendedComment: approvalComment,
       reviewNote: ri.note || "",
       routedTo: routeTo,
-    });
+      latestNote: `Recommended to ${routeLabel} ${dateStr}.${approvalComment ? " " + approvalComment : ""} Awaiting PS approval.`,
+      latestNoteDate: dateStr,
+    };
+    fbUpdate(`submissions/${id}`, updates);
+    // Activity log on the submission (not tracker — site isn't there yet)
+    fbPush(`submissions/${id}/activityLog`, { action: `Recommended → ${routeLabel}`, comment: approvalComment, ts: now, by: "Dan R.", type: "recommendation" });
     notify(`Recommended → ${routeLabel} (awaiting PS approval)`);
-    autoGenerateVettingReport(routeTo, id, { ...site, region: routeTo });
+    // Vetting report + ESRI enrichment target submissions path (site not in tracker yet)
+    autoGenerateVettingReport("queue", id, { ...site, region: routeTo });
+    autoEnrichESRI("queue", id, { ...site, region: routeTo });
   };
 
   // Step 2: PS (DW/MT/Jarrod) approves — moves to tracker
@@ -2128,13 +1030,22 @@ export default function App() {
     const ri = reviewInputs[id] || {};
     const routeTo = site.routedTo || site.region || "southwest";
     const routeLabel = REGIONS[routeTo]?.label || routeTo;
+    const psApprovalComment = ri.psApprovalComment || "";
     const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const activityAction = `PS Approved → routed to ${routeLabel}`;
+    const approver = ri.reviewer || "PS";
+    // Preserve existing docs, messages, activity log from review phase
+    const existingDocs = site.docs || {};
+    const existingMessages = site.messages || {};
+    const existingActivityLog = site.activityLog || {};
     const t = {
       ...site,
       region: routeTo,
       status: "tracking",
       approvedAt: now,
-      approvedBy: ri.reviewer || "PS",
+      approvedBy: approver,
+      approvedComment: psApprovalComment,
       reviewedBy: site.recommendedBy || "Dan R",
       reviewNote: site.reviewNote || ri.note || "",
       askingPrice: site.askingPrice || "",
@@ -2143,6 +1054,7 @@ export default function App() {
       pop3mi: site.pop3mi || "",
       sellerBroker: site.sellerBroker || "",
       summary: site.summary || "",
+      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}${site.zoning ? " · Zoning: " + site.zoning : ""}${site.zoningClassification ? " (" + site.zoningClassification + ")" : ""}${site.waterHookupStatus ? " · Water: " + site.waterHookupStatus : ""}${site.siteiqData?.nearestPS ? " · Nearest PS: " + site.siteiqData.nearestPS + " mi" : ""}`,
       coordinates: site.coordinates || "",
       listingUrl: site.listingUrl || "",
       dateOnMarket: site.dateOnMarket || "",
@@ -2150,13 +1062,36 @@ export default function App() {
       zoning: site.zoning || "",
       market: site.market || "",
       priority: "⚪ None",
-      messages: {},
-      docs: {},
-      activityLog: { [uid()]: { action: `PS Approved → routed to ${routeLabel}`, ts: now, by: ri.reviewer || "PS" } },
+      messages: existingMessages,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [uid()]: { action: activityAction, comment: psApprovalComment, ts: now, by: approver, type: "approval" } },
+      latestNote: `PS Approved ${dateStr}. Routed to ${routeLabel}.${psApprovalComment ? " " + psApprovalComment : ""}`,
+      latestNoteDate: dateStr,
     };
-    fbSet(`${routeTo}/${id}`, t);
-    fbUpdate(`submissions/${id}`, { status: "approved", approvedBy: ri.reviewer || "PS", approvedAt: now });
-    notify(`PS Approved → ${routeLabel} tracker`);
+    // Clean transient UI properties
+    delete t._region; delete t._iqResult;
+    // Atomic multi-path write: add to tracker + remove from submissions + log calibration
+    const iqR = computeSiteScore(site);
+    const calibId = uid();
+    const batchUpdates = {};
+    // Write full tracker record
+    batchUpdates[`${routeTo}/${id}`] = t;
+    // Remove from submissions (clean up)
+    batchUpdates[`submissions/${id}`] = null;
+    // Log to scoring calibration
+    batchUpdates[`config/scoring_calibration/${calibId}`] = {
+      siteId: id, siteName: site.name || "", action: "approved_by_ps",
+      siteScore: iqR ? iqR.score : null,
+      classification: iqR ? iqR.classification : null,
+      address: site.address || "", state: site.state || "",
+      ts: now, by: approver, routedTo: routeTo,
+    };
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`PS Approved → ${routeLabel} tracker`);
+    }).catch((err) => {
+      console.error("PS Approve error:", err);
+      notify(`Error approving site: ${err.message}`);
+    });
   };
 
   // handleApprove removed — replaced by two-step: handleRecommend (Dan) → handlePSApprove (PS)
@@ -2165,30 +1100,376 @@ export default function App() {
     const p = subs.filter((s) => s.status === "pending");
     if (!p.length) return;
     const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const updates = {};
     p.forEach((s) => {
       const ri = reviewInputs[s.id] || {};
       const routeTo = ri.routeTo || s.region || "southwest";
+      const routeLabel = REGIONS[routeTo]?.label || routeTo;
       updates[`submissions/${s.id}/status`] = "recommended";
       updates[`submissions/${s.id}/region`] = routeTo;
       updates[`submissions/${s.id}/routedTo`] = routeTo;
       updates[`submissions/${s.id}/recommendedBy`] = "Dan R.";
       updates[`submissions/${s.id}/recommendedAt`] = now;
+      updates[`submissions/${s.id}/latestNote`] = `Batch-recommended to ${routeLabel} ${dateStr}. Awaiting PS approval.`;
+      updates[`submissions/${s.id}/latestNoteDate`] = dateStr;
+      const logId = uid();
+      updates[`submissions/${s.id}/activityLog/${logId}`] = { action: `Batch-recommended → ${routeLabel}`, ts: now, by: "Dan R.", type: "recommendation" };
     });
-    import("firebase/database").then(({ ref: fbRef, update: fbUpd }) => {
-      fbUpd(ref(db, "/"), updates);
+    update(ref(db, "/"), updates).then(() => {
+      // Trigger ESRI enrichment + vetting reports after batch write succeeds
+      p.forEach((s) => {
+        const ri = reviewInputs[s.id] || {};
+        const routeTo = ri.routeTo || s.region || "southwest";
+        autoGenerateVettingReport("queue", s.id, { ...s, region: routeTo });
+        autoEnrichESRI("queue", s.id, { ...s, region: routeTo });
+      });
+      notify(`Recommended ${p.length} sites (awaiting PS approval)`);
+    }).catch((err) => {
+      console.error(err);
+      notify(`Error saving recommendations: ${err.message}`);
     });
-    notify(`Recommended ${p.length} sites (awaiting PS approval)`);
   };
 
-  const handleDecline = (id) => {
+  const DECLINE_REASONS = [
+    "Zoning — prohibited or rezone too risky",
+    "Demographics — population or income too low",
+    "Pricing — asking price too high",
+    "Competition — market oversaturated",
+    "Access — landlocked or poor ingress/egress",
+    "Utilities — no water or sewer access",
+    "Environmental — flood zone, wetlands, contamination",
+    "Size — too small or too large",
+    "Location — too far from nearest PS",
+    "Duplicate — already in pipeline",
+    "PS Feedback — declined by PS stakeholder",
+    "Other",
+  ];
+
+  // Dan declines a site from his review queue (never sent to PS)
+  const handleDecline = (id, declineReason) => {
     const ri = reviewInputs[id] || {};
-    fbUpdate(`submissions/${id}`, { status: "declined", reviewedBy: ri.reviewer || "Dan R", reviewNote: ri.note || "" });
-    notify("Declined.");
+    const site = subs.find(s => s.id === id);
+    const reason = declineReason || ri.declineReason || "Other";
+    fbUpdate(`submissions/${id}`, {
+      status: "declined", reviewedBy: ri.reviewer || "Dan R", reviewNote: ri.note || "",
+      declineReason: reason, declinedAt: new Date().toISOString(),
+    });
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site?.name || "", action: "declined_by_dan",
+      reason, address: site?.address || "", state: site?.state || "",
+      ts: new Date().toISOString(), by: "Dan R",
+    });
+    notify("Declined — " + reason);
+  };
+
+  // PS (DW/MT/Brian) rejects a site — routes to Dan, MT, or DW based on dropdown
+  // Auto-attributes rejector based on who the site was routed to (no manual selection needed)
+  const handlePSReject = (id) => {
+    const ri = reviewInputs[id] || {};
+    const site = subs.find(s => s.id === id);
+    const reason = ri.declineReason || "PS Feedback — declined by PS stakeholder";
+    const feedback = ri.psFeedback || ri.note || "";
+    const routeTo = ri.rejectRouteTo || "dan";
+    const rec = (site?.recommendedTo || "").toLowerCase();
+    const region = (site?.routedTo || site?.region || "").toLowerCase();
+    let rejectedBy = "PS";
+    if (rec.includes("toussaint") || rec.includes("matthew") || region === "east") rejectedBy = "Matthew Toussaint";
+    else if (rec.includes("wollent") || rec.includes("daniel w") || region === "southwest") rejectedBy = "Daniel Wollent";
+    else if (ri.reviewer) rejectedBy = ri.reviewer;
+    const now = new Date().toISOString();
+    if (routeTo === "dan") {
+      // Current behavior — back to Dan's queue
+      fbUpdate(`submissions/${id}`, {
+        status: "ps-rejected", psRejectedBy: rejectedBy, psRejectReason: reason,
+        psFeedback: feedback, psRejectedAt: now,
+      });
+    } else if (routeTo === "mt") {
+      // Re-route to MT for second look
+      fbUpdate(`submissions/${id}`, {
+        status: "recommended", routedTo: "east", recommendedTo: "Matthew Toussaint",
+        psRejectedBy: rejectedBy, psRejectReason: reason, psFeedback: feedback,
+        reRoutedAt: now, reRoutedFrom: rejectedBy,
+      });
+    } else if (routeTo === "dw") {
+      // Route to DW instead
+      fbUpdate(`submissions/${id}`, {
+        status: "recommended", routedTo: "southwest", recommendedTo: "Daniel Wollent",
+        psRejectedBy: rejectedBy, psRejectReason: reason, psFeedback: feedback,
+        reRoutedAt: now, reRoutedFrom: rejectedBy,
+      });
+    }
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site?.name || "", action: "rejected_by_ps",
+      reason, feedback, address: site?.address || "", state: site?.state || "",
+      ts: now, by: rejectedBy, routedTo: routeTo === "dan" ? "Dan R." : routeTo === "mt" ? "Matthew Toussaint" : "Daniel Wollent",
+    });
+    const destLabel = routeTo === "dan" ? "Dan R." : routeTo === "mt" ? "Matthew Toussaint" : "Daniel Wollent";
+    notify(`PS Rejected by ${rejectedBy} — routed to ${destLabel}`);
+  };
+
+  // Dan directly routes a site from pending/declined to MT/DW tracker or recommendation queue
+  const handleDirectRoute = (id, destination) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) return;
+    const ri = reviewInputs[id] || {};
+    const now = new Date().toISOString();
+    if (destination === "mt-tracker" || destination === "dw-tracker") {
+      // Direct to tracker — skip recommendation step
+      const region = destination === "mt-tracker" ? "east" : "southwest";
+      const regionLabel = destination === "mt-tracker" ? "MT Tracker" : "DW Tracker";
+      const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const existingDocs = site.docs || {};
+      const existingMessages = site.messages || {};
+      const existingActivityLog = site.activityLog || {};
+      const logId = uid();
+      const t = { ...site, region, status: "tracking", approvedAt: now, approvedBy: "Dan R.", phase: site.phase || "Prospect", coordinates: site.coordinates || "", callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}`,
+        docs: existingDocs, messages: existingMessages,
+        activityLog: { ...existingActivityLog, [logId]: { action: `Direct-routed to ${regionLabel} by Dan R.`, ts: now, by: "Dan R" } },
+        latestNote: `Direct-routed to ${regionLabel} ${dateStr} by Dan R.`,
+        latestNoteDate: dateStr,
+      };
+      delete t._region; delete t._iqResult;
+      // Atomic: write to tracker + remove from submissions
+      const batchUpdates = {};
+      batchUpdates[`${region}/${id}`] = t;
+      batchUpdates[`submissions/${id}`] = null;
+      update(ref(db, "/"), batchUpdates).then(() => {
+        notify(`Routed directly to ${regionLabel}`);
+      }).catch((err) => {
+        console.error("Direct route error:", err);
+        notify(`Error routing: ${err.message}`);
+      });
+    } else if (destination === "mt") {
+      fbUpdate(`submissions/${id}`, { status: "recommended", routedTo: "east", recommendedTo: "Matthew Toussaint", recommendedBy: "Dan R.", recommendedAt: now, reviewNote: ri.note || "" });
+      notify("Routed to Matthew Toussaint for review");
+    } else if (destination === "dw") {
+      fbUpdate(`submissions/${id}`, { status: "recommended", routedTo: "southwest", recommendedTo: "Daniel Wollent", recommendedBy: "Dan R.", recommendedAt: now, reviewNote: ri.note || "" });
+      notify("Routed to Daniel Wollent for review");
+    }
+  };
+
+  // Move a site from one tracker to the other (east ↔ southwest) or back to review queue
+  const handleTrackerRoute = (fromRegion, id, site, destination) => {
+    const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const person = fromRegion === "east" ? "Matthew Toussaint" : "Daniel Wollent";
+    if (destination === "review") {
+      const existingDocs = site.docs || {};
+      const existingActivityLog = site.activityLog || {};
+      const logId = uid();
+      const sub = { ...site, status: "pending", region: fromRegion, submittedAt: now, sentBackToReview: true,
+        docs: existingDocs,
+        activityLog: { ...existingActivityLog, [logId]: { action: `Sent back to Review Queue by ${person}`, ts: now, by: person } },
+        latestNote: `Sent back to Review Queue ${dateStr} by ${person}.`,
+        latestNoteDate: dateStr,
+      };
+      delete sub.messages; delete sub._region; delete sub._iqResult;
+      const batchUpdates = {};
+      batchUpdates[`submissions/${id}`] = sub;
+      batchUpdates[`${fromRegion}/${id}`] = null;
+      update(ref(db, "/"), batchUpdates).then(() => {
+        notify(`${site.name} sent back to Review Queue`);
+      }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
+    } else if (destination === "other") {
+      const toRegion = fromRegion === "east" ? "southwest" : "east";
+      const toLabel = toRegion === "east" ? "MT Tracker" : "DW Tracker";
+      const logId = uid();
+      const moved = { ...site, region: toRegion,
+        activityLog: { ...(site.activityLog || {}), [logId]: { action: `Transferred from ${fromRegion === "east" ? "MT" : "DW"} tracker`, ts: now, by: person } },
+        latestNote: `Transferred to ${toLabel} ${dateStr}.`,
+        latestNoteDate: dateStr,
+      };
+      delete moved._region; delete moved._iqResult;
+      const batchUpdates = {};
+      batchUpdates[`${toRegion}/${id}`] = moved;
+      batchUpdates[`${fromRegion}/${id}`] = null;
+      update(ref(db, "/"), batchUpdates).then(() => {
+        notify(`${site.name} moved to ${toLabel}`);
+      }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
+    }
+  };
+
+  // Dan permanently kills a site after reading PS feedback — address logged to never-resubmit
+  const handleDiscard = (id) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) { fbRemove(`submissions/${id}`); return; }
+    // Log to killed sites registry — prevents re-submission
+    fbPush("config/killed_sites", {
+      siteId: id,
+      name: site.name || "",
+      address: site.address || "",
+      city: site.city || "",
+      state: site.state || "",
+      coordinates: site.coordinates || "",
+      declineReason: site.psRejectReason || site.declineReason || "Discarded",
+      psFeedback: site.psFeedback || "",
+      psRejectedBy: site.psRejectedBy || "",
+      siteScore: site.siteScoreAtDecline || null,
+      killedAt: new Date().toISOString(),
+    });
+    fbRemove(`submissions/${id}`);
+    notify(`${site.name || "Site"} permanently discarded — will not be re-submitted.`);
   };
 
   const handleClearDeclined = () => {
-    subs.filter((s) => s.status === "declined").forEach((s) => fbRemove(`submissions/${s.id}`));
+    const declined = subs.filter((s) => s.status === "declined");
+    if (!declined.length) return;
+    const batchUpdates = {};
+    const now = new Date().toISOString();
+    declined.forEach((site) => {
+      // Log to killed sites registry
+      const killId = uid();
+      batchUpdates[`config/killed_sites/${killId}`] = {
+        siteId: site.id, name: site.name || "", address: site.address || "",
+        city: site.city || "", state: site.state || "", coordinates: site.coordinates || "",
+        declineReason: site.psRejectReason || site.declineReason || "Discarded",
+        psFeedback: site.psFeedback || "", psRejectedBy: site.psRejectedBy || "",
+        siteScore: site.siteScoreAtDecline || null, killedAt: now,
+      };
+      // Remove from submissions
+      batchUpdates[`submissions/${site.id}`] = null;
+    });
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`${declined.length} declined site${declined.length !== 1 ? "s" : ""} permanently discarded.`);
+    }).catch((err) => {
+      console.error(err);
+      notify(`Error discarding sites: ${err.message}`);
+    });
+  };
+
+  // ─── DECLINE PATTERN LEARNING ENGINE ───
+  // Analyzes historical decline reasons to surface insights and prevent re-submission
+  const getDeclineInsights = useCallback(() => {
+    if (!declinePatterns || declinePatterns.length === 0) return { topReasons: [], byState: {}, total: 0, recentTrend: "" };
+    const declines = declinePatterns.filter(d => d.action === "declined_by_dan" || d.action === "rejected_by_ps");
+    const reasonCounts = {};
+    const stateCounts = {};
+    const stateReasons = {};
+    declines.forEach(d => {
+      const r = d.reason || "Other";
+      reasonCounts[r] = (reasonCounts[r] || 0) + 1;
+      const st = d.state || "Unknown";
+      stateCounts[st] = (stateCounts[st] || 0) + 1;
+      if (!stateReasons[st]) stateReasons[st] = {};
+      stateReasons[st][r] = (stateReasons[st][r] || 0) + 1;
+    });
+    const topReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([reason, count]) => ({ reason, count, pct: Math.round((count / declines.length) * 100) }));
+    // Recent trend (last 30 days vs prior)
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 86400000;
+    const recent = declines.filter(d => d.ts && new Date(d.ts).getTime() > thirtyDaysAgo).length;
+    const prior = declines.length - recent;
+    const recentTrend = recent > prior * 1.5 ? "increasing" : recent < prior * 0.5 ? "decreasing" : "stable";
+    return { topReasons, byState: stateCounts, stateReasons, total: declines.length, recentTrend, recent };
+  }, [declinePatterns]);
+
+  // Check if a site address/coordinates match a previously killed site
+  const isKilledSite = useCallback((address, coordinates) => {
+    if (!killedSites || killedSites.length === 0) return null;
+    const addrNorm = (address || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const k of killedSites) {
+      const kAddr = (k.address || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (addrNorm && kAddr && addrNorm === kAddr) return k;
+      if (coordinates && k.coordinates && coordinates === k.coordinates) return k;
+    }
+    return null;
+  }, [killedSites]);
+
+  // Permanently delete a site — no killed_sites log, no learning, just gone
+  const handlePermanentDelete = (id) => {
+    const site = subs.find(s => s.id === id);
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site?.name || "", action: "deleted_permanently",
+      reason: site?.psRejectReason || site?.declineReason || "Permanently deleted",
+      address: site?.address || "", state: site?.state || "",
+      ts: new Date().toISOString(), by: "Dan R",
+    });
+    fbRemove(`submissions/${id}`);
+    notify(`${site?.name || "Site"} permanently deleted.`);
+  };
+
+  // Send a rejected site back to PS — re-routes to the original tracker
+  const handleSendBackToPS = (id) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) return;
+    const now = new Date().toISOString();
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const region = (site.routedTo || site.region || "southwest").toLowerCase();
+    const regionPath = region === "east" ? "east" : "southwest";
+    const regionLabel = regionPath === "east" ? "MT Tracker" : "DW Tracker";
+    const existingDocs = site.docs || {};
+    const existingActivityLog = site.activityLog || {};
+    const logId = uid();
+    const calibId = uid();
+    const t = { ...site, region: regionPath, status: "tracking", phase: site.phase || "Prospect",
+      resubmittedToPS: true, resubmittedAt: now, coordinates: site.coordinates || "",
+      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}`,
+      docs: existingDocs,
+      activityLog: { ...existingActivityLog, [logId]: { action: `Re-sent to PS via ${regionLabel} after rejection`, ts: now, by: "Dan R" } },
+      latestNote: `Re-sent to PS via ${regionLabel} ${dateStr} after rejection.`,
+      latestNoteDate: dateStr,
+    };
+    delete t._region; delete t._iqResult; delete t.messages;
+    // Clear rejection fields
+    delete t.psRejectedBy; delete t.psRejectReason; delete t.psFeedback; delete t.psRejectedAt;
+    delete t.declineReason; delete t.declinedAt; delete t.reviewedBy; delete t.reviewNote;
+    delete t.siteScoreAtDecline; delete t.classificationAtDecline;
+    // Atomic: write to tracker + remove from submissions + log calibration
+    const batchUpdates = {};
+    batchUpdates[`${regionPath}/${id}`] = t;
+    batchUpdates[`submissions/${id}`] = null;
+    batchUpdates[`config/scoring_calibration/${calibId}`] = {
+      siteId: id, siteName: site.name || "", action: "resubmitted_to_ps",
+      reason: "Sent back to PS after rejection/decline",
+      address: site.address || "", state: site.state || "",
+      ts: now, by: "Dan R", routedTo: regionLabel,
+    };
+    update(ref(db, "/"), batchUpdates).then(() => {
+      notify(`${site.name || "Site"} sent back to PS via ${regionLabel}`);
+    }).catch((err) => { console.error(err); notify(`Error: ${err.message}`); });
+  };
+
+  // Smart discard: logs to killed_sites + learns pattern + removes
+  const handleSmartDiscard = (id) => {
+    const site = subs.find(s => s.id === id);
+    if (!site) { fbRemove(`submissions/${id}`); return; }
+    const reason = site.psRejectReason || site.declineReason || "Discarded";
+    // Log to killed sites registry
+    fbPush("config/killed_sites", {
+      siteId: id,
+      name: site.name || "",
+      address: site.address || "",
+      city: site.city || "",
+      state: site.state || "",
+      coordinates: site.coordinates || "",
+      declineReason: reason,
+      psFeedback: site.psFeedback || "",
+      psRejectedBy: site.psRejectedBy || "",
+      siteScore: site.siteScoreAtDecline || null,
+      killedAt: new Date().toISOString(),
+      // Learning fields
+      zoningClassification: site.zoningClassification || "",
+      pop3mi: site.pop3mi || "",
+      income3mi: site.income3mi || "",
+      acreage: site.acreage || "",
+      market: site.market || "",
+    });
+    // Log to calibration for pattern analysis
+    fbPush("config/scoring_calibration", {
+      siteId: id, siteName: site.name || "",
+      action: "discarded_permanently",
+      reason, feedback: site.psFeedback || "",
+      siteScore: site.siteScoreAtDecline || null,
+      classification: site.classificationAtDecline || null,
+      address: site.address || "", state: site.state || "",
+      city: site.city || "", market: site.market || "",
+      zoning: site.zoning || "", zoningClassification: site.zoningClassification || "",
+      ts: new Date().toISOString(), by: "Dan R",
+    });
+    fbRemove(`submissions/${id}`);
+    notify(`${site.name || "Site"} discarded — pattern logged for learning.`);
   };
 
   // ─── DOCUMENT UPLOAD (Firebase Storage) ───
@@ -2257,8 +1538,8 @@ export default function App() {
         cols.map((c) => {
           if (c.key === "sitescore") return getSiteScore(s).score;
           if (c.key === "pricePerAcre") {
-            const p = parseFloat(String(s.askingPrice || "").replace(/[^0-9.]/g, ""));
-            const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
+            const p = parsePrice(s.askingPrice);
+            const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
             return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
           }
           if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
@@ -2281,8 +1562,8 @@ export default function App() {
       summCols.map((c) => {
         if (c.key === "sitescore") return getSiteScore(s).score;
         if (c.key === "pricePerAcre") {
-          const p = parseFloat(String(s.askingPrice || "").replace(/[^0-9.]/g, ""));
-          const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, ""));
+          const p = parsePrice(s.askingPrice);
+          const a = parseFloat(String(s.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
           return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() : "";
         }
         if (c.key === "dom") return s.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) : "";
@@ -2309,39 +1590,29 @@ export default function App() {
     { key: "priority", label: "Priority" },
     { key: "phase", label: "Phase" },
   ];
-  const priorityOrder = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
-  // Phase sort: pipeline flow order (Incoming → ... → Closed, Dead last)
-  const phaseOrder = Object.fromEntries(PHASES.map((p, i) => [p, i]));
-  const sortData = (arr) => {
+  // ─── MEMOIZED SiteScore CACHE ───
+  // Computes SiteScore once per site when data changes. Eliminates ~188 redundant calls per render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const siteScoreCache = useMemo(() => {
+    const cache = new Map();
+    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteScore(s)); });
+    return cache;
+  }, [sw, east, configVersion]);
+  const getSiteScore = useCallback((site) => siteScoreCache.get(site.id) || computeSiteScore(site), [siteScoreCache]);
+
+  // ─── MEMOIZED SORT — stabilized to prevent re-sort on every render ───
+  const sortData = useCallback((arr) => {
     const sorted = [...arr];
     switch (sortBy) {
       case "sitescore": return sorted.sort((a, b) => getSiteScore(b).score - getSiteScore(a).score);
       case "city": return sorted.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
       case "recent": return sorted.sort((a, b) => new Date(b.approvedAt || b.submittedAt || 0) - new Date(a.approvedAt || a.submittedAt || 0));
       case "dom": return sorted.sort((a, b) => { const da = a.dateOnMarket ? Date.now() - new Date(a.dateOnMarket).getTime() : 0; const db2 = b.dateOnMarket ? Date.now() - new Date(b.dateOnMarket).getTime() : 0; return db2 - da; });
-      case "priority": return sorted.sort((a, b) => (priorityOrder[normalizePriority(a.priority)] ?? 9) - (priorityOrder[normalizePriority(b.priority)] ?? 9));
-      case "phase": return sorted.sort((a, b) => (phaseOrder[a.phase] ?? 9) - (phaseOrder[b.phase] ?? 9));
+      case "priority": return sorted.sort((a, b) => (PRIORITY_ORDER[normalizePriority(a.priority)] ?? 9) - (PRIORITY_ORDER[normalizePriority(b.priority)] ?? 9));
+      case "phase": return sorted.sort((a, b) => (PHASE_ORDER[a.phase] ?? 9) - (PHASE_ORDER[b.phase] ?? 9));
       default: return sorted.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }
-  };
-
-  // ─── MEMOIZED SiteScore CACHE ───
-  // Computes SiteScore once per site when data changes. Eliminates ~188 redundant calls per render.
-  const siteScoreCache = useMemo(() => {
-    const cache = new Map();
-    [...sw, ...east].forEach((s) => { if (s && s.id) cache.set(s.id, computeSiteScore(s)); });
-    return cache;
-  }, [sw, east]);
-  const getSiteScore = (site) => siteScoreCache.get(site.id) || computeSiteScore(site);
-
-  const SortBar = () => (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7394" }}>Sort:</span>
-      {SORT_OPTIONS.map((o) => (
-        <button key={o.key} onClick={() => setSortBy(o.key)} style={{ padding: "4px 10px", borderRadius: 6, border: sortBy === o.key ? "1px solid #E87A2E" : "1px solid rgba(201,168,76,0.12)", background: sortBy === o.key ? "rgba(232,122,46,0.12)" : "rgba(15,21,56,0.4)", color: sortBy === o.key ? "#E87A2E" : "#6B7394", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter'", transition: "all 0.15s" }}>{o.label}</button>
-      ))}
-    </div>
-  );
+  }, [sortBy, getSiteScore]);
 
   // ─── STYLES ───
   const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 14, fontFamily: "'Inter', sans-serif", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", outline: "none", boxSizing: "border-box" };
@@ -2350,11 +1621,13 @@ export default function App() {
   const assignedReviewN = [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length;
   const pendingN = pendingSubsN + assignedReviewN;
 
-  if (!loaded) return (
+  if (!authReady || !loaded) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "linear-gradient(165deg, #0F1538 0%, #1E2761 40%, #0F1538 100%)", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ width: 48, height: 48, border: "3px solid rgba(232,122,46,0.15)", borderTopColor: "#E87A2E", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(232,122,46,0.2)" }} />
-        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Initializing SiteScore™</div>
+        <div style={{ width: 48, height: 48, border: "3px solid rgba(201,168,76,0.15)", borderTopColor: "#C9A84C", borderRadius: "50%", animation: "spin 0.6s linear infinite", margin: "0 auto 16px", boxShadow: "0 0 20px rgba(201,168,76,0.2)" }} />
+        <div style={{ color: "#6B7394", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          {!authReady ? "Authenticating…" : <>Initializing Storvex<sup style={{fontSize:"60%",verticalAlign:"super"}}>™</sup> — AI-Powered Storage Engine</>}
+        </div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -2373,7 +1646,7 @@ export default function App() {
           <span style={{ fontSize: 13, color: "#94A3B8" }}>({data.length})</span>
           {data.some(s => s.phase === "Dead" || s.phase === "Declined") && <button onClick={() => { if (window.confirm("Remove all Dead/Declined sites from this tracker?")) { data.filter(s => s.phase === "Dead" || s.phase === "Declined").forEach(s => handleRemove(regionKey, s.id)); } }} style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🗑 Remove Dead ({data.filter(s => s.phase === "Dead" || s.phase === "Declined").length})</button>}
         </div>
-        <SortBar />
+        <SortBar sortBy={sortBy} setSortBy={setSortBy} />
         {data.length === 0 ? (
           <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 40, textAlign: "center", color: "#6B7394", border: "1px solid rgba(201,168,76,0.06)" }}>No sites yet.</div>
         ) : (
@@ -2384,53 +1657,36 @@ export default function App() {
               const docs = site.docs ? Object.entries(site.docs) : [];
               const logs = site.activityLog ? Object.values(site.activityLog) : [];
               const mi = msgInputs[site.id] || { from: "Dan R", text: "" };
-              const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+              const domRaw = site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) : null;
+              const dom = (domRaw !== null && !isNaN(domRaw) && domRaw >= 0) ? domRaw : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `4px solid ${isOpen ? "#E87A2E" : (PRIORITY_COLORS[normalizePriority(site.priority)] || region.accent)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(232,122,46,0.15), 0 0 0 1px rgba(232,122,46,0.2), 0 0 60px rgba(232,122,46,0.06)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
+                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `2px solid ${isOpen ? "#C9A84C" : "rgba(201,168,76,0.25)"}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(201,168,76,0.08), 0 0 0 1px rgba(201,168,76,0.15), 0 0 60px rgba(201,168,76,0.04)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* Collapsed header */}
-                  <div onClick={() => { setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <IntelCardHeader site={site} onClick={() => { if (hoveredBrief === site.id) return; goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span onClick={(e) => { e.stopPropagation(); setDetailView({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{site.name}</span>
-                        {/* Call Briefing toggle */}
+                        <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{siteDisplayName(site)}</span>
+                        {/* Call Briefing toggle — click only, no hover-to-open */}
                         <span
                           onClick={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             if (hoveredBrief === site.id) {
-                              // Save and close
-                              if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
                               setHoveredBrief(null);
                             } else {
-                              // Open
-                              setBriefDraft(site.callBrief || "");
                               setHoveredBrief(site.id);
                             }
                           }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "rgba(232,122,46,0.15)";
-                            e.currentTarget.style.borderColor = "rgba(232,122,46,0.3)";
-                            if (hoveredBrief !== site.id) {
-                              clearTimeout(hoverTimerRef.current);
-                              hoverTimerRef.current = setTimeout(() => {
-                                setBriefDraft(site.callBrief || "");
-                                setHoveredBrief(site.id);
-                              }, 400);
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)";
-                            e.currentTarget.style.borderColor = site.callBrief ? "rgba(232,122,46,0.2)" : "rgba(201,168,76,0.1)";
-                            clearTimeout(hoverTimerRef.current);
-                          }}
                           style={{
-                            fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
-                            border: site.callBrief ? "1px solid rgba(232,122,46,0.2)" : "1px solid rgba(201,168,76,0.1)",
-                            background: site.callBrief ? "rgba(232,122,46,0.08)" : "rgba(201,168,76,0.06)",
-                            color: site.callBrief ? "#E87A2E" : "#6B7394",
+                            fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
+                            border: hoveredBrief === site.id ? "1px solid rgba(201,168,76,0.35)" : site.callBrief ? "1px solid rgba(201,168,76,0.2)" : "1px solid rgba(107,115,148,0.15)",
+                            background: hoveredBrief === site.id ? "rgba(201,168,76,0.12)" : "transparent",
+                            color: site.callBrief || hoveredBrief === site.id ? "#C9A84C" : "#4A5080",
                             transition: "all 0.15s", letterSpacing: "0.04em", userSelect: "none",
                           }}
                           title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}
+                          data-brief-badge="true"
                         >
                           {site.callBrief ? "BRIEF" : "+BRIEF"}
                         </span>
@@ -2447,7 +1703,7 @@ export default function App() {
                         </select>
                         {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "1px 6px", borderRadius: 4, border: "1px solid #C9A84C", letterSpacing: "0.04em" }}>NEEDS REVIEW</span>}
                       </div>
-                      <div style={{ fontSize: 12, color: "#6B7394" }}>{site.address}{site.city ? `, ${site.city}` : ""}{site.state ? `, ${site.state}` : ""}</div>
+                      <div style={{ fontSize: 12, color: "#6B7394" }}>{site.address || site.city || site.state ? `${site.address || ""}${site.city ? `, ${site.city}` : ""}${site.state ? `, ${site.state}` : ""}` : <span style={{ color: "#475569", fontStyle: "italic" }}>No address on file</span>}</div>
                       <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#6B7394", flexWrap: "wrap" }}>
                         {site.askingPrice && <span>Ask: <strong style={{ color: "#E2E8F0" }}>{site.askingPrice}</strong></span>}
                         {site.internalPrice && <span>Int: <strong style={{ color: "#E87A2E" }}>{site.internalPrice}</strong></span>}
@@ -2455,24 +1711,24 @@ export default function App() {
                         {docs.length > 0 && <span style={{ color: "#6B7394" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
                         {msgs.length > 0 && <span style={{ color: "#E87A2E" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#E65100", textDecoration: "none", fontWeight: 600 }}>🔗 Listing</a>}
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#C9A84C", textDecoration: "none", fontWeight: 600, fontSize: 11 }}>Listing</a>}
+                        {(site.latestNote || generateAutoBlurb(site)) && <span style={{ color: site.latestNote ? "#94A3B8" : "#4A5080", fontSize: 10, fontWeight: 600, display: "flex", alignItems: "center", gap: 3, background: "transparent", padding: "1px 6px", borderRadius: 5, border: site.latestNote ? "1px solid rgba(201,168,76,0.15)" : "1px solid rgba(107,115,148,0.1)" }} title="Hover card for latest intel">{site.latestNote ? "◆" : "◇"} Intel</span>}
                       </div>
                     </div>
+                    <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1E2761, #2C3E6B)", color: "#C9A84C", fontSize: 11, fontWeight: 700, border: "1px solid rgba(201,168,76,0.2)", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,168,76,0.2)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(30,39,97,0.3)"; }}>Detail</button>
                     <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
-                  </div>
+                  </IntelCardHeader>
                   {/* Call Briefing Tooltip */}
                   {hoveredBrief === site.id && (
                     <CallBriefTooltip
                       site={site}
-                      region={regionKey}
-                      briefDraft={briefDraft}
-                      setBriefDraft={setBriefDraft}
+                      anchorId={`site-${site.id}`}
+                      initialDraft={site.callBrief || ""}
                       getSiteScore={getSiteScore}
                       onSave={(val) => {
                         if (val !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", val);
                       }}
                       onClose={() => {
-                        if (briefDraft !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", briefDraft);
                         setHoveredBrief(null);
                       }}
                     />
@@ -2513,7 +1769,7 @@ export default function App() {
                                 <SiteScoreBadge site={site} iq={getSiteScore(site)} />
                                 <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "#6B7394", fontWeight: 600, letterSpacing: "0.06em", whiteSpace: "nowrap", opacity: 0.7 }}>CLICK FOR DETAIL</div>
                               </div>
-                              {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
+                              {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
                             </div>
                             {/* Key Metrics Strip — Larger */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
@@ -2530,6 +1786,99 @@ export default function App() {
                                 </div>
                               ))}
                             </div>
+                            {/* ── VALUATION MINI-CARD — Inline Financial Intelligence ── */}
+                            {(() => {
+                              try {
+                                const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                                if (!fin || !fin.totalSF) return null;
+                                const stabNOI = fin.stabNOI || 0;
+                                const totalDev = fin.totalDevCost || 0;
+                                const yoc = fin.yocStab;
+                                const strike = fin.landPrices?.[1]; // Strike price (9% YOC)
+                                const walk = fin.landPrices?.[0]; // Walk away (7.5%)
+                                const homerun = fin.landPrices?.[2]; // Home run (10.5%)
+                                const verdict = fin.landVerdict || "—";
+                                const verdictColor = fin.verdictColor || "#6B7394";
+                                const askRaw = fin.landCost || 0;
+                                const hasAsk = askRaw > 0;
+                                const askVsStrike = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
+                                return (
+                                  <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 12, background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))", border: "1px solid rgba(46,125,50,0.15)", position: "relative", overflow: "hidden" }}>
+                                    {/* Header */}
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em", textTransform: "uppercase" }}>STORVEX VALUATION{fin.rateSource === "msa" ? " — MSA RENT" : ""}</span>
+                                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#43A047", boxShadow: "0 0 6px rgba(67,160,71,0.6)", animation: "sitescore-glow 2s ease-in-out infinite alternate" }} />
+                                      </div>
+                                      {verdict !== "—" && (
+                                        <span style={{ fontSize: 11, fontWeight: 900, color: verdictColor, padding: "3px 10px", borderRadius: 6, background: `${verdictColor}15`, border: `1px solid ${verdictColor}30`, letterSpacing: "0.06em" }}>{verdict}</span>
+                                      )}
+                                    </div>
+                                    {/* Metrics Grid */}
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6 }}>
+                                      <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,.06)" }}>
+                                        <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 2 }}>EST. FACILITY</div>
+                                        <div style={{ fontSize: 14, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(fin.totalSF / 1000).toFixed(0)}K SF</div>
+                                        <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>{fin.stories > 1 ? `${fin.stories}-Story` : "1-Story"} | {Math.round(fin.climatePct * 100)}% CC</div>
+                                      </div>
+                                      <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,.06)" }}>
+                                        <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 2 }}>STAB. NOI (Y5)</div>
+                                        <div style={{ fontSize: 14, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1000000 ? `$${(stabNOI / 1000000).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
+                                        <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>{fin.noiMarginPct && fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
+                                      </div>
+                                      {(() => {
+                                        const siteId = site.id || site.key || "";
+                                        const rawInput = customPurchasePrice[siteId] || "";
+                                        const customVal = parsePrice(rawInput);
+                                        const buildPlusCarry = (fin.buildCosts || 0) + (fin.carryCosts || 0) + (fin.workingCapital || 0);
+                                        const customYOC = !isNaN(customVal) && customVal > 0 && stabNOI > 0 ? (stabNOI / (customVal + buildPlusCarry) * 100) : null;
+                                        return (
+                                          <div style={{ background: "rgba(201,168,76,0.06)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(201,168,76,0.15)" }}>
+                                            <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>PURCHASE PRICE</div>
+                                            <input
+                                              type="text"
+                                              placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"}
+                                              value={rawInput}
+                                              onChange={(e) => setCustomPurchasePrice(prev => ({ ...prev, [siteId]: e.target.value }))}
+                                              style={{ width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 5, padding: "4px 8px", fontSize: 13, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }}
+                                            />
+                                            <div style={{ fontSize: 11, fontWeight: 800, color: customYOC !== null ? (customYOC >= 8 ? "#22C55E" : customYOC >= 6 ? "#C9A84C" : "#EF4444") : "#6B7394", marginTop: 3, fontFamily: "'Space Mono', monospace" }}>
+                                              {customYOC !== null ? `→ ${customYOC.toFixed(1)}% YOC` : "Enter offer price"}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                      {hasAsk && yoc !== "N/A" && (
+                                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "8px 10px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 2 }}>YOC @ ASK</div>
+                                          <div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                                          <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>{askVsStrike ? (parseFloat(askVsStrike) <= 0 ? `${Math.abs(parseFloat(askVsStrike))}% below strike` : `${askVsStrike}% above strike`) : ""}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {/* Land Price Range Bar */}
+                                    {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
+                                      <div style={{ marginTop: 10, position: "relative", height: 24, borderRadius: 6, overflow: "hidden", background: "rgba(255,255,255,.04)" }}>
+                                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
+                                        <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
+                                        <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
+                                        <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", display: "flex", justifyContent: "space-between", width: "100%", padding: "0 8px" }}>
+                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#EF4444" }}>WALK {walk.maxLand >= 1000000 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
+                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#C9A84C" }}>STRIKE {strike?.maxLand >= 1000000 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
+                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#22C55E" }}>HOME RUN {homerun.maxLand >= 1000000 ? `$${(homerun.maxLand/1e6).toFixed(1)}M` : `$${(homerun.maxLand/1000).toFixed(0)}K`}</span>
+                                        </div>
+                                        {/* Ask price indicator */}
+                                        {hasAsk && walk.maxLand > 0 && homerun.maxLand > 0 && (() => {
+                                          const range = walk.maxLand - homerun.maxLand;
+                                          const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50;
+                                          return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />;
+                                        })()}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              } catch { return null; }
+                            })()}
                             {/* ── SiteScore Detail Panel — Click-to-expand ── */}
                             {showSiteScoreDetail[site.id] && (() => {
                               const iqD = getSiteScore(site);
@@ -2537,11 +1886,12 @@ export default function App() {
                                 { key: "population", label: "Population (3-mi)", weight: getIQWeight("population"), icon: "👥", tip: "Census / ESRI 3-mi radius population" },
                                 { key: "growth", label: "Growth (5yr CAGR)", weight: getIQWeight("growth"), icon: "📈", tip: "ESRI 2025→2030 population growth rate" },
                                 { key: "income", label: "Median HHI (3-mi)", weight: getIQWeight("income"), icon: "💰", tip: "Median household income within 3 miles" },
-                                { key: "pricing", label: "Price / Acre", weight: getIQWeight("pricing"), icon: "🏷️", tip: "Asking price per acre vs acquisition targets" },
+                                { key: "households", label: "Households (3-mi)", weight: getIQWeight("households"), icon: "🏠", tip: "Household count — demand proxy" },
+                                { key: "homeValue", label: "Home Value (3-mi)", weight: getIQWeight("homeValue"), icon: "🏡", tip: "Median home value — affluence signal" },
                                 { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
+                                { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest PS — closer = validated market" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
                                 { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
-                                { key: "marketTier", label: "Market Tier", weight: getIQWeight("marketTier"), icon: "🎯", tip: "Target market alignment (MT/DW tiers)" },
                               ];
                               const scoreColor = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
                               const scoreLabel = (v) => v >= 9 ? "ELITE" : v >= 8 ? "PRIME" : v >= 7 ? "STRONG" : v >= 6 ? "VIABLE" : v >= 4 ? "MARGINAL" : "WEAK";
@@ -2552,7 +1902,7 @@ export default function App() {
                                       <span style={{ fontSize: 14 }}>🔬</span>
                                       <span style={{ color: "#FFB347", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SiteScore™ DETAILED SCORECARD</span>
                                       <span style={{ color: "#6B7394", fontSize: 10 }}>|</span>
-                                      <span style={{ color: scoreColor(iqD.score), fontSize: 13, fontWeight: 900, fontFamily: "'Space Mono', monospace" }}>{iqD.score.toFixed(1)}</span>
+                                      <span style={{ color: scoreColor(iqD.score), fontSize: 13, fontWeight: 900, fontFamily: "'Space Mono', monospace" }}>{iqD.score.toFixed(2)}</span>
                                       <span style={{ color: scoreColor(iqD.score), fontSize: 10, fontWeight: 800, background: scoreColor(iqD.score) + "18", padding: "2px 6px", borderRadius: 4 }}>{scoreLabel(iqD.score)}</span>
                                     </div>
                                     <button onClick={(e) => { e.stopPropagation(); setShowSiteScoreDetail(prev => ({ ...prev, [site.id]: false })); }} style={{ background: "none", border: "1px solid rgba(255,255,255,.15)", borderRadius: 5, color: "#6B7394", fontSize: 11, cursor: "pointer", padding: "2px 8px" }}>✕</button>
@@ -2574,7 +1924,7 @@ export default function App() {
                                             <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, ${scoreColor(v)}88, ${scoreColor(v)})`, borderRadius: 4, transition: "width 0.5s ease" }} />
                                           </div>
                                           <div style={{ textAlign: "right", fontSize: 10, color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>×{d.weight.toFixed(2)}</div>
-                                          <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#FBBF24", fontFamily: "'Space Mono', monospace" }}>{weighted}</div>
+                                          <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{weighted}</div>
                                         </div>
                                       );
                                     })}
@@ -2582,7 +1932,7 @@ export default function App() {
                                       <div style={{ fontSize: 10, color: "#6B7394", fontWeight: 600 }}>
                                         {iqD.flags && iqD.flags.length > 0 && iqD.flags.map((f, i) => <span key={i} style={{ display: "inline-block", fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>{f}</span>)}
                                       </div>
-                                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#FBBF24", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(1)}</span> / 10</div>
+                                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(2)}</span> / 10</div>
                                     </div>
                                   </div>
                                 </div>
@@ -2597,6 +1947,28 @@ export default function App() {
                             <select value={site.phase || "Prospect"} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 600, color: "#E2E8F0" }}>
                               {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                             </select>
+                            {/* REIC Outcome */}
+                            <select value={site.reicOutcome || ""} onChange={(e) => {
+                              const val = e.target.value || null;
+                              const now = new Date().toISOString();
+                              const updates = { reicOutcome: val };
+                              if (val === "approved" || val === "rejected") { updates.reicDate = now; }
+                              if ((val === "pending" || val === "approved" || val === "rejected") && !site.scoreAtReicSubmit) {
+                                const iq = computeSiteScore(site);
+                                updates.scoreAtReicSubmit = iq.score;
+                                updates.scoresAtReicSubmit = iq.scores;
+                                updates.classAtReicSubmit = iq.classification;
+                              }
+                              fbUpdate(`${regionKey}/${site.id}`, updates);
+                              if (val === "approved" || val === "rejected") {
+                                fbPush("config/scoring_calibration", { siteId: site.id, siteName: site.name, action: `reic_${val}`, reicOutcome: val, ts: now, by: "User" });
+                              }
+                            }} style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${site.reicOutcome === "approved" ? "rgba(34,197,94,0.4)" : site.reicOutcome === "rejected" ? "rgba(220,38,38,0.4)" : site.reicOutcome === "pending" ? "rgba(201,168,76,0.3)" : "rgba(255,255,255,.15)"}`, fontSize: 11, fontFamily: "'Inter', sans-serif", background: site.reicOutcome === "approved" ? "rgba(34,197,94,0.08)" : site.reicOutcome === "rejected" ? "rgba(220,38,38,0.08)" : site.reicOutcome === "pending" ? "rgba(201,168,76,0.06)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.reicOutcome === "approved" ? "#22C55E" : site.reicOutcome === "rejected" ? "#DC2626" : site.reicOutcome === "pending" ? "#C9A84C" : "#6B7394" }}>
+                              <option value="">REIC: —</option>
+                              <option value="pending">REIC: Pending</option>
+                              <option value="approved">REIC: Approved</option>
+                              <option value="rejected">REIC: Rejected</option>
+                            </select>
                             {/* Assigned To */}
                             <select value={site.assignedTo || ""} onChange={(e) => { const val = e.target.value; if (val) { const now = new Date().toISOString(); const sub = { ...site, status: "pending", region: regionKey, submittedAt: now, assignedTo: val, needsReview: true, sentBackToReview: true }; delete sub.messages; delete sub.docs; delete sub.activityLog; fbSet(`submissions/${site.id}`, sub); fbRemove(`${regionKey}/${site.id}`); setExpandedSite(null); notify(`${site.name} → Review Queue (assigned to ${val})`); } else { updateSiteField(regionKey, site.id, "assignedTo", ""); updateSiteField(regionKey, site.id, "needsReview", false); } }} style={{ padding: "6px 10px", borderRadius: 7, border: site.assignedTo ? "2px solid #C9A84C" : "1px solid rgba(255,255,255,.15)", fontSize: 12, fontFamily: "'Inter', sans-serif", background: site.assignedTo ? "rgba(201,168,76,.12)" : "rgba(255,255,255,.08)", cursor: "pointer", fontWeight: 700, color: site.assignedTo ? "#FFD700" : "#94A3B8" }}>
                               <option value="">Assign to...</option>
@@ -2605,10 +1977,10 @@ export default function App() {
                               <option value="Matthew Toussaint">Matthew Toussaint</option>
                             </select>
                             {site.assignedTo && site.needsReview && (
-                              <button onClick={() => { updateSiteField(regionKey, site.id, "needsReview", false); updateSiteField(regionKey, site.id, "reviewedBy", "Dan R"); updateSiteField(regionKey, site.id, "reviewedAt", new Date().toISOString()); notify(`Storvex Approved — ${site.name}`); }} style={{ padding: "6px 10px", borderRadius: 7, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>✓ Storvex Approved</button>
+                              <button onClick={() => { updateSiteField(regionKey, site.id, "needsReview", false); updateSiteField(regionKey, site.id, "reviewedBy", "Dan R"); updateSiteField(regionKey, site.id, "reviewedAt", new Date().toISOString()); notify(`SiteScore Approved — ${site.name}`); }} style={{ padding: "6px 10px", borderRadius: 7, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>✓ SiteScore Approved</button>
                             )}
                             {site.reviewedBy && !site.needsReview && (
-                              <div style={{ fontSize: 9, color: "#22C55E", fontWeight: 600, textAlign: "right" }}>✓ Storvex Approved</div>
+                              <div style={{ fontSize: 9, color: "#22C55E", fontWeight: 600, textAlign: "right" }}>✓ SiteScore Approved</div>
                             )}
                             {/* Last Updated */}
                             {(() => {
@@ -2656,25 +2028,51 @@ export default function App() {
                           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
                           return flyerDoc ? (
                             <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg,#F37C33,#E8650A)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", boxShadow: "0 2px 6px rgba(243,124,51,0.25)" }}>📄 View Flyer — {flyerDoc[1].name?.length > 30 ? flyerDoc[1].name.slice(0, 30) + "…" : flyerDoc[1].name}</a>
-                          ) : (
-                            <div onClick={() => document.getElementById(`doc-upload-flyer-${site.id}`)?.click()} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 12px", borderRadius: 7, background: "#FFF3E0", border: "1px dashed #F37C33", fontSize: 11, color: "#E65100", fontWeight: 600, cursor: "pointer", transition: "all .2s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#FFE0B2"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "#FFF3E0"; }}>
-                              <input type="file" id={`doc-upload-flyer-${site.id}`} accept=".pdf,image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(regionKey, site.id, f, "Flyer"); e.target.value = ""; }} />
-                              📎 Click to upload flyer
-                            </div>
-                          );
+                          ) : null;
                         })()}
                       </div>
 
                       {/* ── PREMIUM ACTION BAR ── */}
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "16px 0", padding: "14px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)" }}>
-                        {site.coordinates && <>
-                          <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🗺 Google Maps</a>
-                          <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🌍 Google Earth</a>
-                        </>}
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 12, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>🔗 Property Listing</a>}
-                        <button onClick={() => {
-                          const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(regionKey, site.id, site);
-                        }} style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>🔬 Storvex Deep Vet Report</button>
+                      <div style={{ margin: "16px 0", padding: "14px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)" }}>
+                        {/* Top Row — Big Report Buttons */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
+                          <button onClick={() => {
+                            try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
+                          }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #0D47A1)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📊 Demos</button>
+                          <button onClick={() => {
+                            try { const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); autoGenerateVettingReport(regionKey, site.id, site); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
+                          }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>🔬 Vet Report</button>
+                          <button onClick={() => {
+                            try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
+                          }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>💰 Pricing</button>
+                          <button onClick={() => {
+                            try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                          }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📋 REC Package</button>
+                          <button onClick={() => {
+                            try {
+                              const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                              const rec = generateRecEmail(site, regionKey, fin);
+                              if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
+                              const encodedSubject = encodeURIComponent(rec.subject);
+                              const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
+                              navigator.clipboard.writeText(rec.body).then(() => {
+                                notify("\u2709 Email body copied \u2014 paste into Outlook body.");
+                                const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
+                                if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
+                              }).catch(() => notify("Could not copy to clipboard."));
+                              window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
+                            } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
+                          }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(123,45,142,0.4), 0 0 0 1px rgba(123,45,142,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>{"\u2709"} Email Rec</button>
+                        </div>
+                        {/* Bottom Row — Small Icon Links */}
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {site.coordinates && <>
+                            <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(201,168,76,0.06)", color: "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)", display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>Maps</a>
+                            <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(201,168,76,0.06)", color: "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)", display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>Earth</a>
+                          </>}
+                          {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)", display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>Listing</a>}
+                          {(() => { const fd = docs.find(([, d]) => d.type === "Flyer"); return fd ? <a href={fd[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(201,168,76,0.06)", color: "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)", display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>Flyer</a> : null; })()}
+                        </div>
                       </div>
 
                       {/* Summary */}
@@ -2687,7 +2085,7 @@ export default function App() {
                       <div style={{ background: "linear-gradient(135deg, rgba(232,122,46,0.04) 0%, rgba(15,21,56,0.5) 100%)", borderRadius: 10, padding: 14, margin: "0 0 10px", border: "1px solid rgba(232,122,46,0.12)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Call Briefing</span>
-                          <span style={{ fontSize: 8, color: "#4A5080", fontWeight: 600 }}>visible on hover card</span>
+                          <span style={{ fontSize: 8, color: "#4A5080", fontWeight: 600 }}>shows on hover card</span>
                         </div>
                         <EF multi label="" value={site.callBrief || ""} onSave={(v) => saveField(regionKey, site.id, "callBrief", v)} placeholder="Quick talking points for MT/DW call — pricing recommendation, key risks, next steps..." />
                       </div>
@@ -2824,7 +2222,7 @@ export default function App() {
                           { label: "Households (3-mi)", val: fP(site.households3mi), icon: "🏠" },
                           { label: "Median Home Value (3-mi)", val: fP(site.homeValue3mi, "$"), icon: "🏡" },
                           { label: "Acreage", val: site.acreage ? site.acreage + " ac" : null, icon: "📐" },
-                          { label: "Price / Acre", val: (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
+                          { label: "Price / Acre", val: (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
                           { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
                           { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
                         ].filter(r => r.val != null);
@@ -2872,7 +2270,7 @@ export default function App() {
                         const hdrCell = { padding: "8px 12px", textAlign: "right", fontSize: 10, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: "0.06em" };
                         const metricCell = { padding: "7px 12px", fontWeight: 700, color: "#E2E8F0", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,.08)" };
                         const valCell = { padding: "7px 12px", textAlign: "right", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', monospace", borderBottom: "1px solid rgba(255,255,255,.08)" };
-                        const goldVal = { ...valCell, color: "#FBBF24" };
+                        const goldVal = { ...valCell, color: "#C9A84C" };
                         const whiteVal = { ...valCell, color: "#E2E8F0" };
                         return (
                           <div style={{ borderRadius: 14, marginBottom: 14, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,.15)" }}>
@@ -2894,7 +2292,7 @@ export default function App() {
                                   <tr>
                                     <th style={{ ...hdrCell, textAlign: "left", width: "30%" }}></th>
                                     <th style={hdrCell}>1-MILE</th>
-                                    <th style={{ ...hdrCell, background: "rgba(251,191,36,.08)", borderRadius: "8px 8px 0 0" }}>3-MILE</th>
+                                    <th style={{ ...hdrCell, background: "rgba(201,168,76,.08)", borderRadius: "8px 8px 0 0" }}>3-MILE</th>
                                     <th style={hdrCell}>5-MILE</th>
                                   </tr>
                                 </thead>
@@ -2902,37 +2300,37 @@ export default function App() {
                                   <tr>
                                     <td style={metricCell}>Population</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.pop)}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.pop)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.pop)}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.pop)}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Median HHI</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.medIncome, "$")}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.medIncome, "$")}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.medIncome, "$")}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.medIncome, "$")}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Households</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.hh)}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.hh)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.hh)}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.hh)}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Median Home Value</td>
                                     <td style={whiteVal}>{fmtV(r[1]?.homeValue, "$")}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{fmtV(r[3]?.homeValue, "$")}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{fmtV(r[3]?.homeValue, "$")}</td>
                                     <td style={whiteVal}>{fmtV(r[5]?.homeValue, "$")}</td>
                                   </tr>
                                   <tr>
                                     <td style={metricCell}>Renter %</td>
                                     <td style={whiteVal}>{r[1]?.renterPct || "—"}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)" }}>{r[3]?.renterPct || "—"}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)" }}>{r[3]?.renterPct || "—"}</td>
                                     <td style={whiteVal}>{r[5]?.renterPct || "—"}</td>
                                   </tr>
                                   <tr>
                                     <td style={{ ...metricCell, borderBottom: "none" }}>Pop Growth (CAGR)</td>
                                     <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[1]?.popGrowth) }}>{fmtGrowth(r[1]?.popGrowth)}</td>
-                                    <td style={{ ...goldVal, background: "rgba(251,191,36,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{fmtGrowth(r[3]?.popGrowth)}</td>
+                                    <td style={{ ...goldVal, background: "rgba(201,168,76,.06)", borderBottom: "none", color: growthColor(r[3]?.popGrowth) }}>{fmtGrowth(r[3]?.popGrowth)}</td>
                                     <td style={{ ...whiteVal, borderBottom: "none", color: growthColor(r[5]?.popGrowth) }}>{fmtGrowth(r[5]?.popGrowth)}</td>
                                   </tr>
                                 </tbody>
@@ -2940,8 +2338,8 @@ export default function App() {
                             </div>
                             {/* 2030 Projections Strip */}
                             {(dr.pop3mi_fy || dr.income3mi_fy) && (
-                              <div style={{ background: "linear-gradient(135deg,#0F172A,#1a1a2e)", padding: "10px 16px", borderTop: "1px solid rgba(251,191,36,.15)" }}>
-                                <div style={{ fontSize: 9, fontWeight: 800, color: "#FBBF24", letterSpacing: "0.1em", marginBottom: 6 }}>2030 FIVE-YEAR PROJECTIONS (3-MILE)</div>
+                              <div style={{ background: "linear-gradient(135deg,#0F172A,#1a1a2e)", padding: "10px 16px", borderTop: "1px solid rgba(201,168,76,.15)" }}>
+                                <div style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em", marginBottom: 6 }}>2030 FIVE-YEAR PROJECTIONS (3-MILE)</div>
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                                   {[
                                     { label: "Population", val: dr.pop3mi_fy, growth: dr.popGrowth3mi },
@@ -3004,20 +2402,12 @@ export default function App() {
                               <div key={docKey} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.1)", borderRadius: 8, padding: "5px 10px", fontSize: 11 }}>
                                 <span style={{ fontWeight: 600, color: "#94A3B8" }}>{doc.type}: {doc.name?.length > 20 ? doc.name.slice(0, 20) + "…" : doc.name}</span>
                                 <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>↗ View</a>
-                                <button onClick={() => handleDocDelete(regionKey, site.id, docKey, doc)} style={{ border: "none", background: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
+                                {/* Delete disabled — Dan controls all data */}
                               </div>
                             ))}
                           </div>
                         )}
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <select id={`doc-type-${site.id}`} defaultValue="Flyer" style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid rgba(201,168,76,0.1)", fontSize: 12, background: "rgba(15,21,56,0.5)", cursor: "pointer" }}>
-                            {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
-                          </select>
-                          <input type="file" id={`doc-upload-${site.id}`} style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; const type = document.getElementById(`doc-type-${site.id}`)?.value || "Other"; if (f) handleDocUpload(regionKey, site.id, f, type); e.target.value = ""; }} />
-                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.getElementById(`doc-upload-${site.id}`)?.click(); }} style={{ padding: "5px 12px", borderRadius: 7, background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "'Inter', sans-serif" }}>
-                            + Upload
-                          </button>
-                        </div>
+                        {/* Upload disabled — Dan controls all data */}
                       </div>
 
                       {/* Messages */}
@@ -3041,6 +2431,7 @@ export default function App() {
                             <option>Dan R</option>
                             <option>Daniel Wollent</option>
                             <option>Matthew Toussaint</option>
+                            <option>Brian Karis</option>
                           </select>
                           <input value={mi.text} onChange={(e) => setMsgInputs({ ...msgInputs, [site.id]: { ...mi, text: e.target.value } })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendMsg(regionKey, site.id); } }} placeholder="Add message…" style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", fontSize: 13, outline: "none", fontFamily: "'Inter', sans-serif" }} />
                           <button type="button" onClick={(e) => { e.preventDefault(); handleSendMsg(regionKey, site.id); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#F37C33", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Send</button>
@@ -3102,160 +2493,22 @@ export default function App() {
         <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent 20%, rgba(201,168,76,0.03) 50%, transparent 80%)", animation: "scanLine 12s linear infinite" }} />
       </div>
       {transitioning && <div className="tab-transition-overlay" />}
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes tabSweep { 0% { transform: scaleX(0); opacity: 0; } 40% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
-        @keyframes tabFadeOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.97) translateY(-8px); } }
-        @keyframes tabFadeIn { 0% { opacity: 0; transform: scale(0.97) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-        .tab-transition-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; pointer-events: none; }
-        .tab-transition-overlay::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent); transform-origin: left; animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; box-shadow: 0 0 20px rgba(232,122,46,0.5), 0 0 40px rgba(232,122,46,0.2); }
-        .tab-transition-overlay::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(232,122,46,0.04) 0%, rgba(15,21,56,0.3) 50%, rgba(10,14,42,0.5) 100%); animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .funnel-bar { cursor: pointer; position: relative; overflow: hidden; }
-        .funnel-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); transform: translateX(-100%); transition: transform 0.4s ease; }
-        .funnel-bar:hover::after { transform: translateX(100%); }
-        .funnel-bar:hover { filter: brightness(1.15); box-shadow: 0 4px 16px rgba(0,0,0,0.15); transform: scale(1.02); }
-        .funnel-bar:active { transform: scale(0.98); }
-        @keyframes slideDown { from { max-height: 0; opacity: 0; transform: scaleY(0.95); } to { max-height: 2000px; opacity: 1; transform: scaleY(1); } }
-        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        @keyframes sitescore-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
-        @keyframes sitescore-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
-        @keyframes sitescore-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(140deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(320deg); } 100% { transform: rotate(360deg); } }
-        @keyframes turbine-pulse { 0%, 100% { filter: drop-shadow(0 0 6px rgba(57,255,20,0.3)) drop-shadow(0 0 12px rgba(0,229,255,0.15)); } 25% { filter: drop-shadow(0 0 14px rgba(57,255,20,0.7)) drop-shadow(0 0 28px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(232,122,46,0.2)); } 50% { filter: drop-shadow(0 0 8px rgba(57,255,20,0.4)) drop-shadow(0 0 16px rgba(0,229,255,0.2)); } 75% { filter: drop-shadow(0 0 18px rgba(232,122,46,0.5)) drop-shadow(0 0 32px rgba(201,168,76,0.3)) drop-shadow(0 0 48px rgba(57,255,20,0.15)); } }
-        @keyframes lightning-arc { 0% { opacity: 0; transform: scaleX(0); } 5% { opacity: 1; transform: scaleX(1); } 10% { opacity: 0.3; } 15% { opacity: 0.8; } 20% { opacity: 0; transform: scaleX(1); } 100% { opacity: 0; } }
-        @keyframes toastSlide { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
-        @keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); } 70% { box-shadow: 0 0 0 14px rgba(201,168,76,0); } 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); } }
-        @keyframes countUp { from { opacity: 0; transform: scale(0.3) translateY(10px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
-        /* FIRE: Ember float particles */
-        @keyframes emberFloat { 0% { transform: translateY(0) translateX(0) scale(1); opacity: 0.7; } 50% { transform: translateY(-20px) translateX(8px) scale(0.6); opacity: 0.4; } 100% { transform: translateY(-40px) translateX(-5px) scale(0.2); opacity: 0; } }
-        @keyframes fireGlow { 0% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } 50% { box-shadow: 0 0 30px rgba(201,168,76,0.25), 0 0 80px rgba(30,39,97,0.12); } 100% { box-shadow: 0 0 20px rgba(201,168,76,0.15), 0 0 60px rgba(30,39,97,0.08); } }
-        @keyframes fireEdge { 0% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } 50% { border-image-source: linear-gradient(180deg, #FFD700, #C9A84C, #1E2761); } 100% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } }
-        @keyframes headerEmber { 0% { background-position: 0% 100%; } 100% { background-position: 100% 0%; } }
-        @keyframes tabSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes modalIn { from { opacity: 0; transform: scale(0.92) translateY(20px); backdrop-filter: blur(0); } to { opacity: 1; transform: scale(1) translateY(0); backdrop-filter: blur(4px); } }
-        @keyframes kpiPulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-        @keyframes cardReveal { from { opacity: 0; transform: translateY(12px) scale(0.97); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
-        @keyframes glowLine { 0% { left: -40%; } 100% { left: 140%; } }
-        @keyframes navUnderlineFire { 0% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 0% 50%; } 100% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 100% 50%; } }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        * { box-sizing: border-box; }
-        input, select, textarea, button { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        select option { background: #1a1a2e; color: #E2E8F0; }
-        select option:checked { background: #E87A2E; color: #fff; }
-        /* UPGRADED: Card hover with fire-edge glow */
-        .site-card { transition: all 0.4s cubic-bezier(0.4,0,0.2,1); position: relative; }
-        .site-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 16px; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; box-shadow: 0 0 0 1px rgba(243,124,51,0.15), 0 8px 32px rgba(243,124,51,0.08); z-index: 0; }
-        .site-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(232,122,46,0.25), 0 0 40px rgba(232,122,46,0.06) !important; }
-        .site-card:hover::before { opacity: 1; }
-        .site-card-open { transform: none !important; }
-        .site-card-open:hover { transform: none !important; }
-        /* UPGRADED: Smooth expand with fire accent */
-        .card-expand { animation: slideDown 0.18s cubic-bezier(0.22,1,0.36,1); overflow: hidden; transform-origin: top; }
-        /* UPGRADED: Nav underline with fire gradient */
-        .nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #1E2761, #E87A2E, #C9A84C, #E87A2E, #1E2761); background-size: 300% 100%; animation: navUnderlineFire 1.5s ease infinite; border-radius: 3px; box-shadow: 0 0 16px rgba(232,122,46,0.5); }
-        /* Sort pill glow */
-        .sort-active { box-shadow: 0 0 0 2px rgba(243,124,51,0.25), 0 0 12px rgba(243,124,51,0.08); }
-        /* UPGRADED: Scrollbar with fire accent */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(15,21,56,0.4); }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #E87A2E, #C9A84C); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #FFB347, #E87A2E); }
-        /* UPGRADED: KPI number with fire entrance */
-        .kpi-number { animation: countUp 0.6s cubic-bezier(0.4,0,0.2,1); }
-        /* Tab content transition */
-        .tab-content { animation: tabSlide 0.4s cubic-bezier(0.4,0,0.2,1); }
-        /* Card staggered reveal */
-        .card-reveal { animation: cardReveal 0.2s cubic-bezier(0.22,1,0.36,1) backwards; }
-        /* Electric glow on interactive elements */
-        button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.08s; }
-        /* KPI cards electric pulse */
-        .kpi-electric { animation: kpiElectric 4s ease-in-out infinite; }
-        .kpi-electric:hover { box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 30px rgba(57,255,20,0.08), 0 0 60px rgba(232,122,46,0.06) !important; }
-        /* Site card electric hover */
-        .site-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(57,255,20,0.12), 0 0 30px rgba(232,122,46,0.06) !important; transition: all 0.15s cubic-bezier(0.22,1,0.36,1) !important; }
-        /* Frosted glass card style — dark mode */
-        .glass-card { background: rgba(15,21,56,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(201,168,76,0.08); }
-        /* AI LIGHTNING DATA STREAMS */
-        @keyframes dataStream { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.8; transform: translateY(80vh) scale(1); } 50% { opacity: 0.4; } 90% { opacity: 0.2; } 100% { transform: translateY(-20px) scale(0.2); opacity: 0; } }
-        @keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
-        @keyframes nodePulse { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 0.8; transform: scale(1.5); } 50% { opacity: 0.3; transform: scale(1); } 70% { opacity: 0.6; transform: scale(1.3); } 100% { opacity: 0; transform: scale(0.5); } }
-        @keyframes logoAutoSpin { 0% { transform: rotate(0deg); } 50% { transform: rotate(1800deg); } 100% { transform: rotate(3600deg); } }
-        @keyframes logoClickSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(1080deg) scale(1.15); } 100% { transform: rotate(2160deg) scale(1); } }
-        .logo-auto-spin { animation: logoAutoSpin 8s ease-in-out infinite; }
-        .logo-click-spin { animation: logoClickSpin 1.2s cubic-bezier(0.2, 0, 0, 1) !important; }
-        .logo-spin-container:hover { box-shadow: 0 4px 30px rgba(232,122,46,0.4), 0 0 0 2px rgba(201,168,76,0.25) !important; }
-        @keyframes kpiElectric { 0% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } 50% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(57,255,20,0.05); } 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04); } }
-        @keyframes speedStreak { 0% { transform: translateX(-100%) scaleY(0.5); opacity: 0; } 30% { opacity: 0.8; transform: translateX(0) scaleY(1); } 100% { transform: translateX(200%) scaleY(0.5); opacity: 0; } }
-      `}</style>
+      {/* Styles moved to App.css — only inline overrides below */}
 
-      {/* Toast */}
+      {/* Toast — supports plain string or { text, undo } for undo actions */}
       {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, background: "linear-gradient(135deg, rgba(15,15,20,0.97), rgba(30,20,15,0.95))", color: "#fff", padding: "12px 22px", borderRadius: 14, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(243,124,51,0.2), 0 0 30px rgba(243,124,51,0.08)", animation: "toastSlide 0.35s cubic-bezier(0.4,0,0.2,1)", borderLeft: "3px solid transparent", borderImage: "linear-gradient(180deg, #FFB347, #F37C33, #D45500) 1", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.6)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate", flexShrink: 0 }} />{toast}</div>
+        <div style={{ position: "fixed", top: 24, right: 24, background: "linear-gradient(135deg, rgba(15,15,20,0.97), rgba(30,20,15,0.95))", color: "#fff", padding: "12px 22px", borderRadius: 14, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(243,124,51,0.2), 0 0 30px rgba(243,124,51,0.08)", animation: "toastSlide 0.35s cubic-bezier(0.4,0,0.2,1)", borderLeft: "3px solid transparent", borderImage: "linear-gradient(180deg, #FFB347, #F37C33, #D45500) 1", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFB347, #F37C33)", boxShadow: "0 0 8px rgba(243,124,51,0.6)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate", flexShrink: 0 }} />{typeof toast === "object" && toast.text ? toast.text : toast}{typeof toast === "object" && toast.undo && <button onClick={() => { toast.undo(); setToast(null); }} style={{ marginLeft: 8, padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(243,124,51,0.4)", background: "rgba(243,124,51,0.15)", color: "#FFB347", fontSize: 12, fontWeight: 800, cursor: "pointer", letterSpacing: "0.04em" }}>UNDO</button>}</div>
       )}
 
       {/* SiteScore Weight Config Modal */}
-      {showIQConfig && (() => {
-        const totalW = iqWeights.reduce((s, d) => s + d.weight, 0);
-        const totalPct = Math.round(totalW * 100);
-        const adjustWeight = (key, delta) => {
-          setIqWeights(prev => prev.map(d => d.key === key ? { ...d, weight: Math.max(0, Math.min(1, Math.round((d.weight + delta) * 100) / 100)) } : d));
-        };
-        const handleSaveWeights = () => {
-          const normalized = iqWeights.map(d => ({ ...d, weight: d.weight / totalW }));
-          SITE_SCORE_CONFIG = SITE_SCORE_DEFAULTS.map((def, i) => ({ ...def, weight: normalized[i].weight }));
-          normalizeSiteScoreWeights(SITE_SCORE_CONFIG);
-          fbSet("config/siteiq_weights", {
-            dimensions: normalized.map(d => ({ key: d.key, weight: Math.round(d.weight * 1000) / 1000 })),
-            updatedAt: new Date().toISOString(),
-            updatedBy: "Dashboard",
-            version: "2.0",
-          });
-          setShowIQConfig(false);
-          notify("SiteScore weights saved & applied");
-        };
-        const handleResetDefaults = () => {
-          setIqWeights(SITE_SCORE_DEFAULTS.map(d => ({ key: d.key, label: d.label, icon: d.icon, weight: d.weight, tip: d.tip })));
-        };
-        return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "modalIn 0.35s cubic-bezier(0.4,0,0.2,1)" }} onClick={() => setShowIQConfig(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 20, maxWidth: 500, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(243,124,51,0.1), 0 0 60px rgba(243,124,51,0.06)", overflow: "hidden", animation: "cardReveal 0.4s cubic-bezier(0.4,0,0.2,1)" }}>
-              <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #121218 50%, #1a1520 100%)", padding: "22px 26px", color: "#fff", position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761, transparent)", opacity: 0.6 }} />
-                <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>⚙️ Storvex™ Weight Configuration</div>
-                <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 5 }}>Adjust dimension weights. Changes apply to all users in real-time.</div>
-              </div>
-              <div style={{ padding: "16px 24px" }}>
-                {iqWeights.map(dim => (
-                  <div key={dim.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                    <span style={{ fontSize: 16, width: 24 }}>{dim.icon}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#E2E8F0" }}>{dim.label}</div>
-                      <div style={{ fontSize: 10, color: "#94A3B8" }}>{dim.tip}</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <button onClick={() => adjustWeight(dim.key, -0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>−</button>
-                      <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono', monospace", width: 48, textAlign: "center", color: dim.weight > 0.15 ? "#F37C33" : dim.weight > 0.05 ? "#E2E8F0" : "#94A3B8" }}>{Math.round(dim.weight * 100)}%</div>
-                      <button onClick={() => adjustWeight(dim.key, 0.01)} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7394" }}>+</button>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: "10px 0", borderTop: "2px solid rgba(201,168,76,0.1)" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: totalPct === 100 ? "#16A34A" : totalPct > 100 ? "#DC2626" : "#D97706" }}>Total: {totalPct}% {totalPct === 100 ? "✓" : totalPct > 100 ? "(will normalize)" : "(will normalize)"}</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8, padding: "16px 24px", borderTop: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)" }}>
-                <button onClick={handleResetDefaults} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Reset Defaults</button>
-                <div style={{ flex: 1 }} />
-                <button onClick={() => setShowIQConfig(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.5)", color: "#6B7394", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-                <button onClick={handleSaveWeights} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#C9A84C 0%,#1E2761 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.1)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 6px 24px rgba(243,124,51,0.45), 0 0 0 2px rgba(243,124,51,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(243,124,51,0.35), 0 0 0 1px rgba(243,124,51,0.1)"; e.currentTarget.style.transform = "translateY(0)"; }}
-                >Apply & Save</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <SiteScoreConfigModal
+        show={showIQConfig}
+        onClose={() => setShowIQConfig(false)}
+        iqWeights={iqWeights}
+        setIqWeights={setIqWeights}
+        onSave={handleSaveWeights}
+        SITE_SCORE_DEFAULTS={SITE_SCORE_DEFAULTS}
+      />
 
       {/* New site alert */}
       {showNewAlert && (
@@ -3276,8 +2529,8 @@ export default function App() {
         <div style={{ padding: "12px 0 8px", borderBottom: "1px solid rgba(201,168,76,0.08)", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div className="logo-spin-container" onClick={(e) => { e.currentTarget.querySelector('.logo-img')?.classList.remove('logo-click-spin'); void e.currentTarget.querySelector('.logo-img')?.offsetWidth; e.currentTarget.querySelector('.logo-img')?.classList.add('logo-click-spin'); }} style={{ width: 48, height: 48, borderRadius: 12, overflow: "hidden", cursor: "pointer", position: "relative", boxShadow: "0 4px 20px rgba(232,122,46,0.25), 0 0 0 1px rgba(201,168,76,0.15)", flexShrink: 0 }}>
-                <img className="logo-img logo-auto-spin" src="/storvex-logo.png" alt="Storvex" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div className="logo-spin-container" onClick={(e) => { e.currentTarget.querySelector('.logo-img')?.classList.remove('logo-click-spin'); void e.currentTarget.querySelector('.logo-img')?.offsetWidth; e.currentTarget.querySelector('.logo-img')?.classList.add('logo-click-spin'); }} style={{ width: 48, height: 48, borderRadius: 12, cursor: "pointer", position: "relative", boxShadow: "0 4px 20px rgba(232,122,46,0.25), 0 0 0 1px rgba(201,168,76,0.15)", flexShrink: 0 }}>
+                <img className="logo-img logo-auto-spin" src="/storvex-logo.png" alt="SiteScore" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} />
               </div>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: "0.08em", background: "linear-gradient(90deg, #fff 0%, #C9A84C 25%, #FFD700 50%, #C9A84C 75%, #fff 100%)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 4s linear infinite" }}>STORVEX</div>
@@ -3289,7 +2542,7 @@ export default function App() {
               <button onClick={() => setShowIQConfig(true)} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(201,168,76,0.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
-              >⚙️ Storvex Config</button>
+              >⚙️ SiteScore Config</button>
               <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(243,124,51,0.25)", background: "rgba(243,124,51,0.06)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(243,124,51,0.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
@@ -3302,11 +2555,13 @@ export default function App() {
         <div style={{ display: "flex", gap: 4, overflowX: "auto", padding: "6px 0 4px", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
-            { key: "summary", label: "Summary" },
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
-            { key: "submit", label: "Submit Site" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
+            // Hidden for now — re-enable when core is nailed down:
+            // { key: "quickscore", label: "Quick Score" },
+            // { key: "executive", label: "Executive" },
+            // { key: "discover", label: "Discover" },
           ].map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#E87A2E"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 16px rgba(232,122,46,0.4)"; } }}
@@ -3325,26 +2580,21 @@ export default function App() {
         {/* ═══ DASHBOARD ═══ */}
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 32 }}>
               {[
-                { label: "Pipeline", value: sw.length + east.length, color: "#F37C33", icon: "📊", action: () => navigateTo("summary"), sub: "View summary →" },
-                { label: "Pending", value: pendingN, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review"), sub: "Review queue →" },
-                { label: "Daniel Wollent", value: sw.length, color: REGIONS.southwest.accent, icon: "🔷", action: () => navigateTo("southwest"), sub: "Open tracker →" },
-                { label: "Matthew Toussaint", value: east.length, color: REGIONS.east.accent, icon: "🟢", action: () => navigateTo("east"), sub: "Open tracker →" },
+                { label: "Pipeline", value: sw.length + east.length, action: () => navigateTo("summary"), sub: "View summary" },
+                { label: "Pending Review", value: pendingN, action: () => navigateTo("review"), sub: "Review queue" },
+                { label: "Daniel Wollent", value: sw.length, action: () => navigateTo("southwest"), sub: "Southwest tracker" },
+                { label: "Matthew Toussaint", value: east.length, action: () => navigateTo("east"), sub: "East tracker" },
               ].map((kpi, kpiIdx) => (
-                <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ ...STYLES.kpiCard(kpi.color), animationDelay: `${kpiIdx * 0.08}s` }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px) scale(1.02)"; e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.3), 0 0 30px ${kpi.color}25, inset 0 1px 0 rgba(255,255,255,0.08)`; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = `0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)`; }}>
-                  {/* Ambient glow line */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${kpi.color}40, transparent)`, opacity: 0.8 }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 1 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
-                    <span style={{ fontSize: 18, opacity: 0.4, filter: "grayscale(0.3)" }}>{kpi.icon}</span>
-                  </div>
-                  <div className="kpi-number" style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginTop: 8, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", position: "relative", zIndex: 1, textShadow: `0 0 30px ${kpi.color}30` }}>{kpi.value}</div>
-                  <div style={{ fontSize: 10, color: kpi.color, marginTop: 6, fontWeight: 700, letterSpacing: "0.02em", position: "relative", zIndex: 1 }}>{kpi.sub}</div>
-                  {/* Bottom fire accent line */}
-                  <div style={{ position: "absolute", bottom: 0, left: "10%", right: "10%", height: 2, background: `linear-gradient(90deg, transparent, ${kpi.color}50, transparent)`, borderRadius: 2 }} />
+                <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ cursor: "pointer", background: "rgba(15,21,56,0.75)", borderRadius: 14, padding: "28px 24px", minWidth: 140, boxShadow: "0 2px 16px rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.06)", transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden", animationDelay: `${kpiIdx * 0.08}s` }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.2)"; }}>
+                  {/* Top accent line */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #1E2761, #C9A84C)" }} />
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
+                  <div className="kpi-number" style={{ fontSize: 44, fontWeight: 900, color: "#fff", marginTop: 12, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1 }}>{kpi.value}</div>
+                  <div style={{ fontSize: 11, color: "#C9A84C", marginTop: 10, fontWeight: 600, letterSpacing: "0.02em" }}>{kpi.sub} →</div>
                 </div>
               ))}
             </div>
@@ -3369,10 +2619,10 @@ export default function App() {
               }
               if (actionItems.length === 0) return null;
               return (
-                <div className="card-reveal" style={{ background: "linear-gradient(135deg, rgba(232,122,46,0.06), rgba(201,168,76,0.04))", borderRadius: 14, padding: 16, marginBottom: 16, border: "1px solid rgba(232,122,46,0.15)", animationDelay: "0.35s" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", boxShadow: "0 0 10px rgba(232,122,46,0.5)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#E87A2E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Action Required</span>
+                <div className="card-reveal" style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, marginBottom: 24, borderLeft: "3px solid #C9A84C", border: "1px solid rgba(201,168,76,0.1)", borderLeftWidth: 3, borderLeftColor: "#C9A84C", animationDelay: "0.35s" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9A84C" }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.1em" }}>Action Required</span>
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {actionItems.map(ai => (
@@ -3382,7 +2632,7 @@ export default function App() {
                       >
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>{ai.icon} {ai.who} — <span style={{ color: ai.color }}>{ai.count} site{ai.count !== 1 ? "s" : ""} awaiting review</span></div>
-                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — SiteScore {getSiteScore(ai.top).score}</div>
+                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — {getSiteScore(ai.top).label}</div>
                         </div>
                         <span style={{ fontSize: 12, color: ai.color, fontWeight: 700 }}>Review →</span>
                       </div>
@@ -3400,29 +2650,28 @@ export default function App() {
               const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < week).length;
               const ucCount = all.filter(s => s.phase === "Under Contract").length;
               const loiCount = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
-              const greenCount = all.filter(s => getSiteScore(s).score >= 7.5).length;
+              const greenCount = all.filter(s => getSiteScore(s).score >= 8.0).length;
               return (
-                <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: 10, flex: 1, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 28, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 12, flex: 1, flexWrap: "wrap" }}>
                     {[
-                      { label: "Added this week", value: addedThisWeek, color: "#3B82F6", action: () => navigateTo("summary") },
-                      { label: "Under Contract", value: ucCount, color: "#16A34A", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "LOI Active", value: loiCount, color: "#F59E0B", action: () => navigateTo("summary", { phase: "LOI" }) },
-                      { label: "GREEN Sites", value: greenCount, color: "#22C55E", action: () => navigateTo("summary") },
+                      { label: "Added this week", value: addedThisWeek, action: () => navigateTo("summary") },
+                      { label: "Under Contract", value: ucCount, action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                      { label: "LOI Active", value: loiCount, action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "GREEN Sites", value: greenCount, action: () => navigateTo("summary") },
                     ].map((v, vi) => (
-                      <div key={v.label} onClick={v.action} className="card-reveal funnel-bar" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.92)", borderRadius: 12, padding: "10px 14px", border: `1px solid ${v.color}18`, textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, backdropFilter: "blur(8px)", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative", overflow: "hidden", cursor: "pointer" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 4px 16px ${v.color}18`; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                      <div key={v.label} onClick={v.action} className="card-reveal" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, transition: "all 0.2s ease", cursor: "pointer" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
                       >
-                        <div style={{ fontSize: 20, fontWeight: 900, color: v.color, fontFamily: "'Space Mono', monospace", position: "relative", zIndex: 1 }}>{v.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.04em", position: "relative", zIndex: 1 }}>{v.label}</div>
-                        <div style={{ position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2, background: `linear-gradient(90deg, transparent, ${v.color}40, transparent)` }} />
+                        <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{v.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>{v.label}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize: 10, color: "#94A3B8", textAlign: "right", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: 10, color: "#64748B", textAlign: "right", whiteSpace: "nowrap" }}>
                     Data as of {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}<br />
-                    <span style={{ fontWeight: 600 }}>{all.length} active sites</span>
+                    <span style={{ fontWeight: 600, color: "#94A3B8" }}>{all.length} active sites</span>
                   </div>
                 </div>
               );
@@ -3452,10 +2701,10 @@ export default function App() {
               recentMoves.sort((a, b) => a.daysAgo - b.daysAgo);
 
               // --- Pipeline value by stage ---
-              const parsePrice = (p) => { if (!p) return 0; const s = String(p).replace(/[$,]/g, ""); const m = s.match(/([\d.]+)\s*[Mm]/); if (m) return parseFloat(m[1]) * 1000000; return parseFloat(s) || 0; };
-              const loiValue = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-              const ucValue = all.filter(s => s.phase === "Under Contract").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
-              const prospectValue = all.filter(s => s.phase === "Prospect").reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+              const _parseP = (p) => { const v = parsePrice(p); return isNaN(v) ? 0 : v; };
+              const loiValue = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).reduce((sum, s) => sum + _parseP(s.askingPrice), 0);
+              const ucValue = all.filter(s => s.phase === "Under Contract").reduce((sum, s) => sum + _parseP(s.askingPrice), 0);
+              const prospectValue = all.filter(s => s.phase === "Prospect").reduce((sum, s) => sum + _parseP(s.askingPrice), 0);
               const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
 
               // --- Phase distribution for mini bars ---
@@ -3479,176 +2728,356 @@ export default function App() {
               if (!hasData) return null;
 
               return (
-                <div className="card-reveal" style={{ background: "linear-gradient(145deg, rgba(15,15,20,0.96) 0%, rgba(25,25,32,0.94) 100%)", borderRadius: 16, padding: 0, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
-                  {/* Top ember line */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent 5%, #F37C33 30%, #FFB347 50%, #F37C33 70%, transparent 95%)" }} />
+                <div className="card-reveal" style={{ background: "rgba(15,21,56,0.6)", borderRadius: 14, padding: 0, marginBottom: 24, boxShadow: "0 2px 16px rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.06)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
 
                   {/* Header */}
-                  <div style={{ padding: "18px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #F37C33, #D45500)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(243,124,51,0.4)" }}>⚡</div>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "rgba(15,21,56,0.4)", letterSpacing: "0.02em" }}>Deal Momentum</h3>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.7)", fontWeight: 500, marginTop: 1 }}>Pipeline value & recent activity</div>
-                      </div>
+                  <div style={{ padding: "20px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#E2E8F0", letterSpacing: "-0.01em" }}>Deal Momentum</h3>
+                      <div style={{ fontSize: 11, color: "#64748B", fontWeight: 500, marginTop: 2 }}>Pipeline value & recent activity</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", animation: "fireGlow 2s ease-in-out infinite" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#86EFAC" }}>{all.length} ACTIVE</span>
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>{all.length} active</div>
                   </div>
 
                   {/* Pipeline Value Metrics */}
-                  <div style={{ padding: "16px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, overflow: "hidden" }}>
+                  <div style={{ padding: "20px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, overflow: "hidden" }}>
                     {[
-                      { label: "LOI / PSA PIPELINE", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", action: () => navigateTo("summary", { phase: "LOI" }) },
-                      { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                      { label: "LOI / PSA Pipeline", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "Under Contract", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                      { label: "Prospect Pool", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, action: () => navigateTo("summary", { phase: "Prospect" }) },
                     ].map(m => (
-                      <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "12px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.25s ease" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = `rgba(255,255,255,0.07)`; e.currentTarget.style.borderColor = `${m.color}40`; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                      <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.2s ease" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; }}
                       >
-                        <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: m.color, lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{m.label}</div>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)", marginTop: 2 }}>{m.count} site{m.count !== 1 ? "s" : ""}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: "#E2E8F0", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 6 }}>{m.label}</div>
+                        <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>{m.count} site{m.count !== 1 ? "s" : ""}</div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Phase Distribution Mini Bars */}
-                  <div style={{ padding: "14px 24px 0" }}>
-                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 40 }}>
-                      {phaseGroups.map(g => (
-                        <div key={g.label} onClick={g.count > 0 ? g.action : undefined} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: g.count > 0 ? "pointer" : "default", transition: "all 0.2s ease" }}
-                          onMouseEnter={(e) => { if (g.count > 0) e.currentTarget.style.transform = "translateY(-2px)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
-                        >
-                          <div style={{ fontSize: 12, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: g.count > 0 ? g.color : "rgba(148,163,184,0.3)" }}>{g.count}</div>
-                          <div style={{ width: "100%", height: Math.max(4, (g.count / maxPhaseCount) * 24), borderRadius: 3, background: g.count > 0 ? `linear-gradient(180deg, ${g.color}CC, ${g.color}66)` : "rgba(255,255,255,0.04)", transition: "all 0.5s ease" }} />
-                          <div style={{ fontSize: 8, fontWeight: 600, color: "rgba(148,163,184,0.4)", textTransform: "uppercase" }}>{g.label}</div>
+                  {/* Phase Distribution — Horizontal Stacked Bar */}
+                  <div style={{ padding: "18px 24px 0" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Phase Distribution</div>
+                    <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: "rgba(255,255,255,0.04)" }}>
+                      {phaseGroups.filter(g => g.count > 0).map(g => {
+                        const totalCount = phaseGroups.reduce((s, x) => s + x.count, 0) || 1;
+                        return (
+                          <div key={g.label} onClick={g.action} title={`${g.label}: ${g.count}`} style={{ width: `${(g.count / totalCount) * 100}%`, background: g.color, cursor: "pointer", transition: "all 0.3s ease", opacity: 0.8, minWidth: g.count > 0 ? 4 : 0 }}
+                            onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.8"; }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
+                      {phaseGroups.filter(g => g.count > 0).map(g => (
+                        <div key={g.label} onClick={g.action} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: g.color, opacity: 0.8 }} />
+                          <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500 }}>{g.label} <strong style={{ color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{g.count}</strong></span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Recent Activity Feed */}
+                  {/* Recent Activity Feed — collapsible */}
                   {recentMoves.length > 0 && (
-                    <div style={{ padding: "16px 24px 20px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(148,163,184,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" }}>RECENT ACTIVITY</div>
-                        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)" }}>Last 30 days</div>
-                      </div>
-                      <div style={{ maxHeight: 160, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(243,124,51,0.3) transparent" }}>
-                        {recentMoves.slice(0, 10).map((m, idx) => (
-                          <div key={m.name + idx + m.date} onClick={() => { setDetailView({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", borderRadius: 6, transition: "all 0.2s ease" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.paddingLeft = "8px"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "0"; }}
-                          >
-                            <span style={{ fontSize: 12 }}>{moveIcon(m.to)}</span>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name} <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)" }}>({m.region})</span></div>
-                              <div style={{ fontSize: 10, color: "rgba(148,163,184,0.6)" }}>{m.from} → {m.to}</div>
+                    <div style={{ padding: "18px 24px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 16 }}>
+                      <details>
+                        <summary style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", listStyle: "none", userSelect: "none" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em" }}>Recent Activity ({recentMoves.length})</div>
+                          <div style={{ fontSize: 10, color: "#64748B" }}>Last 30 days</div>
+                        </summary>
+                        <div style={{ maxHeight: 180, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(201,168,76,0.3) transparent", marginTop: 10 }}>
+                          {recentMoves.slice(0, 10).map((m, idx) => (
+                            <div key={m.name + idx + m.date} onClick={() => { goToDetail({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", transition: "all 0.15s ease" }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.04)"; e.currentTarget.style.paddingLeft = "8px"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "0"; }}
+                            >
+                              <span style={{ fontSize: 11 }}>{moveIcon(m.to)}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name} <span style={{ fontSize: 9, color: "#64748B" }}>({m.region})</span></div>
+                                <div style={{ fontSize: 10, color: "#94A3B8" }}>{m.from} → {m.to}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: advancePhases.includes(m.to) ? "rgba(34,197,94,0.08)" : m.to === "Dead" ? "rgba(220,38,38,0.08)" : "rgba(201,168,76,0.08)", color: advancePhases.includes(m.to) ? "#86EFAC" : m.to === "Dead" ? "#FCA5A5" : "#C9A84C", letterSpacing: "0.05em" }}>{moveLabel(m.to)}</span>
+                                <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>{m.daysAgo === 0 ? "Today" : m.daysAgo === 1 ? "Yesterday" : `${m.daysAgo}d ago`}</div>
+                              </div>
                             </div>
-                            <div style={{ textAlign: "right" }}>
-                              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: advancePhases.includes(m.to) ? "rgba(34,197,94,0.1)" : m.to === "Dead" ? "rgba(220,38,38,0.1)" : "rgba(59,130,246,0.1)", color: advancePhases.includes(m.to) ? "#86EFAC" : m.to === "Dead" ? "#FCA5A5" : "#93C5FD", letterSpacing: "0.05em" }}>{moveLabel(m.to)}</span>
-                              <div style={{ fontSize: 9, color: "rgba(148,163,184,0.35)", marginTop: 2 }}>{m.daysAgo === 0 ? "Today" : m.daysAgo === 1 ? "Yesterday" : `${m.daysAgo}d ago`}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </details>
                     </div>
                   )}
                 </div>
               );
             })()}
 
-            {/* ═══ PIPELINE FUNNEL — Interactive ═══ */}
-            {(() => {
-              const all = [...sw, ...east];
-              const pending = subs.filter(s => s.status === "pending").length;
-              const funnelStages = [
-                { label: "Review Queue", count: pending, color: "#F59E0B", icon: "⏳", action: () => navigateTo("review") },
-                { label: "Prospect", count: all.filter(s => s.phase === "Prospect").length, color: "#3B82F6", icon: "🔍", action: () => navigateTo("summary", { phase: "Prospect" }) },
-                { label: "Submitted to PS", count: all.filter(s => s.phase === "Submitted to PS").length, color: "#6366F1", icon: "📤", action: () => navigateTo("summary", { phase: "Submitted to PS" }) },
-                { label: "SiteScore Approved", count: all.filter(s => s.phase === "SiteScore Approved").length, color: "#8B5CF6", icon: "⚡", action: () => navigateTo("summary", { phase: "SiteScore Approved" }) },
-                { label: "LOI / PSA", count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#F37C33", icon: "📝", action: () => navigateTo("summary", { phase: "LOI" }) },
-                { label: "Under Contract", count: all.filter(s => s.phase === "Under Contract").length, color: "#16A34A", icon: "🤝", action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                { label: "Closed", count: all.filter(s => s.phase === "Closed").length, color: "#059669", icon: "🏆", action: () => navigateTo("summary", { phase: "Closed" }) },
-              ];
-              const declined = all.filter(s => s.phase === "Declined" || s.phase === "Dead").length;
-              return (
-                <div className="card-reveal" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.05), 0 0 0 1px rgba(243,124,51,0.04)", backdropFilter: "blur(8px)", animationDelay: "0.6s", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(243,124,51,0.2), rgba(255,179,71,0.3), rgba(243,124,51,0.2), transparent)" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#F4F6FA" }}>Pipeline Funnel</h3>
-                    {declined > 0 && <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 600 }}>{declined} declined/dead</span>}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-                    {funnelStages.map((stage, idx) => {
-                      const widthPct = stage.count > 0 ? Math.max(25, 30 + (1 - idx / (funnelStages.length - 1)) * 70) : 25;
-                      return (
-                        <div key={stage.label} onClick={stage.count > 0 ? stage.action : undefined} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, cursor: stage.count > 0 ? "pointer" : "default" }}>
-                          <div style={{ width: 90, fontSize: 10, fontWeight: 600, color: "#6B7394", textAlign: "right", flexShrink: 0 }}>{stage.icon} {stage.label}</div>
-                          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-                            <div className={stage.count > 0 ? "funnel-bar" : ""} style={{
-                              width: `${widthPct}%`,
-                              background: stage.count > 0 ? `linear-gradient(135deg, ${stage.color}DD, ${stage.color}99)` : "rgba(15,21,56,0.3)",
-                              borderRadius: idx === 0 ? "10px 10px 6px 6px" : idx === funnelStages.length - 1 ? "6px 6px 10px 10px" : 6,
-                              padding: "8px 12px",
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)",
-                              minHeight: 28,
-                            }}>
-                              <span style={{ fontSize: stage.count > 0 ? 16 : 12, fontWeight: 800, color: stage.count > 0 ? "#fff" : "#CBD5E1", fontFamily: "'Space Mono', monospace", position: "relative", zIndex: 1 }}>
-                                {stage.count}
-                              </span>
-                            </div>
-                          </div>
-                          <div style={{ width: 50, fontSize: 10, color: "#94A3B8", flexShrink: 0 }}>
-                            {stage.count > 0 ? "→" : ""}
+            {/* Pipeline Funnel removed — redundant with Deal Momentum phase bars. Data available in Executive tab. */}
+
+            {/* Pipeline comparison cards removed — side-by-side phase counts created competitive optics between DW and MT trackers */}
+
+            {/* ── Tools Strip — compact access to admin views ── */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16, padding: "14px 0", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              {[
+                { key: "submit", label: "Submit Site", icon: "+" },
+                { key: "summary", label: "Pipeline Summary", icon: "S" },
+                { key: "validation", label: "Validation", icon: "V" },
+                { key: "inputs", label: "Valuation Engine", icon: "E" },
+              ].map(t => (
+                <button key={t.key} onClick={() => navigateTo(t.key)} style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6 }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#C9A84C"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; e.currentTarget.style.background = "rgba(201,168,76,0.04)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#94A3B8"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#64748B", background: "rgba(255,255,255,0.05)", borderRadius: 3, padding: "2px 5px" }}>{t.icon}</span>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ EXECUTIVE — C-Suite One-Pager for Jarrod/Boyle ═══ */}
+        {tab === "executive" && (() => {
+          const all = [...sw, ...east];
+          const now = Date.now();
+          const DAY = 86400000;
+          const MONTH = 30 * DAY;
+          const QUARTER = 90 * DAY;
+
+          // --- Pipeline Metrics ---
+          const totalPipeline = all.length;
+          const activePhases = ["Prospect", "Submitted to PS", "SiteScore Approved", "LOI", "LOI Sent", "LOI Signed", "PSA Sent", "Under Contract"];
+          const activeSites = all.filter(s => activePhases.includes(s.phase));
+          const ucSites = all.filter(s => s.phase === "Under Contract");
+          const loiSites = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase));
+          const addedThisMonth = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < MONTH).length;
+
+          // --- Price parsing ---
+          const _parseP2 = (p) => { const v = parsePrice(p); return isNaN(v) ? 0 : v; };
+          const fmtVal = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
+          const totalPipelineValue = activeSites.reduce((sum, s) => sum + _parseP2(s.askingPrice), 0);
+          const ucValue = ucSites.reduce((sum, s) => sum + _parseP2(s.askingPrice), 0);
+          const loiValue = loiSites.reduce((sum, s) => sum + _parseP2(s.askingPrice), 0);
+
+          // --- SiteScore Accuracy ---
+          const vs = computeValidationStats(all);
+          const greenSites = all.filter(s => getSiteScore(s).score >= 8.0);
+
+          // --- States coverage ---
+          const states = [...new Set(all.map(s => s.state).filter(Boolean))];
+
+          // --- Speed metric: sites vetted this quarter ---
+          const vettedThisQuarter = all.filter(s => {
+            const created = s.approvedAt || s.submittedAt;
+            return created && (now - new Date(created).getTime()) < QUARTER;
+          }).length;
+
+          // --- Phase velocity (avg days between phases for sites that advanced) ---
+          const velocityData = [];
+          all.forEach(s => {
+            const hist = s.phaseHistory ? Object.values(s.phaseHistory) : [];
+            if (hist.length >= 2) {
+              const sorted = hist.filter(h => h.changedAt).sort((a, b) => new Date(a.changedAt) - new Date(b.changedAt));
+              for (let i = 1; i < sorted.length; i++) {
+                const days = (new Date(sorted[i].changedAt) - new Date(sorted[i-1].changedAt)) / DAY;
+                if (days > 0 && days < 365) velocityData.push(days);
+              }
+            }
+          });
+          const avgVelocity = velocityData.length > 0 ? (velocityData.reduce((a, b) => a + b, 0) / velocityData.length).toFixed(0) : "—";
+
+          const heroCard = (label, value, sub) => (
+            <div style={{ flex: "1 1 180px", padding: "24px 20px", borderRadius: 16, background: `linear-gradient(145deg, rgba(15,21,56,0.8), rgba(15,21,56,0.6))`, border: `1px solid rgba(201,168,76,0.15)`, textAlign: "center", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, transparent, rgba(201,168,76,0.5), transparent)` }} />
+              <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>{label}</div>
+              {sub && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>{sub}</div>}
+            </div>
+          );
+
+          return (
+            <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+              {/* Executive Header */}
+              <div style={{ textAlign: "center", marginBottom: 20, padding: "20px 0" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 8 }}>Storvex AI Acquisition Platform</div>
+                <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: "#E2E8F0", letterSpacing: "-0.02em" }}>Executive Intelligence Brief</h1>
+                <div style={{ fontSize: 12, color: "#6B7394", marginTop: 6 }}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} &middot; Real-time pipeline data</div>
+              </div>
+
+              {/* Section 1: Pipeline at a Glance */}
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+                {heroCard("Active Pipeline", totalPipeline, `${states.length} states · ${activeSites.length} active`)}
+                {heroCard("Pipeline Value", fmtVal(totalPipelineValue), `${activeSites.length} active sites`)}
+                {heroCard("Under Contract", ucSites.length, ucValue > 0 ? fmtVal(ucValue) : "\u2014")}
+                {heroCard("LOI / PSA Active", loiSites.length, loiValue > 0 ? fmtVal(loiValue) : "\u2014")}
+              </div>
+
+              {/* Section 2: Territory Performance */}
+              <div style={{ background: "rgba(15,21,56,0.6)", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24 }}>
+                <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 800, color: "#fff" }}>Territory Performance</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  {[
+                    { label: "Daniel Wollent", sub: "Southwest", data: sw, color: REGIONS.southwest.accent },
+                    { label: "Matthew Toussaint", sub: "East", data: east, color: REGIONS.east.accent },
+                  ].map(t => {
+                    const uc = t.data.filter(s => s.phase === "Under Contract").length;
+                    const loi = t.data.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
+                    const tVal = t.data.filter(s => activePhases.includes(s.phase)).reduce((sum, s) => sum + parsePrice(s.askingPrice), 0);
+                    const tStates = [...new Set(t.data.map(s => s.state).filter(Boolean))];
+                    const scores = t.data.map(s => getSiteScore(s).score).filter(v => v > 0);
+                    const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "\u2014";
+                    return (
+                      <div key={t.label} style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.1)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{t.label}</div>
+                            <div style={{ fontSize: 10, color: "#94A3B8" }}>{t.sub} · {t.data.length} sites · {tStates.length} states</div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
-                    Click any stage to navigate — sites flow left to right
-                  </div>
-                </div>
-              );
-            })()}
-
-            {[{ label: "Daniel Wollent", data: sw, color: REGIONS.southwest.color, accent: REGIONS.southwest.accent, tabKey: "southwest" }, { label: "Matthew Toussaint", data: east, color: REGIONS.east.color, accent: REGIONS.east.accent, tabKey: "east" }].map((r) => {
-              const total = r.data.length || 1;
-              const phaseColors = ["#CBD5E1", "#94A3B8", "#3B82F6", "#6366F1", "#16A34A", "#D97706", "#DC2626", "#8B5CF6", "#A855F7", "#F59E0B", "#F37C33", "#16A34A", "#64748B"];
-              return (
-                <div key={r.label} onClick={() => navigateTo(r.tabKey)} className="site-card card-reveal funnel-bar" style={{ background: "rgba(15,21,56,0.6)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(201,168,76,0.06)", cursor: "pointer", backdropFilter: "blur(12px)", animationDelay: "0.7s", position: "relative", overflow: "hidden" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: r.color }}>{r.label} — 2026 Pipeline</h3>
-                    <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{r.data.length} sites</span>
-                  </div>
-                  {/* Visual pipeline bar */}
-                  <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 10, background: "rgba(15,21,56,0.3)" }}>
-                    {PHASES.map((p, idx) => {
-                      const c = r.data.filter((s) => s.phase === p).length;
-                      return c > 0 ? <div key={p} title={`${p}: ${c}`} style={{ width: `${(c / total) * 100}%`, background: phaseColors[idx] || r.accent, transition: "width 0.5s ease" }} /> : null;
-                    })}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {PHASES.map((p, idx) => { const c = r.data.filter((s) => s.phase === p).length; return (
-                      <div key={p} style={{ flex: "1 1 80px", textAlign: "center", padding: "10px 6px", borderRadius: 10, background: c > 0 ? `${phaseColors[idx]}11` : "rgba(15,21,56,0.4)", border: c > 0 ? `1px solid ${phaseColors[idx]}33` : "1px solid rgba(201,168,76,0.1)", transition: "all 0.2s" }}>
-                        <div style={{ fontSize: 22, fontWeight: 700, color: c > 0 ? phaseColors[idx] : "#CBD5E1" }}>{c}</div>
-                        <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{p}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                          {[
+                            { label: "Pipeline Value", value: fmtVal(tVal) },
+                            { label: "Under Contract", value: uc },
+                            { label: "LOI / PSA", value: loi },
+                            { label: "Total Sites", value: t.data.length },
+                            { label: "Avg SiteScore", value: avgScore },
+                            { label: "States", value: tStates.length },
+                          ].map(m => (
+                            <div key={m.label} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 8, background: "rgba(255,255,255,0.03)" }}>
+                              <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</div>
+                              <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{m.label}</div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ); })}
+                    );
+                  })}
+                </div>
+                {/* Speed metrics row */}
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {[
+                    { label: "Vetted This Quarter", value: vettedThisQuarter },
+                    { label: "Added This Month", value: addedThisMonth },
+                    { label: "Avg Phase Velocity", value: `${avgVelocity}d` },
+                    { label: "States Covered", value: states.length },
+                  ].map(m => (
+                    <div key={m.label} style={{ flex: "1 1 100px", textAlign: "center", padding: "10px 8px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</div>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase" }}>{m.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 3: SiteScore Intelligence */}
+              <div style={{ background: "rgba(15,21,56,0.6)", borderRadius: 16, padding: "22px 24px", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#fff" }}>SiteScore Prediction Accuracy</h3>
+                  <div style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.2)" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C" }}>{vs.total} REIC Decisions</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  {/* Left: Key metrics */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {[
+                      { label: "Approval Rate", value: vs.approvalRate != null ? `${(vs.approvalRate * 100).toFixed(0)}%` : "\u2014" },
+                      { label: "Avg Score (Approved)", value: vs.avgScoreApproved != null ? vs.avgScoreApproved.toFixed(1) : "\u2014" },
+                      { label: "Avg Score (Rejected)", value: vs.avgScoreRejected != null ? vs.avgScoreRejected.toFixed(1) : "\u2014" },
+                      { label: "GREEN Sites", value: greenSites.length, gold: true },
+                    ].map(m => (
+                      <div key={m.label} style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "rgba(0,0,0,0.2)" }}>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: m.gold ? "#C9A84C" : "#fff", fontFamily: "'Space Mono', monospace" }}>{m.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>{m.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Right: Score band chart */}
+                  <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Score Band vs. REIC Approval</div>
+                    {vs.bandStats.map(b => (
+                      <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 46, fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "right", paddingLeft: 5, borderLeft: `3px solid ${b.color}` }}>{b.label}</div>
+                        <div style={{ flex: 1, height: 18, borderRadius: 4, background: "rgba(15,21,56,0.5)", overflow: "hidden", display: "flex" }}>
+                          {b.total > 0 && (<>
+                            <div style={{ width: `${(b.approved / Math.max(b.total, 1)) * 100}%`, background: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {b.approved > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>{b.approved}</span>}
+                            </div>
+                            <div style={{ width: `${(b.rejected / Math.max(b.total, 1)) * 100}%`, background: "#DC2626", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {b.rejected > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>{b.rejected}</span>}
+                            </div>
+                          </>)}
+                        </div>
+                        <div style={{ width: 50, fontSize: 10, color: "#94A3B8", textAlign: "right" }}>
+                          {b.total > 0 ? `${b.approved}/${b.total}` : "\u2014"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Platform Footer */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "14px 20px", borderRadius: 12, background: "rgba(15,21,56,0.6)", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 24 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {["SiteScore Engine", "ESRI Demographics", "Zoning Research", "Competition Analysis", "Automated Vetting", "REIC Validation"].map(cap => (
+                    <span key={cap} style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", padding: "4px 10px", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>{cap}</span>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", textAlign: "right", lineHeight: 1.6 }}>
+                  3,400+ PS Locations Indexed &middot; 0 Competing Platforms &middot; Patent Pending
+                </div>
+              </div>
+
+              {/* Print / Share */}
+              <div style={{ textAlign: "center", padding: "12px 0 6px" }}>
+                <button onClick={() => window.print()} style={{ padding: "10px 28px", borderRadius: 10, background: "linear-gradient(135deg, #C9A84C, #E87A2E)", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", letterSpacing: "0.04em", boxShadow: "0 4px 20px rgba(201,168,76,0.3)" }}>
+                  Print / Save as PDF
+                </button>
+              </div>
+
+              {/* Footer */}
+              <div style={{ textAlign: "center", padding: "10px 0 8px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Storvex AI &middot; Patent Pending (App. No. 64/009,393)</div>
+                <div style={{ fontSize: 10, color: "#4B5563" }}>&copy; {new Date().getFullYear()} DJR Real Estate LLC &middot; Proprietary &amp; Confidential</div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ═══ DISCOVER — Market Discovery & Whitespace Analysis ═══ */}
+        {tab === "discover" && (
+          <DiscoverMap
+            psLocations={psLocations}
+            pipelineSites={[
+              ...subs.filter(s => s.coordinates).map(s => ({ ...s, _source: "queue" })),
+              ...sw.filter(s => s.coordinates && s.phase !== "Dead" && s.phase !== "Declined").map(s => ({ ...s, _source: "DW" })),
+              ...east.filter(s => s.coordinates && s.phase !== "Dead" && s.phase !== "Declined").map(s => ({ ...s, _source: "MT" })),
+            ]}
+            onSiteClick={(site) => {
+              if (site._source === "queue") {
+                navigateTo("review");
+              } else {
+                const regionKey = site._source === "DW" ? "southwest" : "east";
+                goToDetail({ regionKey, siteId: site.id });
+                navigateTo(regionKey);
+              }
+            }}
+            onAnalyzeLocation={(payload) => {
+              // Pre-fill submit form with Discover intel and switch to Submit tab
+              setForm(prev => ({
+                ...prev,
+                coordinates: payload.coordinates || prev.coordinates,
+                state: payload.state || prev.state,
+              }));
+              setDiscoverIntel(payload);
+              setSubmitMode("review");
+              navigateTo("submit");
+              notify(`Location loaded — ${payload.coordinates}${payload.msaName ? ` (${payload.msaName} MSA)` : ""}`);
+            }}
+          />
         )}
 
         {/* ═══ SUMMARY ═══ */}
@@ -3677,7 +3106,7 @@ export default function App() {
                       </thead>
                       <tbody>
                         {d.map((s, i) => (
-                          <tr key={s.id} onClick={() => { setDetailView({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
+                          <tr key={s.id} onClick={() => { goToDetail({ regionKey: rk, siteId: s.id }); setTab(rk); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ background: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; })(), cursor: "pointer", transition: "background 0.15s", borderLeft: (() => { const t = getSiteScore(s).tier; return t === "gold" ? "3px solid #C9A84C" : t === "steel" ? "3px solid #2C3E6B" : "3px solid transparent"; })() }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(232,122,46,0.12)")}
                             onMouseLeave={(e) => { const t = getSiteScore(s).tier; e.currentTarget.style.background = t === "gold" ? "rgba(201,168,76,0.08)" : t === "steel" ? "rgba(44,62,107,0.15)" : i % 2 ? "rgba(15,21,56,0.35)" : "rgba(15,21,56,0.5)"; }}
                           >
@@ -3705,7 +3134,7 @@ export default function App() {
             <div style={{ animation: "fadeIn .3s ease-out" }}>
               <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#E2E8F0" }}>📊 Summary</h2>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#94A3B8" }}>All tracked sites by region. Click any row to open.</p>
-              <SortBar />
+              <SortBar sortBy={sortBy} setSortBy={setSortBy} />
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>Filter:</span>
                   <select value={filterState} onChange={(e) => setFilterState(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", color: "#94A3B8", background: filterState !== "all" ? "#FFF7ED" : "rgba(15,21,56,0.5)" }}>
@@ -3729,6 +3158,35 @@ export default function App() {
           <div style={{ animation: "fadeIn .3s ease-out", maxWidth: 600 }}>
             <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
               <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Submit Site</h2>
+              {/* Discover Intel Banner — shown when navigating from Discover map */}
+              {discoverIntel && (
+                <div style={{ background: "linear-gradient(135deg, rgba(30,39,97,0.15), rgba(201,168,76,0.08))", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 10, padding: "12px 14px", marginBottom: 14, position: "relative" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>DISCOVER INTEL — PRE-LOADED</span>
+                    <button onClick={() => setDiscoverIntel(null)} style={{ background: "none", border: "none", color: "#6B7394", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>x</button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 6 }}>
+                    <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>COORDINATES</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{discoverIntel.coordinates}</div>
+                    </div>
+                    {discoverIntel.nearestPS && <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>NEAREST PS</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#E87A2E" }}>{discoverIntel.nearestPS} mi</div>
+                      <div style={{ fontSize: 8, color: "#6B7394" }}>{discoverIntel.nearestPSCity || ""}</div>
+                    </div>}
+                    {discoverIntel.msaName && <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>MSA MARKET</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{discoverIntel.msaName}</div>
+                    </div>}
+                    {discoverIntel.ccRent && <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 6, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC RENT</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#22C55E" }}>${discoverIntel.ccRent.toFixed(2)}/SF</div>
+                      <div style={{ fontSize: 8, color: "#6B7394" }}>{discoverIntel.ccGrowth}% growth | {discoverIntel.rentTier}</div>
+                    </div>}
+                  </div>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "rgba(15,21,56,0.3)", borderRadius: 10, padding: 3 }}>
                 {[["direct", "⚡ Direct to Tracker"], ["review", "📋 Send to Review"]].map(([k, l]) => (
                   <button key={k} onClick={() => setSubmitMode(k)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Inter', sans-serif", background: submitMode === k ? "rgba(15,21,56,0.5)" : "transparent", color: submitMode === k ? "#E2E8F0" : "#94A3B8", boxShadow: submitMode === k ? "0 1px 3px rgba(0,0,0,.1)" : "none" }}>{l}</button>
@@ -3754,32 +3212,7 @@ export default function App() {
                   <div><div style={{ fontSize: 22, marginBottom: 4 }}>📎</div><div style={{ fontSize: 13, fontWeight: 600, color: "#94A3B8" }}>Drop a flyer here or click to upload</div><div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>PDF or image — we'll extract acreage, price, zoning, broker & more</div></div>
                 )}
               </div>
-              {/* ── Additional Attachments ── */}
-              <div style={{ marginBottom: 16, background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 14, border: "1px solid rgba(201,168,76,0.1)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0", display: "flex", alignItems: "center", gap: 6 }}>📁 More Documents <span style={{ fontSize: 10, fontWeight: 500, color: "#94A3B8" }}>— survey, PSA, environmental, etc.</span></div>
-                  <button onClick={() => attachRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#2C2C2C", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Add File</button>
-                  <input ref={attachRef} type="file" accept=".pdf,image/*,.doc,.docx,.xlsx,.xls,.csv" multiple style={{ display: "none" }} onChange={(e) => { const files = Array.from(e.target.files || []); const newA = files.map((f) => ({ file: f, type: "Other", id: uid() })); setAttachments((prev) => [...prev, ...newA]); e.target.value = ""; }} />
-                </div>
-                {attachments.length > 0 && (
-                  <div style={{ display: "grid", gap: 6 }}>
-                    {attachments.map((a) => (
-                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.1)", background: "#FAFAFA" }}>
-                        <div style={{ fontSize: 16 }}>{a.file.name.match(/\.pdf$/i) ? "📄" : a.file.type?.startsWith("image/") ? "🖼️" : "📎"}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.file.name}</div>
-                          <div style={{ fontSize: 10, color: "#94A3B8" }}>{(a.file.size / 1024).toFixed(0)} KB</div>
-                        </div>
-                        <select value={a.type} onChange={(e) => setAttachments((prev) => prev.map((x) => x.id === a.id ? { ...x, type: e.target.value } : x))} style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", fontSize: 11, background: "rgba(15,21,56,0.5)", cursor: "pointer", color: "#94A3B8" }}>
-                          {DOC_TYPES.filter((t) => t !== "Flyer").map((t) => <option key={t}>{t}</option>)}
-                        </select>
-                        <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} style={{ padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#94A3B8", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>✕</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {attachments.length === 0 && <div style={{ fontSize: 11, color: "#CBD5E1" }}>Survey, demographics, PSA, environmental, etc.</div>}
-              </div>
+              {/* Attachments disabled — Dan controls all data input */}
               {/* ── Form Fields ── */}
               <div style={{ display: "grid", gap: 12 }}>
                 <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Name *</label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Facility / site name" /></div>
@@ -3792,8 +3225,9 @@ export default function App() {
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Acreage</label><input style={inp} value={form.acreage} onChange={(e) => setForm({ ...form, acreage: e.target.value })} placeholder="e.g. 3.5" /></div>
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Asking Price</label><input style={inp} value={form.askingPrice} onChange={(e) => setForm({ ...form, askingPrice: e.target.value })} placeholder="e.g. $1,200,000" /></div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Zoning</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Zoning District</label><input style={inp} value={form.zoning} onChange={(e) => setForm({ ...form, zoning: e.target.value })} placeholder="e.g. C-2, Commercial" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Zoning Classification</label><select style={{ ...inp, cursor: "pointer" }} value={form.zoningClassification || "unknown"} onChange={(e) => setForm({ ...form, zoningClassification: e.target.value })}><option value="unknown">Unknown</option><option value="by-right">By-Right</option><option value="conditional">Conditional (SUP/CUP)</option><option value="rezone-required">Rezone Required</option><option value="prohibited">Prohibited</option></select></div>
                   <div><label style={{ fontSize: 10, fontWeight: 600, color: "#6B7394", textTransform: "uppercase" }}>Seller / Broker</label><input style={inp} value={form.sellerBroker} onChange={(e) => setForm({ ...form, sellerBroker: e.target.value })} placeholder="Broker name" /></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -3819,6 +3253,143 @@ export default function App() {
           </div>
         )}
 
+        {/* ═══ QUICK SCORE — Self-Service SiteScore ═══ */}
+        {tab === "quickscore" && (() => {
+          const [qs, setQs] = [quickScoreForm, setQuickScoreForm];
+          const runScore = () => {
+            if (!qs.acreage) { notify("Enter acreage to score."); return; }
+            const mockSite = {
+              name: qs.name || "Quick Score",
+              address: qs.address || "",
+              city: qs.city || "",
+              state: qs.state || "",
+              acreage: qs.acreage,
+              askingPrice: qs.askingPrice || "",
+              zoning: qs.zoning || "",
+              pop3mi: qs.pop3mi || "",
+              income3mi: qs.income3mi || "",
+              households3mi: qs.households3mi || "",
+              homeValue3mi: qs.homeValue3mi || "",
+              popGrowth3mi: qs.growthRate || "",
+              coordinates: qs.coordinates || "",
+              summary: qs.zoning ? `${qs.zoning} — ${qs.zoningStatus || "unknown"}` : "",
+              siteiqData: {
+                nearestPS: qs.nearestPS ? parseFloat(qs.nearestPS) : null,
+                competitorCount: qs.competitors ? parseInt(qs.competitors) : null,
+                ccSPC: qs.ccSPC ? parseFloat(qs.ccSPC) : null,
+                msaCCRent: qs.ccRent ? parseFloat(qs.ccRent) : null,
+                msaCCGrowth: qs.ccGrowth ? parseFloat(qs.ccGrowth) : null,
+              },
+            };
+            const iqResult = computeSiteScore(mockSite);
+            const finResult = computeSiteFinancials(mockSite, VALUATION_OVERRIDES, {});
+            setQuickScoreResult({ iq: iqResult, fin: finResult, site: mockSite });
+          };
+          const qr = quickScoreResult;
+          const sInp = { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E2E8F0", fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box" };
+          return (
+            <div style={{ animation: "fadeIn .3s ease-out", display: "grid", gridTemplateColumns: qr ? "1fr 1fr" : "1fr", gap: 20, alignItems: "start" }}>
+              {/* Input Panel */}
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 24 }}>
+                <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700 }}>Quick Score</h2>
+                <p style={{ margin: "0 0 16px", fontSize: 12, color: "#6B7394" }}>Instant SiteScore + financial snapshot — no submission required.</p>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>NAME</label><input style={sInp} value={qs.name} onChange={e => setQs({...qs, name: e.target.value})} placeholder="Site name" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>STATE</label><input style={sInp} value={qs.state} onChange={e => setQs({...qs, state: e.target.value})} placeholder="TX" maxLength={2} /></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em" }}>ACREAGE *</label><input style={{...sInp, borderColor: "rgba(201,168,76,0.3)"}} value={qs.acreage} onChange={e => setQs({...qs, acreage: e.target.value})} placeholder="3.5" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>ASKING PRICE</label><input style={sInp} value={qs.askingPrice} onChange={e => setQs({...qs, askingPrice: e.target.value})} placeholder="$1,500,000" /></div>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#E87A2E", letterSpacing: "0.08em", marginTop: 6, borderTop: "1px solid rgba(255,255,255,.06)", paddingTop: 10 }}>DEMOGRAPHICS (ESRI 3-MI)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>POPULATION</label><input style={sInp} value={qs.pop3mi} onChange={e => setQs({...qs, pop3mi: e.target.value})} placeholder="42,000" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>MED. HHI</label><input style={sInp} value={qs.income3mi} onChange={e => setQs({...qs, income3mi: e.target.value})} placeholder="$85,000" /></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>HOUSEHOLDS</label><input style={sInp} value={qs.households3mi} onChange={e => setQs({...qs, households3mi: e.target.value})} placeholder="15,000" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>HOME VALUE</label><input style={sInp} value={qs.homeValue3mi} onChange={e => setQs({...qs, homeValue3mi: e.target.value})} placeholder="$320,000" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>GROWTH %</label><input style={sInp} value={qs.growthRate} onChange={e => setQs({...qs, growthRate: e.target.value})} placeholder="2.1" /></div>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#E87A2E", letterSpacing: "0.08em", marginTop: 6, borderTop: "1px solid rgba(255,255,255,.06)", paddingTop: 10 }}>MARKET INTEL</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>ZONING</label><input style={sInp} value={qs.zoning} onChange={e => setQs({...qs, zoning: e.target.value})} placeholder="C-3" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>NEAREST PS (mi)</label><input style={sInp} value={qs.nearestPS} onChange={e => setQs({...qs, nearestPS: e.target.value})} placeholder="8.5" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC COMPETITORS</label><input style={sInp} value={qs.competitors} onChange={e => setQs({...qs, competitors: e.target.value})} placeholder="3" /></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC SPC</label><input style={sInp} value={qs.ccSPC} onChange={e => setQs({...qs, ccSPC: e.target.value})} placeholder="3.2" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC RENT $/SF/yr</label><input style={sInp} value={qs.ccRent} onChange={e => setQs({...qs, ccRent: e.target.value})} placeholder="15.40" /></div>
+                    <div><label style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em" }}>CC GROWTH %</label><input style={sInp} value={qs.ccGrowth} onChange={e => setQs({...qs, ccGrowth: e.target.value})} placeholder="4.2" /></div>
+                  </div>
+                  <button onClick={runScore} style={{ marginTop: 8, padding: "14px 20px", borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, letterSpacing: "0.04em", boxShadow: "0 4px 20px rgba(232,122,46,0.4)" }}>SCORE THIS SITE</button>
+                </div>
+              </div>
+              {/* Results Panel */}
+              {qr && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 24, animation: "fadeIn .3s ease-out" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Results</h2>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#6B7394" }}>{qs.name || "Quick Score"}</span>
+                  </div>
+                  {/* SiteScore Badge */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                    <SiteScoreBadge site={qr.site} iq={qr.iq} />
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: qr.iq.classColor || "#C9A84C" }}>{(qr.iq.score || 0).toFixed(2)}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: qr.iq.classColor || "#C9A84C", letterSpacing: "0.08em" }}>{qr.iq.label || "—"} — {qr.iq.classification || "—"}</div>
+                    </div>
+                  </div>
+                  {/* Dimension Breakdown */}
+                  <div style={{ display: "grid", gap: 4, marginBottom: 16 }}>
+                    {(qr.iq.breakdown || []).filter(d => d && d.label).map((d, i) => {
+                      const raw = d.raw != null ? d.raw : 5;
+                      const weight = d.weight != null ? d.weight : 0;
+                      return (
+                        <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 40px 1fr 40px", alignItems: "center", gap: 6, fontSize: 11 }}>
+                          <span style={{ color: "#94A3B8", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</span>
+                          <span style={{ color: "#6B7394", fontSize: 9, textAlign: "right" }}>{(weight * 100).toFixed(0)}%</span>
+                          <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${(raw / 10) * 100}%`, borderRadius: 3, background: raw >= 8 ? "#22C55E" : raw >= 6 ? "#C9A84C" : raw >= 4 ? "#F59E0B" : "#EF4444", transition: "width 0.3s" }} />
+                          </div>
+                          <span style={{ color: raw >= 8 ? "#22C55E" : raw >= 6 ? "#C9A84C" : raw >= 4 ? "#F59E0B" : "#EF4444", fontWeight: 700, textAlign: "right" }}>{raw.toFixed(1)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Flags */}
+                  {qr.iq.flags.length > 0 && (
+                    <div style={{ marginBottom: 16, padding: "8px 10px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", letterSpacing: "0.08em", marginBottom: 4 }}>FLAGS</div>
+                      {qr.iq.flags.map((f, i) => <div key={i} style={{ fontSize: 11, color: "#FCA5A5", marginBottom: 2 }}>{f}</div>)}
+                    </div>
+                  )}
+                  {/* Financial Snapshot */}
+                  {qr.fin && qr.fin.totalSF > 0 && (
+                    <div style={{ padding: "12px 14px", borderRadius: 10, background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))", border: "1px solid rgba(46,125,50,0.15)" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em", marginBottom: 8 }}>VALUATION SNAPSHOT{qr.fin.rateSource === "msa" ? " — MSA RENT" : ""}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Est. Facility</div><div style={{ fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>{(qr.fin.totalSF / 1000).toFixed(0)}K SF</div><div style={{ fontSize: 9, color: "#6B7394" }}>{qr.fin.stories > 1 ? `${qr.fin.stories}-Story` : "1-Story"} | {Math.round(qr.fin.climatePct * 100)}% CC</div></div>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Stab. NOI (Y5)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#22C55E" }}>{qr.fin.stabNOI >= 1000000 ? `$${(qr.fin.stabNOI / 1e6).toFixed(2)}M` : `$${(qr.fin.stabNOI / 1000).toFixed(0)}K`}</div></div>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Strike Price (9% YOC)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C" }}>{qr.fin.landPrices?.[1]?.maxLand >= 1e6 ? `$${(qr.fin.landPrices[1].maxLand / 1e6).toFixed(2)}M` : qr.fin.landPrices?.[1]?.maxLand > 0 ? `$${(qr.fin.landPrices[1].maxLand / 1000).toFixed(0)}K` : "$0"}</div></div>
+                        {qr.fin.yocStab !== "N/A" && <div><div style={{ fontSize: 9, color: "#6B7394" }}>YOC @ Ask</div><div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(qr.fin.yocStab) >= 8 ? "#22C55E" : parseFloat(qr.fin.yocStab) >= 6 ? "#C9A84C" : "#EF4444" }}>{qr.fin.yocStab}%</div></div>}
+                      </div>
+                      {qr.fin.landVerdict && <div style={{ marginTop: 8, textAlign: "center", fontSize: 13, fontWeight: 900, color: qr.fin.verdictColor, padding: "6px 12px", borderRadius: 6, background: `${qr.fin.verdictColor}12`, border: `1px solid ${qr.fin.verdictColor}25` }}>{qr.fin.landVerdict}</div>}
+                    </div>
+                  )}
+                  {/* Submit to Queue */}
+                  <button onClick={() => {
+                    setForm({ ...form, name: qs.name || "", address: qs.address || "", city: qs.city || "", state: qs.state || "", acreage: qs.acreage || "", askingPrice: qs.askingPrice || "", zoning: qs.zoning || "", coordinates: qs.coordinates || "" });
+                    navigateTo("submit");
+                    notify("Fields loaded — complete and submit.");
+                  }} style={{ marginTop: 12, width: "100%", padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Submit to Review Queue</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ═══ REVIEW ═══ */}
         {tab === "review" && !reviewDetailSite && (
           <div style={{ animation: "fadeIn .3s ease-out" }}>
@@ -3828,9 +3399,9 @@ export default function App() {
               const dwCount = subs.filter(s => s.status === "recommended" && (s.routedTo === "southwest" || s.region === "southwest")).length;
               const mtCount = subs.filter(s => s.status === "recommended" && (s.routedTo === "east" || s.region === "east")).length;
               const reviewTabs = [
-                { key: "mine", label: "Dan R.", count: myCount, color: "#C9A84C", icon: "📋" },
                 { key: "dw", label: "Daniel Wollent", count: dwCount, color: "#42A5F5", icon: "◆" },
                 { key: "mt", label: "Matthew Toussaint", count: mtCount, color: "#4CAF50", icon: "●" },
+                { key: "mine", label: "Dan R.", count: myCount, color: "#C9A84C", icon: "📋" },
               ];
               return (
                 <div style={{ marginBottom: 16 }}>
@@ -3838,9 +3409,25 @@ export default function App() {
                     <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Review Queue</h2>
                     <div style={{ display: "flex", gap: 6 }}>
                       {reviewTab === "mine" && myCount > 0 && <button onClick={handleApproveAll} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(201,168,76,0.3)" }}>✓ Recommend All ({myCount})</button>}
-                      {subs.some((s) => s.status === "declined") && <button onClick={handleClearDeclined} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Clear Declined</button>}
+                      {subs.some((s) => s.status === "declined") && <button onClick={() => { const declined = subs.filter(s => s.status === "declined"); if (window.confirm(`Discard ${declined.length} declined site${declined.length !== 1 ? "s" : ""}? Patterns will be logged for learning.`)) { declined.forEach(s => handleSmartDiscard(s.id)); } }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontSize: 11, cursor: "pointer" }}>Discard All Declined</button>}
                     </div>
                   </div>
+                  {/* Decline Pattern Insights Banner */}
+                  {reviewTab === "mine" && (() => {
+                    const insights = getDeclineInsights();
+                    if (insights.total < 3) return null;
+                    return (
+                      <div style={{ background: "rgba(107,75,0,0.08)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 10, padding: "10px 14px", marginBottom: 10, fontSize: 11 }}>
+                        <div style={{ fontWeight: 700, color: "#C9A84C", marginBottom: 4 }}>Learning Insights ({insights.total} discards)</div>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", color: "#94A3B8" }}>
+                          {insights.topReasons.slice(0, 3).map((r, i) => (
+                            <span key={i} style={{ background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: 6 }}>{r.reason.split("\u2014")[0].trim()}: {r.pct}%</span>
+                          ))}
+                          {insights.recent > 0 && <span style={{ color: "#6B7394" }}>Last 30d: {insights.recent} ({insights.recentTrend})</span>}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div style={{ display: "flex", gap: 4, background: "rgba(15,21,56,0.6)", borderRadius: 10, padding: 4, marginBottom: 4 }}>
                     {reviewTabs.map(rt => (
                       <button key={rt.key} onClick={() => setReviewTab(rt.key)} style={{
@@ -3888,7 +3475,7 @@ export default function App() {
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
                               <div style={{ flex: 1, minWidth: 250 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                                  <span style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0" }}>{site.name}</span>
+                                  <span style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0" }}>{siteDisplayName(site)}</span>
                                   <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
                                   <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
                                 </div>
@@ -3901,15 +3488,16 @@ export default function App() {
                                 </div>
                                 {/* Links row */}
                                 <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                                  {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(232,122,46,0.1)", color: "#E87A2E", fontSize: 11, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.2)" }}>🔗 Listing</a>}
-                                  {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(21,101,192,0.1)", color: "#42A5F5", fontSize: 11, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.2)" }}>📍 Map</a>}
-                                  <button onClick={() => { setDetailView({ regionKey: site._region, siteId: site.id }); setTab(site._region); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>View Full Detail →</button>
+                                  {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)" }}>Listing</a>}
+                                  {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "4px 12px", borderRadius: 6, background: "rgba(201,168,76,0.06)", color: "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)" }}>Map</a>}
+                                  <button onClick={() => { goToDetail({ regionKey: site._region, siteId: site.id }); setTab(site._region); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>View Full Detail →</button>
                                 </div>
                               </div>
                               {/* Action buttons — right side */}
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 160 }}>
-                                <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); updateSiteField(site._region, site.id, "phase", "Storvex Approved"); notify(`✓ Approved — ${site.name} stays in ${site._region === "southwest" ? "DW" : "MT"} tracker`); }} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 2px 12px rgba(22,163,74,0.3)", letterSpacing: "0.02em" }}>✓ Approve</button>
-                                <button onClick={() => { if (window.confirm(`Reject "${site.name}"? This will remove it from the tracker.`)) { fbRemove(`${site._region}/${site.id}`); notify(`✗ Rejected — ${site.name} removed`); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 180 }}>
+                                <button onClick={() => { updateSiteField(site._region, site.id, "needsReview", false); updateSiteField(site._region, site.id, "reviewedBy", person); updateSiteField(site._region, site.id, "reviewedAt", new Date().toISOString()); updateSiteField(site._region, site.id, "phase", "SiteScore Approved"); notify(`Approved — ${site.name} stays in ${site._region === "southwest" ? "DW" : "MT"} tracker`); }} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 2px 12px rgba(22,163,74,0.3)", letterSpacing: "0.02em" }}>&#10003; Approve</button>
+                                <button onClick={() => { if (window.confirm(`Reject "${site.name}"? This will route it back to the Review Queue.`)) { handleTrackerReject(site._region, site.id, site, person); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{"\u2717"} Reject {"\u2192"} Review</button>
+                                <button onClick={() => { if (window.confirm(`Move "${site.name}" to ${site._region === "east" ? "DW" : "MT"} tracker?`)) { handleTrackerRoute(site._region, site.id, site, "other"); } }} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{"\u2194"} Move to {site._region === "east" ? "DW" : "MT"}</button>
                                 <button onClick={() => { updateSiteField(site._region, site.id, "assignedTo", ""); updateSiteField(site._region, site.id, "needsReview", false); notify(`Unassigned: ${site.name}`); }} style={{ padding: "6px 18px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(148,163,184,0.06)", color: "#94A3B8", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Unassign</button>
                               </div>
                             </div>
@@ -3922,15 +3510,15 @@ export default function App() {
               );
             })()}
 
-            <SortBar />
+            <SortBar sortBy={sortBy} setSortBy={setSortBy} />
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected" || site.status === "declined";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
               });
-              const emptyLabels = { mine: "No sites pending your review. Auto-scans run daily — new sites will appear here.", dw: "No sites awaiting Daniel Wollent's approval.", mt: "No sites awaiting Matthew Toussaint's approval." };
+              const emptyLabels = { mine: "No sites pending your review. PS-rejected sites with feedback will appear here automatically.", dw: "No sites awaiting Daniel Wollent's approval.", mt: "No sites awaiting Matthew Toussaint's approval." };
               if (filtered.length === 0 && (reviewTab !== "mine" || [...sw, ...east].filter(s => s.assignedTo && s.needsReview).length === 0)) return (
                 <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "40px 30px", textAlign: "center" }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>{reviewTab === "mine" ? "📋" : reviewTab === "dw" ? "◆" : "●"}</div>
@@ -3942,7 +3530,7 @@ export default function App() {
             })()}
             {(() => {
               const filtered = subs.filter(site => {
-                if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
+                if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected" || site.status === "declined";
                 if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                 if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                 return true;
@@ -3951,12 +3539,13 @@ export default function App() {
               return (
               <div style={{ display: "grid", gap: 10 }}>
                 {sortData(subs).filter(site => {
-                  if (reviewTab === "mine") return site.status === "pending" || site.status === "declined";
+                  if (reviewTab === "mine") return site.status === "pending" || site.status === "ps-rejected" || site.status === "declined";
                   if (reviewTab === "dw") return site.status === "recommended" && (site.routedTo === "southwest" || site.region === "southwest");
                   if (reviewTab === "mt") return site.status === "recommended" && (site.routedTo === "east" || site.region === "east");
                   return true;
                 }).sort((a, b) => {
-                  // NEW (unreviewed) sites first, then descending SiteScore
+                  // If user picked a sort, respect it. Otherwise: NEW first, then SiteScore desc.
+                  if (sortBy !== "name") return 0; // sortData() already sorted — preserve that order
                   const aIsNew = !a.recommendedAt && !a.approvedAt && a.status === "pending";
                   const bIsNew = !b.recommendedAt && !b.approvedAt && b.status === "pending";
                   if (aIsNew && !bIsNew) return -1;
@@ -3968,28 +3557,105 @@ export default function App() {
                   const isHL = highlightedSite === site.id;
                   const isExpanded = false; // legacy — full-page detail replaced inline expand
                   return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
+                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : site.status === "ps-rejected" ? "rgba(220,38,38,0.06)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : site.status === "ps-rejected" ? "0 0 0 1px rgba(220,38,38,0.3)" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${site.status === "ps-rejected" ? "#EF4444" : REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
                       onClick={(e) => { e.stopPropagation(); navigateTo("review", { reviewSiteId: site.id }); }}
                       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,168,76,0.15), 0 0 0 1px rgba(201,168,76,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}
                       >
-                        <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{site.name}</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{siteDisplayName(site)}</span>
                         <SiteScoreBadge site={site} size="small" />
                         <Badge status={site.status} />
+                        {site.status === "ps-rejected" && <span style={{ fontSize: 10, fontWeight: 800, color: "#DC2626", background: "rgba(220,38,38,0.12)", padding: "2px 10px", borderRadius: 5, border: "1px solid rgba(220,38,38,0.25)", textTransform: "uppercase", letterSpacing: "0.06em" }}>PS Rejected — {site.psRejectedBy || "PS"}</span>}
                         {site.status === "pending" && <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
                       </div>
                       <div style={{ fontSize: 12, color: "#6B7394", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
+                      {/* PS Rejection Feedback Banner */}
+                      {site.status === "ps-rejected" && (site.psFeedback || site.psRejectReason) && (
+                        <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: 8, padding: "8px 12px", marginTop: 6, marginBottom: 4 }}>
+                          {site.psRejectReason && <div style={{ fontSize: 11, fontWeight: 700, color: "#DC2626", marginBottom: 4 }}>Reason: {site.psRejectReason}</div>}
+                          {site.psFeedback && <div style={{ fontSize: 11, color: "#FCA5A5", lineHeight: 1.5 }}>Feedback: "{site.psFeedback}"</div>}
+                          <button onClick={(e) => { e.stopPropagation(); handleSmartDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard & Learn</button>
+                        </div>
+                      )}
                       {/* Links */}
                       <div style={{ display: "flex", gap: 6, marginTop: 4, marginBottom: 4, flexWrap: "wrap" }}>
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(232,122,46,0.1)", color: "#E87A2E", fontSize: 10, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.15)" }}>🔗 Listing</a>}
-                        {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(21,101,192,0.08)", color: "#42A5F5", fontSize: 10, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.15)" }}>📍 Map</a>}
+                        {site.listingUrl ? <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 10, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)" }}>Listing</a> : <span onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(220,38,38,0.06)", color: "#EF4444", fontSize: 10, fontWeight: 700, border: "1px solid rgba(220,38,38,0.12)" }}>⚠ No Listing</span>}
+                        {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: "2px 8px", borderRadius: 5, background: "rgba(201,168,76,0.06)", color: "#94A3B8", fontSize: 10, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)" }}>Map</a>}
                       </div>
-                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{site.summary.substring(0, 180)}{site.summary.length > 180 ? "…" : ""}</div>}
+                      {/* Declined site — rejection reason banner + Discard button */}
+                      {site.status === "declined" && (site.declineReason || site.reviewNote) && (
+                        <div style={{ background: "rgba(107,75,0,0.12)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "8px 12px", marginTop: 6, marginBottom: 4 }}>
+                          {site.declineReason && <div style={{ fontSize: 11, fontWeight: 700, color: "#D97706", marginBottom: 4 }}>Declined: {site.declineReason}</div>}
+                          {site.reviewNote && <div style={{ fontSize: 11, color: "#FBBF24", lineHeight: 1.5 }}>Note: "{site.reviewNote}"</div>}
+                          {site.siteScoreAtDecline && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>SiteScore at decline: {site.siteScoreAtDecline} ({site.classificationAtDecline || "—"})</div>}
+                          {site.declinedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>Declined: {new Date(site.declinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                          <button onClick={(e) => { e.stopPropagation(); handleSmartDiscard(site.id); }} style={{ marginTop: 8, padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Discard & Learn</button>
+                        </div>
+                      )}
+                      {site.summary && <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4, maxHeight: 36, overflow: "hidden" }}>{(() => { const s = site.summary.replace(/(?:SiteScore|SiteIQ|Site\s*Score|Site\s*IQ)\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim(); return s.substring(0, 180) + (s.length > 180 ? "…" : ""); })()}</div>}
                       {/* NEW badge for unreviewed sites */}
-                      {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.1em", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }}>NEW</span>}
-                      {site.status === "recommended" && <div style={{ marginTop: 4, fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>}
+                      {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, fontWeight: 700, color: "#C9A84C", background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: 4, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.2)" }}>NEW</span>}
+                      {site.status === "recommended" && <div style={{ marginTop: 4 }}><div style={{ fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✓ Dan R. Approved → {REGIONS[site.routedTo || site.region]?.label || "—"}</div>{site.recommendedComment && <div style={{ fontSize: 10, fontStyle: "italic", color: "#D6E4F7", marginTop: 2 }}>Note: {site.recommendedComment}</div>}</div>}
+                      {/* ═══ QUICK ACTION BUTTONS — Dan approve/reject on "mine" tab, DW/MT approve on their tabs ═══ */}
+                      {reviewTab === "mine" && (site.status === "pending" || site.status === "ps-rejected") && (<>
+                        <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <select value={ri.routeTo || site.region || ""} onChange={(e) => { e.stopPropagation(); setRI("routeTo", e.target.value); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", fontSize: 11, fontWeight: 600 }}>
+                            <option value="">Route to...</option>
+                            <option value="southwest">DW (Southwest)</option>
+                            <option value="east">MT (East)</option>
+                          </select>
+                          <button onClick={(e) => { e.stopPropagation(); if (!ri.routeTo && !site.region) { notify("Select DW or MT first"); return; } handleRecommend(site.id); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"; card.style.borderLeftColor = "#22C55E"; setTimeout(() => { card.style.boxShadow = ""; }, 1500); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>⚡ Approve & Route</button>
+                          <button onClick={(e) => { e.stopPropagation(); setRI("showDeclinePanel", !ri.showDeclinePanel); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: ri.showDeclinePanel ? "rgba(220,38,38,0.2)" : "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ Reject{ri.showDeclinePanel ? " ▾" : ""}</button>
+                        </div>
+                        {ri.showDeclinePanel && (
+                          <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8, padding: 12, background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: 10 }}>
+                            <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ width: "100%", marginBottom: 8, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", fontSize: 11 }}>
+                              <option value="">Select reason...</option>
+                              <option value="Demographics — population or income too low">Demographics — population or income too low</option>
+                              <option value="Competition — market oversaturated">Competition — market oversaturated</option>
+                              <option value="Zoning — prohibited or rezone too risky">Zoning — prohibited or rezone too risky</option>
+                              <option value="Pricing — land cost too high for market">Pricing — land cost too high for market</option>
+                              <option value="Access — site access or visibility concerns">Access — site access or visibility concerns</option>
+                              <option value="Utilities — water/sewer not available">Utilities — water/sewer not available</option>
+                              <option value="Location — too far from PS footprint">Location — too far from PS footprint</option>
+                              <option value="Site constraints — topo, flood, shape, environmental">Site constraints — topo, flood, shape, environmental</option>
+                              <option value="Other">Other</option>
+                            </select>
+                            <textarea value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Notes — why are we passing? (feeds SiteScore learning)" rows={2} style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", background: "rgba(15,21,56,0.4)", color: "#E2E8F0", fontSize: 11, resize: "vertical", fontFamily: "inherit", outline: "none" }} />
+                            <button onClick={(e) => { e.stopPropagation(); handleDecline(site.id, ri.declineReason || "Declined from queue"); setRI("showDeclinePanel", false); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 30px rgba(220,38,38,0.4)"; card.style.borderLeftColor = "#EF4444"; setTimeout(() => { card.style.boxShadow = ""; }, 1200); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#DC2626,#991B1B)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Reject & Log</button>
+                          </div>
+                        )}
+                      </>)}
+                      {/* DW/MT tabs — PS approve or reject buttons with reason capture */}
+                      {(reviewTab === "dw" || reviewTab === "mt") && site.status === "recommended" && (
+                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <button onClick={(e) => { e.stopPropagation(); handlePSApprove(site.id); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"; card.style.borderLeftColor = "#22C55E"; setTimeout(() => { card.style.boxShadow = ""; }, 1500); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>⚡ PS Approve</button>
+                            <button onClick={(e) => { e.stopPropagation(); setRI("showRejectPanel", !ri.showRejectPanel); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", background: ri.showRejectPanel ? "rgba(220,38,38,0.2)" : "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✗ Reject{ri.showRejectPanel ? " ▾" : ""}</button>
+                          </div>
+                          {ri.showRejectPanel && (
+                            <div style={{ marginTop: 8, padding: 12, background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: 10 }}>
+                              <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ width: "100%", marginBottom: 8, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(15,21,56,0.6)", color: "#E2E8F0", fontSize: 11 }}>
+                                <option value="">Select reason...</option>
+                                <option value="Demographics — population or income too low">Demographics — population or income too low</option>
+                                <option value="Competition — market oversaturated">Competition — market oversaturated</option>
+                                <option value="Zoning — prohibited or rezone too risky">Zoning — prohibited or rezone too risky</option>
+                                <option value="Pricing — land cost too high for market">Pricing — land cost too high for market</option>
+                                <option value="Access — site access or visibility concerns">Access — site access or visibility concerns</option>
+                                <option value="Utilities — water/sewer not available">Utilities — water/sewer not available</option>
+                                <option value="Location — too far from PS footprint">Location — too far from PS footprint</option>
+                                <option value="Site constraints — topo, flood, shape, environmental">Site constraints — topo, flood, shape, environmental</option>
+                                <option value="Already under review — duplicate">Already under review — duplicate</option>
+                                <option value="Other">Other</option>
+                              </select>
+                              <textarea value={ri.psFeedback || ""} onChange={(e) => setRI("psFeedback", e.target.value)} placeholder="Feedback notes — what specifically didn't work? (logged for learning)" rows={2} style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", background: "rgba(15,21,56,0.4)", color: "#E2E8F0", fontSize: 11, resize: "vertical", fontFamily: "inherit", outline: "none" }} />
+                              <button onClick={(e) => { e.stopPropagation(); if (!ri.declineReason) { notify("Select a rejection reason — it feeds the learning engine"); return; } handlePSReject(site.id); setRI("showRejectPanel", false); const card = e.target.closest('[id^="review-"]'); if (card) { card.style.transition = "all 0.5s"; card.style.boxShadow = "0 0 30px rgba(220,38,38,0.4)"; card.style.borderLeftColor = "#EF4444"; setTimeout(() => { card.style.boxShadow = ""; }, 1200); } }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#DC2626,#991B1B)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✗ Confirm Reject & Log to Learning Engine</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -3999,14 +3665,15 @@ export default function App() {
           </div>
         )}
 
-        {/* ═══ REVIEW DETAIL VIEW — Full property page from review queue ═══ */}
-        {reviewDetailSite && (() => {
+        {/* ═══ REVIEW DETAIL VIEW — Legacy (hidden when detailView is set, tracker detail handles queue too) ═══ */}
+        {reviewDetailSite && !detailView && (() => {
           const site = subs.find(s => s.id === reviewDetailSite);
           if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => setReviewDetailSite(null)} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
           const iqR = computeSiteScore(site);
           const ri = reviewInputs[site.id] || {};
           const setRI = (f, v) => setReviewInputs({ ...reviewInputs, [site.id]: { ...ri, [f]: v } });
-          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+          const domRaw3 = site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) : null;
+          const dom = (domRaw3 !== null && !isNaN(domRaw3) && domRaw3 >= 0) ? domRaw3 : null;
           return (
             <div style={{ animation: "fadeIn .3s ease-out", position: "relative", maxWidth: 1100, margin: "0 auto" }}>
               <button onClick={() => setReviewDetailSite(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(232,122,46,0.25)", background: "rgba(232,122,46,0.08)", color: "#E87A2E", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 16 }}>← Back to Review Queue</button>
@@ -4017,7 +3684,7 @@ export default function App() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-                      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{site.name}</h2>
+                      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{siteDisplayName(site)}</h2>
                       <Badge status={site.status} />
                       {!site.recommendedAt && site.status === "pending" && <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: "linear-gradient(135deg, #E87A2E, #F59E0B)", padding: "3px 10px", borderRadius: 5, letterSpacing: "0.1em" }}>NEW</span>}
                     </div>
@@ -4026,13 +3693,15 @@ export default function App() {
                     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
                       {site.askingPrice && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Asking Price</div><div style={{ fontSize: 20, fontWeight: 900, color: "#C9A84C" }}>{site.askingPrice.toString().startsWith("$") ? site.askingPrice : `$${Number(site.askingPrice).toLocaleString()}`}</div></div>}
                       {site.acreage && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Acreage</div><div style={{ fontSize: 20, fontWeight: 900, color: "#E2E8F0" }}>{site.acreage} ac</div></div>}
-                      {site.zoning && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Zoning</div><div style={{ fontSize: 20, fontWeight: 900, color: "#E2E8F0" }}>{site.zoning}</div></div>}
+                      {site.zoning && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Zoning</div><div style={{ fontSize: 20, fontWeight: 900, color: /by.?right|permitted/i.test(site.zoningClassification || site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#E2E8F0" }}>{site.zoning}</div></div>}
+                      {site.pop3mi && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>3MI Pop</div><div style={{ fontSize: 20, fontWeight: 900, color: "#A78BFA" }}>{fmtN(site.pop3mi)}</div></div>}
+                      {(() => { const gr = site.popGrowth3mi || site.growthRate; if (!gr && gr !== 0) return null; const n = typeof gr === "number" ? gr : parseFloat(String(gr)); if (isNaN(n)) return null; return <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>5Yr Growth</div><div style={{ fontSize: 20, fontWeight: 900, color: n >= 1.5 ? "#22C55E" : n >= 0 ? "#FBBF24" : "#EF4444" }}>{n >= 0 ? "+" : ""}{n.toFixed(1)}%</div></div>; })()}
                       {dom !== null && <div><div style={{ fontSize: 9, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>Days on Market</div><div style={{ fontSize: 20, fontWeight: 900, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#E2E8F0" }}>{dom}</div></div>}
                     </div>
                   </div>
                   {/* SiteScore Score — large, right-aligned */}
                   <div style={{ flexShrink: 0, textAlign: "center", padding: "8px 16px", borderRadius: 14, background: iqR.score >= 7.5 ? "rgba(22,163,74,0.1)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.1)" : "rgba(220,38,38,0.1)", border: `1px solid ${iqR.score >= 7.5 ? "rgba(22,163,74,0.25)" : iqR.score >= 5.5 ? "rgba(217,119,6,0.25)" : "rgba(220,38,38,0.25)"}` }}>
-                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>Storvex Score</div>
+                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>SiteScore</div>
                     <div style={{ fontSize: 42, fontWeight: 900, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", lineHeight: 1 }}>{iqR.score}</div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: iqR.score >= 7.5 ? "#16A34A" : iqR.score >= 5.5 ? "#D97706" : "#DC2626", textTransform: "uppercase", marginTop: 4 }}>{iqR.label || "—"}</div>
                     {iqR.classification && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2 }}>{iqR.classification}</div>}
@@ -4040,15 +3709,55 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SiteScore Scorecard */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 20 }}>
-                {(iqR.breakdown || []).map((b, i) => (
-                  <div key={i} style={{ background: "rgba(15,21,56,0.6)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 4 }}>{b.label}</div>
-                    <div style={{ fontSize: 24, fontWeight: 900, color: b.score >= 8 ? "#16A34A" : b.score >= 6 ? "#D97706" : b.score >= 4 ? "#EA580C" : "#DC2626" }}>{b.score}<span style={{ fontSize: 12, color: "#6B7394" }}>/10</span></div>
-                    <div style={{ fontSize: 10, color: "#6B7394" }}>{Math.round(b.weight * 100)}% weight</div>
+              {/* SiteScore Scorecard — with source citations */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 20 }}>
+                {(iqR.breakdown || []).map((b, i) => {
+                  const sc = b.score >= 8 ? "#16A34A" : b.score >= 6 ? "#D97706" : b.score >= 4 ? "#EA580C" : "#DC2626";
+                  const isOpen = reviewInputs.__sourceExpanded === b.key;
+                  return (
+                  <div key={i} onClick={() => setReviewInputs({ ...reviewInputs, __sourceExpanded: isOpen ? null : b.key })} style={{ background: isOpen ? "rgba(15,21,56,0.85)" : "rgba(15,21,56,0.6)", borderRadius: 12, padding: "12px 14px", border: isOpen ? `1px solid ${sc}40` : "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "all 0.2s ease", position: "relative" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 4 }}>{b.label}</div>
+                        <div style={{ fontSize: 24, fontWeight: 900, color: sc }}>{b.score}<span style={{ fontSize: 12, color: "#6B7394" }}>/10</span></div>
+                        <div style={{ fontSize: 10, color: "#6B7394" }}>{Math.round(b.weight * 100)}% weight</div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                        {b.verified ? <span style={{ fontSize: 8, fontWeight: 800, color: "#22C55E", background: "rgba(34,197,94,0.12)", padding: "2px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>VERIFIED</span> : <span style={{ fontSize: 8, fontWeight: 800, color: "#F59E0B", background: "rgba(245,158,11,0.12)", padding: "2px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>UNVERIFIED</span>}
+                        <span style={{ fontSize: 8, color: "#4A5080", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▼</span>
+                      </div>
+                    </div>
+                    {/* Raw value preview — always visible */}
+                    {b.rawValue && <div style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C", marginTop: 6, fontFamily: "'Space Mono', monospace" }}>{b.rawValue}</div>}
+                    {/* Source tag — always visible */}
+                    <div style={{ fontSize: 9, color: "#6B7394", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ color: b.verified ? "#22C55E" : "#F59E0B", fontSize: 7 }}>●</span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.source}</span>
+                    </div>
+                    {/* Expanded source detail */}
+                    {isOpen && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(201,168,76,0.1)", animation: "fadeIn 0.2s ease-out" }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>DATA SOURCE</div>
+                          <div style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{b.source}</div>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>METHODOLOGY</div>
+                          <div style={{ fontSize: 10, color: "#CBD5E1", lineHeight: 1.5 }}>{b.methodology}</div>
+                        </div>
+                        <div style={{ marginBottom: b.url ? 8 : 0 }}>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>SCORING LOGIC</div>
+                          <div style={{ fontSize: 10, color: "#CBD5E1", lineHeight: 1.5 }}>{b.reason}</div>
+                        </div>
+                        {b.url && <div>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 3 }}>SOURCE URL</div>
+                          <a href={b.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: 10, color: "#3B82F6", wordBreak: "break-all" }}>{b.url}</a>
+                        </div>}
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Key Metrics */}
@@ -4070,13 +3779,63 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Aerial */}
-              {site.coordinates && (
-                <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 20, position: "relative" }}>
-                  <iframe title={`Aerial — ${site.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
-                  <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>AERIAL VIEW</div>
-                </div>
-              )}
+              {/* ═══ INTERACTIVE AERIAL MAP — Review Queue (same as tracker detail) ═══ */}
+              {site.coordinates && (() => {
+                const mapId = `leaflet-map-review-${site.id}`;
+                const coords = site.coordinates.split(",").map(c => parseFloat(c.trim()));
+                if (coords.length !== 2 || isNaN(coords[0]) || isNaN(coords[1])) return null;
+                const [siteLat, siteLng] = coords;
+                const haversine = (lat1, lon1, lat2, lon2) => {
+                  const R = 3958.8; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+                  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                };
+                const otherProspects = [...sw.map(s => ({ ...s, _tracker: "DW" })), ...east.map(s => ({ ...s, _tracker: "MT" }))]
+                  .filter(s => s.id !== site.id && s.coordinates && s.phase !== "Dead" && s.phase !== "Declined")
+                  .map(s => { const c = s.coordinates.split(",").map(v => parseFloat(v.trim())); if (c.length !== 2 || isNaN(c[0]) || isNaN(c[1])) return null; return { ...s, _lat: c[0], _lng: c[1], _dist: haversine(siteLat, siteLng, c[0], c[1]) }; }).filter(Boolean).sort((a, b) => a._dist - b._dist);
+                const phaseColor = (phase) => { const m = { "Prospect": "#3B82F6", "Submitted to PS": "#8B5CF6", "SiteScore Approved": "#06B6D4", "LOI": "#F59E0B", "PSA Sent": "#F97316", "Under Contract": "#22C55E", "Closed": "#10B981" }; return m[phase] || "#3B82F6"; };
+                return (
+                  <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24, position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}>
+                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", maxWidth: "calc(100% - 24px)" }}>
+                      <div style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(12px)", color: "#fff", padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.25)" }}>INTERACTIVE AERIAL</div>
+                      <div style={{ background: "rgba(21,101,192,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span> SUBJECT SITE</div>
+                      <div style={{ background: "rgba(232,122,46,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1a1a1a", display: "inline-block", border: "1px solid #E87A2E" }}></span> PS LOCATIONS</div>
+                      <div style={{ background: "rgba(59,130,246,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "#fff", display: "inline-block", transform: "rotate(45deg)", border: "1.5px solid #3B82F6", boxShadow: "0 0 4px rgba(59,130,246,0.5)" }}></span> PIPELINE PROSPECTS</div>
+                    </div>
+                    <div id={mapId} style={{ width: "100%", height: 480 }} ref={(el) => {
+                      if (!el || el._leafletInit) return;
+                      el._leafletInit = true;
+                      if (!document.getElementById("leaflet-css")) { const css = document.createElement("link"); css.id = "leaflet-css"; css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css); }
+                      const initMap = () => {
+                        if (!window.L) { setTimeout(initMap, 100); return; }
+                        const L = window.L;
+                        const map = L.map(el, { zoomControl: true, attributionControl: false }).setView([siteLat, siteLng], 14);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(map);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.6 }).addTo(map);
+                        const siteIcon = L.divIcon({ className: "", html: '<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.18);border-radius:50%;animation:sitePulse 2s ease-in-out infinite"></div><div style="position:absolute;inset:0;background:rgba(21,101,192,0.08);border-radius:50%;animation:sitePulse 2s ease-in-out infinite 0.5s"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 20px rgba(21,101,192,0.7)"></div></div><style>@keyframes sitePulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.8);opacity:0}}</style>', iconSize: [36, 36], iconAnchor: [18, 18] });
+                        const siteMarker = L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map);
+                        siteMarker.bindTooltip(`<div style="min-width:200px"><div style="font-weight:900;font-size:13px;color:#0F172A">${site.address || site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${[site.city, site.state].filter(Boolean).join(", ")}</div>${site.acreage || site.askingPrice ? `<div style="display:flex;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid #E2E8F0">${site.acreage ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}</div>` : ""}</div>`, { direction: "top", offset: [0, -20] });
+                        fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
+                          const lines = csv.trim().split("\n"); let psCount = 0;
+                          const psIcon = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          for (let i = 1; i < lines.length; i++) { const parts = lines[i].split(","); if (parts.length < 7) continue; const pLat = parseFloat(parts[5]), pLng = parseFloat(parts[6]); if (isNaN(pLat) || isNaN(pLng)) continue; const dist = haversine(siteLat, siteLng, pLat, pLng); if (dist <= 25) { psCount++; const pNum = parts[0], pAddr = parts[2], pCity = parts[3], pState = parts[4]; const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map); marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] }); } }
+                          const badge = document.createElement("div"); badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>`;
+                          el.appendChild(badge);
+                        }).catch(() => {});
+                        const prospectGroup = L.layerGroup(); let prospectCount = 0;
+                        const prospectBadgeEl = document.createElement("div"); prospectBadgeEl.style.cssText = "position:absolute;bottom:52px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;gap:8px;min-width:180px;transition:opacity 0.3s;opacity:0"; el.appendChild(prospectBadgeEl);
+                        otherProspects.forEach(p => { const pc = phaseColor(p.phase); const prospIcon = L.divIcon({ className: "", html: `<div style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;background:linear-gradient(135deg,#ffffff,#E0E7FF);border:3px solid ${pc};border-radius:3px;transform:rotate(45deg);box-shadow:0 0 14px ${pc}88,0 0 6px ${pc}44,0 2px 6px rgba(0,0,0,0.4)"></div></div>`, iconSize: [32, 32], iconAnchor: [16, 16] }); const m = L.marker([p._lat, p._lng], { icon: prospIcon, zIndexOffset: 500 }); m.bindTooltip(`<div style="min-width:180px"><div style="font-weight:800;font-size:12px;color:#0F172A">${p.name || p.address || "Prospect"}</div><div style="font-size:10px;color:#64748B">${[p.city, p.state].filter(Boolean).join(", ")}</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">${p._dist.toFixed(1)} mi</div></div>`, { direction: "auto", offset: [0, -14] }); prospectGroup.addLayer(m); prospectCount++; });
+                        const updateProspectVisibility = () => { const z = map.getZoom(); if (z <= 11 && !map.hasLayer(prospectGroup)) { map.addLayer(prospectGroup); prospectBadgeEl.style.opacity = "1"; } else if (z > 11 && map.hasLayer(prospectGroup)) { map.removeLayer(prospectGroup); prospectBadgeEl.style.opacity = "0"; } }; map.on("zoomend", updateProspectVisibility);
+                        prospectBadgeEl.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#3B82F6,#6366F1);border-radius:6px;font-size:12px;font-weight:900;color:#fff">${prospectCount}</span><span style="font-size:11px">Pipeline prospects</span><span style="font-size:9px;color:#64748B;margin-left:4px">(zoom out)</span>`;
+                        updateProspectVisibility();
+                        L.circle([siteLat, siteLng], { radius: 4828, color: "#C9A84C", weight: 2, opacity: 0.5, fillColor: "#C9A84C", fillOpacity: 0.04, dashArray: "8,6" }).addTo(map).bindPopup("<div style='font-weight:700;font-size:11px;color:#C9A84C'>3-Mile Radius</div><div style='font-size:10px;color:#64748B'>Primary trade area</div>");
+                      };
+                      if (!document.getElementById("leaflet-js")) { const js = document.createElement("script"); js.id = "leaflet-js"; js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; js.onload = initMap; document.head.appendChild(js); } else { initMap(); }
+                    }} />
+                  </div>
+                );
+              })()}
 
               {/* Summary */}
               {site.summary && (
@@ -4086,23 +3845,157 @@ export default function App() {
                 </div>
               )}
 
-              {/* Links */}
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-                {site.coordinates && <a href={`https://www.google.com/maps?q=${site.coordinates}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)" }}>🗺 Google Maps</a>}
-                {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)" }}>🔗 Property Listing</a>}
-                <button onClick={() => { const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase" }}>🔬 Storvex Deep Vet Report</button>
+              {/* ═══ VALUATION MINI-CARD — Detail Page ═══ */}
+              {(() => {
+                try {
+                  const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                  if (!fin || !fin.totalSF) return null;
+                  const stabNOI = fin.stabNOI || 0;
+                  const strike = fin.landPrices?.[1];
+                  const walk = fin.landPrices?.[0];
+                  const homerun = fin.landPrices?.[2];
+                  const verdict = fin.landVerdict || "—";
+                  const vColor = fin.verdictColor || "#6B7394";
+                  const yoc = fin.yocStab;
+                  const askRaw = fin.landCost || 0;
+                  const hasAsk = askRaw > 0;
+                  const askVsS = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
+                  return (
+                    <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 14, background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))", border: "1px solid rgba(46,125,50,0.15)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em" }}>STORVEX VALUATION{fin.rateSource === "msa" ? " — MSA RENT" : ""}</span>
+                        {verdict !== "—" && <span style={{ fontSize: 12, fontWeight: 900, color: vColor, padding: "4px 12px", borderRadius: 6, background: `${vColor}15`, border: `1px solid ${vColor}30` }}>{verdict}</span>}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>EST. FACILITY</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(fin.totalSF / 1000).toFixed(0)}K SF</div>
+                          <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.stories > 1 ? `${fin.stories}-Story` : "1-Story"} | {Math.round(fin.climatePct * 100)}% CC</div>
+                        </div>
+                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>STAB. NOI (Y5)</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1e6 ? `$${(stabNOI / 1e6).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
+                          <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
+                        </div>
+                        {(() => {
+                          const siteId = site.id || site.key || "";
+                          const rawInput = customPurchasePrice[siteId] || "";
+                          const customVal = parsePrice(rawInput);
+                          const buildPlusCarry = (fin.buildCosts || 0) + (fin.carryCosts || 0) + (fin.workingCapital || 0);
+                          const customYOC = !isNaN(customVal) && customVal > 0 && stabNOI > 0 ? (stabNOI / (customVal + buildPlusCarry) * 100) : null;
+                          return (
+                            <div style={{ background: "rgba(201,168,76,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(201,168,76,0.15)" }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>PURCHASE PRICE</div>
+                              <input
+                                type="text"
+                                placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"}
+                                value={rawInput}
+                                onChange={(e) => setCustomPurchasePrice(prev => ({ ...prev, [siteId]: e.target.value }))}
+                                style={{ width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 5, padding: "5px 10px", fontSize: 16, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }}
+                              />
+                              <div style={{ fontSize: 12, fontWeight: 800, color: customYOC !== null ? (customYOC >= 8 ? "#22C55E" : customYOC >= 6 ? "#C9A84C" : "#EF4444") : "#6B7394", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
+                                {customYOC !== null ? `→ ${customYOC.toFixed(1)}% YOC` : "Enter offer price"}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        {hasAsk && yoc !== "N/A" && (
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : parseFloat(yoc) >= 6 ? "rgba(201,168,76,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) >= 6 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                            <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
+                          </div>
+                        )}
+                      </div>
+                      {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
+                        <div style={{ marginTop: 10, position: "relative", height: 28, borderRadius: 6, overflow: "hidden", background: "rgba(255,255,255,.04)" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
+                          <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
+                          <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
+                          <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", display: "flex", justifyContent: "space-between", width: "100%", padding: "0 10px" }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444" }}>WALK {walk.maxLand >= 1e6 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C" }}>STRIKE {strike?.maxLand >= 1e6 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#22C55E" }}>HOME RUN {homerun.maxLand >= 1e6 ? `$${(homerun.maxLand/1e6).toFixed(1)}M` : `$${(homerun.maxLand/1000).toFixed(0)}K`}</span>
+                          </div>
+                          {hasAsk && (() => { const range = walk.maxLand - homerun.maxLand; const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50; return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />; })()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* ═══ QUICK ACCESS — Same as Tracker Detail ═══ */}
+              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 16, padding: "16px 16px 12px", marginBottom: 20, border: "1px solid rgba(201,168,76,0.1)" }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.12em", marginBottom: 10, paddingLeft: 2 }}>QUICK ACCESS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
+                {site.coordinates && (
+                  <button onClick={() => { window.open(`https://www.google.com/maps?q=${site.coordinates}`, "_blank"); }} style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(21,101,192,0.35)", letterSpacing: "0.04em", cursor: "pointer" }}>
+                    <span style={{ fontSize: 18 }}>🗺</span> Interactive Map
+                  </button>
+                )}
+                {site.coordinates && (
+                  <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #388E3C)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(46,125,50,0.35)", letterSpacing: "0.04em" }}>
+                    <span style={{ fontSize: 18 }}>🌍</span> Google Earth
+                  </a>
+                )}
+                {site.listingUrl && (
+                  <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #F59E0B)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(232,122,46,0.35)", letterSpacing: "0.04em" }}>
+                    <span style={{ fontSize: 18 }}>🔗</span> Property Listing
+                  </a>
+                )}
+                </div>
+                {/* Row 2 — Reports + Email Rec */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                  <button onClick={() => {
+                    try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #0D47A1, #1565C0)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📊 Demos</button>
+                  <button onClick={() => {
+                    try { const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(232,122,46,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>🔬 Vet Report</button>
+                  <button onClick={() => {
+                    try { const iqPR = computeSiteScore(site); const rpt = generatePricingReport(site, iqPR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>💰 Pricing</button>
+                  <button onClick={() => {
+                    try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
+                  <button onClick={() => {
+                    try {
+                      const rk = site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue";
+                      const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                      const rec = generateRecEmail(site, rk, fin);
+                      if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
+                      const encodedSubject = encodeURIComponent(rec.subject);
+                      const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
+                      navigator.clipboard.writeText(rec.body).then(() => {
+                        notify("\u2709 Email body copied \u2014 paste into Outlook body.");
+                        const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
+                        if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
+                      }).catch(() => notify("Could not copy to clipboard."));
+                      window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
+                    } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{"\u2709"} Email Rec</button>
+                </div>
               </div>
+              {!site.listingUrl && (
+                <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 12, padding: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#EF4444" }}>⚠ MISSING: Property Listing URL</span>
+                  <input value={ri.listingUrl || ""} onChange={(e) => setRI("listingUrl", e.target.value)} placeholder="Paste Crexi / LoopNet link here…" style={{ flex: 1, minWidth: 220, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.3)", fontSize: 12, outline: "none", background: "rgba(255,255,255,0.06)", color: "#E2E8F0" }} />
+                  <button onClick={() => { if (!ri.listingUrl) { notify("Paste the listing URL first"); return; } fbUpdate(`submissions/${site.id}`, { listingUrl: ri.listingUrl }); notify("Listing URL saved"); }} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Save URL</button>
+                </div>
+              )}
 
               {/* ── ACTIVITY TIMELINE ── */}
               {(() => {
                 const events = [];
                 if (site.submittedAt) events.push({ ts: site.submittedAt, action: "Site entered review queue", by: "System", icon: "📥", color: "#F59E0B" });
-                if (site.recommendedAt) events.push({ ts: site.recommendedAt, action: `Dan R. approved & routed to ${REGIONS[site.routedTo || site.region]?.label || "—"}`, by: site.recommendedBy || "Dan R.", icon: "✓", color: "#C9A84C" });
-                if (site.approvedAt && site.approvedBy) events.push({ ts: site.approvedAt, action: `PS approved → moved to tracker`, by: site.approvedBy, icon: "⚡", color: "#16A34A" });
+                if (site.recommendedAt) events.push({ ts: site.recommendedAt, action: `Dan R. approved & routed to ${REGIONS[site.routedTo || site.region]?.label || "—"}`, by: site.recommendedBy || "Dan R.", icon: "✓", color: "#C9A84C", comment: site.recommendedComment || "" });
+                if (site.approvedAt && site.approvedBy) events.push({ ts: site.approvedAt, action: `PS approved → moved to tracker`, by: site.approvedBy, icon: "⚡", color: "#16A34A", comment: site.approvedComment || "" });
+                if (site.psRejectedAt) events.push({ ts: site.psRejectedAt, action: `PS rejected — ${site.psRejectReason || "no reason given"}${site.psFeedback ? `: "${site.psFeedback}"` : ""}`, by: site.psRejectedBy || "PS", icon: "✗", color: "#DC2626" });
                 // Pull from activityLog if it exists
                 if (site.activityLog) {
                   Object.values(site.activityLog).forEach(log => {
-                    if (log.ts && log.action) events.push({ ts: log.ts, action: log.action, by: log.by || "System", icon: "→", color: "#6366F1" });
+                    if (log.ts && log.action) events.push({ ts: log.ts, action: log.action, by: log.by || "System", icon: log.type === "approval" ? "✓" : "→", color: log.type === "approval" ? "#16A34A" : "#6366F1", comment: log.comment || "" });
                   });
                 }
                 events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
@@ -4118,6 +4011,11 @@ export default function App() {
                           <div style={{ position: "absolute", left: -14, top: 2, width: 14, height: 14, borderRadius: "50%", background: "rgba(15,21,56,0.9)", border: `2px solid ${ev.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8 }}>{ev.icon}</div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{ev.action}</div>
+                            {ev.comment && (
+                              <div style={{ fontSize: 11, fontStyle: "italic", color: "#D6E4F7", marginTop: 3, padding: "4px 10px", background: "rgba(201,168,76,0.06)", borderLeft: "2px solid rgba(201,168,76,0.3)", borderRadius: "0 6px 6px 0" }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", marginRight: 4 }}>Note:</span>{ev.comment}
+                              </div>
+                            )}
                             <div style={{ fontSize: 10, color: "#6B7394", marginTop: 1 }}>{ev.by} · {fmtDate(ev.ts)}</div>
                           </div>
                         </div>
@@ -4143,28 +4041,129 @@ export default function App() {
                       </select>
                       <input value={ri.note || ""} onChange={(e) => setRI("note", e.target.value)} placeholder="Review note…" style={{ flex: 1, minWidth: 200, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.15)", fontSize: 13, outline: "none", background: "rgba(255,255,255,0.05)", color: "#E2E8F0" }} />
                     </div>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleRecommend(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(201,168,76,0.3)", letterSpacing: "0.04em" }}>✓ Approve & Route</button>
-                      <button onClick={() => { handleDecline(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                    <textarea value={ri.approvalComment || ""} onChange={(e) => setRI("approvalComment", e.target.value)} placeholder="Approval notes — pricing, zoning follow-ups, etc." rows={2} style={{ width: "100%", marginBottom: 12, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.12)", fontSize: 12, outline: "none", background: "rgba(201,168,76,0.04)", color: "#E2E8F0", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <button onClick={() => { if (!ri.routeTo && !site.region) { notify("Select route (DW or MT)"); return; } handleRecommend(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#C9A84C,#1E2761)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(201,168,76,0.3)", letterSpacing: "0.04em" }}>&#10003; Approve & Route</button>
+                      <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.2)", fontSize: 12, background: "rgba(220,38,38,0.04)", cursor: "pointer", minWidth: 200, color: "#FCA5A5" }}>
+                        <option value="">Decline reason…</option>
+                        {DECLINE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button onClick={() => { handleDecline(site.id, ri.declineReason); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>{"\u2717"} Reject</button>
+                    </div>
+                    {/* Direct Route — skip approval, send straight to tracker or person */}
+                    <div style={{ borderTop: "1px solid rgba(148,163,184,0.12)", paddingTop: 10, marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Route instead:</span>
+                      <select value={ri.directRoute || ""} onChange={(e) => setRI("directRoute", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", fontSize: 11, background: "rgba(148,163,184,0.06)", cursor: "pointer", minWidth: 180, color: "#94A3B8" }}>
+                        <option value="">Select destination…</option>
+                        <option value="mt">Matthew Toussaint (review)</option>
+                        <option value="dw">Daniel Wollent (review)</option>
+                        <option value="mt-tracker">MT Tracker (direct)</option>
+                        <option value="dw-tracker">DW Tracker (direct)</option>
+                      </select>
+                      <button disabled={!ri.directRoute} onClick={() => { handleDirectRoute(site.id, ri.directRoute); setReviewDetailSite(null); }} style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", background: ri.directRoute ? "rgba(201,168,76,0.1)" : "rgba(148,163,184,0.04)", color: ri.directRoute ? "#C9A84C" : "#475569", fontSize: 11, fontWeight: 700, cursor: ri.directRoute ? "pointer" : "default", opacity: ri.directRoute ? 1 : 0.5 }}>{"\u2192"} Route</button>
                     </div>
                   </div>
                 )}
 
                 {site.status === "recommended" && (
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#16A34A", background: "#DCFCE7", padding: "4px 12px", borderRadius: 8 }}>Dan R. Approved</span>
-                      <span style={{ fontSize: 12, color: "#94A3B8" }}>→ {REGIONS[site.routedTo || site.region]?.label || "Unassigned"}</span>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#16A34A", background: "#DCFCE7", padding: "4px 12px", borderRadius: 8 }}>Dan R. Approved</span>
+                        <span style={{ fontSize: 12, color: "#94A3B8" }}>→ {REGIONS[site.routedTo || site.region]?.label || "Unassigned"}</span>
+                      </div>
+                      {site.recommendedComment && <div style={{ fontSize: 11, fontStyle: "italic", color: "#D6E4F7", marginTop: 6, padding: "4px 10px", background: "rgba(201,168,76,0.06)", borderLeft: "2px solid rgba(201,168,76,0.3)", borderRadius: "0 6px 6px 0" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C", marginRight: 4 }}>Note:</span>{site.recommendedComment}</div>}
                     </div>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                       <select value={ri.reviewer || ""} onChange={(e) => setRI("reviewer", e.target.value)} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(22,163,74,0.3)", fontSize: 13, background: "rgba(22,163,74,0.08)", cursor: "pointer", minWidth: 180, fontWeight: 700, color: "#16A34A" }}>
                         <option value="">Approver…</option>
                         <option>Daniel Wollent</option>
                         <option>Matthew Toussaint</option>
+                        <option>Brian Karis</option>
                         <option>Jarrod</option>
                       </select>
                       <button onClick={() => { handlePSApprove(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#16A34A,#15803D)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 20px rgba(22,163,74,0.3)", letterSpacing: "0.04em" }}>⚡ Approve → Tracker</button>
-                      <button onClick={() => { handleDecline(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#EF4444", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✗ Reject</button>
+                    </div>
+                    <textarea value={ri.psApprovalComment || ""} onChange={(e) => setRI("psApprovalComment", e.target.value)} placeholder="PS approval notes — conditions, follow-ups, etc." rows={2} style={{ width: "100%", marginBottom: 10, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(22,163,74,0.12)", fontSize: 12, outline: "none", background: "rgba(22,163,74,0.04)", color: "#E2E8F0", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
+                    {/* PS Rejection Section — reason + feedback + route-to dropdown */}
+                    <div style={{ borderTop: "1px solid rgba(220,38,38,0.15)", paddingTop: 12, marginTop: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>PS Rejection & Routing</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                        <select value={ri.declineReason || ""} onChange={(e) => setRI("declineReason", e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.25)", fontSize: 12, background: "rgba(220,38,38,0.05)", cursor: "pointer", minWidth: 220, color: "#FCA5A5" }}>
+                          <option value="">Rejection reason…</option>
+                          {DECLINE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <input value={ri.psFeedback || ""} onChange={(e) => setRI("psFeedback", e.target.value)} placeholder="PS feedback — what did they say?" style={{ flex: 1, minWidth: 200, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.15)", fontSize: 12, outline: "none", background: "rgba(220,38,38,0.04)", color: "#FCA5A5" }} />
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <select value={ri.rejectRouteTo || "dan"} onChange={(e) => setRI("rejectRouteTo", e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.25)", fontSize: 12, background: "rgba(220,38,38,0.05)", cursor: "pointer", minWidth: 180, color: "#FCA5A5" }}>
+                          <option value="dan">Route to Dan R. (Review)</option>
+                          <option value="mt">Route to Matthew Toussaint</option>
+                          <option value="dw">Route to Daniel Wollent</option>
+                        </select>
+                        <button onClick={() => { if (!ri.declineReason) { notify("Select a rejection reason"); return; } handlePSReject(site.id); setReviewDetailSite(null); }} style={{ padding: "10px 22px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.1)", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{`\u2717 Reject \u2192 ${(ri.rejectRouteTo || "dan") === "dan" ? "Dan R." : (ri.rejectRouteTo || "dan") === "mt" ? "MT" : "DW"}`}</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {site.status === "ps-rejected" && (
+                  <div>
+                    <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#DC2626", marginBottom: 8 }}>PS Rejected by {site.psRejectedBy || "PS"}</div>
+                      {site.psRejectReason && <div style={{ fontSize: 12, color: "#FCA5A5", marginBottom: 6 }}><strong>Reason:</strong> {site.psRejectReason}</div>}
+                      {site.psFeedback && <div style={{ fontSize: 12, color: "#FCA5A5", marginBottom: 6, lineHeight: 1.5, fontStyle: "italic" }}>"{site.psFeedback}"</div>}
+                      {site.reRoutedFrom && <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Re-routed from {site.reRoutedFrom}</div>}
+                      {site.psRejectedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>Rejected: {new Date(site.psRejectedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                      <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
+                      <button onClick={() => { if (window.confirm("Permanently delete this site? This cannot be undone.")) { handlePermanentDelete(site.id); setReviewDetailSite(null); } }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(127,29,29,0.4)", background: "rgba(127,29,29,0.2)", color: "#F87171", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Delete Permanently</button>
+                      <button onClick={() => { handleSendBackToPS(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.08)", color: "#22C55E", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Send Back to PS</button>
+                      <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending" }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
+                    </div>
+                    {/* Re-route from ps-rejected to another person or tracker */}
+                    <div style={{ borderTop: "1px solid rgba(148,163,184,0.12)", paddingTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Route instead:</span>
+                      <select value={ri.reRouteTarget || ""} onChange={(e) => setRI("reRouteTarget", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", fontSize: 11, background: "rgba(148,163,184,0.06)", cursor: "pointer", minWidth: 180, color: "#94A3B8" }}>
+                        <option value="">Select destination…</option>
+                        <option value="mt">Matthew Toussaint (review)</option>
+                        <option value="dw">Daniel Wollent (review)</option>
+                        <option value="mt-tracker">MT Tracker (direct)</option>
+                        <option value="dw-tracker">DW Tracker (direct)</option>
+                      </select>
+                      <button disabled={!ri.reRouteTarget} onClick={() => { handleDirectRoute(site.id, ri.reRouteTarget); setReviewDetailSite(null); }} style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", background: ri.reRouteTarget ? "rgba(201,168,76,0.1)" : "rgba(148,163,184,0.04)", color: ri.reRouteTarget ? "#C9A84C" : "#475569", fontSize: 11, fontWeight: 700, cursor: ri.reRouteTarget ? "pointer" : "default", opacity: ri.reRouteTarget ? 1 : 0.5 }}>{"\u2192"} Route</button>
+                    </div>
+                  </div>
+                )}
+
+                {site.status === "declined" && (
+                  <div>
+                    <div style={{ background: "rgba(107,75,0,0.12)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#D97706", marginBottom: 8 }}>Declined by {site.reviewedBy || "Dan R."}</div>
+                      {site.declineReason && <div style={{ fontSize: 12, color: "#FBBF24", marginBottom: 6 }}><strong>Reason:</strong> {site.declineReason}</div>}
+                      {site.reviewNote && <div style={{ fontSize: 12, color: "#FBBF24", marginBottom: 6, lineHeight: 1.5, fontStyle: "italic" }}>"{site.reviewNote}"</div>}
+                      {site.siteScoreAtDecline && <div style={{ fontSize: 11, color: "#6B7394", marginBottom: 4 }}>SiteScore at decline: {site.siteScoreAtDecline} ({site.classificationAtDecline || "—"})</div>}
+                      {site.declinedAt && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4 }}>Declined: {new Date(site.declinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                      {(() => { const match = isKilledSite(site.address, site.coordinates); return match ? <div style={{ fontSize: 11, color: "#EF4444", marginTop: 8, fontWeight: 700 }}>Previously killed: {match.declineReason} ({new Date(match.killedAt).toLocaleDateString()})</div> : null; })()}
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                      <button onClick={() => { handleSmartDiscard(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.15)", color: "#EF4444", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Discard & Learn</button>
+                      <button onClick={() => { if (window.confirm("Permanently delete this site? This cannot be undone.")) { handlePermanentDelete(site.id); setReviewDetailSite(null); } }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(127,29,29,0.4)", background: "rgba(127,29,29,0.2)", color: "#F87171", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Delete Permanently</button>
+                      <button onClick={() => { handleSendBackToPS(site.id); setReviewDetailSite(null); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.08)", color: "#22C55E", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Send Back to PS</button>
+                      <button onClick={() => { fbUpdate(`submissions/${site.id}`, { status: "pending", declineReason: null, declinedAt: null, reviewedBy: null, reviewNote: null, siteScoreAtDecline: null, classificationAtDecline: null }); notify("Sent back to pending for re-review."); }} style={{ padding: "12px 28px", borderRadius: 12, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Re-Review</button>
+                    </div>
+                    {/* Re-route from declined to another person or tracker */}
+                    <div style={{ borderTop: "1px solid rgba(148,163,184,0.12)", paddingTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Route instead:</span>
+                      <select value={ri.reRouteTarget || ""} onChange={(e) => setRI("reRouteTarget", e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", fontSize: 11, background: "rgba(148,163,184,0.06)", cursor: "pointer", minWidth: 180, color: "#94A3B8" }}>
+                        <option value="">Select destination…</option>
+                        <option value="mt">Matthew Toussaint (review)</option>
+                        <option value="dw">Daniel Wollent (review)</option>
+                        <option value="mt-tracker">MT Tracker (direct)</option>
+                        <option value="dw-tracker">DW Tracker (direct)</option>
+                      </select>
+                      <button disabled={!ri.reRouteTarget} onClick={() => { handleDirectRoute(site.id, ri.reRouteTarget); setReviewDetailSite(null); }} style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.2)", background: ri.reRouteTarget ? "rgba(201,168,76,0.1)" : "rgba(148,163,184,0.04)", color: ri.reRouteTarget ? "#C9A84C" : "#475569", fontSize: 11, fontWeight: 700, cursor: ri.reRouteTarget ? "pointer" : "default", opacity: ri.reRouteTarget ? 1 : 0.5 }}>{"\u2192"} Route</button>
                     </div>
                   </div>
                 )}
@@ -4180,97 +4179,1230 @@ export default function App() {
         {/* ═══ PROPERTY DETAIL VIEW ═══ */}
         {detailView && (() => {
           const dv = detailView;
-          const allSites = sortData(dv.regionKey === "east" ? east : sw);
+          const allSites = dv.regionKey === "queue" ? subs : sortData(dv.regionKey === "east" ? east : sw);
           const site = allSites.find(s => s.id === dv.siteId);
-          if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => setDetailView(null)} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
+          if (!site) return <div style={{ textAlign: "center", padding: 40, color: "#6B7394" }}>Site not found. <button onClick={() => { setDetailView(null); if (dv.regionKey === "queue") setReviewDetailSite(null); }} style={{ color: "#E87A2E", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>← Back</button></div>;
           const idx = allSites.findIndex(s => s.id === dv.siteId);
           const prevSite = idx > 0 ? allSites[idx - 1] : null;
           const nextSite = idx < allSites.length - 1 ? allSites[idx + 1] : null;
           const iqR = getSiteScore(site);
-          const dom = site.dateOnMarket ? Math.max(0, Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000)) : null;
+          const domRaw4 = site.dateOnMarket ? Math.floor((Date.now() - new Date(site.dateOnMarket).getTime()) / 86400000) : null;
+          const dom = (domRaw4 !== null && !isNaN(domRaw4) && domRaw4 >= 0) ? domRaw4 : null;
           const docs = site.docs ? Object.entries(site.docs) : [];
           const flyerDoc = docs.find(([, d]) => d.type === "Flyer");
           const navBtnSt = (disabled) => ({ padding: "10px 20px", borderRadius: 10, border: disabled ? "1px solid rgba(201,168,76,0.06)" : "1px solid rgba(232,122,46,0.25)", background: disabled ? "rgba(15,21,56,0.3)" : "rgba(232,122,46,0.08)", color: disabled ? "#4A5080" : "#E87A2E", fontSize: 12, fontWeight: 700, cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" });
           // Keyboard nav for detail view
           const handleDetailKey = (e) => {
-            if (e.key === "ArrowLeft" && prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "ArrowRight" && nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
-            if (e.key === "Escape") { setDetailView(null); }
+            if (e.key === "ArrowLeft" && prevSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "ArrowRight" && nextSite) { setDemoExpanded(false); setScoreDimExpanded(null); setDemoRowExpanded(null); goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }
+            if (e.key === "Escape") { setDetailView(null); if (dv.regionKey === "queue") setReviewDetailSite(null); }
           };
           if (!window._detailKeyBound) { window.addEventListener("keydown", handleDetailKey); window._detailKeyBound = true; }
+          const isQueue = dv.regionKey === "queue";
+          const goBackFromDetail = () => { setDetailView(null); window._detailKeyBound = false; if (isQueue) { setReviewDetailSite(null); navigateTo("review"); } else { navigateTo(dv.regionKey, { siteId: dv.siteId }); } };
 
           return (
             <div style={{ animation: "fadeIn 0.15s ease-out" }}>
               {/* TOP NAV BAR */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "14px 0", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>
-                <button onClick={() => { setDetailView(null); window._detailKeyBound = false; navigateTo(dv.regionKey, { siteId: dv.siteId }); }} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>← Back to Tracker</button>
+                <button onClick={goBackFromDetail} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>{isQueue ? "← Back to Review Queue" : "← Back to Tracker"}</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
+                  <button disabled={!prevSite} onClick={() => { if (prevSite) { goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!prevSite)}>← Prev</button>
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
-                  <button disabled={!nextSite} onClick={() => { if (nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!nextSite)}>Next →</button>
+                  <button disabled={!nextSite} onClick={() => { if (nextSite) { goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!nextSite)}>Next →</button>
                 </div>
-                <button onClick={() => handleEmailRec(site, dv.siteId)} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #C9A84C 0%, #E87A2E 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px rgba(201,168,76,0.35)", transition: "all 0.2s" }}>📧 Create Email Rec</button>
                 <span style={{ fontSize: 9, color: "#4A5080", fontWeight: 500 }}>← → keys · Esc back</span>
               </div>
 
-              {/* HERO HEADER */}
-              <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #1E2761 60%, #2C3E6B 100%)", borderRadius: 16, padding: "32px 36px", marginBottom: 20, position: "relative", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)", opacity: 0.6 }} />
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent)" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 6 }}>{site.name}</div>
-                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 12 }}>{site.address}, {site.city}, {site.state}</div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      {site.market && <span style={{ background: "rgba(251,191,36,.12)", color: "#FBBF24", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(251,191,36,.2)" }}>{site.market}</span>}
-                      <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
-                      {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
+              {/* HERO HEADER — Executive Snapshot */}
+              {(() => {
+                const askP = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0;
+                const acVal = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]) || 0;
+                const ppaVal = (askP > 0 && acVal > 0) ? Math.round(askP / acVal) : 0;
+                const gr = site.popGrowth3mi || site.growthRate;
+                const grN = gr != null ? (typeof gr === "number" ? gr : parseFloat(String(gr))) : NaN;
+                const hhi = site.income3mi;
+                const hhiStr = hhi ? (String(hhi).startsWith("$") ? hhi : "$" + fmtN(hhi)) : null;
+                const nearPS = site.siteiqData?.nearestPS;
+                const nearPSStr = nearPS != null ? `${nearPS} mi` : null;
+                const zColor = /by.?right|permitted|no.?zoning|unrestrict|ETJ/i.test((site.zoningClassification || "") + " " + (site.zoning || "") + " " + (site.summary || "")) ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "#E2E8F0";
+                const kpiCell = { background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.06)", minWidth: 0 };
+                const kpiLabel = { fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 4, whiteSpace: "nowrap" };
+                const kpiVal = { fontSize: 17, fontWeight: 900, fontFamily: "'Space Mono', monospace", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+                return (
+                <div style={{ background: "linear-gradient(135deg, #0a0a0e 0%, #1E2761 60%, #2C3E6B 100%)", borderRadius: 16, padding: "28px 32px 20px", marginBottom: 20, position: "relative", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, #C9A84C, #E87A2E, #C9A84C, transparent)", opacity: 0.6 }} />
+                  {/* Top row: Name + Score */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{siteDisplayName(site)}</div>
+                      <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 8 }}>{site.address}, {site.city}, {site.state}</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,.2)" }}>{site.market}</span>}
+                        <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
+                        {dom !== null && <span style={{ fontSize: 11, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#6B7394", fontWeight: 600 }}>{dom}d on market</span>}
+                        {site.sellerBroker && <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600 }}>Broker: <strong style={{ color: "#C9A84C" }}>{site.sellerBroker}</strong></span>}
+                      </div>
+                    </div>
+                    <div onClick={() => setScoreExpanded(!scoreExpanded)} style={{ cursor: "pointer", flexShrink: 0, transition: "transform 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"} onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"} title="Click for full SiteScore breakdown">
+                      <SiteScoreBadge site={site} iq={iqR} />
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <SiteScoreBadge site={site} iq={iqR} />
-                    <div style={{ marginTop: 8, fontSize: 11, color: "#94A3B8" }}>Broker: <strong style={{ color: "#E2E8F0" }}>{site.sellerBroker || "—"}</strong></div>
+                  {/* KPI Grid — 2 rows × 4 columns */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                    {/* Row 1: Deal Metrics */}
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>ASKING PRICE</div>
+                      <div style={{ ...kpiVal, color: "#E87A2E" }}>{askP > 0 ? `$${(askP >= 1e6 ? (askP/1e6).toFixed(2) + "M" : (askP/1e3).toFixed(0) + "K")}` : "—"}</div>
+                      {site.internalPrice && <div style={{ fontSize: 9, color: "#E87A2E", marginTop: 2, fontWeight: 600 }}>Int: {site.internalPrice}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>ACREAGE</div>
+                      <div style={{ ...kpiVal, color: "#42A5F5" }}>{acVal > 0 ? `${acVal} ac` : "—"}</div>
+                      {ppaVal > 0 && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>${ppaVal.toLocaleString()}/ac</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>ZONING</div>
+                      <div style={{ ...kpiVal, color: zColor, fontSize: site.zoning && site.zoning.length > 12 ? 13 : 17 }}>{site.zoning || "—"}</div>
+                      {site.zoningClassification && <div style={{ fontSize: 9, color: zColor, marginTop: 2, fontWeight: 700, textTransform: "uppercase" }}>{site.zoningClassification}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>NEAREST PS</div>
+                      <div style={{ ...kpiVal, color: nearPS != null ? (nearPS <= 5 ? "#22C55E" : nearPS <= 15 ? "#42A5F5" : "#F59E0B") : "#3A3F5C" }}>{nearPSStr || "—"}</div>
+                      {nearPS != null && nearPS <= 5 && <div style={{ fontSize: 9, color: "#22C55E", marginTop: 2, fontWeight: 600 }}>Validated submarket</div>}
+                    </div>
+                    {/* Row 2: Market Metrics */}
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>3MI POPULATION</div>
+                      <div style={{ ...kpiVal, color: "#A78BFA" }}>{site.pop3mi ? fmtN(site.pop3mi) : "—"}</div>
+                      {site.households3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{fmtN(site.households3mi)} HH</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>5YR GROWTH</div>
+                      <div style={{ ...kpiVal, color: !isNaN(grN) ? (grN >= 1.5 ? "#22C55E" : grN >= 0 ? "#FBBF24" : "#EF4444") : "#3A3F5C" }}>{!isNaN(grN) ? `${grN >= 0 ? "+" : ""}${grN.toFixed(1)}%` : "—"}</div>
+                      {!isNaN(grN) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{grN >= 2 ? "High growth" : grN >= 1 ? "Moderate growth" : grN >= 0 ? "Stable" : "Declining"}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>MEDIAN HHI</div>
+                      <div style={{ ...kpiVal, color: "#E2E8F0" }}>{hhiStr || "—"}</div>
+                      {site.homeValue3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>Home: ${fmtN(site.homeValue3mi)}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>COMPETITION</div>
+                      <div style={{ ...kpiVal, color: site.siteiqData?.ccSPC != null ? (site.siteiqData.ccSPC < 3 ? "#22C55E" : site.siteiqData.ccSPC < 5 ? "#FBBF24" : "#EF4444") : (site.siteiqData?.competitorCount != null ? "#E2E8F0" : "#3A3F5C") }}>
+                        {site.siteiqData?.ccSPC != null ? `${site.siteiqData.ccSPC} SPC` : site.siteiqData?.competitorCount != null ? `${site.siteiqData.competitorCount} nearby` : "—"}
+                      </div>
+                      {site.siteiqData?.ccSPC != null && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.siteiqData.ccSPC < 1.5 ? "Severely underserved" : site.siteiqData.ccSPC < 3 ? "Underserved" : site.siteiqData.ccSPC < 5 ? "Moderate" : "Well-supplied"} CC</div>}
+                    </div>
                   </div>
+                  {/* Source Attribution — prominent data provenance bar */}
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+                    {/* ESRI headline — the premium data source */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.04))", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "3px 10px" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>ESRI Premium</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#8B99C4" }}>2025–2030 Geocoded Radial Rings</span>
+                      </div>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(76,201,130,0.08)", border: "1px solid rgba(76,201,130,0.2)", borderRadius: 4, padding: "3px 8px" }}>
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4CC982", display: "inline-block" }}></span>
+                        <span style={{ fontSize: 9, fontWeight: 600, color: "#4CC982", letterSpacing: "0.04em" }}>LIVE</span>
+                      </div>
+                    </div>
+                    {/* Other sources row */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                        {[
+                          { label: "Zoning", src: site.zoningSource ? "Municipal Ordinance" : site.zoningTableAccessed ? "Verified" : "Broker / Listing", verified: !!site.zoningSource || !!site.zoningTableAccessed },
+                          { label: "Competition", src: "SiteScore\u2122 Engine", verified: true },
+                          { label: "Proximity", src: "PS Locations DB (3,112)", verified: true },
+                          { label: "Valuation", src: "Storvex Model", verified: true },
+                        ].map(s => (
+                          <span key={s.label} style={{ fontSize: 10, color: s.verified ? "#8B99C4" : "#4A5074", fontWeight: 600, letterSpacing: "0.02em" }}>
+                            <span style={{ color: s.verified ? "#6B7394" : "#3D4565" }}>{s.label}:</span>{" "}
+                            <span style={{ color: s.verified ? "#A0B0D8" : "#4A5074" }}>{s.src}</span>
+                          </span>
+                        ))}
+                      </div>
+                      {site.zoningVerifyDate && <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600, fontStyle: "italic" }}>Verified {site.zoningVerifyDate}</span>}
+                    </div>
+                  </div>
+                </div>
+                );
+              })()}
+
+              {/* ═══ STORVEX LAND PRICE INTELLIGENCE — Blunt Recommendation Banner ═══ */}
+              {(() => {
+                try {
+                  const recFin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                  if (!recFin || !recFin.stabNOI) return null;
+                  const recNOI = recFin.stabNOI;
+                  const recBPC = (recFin.buildCosts || 0) + (recFin.carryCosts || 0) + (recFin.workingCapital || 0);
+                  const recSF = recFin.totalSF || 0;
+                  const recStrike = recFin.landPrices?.[1]?.maxLand || 0;
+                  const recWalk = recFin.landPrices?.[0]?.maxLand || 0;
+                  const recPitch = recNOI > 0 ? Math.round(recNOI / 0.08 - recBPC) : 0;
+                  const recAsk = parsePrice(site.askingPrice) || parsePrice(site.internalPrice) || 0;
+                  const recInt = parsePrice(site.internalPrice) || 0;
+                  // Determine the recommended price and YOC
+                  let recPrice = 0, recYOC = 0, recLabel = "", recContext = "", recColor = "#22C55E";
+                  if (recInt > 0) {
+                    recPrice = recInt;
+                    recYOC = recNOI / (recInt + recBPC) * 100;
+                    recLabel = "INTERNAL TARGET";
+                    recColor = recYOC >= 9 ? "#22C55E" : recYOC > 0 ? "#C9A84C" : "#EF4444";
+                  } else if (recStrike > 0) {
+                    recPrice = recStrike;
+                    recYOC = recNOI / (recStrike + recBPC) * 100;
+                    recLabel = "STRIKE PRICE";
+                    recColor = "#22C55E";
+                  } else if (recPitch > 0) {
+                    recPrice = recPitch;
+                    recYOC = 8.0;
+                    recLabel = "MINIMUM PITCHABLE";
+                    recColor = "#C9A84C";
+                  } else if (recAsk > 0) {
+                    // Fallback: strike/pitch unachievable — show YOC at ask
+                    recPrice = recAsk;
+                    recYOC = recNOI / (recAsk + recBPC) * 100;
+                    recLabel = "YOC AT ASKING";
+                    recColor = recYOC >= 7.5 ? "#C9A84C" : "#E87A2E";
+                  } else return null;
+                  // Discount to ask
+                  const discPct = recAsk > 0 ? (((recAsk - recPrice) / recAsk) * 100) : 0;
+                  const discStr = discPct > 0 ? `${discPct.toFixed(0)}% below ask` : discPct < 0 ? `${Math.abs(discPct).toFixed(0)}% above ask` : "";
+                  // YOC at asking
+                  const askYOC = recAsk > 0 ? (recNOI / (recAsk + recBPC) * 100) : 0;
+                  // Growth context
+                  const gr = site.popGrowth3mi || site.growthRate;
+                  const grN = gr != null ? (typeof gr === "number" ? gr : parseFloat(String(gr))) : NaN;
+                  const grStr = !isNaN(grN) && grN > 0 ? `${grN.toFixed(1)}% growth corridor` : "";
+                  // Build the narrative
+                  const fmtP = (p) => p >= 1e6 ? `$${(p/1e6).toFixed(2)}M` : `$${Math.round(p/1e3).toLocaleString()}K`;
+                  return (
+                    <div style={{ marginBottom: 16, borderRadius: 12, overflow: "hidden", border: `1px solid ${recColor}30`, background: `linear-gradient(135deg, ${recColor}08, rgba(15,21,56,0.6))` }}>
+                      <div style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16 }}>
+                        <div style={{ flexShrink: 0, width: 56, height: 56, borderRadius: 12, background: `${recColor}15`, border: `2px solid ${recColor}40`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: recColor, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{recYOC.toFixed(1)}%</div>
+                          <div style={{ fontSize: 7, fontWeight: 700, color: recColor, letterSpacing: "0.08em", marginTop: 1 }}>YOC</div>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontSize: 8, fontWeight: 800, color: recColor, letterSpacing: "0.12em" }}>STORVEX RECOMMENDATION</span>
+                            <span style={{ fontSize: 8, fontWeight: 700, color: "#4A5074", letterSpacing: "0.08em" }}>{recLabel}</span>
+                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 900, color: "#E2E8F0", lineHeight: 1.4 }}>
+                            Come in at <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{fmtP(recPrice)}</span> for a <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{recYOC.toFixed(1)}%</span> YOC
+                            {discStr ? <span style={{ color: "#94A3B8", fontWeight: 600 }}> — {discStr}</span> : ""}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#6B7394", marginTop: 4, lineHeight: 1.5 }}>
+                            Based on {(recSF/1000).toFixed(0)}K SF facility, {recNOI >= 1e6 ? `$${(recNOI/1e6).toFixed(2)}M` : `$${Math.round(recNOI/1e3)}K`} stabilized NOI{grStr ? `, ${grStr}` : ""}.
+                            {recLabel === "YOC AT ASKING"
+                              ? ` PS strike/pitch unachievable at current rents — build costs (${fmtP(recBPC)}) exceed NOI capacity. ${recYOC > 5 ? "Site works if rents grow or ask drops." : "Significant gap — negotiate hard or pass."}`
+                              : askYOC > 0 ? ` At the ${fmtP(recAsk)} ask: ${askYOC.toFixed(1)}% YOC${askYOC >= 9 ? " — already hits target." : askYOC >= 7.5 ? " — workable with minor negotiation." : askYOC >= 6 ? " — needs reduction to hit strike." : " — significant gap to strike."}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* ═══ VALUATION + LAND PRICE CALCULATOR — Tracker Detail Page ═══ */}
+              {(() => {
+                try {
+                  const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                  if (!fin || !fin.totalSF) return null;
+                  const stabNOI = fin.stabNOI || 0;
+                  const strike = fin.landPrices?.[1];
+                  const walk = fin.landPrices?.[0];
+                  const homerun = fin.landPrices?.[2];
+                  const verdict = fin.landVerdict || "—";
+                  const vColor = fin.verdictColor || "#6B7394";
+                  const yoc = fin.yocStab;
+                  const askRaw = fin.landCost || 0;
+                  const hasAsk = askRaw > 0;
+                  const askVsS = hasAsk && strike?.maxLand > 0 ? ((askRaw / strike.maxLand - 1) * 100).toFixed(0) : null;
+                  const siteId = site.id || site.key || "";
+                  const rawPrice = customPurchasePrice[siteId] || "";
+                  const rawAc = customLandAcreage[siteId] || "";
+                  const customVal = rawPrice ? parseInt(rawPrice.replace(/[^0-9]/g, ""), 10) || 0 : 0;
+                  const customAc = rawAc ? parseFloat(rawAc) : null;
+                  const defaultAc = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]) || 0;
+                  const effAc = (customAc && !isNaN(customAc) && customAc > 0) ? customAc : defaultAc;
+                  const effFin = (customAc && !isNaN(customAc) && customAc > 0 && customAc !== defaultAc) ? computeSiteFinancials({ ...site, acreage: String(customAc) }, VALUATION_OVERRIDES, site.overrides || {}) : fin;
+                  const effBPC = effFin ? ((effFin.buildCosts || 0) + (effFin.carryCosts || 0) + (effFin.workingCapital || 0)) : 0;
+                  const effNOI = effFin?.stabNOI || stabNOI;
+                  const usePrice = !isNaN(customVal) && customVal > 0 ? customVal : askRaw;
+                  const calcYOC = usePrice > 0 && effNOI > 0 ? (effNOI / (usePrice + effBPC) * 100) : null;
+                  const ppa = (usePrice > 0 && effAc > 0) ? Math.round(usePrice / effAc) : null;
+                  return (
+                    <div style={{ marginBottom: 20, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(46,125,50,0.15)" }}>
+                      {/* Top row — Storvex Valuation stats */}
+                      <div style={{ padding: "16px 18px 12px", background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: "#43A047", letterSpacing: "0.1em" }}>STORVEX VALUATION{fin.rateSource === "msa" ? " — MSA RENT" : ""}</span>
+                          {verdict !== "—" && <span style={{ fontSize: 12, fontWeight: 900, color: vColor, padding: "4px 12px", borderRadius: 6, background: `${vColor}15`, border: `1px solid ${vColor}30` }}>{verdict}</span>}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>EST. FACILITY</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(fin.totalSF / 1000).toFixed(0)}K SF</div>
+                            <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.stories > 1 ? `${fin.stories}-Story` : "1-Story"} | {Math.round(fin.climatePct * 100)}% CC</div>
+                          </div>
+                          <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>STAB. NOI (Y5)</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: "#22C55E", fontFamily: "'Space Mono', monospace" }}>{stabNOI >= 1e6 ? `$${(stabNOI / 1e6).toFixed(2)}M` : `$${(stabNOI / 1000).toFixed(0)}K`}</div>
+                            <div style={{ fontSize: 10, color: "#6B7394" }}>{fin.noiMarginPct !== "N/A" ? `${fin.noiMarginPct}% NOI Margin` : "92% Occ"}</div>
+                          </div>
+                          {hasAsk && yoc !== "N/A" && (
+                            <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${parseFloat(yoc) >= 8 ? "rgba(34,197,94,0.2)" : "rgba(201,168,76,0.2)"}` }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 3 }}>YOC @ ASK</div>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: parseFloat(yoc) >= 8 ? "#22C55E" : parseFloat(yoc) > 0 ? "#C9A84C" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{yoc}%</div>
+                              <div style={{ fontSize: 10, color: "#6B7394" }}>{askVsS ? (parseFloat(askVsS) <= 0 ? `${Math.abs(parseFloat(askVsS))}% below strike` : `${askVsS}% above strike`) : ""}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* ── LAND PRICE CALCULATOR — type acreage + price, get live YOC ── */}
+                      <div style={{ padding: "14px 18px 16px", background: "linear-gradient(135deg, rgba(201,168,76,0.04), rgba(30,39,97,0.06))", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 10, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>LAND PRICE CALCULATOR</span>
+                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9A84C", boxShadow: "0 0 6px rgba(201,168,76,0.6)", animation: "sitescore-glow 2s ease-in-out infinite alternate" }} />
+                          </div>
+                          {calcYOC !== null && <span style={{ fontSize: 12, fontWeight: 900, color: calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444", padding: "4px 12px", borderRadius: 6, background: `${calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444"}15`, border: `1px solid ${calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444"}30` }}>{calcYOC.toFixed(1)}% YOC</span>}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "start" }}>
+                          <div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#42A5F5", letterSpacing: "0.08em", marginBottom: 4 }}>TARGET ACREAGE</div>
+                            <input type="text" inputMode="decimal" placeholder={defaultAc > 0 ? String(defaultAc) : "0"} value={rawAc} onClick={(e) => e.stopPropagation()} onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ""); setCustomLandAcreage(prev => ({ ...prev, [siteId]: v })); }} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(66,165,245,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#42A5F5", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{rawAc ? `${rawAc} ac` : `Full site: ${defaultAc || "—"} ac`}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", marginBottom: 4 }}>OFFER PRICE</div>
+                            <input type="text" inputMode="numeric" placeholder={hasAsk ? `$${askRaw.toLocaleString()}` : "$0"} value={rawPrice ? `$${Number(rawPrice.replace(/[^0-9]/g, "")).toLocaleString()}` : ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const digits = e.target.value.replace(/[^0-9]/g, ""); setCustomPurchasePrice(prev => ({ ...prev, [siteId]: digits })); }} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 18, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 3, fontWeight: 600 }}>{ppa ? `$${ppa.toLocaleString()}/ac` : hasAsk ? `Ask: $${askRaw.toLocaleString()}` : "Enter price"}</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.08)" : "rgba(201,168,76,0.06)") : "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 12px", border: `1px solid ${calcYOC !== null ? (calcYOC >= 9 ? "rgba(34,197,94,0.2)" : "rgba(201,168,76,0.15)") : "rgba(255,255,255,0.06)"}` }}>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.08em", marginBottom: 4 }}>PROJECTED YOC</div>
+                            <div style={{ fontSize: 36, fontWeight: 900, color: calcYOC !== null ? (calcYOC >= 9 ? "#22C55E" : calcYOC > 0 ? "#C9A84C" : "#EF4444") : "#3A3F5C", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{calcYOC !== null ? `${calcYOC.toFixed(1)}%` : "—"}</div>
+                            <div style={{ fontSize: 9, color: "#6B7394", marginTop: 4, fontWeight: 600, textAlign: "center" }}>{effAc > 0 && effFin?.totalSF ? `${(effFin.totalSF/1000).toFixed(0)}K SF on ${effAc} ac` : ""}</div>
+                          </div>
+                        </div>
+                      </div>
+                      {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
+                        <div style={{ position: "relative", height: 28, background: "rgba(255,255,255,.04)" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
+                          <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
+                          <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
+                          <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", display: "flex", justifyContent: "space-between", width: "100%", padding: "0 10px" }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444" }}>WALK {walk.maxLand >= 1e6 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C" }}>STRIKE {strike?.maxLand >= 1e6 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#22C55E" }}>HOME RUN {homerun.maxLand >= 1e6 ? `$${(homerun.maxLand/1e6).toFixed(1)}M` : `$${(homerun.maxLand/1000).toFixed(0)}K`}</span>
+                          </div>
+                          {hasAsk && (() => { const range = walk.maxLand - homerun.maxLand; const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50; return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />; })()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* ═══ COMMAND CENTER — All actions in one spot ═══ */}
+              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 16, padding: "16px 16px 12px", marginBottom: 20, border: "1px solid rgba(201,168,76,0.1)" }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: "#6B7394", letterSpacing: "0.12em", marginBottom: 10, paddingLeft: 2 }}>QUICK ACCESS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
+                {site.coordinates && (
+                  <button onClick={() => {
+                    const [lat, lng] = site.coordinates.split(",").map(c => parseFloat(c.trim()));
+                    if (isNaN(lat) || isNaN(lng)) { window.open(mapsLink(site.coordinates), "_blank"); return; }
+                    const hav = `function hav(a,b,c,d){var R=3958.8,dL=(c-a)*Math.PI/180,dN=(d-b)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dN/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}`;
+                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${site.name || "Site"} — PS Proximity Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',system-ui,sans-serif}#map{width:100vw;height:100vh}
+.info-panel{position:fixed;top:16px;left:16px;z-index:1000;background:rgba(10,10,14,0.92);backdrop-filter:blur(16px);border-radius:14px;padding:20px 24px;color:#fff;border:1px solid rgba(201,168,76,0.2);box-shadow:0 12px 48px rgba(0,0,0,0.5);max-width:340px}
+.info-title{font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.01em}.info-sub{font-size:12px;color:#94A3B8;margin-top:4px}
+.info-badges{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.info-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px}
+.legend{position:fixed;bottom:16px;left:16px;z-index:1000;background:rgba(10,10,14,0.92);backdrop-filter:blur(16px);border-radius:10px;padding:12px 16px;border:1px solid rgba(201,168,76,0.15);display:flex;gap:16px;align-items:center}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#fff}
+.dot-site{width:12px;height:12px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2px solid #fff;border-radius:50%}
+.dot-ps{width:12px;height:12px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%}
+.dot-ring{width:12px;height:12px;border:2px dashed #C9A84C;border-radius:50%}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.8);opacity:0}}</style></head>
+<body><div id="map"></div>
+<div class="info-panel"><div class="info-title">${(site.name || "Subject Site").replace(/"/g, "&quot;")}</div>
+<div class="info-sub">${(site.address || "").replace(/"/g, "&quot;")}, ${(site.city || "").replace(/"/g, "&quot;")} ${site.state || ""}</div>
+<div class="info-badges">${site.acreage ? `<span class="info-badge" style="background:rgba(21,101,192,0.15);color:#42A5F5">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span class="info-badge" style="background:rgba(201,168,76,0.15);color:#C9A84C">${site.askingPrice}</span>` : ""}${site.zoning ? `<span class="info-badge" style="background:rgba(46,125,50,0.15);color:#66BB6A">${site.zoning}</span>` : ""}</div></div>
+<div class="legend"><div class="leg-item"><div class="dot-site"></div>Subject Site</div><div class="leg-item"><div class="dot-ps"></div>PS Locations</div><div class="leg-item"><div class="dot-ring"></div>3-Mile Radius</div></div>
+<script>${hav}
+var map=L.map("map",{attributionControl:false}).setView([${lat},${lng}],12);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(map);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,opacity:0.6}).addTo(map);
+var sI=L.divIcon({className:"",html:'<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:pulse 2s ease-in-out infinite"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div>',iconSize:[36,36],iconAnchor:[18,18]});
+L.marker([${lat},${lng}],{icon:sI,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-weight:900;font-size:14px;color:#1565C0">${(site.name || "Subject Site").replace(/'/g, "\\'")}</div>');
+L.circle([${lat},${lng}],{radius:4828,color:"#C9A84C",weight:2,opacity:0.5,fillColor:"#C9A84C",fillOpacity:0.04,dashArray:"8,6"}).addTo(map);
+fetch("/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
+var lines=csv.trim().split("\\n"),cnt=0,pI=L.divIcon({className:"",html:'<div style="width:16px;height:16px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<7)continue;var pLa=parseFloat(p[5]),pLn=parseFloat(p[6]);if(isNaN(pLa)||isNaN(pLn))continue;
+var d=hav(${lat},${lng},pLa,pLn);if(d<=25){cnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
+m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#E87A2E">'+p[0]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi</div>',{direction:"auto",offset:[0,-8]});
+m.bindPopup('<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">'+p[0]+'</span></div><div style="font-size:12px;font-weight:600;color:#334155">'+p[1]+'</div><div style="font-size:11px;color:#64748B;margin-top:3px">'+p[2]+'</div><div style="font-size:11px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">'+d.toFixed(1)+' mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>');}}
+document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(232,122,46,0.15);color:#E87A2E">'+cnt+' PS within 25mi</span>';
+});<\/script></body></html>`;
+                    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                    window.open(URL.createObjectURL(blob), "_blank");
+                  }} style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(21,101,192,0.35), 0 0 0 1px rgba(21,101,192,0.3)", letterSpacing: "0.04em", transition: "all 0.2s", cursor: "pointer" }}>
+                    <span style={{ fontSize: 18 }}>🗺</span> Interactive Map
+                  </button>
+                )}
+                {site.coordinates && (
+                  <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #2E7D32, #388E3C)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(46,125,50,0.35), 0 0 0 1px rgba(46,125,50,0.3)", letterSpacing: "0.04em", transition: "all 0.2s" }}>
+                    <span style={{ fontSize: 18 }}>🌍</span> Google Earth
+                  </a>
+                )}
+                {site.listingUrl && (
+                  <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #F59E0B)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(232,122,46,0.35), 0 0 0 1px rgba(232,122,46,0.3)", letterSpacing: "0.04em", transition: "all 0.2s" }}>
+                    <span style={{ fontSize: 18 }}>🔗</span> Property Listing
+                  </a>
+                )}
+                {flyerDoc && (
+                  <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "14px 20px", borderRadius: 12, background: "linear-gradient(135deg, #C9A84C, #D4AF37)", color: "#fff", fontSize: 14, fontWeight: 800, textDecoration: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 20px rgba(201,168,76,0.35), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.04em", transition: "all 0.2s" }}>
+                    <span style={{ fontSize: 18 }}>📄</span> Broker Flyer
+                  </a>
+                )}
+                </div>
+                {/* Row 2 — Reports + Email Rec */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                  <button onClick={() => {
+                    try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #0D47A1, #1565C0)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📊 Demos</button>
+                  <button onClick={() => {
+                    try { const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(232,122,46,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>🔬 Vet Report</button>
+                  <button onClick={() => {
+                    try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>💰 Pricing</button>
+                  <button onClick={() => {
+                    try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
+                  <button onClick={() => {
+                    try {
+                      const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
+                      const rec = generateRecEmail(site, dv.regionKey, fin);
+                      if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
+                      const encodedSubject = encodeURIComponent(rec.subject);
+                      const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
+                      navigator.clipboard.writeText(rec.body).then(() => {
+                        notify("\u2709 Email body copied \u2014 paste into Outlook body.");
+                        const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
+                        if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
+                      }).catch(() => notify("Could not copy to clipboard."));
+                      window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
+                    } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
+                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>{"\u2709"} Email Rec</button>
                 </div>
               </div>
 
-              {/* KEY METRICS STRIP */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 20 }}>
-                {[
-                  { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
-                  { label: "INTERNAL", val: site.internalPrice ? fmtPrice(site.internalPrice) : "—", color: "#E87A2E" },
-                  { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0" },
-                  { label: "ZONING", val: site.zoning || "—", color: "#C9A84C" },
-                  { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#E2E8F0" },
-                  { label: "3MI MED INC", val: site.income3mi ? "$" + fmtN(site.income3mi) : "—", color: "#E2E8F0" },
-                ].map((m, i) => (
-                  <div key={i} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(201,168,76,0.08)" }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 4 }}>{m.label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+              {/* ═══ INTERACTIVE AERIAL MAP with PS Pins + Pipeline Prospects ═══ */}
+              {site.coordinates && (() => {
+                const mapId = `leaflet-map-${site.id}`;
+                const coords = site.coordinates.split(",").map(c => parseFloat(c.trim()));
+                if (coords.length !== 2 || isNaN(coords[0]) || isNaN(coords[1])) return null;
+                const [siteLat, siteLng] = coords;
+                // Haversine helper
+                const haversine = (lat1, lon1, lat2, lon2) => {
+                  const R = 3958.8; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+                  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                };
+                // Gather all other tracker prospects with valid coordinates (excluding current site)
+                const otherProspects = [...sw.map(s => ({ ...s, _tracker: "DW" })), ...east.map(s => ({ ...s, _tracker: "MT" }))]
+                  .filter(s => s.id !== site.id && s.coordinates && s.phase !== "Dead" && s.phase !== "Declined")
+                  .map(s => {
+                    const c = s.coordinates.split(",").map(v => parseFloat(v.trim()));
+                    if (c.length !== 2 || isNaN(c[0]) || isNaN(c[1])) return null;
+                    return { ...s, _lat: c[0], _lng: c[1], _dist: haversine(siteLat, siteLng, c[0], c[1]) };
+                  }).filter(Boolean).sort((a, b) => a._dist - b._dist);
+                // Phase color mapping for prospect markers
+                const phaseColor = (phase) => {
+                  const m = { "Prospect": "#3B82F6", "Submitted to PS": "#8B5CF6", "SiteScore Approved": "#06B6D4", "LOI": "#F59E0B", "PSA Sent": "#F97316", "Under Contract": "#22C55E", "Closed": "#10B981" };
+                  return m[phase] || "#3B82F6";
+                };
+                return (
+                  <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", marginBottom: 24, position: "relative", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}>
+                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", maxWidth: "calc(100% - 24px)" }}>
+                      <div style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(12px)", color: "#fff", padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", border: "1px solid rgba(201,168,76,0.25)" }}>INTERACTIVE AERIAL</div>
+                      <div style={{ background: "rgba(21,101,192,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block" }}></span> SUBJECT SITE
+                      </div>
+                      <div style={{ background: "rgba(232,122,46,0.9)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1a1a1a", display: "inline-block", border: "1px solid #E87A2E" }}></span> PS LOCATIONS
+                      </div>
+                      <div style={{ background: "rgba(59,130,246,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: 2, background: "#fff", display: "inline-block", transform: "rotate(45deg)", border: "1.5px solid #3B82F6", boxShadow: "0 0 4px rgba(59,130,246,0.5)" }}></span> PIPELINE PROSPECTS
+                      </div>
+                    </div>
+                    <div id={mapId} style={{ width: "100%", height: 480 }} ref={(el) => {
+                      if (!el || el._leafletInit) return;
+                      el._leafletInit = true;
+                      // Load Leaflet CSS + JS from CDN
+                      if (!document.getElementById("leaflet-css")) {
+                        const css = document.createElement("link"); css.id = "leaflet-css"; css.rel = "stylesheet";
+                        css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+                      }
+                      const initMap = () => {
+                        if (!window.L) { setTimeout(initMap, 100); return; }
+                        const L = window.L;
+                        const map = L.map(el, { zoomControl: true, attributionControl: false }).setView([siteLat, siteLng], 14);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(map);
+                        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.6 }).addTo(map);
+
+                        // ── Subject site marker — blue pulsing dot with HOVER tooltip ──
+                        const siteIcon = L.divIcon({ className: "", html: '<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.18);border-radius:50%;animation:sitePulse 2s ease-in-out infinite"></div><div style="position:absolute;inset:0;background:rgba(21,101,192,0.08);border-radius:50%;animation:sitePulse 2s ease-in-out infinite 0.5s"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 20px rgba(21,101,192,0.7)"></div></div><style>@keyframes sitePulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.8);opacity:0}}</style>', iconSize: [36, 36], iconAnchor: [18, 18] });
+                        const siteMarker = L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map);
+                        // Compute SF/capita (current & projected 5-year)
+                        const _pop3 = parseFloat(String(site.pop3mi || "").replace(/[^0-9.]/g, ""));
+                        // Parse CLIMATE-CONTROLLED competing SF — prioritize CC numbers over total
+                        const _compStr = String(site.competingSF || site.demandSupplySignal || "");
+                        // Priority 1: direct CC SPC value (e.g., "INST CC SPC: 2.4" or "CC SPC: 4.7")
+                        const _ccSpcDirect = _compStr.match(/(?:INST\s+)?CC\s+SPC:\s*([\d.]+)/i);
+                        // Priority 2: any SPC value as fallback
+                        const _spcDirect = _ccSpcDirect || _compStr.match(/SPC:\s*([\d.]+)/i);
+                        let _compSf = NaN;
+                        let _directSpc = _spcDirect ? parseFloat(_spcDirect[1]) : null;
+                        if (!_directSpc) {
+                          // Priority 3: CC-specific SF with K suffix (e.g., "~197K CC" or "~100K institutional CC")
+                          const _ccSfMatch = _compStr.match(/~?([\d,.]+)\s*[Kk]\s+(?:institutional\s+)?CC/i);
+                          if (_ccSfMatch) { _compSf = parseFloat(_ccSfMatch[1].replace(/,/g, "")) * 1000; }
+                          else {
+                            // Priority 4: first K-suffixed number (total SF — less ideal but better than nothing)
+                            const _sfMatch = _compStr.match(/~?([\d,.]+)\s*[Kk]/);
+                            if (_sfMatch) { _compSf = parseFloat(_sfMatch[1].replace(/,/g, "")) * 1000; }
+                            else { const _sfMatch2 = _compStr.match(/~?([\d,.]+)\s*(?:SF|sf|sq)/); if (_sfMatch2) _compSf = parseFloat(_sfMatch2[1].replace(/,/g, "")); }
+                          }
+                        }
+                        const _growthPct = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : NaN;
+                        const _spcNow = _directSpc ? _directSpc.toFixed(1) : ((!isNaN(_pop3) && _pop3 > 0 && !isNaN(_compSf)) ? (_compSf / _pop3).toFixed(1) : null);
+                        const _pop5yr = (!isNaN(_pop3) && !isNaN(_growthPct)) ? Math.round(_pop3 * Math.pow(1 + _growthPct / 100, 5)) : NaN;
+                        const _spc5yrCalc = _directSpc ? (_directSpc * _pop3 / _pop5yr) : (!isNaN(_compSf) ? _compSf / _pop5yr : NaN);
+                        const _spc5yr = (!isNaN(_pop5yr) && _pop5yr > 0 && !isNaN(_spc5yrCalc)) ? _spc5yrCalc.toFixed(1) : null;
+                        const _spcColor = (v) => !v ? "#94A3B8" : parseFloat(v) < 5 ? "#22C55E" : parseFloat(v) < 9 ? "#3B82F6" : "#EF4444";
+                        const _spcLabel = (v) => !v ? "" : parseFloat(v) < 5 ? "Underserved" : parseFloat(v) < 9 ? "Equilibrium" : "Oversupplied";
+                        const _spcRow = (_spcNow || _spc5yr) ? `<div style="margin-top:6px;padding-top:5px;border-top:1px solid #E2E8F0"><div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><span style="font-size:9px;font-weight:800;color:#06B6D4;letter-spacing:0.06em">❄ CC SF / CAPITA (3-MI)</span></div><div style="display:flex;gap:8px;align-items:baseline">${_spcNow ? `<div><span style="font-size:14px;font-weight:900;color:${_spcColor(_spcNow)}">${_spcNow}</span><span style="font-size:9px;color:#94A3B8;margin-left:3px">now</span></div>` : ""}${_spc5yr ? `<div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:#94A3B8">\u2192</span><span style="font-size:14px;font-weight:900;color:${_spcColor(_spc5yr)}">${_spc5yr}</span><span style="font-size:9px;color:#94A3B8;margin-left:3px">5yr proj</span></div>` : ""}</div>${_spcNow ? `<div style="font-size:9px;font-weight:700;color:${_spcColor(_spcNow)};margin-top:2px">${_spcLabel(_spcNow)}${_spc5yr && _spcLabel(_spc5yr) !== _spcLabel(_spcNow) ? ` \u2192 ${_spcLabel(_spc5yr)}` : ""}</div>` : ""}</div>` : "";
+                        // Sleek hover tooltip
+                        siteMarker.bindTooltip(`<div style="min-width:220px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2px solid #fff;border-radius:50%;box-shadow:0 1px 6px rgba(21,101,192,0.5)"></div><span style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:#1565C0;text-transform:uppercase">Subject Site</span></div><div style="font-weight:900;font-size:13px;color:#0F172A;line-height:1.3">${site.address || site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${[site.city, site.state].filter(Boolean).join(", ")}</div>${site.acreage || site.askingPrice ? `<div style="display:flex;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid #E2E8F0">${site.acreage ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}</div>` : ""}${_spcRow}</div>`, { direction: "top", offset: [0, -20], className: "site-tooltip-sleek", sticky: false });
+                        // Rich click popup
+                        siteMarker.bindPopup(`<div style="min-width:220px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #1565C0"><div style="width:14px;height:14px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2.5px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(21,101,192,0.5)"></div><span style="font-weight:900;font-size:14px;color:#1565C0;letter-spacing:-0.01em">SUBJECT SITE</span></div><div style="font-weight:800;font-size:13px;color:#0F172A">${site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${site.address || ""}, ${site.city || ""} ${site.state || ""}</div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${site.acreage ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}${site.zoning ? `<span style="font-size:11px;color:#065F46;font-weight:700;background:#D1FAE5;padding:2px 8px;border-radius:4px">${site.zoning}</span>` : ""}</div></div>`);
+
+                        // ── PS locations layer ──
+                        fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
+                          const lines = csv.trim().split("\n");
+                          let psCount = 0;
+                          const psIcon = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          for (let i = 1; i < lines.length; i++) {
+                            const parts = lines[i].split(",");
+                            if (parts.length < 7) continue;
+                            const pLat = parseFloat(parts[5]), pLng = parseFloat(parts[6]);
+                            if (isNaN(pLat) || isNaN(pLng)) continue;
+                            const dist = haversine(siteLat, siteLng, pLat, pLng);
+                            if (dist <= 25) {
+                              psCount++;
+                              const pNum = parts[0], pName = parts[1], pAddr = parts[2], pCity = parts[3], pState = parts[4];
+                              const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map);
+                              marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
+                              marker.bindPopup(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">${pNum}</span></div><div style="font-size:12px;font-weight:600;color:#334155">${pName}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${pAddr}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">${dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>`);
+                            }
+                          }
+                          // Count badge (bottom-right) — PS locations
+                          const badge = document.createElement("div");
+                          badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>`;
+                          el.appendChild(badge);
+                        }).catch(() => {});
+
+                        // ── Pipeline prospects layer — diamond markers, zoom-aware ──
+                        const prospectGroup = L.layerGroup();
+                        let prospectCount = 0;
+                        const prospectBadgeEl = document.createElement("div");
+                        prospectBadgeEl.style.cssText = "position:absolute;bottom:52px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;gap:8px;min-width:180px;transition:opacity 0.3s;opacity:0";
+                        el.appendChild(prospectBadgeEl);
+
+                        otherProspects.forEach(p => {
+                          const pc = phaseColor(p.phase);
+                          const iq = getSiteScore(p);
+                          const scoreStr = iq && iq.score ? iq.score.toFixed(1) : "—";
+                          const scoreColor = iq && iq.score >= 8 ? "#22C55E" : iq && iq.score >= 6 ? "#3B82F6" : iq && iq.score >= 4 ? "#F59E0B" : "#EF4444";
+                          // Diamond marker — bright white fill, phase-colored border, glow
+                          const prospIcon = L.divIcon({
+                            className: "",
+                            html: `<div style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;background:linear-gradient(135deg,#ffffff,#E0E7FF);border:3px solid ${pc};border-radius:3px;transform:rotate(45deg);box-shadow:0 0 14px ${pc}88,0 0 6px ${pc}44,0 2px 6px rgba(0,0,0,0.4)"></div></div>`,
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 16]
+                          });
+                          const m = L.marker([p._lat, p._lng], { icon: prospIcon, zIndexOffset: 500 });
+                          // Hover tooltip — sleek prospect card
+                          m.bindTooltip(`<div style="min-width:220px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid #E2E8F0"><div style="width:10px;height:10px;background:rgba(15,23,42,0.85);border:2px solid ${pc};border-radius:2px;transform:rotate(45deg)"></div><span style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:${pc};text-transform:uppercase">Pipeline Prospect</span><span style="margin-left:auto;font-size:9px;font-weight:700;color:#94A3B8;background:rgba(148,163,184,0.1);padding:1px 6px;border-radius:3px">${p._tracker}</span></div><div style="font-weight:800;font-size:12px;color:#0F172A;line-height:1.3">${p.name || p.address || "Prospect"}</div><div style="font-size:10px;color:#64748B;margin-top:2px">${[p.city, p.state].filter(Boolean).join(", ")}</div><div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;align-items:center">${p.phase ? `<span style="font-size:9px;font-weight:700;color:${pc};background:${pc}18;padding:2px 7px;border-radius:3px;border:1px solid ${pc}33">${p.phase}</span>` : ""}<span style="font-size:10px;font-weight:800;color:${scoreColor};background:${scoreColor}15;padding:2px 7px;border-radius:3px;border:1px solid ${scoreColor}33">${scoreStr}/10</span>${p.acreage ? `<span style="font-size:9px;font-weight:700;color:#475569;background:#F1F5F9;padding:2px 7px;border-radius:3px">${p.acreage} ac</span>` : ""}${p.askingPrice ? `<span style="font-size:9px;font-weight:700;color:#475569;background:#F1F5F9;padding:2px 7px;border-radius:3px">${p.askingPrice}</span>` : ""}</div><div style="margin-top:5px;font-size:10px;color:#1565C0;font-weight:700">${p._dist.toFixed(1)} mi from subject</div></div>`, { direction: "auto", offset: [0, -14], className: "prospect-tooltip-sleek" });
+                          // Click popup — full detail
+                          m.bindPopup(`<div style="min-width:240px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid ${pc}"><div style="width:12px;height:12px;background:rgba(15,23,42,0.85);border:2.5px solid ${pc};border-radius:2px;transform:rotate(45deg)"></div><span style="font-weight:900;font-size:13px;color:${pc}">PIPELINE PROSPECT</span><span style="margin-left:auto;font-size:10px;font-weight:700;background:rgba(148,163,184,0.1);color:#94A3B8;padding:2px 8px;border-radius:4px">${p._tracker} Tracker</span></div><div style="font-weight:800;font-size:14px;color:#0F172A">${p.name || "Prospect"}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${p.address || ""}, ${[p.city, p.state].filter(Boolean).join(", ")}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #E2E8F0">${p.acreage ? `<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">Acreage</div><div style="font-size:13px;font-weight:800;color:#0F172A">${p.acreage} ac</div></div>` : ""}<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">SiteScore</div><div style="font-size:13px;font-weight:800;color:${scoreColor}">${scoreStr}</div></div>${p.askingPrice ? `<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">Asking</div><div style="font-size:13px;font-weight:800;color:#0F172A">${p.askingPrice}</div></div>` : ""}<div><div style="font-size:9px;color:#94A3B8;font-weight:600;text-transform:uppercase">Phase</div><div style="font-size:12px;font-weight:700;color:${pc}">${p.phase || "Prospect"}</div></div></div><div style="margin-top:8px;padding-top:8px;border-top:1px solid #E2E8F0;display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:800;color:#1565C0">${p._dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8">from subject</span>${p.zoning ? `<span style="margin-left:auto;font-size:10px;font-weight:700;color:#065F46;background:#D1FAE5;padding:2px 8px;border-radius:4px">${p.zoning}</span>` : ""}</div></div>`);
+                          prospectGroup.addLayer(m);
+                          prospectCount++;
+                        });
+
+                        // Zoom-aware: show prospects at zoom ≤ 11, show/hide dynamically
+                        const updateProspectVisibility = () => {
+                          const z = map.getZoom();
+                          if (z <= 11 && !map.hasLayer(prospectGroup)) {
+                            map.addLayer(prospectGroup);
+                            prospectBadgeEl.style.opacity = "1";
+                          } else if (z > 11 && map.hasLayer(prospectGroup)) {
+                            map.removeLayer(prospectGroup);
+                            prospectBadgeEl.style.opacity = "0";
+                          }
+                        };
+                        map.on("zoomend", updateProspectVisibility);
+                        // Set prospect badge content
+                        prospectBadgeEl.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#3B82F6,#6366F1);border-radius:6px;font-size:12px;font-weight:900;color:#fff">${prospectCount}</span><span style="font-size:11px">Pipeline prospects</span><span style="font-size:9px;color:#64748B;margin-left:4px">(zoom out)</span>`;
+                        // Initial state — hidden at zoom 14
+                        updateProspectVisibility();
+
+                        // ── 3-mile radius ring ──
+                        L.circle([siteLat, siteLng], { radius: 4828, color: "#C9A84C", weight: 2, opacity: 0.5, fillColor: "#C9A84C", fillOpacity: 0.04, dashArray: "8,6" }).addTo(map).bindPopup("<div style='font-weight:700;font-size:11px;color:#C9A84C'>3-Mile Radius</div><div style='font-size:10px;color:#64748B'>Primary trade area</div>");
+                      };
+                      if (!document.getElementById("leaflet-js")) {
+                        const js = document.createElement("script"); js.id = "leaflet-js";
+                        js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+                        js.onload = initMap; document.head.appendChild(js);
+                      } else { initMap(); }
+                    }} />
                   </div>
-                ))}
-              </div>
+                );
+              })()}
 
-              {/* ACTION BUTTONS */}
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, padding: "16px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)", alignItems: "center" }}>
-                <button onClick={() => {
-                  const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); window.open(url, "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site);
-                }} style={{ padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(232,122,46,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>🔬 Storvex Deep Vet Report</button>
-                {site.coordinates && <>
-                  <a href={mapsLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(21,101,192,0.12)", color: "#42A5F5", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(21,101,192,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🗺 Google Maps</a>
-                  <a href={earthLink(site.coordinates)} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(46,125,50,0.12)", color: "#66BB6A", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(46,125,50,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🌍 Google Earth</a>
-                </>}
-                {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(232,122,46,0.12)", color: "#E87A2E", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(232,122,46,0.25)", display: "flex", alignItems: "center", gap: 6 }}>🔗 Property Listing</a>}
-                {flyerDoc && <a href={flyerDoc[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "12px 22px", borderRadius: 12, background: "rgba(243,124,51,0.12)", color: "#FFB347", fontSize: 13, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(243,124,51,0.25)", display: "flex", alignItems: "center", gap: 6 }}>📄 View Flyer</a>}
-              </div>
+              {/* SITESCORE DEEP BREAKDOWN — expandable (moved below map) */}
+              {scoreExpanded && (() => {
+                const bd = iqR.breakdown || [];
+                const wSum = bd.reduce((a, b) => a + b.weight, 0);
+                return (
+                  <div style={{ borderRadius: 16, marginBottom: 20, overflow: "hidden", border: "1px solid rgba(201,168,76,0.15)", background: "rgba(10,10,14,0.95)", boxShadow: "0 8px 40px rgba(0,0,0,0.4)" }}>
+                    <div style={{ background: "linear-gradient(135deg,#0F172A,#1E2761,#1565C0)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 18 }}>🎯</span>
+                        <span style={{ color: "#fff", fontSize: 16, fontWeight: 900, letterSpacing: "0.06em" }}>SITESCORE<span style={{ fontSize: 10, verticalAlign: "super" }}>™</span> BREAKDOWN</span>
+                        <span style={{ background: iqR.classColor + "25", color: iqR.classColor, fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 6 }}>{iqR.classification}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 32, fontWeight: 900, color: iqR.tier === "gold" ? "#FFD700" : "#E2E8F0", fontFamily: "'Space Mono', monospace", textShadow: iqR.tier === "gold" ? "0 0 20px rgba(255,215,0,0.4)" : "none" }}>{iqR.score.toFixed(2)}</div>
+                        <span style={{ fontSize: 12, color: "#94A3B8" }}>/10</span>
+                        <button onClick={() => setScoreExpanded(false)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✕</button>
+                      </div>
+                    </div>
+                    {/* Dimension rows — CLICKABLE with expandable deep-dive panels */}
+                    <div style={{ padding: "8px 0" }}>
+                      {bd.map((dim, i) => {
+                        const pct = (dim.score / 10) * 100;
+                        const barC = dim.score >= 8 ? "#22C55E" : dim.score >= 6 ? "#3B82F6" : dim.score >= 4 ? "#F59E0B" : "#EF4444";
+                        const wPct = wSum > 0 ? ((dim.weight / wSum) * 100).toFixed(0) : "0";
+                        const contrib = (dim.score * dim.weight / wSum).toFixed(2);
+                        const dimIcons = ["👥","📈","💰","🏠","🏡","🏷️","🏛","📍","🚗","🏪"];
+                        const isExpanded = scoreDimExpanded === dim.key;
+                        const pN = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
+                        const popRaw = pN(site.pop3mi); const pop1Raw = pN(site.pop1mi); const hhiRaw = pN(site.income3mi);
+                        const hhRaw = pN(site.households3mi); const hvRaw = pN(site.homeValue3mi);
+                        const gVal = site.popGrowth3mi ? parseFloat(site.popGrowth3mi) : null;
+                        const iq = site.siteiqData || {};
+                        const pricePerAc = (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? Math.round(p / a) : null; })();
+                        // Helper: metric row inside expansion
+                        const MRow = ({ label, value, bench, benchLabel, color, pctOf }) => (
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid rgba(201,168,76,0.04)" }}>
+                            <div style={{ width: 140, fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>{label}</div>
+                            <div style={{ flex: 1, position: "relative", height: 10, borderRadius: 5, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(100, (pctOf || 0))}%`, borderRadius: 5, background: `linear-gradient(90deg, ${color}99, ${color})`, transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+                            </div>
+                            <div style={{ width: 90, textAlign: "right", fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{value || "—"}</div>
+                            {bench && <div style={{ width: 100, textAlign: "right", fontSize: 9, color: "#6B7394" }}>vs {benchLabel}</div>}
+                          </div>
+                        );
+                        // Helper: SiteScore analysis box
+                        const StorvexAnalysis = ({ text, signal, signalColor }) => (
+                          <div style={{ marginTop: 16, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(201,168,76,0.12)" }}>
+                            <div style={{ background: "linear-gradient(135deg, #1E2761, #0F172A)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 12 }}>🔬</span>
+                              <span style={{ fontSize: 10, fontWeight: 900, color: "#C9A84C", letterSpacing: "0.1em" }}>STORVEX SUMMARY ANALYSIS</span>
+                              {signal && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 800, padding: "2px 10px", borderRadius: 5, background: (signalColor || "#C9A84C") + "18", color: signalColor || "#C9A84C" }}>{signal}</span>}
+                            </div>
+                            <div style={{ padding: "12px 16px", background: "rgba(10,10,14,0.6)", fontSize: 11, color: "#CBD5E1", lineHeight: 1.7 }}>{text}</div>
+                          </div>
+                        );
+                        // Build expansion content per dimension key
+                        const renderDimExpansion = () => {
+                          const dK = dim.key;
+                          if (dK === "population") {
+                            const popBench = 40000; const minPop = 5000;
+                            const popPct = popRaw ? Math.min(100, (popRaw / popBench) * 100) : 0;
+                            const pop1Pct = pop1Raw ? Math.min(100, (pop1Raw / 10000) * 100) : 0;
+                            const futurePop = popRaw && gVal != null ? Math.round(popRaw * Math.pow(1 + gVal / 100, 5)) : null;
+                            const futPct = futurePop ? Math.min(100, (futurePop / popBench) * 100) : 0;
+                            const signal = popRaw >= 40000 ? "DENSE MARKET" : popRaw >= 25000 ? "SOLID DEMAND" : popRaw >= 10000 ? "EMERGING" : "THIN";
+                            const sigColor = popRaw >= 40000 ? "#22C55E" : popRaw >= 25000 ? "#3B82F6" : popRaw >= 10000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(59,130,246,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>RADIUS POPULATION BREAKDOWN</div>
+                                  <MRow label="1-Mile Radius" value={pop1Raw ? pop1Raw.toLocaleString() : "—"} color="#8B5CF6" pctOf={pop1Pct} bench benchLabel="10K" />
+                                  <MRow label="3-Mile Radius" value={popRaw ? popRaw.toLocaleString() : "—"} color="#3B82F6" pctOf={popPct} bench benchLabel="40K" />
+                                  <MRow label="5-Mile (est.)" value={popRaw ? Math.round(popRaw * 2.4).toLocaleString() : "—"} color="#1D4ED8" pctOf={popRaw ? Math.min(100, (popRaw * 2.4 / 100000) * 100) : 0} bench benchLabel="100K" />
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(34,197,94,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PROJECTED TRAJECTORY (2025-2030)</div>
+                                  <MRow label="Current (2025)" value={popRaw ? popRaw.toLocaleString() : "—"} color="#3B82F6" pctOf={popPct} />
+                                  <MRow label="Projected (2030)" value={futurePop ? futurePop.toLocaleString() : "—"} color={gVal > 0 ? "#22C55E" : "#EF4444"} pctOf={futPct} />
+                                  <MRow label="Net Change" value={futurePop && popRaw ? (futurePop > popRaw ? "+" : "") + (futurePop - popRaw).toLocaleString() : "—"} color={gVal > 0 ? "#22C55E" : "#EF4444"} pctOf={futurePop && popRaw ? Math.min(100, Math.abs(futurePop - popRaw) / popRaw * 100 * 5) : 0} />
+                                  <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ fontSize: 10, color: "#6B7394" }}>5-Year CAGR</span>
+                                    <span style={{ fontSize: 13, fontWeight: 800, color: gVal > 0 ? "#22C55E" : gVal === 0 ? "#94A3B8" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{gVal != null ? (gVal >= 0 ? "+" : "") + gVal.toFixed(2) + "%" : "—"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 4 }}>
+                                <div style={{ background: "rgba(15,21,56,0.3)", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em" }}>PS BENCHMARK</div>
+                                  <div style={{ fontSize: 16, fontWeight: 900, color: "#4A5080", fontFamily: "'Space Mono', monospace" }}>40,000</div>
+                                  <div style={{ fontSize: 9, color: popRaw >= 40000 ? "#22C55E" : "#F59E0B", fontWeight: 700 }}>{popRaw ? (popRaw >= 40000 ? "EXCEEDS" : Math.round(popRaw / 400) + "% of target") : "—"}</div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.3)", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em" }}>MIN THRESHOLD</div>
+                                  <div style={{ fontSize: 16, fontWeight: 900, color: "#EF4444", fontFamily: "'Space Mono', monospace" }}>5,000</div>
+                                  <div style={{ fontSize: 9, color: popRaw >= 5000 ? "#22C55E" : "#EF4444", fontWeight: 700 }}>{popRaw >= 5000 ? "CLEAR" : "BELOW MIN"}</div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.3)", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em" }}>DENSITY SIGNAL</div>
+                                  <div style={{ fontSize: 14, fontWeight: 900, color: sigColor, fontFamily: "'Space Mono', monospace" }}>{signal}</div>
+                                  <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>Score: {dim.score}/10</div>
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={signal} signalColor={sigColor} text={popRaw >= 40000 ? `Dense population base of ${popRaw.toLocaleString()} within 3 miles indicates strong latent storage demand. This market exceeds Public Storage's 40K benchmark, placing it in the top tier for household-driven self-storage absorption. ${gVal > 1 ? "Combined with above-average growth, this submarket has compounding demand tailwinds." : "Population density alone supports facility viability."}` : popRaw >= 15000 ? `Population of ${popRaw.toLocaleString()} within 3 miles falls in the mid-range for storage feasibility. While below the 40K premium benchmark, this density is sufficient to support a climate-controlled facility if competition is limited. ${gVal > 1.5 ? "Strong growth trajectory could push this into premium territory within 3-5 years." : "Growth and income quality become critical tiebreakers at this population level."}` : `Population of ${popRaw ? popRaw.toLocaleString() : "N/A"} within 3 miles signals a thinner demand base. Storage facilities in sub-15K markets require either very low competition, premium income demographics, or exceptional growth to justify development. Recommend careful validation of demand drivers.`} />
+                            </div>);
+                          }
+                          if (dK === "growth") {
+                            const gC = gVal > 1.5 ? "#22C55E" : gVal > 0.5 ? "#4ADE80" : gVal > 0 ? "#FBBF24" : gVal > -0.5 ? "#94A3B8" : "#EF4444";
+                            const outlook = gVal > 2.0 ? "RAPID EXPANSION" : gVal > 1.5 ? "HIGH GROWTH" : gVal > 1.0 ? "ABOVE AVERAGE" : gVal > 0.5 ? "STEADY GROWTH" : gVal > 0 ? "STABLE" : gVal > -0.5 ? "FLAT" : "DECLINING";
+                            const natAvg = 0.5; const futurePop = popRaw && gVal != null ? Math.round(popRaw * Math.pow(1 + gVal / 100, 5)) : null;
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 20, border: `1px solid ${gC}15`, textAlign: "center" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 8 }}>5-YEAR COMPOUND ANNUAL GROWTH RATE</div>
+                                  <div style={{ fontSize: 48, fontWeight: 900, color: gC, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{gVal != null ? (gVal >= 0 ? "+" : "") + gVal.toFixed(2) + "%" : "—"}</div>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: gC, marginTop: 8, letterSpacing: "0.05em" }}>{outlook}</div>
+                                  <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.04)", overflow: "hidden", marginTop: 14 }}>
+                                    <div style={{ height: "100%", width: `${Math.min(100, Math.max(5, ((gVal || 0) / 3) * 100))}%`, borderRadius: 4, background: `linear-gradient(90deg, ${gC}99, ${gC})` }} />
+                                  </div>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}><span style={{ fontSize: 8, color: "#4A5080" }}>0%</span><span style={{ fontSize: 8, color: "#4A5080" }}>3%+ (rapid)</span></div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 20, border: "1px solid rgba(59,130,246,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>GROWTH CONTEXT</div>
+                                  <MRow label="This Market" value={gVal != null ? gVal.toFixed(2) + "%" : "—"} color={gC} pctOf={gVal ? Math.min(100, (gVal / 3) * 100) : 0} />
+                                  <MRow label="National Average" value={natAvg.toFixed(2) + "%"} color="#4A5080" pctOf={(natAvg / 3) * 100} />
+                                  <MRow label="Spread vs National" value={gVal != null ? (gVal - natAvg >= 0 ? "+" : "") + (gVal - natAvg).toFixed(2) + "%" : "—"} color={gVal > natAvg ? "#22C55E" : "#EF4444"} pctOf={gVal ? Math.min(100, Math.abs(gVal - natAvg) / 3 * 100) : 0} />
+                                  {futurePop && popRaw && <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}>
+                                    <div style={{ fontSize: 9, color: "#6B7394", marginBottom: 4 }}>5-YEAR NET POPULATION CHANGE</div>
+                                    <div style={{ fontSize: 18, fontWeight: 900, color: futurePop > popRaw ? "#22C55E" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{futurePop > popRaw ? "+" : ""}{(futurePop - popRaw).toLocaleString()} people</div>
+                                    <div style={{ fontSize: 10, color: "#94A3B8" }}>{popRaw.toLocaleString()} (2025) → {futurePop.toLocaleString()} (2030)</div>
+                                  </div>}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={outlook} signalColor={gC} text={gVal > 1.5 ? `This submarket is growing at ${gVal.toFixed(2)}% annually, ${(gVal / natAvg).toFixed(1)}x the national average. Rapid population growth is the strongest predictor of new storage demand, as incoming households typically need storage during relocation transitions. This growth rate projects ${futurePop ? "+" + (futurePop - (popRaw || 0)).toLocaleString() + " new residents" : "significant expansion"} by 2030, creating a compounding demand tailwind.` : gVal > 0.5 ? `Growth rate of ${gVal.toFixed(2)}% tracks above the national average of ${natAvg}%. Steady population expansion supports organic storage demand growth. New household formation in this corridor will drive incremental absorption, though the pace suggests a 3-5 year lease-up horizon for new development.` : gVal > 0 ? `Modest growth at ${gVal.toFixed(2)}% is near the national baseline. Storage demand will be primarily driven by existing household turnover and life events (moves, downsizing, renovations) rather than net new population. Competition quality becomes the critical differentiator in stable markets.` : `Population contraction at ${gVal ? gVal.toFixed(2) : "N/A"}% annually presents a demand headwind. Storage facilities in declining markets can still perform if positioned to capture market share from weaker operators, but organic demand growth is limited. Recommend focus on existing facility occupancy data and competitor health.`} />
+                            </div>);
+                          }
+                          if (dK === "income") {
+                            const hhiBench = 90000; const midBench = 65000; const minBench = 55000;
+                            const pctTop = hhiRaw ? Math.min(100, (hhiRaw / hhiBench) * 100) : 0;
+                            const tier = hhiRaw >= 90000 ? "PREMIUM" : hhiRaw >= 75000 ? "AFFLUENT" : hhiRaw >= 65000 ? "STRONG" : hhiRaw >= 55000 ? "ADEQUATE" : "BELOW THRESHOLD";
+                            const tierC = hhiRaw >= 90000 ? "#C9A84C" : hhiRaw >= 75000 ? "#22C55E" : hhiRaw >= 65000 ? "#3B82F6" : hhiRaw >= 55000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tierC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>MEDIAN HOUSEHOLD INCOME</div>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1, marginBottom: 8 }}>{hhiRaw ? "$" + hhiRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, background: tierC + "18", border: `1px solid ${tierC}30` }}>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: tierC }}>{tier}</span>
+                                  </div>
+                                  <div style={{ marginTop: 14 }}>
+                                    <MRow label="This Market" value={"$" + (hhiRaw || 0).toLocaleString()} color={tierC} pctOf={pctTop} />
+                                    <MRow label="Premium ($90K)" value="$90,000" color="#C9A84C" pctOf={100} />
+                                    <MRow label="Strong ($65K)" value="$65,000" color="#3B82F6" pctOf={(65000 / hhiBench) * 100} />
+                                    <MRow label="Minimum ($55K)" value="$55,000" color="#EF4444" pctOf={(55000 / hhiBench) * 100} />
+                                  </div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>INCOME IMPLICATIONS FOR STORAGE</div>
+                                  {[
+                                    { label: "Willingness to Pay", val: hhiRaw >= 75000 ? "High" : hhiRaw >= 55000 ? "Moderate" : "Limited", color: hhiRaw >= 75000 ? "#22C55E" : hhiRaw >= 55000 ? "#F59E0B" : "#EF4444", desc: "Higher income = premium unit absorption" },
+                                    { label: "Climate-Controlled Demand", val: hhiRaw >= 65000 ? "Strong" : "Moderate", color: hhiRaw >= 65000 ? "#22C55E" : "#F59E0B", desc: "Affluent households store higher-value items" },
+                                    { label: "Price Sensitivity", val: hhiRaw >= 90000 ? "Low" : hhiRaw >= 65000 ? "Moderate" : "High", color: hhiRaw >= 90000 ? "#22C55E" : hhiRaw >= 65000 ? "#F59E0B" : "#EF4444", desc: "Impacts rate growth potential" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ padding: "10px 0", borderBottom: j < 2 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{r.label}</span>
+                                        <span style={{ fontSize: 12, fontWeight: 800, color: r.color, fontFamily: "'Space Mono', monospace" }}>{r.val}</span>
+                                      </div>
+                                      <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2 }}>{r.desc}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={tier} signalColor={tierC} text={hhiRaw >= 90000 ? `Premium income market at $${hhiRaw.toLocaleString()} median HHI. Households at this income level are the core self-storage demographic: homeowners with accumulated possessions, disposable income for monthly storage rents, and preference for climate-controlled units. This income tier supports premium pricing strategies and strong RevPAF.` : hhiRaw >= 65000 ? `Solid income base at $${hhiRaw.toLocaleString()} median HHI. This level supports standard self-storage pricing and moderate climate-controlled unit demand. Households can absorb typical rate increases without significant churn. Income alone is not a differentiator but removes downside risk.` : `Income at $${(hhiRaw || 0).toLocaleString()} approaches the $55K minimum threshold. Lower-income markets typically see higher price sensitivity, lower climate-controlled uptake, and greater churn. Storage demand exists but skews toward smaller, drive-up units. Premium pricing will be constrained.`} />
+                            </div>);
+                          }
+                          if (dK === "households") {
+                            const hhBench = 25000;
+                            const hhPct = hhRaw ? Math.min(100, (hhRaw / hhBench) * 100) : 0;
+                            const signal = hhRaw >= 25000 ? "DEEP DEMAND POOL" : hhRaw >= 18000 ? "STRONG BASE" : hhRaw >= 12000 ? "ADEQUATE" : hhRaw >= 6000 ? "MODERATE" : "LIMITED";
+                            const sigC = hhRaw >= 25000 ? "#22C55E" : hhRaw >= 12000 ? "#3B82F6" : hhRaw >= 6000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sigC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>3-MILE HOUSEHOLD COUNT</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{hhRaw ? hhRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: sigC + "18", border: `1px solid ${sigC}30` }}>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: sigC }}>{signal}</span>
+                                  </div>
+                                </div>
+                                <MRow label="This Market" value={(hhRaw || 0).toLocaleString()} color={sigC} pctOf={hhPct} bench benchLabel="25K" />
+                                <MRow label="Top Tier (25K)" value="25,000" color="#22C55E" pctOf={100} />
+                                <MRow label="Solid Base (12K)" value="12,000" color="#3B82F6" pctOf={48} />
+                                <MRow label="Minimum (6K)" value="6,000" color="#F59E0B" pctOf={24} />
+                                {popRaw && hhRaw && <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ fontSize: 10, color: "#6B7394" }}>Avg Household Size</span>
+                                  <span style={{ fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(popRaw / hhRaw).toFixed(1)} people/hh</span>
+                                </div>}
+                              </div>
+                              <StorvexAnalysis signal={signal} signalColor={sigC} text={hhRaw >= 25000 ? `${hhRaw.toLocaleString()} households within 3 miles represents a deep demand pool. Industry data indicates approximately 10% of US households rent storage at any given time, projecting ~${Math.round(hhRaw * 0.10).toLocaleString()} potential storage renters in this trade area. This base can support multiple facilities without saturation.` : hhRaw >= 12000 ? `${hhRaw.toLocaleString()} households provide a solid demand base. With typical 10% storage penetration, this projects ~${Math.round((hhRaw || 0) * 0.10).toLocaleString()} potential renters. Sufficient to support a single well-positioned facility, though competition share becomes a critical variable.` : `Household count of ${(hhRaw || 0).toLocaleString()} indicates a thinner customer base. Each competitor in the trade area consumes a larger share of available demand. Success depends on capturing a dominant market position and/or below-average competition.`} />
+                            </div>);
+                          }
+                          if (dK === "homeValue") {
+                            const hvBench = 500000;
+                            const hvPct = hvRaw ? Math.min(100, (hvRaw / hvBench) * 100) : 0;
+                            const tier = hvRaw >= 500000 ? "PREMIUM" : hvRaw >= 350000 ? "UPPER-MIDDLE" : hvRaw >= 250000 ? "MIDDLE MARKET" : hvRaw >= 180000 ? "MODERATE" : "VALUE";
+                            const tierC = hvRaw >= 500000 ? "#C9A84C" : hvRaw >= 350000 ? "#22C55E" : hvRaw >= 250000 ? "#3B82F6" : hvRaw >= 180000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tierC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>MEDIAN HOME VALUE (3-MI)</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{hvRaw ? "$" + hvRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: tierC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: tierC }}>{tier}</span></div>
+                                </div>
+                                <MRow label="This Market" value={"$" + (hvRaw || 0).toLocaleString()} color={tierC} pctOf={hvPct} bench benchLabel="$500K" />
+                                <MRow label="Premium ($500K)" value="$500,000" color="#C9A84C" pctOf={100} />
+                                <MRow label="Affluent ($350K)" value="$350,000" color="#22C55E" pctOf={70} />
+                                <MRow label="Middle ($250K)" value="$250,000" color="#3B82F6" pctOf={50} />
+                              </div>
+                              <StorvexAnalysis signal={tier} signalColor={tierC} text={hvRaw >= 350000 ? `Home values averaging $${(hvRaw || 0).toLocaleString()} signal an affluent submarket. Higher home values strongly correlate with storage demand: homeowners accumulate more possessions, invest in climate-sensitive items (furniture, electronics, wine), and are willing to pay premium storage rates. This is a wealth indicator that supports aggressive RevPAF targets.` : hvRaw >= 180000 ? `Middle-market home values at $${(hvRaw || 0).toLocaleString()} indicate a stable residential base. Storage demand will be driven by standard household storage needs (seasonal items, life transitions) rather than premium asset storage. Pricing should target competitive market rates.` : `Home values below $180K suggest a value-oriented market. Storage demand exists but skews toward basic, cost-sensitive solutions. Climate-controlled premium units may see slower absorption. Drive-up and smaller unit mixes perform better in this tier.`} />
+                            </div>);
+                          }
+                          if (dK === "zoning") {
+                            const zClass = site.zoningClassification || "unknown";
+                            const zColor = zClass === "by-right" ? "#22C55E" : zClass === "conditional" ? "#F59E0B" : zClass === "rezone-required" ? "#EF4444" : "#6B7394";
+                            const zLabel = zClass === "by-right" ? "BY-RIGHT" : zClass === "conditional" ? "CONDITIONAL (SUP/CUP)" : zClass === "rezone-required" ? "REZONE REQUIRED" : "UNKNOWN";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${zColor}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>ZONING CLASSIFICATION</div>
+                                  <div style={{ fontSize: 22, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", marginBottom: 6 }}>{site.zoning || "TBD"}</div>
+                                  <div style={{ display: "inline-block", padding: "5px 14px", borderRadius: 6, background: zColor + "18", border: `1px solid ${zColor}30`, marginBottom: 14 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 800, color: zColor }}>{zLabel}</span>
+                                  </div>
+                                  {site.zoningUseTerm && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>USE CATEGORY: </span><span style={{ fontSize: 11, color: "#E2E8F0" }}>{site.zoningUseTerm}</span></div>}
+                                  {site.zoningOrdinanceSection && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>ORDINANCE: </span><span style={{ fontSize: 11, color: "#E2E8F0" }}>{site.zoningOrdinanceSection}</span></div>}
+                                  {site.overlayDistrict && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>OVERLAY: </span><span style={{ fontSize: 11, color: "#E2E8F0" }}>{site.overlayDistrict}</span></div>}
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>ENTITLEMENT REQUIREMENTS</div>
+                                  {[
+                                    { label: "Permitting Path", val: zLabel, color: zColor },
+                                    { label: "Est. Timeline", val: site.supTimeline || (zClass === "by-right" ? "30-60 days" : zClass === "conditional" ? "3-6 months" : "6-12+ months"), color: zClass === "by-right" ? "#22C55E" : zClass === "conditional" ? "#F59E0B" : "#EF4444" },
+                                    { label: "Est. Cost", val: site.supCost || (zClass === "by-right" ? "$5K-$15K" : zClass === "conditional" ? "$25K-$50K" : "$50K-$100K+") },
+                                    { label: "Political Risk", val: site.politicalRisk || "Not assessed" },
+                                    { label: "Planning Contact", val: site.planningContact || "Not recorded" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: j < 4 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.label}</span>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: r.color || "#E2E8F0", textAlign: "right", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.val}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={zLabel} signalColor={zColor} text={zClass === "by-right" ? `Storage is permitted by-right under ${site.zoning || "current zoning"}, eliminating the largest entitlement risk factor. By-right approval typically takes 30-60 days through standard site plan review. This is the optimal zoning scenario and significantly de-risks the development timeline.${site.facadeReqs ? " Note: architectural/facade requirements may apply." : ""}` : zClass === "conditional" ? `Storage requires a conditional use permit (SUP/CUP) under ${site.zoning || "current zoning"}. This introduces 3-6 months of entitlement timeline and $25K-$50K in application/legal costs. Success depends on political environment, neighbor opposition risk, and recent approval history. ${site.politicalRisk === "Low" ? "Low political risk noted." : "Recommend checking recent storage approvals in this jurisdiction."}` : zClass === "rezone-required" ? `Rezoning is required, representing the highest entitlement risk. Timeline extends to 6-12+ months with $50K-$100K+ in costs and no guarantee of approval. This adds significant risk premium to the deal and should be reflected in pricing negotiations.` : `Zoning classification not yet confirmed for ${site.zoning || "this parcel"}. Immediate verification of the permitted use table is required before advancing. Contact local planning department to confirm self-storage permissibility under the current district.`} />
+                            </div>);
+                          }
+                          if (dK === "psProximity") {
+                            const psD = iq.nearestPS; const psDist = typeof psD === "number" ? psD : parseFloat(psD);
+                            const proxSignal = psDist <= 5 ? "VALIDATED SUBMARKET" : psDist <= 10 ? "PS ADJACENT" : psDist <= 15 ? "MODERATE DISTANCE" : psDist <= 25 ? "EDGE OF FOOTPRINT" : "REMOTE";
+                            const proxC = psDist <= 5 ? "#22C55E" : psDist <= 10 ? "#3B82F6" : psDist <= 15 ? "#F59E0B" : "#E87A2E";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${proxC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PS NEAREST FACILITY PROXIMITY</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 42, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{psDist ? psDist.toFixed(1) : "—"}<span style={{ fontSize: 16, color: "#6B7394" }}> mi</span></div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: proxC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: proxC }}>{proxSignal}</span></div>
+                                </div>
+                                <div style={{ marginTop: 8 }}>
+                                  {[
+                                    { label: "0-5 mi: Validated Submarket", color: "#22C55E", active: psDist <= 5, score: "10/10" },
+                                    { label: "5-10 mi: PS Adjacent", color: "#3B82F6", active: psDist > 5 && psDist <= 10, score: "9/10" },
+                                    { label: "10-15 mi: Moderate", color: "#F59E0B", active: psDist > 10 && psDist <= 15, score: "7/10" },
+                                    { label: "15-25 mi: Edge", color: "#E87A2E", active: psDist > 15 && psDist <= 25, score: "5/10" },
+                                    { label: "25-35 mi: Remote", color: "#EF4444", active: psDist > 25, score: "3/10" },
+                                  ].map((t, j) => (
+                                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 6, marginBottom: 4, background: t.active ? t.color + "12" : "transparent", border: t.active ? `1px solid ${t.color}30` : "1px solid transparent" }}>
+                                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.active ? t.color : "#4A5080" }} />
+                                      <span style={{ fontSize: 11, color: t.active ? "#E2E8F0" : "#6B7394", fontWeight: t.active ? 700 : 500, flex: 1 }}>{t.label}</span>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: t.active ? t.color : "#4A5080", fontFamily: "'Space Mono', monospace" }}>{t.score}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={proxSignal} signalColor={proxC} text={psDist <= 5 ? `Nearest PS facility is just ${psDist.toFixed(1)} miles away, confirming this as a validated PS submarket. Proximity to existing PS locations indicates the market has been previously vetted and approved by PS development. Closer proximity = stronger market validation signal, not cannibalization risk. New facilities in proven PS markets typically achieve faster lease-up.` : psDist <= 15 ? `At ${psDist.toFixed(1)} miles from the nearest PS location, this site sits within PS's established operating footprint. The distance suggests an adjacent trade area that PS has not yet saturated, presenting an infill opportunity. This proximity supports operational efficiency for PS's regional management structure.` : `${psDist ? psDist.toFixed(1) : "N/A"} miles from the nearest PS facility places this at the edge of PS's current footprint. While not a disqualifier, sites beyond 25 miles require stronger standalone fundamentals (demographics, growth, limited competition) to justify expansion into a new submarket. Above 35 miles is an automatic exclusion per PS criteria.`} />
+                            </div>);
+                          }
+                          if (dK === "access") {
+                            const acreage = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
+                            const sizeSignal = acreage >= 3.5 && acreage <= 5 ? "IDEAL SIZE" : acreage >= 2.5 ? "VIABLE" : acreage >= 5 && acreage <= 7 ? "LARGE" : "REVIEW";
+                            const sizeC = acreage >= 3.5 && acreage <= 5 ? "#22C55E" : acreage >= 2.5 ? "#3B82F6" : "#F59E0B";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sizeC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>SITE SIZE & CONFIGURATION</div>
+                                  <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 14 }}>
+                                    <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{acreage ? acreage.toFixed(2) : "—"}<span style={{ fontSize: 14, color: "#6B7394" }}> ac</span></div>
+                                    <div style={{ padding: "4px 12px", borderRadius: 6, background: sizeC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: sizeC }}>{sizeSignal}</span></div>
+                                  </div>
+                                  {[
+                                    { label: "Primary (3.5-5 ac)", desc: "One-story indoor CC", range: [3.5, 5], color: "#22C55E" },
+                                    { label: "Secondary (2.5-3.5 ac)", desc: "Multi-story option", range: [2.5, 3.5], color: "#3B82F6" },
+                                    { label: "Large (5-7 ac)", desc: "Subdivisible", range: [5, 7], color: "#F59E0B" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 5, marginBottom: 3, background: acreage >= r.range[0] && acreage <= r.range[1] ? r.color + "12" : "transparent" }}>
+                                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: acreage >= r.range[0] && acreage <= r.range[1] ? r.color : "#4A5080" }} />
+                                      <span style={{ fontSize: 10, color: acreage >= r.range[0] && acreage <= r.range[1] ? "#E2E8F0" : "#6B7394", fontWeight: acreage >= r.range[0] && acreage <= r.range[1] ? 700 : 500 }}>{r.label}</span>
+                                      <span style={{ fontSize: 9, color: "#4A5080", marginLeft: "auto" }}>{r.desc}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>ACCESS & ENVIRONMENTAL</div>
+                                  {[
+                                    { label: "Road Frontage", val: site.roadFrontage || "Not confirmed" },
+                                    { label: "Traffic (VPD)", val: site.trafficData || "—" },
+                                    { label: "Flood Zone", val: site.floodZone || "Not checked", color: site.floodZone && site.floodZone.toLowerCase().includes("zone x") ? "#22C55E" : "#F59E0B" },
+                                    { label: "Terrain", val: site.terrain || "—" },
+                                    { label: "Visibility", val: site.visibility || "—" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: j < 4 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.label}</span>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: r.color || "#E2E8F0", textAlign: "right", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.val}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={sizeSignal} signalColor={sizeC} text={`${acreage ? acreage.toFixed(2) + " acres" : "Acreage TBD"} — ${acreage >= 3.5 && acreage <= 5 ? "ideal footprint for PS's preferred one-story, indoor climate-controlled product. This size accommodates 80,000-110,000 net rentable SF with adequate parking, landscaping, and stormwater management." : acreage >= 2.5 && acreage < 3.5 ? "suitable for a multi-story (3-4 story) climate-controlled facility. Tighter footprint requires vertical construction but can still achieve 70,000-100,000 net rentable SF." : acreage > 5 ? "large parcel offers flexibility. Could accommodate PS's standard product with excess land for future expansion, pad site sale, or outparcel development to offset land basis." : "may be undersized for PS's standard product. Evaluate whether a compact multi-story design is feasible for this footprint."} ${site.floodZone && !site.floodZone.toLowerCase().includes("zone x") ? " Flood zone designation requires additional investigation." : ""}`} />
+                            </div>);
+                          }
+                          if (dK === "competition") {
+                            const compCount = iq.competitorCount || 0;
+                            const compNames = iq.competitorNames;
+                            const nearComp = iq.nearestCompetitor;
+                            const signal = compCount <= 1 ? "UNDERSERVED" : compCount <= 3 ? "LOW COMPETITION" : compCount <= 6 ? "MODERATE" : "COMPETITIVE";
+                            const sigC = compCount <= 1 ? "#22C55E" : compCount <= 3 ? "#3B82F6" : compCount <= 6 ? "#F59E0B" : "#EF4444";
+                            const operators = compNames ? String(compNames).split(",").map(n => n.trim()).filter(Boolean) : [];
+                            const reitCount = operators.filter(n => n.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage|National Storage/i)).length;
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sigC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>COMPETITIVE DENSITY (3-MI RADIUS)</div>
+                                  <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                    <div style={{ fontSize: 48, fontWeight: 900, color: sigC, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{compCount}</div>
+                                    <div>
+                                      <div style={{ padding: "4px 12px", borderRadius: 6, background: sigC + "18", marginBottom: 4 }}><span style={{ fontSize: 11, fontWeight: 800, color: sigC }}>{signal}</span></div>
+                                      {reitCount > 0 && <div style={{ fontSize: 10, color: "#EF4444", fontWeight: 700 }}>{reitCount} REIT operator{reitCount > 1 ? "s" : ""}</div>}
+                                    </div>
+                                  </div>
+                                  {nearComp && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>NEAREST: </span><span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{nearComp}</span></div>}
+                                  {(site.demandSupplySignal || site.competingSF) && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>MARKET: </span><span style={{ fontSize: 11, color: "#C9A84C", fontWeight: 600 }}>{site.demandSupplySignal || site.competingSF}</span></div>}
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(232,122,46,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 10 }}>OPERATOR LANDSCAPE</div>
+                                  <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                                    {operators.length > 0 ? operators.map((name, j) => (
+                                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: j < operators.length - 1 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: name.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage/i) ? "#EF4444" : name.match(/StorageMart|U-Haul|SecurCare/i) ? "#F59E0B" : "#3B82F6", flexShrink: 0 }} />
+                                        <span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600, flex: 1 }}>{name}</span>
+                                        {name.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage|National Storage/i) && <span style={{ fontSize: 8, fontWeight: 800, color: "#EF4444", background: "rgba(239,68,68,0.1)", padding: "1px 5px", borderRadius: 3 }}>REIT</span>}
+                                      </div>
+                                    )) : <div style={{ fontSize: 11, color: "#6B7394", fontStyle: "italic" }}>No operator data available</div>}
+                                  </div>
+                                </div>
+                              </div>
+                              <StorvexAnalysis signal={signal} signalColor={sigC} text={compCount <= 1 ? `Only ${compCount} competing facilit${compCount === 1 ? "y" : "ies"} within 3 miles signals an underserved market with significant unmet demand. Low competition environments allow for premium pricing, faster lease-up, and dominant market positioning. This is the ideal competitive landscape for a new PS development.` : compCount <= 3 ? `${compCount} competitors within 3 miles represents manageable competition. Market is not saturated, and a well-positioned PS facility can capture meaningful share. ${reitCount > 0 ? `${reitCount} REIT operator(s) present validates institutional-grade demand.` : "Predominantly local operators suggest opportunity for a REIT-quality facility to capture market share."} Focus on differentiation through climate-controlled product and PS brand strength.` : compCount <= 6 ? `${compCount} facilities within 3 miles indicates moderate competition. Market is established with proven demand, but share capture requires competitive positioning. ${reitCount >= 2 ? "Multiple REIT operators confirm a mature, validated market." : ""} Key success factors: unit mix optimization, competitive rate strategy, and superior site visibility/access.` : `${compCount} facilities within 3 miles signals high competitive density. New entrant faces lease-up headwinds in a market with existing supply. Recommend careful analysis of occupancy rates, rate trends, and whether recent new supply has been absorbed. Success requires a differentiated value proposition or displacement of weaker operators.`} />
+                            </div>);
+                          }
+                          return <div style={{ padding: 16, fontSize: 11, color: "#6B7394", fontStyle: "italic" }}>Detailed analysis not yet available for this dimension.</div>;
+                        };
+                        return (
+                          <div key={dim.key}>
+                            <div onClick={() => setScoreDimExpanded(isExpanded ? null : dim.key)} style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px 60px 70px", alignItems: "center", padding: "10px 24px", borderBottom: (i < bd.length - 1 && !isExpanded) ? "1px solid rgba(201,168,76,0.04)" : "none", transition: "background 0.15s", cursor: "pointer", background: isExpanded ? "rgba(201,168,76,0.06)" : "transparent" }} onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = "rgba(201,168,76,0.03)"; }} onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "transparent"; }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 14 }}>{dimIcons[i] || "📊"}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: isExpanded ? "#C9A84C" : "#E2E8F0" }}>{dim.label}</span>
+                                <span style={{ fontSize: 9, color: isExpanded ? "#C9A84C" : "#4A5080", transition: "transform 0.2s", display: "inline-block", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                              </div>
+                              <div style={{ position: "relative", height: 20, borderRadius: 10, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 10, background: `linear-gradient(90deg, ${barC}CC, ${barC})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)", boxShadow: dim.score >= 8 ? `0 0 12px ${barC}40` : "none" }} />
+                                <div style={{ position: "absolute", left: 8, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 10, fontWeight: 800, color: dim.score >= 5 ? "#fff" : barC, zIndex: 1 }}>{dim.score}/10</div>
+                              </div>
+                              <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>{wPct}%</div>
+                              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: barC, fontFamily: "'Space Mono', monospace" }}>{dim.score}</div>
+                              <div style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>+{contrib}</div>
+                            </div>
+                            {/* EXPANDED DIMENSION DEEP DIVE */}
+                            {isExpanded && (
+                              <div style={{ padding: "16px 24px 20px", background: "rgba(10,10,14,0.8)", borderBottom: "2px solid rgba(201,168,76,0.1)", animation: "fadeIn 0.2s ease-out" }}>
+                                {renderDimExpansion()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Column headers */}
+                    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px 60px 70px", padding: "0 24px 8px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", paddingTop: 8 }}>DIMENSION — CLICK TO EXPAND</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", paddingTop: 8 }}>SCORE BAR</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "center", paddingTop: 8 }}>WEIGHT</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "center", paddingTop: 8 }}>RAW</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#4A5080", letterSpacing: "0.1em", textAlign: "right", paddingTop: 8 }}>CONTRIB</div>
+                    </div>
+                    {/* Flags */}
+                    {iqR.flags && iqR.flags.length > 0 && (
+                      <div style={{ padding: "12px 24px 16px", borderTop: "1px solid rgba(201,168,76,0.08)" }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 8 }}>FLAGS & ADJUSTMENTS</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {iqR.flags.map((f, i) => (
+                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 6, background: f.includes("FAIL") ? "rgba(239,68,68,0.12)" : f.includes("Growth corridor") ? "rgba(34,197,94,0.12)" : "rgba(201,168,76,0.08)", color: f.includes("FAIL") ? "#EF4444" : f.includes("Growth corridor") ? "#22C55E" : "#C9A84C", border: `1px solid ${f.includes("FAIL") ? "rgba(239,68,68,0.2)" : f.includes("Growth corridor") ? "rgba(34,197,94,0.2)" : "rgba(201,168,76,0.15)"}` }}>{f}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
-              {/* AERIAL VIEW */}
-              {site.coordinates && (
-                <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)", marginBottom: 20, position: "relative" }}>
-                  <iframe title={`Aerial — ${site.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(site.coordinates)}&t=k&z=17&output=embed`} style={{ width: "100%", height: 350, border: "none" }} loading="lazy" allowFullScreen />
-                  <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.04em" }}>AERIAL VIEW</div>
-                </div>
-              )}
+              {/* KEY METRICS STRIP — with hover tooltips */}
+              {(() => {
+                const askRaw = parsePrice(site.askingPrice);
+                const intRaw = parsePrice(site.internalPrice);
+                const acRaw = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
+                const popRaw = parseInt(String(site.pop3mi || "").replace(/[^0-9]/g, ""), 10);
+                const incRaw = parseInt(String(site.income3mi || "").replace(/[^0-9]/g, ""), 10);
+                const hhRaw = parseInt(String(site.households3mi || "").replace(/[^0-9]/g, ""), 10);
+                const hvRaw = parseInt(String(site.homeValue3mi || "").replace(/[^0-9]/g, ""), 10);
+                const growthRaw = site.popGrowth3mi || site.growthRate;
+                const growthPct = growthRaw ? parseFloat(String(growthRaw).replace(/[^0-9.\-]/g, "")) : null;
+                const ppaVal = (!isNaN(askRaw) && askRaw > 0 && !isNaN(acRaw) && acRaw > 0) ? Math.round(askRaw / acRaw) : null;
+                const dom = site.daysOnMarket || site.dom;
+                const phase = site.phase || "Prospect";
+
+                const buildTooltip = (key) => {
+                  if (key === "asking") {
+                    const domStr = dom ? `${dom} days on market` : null;
+                    const ppaStr = ppaVal ? `$${ppaVal.toLocaleString()}/acre` : null;
+                    const lines = [];
+                    lines.push(!isNaN(askRaw) && askRaw > 0 ? `Listed at $${askRaw.toLocaleString()}` : "No asking price listed");
+                    if (ppaStr) lines.push(`Equates to ${ppaStr} across ${acRaw} acres`);
+                    if (domStr) lines.push(domStr);
+                    if (!isNaN(intRaw) && intRaw > 0) { const disc = (((askRaw - intRaw) / askRaw) * 100).toFixed(1); lines.push(`Internal target: $${intRaw.toLocaleString()} (${disc}% below ask)`); }
+                    if (ppaVal) { const tier = ppaVal <= 150000 ? "Excellent - well below $150K/ac target" : ppaVal <= 250000 ? "Good - within $250K/ac acquisition range" : ppaVal <= 400000 ? "Moderate - above preferred range" : "Premium pricing - above $400K/ac"; lines.push(tier); }
+                    return lines;
+                  }
+                  if (key === "internal") {
+                    const lines = [];
+                    const sf = intFin?.totalSF || 0;
+                    const noi = intFin?.stabNOI || 0;
+                    const bpc = intFin ? ((intFin.buildCosts || 0) + (intFin.carryCosts || 0) + (intFin.workingCapital || 0)) : 0;
+                    const strikeP = intFin?.landPrices?.[1]?.maxLand || 0;
+                    const walkP = intFin?.landPrices?.[0]?.maxLand || 0;
+                    const pitchP = noi > 0 ? Math.round(noi / 0.08 - bpc) : 0;
+                    if (!isNaN(intRaw) && intRaw > 0) {
+                      const yoc = noi > 0 ? (noi / (intRaw + bpc) * 100).toFixed(1) : "N/A";
+                      if (phase === "Under Contract") lines.push(`Under contract at $${intRaw.toLocaleString()} (${yoc}% YOC)`);
+                      else if (phase === "LOI" || phase === "PSA Sent") lines.push(`${phase} at $${intRaw.toLocaleString()} (${yoc}% YOC)`);
+                      else lines.push(`Internal target: $${intRaw.toLocaleString()} (${yoc}% YOC)`);
+                      if (!isNaN(askRaw) && askRaw > 0) lines.push(`${(((askRaw - intRaw) / askRaw) * 100).toFixed(1)}% discount to $${askRaw.toLocaleString()} ask`);
+                    } else {
+                      // Intelligent Storvex recommendation
+                      lines.push("STORVEX LAND PRICE INTELLIGENCE");
+                      if (sf > 0 && noi > 0) {
+                        lines.push(`Projected facility: ${(sf/1000).toFixed(0)}K SF \u2192 $${(noi >= 1e6 ? (noi/1e6).toFixed(2)+"M" : Math.round(noi/1e3)+"K")} stabilized NOI`);
+                        if (strikeP > 0) {
+                          const strikeYOC = (noi / (strikeP + bpc) * 100).toFixed(1);
+                          lines.push(`Strike price: $${strikeP >= 1e6 ? (strikeP/1e6).toFixed(2)+"M" : Math.round(strikeP/1e3).toLocaleString()+"K"} (${strikeYOC}% YOC) \u2014 ideal entry`);
+                          if (!isNaN(askRaw) && askRaw > 0) {
+                            const askDisc = (((askRaw - strikeP) / askRaw) * 100).toFixed(0);
+                            lines.push(`This is ${askDisc}% below the $${askRaw.toLocaleString()} ask \u2014 ${parseInt(askDisc) >= 20 ? "aggressive but defensible" : parseInt(askDisc) >= 10 ? "reasonable negotiating position" : "close to ask, strong if justified"}`);
+                          }
+                        } else if (pitchP > 0) {
+                          lines.push(`9% YOC not achievable at current pricing. Target: $${pitchP >= 1e6 ? (pitchP/1e6).toFixed(2)+"M" : Math.round(pitchP/1e3).toLocaleString()+"K"} for 8.0% YOC \u2014 minimum pitchable return`);
+                        } else {
+                          lines.push("Valuation below threshold \u2014 economics don't support acquisition at current pricing");
+                        }
+                        if (!isNaN(askRaw) && askRaw > 0) {
+                          const askYOC = (noi / (askRaw + bpc) * 100).toFixed(1);
+                          lines.push(`At the asking price: ${askYOC}% YOC \u2014 ${parseFloat(askYOC) >= 9 ? "already hits strike target" : parseFloat(askYOC) >= 7.5 ? "workable, needs minor negotiation" : parseFloat(askYOC) >= 6 ? "needs 15-25% reduction to hit strike" : "significant gap \u2014 deep discount or pass"}`);
+                        }
+                      } else {
+                        lines.push("Insufficient data for valuation \u2014 awaiting demographics or comp analysis");
+                      }
+                    }
+                    lines.push("Click to set your own internal target price");
+                    return lines;
+                  }
+                  if (key === "acreage") {
+                    const lines = [];
+                    if (!isNaN(acRaw) && acRaw > 0) {
+                      lines.push(`${acRaw.toFixed(2)} acres total`);
+                      if (acRaw >= 3.5 && acRaw <= 5) lines.push("Ideal size for one-story indoor climate-controlled storage");
+                      else if (acRaw >= 2.5 && acRaw < 3.5) lines.push("Fits 3-4 story multi-story storage product");
+                      else if (acRaw > 5 && acRaw <= 7) lines.push("Larger site - potential for phased development or pad split");
+                      else if (acRaw > 7) lines.push("Oversized - would need subdivision or excess land disposition");
+                      else if (acRaw < 2.5) lines.push("Below minimum 2.5ac threshold - tight fit");
+                      if (acRaw > 7) lines.push("Evaluate partial acquisition or subdivide strategy");
+                      if (ppaVal) lines.push(`Current basis: $${ppaVal.toLocaleString()}/acre`);
+                    } else { lines.push("Acreage not specified"); }
+                    return lines;
+                  }
+                  if (key === "zoning") {
+                    const lines = [];
+                    const zc = site.zoningClassification || "unknown";
+                    const zu = site.zoningUseTerm;
+                    lines.push(`District: ${site.zoning || "Not specified"}`);
+                    if (zc === "by-right") lines.push("Self-storage is PERMITTED BY RIGHT - no hearing required");
+                    else if (zc === "conditional") lines.push("Conditional use / SUP required - public hearing needed");
+                    else if (zc === "rezone-required") lines.push("Rezone required - higher cost and timeline risk");
+                    else if (zc === "prohibited") lines.push("Storage use PROHIBITED in current district");
+                    else lines.push("Zoning viability not yet confirmed");
+                    if (zu) lines.push(`Use category: "${zu}"`);
+                    if (site.zoningOrdinanceSection) lines.push(`Source: ${site.zoningOrdinanceSection}`);
+                    if (site.jurisdictionType) lines.push(`Jurisdiction: ${site.jurisdictionType}`);
+                    if (site.supCost) lines.push(`Est. entitlement cost: ${site.supCost}`);
+                    return lines;
+                  }
+                  if (key === "pop") {
+                    const lines = [];
+                    if (!isNaN(popRaw) && popRaw > 0) {
+                      lines.push(`${popRaw.toLocaleString()} residents within 3-mile radius`);
+                      const tier = popRaw >= 40000 ? "Dense suburban market - strong demand pool" : popRaw >= 25000 ? "Solid suburban density" : popRaw >= 15000 ? "Moderate density - viable with growth" : popRaw >= 10000 ? "Lower density - growth trajectory critical" : "Thin population base";
+                      lines.push(tier);
+                      if (growthPct !== null) {
+                        const gStr = growthPct >= 2.0 ? `${growthPct.toFixed(1)}% CAGR - explosive growth corridor` : growthPct >= 1.5 ? `${growthPct.toFixed(1)}% CAGR - strong growth` : growthPct >= 1.0 ? `${growthPct.toFixed(1)}% CAGR - healthy growth` : growthPct >= 0 ? `${growthPct.toFixed(1)}% CAGR - stable` : `${growthPct.toFixed(1)}% CAGR - declining`;
+                        lines.push(`5-yr growth outlook: ${gStr}`);
+                        if (growthPct > 0) { const proj = Math.round(popRaw * Math.pow(1 + growthPct / 100, 5)); lines.push(`Projected 2030 population: ~${proj.toLocaleString()}`); }
+                      }
+                      if (!isNaN(hhRaw) && hhRaw > 0) lines.push(`${hhRaw.toLocaleString()} households (${(popRaw / hhRaw).toFixed(1)} persons/hh)`);
+                    } else { lines.push("Population data not available"); }
+                    if (site.demandDrivers) lines.push(`Drivers: ${site.demandDrivers.substring(0, 120)}${site.demandDrivers.length > 120 ? "..." : ""}`);
+                    return lines;
+                  }
+                  if (key === "income") {
+                    const lines = [];
+                    if (!isNaN(incRaw) && incRaw > 0) {
+                      lines.push(`$${incRaw.toLocaleString()} median household income (3-mi)`);
+                      const tier = incRaw >= 90000 ? "Premium affluent market - strong pricing power" : incRaw >= 75000 ? "Upper-middle income - favorable for climate-controlled" : incRaw >= 65000 ? "Solid middle income - core storage demographic" : incRaw >= 55000 ? "Moderate income - viable but price-sensitive" : "Below target threshold ($55K minimum)";
+                      lines.push(tier);
+                      if (!isNaN(hvRaw) && hvRaw > 0) lines.push(`Median home value: $${hvRaw.toLocaleString()}`);
+                      if (growthPct !== null) {
+                        const incomeGrowth = growthPct >= 1.5 ? "Rising incomes likely - high-growth market" : growthPct >= 0.5 ? "Stable income trajectory with population growth" : "Flat or declining growth - monitor pricing power";
+                        lines.push(`5-yr outlook: ${incomeGrowth}`);
+                      }
+                      if (site.renterPct3mi) lines.push(`Renter percentage: ${site.renterPct3mi} (renters = higher storage demand)`);
+                    } else { lines.push("Income data not available"); }
+                    return lines;
+                  }
+                  return [];
+                };
+
+                // Intelligent Internal Price — compute strike/pitchable suggestion
+                const intFin = (() => { try { return computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {}); } catch { return null; } })();
+                const intStrike = intFin?.landPrices?.[1]?.maxLand || 0; // 9% YOC strike
+                const intWalk = intFin?.landPrices?.[0]?.maxLand || 0; // 7.5% YOC walk
+                const intNOI = intFin?.stabNOI || 0;
+                const intBPC = intFin ? ((intFin.buildCosts || 0) + (intFin.carryCosts || 0) + (intFin.workingCapital || 0)) : 0;
+                // If strike is positive, suggest it. If not, find price for 8% YOC ("pitchable")
+                const pitchablePrice = intNOI > 0 ? Math.round(intNOI / 0.08 - intBPC) : 0;
+                const suggestedPrice = intStrike > 0 ? intStrike : (pitchablePrice > 0 ? pitchablePrice : 0);
+                const suggestedYOC = suggestedPrice > 0 && intNOI > 0 ? (intNOI / (suggestedPrice + intBPC) * 100) : 0;
+                const suggestedLabel = intStrike > 0 ? "STRIKE 9%" : (pitchablePrice > 0 ? "TARGET 8%" : "");
+                // Actual internal price and its YOC
+                const intPriceRaw = parsePrice(site.internalPrice) || 0;
+                const intPriceYOC = intPriceRaw > 0 && intNOI > 0 ? (intNOI / (intPriceRaw + intBPC) * 100) : 0;
+                const intSiteId = site.id || site.key || "";
+                const intEditing = editingInternalPrice[intSiteId];
+                const intDisplayPrice = intPriceRaw > 0 ? intPriceRaw : suggestedPrice;
+                const intDisplayYOC = intPriceRaw > 0 ? intPriceYOC : suggestedYOC;
+                const intIsSuggested = intPriceRaw <= 0 && suggestedPrice > 0;
+
+                const metricItems = [
+                  { key: "asking", label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
+                  { key: "internal", label: intIsSuggested ? suggestedLabel : "INTERNAL", val: intDisplayPrice > 0 ? `$${(intDisplayPrice >= 1e6 ? (intDisplayPrice/1e6).toFixed(2) + "M" : Math.round(intDisplayPrice/1e3) + "K")}` : "---", color: intIsSuggested ? "#6B7394" : "#E87A2E", sub: intDisplayYOC > 0 ? `${intDisplayYOC.toFixed(1)}% YOC` : null, isSuggested: intIsSuggested, isInternal: true },
+                  { key: "acreage", label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "---", color: "#E2E8F0" },
+                  { key: "zoning", label: "ZONING", val: site.zoning || "---", color: "#C9A84C" },
+                  { key: "pop", label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "---", color: "#E2E8F0" },
+                  { key: "income", label: "3MI MED INC", val: site.income3mi ? "$" + fmtN(site.income3mi) : "---", color: "#E2E8F0" },
+                ];
+
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 20 }}>
+                    {metricItems.map((m) => {
+                      const isHov = hoveredMetric === m.key;
+                      const ttLines = isHov ? buildTooltip(m.key) : [];
+                      const isInternalEditing = m.isInternal && intEditing != null;
+                      return (
+                        <div key={m.key} style={{ position: "relative" }}
+                          onMouseEnter={() => setHoveredMetric(m.key)} onMouseLeave={() => setHoveredMetric(null)}>
+                          <div onClick={m.isInternal && !isInternalEditing ? () => setEditingInternalPrice(prev => ({ ...prev, [intSiteId]: intPriceRaw > 0 ? String(intPriceRaw) : "" })) : undefined} style={{ background: isHov ? "rgba(30,39,97,0.85)" : m.isSuggested ? "rgba(232,122,46,0.04)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: "14px 16px", border: isHov ? "1px solid rgba(201,168,76,0.35)" : m.isSuggested ? "1px dashed rgba(232,122,46,0.2)" : "1px solid rgba(201,168,76,0.08)", cursor: m.isInternal ? "pointer" : "pointer", transition: "all 0.2s ease", transform: isHov ? "translateY(-2px)" : "none", boxShadow: isHov ? "0 8px 32px rgba(201,168,76,0.15)" : "none" }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: isHov ? "#C9A84C" : "#6B7394", letterSpacing: "0.1em", marginBottom: 4, transition: "color 0.2s" }}>{m.label}</div>
+                            {isInternalEditing ? (
+                              <input autoFocus type="text" inputMode="numeric" value={intEditing ? `$${Number(intEditing.replace(/[^0-9]/g, "")).toLocaleString()}` : ""} placeholder="$0" onClick={(e) => e.stopPropagation()} onChange={(e) => { const d = e.target.value.replace(/[^0-9]/g, ""); setEditingInternalPrice(prev => ({ ...prev, [intSiteId]: d })); }} onKeyDown={(e) => { if (e.key === "Enter") { e.target.blur(); } }} onBlur={() => { const val = parseInt((intEditing || "").replace(/[^0-9]/g, ""), 10) || 0; if (val > 0) { const region = site._region || site.routedTo || site.region || ""; const path = region === "east" || region === "Matthew Toussaint" ? `east/${intSiteId}` : region === "southwest" || region === "Daniel Wollent" ? `southwest/${intSiteId}` : `submissions/${intSiteId}`; fbUpdate(path, { internalPrice: `$${val.toLocaleString()}` }); } setEditingInternalPrice(prev => { const n = { ...prev }; delete n[intSiteId]; return n; }); }} style={{ width: "100%", background: "transparent", border: "none", borderBottom: "2px solid #E87A2E", fontSize: 18, fontWeight: 800, color: "#E87A2E", fontFamily: "'Space Mono', monospace", outline: "none", padding: 0 }} />
+                            ) : (
+                              <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontStyle: m.isSuggested ? "italic" : "normal" }}>{m.val}</div>
+                            )}
+                            {m.sub && !isInternalEditing && <div style={{ fontSize: 9, fontWeight: 700, color: intDisplayYOC >= 9 ? "#22C55E" : intDisplayYOC >= 7.5 ? "#C9A84C" : "#EF4444", marginTop: 2 }}>{m.sub}</div>}
+                            {m.isInternal && !isInternalEditing && <div style={{ fontSize: 8, color: "#4A5074", marginTop: 2, fontWeight: 600 }}>{m.isSuggested ? "Click to set price" : "Click to edit"}</div>}
+                          </div>
+                          {isHov && ttLines.length > 0 && (
+                            <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", minWidth: 320, maxWidth: 420, zIndex: 9999, borderRadius: 14, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.2), 0 0 40px rgba(30,39,97,0.4)", paddingTop: 4, pointerEvents: "none" }}>
+                              <div style={{ background: "linear-gradient(135deg, #1E2761, #2C3E6B)", padding: "10px 14px", borderBottom: "2px solid #C9A84C", display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 12 }}>{m.key === "asking" ? "💰" : m.key === "internal" ? "🎯" : m.key === "acreage" ? "📐" : m.key === "zoning" ? "📋" : m.key === "pop" ? "👥" : "💵"}</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>SiteScore Intelligence</span>
+                              </div>
+                              <div style={{ background: "linear-gradient(180deg, #0F1538, #131B45)", padding: "14px 16px" }}>
+                                {ttLines.map((line, li) => (
+                                  <div key={li} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0", borderBottom: li < ttLines.length - 1 ? "1px solid rgba(201,168,76,0.06)" : "none" }}>
+                                    <span style={{ color: "#C9A84C", fontSize: 8, marginTop: 5, flexShrink: 0 }}>&#9670;</span>
+                                    <span style={{ fontSize: 12, color: li === 0 ? "#F4F6FA" : "#CBD5E1", fontWeight: li === 0 ? 700 : 500, lineHeight: 1.5 }}>{line}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ background: "rgba(201,168,76,0.04)", padding: "6px 14px", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
+                                <span style={{ fontSize: 9, color: "#6B7394", fontWeight: 600, letterSpacing: "0.05em" }}>SiteScore&#8482; Analysis</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* SUMMARY */}
               <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 18, marginBottom: 20, border: "1px solid rgba(201,168,76,0.08)" }}>
@@ -4278,7 +5410,7 @@ export default function App() {
                 <div style={{ fontSize: 13, color: "#E2E8F0", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{site.summary || "No notes yet."}</div>
               </div>
 
-              {/* DEMOGRAPHICS — Full display */}
+              {/* DEMOGRAPHICS — Clickable + Expandable */}
               {(site.pop3mi || site.income3mi) && (() => {
                 const pN2 = (v) => { if (!v) return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[$,]/g, ""), 10); return isNaN(n) ? null : n; };
                 const fP2 = (v, pre) => { const n = pN2(v); return n != null ? (pre || "") + n.toLocaleString() : null; };
@@ -4286,32 +5418,424 @@ export default function App() {
                 const gColor2 = gVal2 != null ? (gVal2 > 0 ? "#22C55E" : gVal2 < 0 ? "#EF4444" : "#94A3B8") : "#6B7394";
                 const gLabel2 = gVal2 != null ? ((gVal2 >= 0 ? "+" : "") + gVal2.toFixed(2) + "% /yr") : null;
                 const gOutlook2 = gVal2 != null ? (gVal2 > 1.5 ? "High Growth" : gVal2 > 0.5 ? "Growing" : gVal2 > 0 ? "Stable Growth" : gVal2 > -0.5 ? "Flat" : "Declining") : null;
+                const popRaw = pN2(site.pop3mi);
+                const hhiRaw = pN2(site.income3mi);
+                const hhRaw = pN2(site.households3mi);
+                const hvRaw = pN2(site.homeValue3mi);
+                const pop1Raw = pN2(site.pop1mi);
+                const acreageVal = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]);
+                const pricePerAcVal = (() => { const p = parsePrice(site.askingPrice); return (!isNaN(p) && p > 0 && !isNaN(acreageVal) && acreageVal > 0) ? Math.round(p / acreageVal) : null; })();
+                const psDist2 = site.siteiqData?.nearestPS ? (typeof site.siteiqData.nearestPS === "number" ? site.siteiqData.nearestPS : parseFloat(site.siteiqData.nearestPS)) : null;
                 const demoRows = [
-                  { label: "Population (3-mi)", val: fP2(site.pop3mi), icon: "👥" },
-                  { label: "Median HHI (3-mi)", val: fP2(site.income3mi, "$"), icon: "💰" },
-                  { label: "Pop Growth (ESRI)", val: gLabel2, icon: "📈", color: gColor2 },
-                  { label: "Growth Outlook", val: gOutlook2, icon: "🔮", color: gVal2 != null ? (gVal2 > 1.5 ? "#22C55E" : gVal2 > 0.5 ? "#4ADE80" : "#FBBF24") : "#6B7394" },
-                  { label: "Households (3-mi)", val: fP2(site.households3mi), icon: "🏠" },
-                  { label: "Median Home Value", val: fP2(site.homeValue3mi, "$"), icon: "🏡" },
-                  { label: "Price / Acre", val: (() => { const p = parseFloat(String(site.askingPrice || "").replace(/[^0-9.]/g, "")); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, "")); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
-                  { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
-                  { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
+                  { key: "population", label: "Population (3-mi)", val: fP2(site.pop3mi), icon: "👥" },
+                  { key: "income", label: "Median HHI (3-mi)", val: fP2(site.income3mi, "$"), icon: "💰" },
+                  { key: "growth", label: "Pop Growth (ESRI 2025→2030)", val: gLabel2, icon: "📈", color: gColor2 },
+                  { key: "growthOutlook", label: "Growth Outlook", val: gOutlook2, icon: "🔮", color: gVal2 != null ? (gVal2 > 1.5 ? "#22C55E" : gVal2 > 0.5 ? "#4ADE80" : "#FBBF24") : "#6B7394" },
+                  { key: "households", label: "Households (3-mi)", val: fP2(site.households3mi), icon: "🏠" },
+                  { key: "homeValue", label: "Median Home Value (3-mi)", val: fP2(site.homeValue3mi, "$"), icon: "🏡" },
+                  { key: "acreage", label: "Acreage", val: acreageVal ? acreageVal.toFixed(2) + " ac" : null, icon: "📐" },
+                  { key: "pricing", label: "Price / Acre", val: pricePerAcVal ? "$" + pricePerAcVal.toLocaleString() + "/ac" : null, icon: "🏷️" },
+                  { key: "psProximity", label: "Nearest Facility", val: psDist2 ? psDist2.toFixed(1) + " mi" : null, icon: "📍" },
+                  { key: "competition", label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
                 ].filter(r => r.val != null);
+                // Benchmarks for bar charts
+                const popBench = 40000; const hhiBench = 90000; const hhBench = 25000; const hvBench = 500000;
+                const compCount = site.siteiqData?.competitorCount;
+                const compNames = site.siteiqData?.competitorNames;
+                const nearComp = site.siteiqData?.nearestCompetitor;
+                const demandSig = site.siteiqData?.demandSupplySignal || site.demandSupplySignal;
                 return demoRows.length > 0 ? (
-                  <div style={{ borderRadius: 14, marginBottom: 20, overflow: "hidden", border: "1px solid rgba(201,168,76,0.1)" }}>
-                    <div style={{ background: "linear-gradient(135deg,#0F172A,#1E293B,#1565C0)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ borderRadius: 14, marginBottom: 20, overflow: "hidden", border: `1px solid ${demoExpanded ? "rgba(201,168,76,0.2)" : "rgba(201,168,76,0.1)"}`, transition: "all 0.3s" }}>
+                    <div onClick={() => setDemoExpanded(!demoExpanded)} style={{ background: "linear-gradient(135deg,#0F172A,#1E293B,#1565C0)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "linear-gradient(135deg,#0F172A,#1E293B,#1976D2)"} onMouseLeave={(e) => e.currentTarget.style.background = "linear-gradient(135deg,#0F172A,#1E293B,#1565C0)"}>
                       <span style={{ fontSize: 14 }}>📊</span>
                       <span style={{ color: "#fff", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>SITE DEMOGRAPHICS</span>
                       <span style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)", color: "#0F172A", fontSize: 10, fontWeight: 900, padding: "2px 8px", borderRadius: 5 }}>ESRI 2025</span>
+                      <span style={{ marginLeft: "auto", color: "#C9A84C", fontSize: 11, fontWeight: 700, opacity: 0.8 }}>{demoExpanded ? "▲ Collapse" : "▼ Expand Deep Dive"}</span>
                     </div>
-                    <div style={{ background: "rgba(15,21,56,0.3)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 0 }}>
-                      {demoRows.map((row, i) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 18px", borderBottom: "1px solid rgba(201,168,76,0.06)" }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 13 }}>{row.icon}</span><span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{row.label}</span></span>
-                          <span style={{ fontSize: 14, fontWeight: 800, color: row.color || "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{row.val}</span>
+                    {/* Compact view — each row clickable with expansion */}
+                    <div style={{ background: "rgba(15,21,56,0.3)" }}>
+                      {demoRows.map((row, i) => {
+                        const isRowExp = demoRowExpanded === row.key;
+                        // Expansion renderer per row key
+                        const renderRowExpansion = () => {
+                          const MR = ({ label, value, color, pctOf, bench, benchLabel }) => (
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 0", borderBottom: "1px solid rgba(201,168,76,0.04)" }}>
+                              <div style={{ width: 130, fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>{label}</div>
+                              <div style={{ flex: 1, position: "relative", height: 9, borderRadius: 5, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(100, pctOf || 0)}%`, borderRadius: 5, background: `linear-gradient(90deg, ${color}99, ${color})`, transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+                              </div>
+                              <div style={{ width: 90, textAlign: "right", fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{value || "—"}</div>
+                              {bench && <div style={{ width: 90, textAlign: "right", fontSize: 9, color: "#6B7394" }}>vs {benchLabel}</div>}
+                            </div>
+                          );
+                          const SvxBox = ({ text, signal, sigColor }) => (
+                            <div style={{ marginTop: 16, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(201,168,76,0.12)" }}>
+                              <div style={{ background: "linear-gradient(135deg, #1E2761, #0F172A)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 12 }}>🔬</span>
+                                <span style={{ fontSize: 10, fontWeight: 900, color: "#C9A84C", letterSpacing: "0.1em" }}>STORVEX SUMMARY ANALYSIS</span>
+                                {signal && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 800, padding: "2px 10px", borderRadius: 5, background: (sigColor || "#C9A84C") + "18", color: sigColor || "#C9A84C" }}>{signal}</span>}
+                              </div>
+                              <div style={{ padding: "12px 16px", background: "rgba(10,10,14,0.6)", fontSize: 11, color: "#CBD5E1", lineHeight: 1.7 }}>{text}</div>
+                            </div>
+                          );
+                          const k = row.key;
+                          if (k === "population") {
+                            const futurePop = popRaw && gVal2 != null ? Math.round(popRaw * Math.pow(1 + gVal2 / 100, 5)) : null;
+                            const signal = popRaw >= 40000 ? "DENSE MARKET" : popRaw >= 25000 ? "SOLID DEMAND" : popRaw >= 10000 ? "EMERGING" : "THIN";
+                            const sigC = popRaw >= 40000 ? "#22C55E" : popRaw >= 25000 ? "#3B82F6" : popRaw >= 10000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(59,130,246,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>RADIUS POPULATION BREAKDOWN</div>
+                                  <MR label="1-Mile Radius" value={pop1Raw ? pop1Raw.toLocaleString() : "—"} color="#8B5CF6" pctOf={pop1Raw ? Math.min(100, (pop1Raw / 10000) * 100) : 0} bench benchLabel="10K" />
+                                  <MR label="3-Mile Radius" value={popRaw ? popRaw.toLocaleString() : "—"} color="#3B82F6" pctOf={popRaw ? Math.min(100, (popRaw / popBench) * 100) : 0} bench benchLabel="40K" />
+                                  <MR label="5-Mile (est.)" value={popRaw ? Math.round(popRaw * 2.4).toLocaleString() : "—"} color="#1D4ED8" pctOf={popRaw ? Math.min(100, (popRaw * 2.4 / 100000) * 100) : 0} bench benchLabel="100K" />
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(34,197,94,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PROJECTED TRAJECTORY (2025-2030)</div>
+                                  <MR label="Current (2025)" value={popRaw ? popRaw.toLocaleString() : "—"} color="#3B82F6" pctOf={popRaw ? Math.min(100, (popRaw / popBench) * 100) : 0} />
+                                  <MR label="Projected (2030)" value={futurePop ? futurePop.toLocaleString() : "—"} color={gVal2 > 0 ? "#22C55E" : "#EF4444"} pctOf={futurePop ? Math.min(100, (futurePop / popBench) * 100) : 0} />
+                                  <MR label="Net Change" value={futurePop && popRaw ? (futurePop > popRaw ? "+" : "") + (futurePop - popRaw).toLocaleString() : "—"} color={gVal2 > 0 ? "#22C55E" : "#EF4444"} pctOf={futurePop && popRaw ? Math.min(100, Math.abs(futurePop - popRaw) / popRaw * 500) : 0} />
+                                  <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ fontSize: 10, color: "#6B7394" }}>5-Year CAGR</span>
+                                    <span style={{ fontSize: 13, fontWeight: 800, color: gVal2 > 0 ? "#22C55E" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{gVal2 != null ? (gVal2 >= 0 ? "+" : "") + gVal2.toFixed(2) + "%" : "—"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 4 }}>
+                                {[{ l: "PS BENCHMARK", v: "40,000", s: popRaw >= 40000 ? "EXCEEDS" : Math.round((popRaw||0) / 400) + "% of target", c: popRaw >= 40000 ? "#22C55E" : "#F59E0B" },
+                                  { l: "MIN THRESHOLD", v: "5,000", s: popRaw >= 5000 ? "CLEAR" : "BELOW MIN", c: popRaw >= 5000 ? "#22C55E" : "#EF4444" },
+                                  { l: "DENSITY SIGNAL", v: signal, s: "Score", c: sigC }
+                                ].map((b, j) => (
+                                  <div key={j} style={{ background: "rgba(15,21,56,0.3)", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                                    <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em" }}>{b.l}</div>
+                                    <div style={{ fontSize: 16, fontWeight: 900, color: j < 2 ? "#4A5080" : b.c, fontFamily: "'Space Mono', monospace" }}>{b.v}</div>
+                                    <div style={{ fontSize: 9, color: b.c, fontWeight: 700 }}>{b.s}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <SvxBox signal={signal} sigColor={sigC} text={popRaw >= 40000 ? `Dense population base of ${popRaw.toLocaleString()} within 3 miles exceeds PS's 40K benchmark — top tier for household-driven self-storage absorption. ${gVal2 > 1 ? "Combined with above-average growth, compounding demand tailwinds." : "Population density alone supports facility viability."}` : popRaw >= 15000 ? `Population of ${popRaw.toLocaleString()} within 3 miles — mid-range for storage feasibility. Sufficient for climate-controlled facility if competition is limited. ${gVal2 > 1.5 ? "Strong growth could push this into premium territory within 3-5 years." : "Growth and income quality become critical tiebreakers."}` : `Population of ${popRaw ? popRaw.toLocaleString() : "N/A"} within 3 miles — thinner demand base. Requires low competition, premium income, or exceptional growth to justify development.`} />
+                            </div>);
+                          }
+                          if (k === "income") {
+                            const tier = hhiRaw >= 90000 ? "PREMIUM" : hhiRaw >= 75000 ? "AFFLUENT" : hhiRaw >= 65000 ? "STRONG" : hhiRaw >= 55000 ? "ADEQUATE" : "BELOW THRESHOLD";
+                            const tC = hhiRaw >= 90000 ? "#C9A84C" : hhiRaw >= 75000 ? "#22C55E" : hhiRaw >= 65000 ? "#3B82F6" : hhiRaw >= 55000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${tC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>MEDIAN HOUSEHOLD INCOME</div>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1, marginBottom: 8 }}>{hhiRaw ? "$" + hhiRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, background: tC + "18", border: `1px solid ${tC}30` }}><span style={{ fontSize: 11, fontWeight: 800, color: tC }}>{tier}</span></div>
+                                  <div style={{ marginTop: 14 }}>
+                                    <MR label="This Market" value={"$" + (hhiRaw || 0).toLocaleString()} color={tC} pctOf={hhiRaw ? Math.min(100, (hhiRaw / hhiBench) * 100) : 0} />
+                                    <MR label="Premium ($90K)" value="$90,000" color="#C9A84C" pctOf={100} />
+                                    <MR label="Strong ($65K)" value="$65,000" color="#3B82F6" pctOf={72} />
+                                    <MR label="Minimum ($55K)" value="$55,000" color="#EF4444" pctOf={61} />
+                                  </div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(201,168,76,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>INCOME IMPLICATIONS FOR STORAGE</div>
+                                  {[
+                                    { label: "Willingness to Pay", val: hhiRaw >= 75000 ? "High" : hhiRaw >= 55000 ? "Moderate" : "Limited", c: hhiRaw >= 75000 ? "#22C55E" : hhiRaw >= 55000 ? "#F59E0B" : "#EF4444", desc: "Higher income = premium unit absorption" },
+                                    { label: "Climate-Controlled Demand", val: hhiRaw >= 65000 ? "Strong" : "Moderate", c: hhiRaw >= 65000 ? "#22C55E" : "#F59E0B", desc: "Affluent households store higher-value items" },
+                                    { label: "Price Sensitivity", val: hhiRaw >= 90000 ? "Low" : hhiRaw >= 65000 ? "Moderate" : "High", c: hhiRaw >= 90000 ? "#22C55E" : hhiRaw >= 65000 ? "#F59E0B" : "#EF4444", desc: "Impacts rate growth potential" },
+                                  ].map((r, j) => (
+                                    <div key={j} style={{ padding: "10px 0", borderBottom: j < 2 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{r.label}</span><span style={{ fontSize: 12, fontWeight: 800, color: r.c, fontFamily: "'Space Mono', monospace" }}>{r.val}</span></div>
+                                      <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2 }}>{r.desc}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <SvxBox signal={tier} sigColor={tC} text={hhiRaw >= 90000 ? `Premium income market at $${hhiRaw.toLocaleString()} median HHI. Core self-storage demographic: homeowners with accumulated possessions, disposable income for storage rents, and preference for climate-controlled units. Supports premium pricing and strong RevPAF.` : hhiRaw >= 65000 ? `Solid income base at $${hhiRaw.toLocaleString()} median HHI. Supports standard pricing and moderate CC demand. Income alone is not a differentiator but removes downside risk.` : `Income at $${(hhiRaw || 0).toLocaleString()} approaches the $55K threshold. Lower-income markets see higher price sensitivity and lower CC uptake. Demand skews toward smaller drive-up units.`} />
+                            </div>);
+                          }
+                          if (k === "growth" || k === "growthOutlook") {
+                            const gC = gVal2 > 1.5 ? "#22C55E" : gVal2 > 0.5 ? "#4ADE80" : gVal2 > 0 ? "#FBBF24" : "#94A3B8";
+                            const outlook = gVal2 > 2.0 ? "RAPID EXPANSION" : gVal2 > 1.5 ? "HIGH GROWTH" : gVal2 > 1.0 ? "ABOVE AVERAGE" : gVal2 > 0.5 ? "STEADY GROWTH" : gVal2 > 0 ? "STABLE" : "FLAT/DECLINING";
+                            const natAvg = 0.5; const futurePop = popRaw && gVal2 != null ? Math.round(popRaw * Math.pow(1 + gVal2 / 100, 5)) : null;
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 20, border: `1px solid ${gC}15`, textAlign: "center" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 8 }}>5-YEAR COMPOUND ANNUAL GROWTH RATE</div>
+                                  <div style={{ fontSize: 48, fontWeight: 900, color: gC, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{gVal2 != null ? (gVal2 >= 0 ? "+" : "") + gVal2.toFixed(2) + "%" : "—"}</div>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: gC, marginTop: 8 }}>{outlook}</div>
+                                  <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.04)", overflow: "hidden", marginTop: 14 }}>
+                                    <div style={{ height: "100%", width: `${Math.min(100, Math.max(5, ((gVal2 || 0) / 3) * 100))}%`, borderRadius: 4, background: `linear-gradient(90deg, ${gC}99, ${gC})` }} />
+                                  </div>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}><span style={{ fontSize: 8, color: "#4A5080" }}>0%</span><span style={{ fontSize: 8, color: "#4A5080" }}>3%+ (rapid)</span></div>
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 20, border: "1px solid rgba(59,130,246,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 14 }}>GROWTH CONTEXT</div>
+                                  <MR label="This Market" value={gVal2 != null ? gVal2.toFixed(2) + "%" : "—"} color={gC} pctOf={gVal2 ? Math.min(100, (gVal2 / 3) * 100) : 0} />
+                                  <MR label="National Average" value={natAvg.toFixed(2) + "%"} color="#4A5080" pctOf={(natAvg / 3) * 100} />
+                                  <MR label="Spread vs National" value={gVal2 != null ? (gVal2 - natAvg >= 0 ? "+" : "") + (gVal2 - natAvg).toFixed(2) + "%" : "—"} color={gVal2 > natAvg ? "#22C55E" : "#EF4444"} pctOf={gVal2 ? Math.min(100, Math.abs(gVal2 - natAvg) / 3 * 100) : 0} />
+                                  {futurePop && popRaw && <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}>
+                                    <div style={{ fontSize: 9, color: "#6B7394", marginBottom: 4 }}>5-YEAR NET POPULATION CHANGE</div>
+                                    <div style={{ fontSize: 18, fontWeight: 900, color: futurePop > popRaw ? "#22C55E" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{futurePop > popRaw ? "+" : ""}{(futurePop - popRaw).toLocaleString()} people</div>
+                                    <div style={{ fontSize: 10, color: "#94A3B8" }}>{popRaw.toLocaleString()} (2025) → {futurePop.toLocaleString()} (2030)</div>
+                                  </div>}
+                                </div>
+                              </div>
+                              <SvxBox signal={outlook} sigColor={gC} text={gVal2 > 1.5 ? `Growing at ${gVal2.toFixed(2)}% annually, ${(gVal2 / natAvg).toFixed(1)}x the national average. Rapid growth is the strongest predictor of new storage demand. Projects ${futurePop ? "+" + (futurePop - (popRaw || 0)).toLocaleString() + " new residents" : "significant expansion"} by 2030.` : gVal2 > 0.5 ? `Growth of ${gVal2.toFixed(2)}% tracks above national average. Steady expansion supports organic storage demand growth with a 3-5 year lease-up horizon.` : `Modest growth at ${gVal2 != null ? gVal2.toFixed(2) : "N/A"}%. Demand driven by household turnover rather than net new population. Competition quality becomes the differentiator.`} />
+                            </div>);
+                          }
+                          if (k === "households") {
+                            const signal = hhRaw >= 25000 ? "DEEP DEMAND POOL" : hhRaw >= 18000 ? "STRONG BASE" : hhRaw >= 12000 ? "ADEQUATE" : hhRaw >= 6000 ? "MODERATE" : "LIMITED";
+                            const sC = hhRaw >= 25000 ? "#22C55E" : hhRaw >= 12000 ? "#3B82F6" : hhRaw >= 6000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>3-MILE HOUSEHOLD COUNT</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{hhRaw ? hhRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: sC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: sC }}>{signal}</span></div>
+                                </div>
+                                <MR label="This Market" value={(hhRaw || 0).toLocaleString()} color={sC} pctOf={hhRaw ? Math.min(100, (hhRaw / hhBench) * 100) : 0} bench benchLabel="25K" />
+                                <MR label="Top Tier (25K)" value="25,000" color="#22C55E" pctOf={100} />
+                                <MR label="Solid Base (12K)" value="12,000" color="#3B82F6" pctOf={48} />
+                                {popRaw && hhRaw && <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ fontSize: 10, color: "#6B7394" }}>Avg Household Size</span>
+                                  <span style={{ fontSize: 13, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{(popRaw / hhRaw).toFixed(1)} ppl/hh</span>
+                                </div>}
+                                <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ fontSize: 10, color: "#6B7394" }}>10% Penetration Projection</span>
+                                  <span style={{ fontSize: 13, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>~{Math.round((hhRaw || 0) * 0.10).toLocaleString()} renters</span>
+                                </div>
+                              </div>
+                              <SvxBox signal={signal} sigColor={sC} text={hhRaw >= 25000 ? `${hhRaw.toLocaleString()} households represents a deep demand pool. ~${Math.round(hhRaw * 0.10).toLocaleString()} potential storage renters at 10% penetration. Can support multiple facilities.` : hhRaw >= 12000 ? `${hhRaw.toLocaleString()} households provide a solid demand base. ~${Math.round((hhRaw || 0) * 0.10).toLocaleString()} potential renters. Sufficient for a well-positioned facility.` : `Household count of ${(hhRaw || 0).toLocaleString()} indicates a thinner customer base. Each competitor consumes a larger demand share.`} />
+                            </div>);
+                          }
+                          if (k === "homeValue") {
+                            const hvTier = hvRaw >= 500000 ? "PREMIUM" : hvRaw >= 350000 ? "UPPER-MIDDLE" : hvRaw >= 250000 ? "MIDDLE MARKET" : hvRaw >= 180000 ? "MODERATE" : "VALUE";
+                            const hvC = hvRaw >= 500000 ? "#C9A84C" : hvRaw >= 350000 ? "#22C55E" : hvRaw >= 250000 ? "#3B82F6" : hvRaw >= 180000 ? "#F59E0B" : "#EF4444";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${hvC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>MEDIAN HOME VALUE (3-MI)</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{hvRaw ? "$" + hvRaw.toLocaleString() : "—"}</div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: hvC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: hvC }}>{hvTier}</span></div>
+                                </div>
+                                <MR label="This Market" value={"$" + (hvRaw || 0).toLocaleString()} color={hvC} pctOf={hvRaw ? Math.min(100, (hvRaw / hvBench) * 100) : 0} bench benchLabel="$500K" />
+                                <MR label="Premium ($500K)" value="$500,000" color="#C9A84C" pctOf={100} />
+                                <MR label="Affluent ($350K)" value="$350,000" color="#22C55E" pctOf={70} />
+                                <MR label="Middle ($250K)" value="$250,000" color="#3B82F6" pctOf={50} />
+                              </div>
+                              <SvxBox signal={hvTier} sigColor={hvC} text={hvRaw >= 350000 ? `Home values at $${hvRaw.toLocaleString()} signal an affluent submarket. Higher home values correlate with larger homes, more possessions, and greater willingness to pay for premium climate-controlled storage.` : hvRaw >= 180000 ? `Middle-market home values at $${hvRaw.toLocaleString()}. Standard storage demand profile — supports a mix of unit sizes and moderate pricing.` : `Home values at $${(hvRaw || 0).toLocaleString()} indicate a value market. Storage demand exists but skews toward drive-up and smaller units.`} />
+                            </div>);
+                          }
+                          if (k === "acreage") {
+                            const sizeSignal = acreageVal >= 3.5 && acreageVal <= 5 ? "IDEAL SIZE" : acreageVal >= 2.5 && acreageVal < 3.5 ? "MULTI-STORY" : acreageVal > 5 && acreageVal <= 7 ? "LARGE" : acreageVal > 7 ? "SUBDIVISIBLE" : "REVIEW";
+                            const sizeC = acreageVal >= 3.5 && acreageVal <= 5 ? "#22C55E" : acreageVal >= 2.5 ? "#3B82F6" : "#F59E0B";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sizeC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>SITE SIZE & CONFIGURATION</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 36, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{acreageVal.toFixed(2)}<span style={{ fontSize: 14, color: "#6B7394" }}> ac</span></div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: sizeC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: sizeC }}>{sizeSignal}</span></div>
+                                </div>
+                                {[{ l: "Primary (3.5-5 ac)", d: "One-story indoor CC", r: [3.5, 5], c: "#22C55E" },
+                                  { l: "Secondary (2.5-3.5 ac)", d: "Multi-story option", r: [2.5, 3.5], c: "#3B82F6" },
+                                  { l: "Large (5-7 ac)", d: "Subdivisible", r: [5, 7], c: "#F59E0B" },
+                                  { l: "XL (7+ ac)", d: "Pad-split potential", r: [7, 999], c: "#8B5CF6" },
+                                ].map((r, j) => (
+                                  <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 5, marginBottom: 3, background: acreageVal >= r.r[0] && acreageVal <= r.r[1] ? r.c + "12" : "transparent" }}>
+                                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: acreageVal >= r.r[0] && acreageVal <= r.r[1] ? r.c : "#4A5080" }} />
+                                    <span style={{ fontSize: 10, color: acreageVal >= r.r[0] && acreageVal <= r.r[1] ? "#E2E8F0" : "#6B7394", fontWeight: acreageVal >= r.r[0] && acreageVal <= r.r[1] ? 700 : 500 }}>{r.l}</span>
+                                    <span style={{ fontSize: 9, color: "#4A5080", marginLeft: "auto" }}>{r.d}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <SvxBox signal={sizeSignal} sigColor={sizeC} text={acreageVal >= 3.5 && acreageVal <= 5 ? `${acreageVal.toFixed(2)} acres — ideal for PS's preferred one-story, indoor climate-controlled product. Accommodates 80,000-110,000 net rentable SF with parking, landscaping, and stormwater.` : acreageVal > 5 ? `${acreageVal.toFixed(2)} acres — large parcel offers flexibility. Could accommodate PS's standard product with excess land for expansion or outparcel development to offset land basis.` : `${acreageVal.toFixed(2)} acres — suitable for multi-story (3-4 story) climate-controlled facility. Can achieve 70,000-100,000 net rentable SF with vertical construction.`} />
+                            </div>);
+                          }
+                          if (k === "psProximity") {
+                            const proxSig = psDist2 <= 5 ? "VALIDATED SUBMARKET" : psDist2 <= 10 ? "PS ADJACENT" : psDist2 <= 15 ? "MODERATE" : psDist2 <= 25 ? "EDGE" : "REMOTE";
+                            const pC = psDist2 <= 5 ? "#22C55E" : psDist2 <= 10 ? "#3B82F6" : psDist2 <= 15 ? "#F59E0B" : "#E87A2E";
+                            return (<div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${pC}15`, marginBottom: 12 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>PS NEAREST FACILITY PROXIMITY</div>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                  <div style={{ fontSize: 42, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{psDist2 ? psDist2.toFixed(1) : "—"}<span style={{ fontSize: 16, color: "#6B7394" }}> mi</span></div>
+                                  <div style={{ padding: "4px 12px", borderRadius: 6, background: pC + "18" }}><span style={{ fontSize: 11, fontWeight: 800, color: pC }}>{proxSig}</span></div>
+                                </div>
+                                {[{ l: "0-5 mi: Validated Submarket", c: "#22C55E", a: psDist2 <= 5, s: "10/10" },
+                                  { l: "5-10 mi: PS Adjacent", c: "#3B82F6", a: psDist2 > 5 && psDist2 <= 10, s: "9/10" },
+                                  { l: "10-15 mi: Moderate", c: "#F59E0B", a: psDist2 > 10 && psDist2 <= 15, s: "7/10" },
+                                  { l: "15-25 mi: Edge", c: "#E87A2E", a: psDist2 > 15 && psDist2 <= 25, s: "5/10" },
+                                  { l: "25-35 mi: Remote", c: "#EF4444", a: psDist2 > 25, s: "3/10" },
+                                ].map((t, j) => (
+                                  <div key={j} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 6, marginBottom: 4, background: t.a ? t.c + "12" : "transparent", border: t.a ? `1px solid ${t.c}30` : "1px solid transparent" }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.a ? t.c : "#4A5080" }} />
+                                    <span style={{ fontSize: 11, color: t.a ? "#E2E8F0" : "#6B7394", fontWeight: t.a ? 700 : 500, flex: 1 }}>{t.l}</span>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: t.a ? t.c : "#4A5080", fontFamily: "'Space Mono', monospace" }}>{t.s}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <SvxBox signal={proxSig} sigColor={pC} text={psDist2 <= 5 ? `Nearest PS is ${psDist2.toFixed(1)} miles away — validated PS submarket. Proximity confirms market has been previously vetted. Closer = stronger validation, not cannibalization.` : psDist2 <= 15 ? `At ${psDist2.toFixed(1)} miles, within PS's established footprint. Adjacent trade area PS hasn't yet saturated — infill opportunity.` : `${psDist2 ? psDist2.toFixed(1) : "N/A"} miles from nearest PS. Requires stronger standalone fundamentals to justify expansion into a new submarket.`} />
+                            </div>);
+                          }
+                          if (k === "competition") {
+                            const cc = compCount || 0;
+                            const signal = cc <= 1 ? "UNDERSERVED" : cc <= 3 ? "LOW COMPETITION" : cc <= 6 ? "MODERATE" : "COMPETITIVE";
+                            const sC = cc <= 1 ? "#22C55E" : cc <= 3 ? "#3B82F6" : cc <= 6 ? "#F59E0B" : "#EF4444";
+                            const operators = compNames ? String(compNames).split(",").map(n => n.trim()).filter(Boolean) : [];
+                            const reitCt = operators.filter(n => n.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage|National Storage/i)).length;
+                            return (<div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: `1px solid ${sC}15` }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 12 }}>COMPETITIVE DENSITY (3-MI RADIUS)</div>
+                                  <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+                                    <div style={{ fontSize: 48, fontWeight: 900, color: sC, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{cc}</div>
+                                    <div><div style={{ padding: "4px 12px", borderRadius: 6, background: sC + "18", marginBottom: 4 }}><span style={{ fontSize: 11, fontWeight: 800, color: sC }}>{signal}</span></div>
+                                    {reitCt > 0 && <div style={{ fontSize: 10, color: "#EF4444", fontWeight: 700 }}>{reitCt} REIT{reitCt > 1 ? "s" : ""}</div>}</div>
+                                  </div>
+                                  {nearComp && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>NEAREST: </span><span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{nearComp}</span></div>}
+                                  {demandSig && <div style={{ padding: "8px 12px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>MARKET: </span><span style={{ fontSize: 11, color: "#C9A84C", fontWeight: 600 }}>{demandSig}</span></div>}
+                                </div>
+                                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 10, padding: 16, border: "1px solid rgba(232,122,46,0.1)" }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 10 }}>OPERATOR LANDSCAPE</div>
+                                  <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                                    {operators.length > 0 ? operators.map((name, j) => (
+                                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: j < operators.length - 1 ? "1px solid rgba(201,168,76,0.04)" : "none" }}>
+                                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: name.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage/i) ? "#EF4444" : name.match(/StorageMart|U-Haul|SecurCare/i) ? "#F59E0B" : "#3B82F6", flexShrink: 0 }} />
+                                        <span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600, flex: 1 }}>{name}</span>
+                                        {name.match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage|National Storage/i) && <span style={{ fontSize: 8, fontWeight: 800, color: "#EF4444", background: "rgba(239,68,68,0.1)", padding: "1px 5px", borderRadius: 3 }}>REIT</span>}
+                                      </div>
+                                    )) : <div style={{ fontSize: 11, color: "#6B7394", fontStyle: "italic" }}>No operator data available</div>}
+                                  </div>
+                                </div>
+                              </div>
+                              <SvxBox signal={signal} sigColor={sC} text={cc <= 1 ? `Only ${cc} competitor within 3 miles — underserved market with significant unmet demand. Ideal for new PS development.` : cc <= 3 ? `${cc} competitors — manageable competition. ${reitCt > 0 ? reitCt + " REIT(s) validates institutional demand." : "Predominantly local operators — opportunity for REIT-quality facility."}` : `${cc} facilities within 3 miles — ${cc <= 6 ? "moderate" : "high"} competition. ${reitCt >= 2 ? "Multiple REITs confirm mature market." : ""} Success requires competitive positioning and rate strategy.`} />
+                            </div>);
+                          }
+                          return null;
+                        };
+                        return (
+                          <div key={i}>
+                            <div onClick={() => { if (row.key !== "growthOutlook") setDemoRowExpanded(isRowExp ? null : row.key); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 18px", borderBottom: "1px solid rgba(201,168,76,0.06)", cursor: row.key !== "growthOutlook" ? "pointer" : "default", background: isRowExp ? "rgba(201,168,76,0.06)" : "transparent", transition: "background 0.15s" }} onMouseEnter={(e) => { if (row.key !== "growthOutlook" && !isRowExp) e.currentTarget.style.background = "rgba(201,168,76,0.03)"; }} onMouseLeave={(e) => { if (!isRowExp) e.currentTarget.style.background = "transparent"; }}>
+                              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 13 }}>{row.icon}</span>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: isRowExp ? "#C9A84C" : "#94A3B8" }}>{row.label}</span>
+                                {row.key !== "growthOutlook" && <span style={{ fontSize: 9, color: isRowExp ? "#C9A84C" : "#4A5080", transition: "transform 0.2s", display: "inline-block", transform: isRowExp ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>}
+                              </span>
+                              <span style={{ fontSize: 14, fontWeight: 800, color: row.color || "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{row.val}</span>
+                            </div>
+                            {isRowExp && renderRowExpansion() && (
+                              <div style={{ padding: "16px 20px 20px", background: "rgba(10,10,14,0.8)", borderBottom: "2px solid rgba(201,168,76,0.1)", animation: "fadeIn 0.2s ease-out" }}>
+                                {renderRowExpansion()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* EXPANDED DEEP DIVE */}
+                    {demoExpanded && (
+                      <div style={{ background: "rgba(10,10,14,0.95)", borderTop: "2px solid rgba(201,168,76,0.15)" }}>
+                        {/* POPULATION ANALYSIS */}
+                        <div style={{ padding: "20px 24px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                            <div style={{ width: 3, height: 18, borderRadius: 2, background: "#3B82F6" }} />
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "#3B82F6", letterSpacing: "0.1em" }}>POPULATION ANALYSIS</span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            {/* Pop bar chart */}
+                            <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(59,130,246,0.1)" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", marginBottom: 12, letterSpacing: "0.08em" }}>3-MILE POPULATION vs BENCHMARK</div>
+                              {[
+                                { label: "This Site", val: popRaw, color: "#3B82F6" },
+                                { label: "PS Benchmark (40K)", val: popBench, color: "#4A5080" },
+                                { label: "Min Threshold (5K)", val: 5000, color: "#EF4444" },
+                              ].map((b, i) => (
+                                <div key={i} style={{ marginBottom: 10 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                                    <span style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8" }}>{b.label}</span>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: b.color, fontFamily: "'Space Mono', monospace" }}>{b.val ? b.val.toLocaleString() : "—"}</span>
+                                  </div>
+                                  <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${Math.min(100, ((b.val || 0) / popBench) * 100)}%`, borderRadius: 4, background: `linear-gradient(90deg, ${b.color}99, ${b.color})`, transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Growth trajectory */}
+                            <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(34,197,94,0.1)" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", marginBottom: 12, letterSpacing: "0.08em" }}>GROWTH TRAJECTORY</div>
+                              <div style={{ textAlign: "center", padding: "12px 0" }}>
+                                <div style={{ fontSize: 36, fontWeight: 900, color: gColor2, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>{gLabel2 || "—"}</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: gVal2 != null ? (gVal2 > 1.5 ? "#22C55E" : "#FBBF24") : "#6B7394", marginTop: 6, fontStyle: "italic" }}>{gOutlook2 || "No data"}</div>
+                              </div>
+                              <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 8, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.1)" }}>
+                                <div style={{ fontSize: 10, color: "#94A3B8", lineHeight: 1.6 }}>
+                                  {gVal2 != null && gVal2 > 1.5 ? "High-growth corridor — population expanding rapidly. Strong demand signal for storage as new households form." : gVal2 != null && gVal2 > 0.5 ? "Steady growth market. Population is expanding at a sustainable pace, driving incremental storage demand." : gVal2 != null && gVal2 > 0 ? "Stable market with modest growth. Existing facilities may absorb most new demand." : "Flat or declining population. Storage demand may be static — focus on existing household turnover."}
+                                </div>
+                              </div>
+                              {pop1Raw && <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", padding: "6px 10px", borderRadius: 6, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 10, color: "#6B7394" }}>1-Mile Pop</span><span style={{ fontSize: 12, fontWeight: 800, color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{pop1Raw.toLocaleString()}</span></div>}
+                            </div>
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                        {/* INCOME & WEALTH */}
+                        <div style={{ padding: "4px 24px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                            <div style={{ width: 3, height: 18, borderRadius: 2, background: "#C9A84C" }} />
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>INCOME & WEALTH INDICATORS</span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                            {[
+                              { label: "MEDIAN HHI", val: hhiRaw, fmt: "$" + (hhiRaw || 0).toLocaleString(), bench: hhiBench, benchLabel: "$90K (top tier)", color: "#C9A84C", signal: hhiRaw >= 90000 ? "Premium" : hhiRaw >= 65000 ? "Strong" : hhiRaw >= 55000 ? "Adequate" : "Below threshold" },
+                              { label: "HOUSEHOLDS", val: hhRaw, fmt: (hhRaw || 0).toLocaleString(), bench: hhBench, benchLabel: "25K (top tier)", color: "#8B5CF6", signal: hhRaw >= 25000 ? "Deep demand pool" : hhRaw >= 12000 ? "Solid base" : "Limited pool" },
+                              { label: "HOME VALUE", val: hvRaw, fmt: "$" + (hvRaw || 0).toLocaleString(), bench: hvBench, benchLabel: "$500K (top tier)", color: "#F37C33", signal: hvRaw >= 500000 ? "Premium market" : hvRaw >= 250000 ? "Affluent" : hvRaw >= 180000 ? "Middle market" : "Value market" },
+                            ].map((m, i) => (
+                              <div key={i} style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: `1px solid ${m.color}15` }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 8 }}>{m.label}</div>
+                                <div style={{ fontSize: 22, fontWeight: 900, color: "#E2E8F0", fontFamily: "'Space Mono', monospace", marginBottom: 4 }}>{m.val ? m.fmt : "—"}</div>
+                                <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.04)", overflow: "hidden", marginBottom: 8 }}>
+                                  <div style={{ height: "100%", width: `${Math.min(100, ((m.val || 0) / m.bench) * 100)}%`, borderRadius: 3, background: `linear-gradient(90deg, ${m.color}99, ${m.color})` }} />
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ fontSize: 9, color: "#6B7394" }}>vs {m.benchLabel}</span>
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: m.color }}>{m.signal}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* COMPETITION LANDSCAPE */}
+                        {(compCount != null || compNames) && (
+                          <div style={{ padding: "4px 24px 20px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                              <div style={{ width: 3, height: 18, borderRadius: 2, background: "#E87A2E" }} />
+                              <span style={{ fontSize: 12, fontWeight: 800, color: "#E87A2E", letterSpacing: "0.1em" }}>COMPETITION LANDSCAPE</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(232,122,46,0.1)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 4 }}>FACILITIES WITHIN 3 MI</div>
+                                    <div style={{ fontSize: 36, fontWeight: 900, color: compCount <= 3 ? "#22C55E" : compCount <= 6 ? "#F59E0B" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>{compCount}</div>
+                                  </div>
+                                  <div style={{ padding: "6px 12px", borderRadius: 8, background: compCount <= 3 ? "rgba(34,197,94,0.12)" : compCount <= 6 ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)", border: `1px solid ${compCount <= 3 ? "rgba(34,197,94,0.2)" : compCount <= 6 ? "rgba(245,158,11,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                                    <div style={{ fontSize: 11, fontWeight: 800, color: compCount <= 3 ? "#22C55E" : compCount <= 6 ? "#F59E0B" : "#EF4444" }}>{compCount <= 3 ? "UNDERSERVED" : compCount <= 6 ? "MODERATE" : "COMPETITIVE"}</div>
+                                  </div>
+                                </div>
+                                {nearComp && <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(15,21,56,0.3)", marginBottom: 8 }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>NEAREST: </span><span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{nearComp}</span></div>}
+                                {demandSig && <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(15,21,56,0.3)" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#6B7394" }}>SIGNAL: </span><span style={{ fontSize: 11, color: "#C9A84C", fontWeight: 600 }}>{demandSig}</span></div>}
+                              </div>
+                              <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 12, padding: 16, border: "1px solid rgba(232,122,46,0.1)" }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.1em", marginBottom: 10 }}>COMPETING OPERATORS</div>
+                                {compNames ? String(compNames).split(",").map((name, i) => (
+                                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(201,168,76,0.04)" }}>
+                                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: name.trim().match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage/) ? "#EF4444" : name.trim().match(/StorageMart|U-Haul|SecurCare/) ? "#F59E0B" : "#3B82F6", flexShrink: 0 }} />
+                                    <span style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 600 }}>{name.trim()}</span>
+                                    {name.trim().match(/Public Storage|Extra Space|CubeSmart|Life Storage|NSA|iStorage/) && <span style={{ fontSize: 8, fontWeight: 800, color: "#EF4444", background: "rgba(239,68,68,0.1)", padding: "1px 5px", borderRadius: 3 }}>REIT</span>}
+                                  </div>
+                                )) : <div style={{ fontSize: 11, color: "#6B7394" }}>No competitor data</div>}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : null;
               })()}
@@ -4415,11 +5939,12 @@ export default function App() {
                   { key: "population", label: "Population", icon: "👥", weight: getIQWeight("population") },
                   { key: "growth", label: "Growth", icon: "📈", weight: getIQWeight("growth") },
                   { key: "income", label: "Income", icon: "💰", weight: getIQWeight("income") },
-                  { key: "pricing", label: "Pricing", icon: "🏷️", weight: getIQWeight("pricing") },
+                  { key: "households", label: "Households", icon: "🏠", weight: getIQWeight("households") },
+                  { key: "homeValue", label: "Home Value", icon: "🏡", weight: getIQWeight("homeValue") },
                   { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
+                  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: getIQWeight("psProximity") },
                   { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
                   { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
-                  { key: "marketTier", label: "Market Tier", icon: "🎯", weight: getIQWeight("marketTier") },
                 ];
                 const sc2 = (v) => v >= 8 ? "#22C55E" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
                 return (
@@ -4428,7 +5953,7 @@ export default function App() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 14 }}>🔬</span>
                         <span style={{ color: "#FFB347", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>SiteScore™ SCORECARD</span>
-                        <span style={{ color: sc2(iqR.score), fontSize: 14, fontWeight: 900, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span>
+                        <span style={{ color: sc2(iqR.score), fontSize: 14, fontWeight: 900, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(2)}</span>
                       </div>
                       {iqR.flags && iqR.flags.length > 0 && <div style={{ display: "flex", gap: 4 }}>{iqR.flags.map((f, i) => <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>)}</div>}
                     </div>
@@ -4442,12 +5967,12 @@ export default function App() {
                             <div><div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0" }}>{d.label}</div><div style={{ fontSize: 8, color: "#6B7394" }}>{(d.weight * 100).toFixed(0)}% weight</div></div>
                             <div style={{ textAlign: "right", fontSize: 15, fontWeight: 900, color: sc2(v2), fontFamily: "'Space Mono'" }}>{v2}</div>
                             <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct2}%`, background: `linear-gradient(90deg, ${sc2(v2)}88, ${sc2(v2)})`, borderRadius: 4 }} /></div>
-                            <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#FBBF24", fontFamily: "'Space Mono'" }}>{(v2 * d.weight).toFixed(2)}</div>
+                            <div style={{ textAlign: "right", fontSize: 11, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono'" }}>{(v2 * d.weight).toFixed(2)}</div>
                           </div>
                         );
                       })}
                       <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 4px 4px", borderTop: "2px solid rgba(243,124,51,.2)", marginTop: 4 }}>
-                        <span style={{ fontSize: 10, color: "#94A3B8" }}>COMPOSITE: <span style={{ color: "#FBBF24", fontWeight: 900, fontSize: 14, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(1)}</span> / 10</span>
+                        <span style={{ fontSize: 10, color: "#94A3B8" }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 14, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(2)}</span> / 10</span>
                       </div>
                     </div>
                   </div>
@@ -4456,9 +5981,224 @@ export default function App() {
 
               {/* BOTTOM NAV */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 0", borderTop: "1px solid rgba(201,168,76,0.1)" }}>
-                <button disabled={!prevSite} onClick={() => { if (prevSite) { setDetailView({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!prevSite), padding: "12px 24px" }}>← {prevSite ? prevSite.name : "Start"}</button>
+                <button disabled={!prevSite} onClick={() => { if (prevSite) { goToDetail({ regionKey: dv.regionKey, siteId: prevSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!prevSite), padding: "12px 24px" }}>← {prevSite ? prevSite.name : "Start"}</button>
                 <button onClick={() => { setDetailView(null); navigateTo(dv.regionKey); }} style={{ padding: "12px 24px", borderRadius: 10, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.15)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↩ Back to Tracker</button>
-                <button disabled={!nextSite} onClick={() => { if (nextSite) { setDetailView({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!nextSite), padding: "12px 24px" }}>{nextSite ? nextSite.name : "End"} →</button>
+                <button disabled={!nextSite} onClick={() => { if (nextSite) { goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); } }} style={{ ...navBtnSt(!nextSite), padding: "12px 24px" }}>{nextSite ? nextSite.name : "End"} →</button>
+              </div>
+
+              {/* PERMANENTLY REMOVE SITE */}
+              <div style={{ display: "flex", justifyContent: "center", padding: "16px 0 32px", borderTop: "1px solid rgba(220,38,38,0.08)" }}>
+                <button onClick={() => {
+                  const confirmed = window.confirm(`PERMANENTLY REMOVE "${site.name}"?\n\nThis will delete the site from the ${dv.regionKey === "southwest" ? "Daniel Wollent" : "Matthew Toussaint"} tracker. This action cannot be undone.\n\nAre you sure?`);
+                  if (confirmed) {
+                    fbRemove(`${dv.regionKey}/${site.id}`);
+                    notify(`${site.name} permanently removed from tracker`);
+                    setDetailView(null);
+                    navigateTo(dv.regionKey);
+                  }
+                }} style={{ padding: "10px 28px", borderRadius: 8, background: "transparent", border: "1px solid rgba(220,38,38,0.25)", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.1)"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.5)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(220,38,38,0.25)"; }}>Permanently Remove Site</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ═══ VALUATION INPUTS ═══ */}
+        {tab === "inputs" && (() => {
+          // Pass all pipeline sites so the component can render a property dropdown
+          const allPipelineSites = [...sw.map(s => ({ ...s, _region: "southwest" })), ...east.map(s => ({ ...s, _region: "east" }))];
+          // If a detail view is active, pre-select that site
+          const preselectedSite = detailView ? allPipelineSites.find(s => s.id === detailView.siteId) || null : null;
+          return <ValuationInputs
+            overrides={valuationOverrides}
+            onSave={(newOverrides) => { setValuationOverrides(newOverrides); VALUATION_OVERRIDES = newOverrides; }}
+            fbSet={fbSet}
+            activeSite={preselectedSite}
+            activeRegion={preselectedSite?._region || detailView?.regionKey || null}
+            allSites={allPipelineSites}
+          />;
+        })()}
+
+        {/* ═══ VALIDATION TAB ═══ */}
+        {tab === "validation" && (() => {
+          const allSites = [...sw, ...east];
+          const vs = computeValidationStats(allSites);
+          const pct = (n) => n != null ? `${(n * 100).toFixed(0)}%` : "—";
+          const fmt1 = (n) => n != null ? n.toFixed(1) : "—";
+          const kpiCard = (label, value, sub, color) => (
+            <div style={{ flex: "1 1 140px", padding: "18px 16px", borderRadius: 12, background: "rgba(15,21,56,0.6)", border: `1px solid ${color}33`, textAlign: "center" }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color, fontFamily: "'Inter', sans-serif" }}>{value}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>{label}</div>
+              {sub && <div style={{ fontSize: 10, color: "#6B7394", marginTop: 2 }}>{sub}</div>}
+            </div>
+          );
+          const confColors = { GREEN: "#22C55E", YELLOW: "#3B82F6", ORANGE: "#F59E0B", RED: "#DC2626" };
+          return (
+            <div style={{ maxWidth: 900, margin: "0 auto" }}>
+              {/* Confidence Banner */}
+              <div style={{ padding: "12px 18px", borderRadius: 10, background: vs.confidence === "high" ? "rgba(34,197,94,0.08)" : vs.confidence === "medium" ? "rgba(59,130,246,0.08)" : "rgba(245,158,11,0.08)", border: `1px solid ${vs.confidence === "high" ? "rgba(34,197,94,0.2)" : vs.confidence === "medium" ? "rgba(59,130,246,0.2)" : "rgba(245,158,11,0.2)"}`, marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{vs.confidence === "high" ? "📊" : vs.confidence === "medium" ? "📈" : "🔬"}</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0" }}>{vs.confidenceLabel}</div>
+                  <div style={{ fontSize: 10, color: "#94A3B8" }}>{vs.total} REIC decisions recorded{vs.pending > 0 ? ` · ${vs.pending} pending` : ""}</div>
+                </div>
+              </div>
+
+              {/* KPI Cards */}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+                {kpiCard("REIC Decisions", vs.total, `${vs.approvedCount} approved · ${vs.rejectedCount} rejected`, "#C9A84C")}
+                {kpiCard("Approval Rate", pct(vs.approvalRate), vs.total > 0 ? `${vs.approvedCount} of ${vs.total}` : "No data yet", "#22C55E")}
+                {kpiCard("Avg Score (Approved)", fmt1(vs.avgScoreApproved), "Sites REIC approved", "#22C55E")}
+                {kpiCard("Avg Score (Rejected)", fmt1(vs.avgScoreRejected), "Sites REIC rejected", "#DC2626")}
+              </div>
+
+              {/* Score Band Chart */}
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0", marginBottom: 14 }}>Score Band vs. REIC Approval Rate</div>
+                {vs.bandStats.map((b) => (
+                  <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                    <div style={{ width: 60, fontSize: 11, fontWeight: 700, color: b.color, textAlign: "right" }}>{b.label}</div>
+                    <div style={{ flex: 1, height: 30, borderRadius: 6, background: "rgba(15,21,56,0.7)", overflow: "hidden", display: "flex", position: "relative" }}>
+                      {b.total > 0 ? (<>
+                        <div style={{ width: `${(b.approved / b.total) * 100}%`, background: "linear-gradient(90deg, #16A34A, #22C55E)", transition: "width 0.6s ease", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {b.approved > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>{b.approved}</span>}
+                        </div>
+                        <div style={{ width: `${(b.rejected / b.total) * 100}%`, background: "linear-gradient(90deg, #DC2626, #EF4444)", transition: "width 0.6s ease", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {b.rejected > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>{b.rejected}</span>}
+                        </div>
+                      </>) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", fontSize: 10, color: "#6B7394" }}>No data</div>
+                      )}
+                    </div>
+                    <div style={{ width: 90, fontSize: 11, color: "#E2E8F0", textAlign: "right" }}>
+                      {b.total > 0 ? `${b.approved}/${b.total} (${pct(b.approvalRate)})` : "—"}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 10, color: "#6B7394" }}>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#22C55E", marginRight: 4 }}></span>Approved</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#DC2626", marginRight: 4 }}></span>Rejected</span>
+                </div>
+              </div>
+
+              {/* Confusion Matrix */}
+              <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0", marginBottom: 14 }}>Classification vs. REIC Outcome</div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["Classification", "Approved", "Rejected", "Total", "Accuracy"].map((h) => (
+                        <th key={h} style={{ padding: "8px 10px", textAlign: h === "Classification" ? "left" : "center", fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid rgba(201,168,76,0.1)" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vs.confusionMatrix.map((row) => (
+                      <tr key={row.classification}>
+                        <td style={{ padding: "8px 10px", fontSize: 12, fontWeight: 700, color: confColors[row.classification] }}>{row.classification}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#22C55E" }}>{row.approved || "—"}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#DC2626" }}>{row.rejected || "—"}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 12, color: "#94A3B8" }}>{row.total || "—"}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontSize: 12, fontWeight: 700, color: row.accuracy != null && row.accuracy >= 0.7 ? "#22C55E" : row.accuracy != null && row.accuracy >= 0.5 ? "#F59E0B" : row.total > 0 ? "#DC2626" : "#6B7394" }}>{row.total > 0 ? pct(row.accuracy) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Per-Dimension Power (only if N >= 10) */}
+              {vs.total >= 10 && (
+                <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(201,168,76,0.08)", marginBottom: 24 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0", marginBottom: 4 }}>Dimension Predictive Power</div>
+                  <div style={{ fontSize: 10, color: "#6B7394", marginBottom: 14 }}>Average dimension score: approved vs. rejected sites</div>
+                  {vs.dimStats.filter(d => d.appAvg != null || d.rejAvg != null).map((d) => (
+                    <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{ width: 100, fontSize: 11, fontWeight: 600, color: "#94A3B8", textAlign: "right" }}>{d.label}</div>
+                      <div style={{ flex: 1, display: "flex", gap: 4 }}>
+                        <div style={{ flex: 1, height: 18, borderRadius: 4, background: "rgba(15,21,56,0.7)", overflow: "hidden" }}>
+                          <div style={{ width: `${(d.appAvg || 0) * 10}%`, height: "100%", background: "linear-gradient(90deg, #16A34A, #22C55E)", borderRadius: 4, transition: "width 0.5s" }}></div>
+                        </div>
+                        <div style={{ flex: 1, height: 18, borderRadius: 4, background: "rgba(15,21,56,0.7)", overflow: "hidden" }}>
+                          <div style={{ width: `${(d.rejAvg || 0) * 10}%`, height: "100%", background: "linear-gradient(90deg, #DC2626, #EF4444)", borderRadius: 4, transition: "width 0.5s" }}></div>
+                        </div>
+                      </div>
+                      <div style={{ width: 110, fontSize: 10, color: "#E2E8F0", textAlign: "right" }}>
+                        <span style={{ color: "#22C55E" }}>{fmt1(d.appAvg)}</span> / <span style={{ color: "#DC2626" }}>{fmt1(d.rejAvg)}</span>
+                        {d.delta != null && <span style={{ color: d.delta > 1 ? "#22C55E" : d.delta > 0 ? "#F59E0B" : "#DC2626", marginLeft: 4 }}>({d.delta > 0 ? "+" : ""}{d.delta.toFixed(1)})</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Backfill Buttons */}
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", padding: "12px 0", flexWrap: "wrap" }}>
+                <div style={{ textAlign: "center" }}>
+                  <button onClick={() => {
+                    const allTracker = [...sw.map(s => ({ ...s, _r: "southwest" })), ...east.map(s => ({ ...s, _r: "east" }))];
+                    const toBackfill = allTracker.filter(s => !s.scoreAtReicSubmit && s.phase && ["Submitted to PS", "SiteScore Approved", "LOI", "PSA Sent", "Under Contract", "Closed", "Declined", "Dead"].includes(s.phase));
+                    if (toBackfill.length === 0) { notify("All sites already have score snapshots"); return; }
+                    toBackfill.forEach(s => {
+                      const iq = computeSiteScore(s);
+                      fbUpdate(`${s._r}/${s.id}`, {
+                        scoreAtReicSubmit: iq.score,
+                        scoresAtReicSubmit: iq.scores,
+                        classAtReicSubmit: iq.classification,
+                        ...(s.reicOutcome ? {} : { reicOutcome: s.phase === "Declined" || s.phase === "Dead" ? "rejected" : "pending" }),
+                      });
+                    });
+                    notify(`Backfilled ${toBackfill.length} sites`);
+                  }} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>
+                    Backfill Score Snapshots
+                  </button>
+                  <div style={{ fontSize: 10, color: "#6B7394", marginTop: 6 }}>Snapshot current SiteScore for untagged sites</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <button onClick={() => {
+                    const allTracker = [...sw.map(s => ({ ...s, _r: "southwest" })), ...east.map(s => ({ ...s, _r: "east" }))];
+                    // Auto-tag REIC outcomes from phase data
+                    const approvedPhases = ["Under Contract", "Closed", "LOI", "LOI Sent", "LOI Signed", "PSA Sent"];
+                    const rejectedPhases = ["Declined", "Dead"];
+                    const toTag = allTracker.filter(s => !s.reicOutcome && s.phase && [...approvedPhases, ...rejectedPhases].includes(s.phase));
+                    if (toTag.length === 0) { notify("All sites already have REIC outcomes tagged"); return; }
+                    let tagged = 0;
+                    toTag.forEach(s => {
+                      const isApproved = approvedPhases.includes(s.phase);
+                      const isRejected = rejectedPhases.includes(s.phase);
+                      if (isApproved || isRejected) {
+                        const iq = computeSiteScore(s);
+                        const updates = {
+                          reicOutcome: isApproved ? "approved" : "rejected",
+                          reicDate: new Date().toISOString(),
+                        };
+                        // Also backfill score snapshot if missing
+                        if (!s.scoreAtReicSubmit) {
+                          updates.scoreAtReicSubmit = iq.score;
+                          updates.scoresAtReicSubmit = iq.scores;
+                          updates.classAtReicSubmit = iq.classification;
+                        }
+                        fbUpdate(`${s._r}/${s.id}`, updates);
+                        tagged++;
+                      }
+                    });
+                    // Also log to calibration
+                    toTag.forEach(s => {
+                      const isApproved = approvedPhases.includes(s.phase);
+                      fbPush("config/scoring_calibration", {
+                        siteId: s.id,
+                        siteName: s.name || s.address || s.id,
+                        action: `reic_${isApproved ? "approved" : "rejected"}`,
+                        reicOutcome: isApproved ? "approved" : "rejected",
+                        phase: s.phase,
+                        ts: new Date().toISOString(),
+                        by: "Backfill (auto-inferred from phase)",
+                      });
+                    });
+                    notify(`Tagged ${tagged} REIC outcomes from phase data`);
+                  }} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.06)", color: "#22C55E", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>
+                    Auto-Tag REIC Outcomes
+                  </button>
+                  <div style={{ fontSize: 10, color: "#6B7394", marginTop: 6 }}>Infer approved/rejected from phase (UC/Closed = approved, Dead = rejected)</div>
+                </div>
               </div>
             </div>
           );
@@ -4466,6 +6206,44 @@ export default function App() {
 
         {/* ═══ TRACKERS ═══ */}
         {(tab === "southwest" || tab === "east") && !detailView && <TrackerCards regionKey={tab} />}
+
+        {/* ═══ REIC OUTCOME PROMPT ═══ */}
+        {reicPrompt && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setReicPrompt(null)}>
+            <div style={{ background: "#0F1538", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(201,168,76,0.15)", maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#E2E8F0", marginBottom: 4 }}>REIC Outcome</div>
+              <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 18 }}>Record REIC decision for <strong style={{ color: "#C9A84C" }}>{reicPrompt.siteName}</strong> (moving to {reicPrompt.newPhase})</div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+                {[
+                  { label: "Approved", value: "approved", bg: "linear-gradient(135deg, #16A34A, #15803D)", color: "#fff" },
+                  { label: "Rejected", value: "rejected", bg: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "#fff" },
+                  { label: "Skip", value: null, bg: "rgba(148,163,184,0.1)", color: "#94A3B8" },
+                ].map((opt) => (
+                  <button key={opt.label} onClick={() => {
+                    const now = new Date().toISOString();
+                    if (opt.value) {
+                      fbUpdate(`${reicPrompt.region}/${reicPrompt.id}`, {
+                        reicOutcome: opt.value,
+                        reicDate: now,
+                      });
+                      fbPush("config/scoring_calibration", {
+                        siteId: reicPrompt.id,
+                        siteName: reicPrompt.siteName,
+                        action: `reic_${opt.value}`,
+                        reicOutcome: opt.value,
+                        ts: now,
+                        by: "Dan R",
+                      });
+                    }
+                    setReicPrompt(null);
+                  }} style={{ flex: 1, padding: "12px 16px", borderRadius: 10, border: "none", background: opt.bg, color: opt.color, fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
             {/* ═══ COPYRIGHT FOOTER ═══ */}
@@ -4474,4 +6252,91 @@ export default function App() {
                                 </div>
     </div>
   );
+}
+
+// Auto-generate intel blurb from structured Firebase fields when no manual latestNote exists.
+// Ensures every site card has hoverable intel — no blank tooltips.
+function generateAutoBlurb(site) {
+  const parts = [];
+  // Phase only — never embed a hardcoded score number (scores change, stale numbers cause drift)
+  const phase = site.phase || "Prospect";
+  parts.push(`Phase: ${phase}.`);
+  // Zoning
+  if (site.zoningClassification === "by-right") parts.push(`Zoning: ${site.zoning || "Commercial"} - BY RIGHT.`);
+  else if (site.zoningClassification === "conditional") parts.push(`Zoning: ${site.zoning || "?"} - CONDITIONAL (SUP/CUP required).`);
+  else if (site.zoningClassification) parts.push(`Zoning: ${site.zoning || "?"} - ${site.zoningClassification}.`);
+  else if (site.zoning) parts.push(`Zoning: ${site.zoning}.`);
+  // Price + acreage
+  if (site.askingPrice && site.acreage) parts.push(`${site.askingPrice} on ${site.acreage}ac.`);
+  else if (site.askingPrice) parts.push(`Ask: ${site.askingPrice}.`);
+  // Demographics
+  const pop = site.pop3mi; const hhi = site.income3mi; const growth = site.growthRate || site.popGrowth3mi;
+  if (pop || hhi) {
+    let demo = [];
+    if (pop) demo.push(`${pop} pop`);
+    if (hhi) demo.push(`$${String(hhi).replace(/^\$/, '')} HHI`);
+    if (growth) demo.push(`${growth}% growth`);
+    parts.push(`3-mi: ${demo.join(", ")}.`);
+  }
+  // Competition
+  if (site.ccSPC || site.siteiqData?.ccSPC) parts.push(`CC SPC: ${site.ccSPC || site.siteiqData.ccSPC}.`);
+  // PS proximity
+  if (site.siteiqData?.nearestPS) parts.push(`Nearest PS: ${site.siteiqData.nearestPS} mi.`);
+  // Broker
+  if (site.sellerBroker) parts.push(`Broker: ${site.sellerBroker.split(" - ")[0].split(" — ")[0]}.`);
+  // Water
+  if (site.waterHookupStatus === "by-right") parts.push("Water: by-right.");
+  else if (site.waterHookupStatus === "by-request") parts.push("Water: by-request (extension needed).");
+  else if (site.waterHookupStatus === "no-provider") parts.push("Water: NO PROVIDER - red flag.");
+  // Demand drivers
+  if (site.demandDrivers) parts.push(`Drivers: ${site.demandDrivers.substring(0, 80)}${site.demandDrivers.length > 80 ? "..." : ""}`);
+  return parts.length > 1 ? parts.join(" ") : null;
+}
+
+// Intel tooltip wrapper — isolates hover state per card (no parent re-renders)
+// Uses a ref-based delay to prevent flicker on rapid mouse movement
+// Falls back to auto-generated blurb when no manual latestNote exists
+function IntelCardHeader({ site, onClick, children }) {
+  const [show, setShow] = useState(false);
+  const timerRef = useRef(null);
+  const rawBlurb = site.latestNote || generateAutoBlurb(site);
+  // Strip hardcoded SiteScore numbers from blurbs — scores change, stale numbers cause drift
+  const blurb = rawBlurb ? rawBlurb.replace(/(?:SiteScore|SiteIQ|Site\s*Score|Site\s*IQ)\s+[\d.]+(?:\/10)?\s*(?:GREEN|YELLOW|ORANGE|RED|ELITE|PRIME|STRONG|VIABLE|MARGINAL|WEAK)?\.?\s*/gi, "").trim() : null;
+  const blurbDate = site.latestNote ? site.latestNoteDate : (site.latestNote ? null : "Auto");
+  const enter = () => { if (!blurb) return; clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setShow(true), 120); };
+  const leave = () => { clearTimeout(timerRef.current); setShow(false); };
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+  const lines = show && blurb ? blurb.split("\n").filter(l => l.trim()) : [];
+  return (
+    <div onMouseEnter={enter} onMouseLeave={leave} onClick={onClick} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative", zIndex: show ? 100 : 1 }}>
+      {show && lines.length > 0 && (
+        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.15s ease-out", padding: "8px 18px 0" }}>
+          <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.7), 0 0 0 2px rgba(201,168,76,0.2), 0 0 80px rgba(232,122,46,0.1)", border: "2px solid rgba(201,168,76,0.25)" }}>
+            <div style={{ background: "linear-gradient(135deg, #0A0E24 0%, #1E2761 50%, #0A0E24 100%)", padding: "10px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid rgba(201,168,76,0.2)" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, boxShadow: "0 4px 12px rgba(232,122,46,0.4)" }}>&#x1F525;</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest Intel</div>
+                <div style={{ fontSize: 9, color: "#6B7394", fontWeight: 600 }}>Storvex Pipeline Intelligence</div>
+              </div>
+              {blurbDate && <span style={{ fontSize: 10, color: blurbDate === "Auto" ? "#6B7394" : "#94A3B8", fontWeight: 700, background: blurbDate === "Auto" ? "rgba(107,115,148,0.1)" : "rgba(201,168,76,0.1)", padding: "3px 10px", borderRadius: 6, border: blurbDate === "Auto" ? "1px solid rgba(107,115,148,0.15)" : "1px solid rgba(201,168,76,0.15)", whiteSpace: "nowrap" }}>{blurbDate === "Auto" ? "Auto-Intel" : blurbDate}</span>}
+            </div>
+            <div style={{ background: "#080B1A", padding: "14px 20px" }}>
+              {lines.map((line, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "5px 0", borderBottom: i < lines.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
+                  <span style={{ color: "#C9A84C", fontSize: 10, marginTop: 3, flexShrink: 0 }}>&#x25C6;</span>
+                  <span style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.7, fontWeight: 500 }}>{line}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ width: 14, height: 14, background: "#0A0E24", transform: "rotate(45deg)", position: "absolute", top: 2, left: 60, border: "2px solid rgba(201,168,76,0.25)", borderBottom: "none", borderRight: "none" }} />
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+export default function App() {
+  return <ErrorBoundary><AppInner /></ErrorBoundary>;
 }

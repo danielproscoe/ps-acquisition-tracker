@@ -1,0 +1,219 @@
+/* ─── SiteScore Acquisition Tracker — Global Styles ───
+   Extracted from inline <style> blocks for maintainability (McKinsey Audit ARCH-07)
+   © 2026 DJR Real Estate LLC. All rights reserved. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ─── Base Reset ─── */
+* { box-sizing: border-box; }
+input, select, textarea, button { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+select option { background: #1a1a2e; color: #E2E8F0; }
+select option:checked { background: #E87A2E; color: #fff; }
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] > summary { margin-bottom: 4px; }
+
+/* ─── Scrollbar (fire accent) ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(15,21,56,0.4); }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #E87A2E, #C9A84C); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #FFB347, #E87A2E); }
+
+/* ─── Interactive Elements ─── */
+button:active:not(:disabled) { transform: scale(0.97); transition: transform 0.08s; }
+
+/* ─── Tab Transitions ─── */
+.tab-transition-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; pointer-events: none; }
+.tab-transition-overlay::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #E87A2E, #C9A84C, #E87A2E, transparent); transform-origin: left; animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; box-shadow: 0 0 20px rgba(232,122,46,0.5), 0 0 40px rgba(232,122,46,0.2); }
+.tab-transition-overlay::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(232,122,46,0.04) 0%, rgba(15,21,56,0.3) 50%, rgba(10,14,42,0.5) 100%); animation: tabSweep 0.35s cubic-bezier(0.22,1,0.36,1) forwards; }
+.tab-content { animation: tabSlide 0.4s cubic-bezier(0.4,0,0.2,1); }
+
+/* ─── Funnel Bars ─── */
+.funnel-bar { cursor: pointer; position: relative; overflow: hidden; }
+.funnel-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); transform: translateX(-100%); transition: transform 0.4s ease; }
+.funnel-bar:hover::after { transform: translateX(100%); }
+.funnel-bar:hover { filter: brightness(1.15); box-shadow: 0 4px 16px rgba(0,0,0,0.15); transform: scale(1.02); }
+.funnel-bar:active { transform: scale(0.98); }
+
+/* ─── Site Cards ─── */
+.site-card { transition: all 0.25s cubic-bezier(0.22,1,0.36,1); position: relative; z-index: 1; }
+.site-card:hover { transform: translateY(-2px); z-index: 10; box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(201,168,76,0.25) !important; transition: all 0.15s cubic-bezier(0.22,1,0.36,1) !important; }
+.site-card-open { transform: none !important; }
+.site-card-open:hover { transform: none !important; }
+.card-expand { animation: slideDown 0.18s cubic-bezier(0.22,1,0.36,1); overflow: hidden; transform-origin: top; }
+.card-reveal { animation: cardReveal 0.2s cubic-bezier(0.22,1,0.36,1) backwards; }
+
+/* ─── Frosted Glass ─── */
+.glass-card { background: rgba(15,21,56,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(201,168,76,0.08); }
+
+/* ─── Nav Underline (fire gradient) ─── */
+.nav-active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; height: 3px; background: linear-gradient(90deg, #1E2761, #E87A2E, #C9A84C, #E87A2E, #1E2761); background-size: 300% 100%; animation: navUnderlineFire 1.5s ease infinite; border-radius: 3px; box-shadow: 0 0 16px rgba(232,122,46,0.5); }
+
+/* ─── Sort Pill ─── */
+.sort-active { box-shadow: 0 0 0 2px rgba(243,124,51,0.25), 0 0 12px rgba(243,124,51,0.08); }
+
+/* ─── KPI Cards ─── */
+.kpi-number { animation: countUp 0.6s cubic-bezier(0.4,0,0.2,1); }
+.kpi-electric { box-shadow: 0 2px 16px rgba(0,0,0,0.2); }
+.kpi-electric:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important; }
+
+/* ─── Logo Spin ─── */
+.logo-auto-spin { animation: logoAutoSpin 4s linear infinite; }
+.logo-click-spin { animation: logoClickSpin 1.2s cubic-bezier(0.2, 0, 0, 1) !important; }
+.logo-spin-container { overflow: visible; }
+.logo-spin-container:hover { box-shadow: 0 4px 20px rgba(201,168,76,0.2), 0 0 0 1px rgba(201,168,76,0.15) !important; }
+
+/* ─── Logo glow (cleaned up — removed electric arc effects) ─── */
+.logo-auto-spin {
+  filter: drop-shadow(0 0 2px rgba(201,168,76,0.15));
+  animation: logoAutoSpin 4s linear infinite;
+}
+@keyframes electricFlicker {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(201,168,76,0.1)); }
+}
+
+/* ═══════════════════════════════════════════════════
+   KEYFRAME ANIMATIONS
+   ═══════════════════════════════════════════════════ */
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes tabSweep { 0% { transform: scaleX(0); opacity: 0; } 40% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+@keyframes tabFadeOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.97) translateY(-8px); } }
+@keyframes tabFadeIn { 0% { opacity: 0; transform: scale(0.97) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes slideDown { from { max-height: 0; opacity: 0; transform: scaleY(0.95); } to { max-height: 2000px; opacity: 1; transform: scaleY(1); } }
+@keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+@keyframes toastSlide { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes pulseOnce { 0% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); } 70% { box-shadow: 0 0 0 14px rgba(201,168,76,0); } 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); } }
+@keyframes countUp { from { opacity: 0; transform: scale(0.3) translateY(10px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
+@keyframes tabSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes modalIn { from { opacity: 0; transform: scale(0.92) translateY(20px); backdrop-filter: blur(0); } to { opacity: 1; transform: scale(1) translateY(0); backdrop-filter: blur(4px); } }
+@keyframes cardReveal { from { opacity: 0; transform: translateY(12px) scale(0.97); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+@keyframes tooltipSlideIn { from { opacity: 0; transform: translateY(6px) scale(0.96); filter: blur(2px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+
+/* Intel tooltip — pure CSS hover */
+.card-with-intel:hover .intel-tooltip { opacity: 1 !important; transform: translateY(0) !important; }
+
+/* Storvex premium range slider */
+.storvex-slider { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 4px; background: rgba(107,115,148,0.15); outline: none; transition: background 0.2s; }
+.storvex-slider:hover { background: rgba(107,115,148,0.25); }
+.storvex-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #F4F6FA, #E2E8F0); border: 3px solid #E87A2E; box-shadow: 0 2px 12px rgba(232,122,46,0.4), 0 1px 4px rgba(0,0,0,0.3); cursor: grab; transition: transform 0.15s, box-shadow 0.15s; }
+.storvex-slider::-webkit-slider-thumb:hover { transform: scale(1.15); box-shadow: 0 4px 20px rgba(232,122,46,0.5), 0 2px 8px rgba(0,0,0,0.3); }
+.storvex-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.1); box-shadow: 0 2px 16px rgba(232,122,46,0.6); }
+.storvex-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #F4F6FA, #E2E8F0); border: 3px solid #E87A2E; box-shadow: 0 2px 12px rgba(232,122,46,0.4); cursor: grab; }
+.storvex-slider::-moz-range-track { height: 8px; border-radius: 4px; background: rgba(107,115,148,0.15); }
+.storvex-slider::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; }
+@keyframes glowLine { 0% { left: -40%; } 100% { left: 140%; } }
+
+/* ─── SiteScore Animations ─── */
+@keyframes sitescore-glow { 0% { box-shadow: 0 0 15px rgba(201,168,76,0.4), 0 0 30px rgba(201,168,76,0.15); } 100% { box-shadow: 0 0 30px rgba(201,168,76,0.6), 0 0 60px rgba(201,168,76,0.25); } }
+@keyframes sitescore-ring { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.08); } }
+@keyframes sitescore-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(140deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(320deg); } 100% { transform: rotate(360deg); } }
+
+/* ─── Subtle Theme Animations ─── */
+@keyframes emberFloat { 0% { opacity: 0; } 100% { opacity: 0; } } /* disabled */
+@keyframes fireGlow { 0%, 100% { box-shadow: none; } } /* disabled — was too noisy */
+@keyframes fireEdge { 0%, 100% { border-image-source: linear-gradient(180deg, #C9A84C, #1E2761, #2C3E6B); } }
+@keyframes headerEmber { 0% { background-position: 0% 100%; } 100% { background-position: 100% 0%; } }
+
+/* ─── KPI & Nav ─── */
+@keyframes kpiPulse { 0%, 100% { transform: scale(1); } } /* disabled */
+@keyframes kpiElectric { 0%, 100% { box-shadow: 0 2px 16px rgba(0,0,0,0.2); } } /* flattened */
+@keyframes navUnderlineFire { 0% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 0% 50%; } 100% { background: linear-gradient(90deg, #1E2761, #C9A84C, #FFD700); background-size: 200% 100%; background-position: 100% 50%; } }
+
+/* ─── Turbine & Lightning (toned down) ─── */
+@keyframes turbine-pulse { 0%, 100% { filter: drop-shadow(0 0 4px rgba(201,168,76,0.15)); } 50% { filter: drop-shadow(0 0 8px rgba(201,168,76,0.25)); } }
+@keyframes lightning-arc { 0%, 100% { opacity: 0; } } /* disabled */
+
+/* ─── Data Stream & Background (toned down) ─── */
+@keyframes dataStream { 0%, 100% { opacity: 0; } } /* disabled */
+@keyframes scanLine { 0% { top: -2px; } 100% { top: 100%; } }
+@keyframes nodePulse { 0%, 100% { opacity: 0; } } /* disabled */
+
+/* ─── Logo — Constant High-Speed Spin — Machine From The Future ─── */
+@keyframes logoAutoSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Leaflet Map — Premium Tooltip Overrides ─── */
+.leaflet-tooltip {
+  background: rgba(255,255,255,0.97) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(201,168,76,0.2) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08) !important;
+  padding: 10px 14px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  animation: mapTooltipIn 0.2s cubic-bezier(0.16,1,0.3,1) !important;
+}
+.leaflet-tooltip-top::before { border-top-color: rgba(255,255,255,0.97) !important; }
+.leaflet-tooltip-bottom::before { border-bottom-color: rgba(255,255,255,0.97) !important; }
+.leaflet-tooltip-left::before { border-left-color: rgba(255,255,255,0.97) !important; }
+.leaflet-tooltip-right::before { border-right-color: rgba(255,255,255,0.97) !important; }
+@keyframes mapTooltipIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Leaflet popup premium override */
+.leaflet-popup-content-wrapper {
+  background: rgba(255,255,255,0.98) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1) !important;
+  border: 1px solid rgba(201,168,76,0.15) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+.leaflet-popup-content { margin: 12px 16px !important; }
+.leaflet-popup-tip { background: rgba(255,255,255,0.98) !important; border: 1px solid rgba(201,168,76,0.1) !important; box-shadow: 0 4px 8px rgba(0,0,0,0.08) !important; }
+.leaflet-popup-close-button { color: #94A3B8 !important; font-size: 18px !important; padding: 6px 8px !important; }
+.leaflet-popup-close-button:hover { color: #E87A2E !important; }
+
+/* Prospect diamond marker pulse on hover */
+@keyframes prospectPulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(59,130,246,0.3)); }
+  50% { filter: drop-shadow(0 0 12px rgba(59,130,246,0.6)); }
+}
+
+/* ─── Logo subtle glow ring — clean, no saw-blade ─── */
+.logo-spin-container::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 14px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.3;
+  background: linear-gradient(135deg, rgba(201,168,76,0.3), rgba(30,39,97,0.2));
+  filter: blur(4px);
+}
+
+/* Logo ::after — removed (was saw teeth layer) */
+.logo-spin-container::after {
+  display: none;
+}
+
+/* Corona & saw animations — disabled for clean institutional look */
+@keyframes spikeCorona { 0%, 100% { opacity: 0; } }
+@keyframes sawSpin { 0%, 100% { opacity: 0; } }
+
+/* sawPulse — disabled for clean look */
+@keyframes sawPulse { 0%, 100% { opacity: 0; } }
+
+@keyframes logoClickSpin { 0% { transform: rotate(0deg); } 50% { transform: rotate(1080deg); } 100% { transform: rotate(2160deg); } }
+
+/* ─── Discover Map — Market Discovery Styles ─── */
+.ps-marker { transition: transform 0.15s ease; }
+.ps-marker:hover { transform: scale(1.4); z-index: 9999 !important; }
+.pipeline-marker { transition: transform 0.15s ease; }
+.pipeline-marker:hover { transform: scale(1.3) rotate(45deg); z-index: 9999 !important; }
+.ps-cluster-icon { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+.ps-cluster-icon:hover { transform: scale(1.15); }
+
+/* Leaflet container override for dark theme Discover tab */
+.leaflet-container { background: #0d1126 !important; }
+.leaflet-control-zoom a { background: rgba(20,24,50,0.88) !important; color: #C9A84C !important; border-color: rgba(201,168,76,0.15) !important; backdrop-filter: blur(12px); }
+.leaflet-control-zoom a:hover { background: rgba(30,39,97,0.95) !important; color: #FFD700 !important; }
+.leaflet-control-attribution { background: rgba(13,17,38,0.8) !important; color: #4B5563 !important; font-size: 9px !important; }
+.leaflet-control-attribution a { color: #6B7394 !important; }
