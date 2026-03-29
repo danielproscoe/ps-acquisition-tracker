@@ -161,11 +161,11 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     recLine ? '<div style="margin-bottom:18px;padding:16px 20px;background:linear-gradient(135deg,#0A0E2A,#1E2761);border-radius:8px;border-left:4px solid #C9A84C"><div style="font-size:9px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">STORVEX\u2122 VERDICT</div><div style="font-size:14px;color:#E2E8F0;font-weight:700;line-height:1.5">' + h(recLine) + '</div></div>' : "",
     '</div>',
     '<div style="background:linear-gradient(135deg,#0A0E2A,#1E2761);padding:24px 28px;border-radius:0 0 8px 8px;border-top:3px solid #C9A84C">',
-    '<div style="font-size:12px;color:#6B7394;margin-bottom:10px;letter-spacing:0.03em">Best regards,</div>',
-    '<div style="font-family:\'Dancing Script\',\'Segoe Script\',\'Brush Script MT\',cursive;font-size:28px;color:#C9A84C;margin-bottom:6px;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.3)">Daniel P. Roscoe</div>',
+    '<div style="font-size:13px;color:#94A3B8;margin-bottom:12px;letter-spacing:0.03em">Best regards,</div>',
+    '<div style="font-family:\'Dancing Script\',\'Segoe Script\',\'Brush Script MT\',cursive;font-size:30px;color:#C9A84C;margin-bottom:4px;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.3)">Daniel P. Roscoe</div>',
+    '<div style="font-size:12px;font-weight:600;color:#D6E4F7;letter-spacing:0.04em;margin-bottom:8px">Owner, <span style="color:#C9A84C;font-weight:800">Storvex\u2122</span></div>',
     '<div style="height:1px;background:linear-gradient(90deg,#C9A84C,transparent);width:200px;margin-bottom:10px"></div>',
-    '<div style="font-size:12px;font-weight:700;color:#D6E4F7;letter-spacing:0.04em">Daniel P. Roscoe <span style="color:#6B7394">|</span> Owner, <span style="color:#C9A84C">Storvex\u2122</span></div>',
-    '<div style="font-size:11px;color:#6B7394;margin-top:4px">E: <a href="mailto:Droscoe@DJRrealestate.com" style="color:#94A3B8;text-decoration:none">Droscoe@DJRrealestate.com</a> <span style="color:#2C3E6B">\u2022</span> C: 312-805-5996</div>',
+    '<div style="font-size:11px;color:#6B7394">E: <a href="mailto:Droscoe@DJRrealestate.com" style="color:#94A3B8;text-decoration:none">Droscoe@DJRrealestate.com</a> <span style="color:#2C3E6B">\u2022</span> C: 312-805-5996</div>',
     '</div></div>',
   ].join("");
 
