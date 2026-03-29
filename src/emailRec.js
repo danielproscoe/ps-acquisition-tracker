@@ -6,8 +6,8 @@ import { escapeHtml, fixEncoding } from './utils';
 import { computeSiteFinancials } from './scoring';
 
 const REC_RECIPIENTS = {
-  east: { name: "Matt Toussaint", email: "mtoussaint@publicstorage.com" },
-  southwest: { name: "Daniel Wollent", email: "dwollent@publicstorage.com" },
+  east: { name: "Matt", email: "mtoussaint@publicstorage.com" },
+  southwest: { name: "Dan", email: "dwollent@publicstorage.com" },
   queue: { name: "PS Team", email: "" },
 };
 
