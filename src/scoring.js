@@ -1143,14 +1143,14 @@ export const computeDualStrategies = (site, overrides = {}, siteOverrides = {}) 
   const $k = (v) => v >= 1000000 ? "$" + (v / 1000000).toFixed(1) + "M" : v >= 1000 ? "$" + Math.round(v / 1000) + "K" : "$" + Math.round(v).toLocaleString();
 
   // ── Strategy A: One-Story Primary (PS preferred suburban format) ──
-  // Force one-story by setting multiStoryThreshold absurdly high
-  const overridesA = { ...overrides, multiStoryThreshold: 999 };
+  // Force one-story by setting multiStoryThreshold to 0 (acres < 0 = false → one-story)
+  const overridesA = { ...overrides, multiStoryThreshold: 0 };
   let finA = null;
   try { finA = computeSiteFinancials(site, overridesA, siteOverrides); } catch { /* skip */ }
 
   // ── Strategy B: Multi-Story Compact (3-story, smaller footprint) ──
-  // Force multi-story by setting multiStoryThreshold to 0
-  const overridesB = { ...overrides, multiStoryThreshold: 0 };
+  // Force multi-story by setting multiStoryThreshold absurdly high (acres < 999 = true → multi-story)
+  const overridesB = { ...overrides, multiStoryThreshold: 999 };
   let finB = null;
   try { finB = computeSiteFinancials(site, overridesB, siteOverrides); } catch { /* skip */ }
 
