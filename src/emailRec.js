@@ -136,36 +136,110 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
   const emailBody = [
     '<div style="font-family:' + SANS + ';max-width:700px;margin:0 auto;border-radius:0;overflow:hidden;background:#FFFFFF">',
 
-    // ══ EXECUTIVE BANNER — one paragraph tells the whole story ══
+    // ══ EXECUTIVE BANNER — site-specific narrative engine ══
+    // Each site gets a custom paragraph synthesized from its data — not a form letter.
+    // Reads like an analyst wrote it after studying the specific site.
     (() => {
-      // Build the recommendation offer string
-      // When strike is unachievable (recOffer=0), fall back to asking price — "at ask" is the recommendation
+      // ── Data extraction ──
       const askAmt = fin ? fin.landCost : 0;
       const rawRecOffer = layout ? layout.recOffer : (fin && fin.landPrices && fin.landPrices[1] ? (fin.landCost > 0 && fin.landPrices[1].maxLand > fin.landCost && !site.offerAboveAskReason ? fin.landCost : fin.landPrices[1].maxLand) : 0);
       const recOfferAmt = rawRecOffer > 0 ? rawRecOffer : (askAmt > 0 ? askAmt : 0);
-      const recOfferAcStr = recOfferAmt > 0 && fin && fin.acres > 0 ? $k(Math.round(recOfferAmt / fin.acres)) + "/ac" : (layout && layout.recOfferPerAc > 0 ? $k(layout.recOfferPerAc) + "/ac" : "");
-      // Plate and build info
+      const recOfferAcStr = recOfferAmt > 0 && fin && fin.acres > 0 ? $k(Math.round(recOfferAmt / fin.acres)) + "/ac" : "";
       const plateSF = layout ? layout.totalSF : (fin ? fin.totalSF : 0);
-      const plateStr = plateSF > 0 ? Math.round(plateSF / 1000) + "K SF" : "";
-      const storiesStr = layout ? layout.productType : (fin && fin.stories > 1 ? fin.stories + "-story" : "1-story");
+      const storiesStr = layout ? layout.productType.toLowerCase() : (fin && fin.stories > 1 ? fin.stories + "-story" : "one-story");
       const totalCostAmt = layout ? layout.totalInvestment : (fin ? fin.totalDevCost : 0);
       const yocVal = layout ? layout.yoc : (fin ? fin.yocStab : "");
-      // Zoning justification — cite FAR, setbacks, coverage if available
-      const zoningCites = [];
-      if (site.zoningUseTerm) zoningCites.push('"' + fe(site.zoningUseTerm) + '"');
-      if (site.zoningOrdinanceSection) zoningCites.push(fe(site.zoningOrdinanceSection));
-      if (site.setbackReqs) zoningCites.push(fe(site.setbackReqs));
-      if (site.heightLimit) zoningCites.push("height: " + fe(site.heightLimit));
-      if (site.imperviousCover) zoningCites.push("coverage: " + fe(site.imperviousCover));
-      if (site.facadeReqs) zoningCites.push(fe(site.facadeReqs));
-      const zoningCiteStr = zoningCites.length > 0 ? zoningCites.join(", ") : (zClass === "by-right" ? "by-right, no SUP required" : zClass === "conditional" ? "conditional use — SUP required" : "zoning verification pending");
-      // Pad acreage recommendation
+      const yocN = parseFloat(yocVal) || 0;
       const totalAc = layout ? layout.totalAcres : (fin ? fin.acres : parseFloat(acreageRaw) || 0);
       const padAc = layout ? layout.padAcres : totalAc;
       const excessAc = layout ? layout.excessAcres : 0;
-      const padStr = excessAc > 0
-        ? "The full site is " + totalAc + " acres and we recommend taking the front " + padAc + " ac, with " + excessAc + " ac excess marketable separately."
-        : "The full site is " + totalAc + " acres and we are taking the full " + totalAc + " ac.";
+      const popN = parseInt(String(site.pop3mi || "0").replace(/\D/g, "")) || 0;
+      const hhiN = parseInt(String(site.income3mi || "0").replace(/\D/g, "")) || 0;
+      const grRaw = site.popGrowth3mi || site.growthRate || "";
+      const grN = parseFloat(String(grRaw).replace(/[^0-9.\-]/g, "")) || 0;
+      const ccSPCn = iq.ccSPC ? parseFloat(iq.ccSPC) : null;
+      const nearPSn = iq.nearestPS || null;
+      const frontage = site.roadFrontage || "";
+
+      // ── 1. OFFER RATIONALE — why this price? ──
+      let offerLine = "";
+      if (recOfferAmt > 0 && askAmt > 0) {
+        const atAsk = recOfferAmt >= askAmt * 0.98; // within 2% = "at ask"
+        const belowPct = askAmt > 0 ? Math.round(((askAmt - recOfferAmt) / askAmt) * 100) : 0;
+        if (atAsk && yocN >= 9) {
+          offerLine = "Storvex recommends offering <strong style=\"color:#C9A84C\">" + $k(recOfferAmt) + "</strong>" + (recOfferAcStr ? " (" + recOfferAcStr + ")" : "") + " at the full asking price. At <strong style=\"color:#10B981\">" + yocVal + "% projected YOC</strong>, this site already exceeds PS's 9% strike threshold \u2014 a strong buy at ask with no negotiation required.";
+        } else if (atAsk) {
+          offerLine = "Storvex recommends offering <strong style=\"color:#C9A84C\">" + $k(recOfferAmt) + "</strong>" + (recOfferAcStr ? " (" + recOfferAcStr + ")" : "") + " at the asking price, projecting a <strong style=\"color:#10B981\">" + yocVal + "% YOC</strong>. " + (yocN >= 7.5 ? "The deal is workable at current pricing." : "The site has strategic value that justifies the ask despite a sub-target YOC.");
+        } else if (belowPct > 0) {
+          offerLine = "Storvex recommends offering <strong style=\"color:#C9A84C\">" + $k(recOfferAmt) + "</strong>" + (recOfferAcStr ? " (" + recOfferAcStr + ")" : "") + " versus the " + $k(askAmt) + " asking price \u2014 a " + belowPct + "% reduction to achieve a <strong style=\"color:#10B981\">" + yocVal + "% YOC</strong> at PS's strike threshold.";
+        } else {
+          offerLine = "Storvex recommends offering <strong style=\"color:#C9A84C\">" + $k(recOfferAmt) + "</strong>" + (recOfferAcStr ? " (" + recOfferAcStr + ")" : "") + " on this " + $k(askAmt) + " listing for a projected <strong style=\"color:#10B981\">" + yocVal + "% YOC</strong>.";
+        }
+      } else {
+        offerLine = "Pricing analysis pending \u2014 additional data required to formulate an offer recommendation.";
+      }
+
+      // ── 2. ENTITLEMENT STORY — zoning in plain English ──
+      let entitleLine = "";
+      const jType = (site.jurisdictionType || "").toLowerCase();
+      const isUnzoned = /unincorporated|etj|no.?zoning|unzoned/i.test((site.zoning || "") + " " + (site.zoningNotes || "") + " " + jType);
+      if (isUnzoned) {
+        entitleLine = "The parcel is " + (jType.includes("unincorporated") ? "in unincorporated " + (site.city || site.state || "") + " county" : "in the ETJ") + " with no zoning restrictions, eliminating entitlement risk entirely \u2014 no SUP, no hearing, administrative site plan only.";
+      } else if (zClass === "by-right" && site.zoningUseTerm) {
+        entitleLine = "Storage is a permitted use by right under the " + h(site.zoning || "") + " district (" + h(fe(site.zoningUseTerm)) + (site.zoningOrdinanceSection ? ", " + h(fe(site.zoningOrdinanceSection)) : "") + ") \u2014 no conditional use permit required.";
+        if (site.setbackReqs || site.heightLimit || site.imperviousCover) {
+          const reqs = [site.setbackReqs, site.heightLimit ? "height limit: " + fe(site.heightLimit) : "", site.imperviousCover ? "max coverage: " + fe(site.imperviousCover) : ""].filter(Boolean);
+          if (reqs.length) entitleLine += " Key development standards: " + reqs.join(", ") + ".";
+        }
+      } else if (zClass === "conditional") {
+        entitleLine = "Storage requires a " + (site.supTimeline ? fe(site.supTimeline) : "conditional use permit") + " in the " + h(site.zoning || "") + " district" + (site.supCost ? " (estimated " + fe(site.supCost) + ")" : "") + "." + (site.politicalRisk ? " Political risk: " + fe(site.politicalRisk) + "." : "");
+      } else if (zClass === "by-right") {
+        entitleLine = "Storage is permitted by right in the " + h(site.zoning || "") + " district \u2014 no SUP required.";
+      } else {
+        entitleLine = "Zoning verification is pending \u2014 confirm storage permissibility before advancing.";
+      }
+
+      // ── 3. SITE LAYOUT — specific to this parcel ──
+      let layoutLine = "";
+      const plateK = plateSF > 0 ? Math.round(plateSF / 1000) + "K" : "";
+      if (excessAc > 0 && padAc > 0) {
+        const padPos = site.padPosition || "";
+        if (padPos) {
+          layoutLine = "We recommend a " + storiesStr + " " + plateK + " SF facility on " + padAc + " ac" + (frontage ? " with " + h(frontage) + " of road frontage" : "") + ". " + h(padPos) + ". The remaining " + excessAc + " ac is a viable outparcel" + (excessAc >= 1.5 ? " suitable for QSR, retail, or medical pad development" : "") + ".";
+        } else {
+          layoutLine = "We recommend a " + storiesStr + " " + plateK + " SF facility utilizing " + padAc + " ac of the " + totalAc + " ac site" + (frontage ? ", leveraging " + h(frontage) + " of road frontage for maximum drive-by visibility" : "") + ". The remaining " + excessAc + " ac remainder is independently marketable" + (excessAc >= 1.5 ? " as a QSR or retail outparcel, preserving value for the seller" : "") + ".";
+        }
+      } else if (plateK) {
+        layoutLine = "The " + totalAc + " ac site supports a " + storiesStr + " " + plateK + " SF facility utilizing the full parcel" + (frontage ? " with " + h(frontage) + " of road frontage" : "") + ".";
+      }
+
+      // ── 4. MARKET THESIS — why this submarket ──
+      let marketLine = "";
+      const mktParts = [];
+      if (popN > 0) mktParts.push(popN.toLocaleString() + " population within 3 miles");
+      if (grN > 2) mktParts.push(grN.toFixed(1) + "% annual growth");
+      else if (grN > 0) mktParts.push("moderate " + grN.toFixed(1) + "% growth");
+      if (hhiN >= 90000) mktParts.push("affluent " + "$" + Math.round(hhiN / 1000) + "K median household income");
+      else if (hhiN > 0) mktParts.push("$" + Math.round(hhiN / 1000) + "K median HHI");
+      if (ccSPCn !== null) {
+        const ccWord = ccSPCn < 1.5 ? "severely underserved" : ccSPCn < 3.0 ? "underserved" : ccSPCn < 5.0 ? "moderate" : "well-supplied";
+        mktParts.push(ccSPCn.toFixed(1) + " CC SF/capita (" + ccWord + ")");
+      }
+      if (nearPSn !== null && nearPSn <= 5) mktParts.push("nearest PS just " + nearPSn.toFixed(1) + " mi away, validating the submarket");
+      else if (nearPSn !== null) mktParts.push("nearest PS " + nearPSn.toFixed(1) + " mi \u2014 coverage gap opportunity");
+      if (site.demandDrivers) mktParts.push(h(fe(site.demandDrivers)));
+      if (mktParts.length > 0) {
+        marketLine = "The " + (site.market ? h(fe(site.market)) + " corridor" : (site.city || "") + " submarket") + " presents " + mktParts.slice(0, 4).join(", ") + ".";
+      }
+
+      // ── 5. KEY RISK — one honest callout ──
+      let riskLine = "";
+      if (site.overlayDistrict && !/no overlay|none|clear/i.test(site.overlayDistrict)) riskLine = "Watch: " + h(fe(site.overlayDistrict)) + ".";
+      else if (site.floodZone && !/zone x$/i.test((site.floodZone || "").trim())) riskLine = "Watch: " + h(fe(site.floodZone)) + " \u2014 verify flood impact on buildable area.";
+      else if (zClass === "conditional") riskLine = "Watch: SUP/CUP required \u2014 approval timeline and political risk should be evaluated.";
+
+      // ── Assemble the narrative ──
+      const narrative = [offerLine, entitleLine, layoutLine, marketLine, riskLine].filter(Boolean).join(" ");
 
       return '<div style="background:#0A0F1E;padding:28px">' +
         // Top line: STORVEX + date
@@ -181,17 +255,10 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
         // Site address — large
         '<div style="font-size:28px;font-weight:900;color:#FFFFFF;letter-spacing:-0.02em;line-height:1.15;margin-bottom:4px">' + h(fe(site.address || site.name || "")) + '</div>' +
         '<div style="font-size:13px;color:#64748B;margin-bottom:20px">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + '</div>' +
-        // ══ THE EXECUTIVE PARAGRAPH — the whole story ══
+        // ══ THE EXECUTIVE PARAGRAPH — site-specific analyst narrative ══
         '<div style="padding:20px 24px;border-radius:8px;background:rgba(255,255,255,0.04);border-left:4px solid #C9A84C;margin-bottom:20px">' +
         '<div style="font-size:14px;color:#E2E8F0;line-height:1.85;font-weight:500">' +
-        '<strong style="color:#C9A84C">Storvex recommends offering ' + (recOfferAmt > 0 ? $k(recOfferAmt) : "TBD") + '</strong>' +
-        (recOfferAcStr ? ' (' + recOfferAcStr + ')' : '') +
-        (askAmt > 0 ? ' versus the asking price of ' + $k(askAmt) + '.' : '.') +
-        ' The offer is justified by ' + zoningCiteStr +
-        (plateStr ? ', allowing for a <strong style="color:#FFFFFF">' + plateStr + ' ' + storiesStr + '</strong> plate' : '') +
-        (totalCostAmt > 0 ? ' with a total development cost of <strong style="color:#FFFFFF">' + $k(totalCostAmt) + '</strong>' : '') +
-        (yocVal && yocVal !== "N/A" ? ' and projected <strong style="color:#10B981">' + yocVal + '% YOC</strong>.' : '.') +
-        ' ' + padStr +
+        narrative +
         '</div></div>' +
         // Action buttons — clean row
         '<table cellpadding="0" cellspacing="0"><tr>' +
