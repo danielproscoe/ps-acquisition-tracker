@@ -2056,12 +2056,10 @@ function AppInner() {
                               if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
                               const encodedSubject = encodeURIComponent(rec.subject);
                               const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
-                              navigator.clipboard.writeText(rec.body).then(() => {
-                                notify("\u2709 Email body copied \u2014 paste into Outlook body.");
-                                const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
-                                if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
-                              }).catch(() => notify("Could not copy to clipboard."));
-                              window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
+                              notify("⏳ Creating Gmail draft...");
+                              fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
+                                .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
+                                .catch(err => { console.error("Gmail API:", err); navigator.clipboard.writeText(rec.body).catch(() => {}); window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank"); notify("⚠ Gmail unavailable — body copied, paste in Outlook"); });
                             } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(123,45,142,0.4), 0 0 0 1px rgba(123,45,142,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>{"\u2709"} Email Rec</button>
                         </div>
@@ -3972,8 +3970,10 @@ function AppInner() {
                         notify("\u2709 Email body copied \u2014 paste into Outlook body.");
                         const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
                         if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
-                      }).catch(() => notify("Could not copy to clipboard."));
-                      window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
+                              notify("⏳ Creating Gmail draft...");
+                              fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
+                                .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
+                                .catch(err => { console.error("Gmail API:", err); notify("⚠ Gmail unavailable — try again"); });
                     } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{"\u2709"} Email Rec</button>
                 </div>
@@ -4422,8 +4422,10 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         notify("\u2709 Email body copied \u2014 paste into Outlook body.");
                         const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
                         if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
-                      }).catch(() => notify("Could not copy to clipboard."));
-                      window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank");
+                              notify("⏳ Creating Gmail draft...");
+                              fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
+                                .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
+                                .catch(err => { console.error("Gmail API:", err); notify("⚠ Gmail unavailable — try again"); });
                     } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>{"\u2709"} Email Rec</button>
                 </div>
