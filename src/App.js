@@ -4515,9 +4515,18 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                     recLabel = "YOC AT ASKING";
                     recColor = recYOC >= 7.5 ? "#C9A84C" : "#E87A2E";
                   } else return null;
+                  // HARD RULE: Never recommend offering above asking price
+                  // If strike math says we can pay more than ask, cap at ask (it's already a great deal)
+                  const cappedAboveAsk = recAsk > 0 && recPrice > recAsk && !site.offerAboveAskReason;
+                  if (cappedAboveAsk) {
+                    recPrice = recAsk;
+                    recYOC = recNOI / (recAsk + recBPC) * 100;
+                    recLabel = "AT ASKING";
+                    recColor = "#22C55E";
+                  }
                   // Discount to ask
                   const discPct = recAsk > 0 ? (((recAsk - recPrice) / recAsk) * 100) : 0;
-                  const discStr = discPct > 0 ? `${discPct.toFixed(0)}% below ask` : discPct < 0 ? `${Math.abs(discPct).toFixed(0)}% above ask` : "";
+                  const discStr = discPct > 0 ? `${discPct.toFixed(0)}% below ask` : discPct < 0 ? `${Math.abs(discPct).toFixed(0)}% above ask` : cappedAboveAsk ? "at ask — already hits target" : "";
                   // YOC at asking
                   const askYOC = recAsk > 0 ? (recNOI / (recAsk + recBPC) * 100) : 0;
                   // Growth context
