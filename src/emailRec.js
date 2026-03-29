@@ -30,7 +30,7 @@ export const generateEmailRec = (site, siteId) => {
   const row = (l, v, a) => `<tr style="background:${a ? "#f5f7fa" : "transparent"}"><td style="padding:6px 12px;font-weight:bold;width:200px">${l}</td><td style="padding:6px 12px">${v}</td></tr>`;
   const dr = (l, v1, v3, v5, a) => `<tr style="background:${a ? "#f5f7fa" : "transparent"}"><td style="padding:6px 12px;font-weight:bold">${l}</td><td style="padding:6px 12px;text-align:center">${v1}</td><td style="padding:6px 12px;text-align:center;font-weight:bold">${v3}</td><td style="padding:6px 12px;text-align:center">${v5}</td></tr>`;
   return `<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.6">
-<p>Flagging a site for review \u2014 ${site.market || site.city + ", " + site.state}. ${zGreen ? "By-right zoning" : "Zoning: " + zc}, ${wGreen ? "by-right water" : "water: " + ws}${site.siteiqData?.nearestPS ? ", " + site.siteiqData.nearestPS + " mi to nearest PS" : ""}.</p>
+<p>Hi, PS Team — Recommending a site for review. ${site.market || site.city + ", " + site.state}. ${zGreen ? "By-right zoning" : "Zoning: " + zc}, ${wGreen ? "by-right water" : "water: " + ws}${site.siteiqData?.nearestPS ? ", " + site.siteiqData.nearestPS + " mi to nearest PS" : ""}.</p>
 <p style="font-size:18px;font-weight:bold;color:#1E2761;margin-bottom:2px">${site.name || site.address}</p>
 <p style="color:#555;margin-top:0">${site.city}, ${site.state}${site.address ? " | " + site.address : ""}</p>
 <table style="border-collapse:collapse;width:100%;max-width:640px;margin:16px 0">
