@@ -31,7 +31,7 @@ import {
   generateRECPackage as _generateRECPackage,
   generateDemographicsReport,
 } from './reports';
-import { handleEmailRec } from './emailRec';
+import { generateRecEmailHTML } from './emailRec';
 import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF, CallBriefTooltip } from './components';
 import { SortBar, SORT_OPTIONS } from './components/SortBar';
 import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
@@ -2051,15 +2051,14 @@ function AppInner() {
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📋 REC Package</button>
                           <button onClick={() => {
                             try {
-                              const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
-                              const rec = generateRecEmail(site, regionKey, fin);
-                              if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
-                              const encodedSubject = encodeURIComponent(rec.subject);
-                              const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
-                              notify("⏳ Creating Gmail draft...");
-                              fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
-                                .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
-                                .catch(err => { console.error("Gmail API:", err); navigator.clipboard.writeText(rec.body).catch(() => {}); window.open(`https://outlook.office.com/mail/deeplink/compose?${toParam ? `to=${toParam}&` : ""}subject=${encodedSubject}`, "_blank"); notify("⚠ Gmail unavailable — body copied, paste in Outlook"); });
+                              const rec = generateRecEmailHTML(site, regionKey, VALUATION_OVERRIDES);
+                              if (rec.listingWarning) notify("\u26A0 " + rec.listingWarning, "warning");
+                              const blob = new Blob([rec.previewHTML], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank");
+                              const htmlBlob = new Blob([rec.emailBody], { type: "text/html" });
+                              const textBlob = new Blob([rec.subject], { type: "text/plain" });
+                              navigator.clipboard.write([new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })]).then(() => {
+                                notify("\u2709 HTML email copied \u2014 paste into Gmail compose (Ctrl+V)");
+                              }).catch(() => notify("Preview opened \u2014 use Copy button in preview tab"));
                             } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(123,45,142,0.4), 0 0 0 1px rgba(123,45,142,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>{"\u2709"} Email Rec</button>
                         </div>
@@ -3961,13 +3960,14 @@ function AppInner() {
                   <button onClick={() => {
                     try {
                       const rk = site.region === "east" ? "east" : site.region === "southwest" ? "southwest" : "queue";
-                      const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
-                      const rec = generateRecEmail(site, rk, fin);
-                      if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
-                              notify("⏳ Creating Gmail draft...");
-                              fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
-                                .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
-                                .catch(err => { console.error("Gmail API:", err); notify("⚠ Gmail unavailable — try again"); });
+                      const rec = generateRecEmailHTML(site, rk, VALUATION_OVERRIDES);
+                      if (rec.listingWarning) notify("\u26A0 " + rec.listingWarning, "warning");
+                      const blob = new Blob([rec.previewHTML], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank");
+                      const htmlBlob = new Blob([rec.emailBody], { type: "text/html" });
+                      const textBlob = new Blob([rec.subject], { type: "text/plain" });
+                      navigator.clipboard.write([new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })]).then(() => {
+                        notify("\u2709 HTML email copied \u2014 paste into Gmail compose (Ctrl+V)");
+                      }).catch(() => notify("Preview opened \u2014 use Copy button in preview tab"));
                     } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{"\u2709"} Email Rec</button>
                 </div>
@@ -4406,13 +4406,14 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
                   <button onClick={() => {
                     try {
-                      const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
-                      const rec = generateRecEmail(site, dv.regionKey, fin);
-                      if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
-                              notify("⏳ Creating Gmail draft...");
-                              fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
-                                .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
-                                .catch(err => { console.error("Gmail API:", err); notify("⚠ Gmail unavailable — try again"); });
+                      const rec = generateRecEmailHTML(site, dv.regionKey, VALUATION_OVERRIDES);
+                      if (rec.listingWarning) notify("\u26A0 " + rec.listingWarning, "warning");
+                      const blob = new Blob([rec.previewHTML], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank");
+                      const htmlBlob = new Blob([rec.emailBody], { type: "text/html" });
+                      const textBlob = new Blob([rec.subject], { type: "text/plain" });
+                      navigator.clipboard.write([new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })]).then(() => {
+                        notify("\u2709 HTML email copied \u2014 paste into Gmail compose (Ctrl+V)");
+                      }).catch(() => notify("Preview opened \u2014 use Copy button in preview tab"));
                     } catch (err) { notify("Email generation failed \u2014 check site data."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #4A1942, #7B2D8E)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(123,45,142,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>{"\u2709"} Email Rec</button>
                 </div>
