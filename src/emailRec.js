@@ -64,7 +64,7 @@ ${row("Projected YOC", '<span style="font-weight:bold;color:#1B7A2B">~' + yoc + 
 </table>
 <p style="margin:16px 0"><a href="${dl}" style="color:#1E2761;font-weight:bold;text-decoration:underline">Review Site on Storvex</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${ll}" style="color:#1E2761;text-decoration:underline">Property Listing</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${pl}" style="color:#1E2761;text-decoration:underline">View Location</a></p>
 <p>REC package deck, ALTA survey, subdivision plat, and broker flyer attached.</p>
-<p>Best,<br>Dan Roscoe<br>DJR / Dan Roscoe Real Estate</p></div>`;
+<p>Best regards,</p></div>`;
 };
 
 export const handleEmailRec = async (site, siteId, notify) => {
