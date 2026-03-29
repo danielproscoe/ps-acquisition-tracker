@@ -151,7 +151,6 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     '<div style="background:#1E2761;padding:18px 28px;border-radius:0 0 8px 8px">',
     '<div style="font-size:12px;color:#94A3B8;margin-bottom:8px">Best regards,</div>',
     '<div style="font-size:13px;font-weight:700;color:#D6E4F7">Daniel P. Roscoe | Owner, Storvex\u2122</div>',
-    '<div style="font-size:11px;color:#94A3B8;margin-top:2px">DJR / Dan Roscoe Real Estate</div>',
     '<div style="font-size:11px;color:#6B7394;margin-top:2px">E: Droscoe@DJRrealestate.com | C: 312-805-5996</div>',
     '</div></div>',
   ].join("");
