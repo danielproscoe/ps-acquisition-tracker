@@ -37,7 +37,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   const siteName = fe(site.name || site.address || site.id);
   const cityState = ((site.city || "") + " " + (site.state || "")).trim();
   const subjectSite = siteName.toLowerCase().includes((site.city || "").toLowerCase()) ? siteName : cityState + ", " + siteName;
-  const subject = "Site Recommendation - " + subjectSite + (ccSPC ? " | CC SPC " + ccSPC : "") + (zClass === "by-right" ? ", By-Right" : "");
+  const subject = ("Site Recommendation - " + subjectSite + (ccSPC ? " | CC SPC " + ccSPC : "") + (zClass === "by-right" ? ", By-Right" : "")).replace(/[\u2014\u2013\u2012\u2015]/g, "-").replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[^\x00-\x7F]/g, "");
 
   const toEmails = [];
   if (recip.email) toEmails.push(recip.email);
