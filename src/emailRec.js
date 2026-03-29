@@ -124,18 +124,28 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
   if (hhi3) demoRows += '<tr style="background:#F8FAFC"><td style="padding:6px 10px;font-size:12px;color:#4A5080;border-bottom:1px solid #F1F5F9">3-Mi Median HHI</td><td style="padding:6px 10px;font-size:12px;font-weight:700;color:#1E293B;border-bottom:1px solid #F1F5F9;text-align:right">' + h(hhi3) + '</td></tr>';
   if (hh3) demoRows += '<tr><td style="padding:6px 10px;font-size:12px;color:#4A5080;border-bottom:1px solid #F1F5F9">3-Mi Households</td><td style="padding:6px 10px;font-size:12px;font-weight:700;color:#1E293B;border-bottom:1px solid #F1F5F9;text-align:right">' + h(hh3) + (renter ? ' | Renter: <b>' + h(renter) + '%</b>' : '') + '</td></tr>';
 
+  // Recommendation banner text
+  const recBannerText = recLine || (fin && fin.yocStab ? "Projected " + fin.yocStab + "% YOC" : "Site under review");
+  const recBannerColor = (fin && fin.landVerdict === "STRONG BUY") || (fin && fin.landVerdict === "BUY") ? "#16A34A" : (fin && fin.landVerdict === "NEGOTIATE") ? "#F59E0B" : "#3B82F6";
+
   // Assemble email body
   const emailBody = [
     '<div style="font-family:Calibri,sans-serif;max-width:680px;margin:0 auto;color:#1E293B;line-height:1.6">',
-    '<div style="background:linear-gradient(135deg,#1E2761,#2C3E6B);padding:24px 28px;border-radius:8px 8px 0 0">',
-    '<div style="font-size:20px;font-weight:800;color:#C9A84C">' + h(fe(site.address || site.name || "")) + '</div>',
-    '<div style="font-size:14px;color:#D6E4F7;margin-top:4px">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + " " + h(site.zip || "") + '</div>',
-    // ── Premium link bar inside header ──
-    '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">',
-    listingUrl ? '<a href="' + h(listingUrl) + '" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);border-radius:20px;color:#C9A84C;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.03em;backdrop-filter:blur(4px)">\u{1F4CB} Property Listing</a>' : "",
-    pinDrop ? '<a href="' + h(pinDrop) + '" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);border-radius:20px;color:#C9A84C;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.03em;backdrop-filter:blur(4px)">\u{1F4CD} Pin Drop</a>' : "",
-    '<a href="' + h(dashLink) + '" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:linear-gradient(135deg,#C9A84C,#D4AF37);border:none;border-radius:20px;color:#1E2761;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:0.03em;box-shadow:0 2px 8px rgba(201,168,76,0.3)">\u26A1 Storvex</a>',
-    '</div></div>',
+    // ── STORVEX RECOMMENDATION BANNER ──
+    '<div style="background:linear-gradient(135deg,' + recBannerColor + ',' + recBannerColor + 'dd);padding:10px 28px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between">',
+    '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:9px;font-weight:800;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.12em">STORVEX\u2122 RECOMMENDATION</span></div>',
+    '<div style="font-size:11px;font-weight:800;color:#fff;letter-spacing:0.04em">' + h(recBannerText).substring(0, 60) + '</div>',
+    '</div>',
+    // ── HEADER ──
+    '<div style="background:linear-gradient(135deg,#0A0E2A,#1E2761);padding:28px 28px 20px">',
+    '<div style="font-size:22px;font-weight:900;color:#C9A84C;letter-spacing:-0.01em">' + h(fe(site.address || site.name || "")) + '</div>',
+    '<div style="font-size:14px;color:#D6E4F7;margin-top:4px;font-weight:500">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + " " + h(site.zip || "") + '</div>',
+    // ── Premium action buttons ──
+    '<table cellpadding="0" cellspacing="0" style="margin-top:16px"><tr>',
+    listingUrl ? '<td style="padding-right:8px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:9px 20px;background:linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08));border:1px solid rgba(201,168,76,0.5);border-radius:6px;color:#C9A84C;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:0.06em;text-transform:uppercase">\u25B8 LISTING</a></td>' : "",
+    pinDrop ? '<td style="padding-right:8px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:9px 20px;background:linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08));border:1px solid rgba(201,168,76,0.5);border-radius:6px;color:#C9A84C;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:0.06em;text-transform:uppercase">\u25B8 PIN DROP</a></td>' : "",
+    '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:9px 22px;background:linear-gradient(135deg,#C9A84C,#E8B84A);border:none;border-radius:6px;color:#0A0E2A;font-size:11px;font-weight:900;text-decoration:none;letter-spacing:0.06em;text-transform:uppercase;box-shadow:0 2px 12px rgba(201,168,76,0.4)">\u26A1 OPEN IN STORVEX</a></td>',
+    '</tr></table></div>',
     '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#F8FAFC;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0"><tr>',
     '<td style="padding:14px 16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:9px;font-weight:700;color:#6B7394;text-transform:uppercase;letter-spacing:0.08em">Acreage</div><div style="font-size:16px;font-weight:800;color:#1E2761;margin-top:2px">' + (h(acreageRaw) || "N/A") + '</div></td>',
     '<td style="padding:14px 16px;text-align:center;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;width:25%"><div style="font-size:9px;font-weight:700;color:#6B7394;text-transform:uppercase;letter-spacing:0.08em">Asking</div><div style="font-size:16px;font-weight:800;color:#1E2761;margin-top:2px">' + h(fe(site.askingPrice || "TBD")) + (pricePerAc ? ' <span style="font-size:11px;color:#6B7394">(' + pricePerAc + '/ac)</span>' : '') + '</div></td>',
@@ -148,7 +158,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides) => {
     '<div style="margin-bottom:18px">' + secHead("Demographics (ESRI 2025)") + '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:6px">' + demoRows + '</table></div>',
     econRows ? '<div style="margin-bottom:18px">' + secHead("Projected Economics") + '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:6px">' + econRows + '</table></div>' : "",
     watches.length ? '<div style="margin-bottom:18px;padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px"><div style="font-size:10px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Watch Items</div>' + watches.map(function(w) { return '<div style="font-size:12px;color:#78350F;margin-bottom:4px">\u2022 ' + w + '</div>'; }).join("") + '</div>' : "",
-    recLine ? '<div style="margin-bottom:18px;padding:14px 18px;background:linear-gradient(135deg,#1E2761,#2C3E6B);border-radius:6px"><div style="font-size:10px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Bottom Line</div><div style="font-size:13px;color:#D6E4F7;font-weight:600">' + h(recLine) + '</div></div>' : "",
+    recLine ? '<div style="margin-bottom:18px;padding:16px 20px;background:linear-gradient(135deg,#0A0E2A,#1E2761);border-radius:8px;border-left:4px solid #C9A84C"><div style="font-size:9px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">STORVEX\u2122 VERDICT</div><div style="font-size:14px;color:#E2E8F0;font-weight:700;line-height:1.5">' + h(recLine) + '</div></div>' : "",
     '</div>',
     '<div style="background:linear-gradient(135deg,#0A0E2A,#1E2761);padding:24px 28px;border-radius:0 0 8px 8px;border-top:3px solid #C9A84C">',
     '<div style="font-size:12px;color:#6B7394;margin-bottom:10px;letter-spacing:0.03em">Best regards,</div>',
