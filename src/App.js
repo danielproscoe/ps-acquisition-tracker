@@ -3964,12 +3964,6 @@ function AppInner() {
                       const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
                       const rec = generateRecEmail(site, rk, fin);
                       if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
-                      const encodedSubject = encodeURIComponent(rec.subject);
-                      const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
-                      navigator.clipboard.writeText(rec.body).then(() => {
-                        notify("\u2709 Email body copied \u2014 paste into Outlook body.");
-                        const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
-                        if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
                               notify("⏳ Creating Gmail draft...");
                               fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
                                 .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
@@ -4416,12 +4410,6 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                       const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
                       const rec = generateRecEmail(site, dv.regionKey, fin);
                       if (rec.listingWarning) notify(`\u26A0 Listing link: ${rec.listingWarning}`, "warning");
-                      const encodedSubject = encodeURIComponent(rec.subject);
-                      const toParam = rec.toEmails.length ? rec.toEmails.join(",") : "";
-                      navigator.clipboard.writeText(rec.body).then(() => {
-                        notify("\u2709 Email body copied \u2014 paste into Outlook body.");
-                        const docList = Object.values(site.docs || {}).map(d => d.type || "file").join(", ");
-                        if (docList) setTimeout(() => notify("Attach: " + docList, "info"), 1500);
                               notify("⏳ Creating Gmail draft...");
                               fetch("/api/create-email-rec", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: rec.subject, html: rec.body }) })
                                 .then(r => r.json()).then(data => { if (data.success && data.draftUrl) { window.open(data.draftUrl, "_blank"); notify("✅ Gmail draft created"); } else { throw new Error(data.error); } })
