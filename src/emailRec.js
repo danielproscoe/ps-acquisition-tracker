@@ -142,24 +142,69 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
     '<td style="padding:12px 28px;text-align:right"><span style="font-size:9px;color:#64748B;letter-spacing:0.08em">' + dateStr + '</span></td>' +
     '</tr></table>',
 
-    // ══ VERDICT BANNER — high contrast, impossible to miss ══
-    '<table cellpadding="0" cellspacing="0" style="width:100%;background:' + verdictColor + '"><tr>' +
-    '<td style="padding:14px 28px"><span style="font-size:13px;font-weight:900;color:#FFFFFF;letter-spacing:0.08em">' + h(bannerText) + '</span></td>' +
-    (yocStr ? '<td style="padding:14px 28px;text-align:right"><span style="font-size:10px;color:rgba(255,255,255,0.7);letter-spacing:0.08em">PROJECTED YOC </span><span style="font-size:20px;font-weight:900;color:#FFFFFF">' + yocStr + '</span></td>' : '') +
-    '</tr></table>',
+    // ══ EXECUTIVE BANNER — one paragraph tells the whole story ══
+    (() => {
+      // Build the recommendation offer string
+      const recOfferAmt = layout ? layout.recOffer : (fin && fin.landPrices && fin.landPrices[1] ? (fin.landCost > 0 && fin.landPrices[1].maxLand > fin.landCost && !site.offerAboveAskReason ? fin.landCost : fin.landPrices[1].maxLand) : 0);
+      const recOfferAcStr = layout ? (layout.recOfferPerAc > 0 ? $k(layout.recOfferPerAc) + "/ac" : "") : (fin && fin.acres > 0 && recOfferAmt > 0 ? $k(Math.round(recOfferAmt / fin.acres)) + "/ac" : "");
+      const askAmt = fin ? fin.landCost : 0;
+      // Plate and build info
+      const plateSF = layout ? layout.totalSF : (fin ? fin.totalSF : 0);
+      const plateStr = plateSF > 0 ? Math.round(plateSF / 1000) + "K SF" : "";
+      const storiesStr = layout ? layout.productType : (fin && fin.stories > 1 ? fin.stories + "-story" : "1-story");
+      const totalCostAmt = layout ? layout.totalInvestment : (fin ? fin.totalDevCost : 0);
+      const yocVal = layout ? layout.yoc : (fin ? fin.yocStab : "");
+      // Zoning justification — cite FAR, setbacks, coverage if available
+      const zoningCites = [];
+      if (site.zoningUseTerm) zoningCites.push('"' + fe(site.zoningUseTerm) + '"');
+      if (site.zoningOrdinanceSection) zoningCites.push(fe(site.zoningOrdinanceSection));
+      if (site.setbackReqs) zoningCites.push(fe(site.setbackReqs));
+      if (site.heightLimit) zoningCites.push("height: " + fe(site.heightLimit));
+      if (site.imperviousCover) zoningCites.push("coverage: " + fe(site.imperviousCover));
+      if (site.facadeReqs) zoningCites.push(fe(site.facadeReqs));
+      const zoningCiteStr = zoningCites.length > 0 ? zoningCites.join(", ") : (zClass === "by-right" ? "by-right, no SUP required" : zClass === "conditional" ? "conditional use — SUP required" : "zoning verification pending");
+      // Pad acreage recommendation
+      const totalAc = layout ? layout.totalAcres : (fin ? fin.acres : parseFloat(acreageRaw) || 0);
+      const padAc = layout ? layout.padAcres : totalAc;
+      const excessAc = layout ? layout.excessAcres : 0;
+      const padStr = excessAc > 0
+        ? "The full site is " + totalAc + " acres and we recommend taking the front " + padAc + " ac, with " + excessAc + " ac excess marketable separately."
+        : "The full site is " + totalAc + " acres and we are taking the full " + totalAc + " ac.";
 
-    // ══ SITE HEADER — dark ══
-    '<div style="background:#0A0F1E;padding:24px 28px 20px">',
-    '<div style="font-size:10px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.18em;margin-bottom:8px">SITE ACQUISITION RECOMMENDATION</div>',
-    '<div style="font-size:28px;font-weight:900;color:#FFFFFF;letter-spacing:-0.02em;line-height:1.15">' + h(fe(site.address || site.name || "")) + '</div>',
-    '<div style="font-size:13px;color:#94A3B8;margin-top:4px">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + '</div>',
-    // Action buttons — PROMINENT
-    '<table cellpadding="0" cellspacing="0" style="margin-top:16px"><tr>',
-    listingUrl ? '<td style="padding-right:8px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:10px 20px;background:#2563EB;border-radius:6px;color:#FFFFFF;font-size:12px;font-weight:800;text-decoration:none;letter-spacing:0.04em">View Listing</a></td>' : "",
-    pinDrop ? '<td style="padding-right:8px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:10px 20px;background:#10B981;border-radius:6px;color:#FFFFFF;font-size:12px;font-weight:800;text-decoration:none;letter-spacing:0.04em">Pin Drop</a></td>' : "",
-    '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:10px 24px;background:#C9A84C;border-radius:6px;color:#0A0F1E;font-size:12px;font-weight:900;text-decoration:none;letter-spacing:0.04em">Open in Storvex</a></td>',
-    '</tr></table>',
-    '</div>',
+      return '<div style="background:#0A0F1E;padding:28px">' +
+        // Top line: STORVEX + date
+        '<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:16px"><tr>' +
+        '<td><span style="font-size:10px;font-weight:800;color:#C9A84C;text-transform:uppercase;letter-spacing:0.22em">STORVEX</span></td>' +
+        '<td style="text-align:right"><span style="font-size:9px;color:#64748B;letter-spacing:0.08em">' + dateStr + '</span></td>' +
+        '</tr></table>' +
+        // Verdict pill
+        '<div style="margin-bottom:14px">' +
+        '<span style="display:inline-block;padding:6px 18px;border-radius:100px;background:' + verdictColor + ';color:#FFFFFF;font-size:12px;font-weight:900;letter-spacing:0.08em">' + h(verdict || bannerText) + '</span>' +
+        (yocStr ? '<span style="margin-left:12px;font-size:22px;font-weight:900;color:#FFFFFF;font-family:' + MONO + '">' + yocStr + ' <span style="font-size:10px;font-weight:600;color:#94A3B8">YOC</span></span>' : '') +
+        '</div>' +
+        // Site address — large
+        '<div style="font-size:28px;font-weight:900;color:#FFFFFF;letter-spacing:-0.02em;line-height:1.15;margin-bottom:4px">' + h(fe(site.address || site.name || "")) + '</div>' +
+        '<div style="font-size:13px;color:#64748B;margin-bottom:20px">' + h(site.city || "") + (site.city && site.state ? ", " : "") + h(site.state || "") + '</div>' +
+        // ══ THE EXECUTIVE PARAGRAPH — the whole story ══
+        '<div style="padding:20px 24px;border-radius:8px;background:rgba(255,255,255,0.04);border-left:4px solid #C9A84C;margin-bottom:20px">' +
+        '<div style="font-size:14px;color:#E2E8F0;line-height:1.85;font-weight:500">' +
+        '<strong style="color:#C9A84C">Storvex recommends offering ' + (recOfferAmt > 0 ? $k(recOfferAmt) : "TBD") + '</strong>' +
+        (recOfferAcStr ? ' (' + recOfferAcStr + ')' : '') +
+        (askAmt > 0 ? ' versus the asking price of ' + $k(askAmt) + '.' : '.') +
+        ' The offer is justified by ' + zoningCiteStr +
+        (plateStr ? ', allowing for a <strong style="color:#FFFFFF">' + plateStr + ' ' + storiesStr + '</strong> plate' : '') +
+        (totalCostAmt > 0 ? ' with a total development cost of <strong style="color:#FFFFFF">' + $k(totalCostAmt) + '</strong>' : '') +
+        (yocVal && yocVal !== "N/A" ? ' and projected <strong style="color:#10B981">' + yocVal + '% YOC</strong>.' : '.') +
+        ' ' + padStr +
+        '</div></div>' +
+        // Action buttons — clean row
+        '<table cellpadding="0" cellspacing="0"><tr>' +
+        (listingUrl ? '<td style="padding-right:8px"><a href="' + h(listingUrl) + '" style="display:inline-block;padding:10px 20px;background:#2563EB;border-radius:6px;color:#FFFFFF;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:0.04em">View Listing</a></td>' : "") +
+        (pinDrop ? '<td style="padding-right:8px"><a href="' + h(pinDrop) + '" style="display:inline-block;padding:10px 20px;background:#10B981;border-radius:6px;color:#FFFFFF;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:0.04em">Pin Drop</a></td>' : "") +
+        '<td><a href="' + h(dashLink) + '" style="display:inline-block;padding:10px 24px;background:#C9A84C;border-radius:6px;color:#0A0F1E;font-size:11px;font-weight:900;text-decoration:none;letter-spacing:0.04em">Open in Storvex</a></td>' +
+        '</tr></table>' +
+        '</div>';
+    })(),
 
     // ══ KPI BAR — dark, 4 columns ══
     '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#0F172A"><tr>',
@@ -172,14 +217,6 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
     // ══════════════════════════════════════
     // LIGHT BODY — white background, high contrast
     // ══════════════════════════════════════
-
-    // ── GREETING ──
-    '<div style="padding:24px 28px;background:#FFFFFF">',
-    '<div style="font-size:14px;color:#1E293B;line-height:1.75">',
-    recip.name !== "PS Team" ? h(recip.name) + ',<br><br>' : '',
-    'Submitting a site for review' + (site.market ? ' in the ' + h(fe(site.market)) + ' corridor' : (site.city ? ' in ' + h(site.city) : '')) + '. ',
-    'Key metrics below. Complete analysis, interactive mapping, and projected economics available on <a href="' + h(dashLink) + '" style="color:#C9A84C;font-weight:700;text-decoration:underline">Storvex</a>.',
-    '</div></div>',
 
     // ── DEMOGRAPHICS TABLE — light ──
     '<div style="padding:0 28px 20px;background:#FFFFFF">',
