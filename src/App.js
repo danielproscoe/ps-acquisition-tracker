@@ -3957,7 +3957,7 @@ L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/Worl
 var sI=L.divIcon({className:"",html:'<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:pulse 2s ease-in-out infinite"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div>',iconSize:[36,36],iconAnchor:[18,18]});
 L.marker([${lat},${lng}],{icon:sI,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-weight:900;font-size:14px;color:#1565C0">${(site.name || "Subject Site").replace(/'/g, "\\'")}</div>');
 L.circle([${lat},${lng}],{radius:4828,color:"#C9A84C",weight:2,opacity:0.5,fillColor:"#C9A84C",fillOpacity:0.04,dashArray:"8,6"}).addTo(map);
-fetch("/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
+fetch("https://storvex.vercel.app/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
 var lines=csv.trim().split("\\n"),cnt=0,pI=L.divIcon({className:"",html:'<div style="width:16px;height:16px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
 for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<7)continue;var pLa=parseFloat(p[5]),pLn=parseFloat(p[6]);if(isNaN(pLa)||isNaN(pLn))continue;
 var d=hav(${lat},${lng},pLa,pLn);if(d<=25){cnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
@@ -4399,7 +4399,7 @@ L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/Worl
 var sI=L.divIcon({className:"",html:'<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:pulse 2s ease-in-out infinite"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div>',iconSize:[36,36],iconAnchor:[18,18]});
 L.marker([${lat},${lng}],{icon:sI,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-weight:900;font-size:14px;color:#1565C0">${(site.name || "Subject Site").replace(/'/g, "\\'")}</div>');
 L.circle([${lat},${lng}],{radius:4828,color:"#C9A84C",weight:2,opacity:0.5,fillColor:"#C9A84C",fillOpacity:0.04,dashArray:"8,6"}).addTo(map);
-fetch("/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
+fetch("https://storvex.vercel.app/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
 var lines=csv.trim().split("\\n"),cnt=0,pI=L.divIcon({className:"",html:'<div style="width:16px;height:16px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
 for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<7)continue;var pLa=parseFloat(p[5]),pLn=parseFloat(p[6]);if(isNaN(pLa)||isNaN(pLn))continue;
 var d=hav(${lat},${lng},pLa,pLn);if(d<=25){cnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
