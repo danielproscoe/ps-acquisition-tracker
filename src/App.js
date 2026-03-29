@@ -4206,7 +4206,6 @@ function AppInner() {
                   <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600, padding: "0 8px", letterSpacing: "0.04em" }}>{idx + 1} of {allSites.length}</span>
                   <button disabled={!nextSite} onClick={() => { if (nextSite) { goToDetail({ regionKey: dv.regionKey, siteId: nextSite.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}} style={navBtnSt(!nextSite)}>Next →</button>
                 </div>
-                <button onClick={() => handleEmailRec(site, dv.siteId, notify)} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #C9A84C 0%, #E87A2E 100%)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px rgba(201,168,76,0.35)", transition: "all 0.2s" }}>📧 Create Email Rec</button>
                 <span style={{ fontSize: 9, color: "#4A5080", fontWeight: 500 }}>← → keys · Esc back</span>
               </div>
 
