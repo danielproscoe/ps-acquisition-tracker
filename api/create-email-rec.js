@@ -70,31 +70,36 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: "Draft creation failed: " + (draftData.error?.message || "unknown") });
     }
 
-    // Step 3: SEND email from Gmail to Outlook
-    const sendBody = JSON.stringify({ raw: encoded });
-    const sendResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    // Step 3: Create draft first, then send it (works with gmail.compose scope)
+    const draftBody = JSON.stringify({ message: { raw: encoded } });
+    const draftResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
       "Authorization": `Bearer ${tokenData.access_token}`,
       "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(sendBody)
-    }, sendBody);
+      "Content-Length": Buffer.byteLength(draftBody)
+    }, draftBody);
+
+    const draftData = JSON.parse(draftResp.body);
+    if (!draftData.id) {
+      console.error("Draft creation failed:", draftResp.body);
+      return res.status(500).json({ error: "Draft creation failed: " + (draftData.error?.message || "unknown") });
+    }
+
+    // Step 4: Send the draft (this sends the email with To: header intact)
+    const sendDraftBody = JSON.stringify({ id: draftData.id });
+    const sendResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/drafts/send", {
+      "Authorization": `Bearer ${tokenData.access_token}`,
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(sendDraftBody)
+    }, sendDraftBody);
 
     const sendData = JSON.parse(sendResp.body);
     if (sendData.id) {
       return res.status(200).json({ success: true, mode: "sent", messageId: sendData.id, sentTo: OUTLOOK_EMAIL });
     } else {
-      console.error("Send failed:", sendResp.body);
-      // Fallback: create draft instead
-      const draftBody = JSON.stringify({ message: { raw: encoded } });
-      const draftResp = await httpsPost("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
-        "Authorization": `Bearer ${tokenData.access_token}`,
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(draftBody)
-      }, draftBody);
-      const draftData = JSON.parse(draftResp.body);
-      if (draftData.id) {
-        return res.status(200).json({ success: true, mode: "draft-fallback", draftId: draftData.id, messageId: draftData.message?.id, note: "Send failed, created draft instead" });
-      }
-      return res.status(500).json({ error: "Both send and draft failed: " + (sendData.error?.message || "unknown") });
+      console.error("Draft send failed:", sendResp.body);
+      // Draft exists but couldn't send — return draft URL for manual send
+      const messageId = draftData.message?.id;
+      return res.status(200).json({ success: true, mode: "draft-fallback", draftId: draftData.id, messageId, draftUrl: `https://mail.google.com/mail/u/0/#drafts?compose=${messageId}`, note: "Draft created — open Gmail to send manually" });
     }
   } catch (err) {
     console.error("Email rec failed:", err.message);
