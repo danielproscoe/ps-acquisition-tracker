@@ -900,6 +900,21 @@ function AppInner() {
     if (form.acreage && !isValidAcreage(form.acreage)) { notify("Invalid acreage value."); return; }
     if (!REGIONS[form.region]) { notify("Invalid region."); return; }
 
+    // ─── COMPETITION DATA GATE (MANDATORY — no site enters queue without competition intel) ───
+    // Hard-coded per Dan R. directive 2026-03-30: competition data must be populated before
+    // any site can be submitted. Missing competition data caused inflated NOI/pricing on
+    // recommendations sent to PS leadership. No exceptions.
+    if (!discoverIntel?.competitorCount && !form.notes?.match(/competitor/i)) {
+      const skipComp = window.confirm(
+        "⚠️ COMPETITION DATA MISSING\n\n" +
+        "No competitor count or CC SPC data detected.\n" +
+        "Sites without competition data will show inflated pricing.\n\n" +
+        "This data is REQUIRED before sending recommendations to PS.\n\n" +
+        "Submit anyway? (Competition data can be added after submission)"
+      );
+      if (!skipComp) return;
+    }
+
     // Killed site dedup check — prevent re-submitting discarded sites
     const killed = isKilledSite(form.address, form.coordinates);
     if (killed) {
@@ -3847,6 +3862,13 @@ function AppInner() {
                 <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, marginBottom: 20, border: "1px solid rgba(255,255,255,0.05)" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7394", textTransform: "uppercase", marginBottom: 8, letterSpacing: "0.08em" }}>Summary</div>
                   <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.6 }}>{site.summary}</div>
+                </div>
+              )}
+
+              {/* ─── COMPETITION DATA WARNING — shows when siteiqData is incomplete ─── */}
+              {(!site.siteiqData?.competitorCount && site.siteiqData?.competitorCount !== 0) && (
+                <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444" }}>⚠ COMPETITION DATA MISSING — Valuation pricing may be inaccurate. Populate competitor count and CC SPC before sending recommendations.</span>
                 </div>
               )}
 
