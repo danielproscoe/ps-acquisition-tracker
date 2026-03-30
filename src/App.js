@@ -342,24 +342,31 @@ function AppInner() {
     goToDetail,
   } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
 
-  // ─── PS Locations (loaded once for Discover tab map) ───
+  // ─── PS Locations — owned + 3rd-party + combined (loaded once for Discover tab map) ───
   const [psLocations, setPsLocations] = useState([]);
   useEffect(() => {
-    fetch("/ps-locations.csv")
-      .then(r => r.text())
-      .then(csv => {
-        const lines = csv.trim().split("\n");
-        const locs = [];
-        for (let i = 1; i < lines.length; i++) {
-          const parts = lines[i].split(",");
-          if (parts.length < 7) continue;
-          const lat = parseFloat(parts[5]), lng = parseFloat(parts[6]);
-          if (isNaN(lat) || isNaN(lng)) continue;
-          locs.push({ num: parts[0], name: parts[1], address: parts[2], city: parts[3], state: parts[4], lat, lng });
-        }
-        setPsLocations(locs);
-      })
-      .catch(() => {});
+    const parseCsv = (csv, ownership) => {
+      const lines = csv.trim().split("\n");
+      const locs = [];
+      // 3rdParty/Combined CSVs have 8 cols (includes ZIP at index 5), owned has 7
+      const hasZip = ownership !== "owned";
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(",");
+        if (parts.length < 7) continue;
+        const latIdx = hasZip ? 6 : 5, lngIdx = hasZip ? 7 : 6;
+        const lat = parseFloat(parts[latIdx]), lng = parseFloat(parts[lngIdx]);
+        if (isNaN(lat) || isNaN(lng)) continue;
+        locs.push({ num: parts[0], name: parts[1], address: parts[2], city: parts[3], state: parts[4], lat, lng, ownership });
+      }
+      return locs;
+    };
+    Promise.all([
+      fetch("/ps-locations.csv").then(r => r.text()).then(csv => parseCsv(csv, "owned")),
+      fetch("/ps-locations-3rdparty.csv").then(r => r.text()).then(csv => parseCsv(csv, "3rdparty")).catch(() => []),
+      fetch("/ps-locations-combined.csv").then(r => r.text()).then(csv => parseCsv(csv, "combined")).catch(() => []),
+    ]).then(([owned, thirdParty, combined]) => {
+      setPsLocations([...owned, ...thirdParty, ...combined]);
+    }).catch(() => {});
   }, []);
 
   // ─── Deep-link: ?site=SITE_ID opens directly to property detail ───
@@ -3835,12 +3842,37 @@ function AppInner() {
                         const siteIcon = L.divIcon({ className: "", html: '<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.18);border-radius:50%;animation:sitePulse 2s ease-in-out infinite"></div><div style="position:absolute;inset:0;background:rgba(21,101,192,0.08);border-radius:50%;animation:sitePulse 2s ease-in-out infinite 0.5s"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 20px rgba(21,101,192,0.7)"></div></div><style>@keyframes sitePulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.8);opacity:0}}</style>', iconSize: [36, 36], iconAnchor: [18, 18] });
                         const siteMarker = L.marker([siteLat, siteLng], { icon: siteIcon, zIndexOffset: 1000 }).addTo(map);
                         siteMarker.bindTooltip(`<div style="min-width:200px"><div style="font-weight:900;font-size:13px;color:#0F172A">${site.address || site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:2px">${[site.city, site.state].filter(Boolean).join(", ")}</div>${site.acreage || site.askingPrice ? `<div style="display:flex;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid #E2E8F0">${site.acreage ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:10px;font-weight:800;color:#1E2761;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}</div>` : ""}</div>`, { direction: "top", offset: [0, -20] });
-                        fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
-                          const lines = csv.trim().split("\n"); let psCount = 0;
-                          const psIcon = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
-                          for (let i = 1; i < lines.length; i++) { const parts = lines[i].split(","); if (parts.length < 7) continue; const pLat = parseFloat(parts[5]), pLng = parseFloat(parts[6]); if (isNaN(pLat) || isNaN(pLng)) continue; const dist = haversine(siteLat, siteLng, pLat, pLng); if (dist <= 25) { psCount++; const pNum = parts[0], pAddr = parts[2], pCity = parts[3], pState = parts[4]; const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map); marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] }); } }
+                        // Load all PS location CSVs (owned + 3rd-party + combined)
+                        const parsePsCsv = (csv, ownership) => {
+                          const lines = csv.trim().split("\n"); const locs = []; const hasZip = ownership !== "owned";
+                          for (let i = 1; i < lines.length; i++) { const parts = lines[i].split(","); if (parts.length < 7) continue; const latIdx = hasZip ? 6 : 5, lngIdx = hasZip ? 7 : 6; const lat = parseFloat(parts[latIdx]), lng = parseFloat(parts[lngIdx]); if (isNaN(lat) || isNaN(lng)) continue; locs.push({ num: parts[0], name: parts[1], address: parts[2], city: parts[3], state: parts[4], lat, lng, ownership }); }
+                          return locs;
+                        };
+                        Promise.all([
+                          fetch("/ps-locations.csv").then(r => r.text()).then(csv => parsePsCsv(csv, "owned")),
+                          fetch("/ps-locations-3rdparty.csv").then(r => r.text()).then(csv => parsePsCsv(csv, "3rdparty")).catch(() => []),
+                          fetch("/ps-locations-combined.csv").then(r => r.text()).then(csv => parsePsCsv(csv, "combined")).catch(() => []),
+                        ]).then(([owned, thirdParty, combined]) => {
+                          const allPS = [...owned, ...thirdParty, ...combined];
+                          let psCount = 0, ownedCount = 0, tpCount = 0, cbCount = 0;
+                          const psIconOwned = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          const psIcon3P = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#F59E0B,#FBBF24);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(245,158,11,0.5),0 0 0 1px rgba(245,158,11,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          const psIconCB = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#A78BFA,#C4B5FD);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(167,139,250,0.5),0 0 0 1px rgba(167,139,250,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          for (const ps of allPS) {
+                            const dist = haversine(siteLat, siteLng, ps.lat, ps.lng);
+                            if (dist <= 25) {
+                              psCount++;
+                              if (ps.ownership === "3rdparty") tpCount++; else if (ps.ownership === "combined") cbCount++; else ownedCount++;
+                              const icon = ps.ownership === "3rdparty" ? psIcon3P : ps.ownership === "combined" ? psIconCB : psIconOwned;
+                              const typeLabel = ps.ownership === "3rdparty" ? " (3rd Party)" : ps.ownership === "combined" ? " (Combined)" : "";
+                              const typeColor = ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : "#E87A2E";
+                              const marker = L.marker([ps.lat, ps.lng], { icon }).addTo(map);
+                              marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${ps.num}</div><div style="font-size:10px;color:#334155">${ps.address}</div><div style="font-size:10px;color:#64748B">${ps.city}, ${ps.state}</div>${typeLabel ? `<div style="font-size:9px;color:${typeColor};font-weight:600">${typeLabel}</div>` : ""}<div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
+                            }
+                          }
                           const badge = document.createElement("div"); badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
-                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>`;
+                          const breakdown = (tpCount || cbCount) ? `<div style="font-size:9px;color:#94A3B8;margin-top:2px;padding-left:32px">${ownedCount} owned` + (tpCount ? ` · ${tpCount} 3rd party` : "") + (cbCount ? ` · ${cbCount} combined` : "") + `</div>` : "";
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>${breakdown}`;
                           el.appendChild(badge);
                         }).catch(() => {});
                         const prospectGroup = L.layerGroup(); let prospectCount = 0;
@@ -4778,29 +4810,40 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         // Rich click popup
                         siteMarker.bindPopup(`<div style="min-width:220px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #1565C0"><div style="width:14px;height:14px;background:linear-gradient(135deg,#1565C0,#1976D2);border:2.5px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(21,101,192,0.5)"></div><span style="font-weight:900;font-size:14px;color:#1565C0;letter-spacing:-0.01em">SUBJECT SITE</span></div><div style="font-weight:800;font-size:13px;color:#0F172A">${site.name || "Subject Site"}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${site.address || ""}, ${site.city || ""} ${site.state || ""}</div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${site.acreage ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span style="font-size:11px;color:#1E2761;font-weight:700;background:#E8F0FE;padding:2px 8px;border-radius:4px">${site.askingPrice}</span>` : ""}${site.zoning ? `<span style="font-size:11px;color:#065F46;font-weight:700;background:#D1FAE5;padding:2px 8px;border-radius:4px">${site.zoning}</span>` : ""}</div></div>`);
 
-                        // ── PS locations layer ──
-                        fetch("/ps-locations.csv").then(r => r.text()).then(csv => {
-                          const lines = csv.trim().split("\n");
-                          let psCount = 0;
-                          const psIcon = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
-                          for (let i = 1; i < lines.length; i++) {
-                            const parts = lines[i].split(",");
-                            if (parts.length < 7) continue;
-                            const pLat = parseFloat(parts[5]), pLng = parseFloat(parts[6]);
-                            if (isNaN(pLat) || isNaN(pLng)) continue;
-                            const dist = haversine(siteLat, siteLng, pLat, pLng);
+                        // ── PS locations layer (owned + 3rd-party + combined) ──
+                        const parsePsCsv2 = (csv, ownership) => {
+                          const lines = csv.trim().split("\n"); const locs = []; const hasZip = ownership !== "owned";
+                          for (let i = 1; i < lines.length; i++) { const parts = lines[i].split(","); if (parts.length < 7) continue; const latIdx = hasZip ? 6 : 5, lngIdx = hasZip ? 7 : 6; const lat = parseFloat(parts[latIdx]), lng = parseFloat(parts[lngIdx]); if (isNaN(lat) || isNaN(lng)) continue; locs.push({ num: parts[0], name: parts[1], address: parts[2], city: parts[3], state: parts[4], lat, lng, ownership }); }
+                          return locs;
+                        };
+                        Promise.all([
+                          fetch("/ps-locations.csv").then(r => r.text()).then(csv => parsePsCsv2(csv, "owned")),
+                          fetch("/ps-locations-3rdparty.csv").then(r => r.text()).then(csv => parsePsCsv2(csv, "3rdparty")).catch(() => []),
+                          fetch("/ps-locations-combined.csv").then(r => r.text()).then(csv => parsePsCsv2(csv, "combined")).catch(() => []),
+                        ]).then(([owned, thirdParty, combined]) => {
+                          const allPS = [...owned, ...thirdParty, ...combined];
+                          let psCount = 0, ownedCount = 0, tpCount = 0, cbCount = 0;
+                          const psIconOwned = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          const psIcon3P = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#F59E0B,#FBBF24);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(245,158,11,0.5),0 0 0 1px rgba(245,158,11,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          const psIconCB = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#A78BFA,#C4B5FD);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(167,139,250,0.5),0 0 0 1px rgba(167,139,250,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          for (const ps of allPS) {
+                            const dist = haversine(siteLat, siteLng, ps.lat, ps.lng);
                             if (dist <= 25) {
                               psCount++;
-                              const pNum = parts[0], pName = parts[1], pAddr = parts[2], pCity = parts[3], pState = parts[4];
-                              const marker = L.marker([pLat, pLng], { icon: psIcon }).addTo(map);
-                              marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${pNum}</div><div style="font-size:10px;color:#334155">${pAddr}</div><div style="font-size:10px;color:#64748B">${pCity}, ${pState}</div><div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
-                              marker.bindPopup(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">${pNum}</span></div><div style="font-size:12px;font-weight:600;color:#334155">${pName}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${pAddr}</div><div style="font-size:11px;color:#64748B">${pCity}, ${pState}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">${dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>`);
+                              if (ps.ownership === "3rdparty") tpCount++; else if (ps.ownership === "combined") cbCount++; else ownedCount++;
+                              const icon = ps.ownership === "3rdparty" ? psIcon3P : ps.ownership === "combined" ? psIconCB : psIconOwned;
+                              const typeLabel = ps.ownership === "3rdparty" ? " (3rd Party)" : ps.ownership === "combined" ? " (Combined)" : "";
+                              const typeColor = ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : "#E87A2E";
+                              const marker = L.marker([ps.lat, ps.lng], { icon }).addTo(map);
+                              marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${ps.num}</div><div style="font-size:10px;color:#334155">${ps.address}</div><div style="font-size:10px;color:#64748B">${ps.city}, ${ps.state}</div>${typeLabel ? `<div style="font-size:9px;color:${typeColor};font-weight:600">${typeLabel}</div>` : ""}<div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
+                              marker.bindPopup(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:${typeColor};border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:${typeColor}">${ps.num}</span></div><div style="font-size:12px;font-weight:600;color:#334155">${ps.name}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${ps.address}</div><div style="font-size:11px;color:#64748B">${ps.city}, ${ps.state}</div>${typeLabel ? `<div style="font-size:10px;color:${typeColor};font-weight:600;margin-top:3px">${typeLabel}</div>` : ""}<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">${dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>`);
                             }
                           }
                           // Count badge (bottom-right) — PS locations
                           const badge = document.createElement("div");
                           badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
-                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>`;
+                          const breakdown = (tpCount || cbCount) ? `<div style="font-size:9px;color:#94A3B8;margin-top:2px;padding-left:32px">${ownedCount} owned` + (tpCount ? ` · ${tpCount} 3rd party` : "") + (cbCount ? ` · ${cbCount} combined` : "") + `</div>` : "";
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>${breakdown}`;
                           el.appendChild(badge);
                         }).catch(() => {});
 

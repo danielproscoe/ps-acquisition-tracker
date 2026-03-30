@@ -1,0 +1,345 @@
+PROPERTY_NUM,PROPERTY_NAME,ADDRESS,CITY,STATE,ZIP,LATITUDE,LONGITUDE
+PS #70386,Westminster / 22 Fwy & Beach,7482 Garden Grove Blvd,Westminster,CA,92683-2296,33.7728,-118
+PS #70387,Sunnyvale / E. Arques Ave,620 East Arques Ave,Sunnyvale,CA,94085-3831,37.3813,-122.017
+PS #70388,Saugus / Soledad Canyon,21648 Golden Triangle Rd,Saugus,CA,91350-2614,34.4149,-118.514
+PS #70389,Sacramento / Watt Ave,3421 Auburn Blvd,Sacramento,CA,95821-1912,38.6375,-121.385
+PS #70391,San Jose / 2255 Tully Road,2255 Tully Road,San Jose,CA,95122-1348,37.3281,-121.818
+PS #70392,Redwood City / E. Bayshore Rd,1841 E Bayshore Road,Redwood City,CA,94063-4122,37.4886,-122.207
+PS #70393,Granada Hills / Chatsworth Ave,18175 Chatsworth Ave,Granada Hills,CA,91344-5613,34.2649,-118.528
+PS #70394,San Diego/94 Fwy/ Federal Blvd,5950 Federal Blvd,San Diego,CA,92114-1336,32.7275,-117.069
+PS #70396,Maple Valley / SE Wax Rd,22013 SE Wax Road,Maple Valley,WA,98038-8560,47.391,-122.048
+PS #70397,Kent/104th Ave SE/ SE 256th St,10528 SE 256th Street,Kent,WA,98030-6751,47.374,-122.2
+PS #70398,Kent/104th Ave SE/ SE 244th St,10434 SE 244th Street,Kent,WA,98030-4961,47.3837,-122.201
+PS #70399,University Village / QFC,"2746 NE 45th St, Suite 100",Seattle,WA,98105-5018,47.6621,-122.296
+PS #70405,La Puente/Valley Bl &Fullerton,18711 Valley Blvd,La Puente,CA,91744-6053,34.0046,-117.895
+PS #75078,Goleta / Hollister Ave,7246 Hollister Ave,Goleta,CA,93117-2807,34.4308,-119.88
+PS #75079,Goleta / Overpass Road,5425 Overpass Rd,Santa Barbara,CA,93111-2033,34.4386,-119.813
+PS #75081,N.Richland Hls/Hilltop&RufSnow,6451 Hilltop Drive,No Richland Hills,TX,76180-6011,32.8455,-97.2404
+PS #75085,Hayward / Whipple Rd,1639 Whipple Road,Hayward,CA,94544-7928,37.607,-122.048
+PS #75204,Atlanta/Cumberland Pkwy &Paces,2515 Cumberland Pkwy SE,Atlanta,GA,30339-3928,33.8659,-84.4774
+PS #77502,Seabrook/New Zealand Rd & I-95,72 New Zealand Rd,Seabrook,NH,03874-4114,42.8962,-70.8785
+PS #77503,Nashua/W Hollis St & Ledgewood,596 W Hollis St,Nashua,NH,03062-1359,42.742,-71.5068
+PS #77504,Hampstead / Rte 111 & Stage Rd,184 State Route 111,Hampstead,NH,03841-2343,42.8608,-71.1755
+PS #77507,Campbell / E. Sunnyoaks Ave,155 E Sunnyoaks Ave,Campbell,CA,95008-6607,37.2728,-121.952
+PS #77513,Petaluma/Petaluma Bl& Kastania,2557 Petaluma Blvd S,Petaluma,CA,94952-5534,38.2244,-122.611
+PS #77514,Atlanta/ Fairburn Rd & Cascade,820 Fairburn Road SW,Atlanta,GA,30331-2007,33.7337,-84.5096
+PS #77521,Cordova/Germantown Pky&Trinity,475 N Germantown Pkwy,Cordova,TN,38018-6209,35.1383,-89.7984
+PS #77523,Brockton/N Main St & Haverhill,120 N Main Street,Brockton,MA,02301-3911,42.0881,-71.0199
+PS #77532,Orem / N State St & 1200N,1024 N State Street,Orem,UT,84057-3153,40.3161,-111.703
+PS #77538,Mt Pleasant / Johnnie Dodds Bl,616 Johnnie Dodds Bl,Mt Pleasant,SC,29464-3013,32.8082,-79.8813
+PS #77539,Warminster/E County Line &Park,273 E County Line Rd,Hatboro,PA,19040-1234,40.1881,-75.0991
+PS #77544,West Berlin/Cooper Rd &Taunton,399 Cooper Rd,West Berlin,NJ,08091-9144,39.805,-74.9146
+PS #77547,Phoenix/ E Thomas Rd & 28th Pl,2829 E Thomas Road,Phoenix,AZ,85016-8036,33.4802,-112.02
+PS #77549,Tempe/Curry Rd & Scottsdale Rd,935 E Curry Rd,Tempe,AZ,85281-1905,33.44,-111.925
+PS #77550,Royersford/Kline Rd &RidgePike,110 Kline Rd,Royersford,PA,19468-2830,40.2113,-75.4951
+PS #77552,Southampton/Industrial Bl &2nd,1000 Industrial Blvd,Southampton,PA,18966-4007,40.1621,-75.0447
+PS #77557,Holbrook / Andrea Rd (Opg 6/29,15 Andrea Rd,Holbrook,NY,11741-4310,40.7749,-73.0481
+PS #77571,Punta Gorda / Luther Rd,2485 Luther Rd,Punta Gorda,FL,33983-2721,26.9907,-82.0285
+PS #77574,Las Vegas/S Hualapai &Tompkins,4622 S Hualapai Way,Las Vegas,NV,89147-7287,36.1048,-115.315
+PS #77575,St Paul/Arlington Av & LOrient,240 Arlington Ave E,St Paul,MN,55117-6900,44.9839,-93.0907
+PS #77580,Stamford/Leon Place & West Ave,11 Leon Pl,Stamford,CT,06902-5508,41.0465,-73.5576
+PS #77587,Reno / Wrondel Way & Grove St,2410 Wrondel Way,Reno,NV,89502-3701,39.5028,-119.796
+PS #77601,Long Island City/Northern Blvd,3108 Northern Blvd,Long Island City,NY,11101-2818,40.7517,-73.9329
+PS #77604,New Castle/NewCastle &Terminal,4093 New Castle Ave,New Castle,DE,19720-1414,39.7187,-75.5466
+PS #77606,Salem/Hyacinth St NE &SalemPkw,1815 Hyacinth St NE,Salem,OR,97301-3152,44.9843,-123.007
+PS #77607,Salem/Turner Rd SE& Mission St,2150 Turner Rd SE,Salem,OR,97302-2004,44.9103,-122.995
+PS #77615,Eastvale/ Archibald & Limonite,6301 Archibald Ave,Eastvale,CA,92880-9641,33.9719,-117.596
+PS #77619,Framingham / Bishop St,71 Bishop St,Framingham,MA,01702-8119,42.2803,-71.4081
+PS #77620,Suwanee / Old Peachtree Road,1083 Old Peachtree Rd NW,Suwanee,GA,30024-2098,34.0026,-84.0752
+PS #77623,Port Jefferson/Sheep PastureRd,225 Sheep Pasture Rd,Port Jefferson,NY,11777-2002,40.9323,-73.073
+PS #77625,Vancouver / NE Ward Rd,6907 NE Ward Rd,Vancouver,WA,98682-5005,45.6729,-122.52
+PS #77626,Milwaukie /SE Johnson Creek Bl,4403 SE Johnson Creek Bl,Milwaukie,OR,97222-9218,45.4612,-122.618
+PS #77627,Portland/ SE Division & SE 122,12323 SE Division St,Portland,OR,97236-3125,45.5044,-122.536
+PS #77628,Portland / SE 82nd Ave,8085 SE 82nd Ave,Portland,OR,97266-6206,45.4405,-122.537
+PS #77629,Hillsboro / SE Witch Hazel,4705 SE Witch Hazel Rd,Hillsboro,OR,97123-8461,45.4999,-122.934
+PS #77632,Georgetown/2100 S I-35&Leander,2100 S Interstate 35,Georgetown,TX,78626-3688,30.6223,-97.6916
+PS #77637,Philadelphia/E Hunting Park Av,533 E Hunting Park Ave,Philadelphia,PA,19124-6010,40.0126,-75.1136
+PS #77638,Sarasota / Initiative Blvd,6415 Initiative Blvd,Sarasota,FL,34240-1249,27.3408,-82.4432
+PS #77640,Overland Park/W 112th St,6721 W 112th St,Overland Park,KS,66211,38.9241,-94.663
+PS #77642,Raleigh/ Fox Rd & Louisburg Rd,7505 Fox Rd,Raleigh,NC,27616-6345,35.8705,-78.5473
+PS #77643,Sonoma / 8th St E & Hamblin Rd,19784 8th St E,Sonoma,CA,95476-3849,38.2844,-122.434
+PS #77646,Buda / S IH 35 & Goforth Rd,16091 S IH 35,Buda,TX,78610-3668,30.0758,-97.8265
+PS #77647,Austin / Victor St & Braker Ln,700 Victor Street,Austin,TX,78753,30.3752,-97.6785
+PS #77648,Converse / Binz-Engleman Rd,7354 Binz Engleman Rd,Converse,TX,78109-1066,29.4659,-98.3487
+PS #77650,Roseville/Baseline & Foothills,1351 Baseline Rd,Roseville,CA,95747-9259,38.7516,-121.312
+PS #77651,Cincinnati/Hamilton & Meredith,9651 Hamilton Ave,Cincinnati,OH,45231-2327,39.244,-84.5485
+PS #77655,Brooklyn/E New York Av & Union,1223 E New York Ave,Brooklyn,NY,11212-4127,40.6674,-73.9219
+PS #77656,New Bedford / Washburn St,8 Washburn St,New Bedford,MA,02740-7336,41.6537,-70.9227
+PS #77658,Ponte Vedra / SR A1A N & Ave C,20 A1A N,Ponte Vedra Beach,FL,32082-6268,30.2526,-81.389
+PS #77659,Chapel Hill/Myrica St &Eubanks,500 Myrica St,Chapel Hill,NC,27516-5105,35.9722,-79.0702
+PS #77660,Roseville/Brady Ln & Baseline,8040 Brady Lane,Roseville,CA,95747-9249,38.7513,-121.314
+PS #77661,Danvers / 495 Newbury St & I95,495 Newbury St,Danvers,MA,01923-1032,42.603,-70.9581
+PS #77662,Olathe/N Monroe St & 135th St,225 N Monroe St,Olathe,KS,66061-3109,38.885,-94.8303
+PS #77664,Baltimore/Clipper Mill Rd,3600 Clipper Mill Rd,Baltimore,MD,21211,39.3313,-76.6429
+PS #77665,Baltimore/S Haven St,234 S Haven St,Baltimore,MD,21224-2530,39.2894,-76.5628
+PS #77667,Chapel Hill/ Marvin Edwards Ln,72 Marvin Edwards Ln,Chapel Hill,NC,27517-6350,35.8574,-79.0853
+PS #77668,Liberty/N Stewart Rd,151 N Stewart Rd,Liberty,MO,64068-1052,39.2497,-94.4515
+PS #77670,Lithonia/Rockbridge Rd SW,8080 Rockbridge Rd SW,Lithonia,GA,30058,33.7754,-84.0723
+PS #77672,Cantonment/Muscogee Rd,550 Muscogee Rd,Cantonment,FL,32533,30.6086,-87.328
+PS #77675,Norcross/Jimmy Carter Blvd,4473 Jimmy Carter Blvd,Norcross,GA,30093,33.889,-84.194
+PS #77676,Miami/SW 117th Ave & 160th St,16001 SW 117th Ave,miami,FL,33177-1609,25.6201,-80.3817
+PS #77677,Portland/ SE Division Pl & 7th,685 SE Division Pl,Portland,OR,97202-1022,45.5051,-122.659
+PS #77679,Houston/Sam Houston&Westheimer,2840 W Sam Houston Pkwy S,Houston,TX,77042-3614,29.7355,-95.5594
+PS #77681,Lilburn/ Five Forks Trickum Rd,3950 Five Forks Trickum Rd SW,Lilburn,GA,30047-2339,33.87,-84.0887
+PS #77682,Lawrenceville/Grayson&Hillside,1475 Grayson Hwy,Lawrenceville,GA,30045-6307,33.9092,-83.9687
+PS #77683,Lawrenceville / Lawrenceville,2600 Lawrenceville Hwy,Lawrenceville,GA,30044-4428,33.9243,-84.0692
+PS #77684,Mayfield Hgts/Golden Gate Blvd,1413 Golden Gate Blvd,Mayfield Heights,OH,44124-3423,41.5228,-81.4486
+PS #77685,Noblesville/Marilyn Rd &Campus,14532 Marilyn Rd,Noblesville,IN,46060-9485,40.0004,-85.9502
+PS #77686,Grayson/ Grayson Hwy & Village,1785 Grayson Hwy,Grayson,GA,30017-1250,33.9012,-83.9632
+PS #77688,Minneapolis/Washington Av&17th,1720 N Washington Ave,Minneapolis,MN,55411-3425,44.9966,-93.2811
+PS #77690,Orlando / Old Winter Garden Rd,8550 Old Winter Garden Rd,Orlando,FL,32835-4463,28.5413,-81.5014
+PS #77691,Mesa / E Germann Rd & 198th,8228 E Germann Rd,Mesa,AZ,85212-5300,33.2801,-111.656
+PS #77692,Plymouth/Resnik Rd &Industrial,5 Resnik Rd,Plymouth,MA,02360-4892,41.9492,-70.7137
+PS #77693,Arvada / W 58th Ave & Ralston,5947 W 58th Ave,Arvada,CO,80002,39.802,-105.061
+PS #77695,Tucson/Marana Cntr & TwinPeaks,6245 W Marana Center BL,Tucson,AZ,85742,32.3799,-111.099
+PS #77696,Marietta / 2250 Dallas Hwy,2258 Dallas Hwy SW,Marietta,GA,30064-2748,33.9468,-84.6187
+PS #77697,Avondale/Avondale Bl & Buckeye,2655 S Avondale Blvd,Avondale,AZ,85323,33.4219,-112.306
+PS #77699,Roseville / E Roseville Pkwy,1851 E Roseville Pkwy,Roseville,CA,95661,38.7314,-121.228
+PS #77701,Chicago/N Kedzie Ave,5251 N Kedzie Ave,Chicago,IL,60625,41.9767,-87.7089
+PS #77702,Las Vegas / S Maryland Pkwy,3450 S Maryland Pkwy,Las Vegas,NV,89169-3012,36.1275,-115.136
+PS #77704,Cincinnati/Red Bank Rd,3650 Red Bank Rd,Cincinnati,OH,45227-4113,39.1429,-84.4021
+PS #77707,Stockton/Sanguinetti & Cheroke,1717 Sanguinetti Ln,Stockton,CA,95205-3416,37.9742,-121.268
+PS #77708,Las Vegas/N RanchoDr,4700 N Rancho Dr,Las Vegas,NV,89130-3505,36.2458,-115.238
+PS #77709,Dallas / Forest Ln & Marsh Ln,3520 Forest Ln,Dallas,TX,75234-7920,32.9092,-96.8612
+PS #77710,Columbia / Farrow Rd,8911 Farrow Rd,Columbia,SC,29203-9731,34.1078,-80.9518
+PS #77711,Tukwila/Interurban Ave & 143rd,14300 Interurban Ave S,Tukwila,WA,98168,47.4752,-122.257
+PS #77712,Vacaville/Cherry Glen Rd,5920 Cherry Glen Rd,Vacaville,CA,95688,38.3385,-122.018
+PS #77713,Anderson/US29Bypass(Mng4/9NB-B,605 Highway 29 Byp N,Anderson,SC,29621-6519,34.5039,-82.6081
+PS #77714,Kansas City/Woodswther&Madison,700 Woodswether Rd,Kansas City,MO,64105-1118,39.1085,-94.5932
+PS #77716,San Antonio/W Hausman,8123 W Hausman Rd,San Antonio,TX,78249,29.5708,-98.6472
+PS #77726,Fayetteville/Hwy 138 SW,2300 Highway 138 SW,Fayetteville,GA,30214-5439,33.5506,-84.4526
+PS #77727,Newnan / Poplar Rd & I-85,184 Doc Turner Way,Newnan,GA,30263-6494,33.3611,-84.762
+PS #77728,Fairburn/ Campbellton Fairburn,5000 Campbellton Fairburn Rd,Fairburn,GA,30213-2018,33.6153,-84.6132
+PS #77729,Fayetteville/GA 85 S &Price Rd,983 Highway 85 S,Fayetteville,GA,30215-2007,33.4231,-84.4603
+PS #77730,Burton/Saginaw St & Donovan St,G3425 S Saginaw St,Burton,MI,48529-1278,42.9777,-83.6727
+PS #77731,Pontiac/E Walton Blvd & Arlene,788 E Walton Blvd,Pontiac,MI,48340-1361,42.677,-83.2715
+PS #77732,Lawrence/ 31st St & Ousdahl Rd,1717 W 31st St,Lawrence,KS,66046,38.9274,-95.2557
+PS #77735,McDonough / Jonesboro Rd,1891 Jonesboro Rd,McDonough,GA,30253-5914,33.4612,-84.2171
+PS #77737,Morrisville/Chapel Hil&Watkins,10802 Chapel Hill Rd,Morrisville,NC,27560-8850,35.8504,-78.8383
+PS #77743,West Valley City / W 3500 S,7125 W 3500 S,West Valley City,UT,84128-2335,40.6958,-112.061
+PS #77744,Burbank/S Cicero Ave & 84th St,8320 S Cicero Ave,Burbank,IL,60459-2801,41.7405,-87.7427
+PS #77745,Magna / S 7200 West,3588 S 7200 W,Magna,UT,84044-2443,40.6947,-112.064
+PS #77746,Maricopa/Stonegate&AlanStephen,18000 N Stonegate Rd,Maricopa,AZ,85138-3544,33.0424,-112.02
+PS #77757,Miami/NE 186th Terr & Biscayne,2641 NE 186th Terr,Miami,FL,33180-2624,25.9487,-80.1479
+PS #77758,Durham / Guess Rd & Landis Rd,3871 Guess Rd,Durham,NC,27705-1505,36.0631,-78.9308
+PS #77759,Gilbert/S Higley Rd& SantanFwy,1161 S Higley Rd,Gilbert,AZ,85296-4707,33.3295,-111.721
+PS #77761,Manhattan/Mott St & Houston St,262 Mott St,New York,NY,10012-0273,40.7238,-73.9944
+PS #77763,Marlboro/Boundary & Vanderburg,188 Boundary Rd,Marlboro,NJ,07746-1058,40.3147,-74.2229
+PS #77764,Fort Worth / Riverside Dr,2400 Riverside Dr,Fort Worth,TX,76103-2100,32.7445,-97.3034
+PS #77765,Lemon Grove/ Broadway & Kempf,8016 Broadway,Lemon Grove,CA,91945-2532,32.743,-117.026
+PS #77769,San Antonio/Starcrest&Maltbrgr,12214 Starcrest Dr,San Antonio,TX,78216-2952,29.5537,-98.4688
+PS #77770,Racine/Washington Av & Ohio St,4801 Washington Ave,Racine,WI,53406-4219,42.716,-87.8373
+PS #77773,Acworth/Ivey Rd & Mars Hill Rd,4920 Ivey Rd NW,Acworth,GA,30101-4011,34.0378,-84.6948
+PS #77774,Merrillville/Broadway &84th Dr,8450 Broadway,Merrillville,IN,46410-6221,41.4645,-87.3366
+PS #77776,Salem / Claxter Rd & 22nd Ave,2391 Claxter Rd NE,Salem,OR,97301-0394,44.9851,-123.001
+PS #77792,Fayetteville/Lake Valley Dr,4938 Lake Valley Dr,Fayetteville,NC,28303-6000,35.0835,-78.967
+PS #77793,Miami / NW 21st St,760 NW 21st St,Miami,FL,33127-4624,25.796,-80.2084
+PS #77794,Philadelphia/ N 10th St,5331 N 10th St,Philadelphia,PA,19141-2946,40.0338,-75.1394
+PS #77795,Bridgeport/Boro Line Rd,125 Boro Line Rd,King of Prussia,PA,19406-2112,40.102,-75.3533
+PS #77796,Elk Grove/E Stockton Bl,9480 E Stockton Bl,Elk Grove,CA,95624,38.4141,-121.39
+PS #77797,Bessemer / Tedescki Dr,1500 Tedescki Dr,Bessemer,AL,35022-3841,33.4228,-86.886
+PS #77798,Atlanta/Buford Hwy NE,2719 Buford Hwy NE,Atlanta,GA,30324-3207,33.8278,-84.3453
+PS #77799,Norcross/Peachtree Industrl Bl,5460 Peachtree Industrial Bl,Norcross,GA,30071-1420,33.9584,-84.2124
+PS #77800,Mesquite / Military Parkway,730 Military Parkway,Mesquite,TX,75149-4175,32.7667,-96.6078
+PS #77801,Bourbonnais / Larry Power Rd,575 Larry Power Rd,Bourbonnais,IL,60914-4427,41.1772,-87.8627
+PS #77802,Bourbonnais / Armour Rd,1847 Armour Road,Bourbonnais,IL,60914-2180,41.1634,-87.8548
+PS #77803,Glen Carbon / Kettle River Dr,30 Kettle River Drive,Glen Carbon,IL,62034-2803,38.7802,-89.9626
+PS #77804,Plano / Turner Ave,3980 Turner Ave,Plano,IL,60545-9727,41.6603,-88.4959
+PS #77805,Edwardsville / Center Grove Rd,6463 Center Grove Rd,Edwardsville,IL,62025-2812,38.7844,-89.9609
+PS #77806,Indianapolis/ Castleton Square,8525 Castleton Square Drive,Indianapolis,IN,46250-5570,39.911,-86.0608
+PS #77807,Indianapolis / Beachway Dr,749 Beachway Dr,Indianapolis,IN,46224-7700,39.776,-86.2673
+PS #77808,Indianapolis / W Washington St,7828 W Washington St,Indianapolis,IN,46231,39.7378,-86.2995
+PS #77809,Kansas City / State Ave,5500 State Avenue,Kansas City,KS,66102-3485,39.1177,-94.7062
+PS #77810,Kansas City / N 130th St,1201 N 130th St,Kansas City,KS,66109-4345,39.1178,-94.8813
+PS #77811,Louisville / Accomack Dr,3913 Accomack Dr,Louisville,KY,40241-1903,38.3018,-85.5393
+PS #77812,Louisville / Chamberlain Ln,3520 Chamberlain Lane,Louisville,KY,40241-1987,38.2946,-85.5415
+PS #77813,Louisville / Paramount Rock Rd,6651 Paramount Park Dr,Louisville,KY,40213-3572,38.1556,-85.7138
+PS #77814,Raytown / State Route 350,9624 E 350,Raytown,MO,64133-6513,38.9922,-94.4698
+PS #77815,Saint Louis/Saint Charles Rock,8440 Saint Charles Rock Rd,Saint Louis,MO,63114-4502,38.7039,-90.339
+PS #77816,Memphis / Hickory Hill Rd,3545 Hickory Hill Road,Memphis,TN,38115-3832,35.052,-89.8667
+PS #77821,Wellington / Fortune Way,3111 Fortune Way,Wellington,FL,33414-8712,26.6358,-80.2275
+PS #77822,Boca Raton/ Spanish Isles Blvd,10018 Spanish Isles Blvd,Boca Raton,FL,33498-6324,26.4017,-80.2045
+PS #77824,Forney / County County Road 21,10801 County Road 212,Forney,TX,75126-7008,32.732,-96.4194
+PS #77825,Arlington / W Sublett Rd,1800 W Sublett Road,Arlington,TX,76017-4489,32.6486,-97.1351
+PS #77826,Aurora/E Iliff Ave & Havana St,10601 E Iliff Ave,Aurora,CO,80014-1020,39.6752,-104.864
+PS #77827,Aurora/S Buckley Rd & Stanford,4480 S Buckley Rd,Aurora,CO,80015-2730,39.635,-104.791
+PS #77828,Denver/S Holly St & Evans Ave,2025 S Holly St,Denver,CO,80222-4817,39.6798,-104.923
+PS #77829,Denver/Pontiac Way & Evans Ave,2078 S Pontiac Way,Denver,CO,80224-2412,39.6789,-104.905
+PS #77830,Lakewood/Jewell Ave & Kipling,9750 W Jewell Ave,Lakewood,CO,80232-6316,39.6819,-105.107
+PS #77831,Westminster/Pierce St & 92nd,9150 Pierce St,Westminster,CO,80021-6448,39.8625,-105.07
+PS #77832,Colorado Springs/Austin Bluffs,3160 Austin Bluffs Pkwy,Colorado Springs,CO,80918-5718,38.8904,-104.77
+PS #77833,Colorado Springs/Old Broadmoor,121 E Old Broadmoor Rd,Colorado Springs,CO,80906-3363,38.8046,-104.823
+PS #77834,Colorado Springs/Pikes Peak Av,3760 E Pikes Peak Ave,Colorado Springs,CO,80909-6569,38.8323,-104.759
+PS #77835,Colorado Springs/Wood &Filmore,3061 Wood Ave,Colorado Springs,CO,80907-5122,38.8754,-104.825
+PS #77836,Wichita/N Maize Rd & Douglas,111 N Maize Rd,Wichita,KS,67212-4648,37.6827,-97.463
+PS #77837,Wichita/S Hillside & Lewis St,405 S Hillside St,Wichita,KS,67211-2149,37.6807,-97.2994
+PS #77838,Wichita/W 21st St & Tyler Rd,8631 W 21st St N,Wichita,KS,67205-1755,37.7221,-97.4428
+PS #77839,Lenexa/College Bl & Pflumm Rd,13300 College Blvd,Lenexa,KS,66210-3323,38.9283,-94.7392
+PS #77840,Dallas/Forest Ln & I635,9555 Forest Ln,Dallas,TX,75243-5901,32.9095,-96.7294
+PS #77841,Dallas/Skillman St & Abrams Rd,6640 Skillman St,Dallas,TX,75231-7113,32.8663,-96.7409
+PS #77842,Dallas/Spring Valley Rd & I75,8600 Spring Valley Rd,Dallas,TX,75240-4110,32.9397,-96.7542
+PS #77843,Irving/N Beltline & Finley Rd,3417 N Beltline Rd,Irving,TX,75062-7802,32.8528,-96.9928
+PS #77844,Plano/W 15th St & Custer Rd,1919 W 15th St,Plano,TX,75075-7330,33.0199,-96.7324
+PS #77845,Fort Worth/Hulen St &Clearfork,2600 S Hulen St,Fort Worth,TX,76109-5552,32.7141,-97.3857
+PS #77846,Fort Worth/Sycamore School Rd,3030 Sycamore School Rd,Fort Worth,TX,76133-7771,32.6354,-97.3646
+PS #77847,Austin/N Lamar Bl & Rundberg,10210 N Lamar Blvd,Austin,TX,78753-3604,30.3718,-97.6926
+PS #77848,Austin/W William Cannon Dr,1507 W William Cannon Dr,Austin,TX,78745-4805,30.2007,-97.8009
+PS #77849,San Antonio/Austin Hwy &Calvry,1130 Austin Hwy,San Antonio,TX,78209-4844,29.4857,-98.4491
+PS #77850,San Antonio/Thousand Oaks Dr,3425 Thousand Oaks Dr,San Antonio,TX,78247-4832,29.5687,-98.4307
+PS #77851,San Antonio/West Av &Interpark,13414 West Ave,San Antonio,TX,78216-2005,29.5638,-98.4909
+PS #77852,Houston / S Dairy Ashford Rd,1611 S Dairy Ashford Rd,Houston,TX,77077-3821,29.7513,-95.6055
+PS #77853,Houston/Main St & Kirby,8100 Main St,Houston,TX,77025-2810,29.6931,-95.4159
+PS #77854,Houston/Stroud Dr & Corporate,9740 Stroud Dr,Houston,TX,77036-5105,29.7007,-95.5562
+PS #77855,Houston/Westheimer Rd &Gessner,9526 Westheimer Rd,Houston,TX,77063-3308,29.738,-95.5345
+PS #77867,Berkeley Heights/Industrial Rd,135 Industrial Rd,Berkeley Heights,NJ,07922,40.6815,-74.4361
+PS #77868,Gastonia / Riverwood Pkwy,3010 Riverwood Pkwy,Gastonia,NC,28056,35.2166,-81.1704
+PS #77869,Hampton/Tara Blvd,11117 Tara Blvd,Hampton,GA,30228,33.4515,-84.3277
+PS #77870,Charleston/Folly Rd (Mng 3/13),1455 Folly Rd,Charleston,SC,29412,32.7113,-79.9659
+PS #77871,Spring Hill/County Line Rd,10437 County Line Rd,Spring Hill,FL,34609-5695,28.4344,-82.5446
+PS #77872,Humble / US Hwy 59 N,18006 Highway 59 N,Humble,TX,77396-4520,29.9799,-95.2755
+PS #77873,Loveland/Aldrin Dr,3702 Aldrin Dr,Loveland,CO,80538-9232,40.429,-105.005
+PS #77874,San Antonio/Old Corpus Christi,7519 Old Corpus Christi,San Antonio,TX,78223-4309,29.3509,-98.4583
+PS #77875,Bradenton/26th St W & 60th Ave,6015 26th St W,Bradenton,FL,34207-4402,27.4346,-82.5873
+PS #77876,Santa Clarita/Diamond,26363 Diamond Pl,Santa Clarita,CA,91350,34.4104,-118.508
+PS #77877,Marana / N Silverbell Rd,8700 N Silverbell Rd,Marana,AZ,85743,32.3654,-111.124
+PS #77879,Southbourough/Turnpike Rd,10 Turnpike Rd.,Southborough,MA,01772-2101,42.2962,-71.4952
+PS #77880,Chelmsford/Progress Ave,7 Progress Ave,Chelmsford,MA,01824-3606,42.5968,-71.3219
+PS #77881,Fort Worth/CrowleyRd,6712 Crowley Rd,Fort Worth,TX,76134-3321,32.6478,-97.349
+PS #77882,Sherman/Texoma Pkwy,4316 Texoma Pkwy,Sherman,TX,75090-1934,33.682,-96.5857
+PS #77883,Richmond/FM 1093 Rd,29105 FM 1093 Rd,Richmond,TX,77469,29.6913,-95.8769
+PS #77885,Randolph/Route 10,861 Route 10,Randolph,NJ,07869-1906,40.8577,-74.5996
+PS #77886,Queen Creek/N Ellsworth Ave,35393 N Ellsworth Ave,Queen Creek,AZ,85144-0055,33.2007,-111.634
+PS #77887,Durham / Ellis Rd,2112 Ellis Rd,Durham,NC,27703,35.939,-78.8579
+PS #77888,Fuquay Varina/Annabel Dr,5680 Annabel Dr,Fuquay-Varina,NC,27526-9280,35.6285,-78.7785
+PS #77889,Stockton/Pacific Ave,5308 Pacific Ave,Stockton,CA,95207-5619,37.9988,-121.313
+PS #77892,Sherman/N Travis St,2211 N Travis St,Sherman,TX,75090-2532,33.6576,-96.6155
+PS #77893,Garner / Caddy Road,7710 Caddy Road,Raleigh,NC,27603,35.6675,-78.6935
+PS #77897,Sanford / Cherry Laurel Dr,2461 Cherry Laurel Dr,Sanford,FL,32771-9522,28.7871,-81.3448
+PS #77898,Birmingham/2nd Ave N,1716 2nd Ave N,Birmingham,AL,35203-2012,33.5138,-86.8098
+PS #77899,Huntsville/Jackson Ave NW,2100 Jackson Ave NW,Huntsville,AL,35805-2950,34.7283,-86.5973
+PS #77900,Mantua/Bridgeton Pike,222 Bridegeton Pike,Mantua,NJ,08051-1913,39.7901,-75.1766
+PS #77901,Jeffersonville/Schlosser Farm,3301 Schlosser Farm Way,Jeffersonville,IN,47130,38.3359,-85.7127
+PS #77902,Buda / FM 2001,850 FM 2001,Buda,TX,78610-9740,30.0699,-97.8188
+PS #77903,Avon/Nagel Rd,1100 Nagel Rd,Avon,OH,44011-1329,41.4753,-81.9892
+PS #77904,Cape Coral/Diplomat Pkwy E,1607 Diplomat Pkwy E,Cape Coral,FL,33909,26.683,-81.9407
+PS #77905,Fayetteville/Cliffdale Rd,9560 Cliffdale Rd,Fayetteville,NC,28304,35.0305,-79.0633
+PS #77906,Semmes/Schillinger Rd N,2034 Schillinger Rd N,Semmes,AL,36575-7646,30.7329,-88.225
+PS #77907,Saraland/Celeste Rd,203 Celeste Rd,Saraland,AL,36571-2004,30.8253,-88.0723
+PS #77908,Mobile/Schillinger Rd S,2580 Schillinger Rd S,Mobile,AL,36695,30.637,-88.2263
+PS #77909,Colorado Springs/Electronic Dr,7717 Electronic Dr,Colorado Springs,CO,80922,38.8732,-104.685
+PS #77910,Colorado Springs/Tutt Blvd,3855 Tutt Blvd,Colorado Springs,CO,80922-2516,38.8879,-104.713
+PS #77912,Paramus/NJ-175,75 NJ-175,Paramus,NJ,07652,40.9262,-74.0719
+PS #77913,Maineveille/E Route 22& 3,268 E Route 22 & 3,Maineveille,OH,45039,39.3426,-84.2135
+PS #77914,Marysville/E 5th St,1107 E 5th St,Marysville,OH,43040,40.2349,-83.3494
+PS #77915,Maimisburg/Dayton Cincinnati,8691 Dayton Cincinnati Pike,Maimisburg,OH,45342-3169,39.6242,-84.2935
+PS #77916,Midvale/W 9th Ave,621 W 9th Ave,Midvale,UT,84047,40.6181,-111.909
+PS #77917,Litchfield Park/W Camelback Rd,15220 W Camelback Rd,Litchfield Park,AZ,85340,33.5096,-112.391
+PS #77918,Stockton/Mariners Dr,9023 Mariners Dr,Stockton,CA,95219-4562,38.0316,-121.365
+PS #77919,Summerville/Highway 78 E,10471 Highway 78 E,Summerville,SC,29483,33.0163,-80.1416
+PS #77920,Sarasota/Cattlemen Rd,4451 Cattlemen Rd,Sarasota,FL,32475,27.2893,-82.4516
+PS #77921,Mahwah/Leighton Place,12 Leighton Place,Mahwah,NJ,07430,41.0248,-74.1643
+PS #77922,Louisville/Chenoweth Run Rd,3106 Chenoweth Run Rd,Louisville,KY,40299,38.1959,-85.5492
+PS #77923,Sonoma/8th Street E,19792 8th Street E,Sonoma,CA,95476,38.2844,-122.435
+PS #77925,Laveen/S 51st Ave,7145 S 51st Ave,Laveen,AZ,85339-2932,33.3818,-112.168
+PS #77926,San Antonio/W Loop 1604 N,730 W Loop 1604 N,San Antonio,TX,78251,29.4401,-98.7095
+PS #77927,Crestview/Brookmeade Dr,408 Brookmeade Dr,Crestview,FL,32539-7396,30.7385,-86.5623
+PS #77928,Fort Walton Bch/Hollywood Bl S,112 Hollywood Blvd SE,Fort Walton Beach,FL,32548-4923,30.4122,-86.608
+PS #77929,Niceville/John Sims Pkwy E,1850 John Sims Pkwy E,Niceville,FL,32578-2395,30.5118,-86.4463
+PS #77930,Northville/Doheny Dr,787 Doheny Dr,Northville,MI,48167-1957,42.4306,-83.4738
+PS #77931,Claremont/Centennial Blvd,2991 Centennial Blvd,Claremont,NC,28610,35.7199,-81.1576
+PS #77932,Baytown/Garth Rd,8302 Garth Rd.,Baytown,TX,77521,29.8187,-94.984
+PS #77933,Aiken/Whiskey Rd,3363 Whiskey Rd,Aiken,SC,29803-9091,33.4861,-81.6981
+PS #77934,Garland/N Jupiter Rd,2200 Jupiter Rd,Garland,TX,75044-7345,32.9342,-96.6822
+PS #77935,Beaufort/SC-128,240 Savannah Hwy,Beaufort,SC,29906,32.3937,-80.7554
+PS #77936,Martinez/Washington Rd,4080 Washington Rd,Martinez,GA,30907-2323,33.5138,-82.1095
+PS #77937,Greensboro/Liberty Rd,2700 Liberty Rd,Greensboro,NC,27406-4714,36.0346,-79.7708
+PS #77939,Milton/Highway 90,7645 Highway 90,Milton,FL,32583,30.6277,-87.0032
+PS #77943,Huntsville/Research Park Bl NW,6015 Research Park Bl NW,Huntsville,AL,35806,34.7766,-86.6735
+PS #77944,Philadelphia/Cottman Ave,840 Cottman Ave,Philadelphia,PA,19111-3017,40.0613,-75.0866
+PS #77946,W.Palm Beach/Cherry Rd,4355 Cherry Rd,West Palm Beach,FL,33409,26.698,-80.1099
+PS #77947,Phoenix/N 28th Ave,16001 N 28th Ave,Phoenix,AZ,85053-4050,33.6315,-112.118
+PS #77950,Northville/Eight Mile Rd W,58000 Eight Mile Rd W,Northville,MI,48167-9157,42.4331,-83.6192
+PS #77951,South Lyon/W 10 Mile Rd,12782 W 10 Mile Rd,South Lyon,MI,48178-8135,42.4589,-83.6908
+PS #77952,Augusta/Furys Ferry Rd,258 Furys Ferry Rd,Augusta,GA,30907,33.5206,-82.0624
+PS #77953,Evans/Furys Ferry Rd,1106 Furys Ferry Rd,Evans,GA,30809-4210,33.5701,-82.1176
+PS #77955,Macungie/W Main St,200 W Main St,Macungie,PA,18062-1109,40.5174,-75.5615
+PS #77956,Buford/Hamilton Mill Rd,4266 Hamilton Mill Rd,Buford,GA,30519-3603,34.1061,-83.9802
+PS #77957,Bowie/Superior Lane,3250 Superior Lane,Bowie,MD,20715-1916,38.9769,-76.7347
+PS #77959,Gainesville/Old Cornelia Hwy,1924 Old Cornelia Hwy,Gainesville,GA,30501,34.3092,-83.7962
+PS #77960,Maricopa/W Honecutt Rd,40675 W Honeycutt Rd,Maricopa,AZ,85138-3017,33.0581,-112.005
+PS #77966,Las Vegas/S Buffalo Dr,4335 S Buffalo Dr,Las Vegas,NV,89147,36.1103,-115.262
+PS #77967,Sicklerville/Sicklerville Rd,300 Sicklerville Rd,Sicklerville,NJ,08081-1829,39.714,-74.9632
+PS #77968,Salem/Blossom Dr NE,3715 Blossom Dr NE,Salem,OR,97305-1722,44.9935,-122.987
+PS #77969,Salem/Glen Creek Rd NW,350 Glen Creek Rd NW,Salem,OR,97304-3058,44.9499,-123.048
+PS #77970,Mesa/N Ellsworth Rd,107 N Ellsworth Rd,Mesa,AZ,85207-8731,33.4172,-111.632
+PS #77971,Glendale/N 43rd Ave,5142 N 43rd Ave,Glendale,AZ,85301-7107,33.513,-112.152
+PS #77972,Mesa/E McKellips Rd,3049 E McKellips Rd Ste 15,Mesa,AZ,85213-3144,33.4511,-111.765
+PS #77973,Tempe/S Priest Dr,5333 S Priest Dr,Tempe,AZ,85283-1071,33.3755,-111.963
+PS #77974,Chandler/S Arizona Ave,1625 S Arizona Ave,Chandler,AZ,85286-7104,33.2812,-111.841
+PS #77975,Glendale/W Cactus Rd,5240 W Cactus Rd,Glendale,AZ,85304-1947,33.5966,-112.173
+PS #77976,Glendale/N 67th Ave,711867th Ave,Glendale,AZ,85301-2356,33.5401,-112.203
+PS #77977,Phoenix/N 43rd Ave,9029 N 43rd Ave,Phoenix,AZ,85051-3267,33.5687,-112.151
+PS #77978,Daly City/87th St,307 87th St,Daly City,CA,94015-1754,37.693,-122.475
+PS #77979,Alameda/Sherman St,1913 Sherman St,Alameda,CA,94504-1121,37.7785,-122.264
+PS #77980,Lafayette/Mt Diablo Blvd,3330 Mt Diablo Bl Apt 312,Lafayette,CA,94549-4060,37.8959,-122.105
+PS #77981,Antioch/Mokelumne Dr,2199 Mokelumne Dr,Antioch,CA,94531-7476,37.9668,-121.787
+PS #77982,Concord/Kirker Pass Rd,1705 Kirker Pass Rd,Concord,CA,94521-2422,37.9554,-121.954
+PS #77983,Kaneohe/Kawa St,46-004 Kawa St,Kaneohe,HI,96744-3807,21.4181,-157.803
+PS #77984,Corte Madera/San Clemente Dr,31 San Clemente Dr,Corte Madera,CA,94925-1206,37.9229,-122.511
+PS #77985,Boise/W Vincent St,8303 W Vincent St,Boise,ID,83709-2650,43.5881,-116.285
+PS #77986,Meridian/W Overland Rd,925 W Overland Rd,Meridian,ID,83642-6541,43.5891,-116.405
+PS #77987,Caldwell/S KCID Rd,809 S KCID Rd,Caldwell,ID,83605-8197,43.6638,-116.633
+PS #77988,Star/W State St,9870 W State St,Star,ID,83669-5210,43.6923,-116.477
+PS #77989,Rohnert Park/State Farm Dr,6100 State Farm Dr,Rohnert Park,CA,94928-2135,38.3514,-122.706
+PS #77990,Pleasanton/Stanley Blvd,3555 Stanley Blvd,Pleasanton,CA,94566-6256,37.6695,-121.862
+PS #77991,Pacheco/Pacheco Blvd,5733 Pacheco Blvd,Pacheco,CA,94553-5127,37.9871,-122.069
+PS #77992,Island Park/Austin Blvd,4055 Austin Blvd,Island Park,NY,11558-1215,40.6108,-73.6449
+PS #77993,Vallejo/Broadway St,2033 Broadway St,Vallejo,CA,94589-1701,38.1452,-122.253
+PS #77994,Olathe/S Strang Line Rd,11675 S Strang Line Rd,Olathe,KS,66062-5342,38.9177,-94.7606
+PS #77995,Platte City/NW Prairie View Rd,2700 NW Prairie View Rd,Platte City,MO,64079-7604,39.3497,-94.7596
+PS #77996,Kansas City/Blue Pkwy,13824 Blue Pkwy,Kansas City,MO,64139-1219,38.9624,-94.4245
+PS #77997,Belton/N Scott Ave,715 N Scott Ave,Belton,MO,64012-1734,38.8264,-94.5377
+PS #77998,Olathe/E Kansas City Rd,1702 E Kansas City Rd,Olathe,KS,66061-3004,38.8969,-94.7915
+PS #77999,Kansas City/S 44th St,2806 S 44th St,Kansas City,KS,66106-3717,39.051,-94.6809
+PS #78000,Mililani/Lehiwa Dr,95-1080 Lehiwa Dr,Mililani,HI,96789-5514,21.477,-157.993
+PS #78001,San Jose/Spring St,1020 Spring St,San Jose,CA,95110-1616,37.35,-121.915
+PS #78002,Fairfield/E Travis Blvd,837 E Travis Blvd,Fairfield,CA,94533-8701,38.258,-122.022
+PS #78003,Merced/W 23rd St,3 W 23rd St,Merced,CA,95340-3908,37.3051,-120.473
+PS #78006,Fort Pierce/Okeechobee Rd,5515 Okeechobee Rd,Fort Pierce,FL,34947,27.4179,-80.3808
+PS #78007,Vista/N Melrose Dr,1340 N Melrose Dr,Vista,CA,92083-2916,33.2181,-117.257
+PS #78008,Las Vegas/Southern Highlands P,11880 Southern Highlands Pkwy,Las Vegas,NV,89141,35.9738,-115.183
+PS #78009,Lawrenceville/Collins Industri,235 Collins Industrial Way,Lawrenceville,GA,30043,33.9772,-84.0043
+PS #78013,Warwick/Jefferson Blvd,32 Jefferson Blvd,Warwick,RI,02888,41.7531,-71.4351
+PS #78014,Fayetteville/Highway 54 E,1222 Highway 54 E,Fayetteville,GA,30214-2226,33.4581,-84.4217
+PS #78015,Providence/Harris Ave,345 Harris Ave,Providence,RI,02909-1052,41.8257,-71.4317
+PS #78016,Porter / FM 1314,23771 FM 1314,Porter,TX,77365,30.1051,-95.2521
+PS #78017,Tucson/E Broadway Blvd,5950 E Broadway Blvd,Tucson,AZ,85711-3904,32.2202,-110.863
+PS #78018,North Bergen/JF Kennedy Blvd,5203 JF Kennedy Blvd,North Bergen,NJ,07047,40.7849,-74.0232
+PS #78019,Jersey City/Thomas McGovern Dr,58 Thomas McGovern Dr,Jersey City,NJ,07305,40.7026,-74.0611
+PS #78020,La Grange/E Crystal Drive,1440 E Crystal Drive,La Grange,KY,40031,38.4026,-85.3733
+PS #78023,Haverhill/Lincoln Ave,219 Lincoln Ave,Haverhill,MA,01830-6738,42.7618,-71.0391
+PS #78026,Ramsey/Ramsey Blvd NW,14795 Ramsey Blvd NW,Ramsey,MN,55303-6009,45.2392,-93.4491
+PS #78027,McKinney/Craig Ranch Pkwy,7150 Craig Ranch Pkwy,McKinney,TX,75070,33.131,-96.723
+PS #78028,Colmar / Bethlehem Pike,25 Bethlehem Pike,Colmar,PA,18915-9429,40.2658,-75.2528
+PS #78029,St Augustine/McCoy Way,135 McCoy Way,St Augustine,FL,32095-0198,30.0175,-81.3945
+PS #78031,Suitland/Forestville Rd,4350 Forestville Rd,Forestville,MD,20747-4727,38.8292,-76.8774
+PS #78032,Manassas/Dumfries Rd,10411 Dumfries Rd,Manassas,VA,20110-7959,38.7285,-77.4713
+PS #78033,Anderson/E West Pkwy,205 E West Pkwy,Anderson,SC,29621-1364,34.5512,-82.6733
+PS #78034,Anderson/Pearman Dairy Rd,1475 Pearman Dairy Rd,Anderson,SC,29625-2081,34.53,-82.6981
+PS #78035,Chandler/N Enterprise Pl,250 N Enterprise Pl,Chandler,AZ,85226,33.3065,-111.916
+PS #78036,Queen Creek/S Power Rd,25240 S Power Rd,Queen Creek,AZ,85142,33.2185,-111.686
+PS #78037,Lynn/Locust St,111 Locust St,Lynn,MA,01904-2944,42.4754,-70.956
+PS #78038,Huntsville/Memorial Pkwy NW,3211 Memorial Pkwy NW,Huntsville,AL,35810-2405,34.7674,-86.5871
+PS #78039,Layton/W Gordon Ave,631 W Gordon Ave,Layton,UT,84041-2496,41.0744,-111.978
+PS #78040,Detroit/Algonquin St,1610 Algonquin St,Detroit,MI,48215,42.3721,-82.957
+PS #78043,Napa/Golden Gate Dr,1025 Golden Date Dr,Napa,CA,94558-6187,38.2791,-122.3
+PS #78044,Orlando/International Dr S,12611 International Dr S,Orlando,FL,32821-6941,28.3847,-81.4818
+PS #78046,Tacoma/South G Street,2365 South G Street,Tacoma,WA,98405-4335,47.2389,-122.442
+PS #78047,St Paul/Montreal Way & 7th St,875 Montreal Way,St Paul,MN,55102-4245,44.9147,-93.1419
+PS #78048,Brookhaven/E Brookhaven Rd,121 E Brookhaven Rd,Brookhaven,PA,19015,39.8728,-75.3863
+PS #78049,Newhall/Carl Ct,23715 Carl Ct,Newhall,CA,91321-4660,34.3731,-118.516
+PS #78050,Lehi/W Orinda Dr,4117 W Orinda Dr,Lehi,UT,84043,40.3925,-111.915
+PS #78055,Decatur/Flakes Mill Rd,3700 Flakes Mill Rd,Decatur,GA,30034-5702,33.6784,-84.2307
+PS #78056,Lacey/Balustrade Blvd SE,6155 Balustrade Blvd SE,Lacey,WA,98513,46.99,-122.8
+PS #78057,La Vista/Olive Street,11109 Olive Street,La Vista,NE,68128-2994,41.1848,-96.0867
+PS #78058,Parrish/Moccasin Wallow Rd,9419 Moccasin Wallow Rd,Parrish,FL,34219-8753,27.6002,-82.4686
