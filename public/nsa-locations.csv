@@ -1,0 +1,1136 @@
+PROPERTY_NUM,PROPERTY_NAME,ADDRESS,CITY,STATE,ZIP,LATITUDE,LONGITUDE
+NSA #01141,iStorage | Citation Ct,103 Citation Ct,Birmingham,AL,35209,33.44911,-86.842382
+NSA #00713,iStorage | Ward Way,50 Ward Way,Birmingham,AL,35209,33.464942,-86.840124
+NSA #00712,iStorage | US-280,4752 US-280,Birmingham,AL,35242,33.419292,-86.699632
+NSA #00566,iStorage | 6th Ave SW,320 6th Ave SW,Birmingham,AL,35211,33.490495,-86.838956
+NSA #00567,iStorage | Foust Ct,500 Foust Ct,Birmingham,AL,35214,33.582193,-86.926884
+NSA #00455,iStorage | 14th St SE,613 14th St SE,Decatur,AL,35601,34.576471,-86.979274
+NSA #00456,iStorage | Deere Rd SE,3423 Deere Rd SE,Decatur,AL,35603,34.540034,-86.912815
+NSA #00457,iStorage | Central Pkwy SW,2500 Central Pkwy SW,Decatur,AL,35601,34.563517,-86.981846
+NSA #00458,iStorage | Florence Blvd,4121 Florence Blvd,Florence,AL,35634,34.845864,-87.582796
+NSA #00711,iStorage | John Hawkins Pkwy,2400 John Hawkins Pkwy,Hoover,AL,35244,33.355727,-86.858101
+NSA #00462,iStorage | Memorial Pkwy SW,12320 Memorial Pkwy SW,Huntsville,AL,35803,34.606648,-86.566418
+NSA #00461,iStorage | Hwy 231,745 Hwy 231,Laceys Spring,AL,35754,34.558193,-86.582552
+NSA #00459,iStorage | Westchester Dr,114 Westchester Dr,Madison,AL,35758,34.678397,-86.762581
+NSA #00460,iStorage | Castle Dr,105 Castle Dr,Madison,AL,35758,34.751599,-86.711818
+NSA #00138,iStorage | Moffett Rd,3765 Moffett Rd,Mobile,AL,36618,30.709631,-88.128885
+NSA #00717,iStorage | Lakeside Dr,771 Lakeside Dr,Mobile,AL,36693,30.655066,-88.127447
+NSA #00476,iStorage | Magnolia Rd,902 Magnolia Rd,Mobile,AL,36606,30.660471,-88.11054
+NSA #00475,iStorage | Halls Mill Rd,5363 Halls Mill Rd,Mobile,AL,36619-9676,30.594008,-88.165888
+NSA #00109,iStorage | Montlimar Park,708 Montlimar Park,Mobile,AL,36693,30.659172,-88.128822
+NSA #01192,iStorage | 4141 Troy Hwy,4141 Troy Hwy,Montgomery,AL,36116,32.319594,-86.232206
+NSA #00568,iStorage | Troy Hwy,4176 Troy Hwy,Montgomery,AL,36116,32.318625,-86.233654
+NSA #00429,iStorage | Minnie Brown Rd,8830 Minnie Brown Rd,Montgomery,AL,36117,32.360405,-86.140066
+NSA #01123,iStorage | AL-69,4008 AL-69,Northport,AL,35473,33.245216,-87.575153
+NSA #01143,iStorage | 8651 Charlie Shirley Rd,8651 Charlie Shirley Rd,Northport,AL,35473,33.280083,-87.581152
+NSA #00601,iStorage | Mooresville Rd,5750 Mooresville Rd,Tanner,AL,35671,34.639211,-86.879725
+NSA #00571,iStorage | US-31,10928 US-31,Tanner,AL,35671,34.71456,-86.955725
+NSA #01124,iStorage | 6130 Old Greensboro Rd,6130 Old Greensboro Rd,Tuscaloosa,AL,35405,33.152043,-87.549513
+NSA #01122,iStorage | Rice Mine Rd NE,4179 Rice Mine Rd NE,Tuscaloosa,AL,35406,33.255946,-87.513578
+NSA #01182,iStorage | Commons N Loop,1731 Commons N Loop,Tuscaloosa,AL,35406,33.259171,-87.513599
+NSA #01185,iStorage | Southview Ln,580 Southview Ln,Tuscaloosa,AL,35405,33.124545,-87.545515
+NSA #01186,iStorage | 6530 Old Greensboro Rd,6530 Old Greensboro Rd,Tuscaloosa,AL,35405,33.147745,-87.547464
+NSA #01187,iStorage | 6430 Old Greensboro Rd,6430 Old Greensboro Rd,Tuscaloosa,AL,35405,33.148956,-87.547687
+NSA #01212,iStorage | 1219 James I Harrison Jr Pkwy,1219 James I Harrison Jr Pkwy,Tuscaloosa,AL,35405,33.174744,-87.520747
+NSA #00774,RightSpace Storage | Interstate Pl,2123 Interstate Pl,Bullhead City,AZ,86442,35.121087,-114.57405
+NSA #00824,RightSpace Storage | N Cave Creek Rd,29201 N Cave Creek Rd,Cave Creek,AZ,85331,33.749791,-111.992674
+NSA #00821,RightSpace Storage | S Hwy 95 Ste A,4345 S Hwy 95 Ste A,Fort Mohave,AZ,86426,35.030161,-114.59844
+NSA #00820,RightSpace Storage | Arcadia,4144 Arcadia,Fort Mohave,AZ,86426,35.036124,-114.598594
+NSA #00898,RightSpace Storage |  N Tower Dr,11860 N Tower Dr,Fountain Hills,AZ,85268,33.595243,-111.709119
+NSA #00869,RightSpace Storage | E Laser Dr,16701 E Laser Dr,Fountain Hills,AZ,85268,33.571683,-111.72069
+NSA #00827,RightSpace Storage | N Gilbert Rd,1001 N Gilbert Rd,Gilbert,AZ,85234,33.368108,-111.788613
+NSA #00848,RightSpace Storage | S Litchfield Rd,2121 S Litchfield Rd,Goodyear,AZ,85338,33.427274,-112.355408
+NSA #00831,RightSpace Storage | W McDowell Rd,13246 W McDowell Rd,Goodyear,AZ,85395,33.465066,-112.344115
+NSA #00435,RightSpace Self Storage | S Country Club Dr,2850 S Country Club Dr,Mesa,AZ,85210,33.362771,-111.842697
+NSA #00723,RightSpace Storage | W Baseline Rd,20 W Baseline Rd,Mesa,AZ,85210,33.3792,-111.832001
+NSA #00722,RightSpace Storage | E Main St,6660 E Main St,Mesa,AZ,85205,33.416284,-111.68782
+NSA #00721,RightSpace Storage | W Broadway Rd,1460 W Broadway Rd,Mesa,AZ,85202,33.408794,-111.863034
+NSA #00720,RightSpace Storage | N Guthrie St,35 N Guthrie St,Mesa,AZ,85203,33.416493,-111.791527
+NSA #00822,RightSpace Storage | E Broadway Rd,3945 E Broadway Rd,Mesa,AZ,85206,33.408012,-111.745818
+NSA #00719,RightSpace Storage | 91st Ave & Butler,8580 N 91st Ave,Peoria,AZ,85345,33.558413,-112.256382
+NSA #00829,RightSpace Storage | 91st Ave & Grand Ave,11900 N 91st Ave,Peoria,AZ,85345,33.593959,-112.256496
+NSA #00828,RightSpace Storage | W Bell Rd,8780 W Bell Rd,Peoria,AZ,85382,33.639728,-112.246808
+NSA #00825,RightSpace Storage | N 75th Ave,16110 N 75th Ave,Peoria,AZ,85382,33.631382,-112.220705
+NSA #00823,RightSpace Storage | W Lake Pleasant Pkwy,8266 W Lake Pleasant Pkwy,Peoria,AZ,85382,33.672336,-112.236627
+NSA #00819,RightSpace Storage | N Black Cyn Hwy,17201 N Black Cyn Hwy,Phoenix,AZ,85023,33.641592,-112.114005
+NSA #00843,RightSpace Storage | N 24th St,3114 N 24th St,Phoenix,AZ,85016,33.484125,-112.030595
+NSA #00725,RightSpace Storage | W Pierson St,717 W Pierson St,Phoenix,AZ,85013,33.506956,-112.083375
+NSA #00482,RightSpace Storage | N 25th Ave,17811 N 25th Ave,Phoenix,AZ,85023,33.647518,-112.11201
+NSA #00878,RightSpace Storage | N 52nd St,2845 N 52nd St,Phoenix,AZ,85008,33.4794,-111.968844
+NSA #00724,RightSpace Storage | N Black Cyn Hwy,4200 N Black Cyn Hwy,Phoenix,AZ,85017,33.496825,-112.113579
+NSA #00726,RightSpace Storage | S Scotland Ct,22025 S Scotland Ct,Queen Creek,AZ,85142,33.24805,-111.612574
+NSA #00842,RightSpace Storage | E Thomas Rd,6933 E Thomas Rd,Scottsdale,AZ,85251,33.479788,-111.930174
+NSA #00830,RightSpace Storage | N 107th Ave,18900 N 107th Ave,Sun City,AZ,85373,33.655269,-112.291562
+NSA #00826,RightSpace Storage | W Bell Rd,13331 W Bell Rd,Surprise,AZ,85378,33.638301,-112.345882
+NSA #00773,RightSpace Storage | E Broadway Blvd,6444 E Broadway Blvd,Tucson,AZ,85710,32.218112,-110.855442
+NSA #00772,RightSpace Storage | S Santa Clara Ave,6390 S Santa Clara Ave,Tucson,AZ,85706,32.136552,-110.985015
+NSA #00771,RightSpace Storage | N Tuttle Ave,2850 N Tuttle Ave,Tucson,AZ,85705,32.258257,-110.989981
+NSA #00770,RightSpace Storage | E Tanque Verde Rd,6750 E Tanque Verde Rd,Tucson,AZ,85715,32.247666,-110.848121
+NSA #00769,RightSpace Storage | E Tanque Verde Rd,9000 E Tanque Verde Rd,Tucson,AZ,85749,32.25695,-110.800697
+NSA #00867,RightSpace Storage | W Peoria Ave,11634 W Peoria Ave,Youngtown,AZ,85363,33.580542,-112.31099
+NSA #00855,SecurCare Self Storage | N Baxter St,1441 N Baxter St,Anaheim,CA,92806,33.856153,-117.893889
+NSA #00849,RightSpace Storage | Town Center Dr,19464 Town Center Dr,Apple Valley,CA,92308,34.46609,-117.240031
+NSA #00850,RightSpace Storage | Powhatan Ct,13533 Powhatan Ct,Apple Valley,CA,92308,34.497191,-117.184913
+NSA #00883,SecurCare Self Storage | Peck Rd,5630 Peck Rd,Arcadia,CA,91006,34.103327,-118.006262
+NSA #00312,SecurCare Self Storage | Weedpatch Hwy,711 Weedpatch Hwy,Bakersfield,CA,93307,35.348897,-118.913377
+NSA #00313,SecurCare Self Storage | S Oswell St,600 S Oswell St,Bakersfield,CA,93307,35.350207,-118.951659
+NSA #00314,SecurCare Self Storage | Hughes Ln,4242 Hughes Ln,Bakersfield,CA,93304,35.316985,-119.029604
+NSA #00315,SecurCare Self Storage | Wible Rd,4020 Wible Rd,Bakersfield,CA,93309,35.319216,-119.038333
+NSA #00316,SecurCare Self Storage | Chester Ave,4050 Chester Ave,Bakersfield,CA,93301,35.396947,-119.017752
+NSA #00317,SecurCare Self Storage | Truxtun Ave,3301 Truxtun Ave,Bakersfield,CA,93301,35.372886,-119.039697
+NSA #00318,SecurCare Self Storage | Buck Owens Blvd,4600 Buck Owens Blvd,Bakersfield,CA,93308,35.400752,-119.041265
+NSA #00783,RightSpace Storage | W Lincoln St,2909 W Lincoln St,Banning,CA,92220,33.922198,-116.907482
+NSA #01133,RightSpace Storage | W Ramsey St,2822 W Ramsey St,Banning,CA,92220,33.92542,-116.907553
+NSA #00302,SecurCare Self Storage | S Lilac Ave,1377 S Lilac Ave,Bloomington,CA,92316,34.076507,-117.378219
+NSA #00775,RightSpace Storage | W Rice St,940 W Rice St,Blythe,CA,92225,33.607979,-114.609212
+NSA #00872,SecurCare Self Storage | Palomar Oaks Way,1910 Palomar Oaks Way,Carlsbad,CA,92008,33.125602,-117.290551
+NSA #00492,iStorage | Del Fino Pl,15 Del Fino Pl,Carmel Valley,CA,93924,36.480885,-121.732192
+NSA #00320,SecurCare Self Storage | Mitchell Rd,1780 Mitchell Rd,Ceres,CA,95307,37.604277,-120.937075
+NSA #00858,SecurCare Self Storage | Oates Ln,49901 Oates Ln,Coachella,CA,92236,33.687119,-116.178134
+NSA #00885,SecurCare Self Storage | Compton Ave,2050 Compton Ave,Corona,CA,92881,33.850334,-117.536833
+NSA #00727,RightSpace Storage | Watson St,8882 Watson St,Cypress,CA,90630,33.833419,-118.038901
+NSA #00448,SecurCare Self Storage  | Little Morongo Rd,15305 Little Morongo Rd,Desert Hot Springs,CA,92240,33.936302,-116.529267
+NSA #00877,SecurCare Self Storage | Central Ave,2250 Central Ave,Duarte,CA,91010,34.135253,-117.95612
+NSA #00465,iStorage | Hillsdale Cir,5110 Hillsdale Cir,El Dorado Hills,CA,95762,38.620217,-121.06177
+NSA #00324,SecurCare Self Storage | Maritime Dr,2328 Maritime Dr,Elk Grove,CA,95758,38.414959,-121.482381
+NSA #00879,SecurCare Self Storage | S El Camino Real,201 S El Camino Real,Encinitas,CA,92024,33.043918,-117.256237
+NSA #00322,SecurCare Self Storage | 1st St,1111 1st St,Escalon,CA,95320,37.794098,-120.997961
+NSA #00886,SecurCare Self Storage | Bridlepath Dr,15007 Bridlepath Dr,Fontana,CA,92336,34.153329,-117.477709
+NSA #00835,SecurCare Self Storage | E Carson St,12336 E Carson St,Hawaiian Gardens,CA,90716,33.831268,-118.068523
+NSA #00298,SecurCare Self Storage | E Florida Ave,42335 E Florida Ave,Hemet,CA,92544,33.747222,-116.922871
+NSA #00730,RightSpace Storage | I Ave,9620 I Ave,Hesperia,CA,92345,34.428966,-117.281888
+NSA #00887,RightSpace Storage | I Ave,10150 I Ave,Hesperia,CA,92345,34.435659,-117.280402
+NSA #00888,RightSpace Storage | I Ave,9312 I Ave,Hesperia,CA,92345,34.42143,-117.28379
+NSA #01171,RightSpace Storage | Fresno St,17550 Fresno St,Hesperia,CA,92345,34.436531,-117.281013
+NSA #00306,SecurCare Self Storage | E Highland Ave,2650 E Highland Ave,Highland,CA,92346,34.136214,-117.23042
+NSA #00307,SecurCare Self Storage | Highland Ave,26441 Highland Ave,Highland,CA,92346,34.13503,-117.227445
+NSA #00889,SecurCare Self Storage | Greenspot Rd,28099 Greenspot Rd,Highland,CA,92346,34.106676,-117.192301
+NSA #00776,iStorage | Flora Ave,375 Flora Ave,Hollister,CA,95023,36.859559,-121.403695
+NSA #01206,iStorage Storage | 180 San Felipe Rd,180 San Felipe Rd,Hollister,CA,95023,36.859022,-121.40342
+NSA #00847,SecurCare Self Storage | Flower St,45800 Flower St,Indio,CA,92201,33.716144,-116.210896
+NSA #00873,SecurCare Self Storage | Monroe St,43421 Monroe St,Indio,CA,92201,33.736094,-116.235183
+NSA #00884,SecurCare Self Storage | Main St,2960 Main St,Irvine,CA,92614,33.6755,-117.836979
+NSA #00326,SecurCare Self Storage | W Lodi Ave,2650 W Lodi Ave,Lodi,CA,95242,38.128845,-121.30966
+NSA #01205,SecurCare Self Storage | 1935 South Stockton St,1935 S Stockton St,Lodi,CA,95240,38.108216,-121.270494
+NSA #00890,SecurCare Self Storage | Barton Rd,25980 Barton Rd,Loma Linda,CA,92354,34.048864,-117.237826
+NSA #00875,SecurCare Self Storage | Center Dr,27680 Center Dr,Mission Viejo,CA,92692,33.559872,-117.658175
+NSA #00836,SecurCare Self Storage | Benson Ave,10580 Benson Ave,Montclair,CA,91763,34.062181,-117.681491
+NSA #00493,iStorage | Ramona Ave,302 Ramona Ave,Monterey,CA,93940,36.601843,-121.862861
+NSA #00296,SecurCare Self Storage | Indian St,13870 Indian St,Moreno Valley,CA,92553,33.919511,-117.234358
+NSA #00297,SecurCare Self Storage | Globe St,25065 Globe St,Moreno Valley,CA,92551,33.862348,-117.223701
+NSA #00449,SecurCare Self Storage | Grant St,14150 Grant St,Moreno Valley,CA,92553,33.915426,-117.27415
+NSA #00524,iStorage | Madison Ave,3855 Madison Ave,North Highlands,CA,95660,38.661745,-121.373954
+NSA #00845,SecurCare Self Storage | Mission Ave,3560 Mission Ave,Oceanside,CA,92058,33.223216,-117.334607
+NSA #00839,SecurCare Self Storage | S Campus Ave,1661 S Campus Ave,Ontario,CA,91761,34.043018,-117.641297
+NSA #00434,iStorage | S 5th Ave,2750 S 5th Ave,Oroville,CA,95965,39.490144,-121.56558
+NSA #00481,iStorage | 4th St,2160 4th St,Oroville,CA,95965,39.522353,-121.573589
+NSA #00844,SecurCare Self Storage | 42nd Ave,74876 42nd Ave,Palm Desert,CA,92260,33.744561,-116.357045
+NSA #00871,SecurCare Self Storage | E Mesquite Ave,4550 E Mesquite Ave,Palm Springs,CA,92264,33.808855,-116.496657
+NSA #00309,SecurCare Self Storage | 10th St E,37909 10th St E,Palmdale,CA,93550,34.571317,-118.111925
+NSA #00310,SecurCare Self Storage | Sierra Hwy,38963 Sierra Hwy,Palmdale,CA,93550,34.588999,-118.118467
+NSA #00876,SecurCare Self Storage | Jackson St,7752 Jackson St,Paramount,CA,90723,33.885156,-118.163238
+NSA #00485,iStorage | Folsom Blvd,11033 Folsom Blvd,Rancho Cordova,CA,95670,38.60478,-121.274328
+NSA #00488,iStorage | Sunrise Blvd,3291 Sunrise Blvd,Rancho Cordova,CA,95742,38.58429,-121.264596
+NSA #00874,SecurCare Self Storage | Esperanza,30359 Esperanza,Rancho Santa Margarita,CA,92688,33.631346,-117.602969
+NSA #00305,SecurCare Self Storage | Redlands Blvd,25825 Redlands Blvd,Redlands,CA,92373,34.062581,-117.24134
+NSA #00321,SecurCare Self Storage | Patterson Rd,2536 Patterson Rd,Riverbank,CA,95367,37.731464,-120.951419
+NSA #00299,SecurCare Self Storage | Mt Baldy Dr,2020 Mt Baldy Dr,Riverside,CA,92508,33.919127,-117.29592
+NSA #00300,SecurCare Self Storage | Felspar St,4909 Felspar St,Riverside,CA,92509,33.998804,-117.485304
+NSA #00301,SecurCare Self Storage | Mission Blvd,8464 Mission Blvd,Riverside,CA,92509,34.011516,-117.466937
+NSA #00837,SecurCare Self Storage | Columbia Ave,1807 Columbia Ave,Riverside,CA,92507,34.001827,-117.349666
+NSA #00838,SecurCare Self Storage | Service Ct,1825 Service Ct,Riverside,CA,92507,33.991361,-117.350745
+NSA #00852,SecurCare Self Storage | Iowa Ave,395 Iowa Ave,Riverside,CA,92507,34.01474,-117.341145
+NSA #00853,SecurCare Self Storage | Rubidoux Blvd,2431 Rubidoux Blvd,Riverside,CA,92509,34.016111,-117.390975
+NSA #00881,SecurCare Self Storage | Van Buren Boulevard,18671 Van Buren Blvd,Riverside,CA,92508,33.88618,-117.337569
+NSA #00882,SecurCare Self Storage | Main St,749 Main St,Riverside,CA,92501,34.01305,-117.364157
+NSA #00311,SecurCare Self Storage | W Rosamond Blvd,1616 W Rosamond Blvd,Rosamond,CA,93560,34.863276,-118.161514
+NSA #00303,SecurCare Self Storage | Hallmark Pkwy,5185 Hallmark Pkwy,San Bernardino,CA,92407,34.176577,-117.345121
+NSA #00304,SecurCare Self Storage | W Mill St,981 W Mill St,San Bernardino,CA,92410,34.091824,-117.304802
+NSA #00436,SecurCare Self Storage | S Tippecanoe Ave,1155 S Tippecanoe Ave,San Bernardino,CA,92408,34.08022,-117.259171
+NSA #00870,SecurCare Self Storage | W 40th St,550 W 40th St,San Bernardino,CA,92407,34.165591,-117.294431
+NSA #00891,SecurCare Self Storage | Kendall Dr,3086 Kendall Dr,San Bernardino,CA,92407,34.187784,-117.35467
+NSA #00857,SecurCare Self Storage | Federal Blvd,4455 Federal Blvd,San Diego,CA,92102,32.720833,-117.098615
+NSA #00880,SecurCare Self Storage | El Cajon Blvd,6225 El Cajon Blvd,San Diego,CA,92115,32.762198,-117.064031
+NSA #00480,iStorage | 19th Ave,4050 19th Ave,San Francisco,CA,94132,37.715156,-122.470241
+NSA #00782,RightSpace Storage | 442 W Esplanade Ave,442 W Esplanade Ave,San Jacinto,CA,92583,33.772742,-116.964734
+NSA #01137,RightSpace Storage | 681 W Esplanade Ave,681 W Esplanade Ave,San Jacinto,CA,92583,33.773121,-116.970453
+NSA #00840,SecurCare Self Storage | W 1st St,4918 W 1st St,Santa Ana,CA,92703,33.744032,-117.934261
+NSA #00464,iStorage | Preisker Ln,1920 Preisker Ln,Santa Maria,CA,93454,34.975395,-120.429085
+NSA #00325,SecurCare Self Storage | Mono Vista Rd,20330 Mono Vista Rd,Soulsbyville,CA,95372,37.990643,-120.275974
+NSA #00856,SecurCare Self Storage | Center St,12024 Center St,South Gate,CA,90280,33.91784,-118.165214
+NSA #00323,SecurCare Self Storage | Doctor M.L.K. Jr Blvd,2118 Doctor M.L.K. Jr Blvd,Stockton,CA,95205,37.944329,-121.256663
+NSA #00865,SecurCare Self Storage | Edinger Ave,1671 Edinger Ave,Tustin,CA,92780,33.721049,-117.824959
+NSA #00859,SecurCare Self Storage | W Foothill Blvd,2026 W Foothill Blvd,Upland,CA,91786,34.106442,-117.691448
+NSA #00892,SecurCare Self Storage | N Benson Ave,1695 Benson Ave,Upland,CA,91784,34.124675,-117.681537
+NSA #00728,RightSpace Storage | N Ventura Ave,5386 N Ventura Ave,Ventura,CA,93001,34.33809,-119.293567
+NSA #00729,RightSpace Storage | Amargosa Rd,11622 Amargosa Rd,Victorville,CA,92392,34.461802,-117.354317
+NSA #00841,RightSpace Storage | La Mesa Rd,14915 La Mesa Rd,Victorville,CA,92392,34.484675,-117.33832
+NSA #00846,RightSpace Storage | 12185 Locust Ave,12185 Locust Ave,Victorville,CA,92395,34.473669,-117.333452
+NSA #00851,RightSpace Storage | Industrial Blvd,12474 Industrial Blvd,Victorville,CA,92392,34.478028,-117.283856
+NSA #00854,RightSpace Storage | Borego Rd,14421 Borego Rd,Victorville,CA,92392,34.51259,-117.334641
+NSA #00868,RightSpace Storage | Bear Valley Rd,12829 Bear Valley Rd,Victorville,CA,92392,34.46994,-117.383634
+NSA #01148,RightSpace Storage | 12176 Locust Ave,12176 Locust Ave,Victorville,CA,92395,34.472087,-117.33492
+NSA #00308,SecurCare Self Storage | Yucaipa Blvd,31741 Yucaipa Blvd,Yucaipa,CA,92399,34.030027,-117.11056
+NSA #00327,SecurCare Self Storage | Yucaipa Blvd,32045 Yucaipa Blvd,Yucaipa,CA,92399,34.032115,-117.104267
+NSA #00329,SecurCare Self Storage | E Midway Blvd,2460 E Midway Blvd,Broomfield,CO,80234,39.92809,-105.018418
+NSA #01126,SecurCare Self Storage | E St Elmo Ave,321 E St Elmo Ave,Colorado Springs,CO,80905,38.81144,-104.820911
+NSA #00343,SecurCare Self Storage | Jamboree Dr,1825 Jamboree Dr,Colorado Springs,CO,80920,38.951711,-104.792913
+NSA #00342,SecurCare Self Storage | Chapel Hills Dr,1408 Chapel Hills Dr,Colorado Springs,CO,80920,38.950297,-104.791579
+NSA #00341,SecurCare Self Storage | N Nevada Ave,4215 N Nevada Ave,Colorado Springs,CO,80907,38.892646,-104.818649
+NSA #01100,SecurCare Self Storage | Syracuse St,671 Syracuse St,Colorado Springs,CO,80911,38.723865,-104.713268
+NSA #00338,SecurCare Self Storage | King St,2005 King St,Colorado Springs,CO,80904,38.856414,-104.851181
+NSA #00337,SecurCare Self Storage | Academy Pl,2345 Academy Pl,Colorado Springs,CO,80909,38.865796,-104.755239
+NSA #00336,SecurCare Self Storage | S Academy Blvd,777 S Academy Blvd,Colorado Springs,CO,80910,38.821269,-104.756938
+NSA #00335,SecurCare Self Storage | Vickers Dr,3420 Vickers Dr,Colorado Springs,CO,80918,38.916133,-104.762789
+NSA #00334,SecurCare Self Storage | S Nevada Ave,1545 S Nevada Ave,Colorado Springs,CO,80905,38.811631,-104.82102
+NSA #00333,SecurCare Self Storage | Astrozon Blvd,4729 Astrozon Blvd,Colorado Springs,CO,80916,38.796832,-104.740974
+NSA #00332,SecurCare Self Storage | Maizeland Rd,3737 Maizeland Rd,Colorado Springs,CO,80909,38.866883,-104.758861
+NSA #00331,SecurCare Self Storage | Carbon Ct,1012 Carbon Ct,Erie,CO,80516,40.031497,-105.054772
+NSA #00359,SecurCare Self Storage | Boardwalk Dr,4815 Boardwalk Dr,Fort Collins,CO,80525,40.519861,-105.066336
+NSA #00358,SecurCare Self Storage | Caribou Dr,1961 Caribou Dr,Fort Collins,CO,80525,40.530574,-105.042292
+NSA #00340,SecurCare Self Storage | Carson Blvd,639 Carson Blvd,Fountain,CO,80817,38.730832,-104.726391
+NSA #00330,SecurCare Self Storage | Sergeant Jon Stiles Dr,855 Sergeant Jon Stiles Dr,Highlands Ranch,CO,80129,39.550141,-104.999678
+NSA #00346,SecurCare Self Storage | Peakview Blvd,2925 Peakview Blvd,Monument,CO,80132,39.099928,-104.880612
+NSA #00344,SecurCare Self Storage | Deer Creek Rd,1895 Deer Creek Rd,Monument,CO,80132,39.10538,-104.862746
+NSA #00339,SecurCare Self Storage | Greenhorn Dr,90 Greenhorn Dr,Pueblo,CO,81004,38.210345,-104.626583
+NSA #00345,SecurCare Self Storage | E Industrial Blvd,517 E Industrial Blvd,Pueblo West,CO,81007,38.33569,-104.720786
+NSA #00974,iStorage | Chamberlain Hwy,73 Chamberlain Hwy,Meriden,CT,06451,41.542244,-72.815322
+NSA #00963,iStorage | Bank St,960 Bank St,New London,CT,06320,41.345208,-72.110906
+NSA #01029,iStorage | N Plains Industrial Rd,52 N Plains Industrial Rd,Wallingford,CT,06492,41.48307,-72.815497
+NSA #00958,iStorage | Wolcott,1140 Wolcott Rd,Wolcott,CT,06716,41.617908,-72.975059
+NSA #01044,iStorage | Wolcott Rd,100 Wolcott Rd,Wolcott,CT,06716,41.576504,-72.997265
+NSA #00001,iStorage | Hickman Road,100 Hickman Rd,Claymont,DE,19703,39.814561,-75.445215
+NSA #00487,iStorage | Ridge Rd,1050 Ridge Rd,Claymont,DE,19703,39.814648,-75.440391
+NSA #00486,iStorage | N Dupont Hwy,4016 N Dupont Hwy,New Castle,DE,19720,39.712747,-75.559318
+NSA #01149,iStorage | NW US Hwy 441,13701 NW US Hwy 441,Alachua,FL,32615,29.782038,-82.455944
+NSA #01162,iStorage | NW 120th Ln,6401 NW 120th Ln,Alachua,FL,32615,29.768293,-82.414098
+NSA #00474,iStorage | Apollo Beach Blvd,313 Apollo Beach Blvd,Apollo Beach,FL,33572,27.773719,-82.393918
+NSA #01096,iStorage | Piedmont Wekiwa Rd,777 Piedmont Wekiwa Rd,Apopka,FL,32703,28.669088,-81.467449
+NSA #00426,iStorage | Magnolia Ave,505 Magnolia Ave,Auburndale,FL,33823,28.057935,-81.789411
+NSA #00447,iStorage | Orange St,214 Orange St,Auburndale,FL,33823,28.063607,-81.791001
+NSA #00451,iStorage | S Congress Ave,3000 S Congress Ave,Boynton Beach,FL,33426,26.499071,-80.089599
+NSA #00445,iStorage | FL-64,6403 FL-64,Bradenton,FL,34208,27.494175,-82.480824
+NSA #00981,iStorage | 8400 Cortez Rd W,8400 Cortez Rd W,Bradenton,FL,34210,27.462308,-82.645901
+NSA #00982,iStorage | 3760 Cortez Rd W,3760 Cortez Rd W,Bradenton,FL,34210,27.46331,-82.598846
+NSA #00983,iStorage | 32nd St W,4305 32nd St W,Bradenton,FL,34205,27.463636,-82.593357
+NSA #00989,iStorage | FL-64,14710 FL-64,Bradenton,FL,34212,27.474966,-82.394415
+NSA #00995,iStorage | 53rd Ave E,4660 53rd Ave E,Bradenton,FL,34203,27.444065,-82.503067
+NSA #00998,iStorage | Portal Crossing,10415 Portal Crossing,Bradenton,FL,34211,27.484761,-82.436943
+NSA #01002,iStorage | 53rd Ave W,1102 53rd Ave W,Bradenton,FL,34207,27.447351,-82.573008
+NSA #00432,iStorage | Providence Rd,203 Providence Rd,Brandon,FL,33511,27.935887,-82.314222
+NSA #00611,iStorage | N State St,2303 N State St,Bunnell,FL,32110,29.489743,-81.266636
+NSA #00433,iStorage | Chiquita Blvd S,3300 Chiquita Blvd S,Cape Coral,FL,33914,26.591002,-82.007509
+NSA #01003,iStorage | Del Prado Blvd N,1521 Del Prado Blvd N,Cape Coral,FL,33909,26.681728,-81.941337
+NSA #01089,iStorage | S Hwy 27,1970 S Hwy 27,Clermont,FL,34711,28.540692,-81.740933
+NSA #00894,iStorage | S 20th St,14 S 20th St,Cocoa Beach,FL,32931,28.287095,-80.608502
+NSA #00123,iStorage | S Ferdon Blvd,5180 S Ferdon Blvd,Crestview,FL,32536,30.708621,-86.571091
+NSA #00425,iStorage | W Gulf To Lake Hwy,7957 W Gulf To Lake Hwy,Crystal River,FL,34429,28.8983,-82.567231
+NSA #01081,iStorage | Lake Davenport Blvd,100 Lake Davenport Blvd,Davenport,FL,33897,28.334941,-81.6709
+NSA #01088,iStorage | Jacks Rd,2825 Jacks Rd,Davenport,FL,33897,28.313339,-81.670693
+NSA #01091,iStorage | FL-15 Alt,1540 FL-15 Alt,DeLand,FL,32720,29.001519,-81.31483
+NSA #01093,iStorage | N Spring Garden Ave,800 N Spring Garden Ave,DeLand,FL,32720,29.040694,-81.325704
+NSA #00121,iStorage | Airport Rd,950 Airport Rd,Destin,FL,32541,30.3961,-86.476886
+NSA #00922,iStorage | Gulfstarr Dr,4656 Gulfstarr Dr,Destin,FL,32541,30.38643,-86.40977
+NSA #00923,iStorage | S Ridgewood Ave,3515 S Ridgewood Ave,Edgewater,FL,32141,28.937505,-80.878893
+NSA #00980,iStorage | 2900 US-301,2900 US-301,Ellenton,FL,34222,27.523736,-82.535025
+NSA #00616,iStorage | Placida Rd,4381 Placida Rd,Englewood,FL,34224,26.901083,-82.316152
+NSA #01080,iStorage | US-19,16910 US-19,Fanning Springs,FL,32693,29.574804,-82.916234
+NSA #00472,iStorage | SW 27th Ave,540 SW 27th Ave,Fort Lauderdale,FL,33312,26.114968,-80.177591
+NSA #00467,iStorage | Indian Paint Ln,13701 Indian Paint Ln,Fort Myers,FL,33912,26.545328,-81.799308
+NSA #00987,iStorage | McGregor Blvd,12859 McGregor Blvd,Fort Myers,FL,33919,26.55503,-81.909819
+NSA #00666,iStorage | Beal Pkwy NW,719 Beal Pkwy NW,Fort Walton Beach,FL,32547,30.437944,-86.638113
+NSA #00667,iStorage | Harrelson Dr,921 Harrelson Dr,Fort Walton Beach,FL,32547,30.44291,-86.597617
+NSA #00135,iStorage | Site C-6 Rd,26 Site C-6 Rd,Freeport,FL,32439,30.512254,-86.194042
+NSA #00148,iStorage | FL-20,820 FL-20,Freeport,FL,32439,30.503323,-86.148743
+NSA #01078,iStorage | NW 13th St,8825 NW 13th St,Gainesville,FL,32653-1032,29.736064,-82.378766
+NSA #00117,iStorage | Gulf Breeze Pkwy,2999 Gulf Breeze Pkwy,Gulf Breeze,FL,32563,30.3842,-87.099224
+NSA #00118,iStorage | Gulf Breeze Pkwy,4310 Gulf Breeze Pkwy,Gulf Breeze,FL,32563,30.393977,-87.043511
+NSA #01079,iStorage | W U.S. Hwy 27,26055 W U.S. Hwy 27,High Springs,FL,32643,29.836495,-82.619473
+NSA #01201,iStorage | NW 1st Ave,26153 NW 1st Ave,High Springs,FL,32643,29.83689,-82.620717
+NSA #00423,iStorage | Shad Rd,5509 Shad Rd,Jacksonville,FL,32257,30.195344,-81.573064
+NSA #00430,iStorage | San Jose Blvd,10601-37 San Jose Blvd,Jacksonville,FL,32257,30.184457,-81.624814
+NSA #00479,iStorage | Loretto Rd,2951 Loretto Rd,Jacksonville,FL,32223,30.162135,-81.6338
+NSA #01154,iStorage | Western Way Cir,8285 Western Way Cir,Jacksonville,FL,32256,30.218526,-81.565516
+NSA #01084,iStorage | Dyer Blvd,932 Dyer Blvd,Kissimmee,FL,34741,28.300824,-81.437015
+NSA #01085,iStorage | E Vine St,1404 E Vine St,Kissimmee,FL,34744,28.303821,-81.387831
+NSA #01087,iStorage | W Vine St,608 W Vine St,Kissimmee,FL,34741,28.304251,-81.41021
+NSA #01086,iStorage | US-441,1520 US-441,Leesburg,FL,34748,28.813795,-81.852657
+NSA #00491,iStorage | Park Blvd,8105 Park Blvd,Miami,FL,33126,25.77365,-80.32738
+NSA #01076,iStorage | E Apshawa Rd,18286 E Apshawa Rd,Minneola,FL,34715,28.611402,-81.760104
+NSA #01090,iStorage | E Division St,300 E Division St,Minneola,FL,34715,28.567992,-81.743069
+NSA #00470,iStorage | Tollgate Blvd,3836 Tollgate Blvd,Naples,FL,34114,26.155867,-81.684274
+NSA #00988,iStorage | Pine Ridge Rd,1597 Pine Ridge Rd,Naples,FL,34109,26.21204,-81.78591
+NSA #00114,iStorage | Navarre Pkwy,7030 Navarre Pkwy,Navarre,FL,32566,30.402817,-86.929279
+NSA #00149,iStorage | Navarre Pkwy,7100 Navarre Pkwy,Navarre,FL,32566,30.402876,-86.928034
+NSA #00446,iStorage | N Cleveland Ave,14150 N Cleveland Ave,North Fort Myers,FL,33903,26.669215,-81.890837
+NSA #00665,iStorage | N Cleveland Ave,14251 N Cleveland Ave,North Fort Myers,FL,33903,26.67045,-81.89413
+NSA #00897,iStorage | Bobcat Village Center Rd,2245 Bobcat Village Center Rd,North Port,FL,34288,27.057133,-82.1589
+NSA #01156,iStorage | SW 17th Rd,2401 SW 17th Rd,Ocala,FL,34471,29.170977,-82.16569
+NSA #01092,iStorage | Miller Rd,145 Miller Rd,Orange City,FL,32763,28.921128,-81.300504
+NSA #01094,iStorage | Edgewater Dr,6325 Edgewater Dr,Orlando,FL,32810,28.614495,-81.422232
+NSA #01095,iStorage | Forest City Rd,6550 Forest City Rd,Orlando,FL,32810,28.617349,-81.415468
+NSA #01097,iStorage | Old Winter Garden Rd,4600 Old Winter Garden Rd,Orlando,FL,32811,28.54533,-81.439447
+NSA #01177,iStorage | All American Blvd,6200 All American Blvd,Orlando,FL,32810,28.614906,-81.422358
+NSA #00895,iStorage | Co Rd 466,4150 Co Rd 466,Oxford,FL,34484,28.928665,-82.03558
+NSA #01083,iStorage | 1731 Robert J Conlan Blvd NE,1731 Robert J Conlan Blvd NE,Palm Bay,FL,32905,28.041445,-80.596356
+NSA #01176,iStorage | 1701 Robert J Conlan Blvd NE,1701 Robert J Conlan Blvd NE,Palm Bay,FL,32905,28.041445,-80.596356
+NSA #00668,iStorage | SW Martin Hwy,4125 SW Martin Hwy,Palm City,FL,34990,27.162231,-80.309146
+NSA #00990,iStorage | 8th Ave W,2015 8th Ave W,Palmetto,FL,34221,27.53189,-82.57319
+NSA #00424,iStorage | Estes Place,105 Estes Pl,Panama City Beach,FL,32413,30.242698,-85.907337
+NSA #00612,iStorage | Alf Coleman,323 Alf Coleman Rd,Panama City Beach,FL,32407,30.195937,-85.8256
+NSA #00900,iStorage | Panama City Beach Pkwy,18436 Panama City Beach Pkwy,Panama City Beach,FL,32413,30.242815,-85.915114
+NSA #00902,iStorage | Thomas Dr,1816 Thomas Dr,Panama City Beach,FL,32408,30.16599,-85.75706
+NSA #00997,iStorage | Old Tampa Rd,8709 Old Tampa Rd,Parrish,FL,34219,27.54118,-82.477417
+NSA #00572,iStorage | Mobile Hwy,6551 Mobile Hwy,Pensacola,FL,32526,30.471422,-87.306915
+NSA #00901,iStorage | Pine Forest Rd,9311 Pine Forest Rd,Pensacola,FL,32534,30.530813,-87.313765
+NSA #00428,iStorage | Gasparilla Rd,7001 Gasparilla Rd,Port Charlotte,FL,33981,26.929598,-82.22381
+NSA #00466,iStorage | Winborough Dr,10500 Winborough Dr,Port Charlotte,FL,33981,26.872725,-82.23603
+NSA #00991,iStorage | Marlympia Way,6221 Marlympia Way,Punta Gorda,FL,33950,26.942033,-82.03266
+NSA #00999,iStorage | 12832 US-301,12832 US-301,Riverview,FL,33579,27.805135,-82.333363
+NSA #01000,iStorage | N U.S. Hwy 41,1425 N U.S. Hwy 41,Ruskin,FL,33570,27.73078,-82.432817
+NSA #00122,iStorage | Sugar Dr,114 Sugar Dr,Santa Rosa Beach,FL,32459,30.373346,-86.254869
+NSA #00896,iStorage | E County Hwy 30A,4927 E County Hwy 30A,Santa Rosa Beach,FL,32459,30.314409,-86.097405
+NSA #00899,iStorage | Grayton Village Rd,230 Grayton Village Rd,Santa Rosa Beach,FL,32459,30.343844,-86.166294
+NSA #00934,iStorage | Mussett Bayou Rd,103 Mussett Bayou Rd,Santa Rosa Beach,FL,32459,30.376127,-86.255185
+NSA #00984,iStorage | 17th St,2590 17th St,Sarasota,FL,34237,27.351086,-82.518934
+NSA #00985,iStorage | S Beneva Rd,335 S Beneva Rd,Sarasota,FL,34232,27.332394,-82.498055
+NSA #00986,iStorage | S Tamiami Trail,8901 S Tamiami Trail,Sarasota,FL,34238,27.219719,-82.489494
+NSA #00996,iStorage | Claxstrauss Dr,7600 Claxstrauss Dr,Sarasota,FL,34240,27.33746,-82.42872
+NSA #01001,iStorage Portable Storage | Bradenton & Sarasota,6791 28th St Cir E,Sarasota,FL,34243,27.420382,-82.528922
+NSA #00431,iStorage | Park Blvd,13799 Park Blvd,Seminole,FL,33776,27.84442,-82.829546
+NSA #01082,iStorage | 16005 FL-40,16005 FL-40,Silver Springs,FL,34488,29.182867,-81.887508
+NSA #01150,iStorage | 12412 FL-40,12412 FL-40,Silver Springs,FL,34488,29.182867,-81.887508
+NSA #00615,iStorage | Commercial Way,4867 Commercial Way,Spring Hill,FL,34606,28.501131,-82.591231
+NSA #00994,iStorage | Commercial Way,1000 Commercial Way,Spring Hill,FL,34606,28.445606,-82.63348
+NSA #01077,iStorage | Old Canoe Creek Rd,3690 Old Canoe Creek Rd,St Cloud,FL,34769,28.230525,-81.318225
+NSA #00979,iStorage | 34th St S,3950 34th St S,St Petersburg,FL,33711,27.731691,-82.67803
+NSA #00993,iStorage | 1505 US-301,1505 South US Hwy 301,Tampa,FL,33619,27.932584,-82.35322
+NSA #01106,iStorage | N 26th St,815 N 26th St,Tampa,FL,33605,27.952933,-82.430083
+NSA #01155,iStorage | E 10th Ave,4120 E 10th Ave,Tampa,FL,33605,27.962787,-82.411287
+NSA #00427,iStorage | South St,3955 South St,Titusville,FL,32780,28.56783,-80.84576
+NSA #00664,iStorage | South St,4345 South St,Titusville,FL,32780,28.56383,-80.845831
+NSA #01098,iStorage | W Colonial Dr,13440 W Colonial Dr,Winter Garden,FL,34787,28.550592,-81.582701
+NSA #00478,iStorage | Forsyth Rd,3400 Forsyth Rd,Winter Park,FL,32792,28.594184,-81.299262
+NSA #01153,iStorage | Forsyth Rd,2875 Forsyth Rd,Winter Park,FL,32792,28.586108,-81.294411
+NSA #00992,iStorage | State Rd 54,37148 State Rd 54,Zephyrhills,FL,33542,28.229251,-82.201418
+NSA #00924,Southern Self Storage | Philema Rd,1006 Philema Rd,Albany,GA,31701,31.621964,-84.129123
+NSA #00404,SecurCare Self Storage | Veterans Memorial Hwy SW,1880 Veterans Memorial Hwy SW,Austell,GA,30168,33.817756,-84.609695
+NSA #00224,SecurCare Self Storage | US-80,1716 US-80,Bloomingdale,GA,31302,32.124832,-81.274354
+NSA #00398,SecurCare Self Storage | Buford Dr,2914 Buford Dr,Buford,GA,30519,34.050957,-83.995432
+NSA #00242,SecurCare Self Storage | Butterworth Rd,279 Butterworth Rd,Canton,GA,30114,34.203427,-84.507867
+NSA #01125,SecurCare Self Storage | Marietta Hwy,3330 Marietta Hwy,Canton,GA,30114,34.203427,-84.507867
+NSA #00659,SecurCare Self Storage | Peachtree Rd,4775 Peachtree Rd,Chamblee,GA,30341,33.879765,-84.320963
+NSA #00653,iStorage | Whitesville Rd,5977 Whitesville Rd,Columbus,GA,31904,32.530226,-84.964957
+NSA #00247,iStorage | Milgen Rd,4155 Milgen Rd,Columbus,GA,31907,32.511882,-84.926412
+NSA #00654,iStorage | Macon Rd,6751 Macon Rd,Columbus,GA,31907,32.522448,-84.872753
+NSA #00402,SecurCare Self Storage | Iris Dr SW,2500 Iris Dr SW,Conyers,GA,30094,33.68776,-84.069727
+NSA #00227,SecurCare Self Storage | Smyrna Rd SW,527 Smyrna Rd SW,Conyers,GA,30012,33.677219,-84.058015
+NSA #00403,SecurCare Self Storage | Old Covington Hwy,2609 Old Covington Hwy,Conyers,GA,30012,33.69725,-84.071932
+NSA #01104,SecurCare Self Storage | Access Rd,1385 Access Rd,Covington,GA,30014,33.612102,-83.896494
+NSA #00407,SecurCare Self Storage | Pkwy N Blvd,5990 Pkwy N Blvd,Cumming,GA,30040,34.165951,-84.174537
+NSA #00246,SecurCare Self Storage | E Paulding Dr,3587 E Paulding Dr,Dallas,GA,30157,33.942378,-84.742112
+NSA #00406,SecurCare Self Storage | Austin Dr,1520 Austin Dr,Decatur,GA,30032,33.748047,-84.233596
+NSA #00243,SecurCare Self Storage | Snapfinger Woods Dr,4141 Snapfinger Woods Dr,Decatur,GA,30035,33.713867,-84.221163
+NSA #00225,SecurCare Self Storage | E Ponce de Leon Ave,3031 E Ponce de Leon Ave,Decatur,GA,30030,33.784248,-84.270511
+NSA #00241,SecurCare Self Storage | Longmire Way,3751 Longmire Way,Doraville,GA,30340,33.907023,-84.271767
+NSA #00437,SecurCare | Moreland Ave,5351 Moreland Ave,Ellenwood,GA,30294,33.609115,-84.304344
+NSA #00400,SecurCare Self Storage | New Hope Rd,112 New Hope Rd,Fayetteville,GA,30214,33.474561,-84.442442
+NSA #00231,SecurCare Self Storage | GA-85,923 GA-85,Fayetteville,GA,30215,33.427116,-84.460042
+NSA #00230,SecurCare Self Storage | GA-54,1100 GA-54,Fayetteville,GA,30215,33.454189,-84.428219
+NSA #01160,SecurCare Self Storage | 125 Robinson Ct,125 Robinson Ct,Fayetteville,GA,30214,33.454231,-84.429038
+NSA #00234,SecurCare Self Storage | Carver Rd,749 Carver Rd,Griffin,GA,30224,33.226771,-84.298037
+NSA #00233,SecurCare Self Storage | Zebulon Rd,1948 Zebulon Rd,Griffin,GA,30224,33.190456,-84.286993
+NSA #00232,SecurCare Self Storage | N Expy,2976 N Expy,Griffin,GA,30223,33.317625,-84.289187
+NSA #00235,SecurCare Self Storage | Brookwood Ave,1288 Brookwood Ave,Jackson,GA,30233,33.307506,-83.980182
+NSA #00405,SecurCare Self Storage | Tara Blvd,8898 Tara Blvd,Jonesboro,GA,30236,33.511682,-84.358483
+NSA #00223,SecurCare Self Storage | Tara Blvd,9887 Tara Blvd,Jonesboro,GA,30326,33.849145,-84.362091
+NSA #00661,iStorage | GA-40,1320 GA-40,Kingsland,GA,31548,30.787609,-81.647698
+NSA #00655,iStorage | W Point Rd,2170 W Point Rd,LaGrange,GA,30240,33.025428,-85.078597
+NSA #00397,SecurCare Self Storage | Oak Grove Rd SW,3900 Oak Grove Rd SW,Loganville,GA,30052,33.849089,-83.91394
+NSA #00222,SecurCare Self Storage | Mableton Pkwy SE,6800 Mableton Pkwy SE,Mableton,GA,30126,33.788044,-84.549447
+NSA #00248,iStorage | Pio Nono Ave,2990 Pio Nono Ave,Macon,GA,31206,32.808939,-83.662213
+NSA #00658,iStorage | Billy Williamson Dr,4500 Billy Williamson Dr,Macon,GA,31206,32.823768,-83.712734
+NSA #00656,iStorage | Peake Rd,6416 Peake Rd,Macon,GA,31210,32.875271,-83.762513
+NSA #00573,iStorage | Key St,915 Key St,Macon,GA,31204,32.818876,-83.675514
+NSA #00574,iStorage | Shurling Dr,1300 Shurling Dr,Macon,GA,31211,32.86006,-83.600516
+NSA #00657,iStorage | Riverside Dr,4480 Riverside Dr,Macon,GA,31210,32.913628,-83.704476
+NSA #01140,iStorage | 4486 Riverside Dr,4486 Riverside Dr,Macon,GA,31210,32.913291,-83.708279
+NSA #00379,SecurCare Self Storage | Wylie Rd SE,523 Wylie Rd SE,Marietta,GA,30067,33.939732,-84.511474
+NSA #00369,SecurCare Self Storage | S Cobb Dr SE,1185 S Cobb Dr SE,Marietta,GA,30060,33.923361,-84.549897
+NSA #00401,SecurCare Self Storage | Meredith Park Dr,1205 Meredith Park Dr,McDonough,GA,30253,33.383529,-84.175993
+NSA #00473,SecurCare Self Storage | Brannan Rd Ext,1925 Brannan Rd Ext,McDonough,GA,30253,33.509943,-84.190646
+NSA #00236,SecurCare Self Storage | Premiere Wy,1000 Premiere Wy,McDonough,GA,30252,33.428197,-84.137333
+NSA #00237,SecurCare Self Storage | Hampton Rd,910 Hampton Rd,McDonough,GA,30253,33.43482,-84.174742
+NSA #00251,SecurCare Self Storage | S Broad St,1005 S Broad St,Monroe,GA,30655,33.782456,-83.707769
+NSA #00221,SecurCare Self Storage | Breedlove Dr,215 Breedlove Dr,Monroe,GA,30065,33.78996,-83.73296
+NSA #00277,SecurCare Self Storage | Mt Zion Rd,1515 Mt Zion Rd,Morrow,GA,30260,33.570193,-84.341086
+NSA #00252,SecurCare Self Storage | Millard Farmer Industrial Blvd,340 Millard Farmer Industrial Blvd,Newnan,GA,30263,33.398374,-84.787154
+NSA #00002,SecurCare Self Storage | Western Hills Ct,1 Western Hills Ct,Norcross,GA,30071,33.922293,-84.209043
+NSA #00244,SecurCare Self Storage | Sharon Ct,108 Sharon Ct,Pooler,GA,31322,32.102708,-81.227994
+NSA #00238,SecurCare Self Storage | GA-138,53 GA-138,Riverdale,GA,30276,33.541579,-84.389125
+NSA #00399,SecurCare Self Storage | Church St,6305 Church St,Riverdale,GA,30294,33.583084,-84.419216
+NSA #00245,SecurCare Self Storage | Roswell Rd NE,8457 Roswell Rd NE,Sandy Springs,GA,30350,33.985532,-84.349038
+NSA #01174,SecurCare Self Storage | Abercorn St,15050 Abercorn St,Savannah,GA,31419,31.991185,-81.231971
+NSA #00250,SecurCare Self Storage | Eisenhower Dr,218 Eisenhower Dr,Savannah,GA,31406,32.009596,-81.111503
+NSA #00249,SecurCare Self Storage | Abercorn St,9303 Abercorn St,Savannah,GA,31406,31.996538,-81.130124
+NSA #00226,SecurCare Self Storage | Ogeechee Rd,5660 Ogeechee Rd,Savannah,GA,31405,32.034168,-81.219797
+NSA #00204,SecurCare Self Storage | Grove Point Rd,1721 Grove Point Rd,Savannah,GA,31419,31.991185,-81.231971
+NSA #00240,SecurCare Self Storage | S Cobb Dr SE,2960 S Cobb Dr SE,Smyrna,GA,30080,33.880441,-84.533853
+NSA #00239,SecurCare Self Storage | Hannover Pkwy N,7330 Hannover Pkwy N,Stockbridge,GA,30281,33.554198,-84.272909
+NSA #00229,SecurCare Self Storage | GA-138,599 GA-138,Stockbridge,GA,90281,33.548721,-84.275239
+NSA #00228,SecurCare Self Storage | Davidson Cir E,7428 Davidson Cir E,Stockbridge,GA,30281,33.552198,-84.264419
+NSA #00903,Southern Self Storage | E Jackson St,1418 E Jackson St,Thomasville,GA,31792,30.852747,-83.955464
+NSA #00936,Southern Self Storage | E Pinetree Blvd,870 E Pinetree Blvd,Thomasville,GA,31792,30.833768,-83.947808
+NSA #00893,Southern Self Storage | Inner Perimeter Rd,3200 Inner Perimeter Rd,Valdosta,GA,31602,30.880636,-83.293897
+NSA #00925,Southern Self Storage | N Valdosta Rd,3819 N Valdosta Rd,Valdosta,GA,31602,30.888834,-83.316601
+NSA #00614,iStorage | Carl Vinson Pkwy,230 Carl Vinson Pkwy,Warner Robins,GA,31088,32.599484,-83.663497
+NSA #00613,iStorage | Osigian Blvd,202 Osigian Blvd,Warner Robins,GA,31088,32.614248,-83.692587
+NSA #00660,SecurCare | Eagle Dr,2901 Eagle Dr,Woodstock,GA,30189,34.1129,-84.55833
+NSA #00018,Northwest Self Storage | Burr Dr,14051 Burr Dr,McCall,ID,83638,44.862087,-116.087783
+NSA #00062,Northwest Self Storage | US-95,3774 US-95,New Meadows,ID,83654,44.990947,-116.279221
+NSA #00044,Northwest Self Storage | E Seltice Way,2655 E Seltice Way,Post Falls,ID,83854,47.711601,-116.912163
+NSA #00070,Northwest Self Storage | E Seltice Way,4459 E Seltice Way,Post Falls,ID,83854,47.708081,-116.887228
+NSA #00053,Northwest Self Storage | ID-200,32607 Hwy 200,Sandpoint,ID,83864,48.311346,-116.506175
+NSA #00596,iStorage | E 106th St,3940 E 106th St,Chicago,IL,60617,41.70404,-87.527709
+NSA #00547,iStorage | W 135th St,4501 W 135th St,Crestwood,IL,60418,41.646534,-87.732345
+NSA #00652,iStorage | Deer Lake Rd,177 Deer Lake Rd,Deerfield,IL,60015,42.156355,-87.845019
+NSA #00546,iStorage | Greenwood St,2020 Greenwood St,Evanston,IL,60201,42.042197,-87.701212
+NSA #00651,iStorage | Milwaukee Ave,747 Milwaukee Ave,Glenview,IL,60025,42.069876,-87.852082
+NSA #00650,iStorage | Old Deerfield Rd,1505 Old Deerfield Rd,Highland Park,IL,60035,42.178336,-87.820394
+NSA #00649,iStorage | Bode Rd,2775 Bode Rd,Hoffman Estates,IL,60169,42.038682,-88.147723
+NSA #00548,iStorage | Frontage Rd,4325 Frontage Rd,Oak Forest,IL,60452,41.590064,-87.721489
+NSA #00570,iStorage | S Western Ave,14750 S Western Ave,Posen,IL,60469,41.624966,-87.676906
+NSA #00594,iStorage | Albion Ave,1031 Albion Ave,Schaumburg,IL,60193,41.994083,-88.105696
+NSA #00349,SecurCare Self Storage | Vista Pkwy,71 Vista Pkwy,Avon,IN,46123,39.759734,-86.38483
+NSA #00412,SecurCare Self Storage | E US Hwy 36,9303 E US Hwy 36,Avon,IN,46123,39.761518,-86.354776
+NSA #00348,SecurCare Self Storage | Union Mills Dr,8969 Union Mills Dr,Camby,IN,46113,39.632444,-86.336567
+NSA #00415,SecurCare Self Storage | N Arlington Ave,3231 N Arlington Ave,Indianapolis,IN,46218,39.81604,-86.0622
+NSA #00413,SecurCare Self Storage | N Glen Arm Rd,3912 N Glen Arm Rd,Indianapolis,IN,46254,39.827533,-86.274579
+NSA #00411,SecurCare Self Storage | Rockville Rd,8501 Rockville Rd,Indianapolis,IN,46234,39.762521,-86.312003
+NSA #00410,SecurCare Self Storage | S Emerson Ave,4005 S Emerson Ave,Indianapolis,IN,46203,39.708496,-86.081153
+NSA #00409,SecurCare Self Storage | Heiney Rd,4115 Heiney Rd,Indianapolis,IN,46241,39.70426,-86.259468
+NSA #00356,SecurCare Self Storage | W County Line Rd,920 W County Line Rd,Indianapolis,IN,46217,39.635278,-86.176532
+NSA #00355,SecurCare Self Storage | Stover Ave,551 Stover Ave,Indianapolis,IN,46227,39.700023,-86.146677
+NSA #00354,SecurCare Self Storage | Shadeland Ave,2251 Shadeland Ave,Indianapolis,IN,46219,39.799401,-86.04333
+NSA #00353,SecurCare Self Storage | N Tacoma Ave,5425 N Tacoma Ave,Indianapolis,IN,46220,39.852454,-86.119714
+NSA #00352,SecurCare Self Storage | Fall Creek Rd,9685 Fall Creek Rd,Indianapolis,IN,46256,39.895453,-85.997187
+NSA #00351,SecurCare Self Storage | W 96th St,3601 W 96th St,Indianapolis,IN,46268,39.924709,-86.220217
+NSA #00350,SecurCare Self Storage | N Michigan Rd,8270 N Michigan Rd,Indianapolis,IN,46268,39.904922,-86.220773
+NSA #01105,SecurCare Self Storage | Research Dr,1510 Research Dr,Jeffersonville,IN,47130,38.309352,-85.744986
+NSA #01108,SecurCare Self Storage | Bell Ln,1310 Bell Ln,New Albany,IN,47150,38.329266,-85.827381
+NSA #00357,SecurCare Self Storage | IN-32,613 IN-32,Westfield,IN,46074,40.041418,-86.169133
+NSA #00414,SecurCare Self Storage | Central Boulevard,6978 Central Boulevard,Zionsville,IN,46077,39.953021,-86.337787
+NSA #00969,iStorage | Camp Cardinal Blvd,761 Camp Cardinal Blvd,Coralville,IA,52241,41.680794,-91.596098
+NSA #01034,iStorage | James St,2100 James St,Coralville,IA,52241,41.678498,-91.595819
+NSA #01035,iStorage | James St,2045 James St,Coralville,IA,52241,41.679601,-91.59373
+NSA #01036,iStorage | 2nd St,405 2nd St,Coralville,IA,52241,41.67169,-91.572826
+NSA #01037,iStorage | Southgate Ave,120 Southgate Ave,Iowa City,IA,52240,41.641296,-91.53505
+NSA #00968,iStorage | W Penn St,980 W Penn St,North Liberty,IA,52317-9025,41.752679,-91.613787
+NSA #01038,iStorage | Penn Ct,570 Penn Ct,North Liberty,IA,52317,41.750918,-91.63255
+NSA #00970,iStorage | Village Dr,103 Village Dr,Tiffin,IA,52340,41.696959,-91.664681
+NSA #01101,iStorage | US-54,13910 US-54,Andover,KS,67002,37.681053,-97.096801
+NSA #01181,iStorage | N Rock Rd,310 N Rock Rd,Derby,KS,67037,37.547094,-97.243998
+NSA #01180,iStorage | 115 S Buckner St,115 S Buckner St,Derby,KS,67037,37.542718,-97.271882
+NSA #01179,iStorage | 207 S Buckner St,207 S Buckner St,Derby,KS,67037,37.541956,-97.271726
+NSA #01102,iStorage |  W Emma St,121 W Emma St,Derby,KS,67037,37.546406,-97.270938
+NSA #00506,iStorage | N 78th St,235 N 78th St,Kansas City,KS,66112,39.103502,-94.75888
+NSA #00516,iStorage | State Ave,7221 State Ave,Kansas City,KS,66112,39.116037,-94.747161
+NSA #01164,iStorage | 1920 Spruce St,1920 Spruce St,Leavenworth,KS,66048,39.311483,-94.949849
+NSA #00521,iStorage | S Black Bob Rd,13371 S Black Bob Rd,Olathe,KS,66062,38.885922,-94.759174
+NSA #00520,iStorage | W 125th St,8321 W 125th St,Overland Park,KS,66213,38.900575,-94.683348
+NSA #00588,iStorage | W 135th St,12180 W 135th St,Overland Park,KS,66221,38.885153,-94.727275
+NSA #00510,iStorage | Farley St,7840 Farley St,Overland Park,KS,66204,38.986014,-94.699506
+NSA #00557,iStorage | East 61st St N,433 East 61st St N,Park City,KS,67219,37.795343,-97.332943
+NSA #00519,iStorage | W 62nd St,11015 W 62nd Terrace,Shawnee,KS,66203,39.015742,-94.713105
+NSA #00504,iStorage | Meadow View Dr,7804 Meadow View Dr,Shawnee,KS,66227,38.987106,-94.857045
+NSA #00505,iStorage | Vista Dr,6410 Vista Dr,Shawnee,KS,66218,39.012858,-94.819558
+NSA #00514,iStorage | N Tyler Rd,550 N Tyler Rd,Wichita,KS,67212,37.692333,-97.443961
+NSA #00523,iStorage | E MacArthur Rd,1050 E MacArthur Rd,Wichita,KS,67216,37.623276,-97.325138
+NSA #00556,iStorage | S Broadway,4530 S Broadway,Wichita,KS,67216,37.611712,-97.333602
+NSA #00513,iStorage | N Amidon Ave,2940 N Amidon Ave,Wichita,KS,67204,37.737085,-97.362304
+NSA #00512,iStorage | E Central Ave,12515 E Central Ave,Wichita,KS,67206,37.692828,-97.192448
+NSA #00511,iStorage | E Harry St,9750 E Harry St,Wichita,KS,67207,37.665065,-97.223992
+NSA #00509,iStorage | S Seneca St,2010 S Seneca St,Wichita,KS,67213,37.658564,-97.352289
+NSA #00508,iStorage | N Rock Rd,1701 N Rock Rd,Wichita,KS,67206,37.714049,-97.245928
+NSA #01110,SecurCare Self Storage | Ring Rd,2927 Ring Rd,Elizabethtown,KY,42701,37.715604,-85.841133
+NSA #01103,SecurCare |  New La Grange Rd,8409 New La Grange Rd,Louisville,KY,40242,38.26313,-85.597033
+NSA #01107,SecurCare Self Storage | Old Bardstown Rd,8814 Old Bardstown Rd,Louisville,KY,40291,38.116038,-85.57402
+NSA #01183,SecurCare Self Storage | Brookridge Village Blvd,10200 Brookridge Village Blvd,Louisville,KY,40291,38.144332,-85.582285
+NSA #00347,SecurCare Self Storage | W Hwy 42,13306 W Hwy 42,Prospect,KY,40059,38.363491,-85.602946
+NSA #01172,SecurCare Self Storage | 1736 S Dixie Blvd,1736 S Dixie Blvd,Radcliff,KY,40160,37.819047,-85.924565
+NSA #01173,SecurCare Self Storage | 1295 S Dixie Blvd,1295 S Dixie Blvd,Radcliff,KY,40160,37.825171,-85.928183
+NSA #01109,SecurCare Self Storage | N Preston Hwy,5089 N Preston Hwy,Shepherdsville,KY,40165-9259,38.054921,-85.677959
+NSA #00909,Southern Self Storage | W St Bernard Hwy,7413 W St Bernard Hwy,Arabi,LA,70032,29.955459,-89.996899
+NSA #00915,Southern Self Storage | LA-23,9541 LA-23,Belle Chasse,LA,70037,29.827324,-90.004644
+NSA #00908,Southern Self Storage | LA-23,9491 LA-23,Belle Chasse,LA,70037,29.82851,-90.00374
+NSA #00258,SecurCare Self Storage | Northgate Rd,1051 Northgate Rd,Bossier City,LA,71112,32.513772,-93.686223
+NSA #00288,SecurCare Self Storage | Benton Rd,1702 Benton Rd,Bossier City,LA,71111,32.535359,-93.720207
+NSA #00910,Southern Self Storage | Jean Lafitte Pkwy,3301 Jean Lafitte Pkwy,Chalmette,LA,70043,29.955817,-89.979164
+NSA #00907,Southern Self Storage | Belle Chasse Hwy,2321 Belle Chasse Hwy,Gretna,LA,70056,29.888906,-90.030452
+NSA #00935,Southern Self Storage | Market St,306 Market St,Hammond,LA,70401,30.503079,-90.488668
+NSA #00257,SecurCare Self Storage | US-80,1330 US-80,Haughton,LA,71037,32.554724,-93.610143
+NSA #00905,Southern Self Storage | US-51,2820 U.S. Hwy 51,Laplace,LA,70068,30.071674,-90.477612
+NSA #00906,Southern Self Storage | US-90,12843 US-90,Luling,LA,70070,29.90653,-90.368327
+NSA #00914,Southern Self Storage | US-11,64023 US-11,Pearl River,LA,70452,30.3589,-89.753142
+NSA #00904,Southern Self Storage | W Airline Hwy,3334 W Airline Hwy,Reserve,LA,70084,30.078252,-90.54433
+NSA #00262,SecurCare Self Storage | E Bert Kouns Industrial Loop,1780 E Bert Kouns Industrial Loop,Shreveport,LA,71105,32.433043,-93.710016
+NSA #00259,SecurCare Self Storage | W Bert Kouns Industrial Loop,720 W Bert Kouns Industrial Loop,Shreveport,LA,71118,32.402796,-93.776561
+NSA #00260,SecurCare Self Storage | Alkay Dr,2727 Alkay Dr,Shreveport,LA,71118,32.408867,-93.801047
+NSA #00261,SecurCare Self Storage | Shreveport Barksdale Hwy,1333 Shreveport Barksdale Hwy,Shreveport,LA,71105,32.488559,-93.700205
+NSA #00265,SecurCare Self Storage | W Bert Kouns Industrial Loop,2900 W Bert Kouns Industrial Loop,Shreveport,LA,71118,32.402558,-93.805489
+NSA #00263,SecurCare Self Storage | Youree Dr,9211 Youree Dr,Shreveport,LA,71115,32.404978,-93.694497
+NSA #00290,SecurCare Self Storage | Kingston Rd,8968 Kingston Rd,Shreveport,LA,71118,32.406158,-93.780926
+NSA #00289,SecurCare Self Storage | Greenwood Rd,4115 Greenwood Rd,Shreveport,LA,71109,32.470034,-93.811653
+NSA #00264,SecurCare Self Storage | American Way,747 American Way,Shreveport,LA,71106,32.423337,-93.741069
+NSA #00911,Southern Self Storage | Voters Rd,606 Voters Rd,Slidell,LA,70461,30.256307,-89.751968
+NSA #00912,Southern Self Storage | Gause Blvd W,1709 Gause Blvd W,Slidell,LA,70460,30.29298,-89.799606
+NSA #00913,Southern Self Storage | Gause Blvd E,2355 Gause Blvd E,Slidell,LA,70461,30.289024,-89.726111
+NSA #00953,iStorage | Belmont Ave,1700 Belmont Ave,Baltimore,MD,21244,39.314701,-76.74835
+NSA #01048,iStorage | Belmont Ave,1722 Belmont Ave,Baltimore,MD,21244,39.31651,-76.746604
+NSA #00507,iStorage | Point Lookout Rd,20184 Point Lookout Rd,Great Mills,MD,20634,38.237535,-76.497417
+NSA #00503,iStorage | Commerce Ave,43890 Commerce Ave,Hollywood,MD,20636,38.320976,-76.557713
+NSA #00525,iStorage | Robert S. Crain Hwy,6015 Robert S. Crain Hwy,La Plata,MD,20646,38.547606,-76.98745
+NSA #00555,iStorage | Point Lookout Rd,25850 Point Lookout Rd,Leonardtown,MD,20650,38.30232,-76.650765
+NSA #00502,iStorage | Willows Rd,21268 Willows Rd,Lexington Park,MD,20653,38.251493,-76.452713
+NSA #00553,iStorage | Cutter Ct,5270 Cutter Ct,Prince Frederick,MD,20678,38.508078,-76.639952
+NSA #00554,iStorage | 140 Armory Rd,140 Armory Rd,Prince Frederick,MD,20678,38.54879,-76.586723
+NSA #01138,iStorage | 191 Armory Rd,191 Armory Rd,Prince Frederick,MD,20678,38.549978,-76.591409
+NSA #00693,iStorage | N Beacon St,145 N Beacon St,Brighton,MA,02135,42.355745,-71.145409
+NSA #00688,iStorage | Glen Ave,23 Glen Ave,Chelmsford,MA,01824,42.608169,-71.330903
+NSA #01041,iStorage | Industrial Pkwy,2 Industrial Pkwy,Easthampton,MA,01027,42.285991,-72.659026
+NSA #00694,iStorage | Recreation Park Dr,125 Recreation Park Dr,Hingham,MA,02043,42.175119,-70.909156
+NSA #00731,RightSpace Storage | County St,156 County St,Lakeville,MA,02347,41.808213,-70.973076
+NSA #00691,iStorage | Broadway,102 Broadway,Lynnfield,MA,01940,42.506616,-71.016163
+NSA #00687,iStorage | Rangeway Rd,129 Rangeway Rd,N Billerica,MA,01862,42.57653,-71.307798
+NSA #00959,iStorage | Easthampton Rd,547 Easthampton Rd,Northampton,MA,01060,42.291607,-72.659067
+NSA #01042,iStorage | 600 Easthampton Rd,600 Easthampton Rd,Northampton,MA,01060,42.289751,-72.659164
+NSA #01043,iStorage | 550 Easthampton Rd,550 Easthampton Rd,Northampton,MA,01060,42.291036,-72.658171
+NSA #00690,iStorage | Andover St,244 Andover St,Peabody,MA,01960,42.545908,-70.949
+NSA #00595,iStorage | Summit St,137 Summit St,Peabody,MA,01960,42.522921,-70.952358
+NSA #00692,iStorage | Boston Turnpike,869 Boston Turnpike,Shrewsbury,MA,01545,42.280375,-71.68496
+NSA #00732,RightSpace Storage | County St,3129 County St,Somerset,MA,02726,41.774306,-71.13837
+NSA #01006,iStorage | Coleman Rd,9 Coleman Rd,Southampton,MA,01073,42.253088,-72.694608
+NSA #01040,iStorage | College Hwy,15 College Hwy,Southampton,MA,01073,42.251734,-72.697974
+NSA #00971,iStorage | Taylor St,340 Taylor St,Springfield,MA,01105,42.111159,-72.585597
+NSA #00689,iStorage | Main St,470 Main St,Tewksbury,MA,01876,42.620062,-71.254644
+NSA #00733,RightSpace Storage | Milford St,226 Milford St,Upton,MA,01568,42.155588,-71.575297
+NSA #00617,iStorage | Doris Rd,1096 Doris Rd,Auburn Hills,MI,48326,42.655642,-83.240773
+NSA #00626,iStorage | E 10 Mile Rd,6775 E 10 Mile Rd,Center Line,MI,48015,42.478312,-83.03555
+NSA #00619,iStorage | Hall Rd,20772 Hall Rd,Clinton Township,MI,48038,42.62721,-82.914222
+NSA #00620,iStorage | Garfield Rd,41250 Garfield Rd,Clinton Township,MI,48038,42.600927,-82.950845
+NSA #00621,iStorage | Romeo Plank Rd,44650 Romeo Plank Rd,Clinton Township,MI,48038,42.625287,-82.934037
+NSA #00623,iStorage | Groesbeck Hwy,36261 Groesbeck Hwy,Clinton Township,MI,48035,42.56435,-82.917841
+NSA #00630,iStorage | Kean St,23954 Kean St,Dearborn,MI,48124,42.299201,-83.270581
+NSA #00631,iStorage | Ann Arbor Trail,24579 Ann Arbor Trail,Dearborn Heights,MI,48127,42.349539,-83.281114
+NSA #00627,iStorage | 8 Mile Rd,14907 8 Mile Rd,Eastpointe,MI,48021,42.450639,-82.969183
+NSA #00635,iStorage | Grand River Ave,28650 Grand River Ave,Farmington Hills,MI,48336,42.445743,-83.329043
+NSA #00636,iStorage | Sinacola,24500 Sinacola,Farmington Hills,MI,48335,42.470986,-83.420369
+NSA #00637,iStorage | W Marshall St,181 W Marshall St,Ferndale,MI,48220,42.454294,-83.131979
+NSA #00634,iStorage | Howard St,1782 Howard St,Lincoln Park,MI,48146,42.253324,-83.183908
+NSA #00633,iStorage | Farmington Rd,11960 Farmington Rd,Livonia,MI,48150,42.37184,-83.370402
+NSA #00632,iStorage | Telegraph Rd,14433 Telegraph Rd,Redford,MI,48239,42.392113,-83.277108
+NSA #00618,iStorage | Crooks Rd,2570 Crooks Rd,Rochester Hills,MI,48309,42.643321,-83.177461
+NSA #00625,iStorage | 12 Mile Rd,15390 12 Mile Rd,Roseville,MI,48066,42.508709,-82.965259
+NSA #00624,iStorage | Cornillie Dr,20055 Cornillie Dr,Roseville,MI,48066,42.52071,-82.914049
+NSA #00638,iStorage | Link Rd,20945 Link Rd,Southfield,MI,48033,42.444305,-83.281292
+NSA #00639,iStorage | Metropolitan Pkwy,6550 Metro Pkwy,Sterling Heights,MI,48312,42.564518,-83.042876
+NSA #00622,iStorage | Pontiac Dr,1782 Pontiac Dr,Sylvan Lake,MI,48320,42.618834,-83.322893
+NSA #00629,iStorage | Seaway Dr,15301 Seaway Dr,Taylor,MI,48180,42.193159,-83.242356
+NSA #00640,iStorage | E Big Beaver Rd,1320 E Big Beaver Rd,Troy,MI,48083,42.559769,-83.120509
+NSA #00628,iStorage | Groesbeck Hwy,20979 Groesbeck Hwy,Warren,MI,48089,42.451415,-83.00225
+NSA #00714,iStorage | Beck Rd,30320 Beck Rd,Wixom,MI,48393,42.51584,-83.516308
+NSA #00544,iStorage | Flanders St NE,10250 Flanders St NE,Blaine,MN,55449,45.155607,-93.196429
+NSA #00641,iStorage | Ladybird Ln,801 Ladybird Ln,Burnsville,MN,55337,44.779106,-93.291274
+NSA #00642,iStorage | University Ave NW,9154 University Ave NW,Coon Rapids,MN,55448,45.137368,-93.268198
+NSA #00643,iStorage | Old Sibley Memorial Hwy,4025 Old Sibley Memorial Hwy,Eagan,MN,55122,44.811803,-93.22221
+NSA #00545,iStorage | Carmen Ave E,6311 Carmen Ave E,Inver Grove Heights,MN,55076,44.857617,-93.041463
+NSA #00644,iStorage | Hiawatha Ave,3601 Hiawatha Ave,Minneapolis,MN,55406,44.936822,-93.229926
+NSA #00645,iStorage | Hiawatha Ave,4325 Hiawatha Ave,Minneapolis,MN,55406,44.924523,-93.221445
+NSA #00589,iStorage | 13th Ave E,8620 13th Ave E,Shakopee,MN,55379,44.782179,-93.406117
+NSA #00646,iStorage | Cedar Lk Rd S,5605 Cedar Lk Rd S,St Louis Park,MN,55416,44.962378,-93.351575
+NSA #00647,iStorage | Hwy 61 N,3238 Hwy 61 N,Vadnais Heights,MN,55110,45.039029,-93.039479
+NSA #00648,iStorage | Weir Dr,881 Weir Dr,Woodbury,MN,55125,44.934804,-92.963008
+NSA #00710,iStorage | E Reed Rd,2201 E Reed Rd,Greenville,MS,38703,33.384076,-91.021718
+NSA #00517,iStorage | N Oak Trafficway,6810 N Oak Trafficway,Gladstone,MO,64118,39.218018,-94.577379
+NSA #00515,iStorage | Troost Ave,8901 Troost Ave,Kansas City,MO,64131,38.964923,-94.576604
+NSA #00518,iStorage | Southwest Blvd,2748 Southwest Blvd,Kansas City,MO,64108,39.07784,-94.601505
+NSA #00603,iStorage | N Green Hills Rd,8331 N Green Hills Rd,Kansas City,MO,64151,39.24506,-94.630392
+NSA #00610,iStorage | MO-45,10875 MO-45,Parkville,MO,64152,39.209442,-94.70582
+NSA #00469,iStorage | US-50,3579 US-50,Carson City,NV,89701,39.176534,-119.72778
+NSA #00468,iStorage | Fairview Dr,1179 Fairview Dr,Carson City,NV,89701,39.148878,-119.75509
+NSA #00832,iStorage | S Carson Meadow Dr Suite 40,333 S Carson Meadow Dr Suite 40,Carson City,NV,89701,39.161975,-119.755528
+NSA #00866,RightSpace Storage | Smoke Ranch Rd,5900 Smoke Ranch Rd,Las Vegas,NV,89108,36.203574,-115.222028
+NSA #00864,RightSpace Storage | W Sirius Ave,3350 W Sirius Ave,Las Vegas,NV,89102,36.133933,-115.185639
+NSA #00863,RightSpace Storage | W Cheyenne Ave,5000 W Cheyenne Ave,Las Vegas,NV,89130,36.217916,-115.209904
+NSA #00862,RightSpace Storage | E Tropicana Ave,1745 E Tropicana Ave,Las Vegas,NV,89119,36.100288,-115.12937
+NSA #00861,RightSpace Storage | W Sahara Ave,8140 W Sahara Ave,Las Vegas,NV,89117,36.144868,-115.268678
+NSA #00860,RightSpace Storage | W Robindale Rd,6960 W Robindale Rd,Las Vegas,NV,89113,36.04903,-115.244407
+NSA #00780,RightSpace Storage | E Sahara Ave,4375 E Sahara Ave,Las Vegas,NV,89104,36.143703,-115.079381
+NSA #00742,RightSpace Storage | Westwood Dr,3105 Westwood Dr,Las Vegas,NV,89109,36.133324,-115.17873
+NSA #00741,RightSpace Storage | N Pecos Rd,3043 N Pecos Rd,Las Vegas,NV,89115,36.215563,-115.09954
+NSA #00740,RightSpace Storage | N Lamb Blvd,1675 N Lamb Blvd,Las Vegas,NV,89115,36.189822,-115.080567
+NSA #00739,RightSpace Storage | Vegas Dr,2600 Vegas Dr,Las Vegas,NV,89106,36.189045,-115.176269
+NSA #00735,RightSpace Storage | W Flamingo Rd,6740 W Flamingo Rd,Las Vegas,NV,89103,36.11568,-115.239053
+NSA #00734,RightSpace Storage | Sunset Rd,3921 Sunset Rd,Las Vegas,NV,89120,36.070583,-115.090045
+NSA #00575,iStorage | E Prater Way,275 E Prater Way,Sparks,NV,89431,39.540074,-119.739377
+NSA #00798,RightSpace Storage | Caldwell Dr,6 Caldwell Dr,Amherst,NH,03031,42.807416,-71.573107
+NSA #00785,RightSpace Storage | NH-3A,793 NH-3A,Bow,NH,03304,43.163415,-71.510967
+NSA #00777,RightSpace Storage | NH-125,321 NH-125,Brentwood,NH,03833,42.998253,-71.078608
+NSA #00793,RightSpace Storage | Windham Rd,125 Windham Rd,Derry,NH,03038,42.845973,-71.304189
+NSA #00786,RightSpace Storage | Knox Marsh Rd,221 Knox Marsh Rd,Dover,NH,03820,43.179186,-70.909117
+NSA #01166,RightSpace Storage | Sumner Dr,30 Sumner Dr,Dover,NH,03820,43.181099,-70.901869
+NSA #01169,RightSpace Storage | Methodist Hill Rd,780 Methodist Hill Rd,Enfield,NH,03748,43.637002,-72.215495
+NSA #01170,RightSpace Storage | 10 Tower Ln,10 Tower Ln,Goffstown,NH,03045,43.010776,-71.507257
+NSA #00796,RightSpace Storage | 13 Tower Ln,13 Tower Ln,Goffstown,NH,03045,43.011623,-71.505136
+NSA #01168,RightSpace Storage | Sutton Circle,5 Sutton Circle,Hooksett,NH,03106,43.03543,-71.413875
+NSA #00795,RightSpace Storage | Londonderry Turnpike,180 Londonderry Turnpike,Hooksett,NH,03106,43.035645,-71.414487
+NSA #00800,RightSpace Storage | Central St,193 Central St,Hudson,NH,03051,42.767089,-71.413401
+NSA #00778,RightSpace Storage | Riverside Dr,42 Riverside Dr,Lebanon,NH,03766,43.637002,-72.215495
+NSA #00794,RightSpace Storage | Mohawk Dr,7 Mohawk Dr,Londonderry,NH,03053,42.848259,-71.357602
+NSA #00792,RightSpace Storage | Londonderry Rd,9 Londonderry Rd,Londonderry,NH,03053,42.874823,-71.338859
+NSA #00799,RightSpace Storage | Daniel Webster Hwy,403 Daniel Webster Hwy,Merrimack,NH,03054,42.856153,-71.490383
+NSA #00797,RightSpace Storage | Northwest Blvd,15 Northwest Blvd,Nashua,NH,03063,42.801698,-71.543581
+NSA #00784,RightSpace Storage | Riverwood Dr,714 Riverwood Dr,Pembroke,NH,03275,43.194236,-71.483539
+NSA #01167,RightSpace Storage | Main St,390 Main St,Somersworth,NH,03878,43.244832,-70.851286
+NSA #00801,RightSpace Storage | White Mountain Hwy,1683 White Mountain Hwy,Wakefield,NH,03872,43.533104,-71.029819
+NSA #00438,iStorage | N Black Horse Pike,841 N Black Horse Pike,Blackwood,NJ,08012,39.813442,-75.066953
+NSA #00683,iStorage | Grove St,211 Grove St,Bloomfield,NJ,07003,40.779775,-74.188682
+NSA #00954,iStorage | Love Ln,40 Love Ln,Bridgeton,NJ,08302,39.471118,-75.213479
+NSA #00489,iStorage | Van Veghten Dr,22 Van Veghten Dr,Bridgewater,NJ,08807,40.558805,-74.589139
+NSA #00471,iStorage | Sunset Rd,902 Sunset Rd,Burlington,NJ,08016,40.050583,-74.87483
+NSA #00477,iStorage | Mitchell Ave,555 Mitchell Ave,Burlington,NJ,08016,40.076649,-74.847437
+NSA #00684,iStorage | County Rd,460 County Rd,Cliffwood,NJ,07721,40.44317,-74.23116
+NSA #00956,iStorage | NJ-23,75 NJ-23,Hamburg,NJ,07419,41.174078,-74.586857
+NSA #01039,iStorage | Greenwood Lake Turnpike,1869 Greenwood Lake Turnpike,Hewitt,NJ,07421,41.144468,-74.346994
+NSA #00967,iStorage | White Rd,11 White Rd,Hewitt,NJ,07421,41.152556,-74.362825
+NSA #00453,iStorage | US-9,2464 US-9,Howell Township,NJ,07731,40.178285,-74.246298
+NSA #00957,iStorage | US-46,1115 US-46,Ledgewood,NJ,07852,40.879657,-74.647861
+NSA #00685,iStorage | S Wade Blvd,418 S Wade Blvd,Millville,NJ,08332,39.385859,-75.019473
+NSA #00440,iStorage | Bridgeton Pike,295 Bridgeton Pike,Mullica Hill,NJ,08062,39.709536,-75.205848
+NSA #00955,iStorage | Hampton House Rd,106 Hampton House Rd,Newton,NJ,07860,41.092277,-74.730386
+NSA #00439,iStorage | Fulling Mill Rd,340 Fulling Mill Rd,Rio Grande,NJ,08242,39.016632,-74.899184
+NSA #00454,iStorage | Hurffville Rd,1705 Hurffville Rd,Sewell,NJ,08080,39.794939,-75.097955
+NSA #00442,iStorage | Hurffville - Cross Keys Rd,469 Hurffville - Cross Keys Rd,Sewell,NJ,08080,39.737967,-75.071058
+NSA #00441,iStorage | S New York Rd,36 S New York Rd,Smithville,NJ,08205,39.487861,-74.457803
+NSA #00452,iStorage | Crown Point Rd,1701 Crown Point Rd,West Deptford,NJ,08086,39.852534,-75.16899
+NSA #01047,iStorage | Greenwood Lake Turnpike,1867 Greenwood Lake Turnpike,West Milford,NJ,07421,41.143569,-74.347567
+NSA #00686,iStorage | Glassboro Rd,1330 Glassboro Rd,Williamstown,NJ,08094,39.694218,-75.044876
+NSA #00788,RightSpace Storage | Coors Blvd NW,2559 Coors Blvd NW,Albuquerque,NM,87120,35.111582,-106.703011
+NSA #00789,RightSpace Storage | Eubank Blvd NE,4801 Eubank Blvd NE,Albuquerque,NM,87111,35.135266,-106.53493
+NSA #00790,RightSpace Storage | Pan American Fwy NE,4620 Pan American Fwy NE,Albuquerque,NM,87109,35.132764,-106.607421
+NSA #01136,RightSpace Storage | Aztec Rd NE,3201 Aztec Rd NE,Albuquerque,NM,87107,35.120332,-106.60817
+NSA #00787,RightSpace Storage | South Hill,255 South Hill,Bernalillo,NM,87004,35.313389,-106.538609
+NSA #01134,RightSpace Storage | South Hill,845 South Hill,Bernalillo,NM,87004,35.301513,-106.540855
+NSA #01135,RightSpace Storage | Camino Del Pueblo,213 Camino Del Pueblo,Bernalillo,NM,87004,35.316545,-106.545897
+NSA #01197,RightSpace Storage | 3400 W 7th St,3400 W 7th St,Clovis,NM,88101,34.405189,-103.246013
+NSA #01196,RightSpace Storage | 5126 N Prince St,5126A Prince St,Clovis,NM,88101,34.453035,-103.197691
+NSA #00940,RightSpace Storage | Playa Dr,509 Playa Dr,Clovis,NM,88101,34.433193,-103.200752
+NSA #00939,RightSpace Storage |  E Manana Blvd,1104 E Manana Blvd,Clovis,NM,88101,34.427223,-103.192587
+NSA #00938,RightSpace Storage | E Llano Estacado Blvd,2121 E Llano Estacado Blvd,Clovis,NM,88101,34.433193,-103.179382
+NSA #00937,RightSpace Storage | 2220 Ross St,2220 Ross St,Clovis,NM,88101,34.421451,-103.198163
+NSA #00791,RightSpace Storage | Emilio Lopez Rd,801 Emilio Lopez Rd,Los Lunas,NM,87031,34.82166,-106.757
+NSA #00779,RightSpace Storage | Avenida de Las Americas,1439 Avenida de Las Americas,Santa Fe,NM,87507,35.646816,-106.002342
+NSA #00695,iStorage | Church St,709 Church St,Bayport,NY,11705,40.7638,-73.046442
+NSA #01207,iStorage | 73 Horseblock Rd,73 Horseblock Road,Bellport,NY,11713,40.806113,-72.942699
+NSA #00978,iStorage | 560 Rte 9W,560 Rte 9W,Glenmont,NY,12077,42.5932,-73.793925
+NSA #00490,iStorage | Ballard Rd,295 Ballard Rd,Middletown,NY,10941,41.453624,-74.36003
+NSA #00537,iStorage | Waverly Ave,257 Waverly Ave,Patchogue,NY,11772,40.773853,-73.027706
+NSA #01031,iStorage | Thatcher St,78 Thatcher St,Selkirk,NY,12158,42.533135,-73.80444
+NSA #00216,SecurCare Self Storage | James Jackson Ave,120 James Jackson Ave,Cary,NC,27513,35.796959,-78.801805
+NSA #00213,SecurCare Self Storage | E Independence Blvd,8438 E Independence Blvd,Charlotte,NC,28227,35.148988,-80.729237
+NSA #00206,SecurCare Self Storage | Sherron Rd,2015 Sherron Rd,Durham,NC,27703,35.950247,-78.835123
+NSA #00197,SecurCare Self Storage | NC-55,5311 NC-55,Durham,NC,27713,35.89125,-78.895935
+NSA #00198,SecurCare Self Storage | Durham-Chapel Hill Blvd,5502 Durham-Chapel Hill Blvd,Durham,NC,27707,35.953149,-78.995805
+NSA #00199,SecurCare Self Storage | Hillsborough Rd,3472 Hillsborough Rd,Durham,NC,27705,36.0239,-78.945905
+NSA #00364,SecurCare Self Storage | Bragg Blvd,3520 Bragg Blvd,Fayetteville,NC,28303,35.080021,-78.939962
+NSA #00360,SecurCare Self Storage | N Reilly Rd,320 N Reilly Rd,Fayetteville,NC,28303,35.090259,-79.009831
+NSA #00361,SecurCare Self Storage | George Owen Rd,2655 George Owen Rd,Fayetteville,NC,28306,34.99496,-78.966032
+NSA #00362,SecurCare Self Storage | Bragg Blvd,3800 Bragg Blvd,Fayetteville,NC,28303,35.081235,-78.942083
+NSA #00363,SecurCare Self Storage | Skibo Rd,1939 Skibo Rd,Fayetteville,NC,28314,35.064491,-78.966518
+NSA #00366,SecurCare Self Storage | McArthur Rd,526 McArthur Rd,Fayetteville,NC,28311,35.124071,-78.884926
+NSA #00367,SecurCare Self Storage | Rim Rd,1057 Rim Rd,Fayetteville,NC,28314,35.060224,-79.049089
+NSA #01099,SecurCare Self Storage | Raeford Rd,5517 Raeford Rd,Fayetteville,NC,28304,35.04359,-78.976587
+NSA #00211,SecurCare Self Storage | Indian Trail Rd W,4919 Unionville - Indian Trail Rd W,Indian Trail,NC,28079,35.075605,-80.648473
+NSA #00212,SecurCare Self Storage | Matthews-Mint Hill Rd,720 Matthews-Mint Hill Rd,Matthews,NC,28105,35.117244,-80.710873
+NSA #00205,SecurCare Self Storage | Morrisville Pkwy,900 Morrisville Pkwy,Morrisville,NC,27560,35.810885,-78.818355
+NSA #00214,SecurCare Self Storage | Highland St,540 Highland St,Mount Holly,NC,28120,35.290603,-81.015895
+NSA #00217,SecurCare Self Storage | Sinclair Dr,5201 Sinclair Dr,Raleigh,NC,27616,35.861936,-78.550824
+NSA #00201,SecurCare Self Storage | Glenwood Ave,7012 Glenwood Ave,Raleigh,NC,27612,35.864859,-78.714007
+NSA #00200,SecurCare Self Storage | Beryl Rd,4615 Beryl Rd,Raleigh,NC,27606,35.794484,-78.703499
+NSA #00365,SecurCare Self Storage | Hillsborough St,6501 Hillsborough St,Raleigh,NC,27606,35.787685,-78.740492
+NSA #00193,SecurCare Self Storage | Oleander Dr,5319 Oleander Dr,Wilmington,NC,28403,34.209408,-77.861829
+NSA #01128,SecurCare Self Storage | Troy Dr,2540 Troy Dr,Wilmington,NC,28401,34.192188,-77.92864
+NSA #01127,SecurCare Self Storage | 809 Shipyard Blvd,809 Shipyard Blvd,Wilmington,NC,28412,34.192188,-77.92864
+NSA #00194,SecurCare Self Storage | Carolina Beach Rd,6020 Carolina Beach Rd,Wilmington,NC,28412,34.12092,-77.903042
+NSA #00368,SecurCare Self Storage | Market St,6837 Market St,Wilmington,NC,28405,34.261654,-77.832127
+NSA #00195,SecurCare Self Storage | Carolina Beach Rd,4851 Carolina Beach Rd,Wilmington,NC,28412,34.153099,-77.904068
+NSA #00196,SecurCare Self Storage | S Kerr Ave,110 S Kerr Ave,Wilmington,NC,28403,34.23772,-77.890854
+NSA #00202,SecurCare Self Storage | College Rd,426 College Rd,Wilmington,NC,28403,34.232188,-77.87645
+NSA #00203,SecurCare Self Storage | Carolina Beach Rd,5835 Carolina Beach Rd,Wilmington,NC,28412,34.125713,-77.898265
+NSA #00192,SecurCare Self Storage | Shipyard Blvd,901 Shipyard Blvd,Wilmington,NC,28412,34.192468,-77.927993
+NSA #00207,SecurCare Self Storage | Raleigh Rd Pkwy W,4371 Raleigh Rd Pkwy W,Wilson,NC,27896,35.760923,-77.987806
+NSA #00215,SecurCare Self Storage | Ward Blvd,3105 Ward Blvd,Wilson,NC,27893,35.75519,-77.918487
+NSA #00208,SecurCare Self Storage | Westwood Ave W,1900 Westwood Ave W,Wilson,NC,27893,35.73107,-77.948511
+NSA #00209,SecurCare Self Storage | Lake Wilson Rd,3941 Lake Wilson Rd,Wilson,NC,27896,35.774235,-77.940133
+NSA #00450,SecurCare Self Storage | Whipple Ave NW,4050 Whipple Ave NW,Canton,OH,44718,40.844768,-81.422968
+NSA #00681,iStorage | N Bend Rd,5418 N Bend Rd,Cincinnati,OH,45247,39.188022,-84.600069
+NSA #00672,iStorage | Stapleton Ct,2140 Stapleton Ct,Cincinnati,OH,45240,39.285957,-84.559624
+NSA #00671,iStorage | Moellering Ave,2201 Moellering Ave,Cincinnati,OH,45214,39.124171,-84.547334
+NSA #00674,iStorage | Rossash Rd,8900 Rossash Rd,Cincinnati,OH,45236,39.220543,-84.389012
+NSA #00550,iStorage | Marburg Ave,4932 Marburg Ave,Cincinnati,OH,45209,39.16427,-84.424201
+NSA #00678,iStorage | Madison Rd,4725 Madison Rd,Cincinnati,OH,45227,39.159906,-84.414271
+NSA #00679,iStorage | W North Bend Rd,888 W North Bend Rd,Cincinnati,OH,45224,39.202369,-84.518737
+NSA #00680,iStorage | E Galbraith Rd,2360 E Galbraith Rd,Cincinnati,OH,45237,39.212826,-84.437232
+NSA #00669,SecurCare Self Storage | Warrensville Center Rd,1415 Warrensville Center Rd,Cleveland Heights,OH,44121,41.522601,-81.53721
+NSA #00552,iStorage | E Miami River Rd,4015 E Miami River Rd,Cleves,OH,45002,39.172456,-84.74949
+NSA #00677,iStorage | Trinity Church Rd,4820 Trinity Church Rd,Dayton,OH,45415,39.817887,-84.248418
+NSA #00419,SecurCare Self Storage | Brush Rd,1500 Brush Rd,Euclid,OH,44143,41.587454,-81.500146
+NSA #00418,SecurCare Self Storage | Lakeland Blvd,23640 Lakeland Blvd,Euclid,OH,44132,41.59193,-81.517168
+NSA #00675,iStorage | Wildcat Rd,7888 Wildcat Rd,Huber Heights,OH,45424,39.869469,-84.145359
+NSA #00676,iStorage | Hempstead Station Dr,4125 Hempstead Station Dr,Kettering,OH,45429,39.684897,-84.135499
+NSA #00673,iStorage | Wilkens Blvd,9805 Wilkens Blvd,Mason,OH,45040,39.295853,-84.321863
+NSA #00421,SecurCare Self Storage | Hopkins Rd,6784 Hopkins Rd,Mentor,OH,44060,41.685633,-81.319222
+NSA #00598,iStorage | US-22,4100 US-22,Montgomery,OH,45140,39.292066,-84.299394
+NSA #00591,iStorage | Newark Rd,1042 Newark Rd,Mount Vernon,OH,43050,40.368537,-82.479845
+NSA #00416,SecurCare Self Storage | Frank Ave NW,4820 Frank Ave NW,North Canton,OH,44720,40.850414,-81.443295
+NSA #00417,SecurCare Self Storage | Highline Avenue Northwest,5920 Highline Avenue Northwest,North Canton,OH,44720,40.867036,-81.427585
+NSA #00522,iStorage | Franklin Ave,4900 Franklin Ave,Norwood,OH,45212,39.165398,-84.463275
+NSA #00422,SecurCare Self Storage | N Ridge Rd,4376 N Ridge Rd,Perry,OH,44081,41.785506,-81.132126
+NSA #00670,SecurCare Self Storage | Monticello Blvd,4349 Monticello Blvd,South Euclid,OH,44121,41.53907,-81.52449
+NSA #00590,iStorage | Urbana Rd,6530 Urbana Rd,Springfield,OH,45502,40.018597,-83.787175
+NSA #00420,SecurCare Self Storage | St Clair St,38255 St Clair St,Willoughby,OH,44094,41.654041,-81.40506
+NSA #01175,SecurCare Self Storage | Boucher Dr,6222 Boucher Dr,Edmond,OK,73034-9257,35.718726,-97.418904
+NSA #00174,SecurCare Self Storage | NW 178th St,600 NW 178th St,Edmond,OK,73012,35.651859,-97.52574
+NSA #01071,SecurCare Self Storage | N Broadway,5625 N Broadway,Edmond,OK,73034,35.712553,-97.478641
+NSA #00177,SecurCare Self Storage | E 33rd St,168 E 33rd St,Edmond,OK,73013,35.622434,-97.481057
+NSA #01068,SecurCare Self Storage | N Interstate 35 Frontage Rd,6401 N Interstate 35 Frontage Rd,Edmond,OK,73034,35.720763,-97.416917
+NSA #00190,SecurCare Self Storage | S Division St,3819 S Division St,Guthrie,OK,73044,35.838425,-97.426348
+NSA #00189,SecurCare Self Storage | E Prairie Grove Rd,724 E Prairie Grove Rd,Guthrie,OK,73044,35.842515,-97.417109
+NSA #00183,SecurCare Self Storage | SE 29th St,9809 SE 29th St,Midwest City,OK,73130,35.436207,-97.35653
+NSA #01066,SecurCare Self Storage | SE 29th St,8700 SE 29th St,Midwest City,OK,73110,35.4348,-97.375574
+NSA #00181,SecurCare Self Storage | S Air Depot Blvd,1708 S Air Depot Blvd,Midwest City,OK,73110,35.448322,-97.40451
+NSA #01067,SecurCare Self Storage | NE 10th St,9208 NE 10th St,Midwest City,OK,73130,35.477789,-97.365632
+NSA #00184,SecurCare Self Storage | SW 19th St,1001 SW 19th St,Moore,OK,73160,35.321214,-97.508988
+NSA #01065,SecurCare Self Storage | Tower Dr,1801 Tower Dr,Moore,OK,73160,35.320885,-97.483374
+NSA #01069,SecurCare Self Storage | N Mustang Rd,1290 N Mustang Rd,Mustang,OK,73064,35.403112,-97.724187
+NSA #01072,SecurCare Self Storage | W State Hwy 152,816 W State Hwy 152,Mustang,OK,73064,35.39136,-97.74141
+NSA #00185,SecurCare Self Storage | Research Park Blvd,2002 Research Park Blvd,Norman,OK,73069,35.24318,-97.453175
+NSA #00186,SecurCare Self Storage | 12th Ave NE,2430 12th Ave NE,Norman,OK,73071,35.248166,-97.424489
+NSA #00187,SecurCare Self Storage | W Main St,4650 W Main St,Norman,OK,73072,35.218108,-97.510788
+NSA #00173,SecurCare Self Storage | S May Ave,11700 S May Ave,Oklahoma City,OK,73170,35.350833,-97.564659
+NSA #01063,SecurCare Self Storage | S Bryant Ave,9101 S Bryant Ave,Oklahoma City,OK,73160,35.376032,-97.459663
+NSA #01062,SecurCare Self Storage | Melrose Ln,6590 Melrose Ln,Oklahoma City,OK,73127,35.470487,-97.629564
+NSA #01061,SecurCare Self Storage | SW 59th St,3007 SW 59th St,Oklahoma City,OK,73119,35.406409,-97.567795
+NSA #01060,SecurCare Self Storage | S Western Ave,6910 S Western Ave,Oklahoma City,OK,73139,35.39647,-97.529552
+NSA #00172,SecurCare Self Storage | S Sooner Rd,8900 S Sooner Rd,Oklahoma City,OK,73135,35.378378,-97.423211
+NSA #00175,SecurCare Self Storage | W Hefner Rd,7829 W Hefner Rd,Oklahoma City,OK,73162,35.58108,-97.653963
+NSA #00176,SecurCare Self Storage | Roxbury Blvd,8600 Roxbury Blvd,Oklahoma City,OK,73132,35.557576,-97.634278
+NSA #00178,SecurCare Self Storage | NW 10th St,5110 NW 10th St,Oklahoma City,OK,73127,35.477344,-97.616336
+NSA #00179,SecurCare Self Storage | S Meridian Ave,2420 S Meridian Ave,Oklahoma City,OK,73108,35.441082,-97.60024
+NSA #00180,SecurCare Self Storage | S Western Ave,8311 S Western Ave,Oklahoma City,OK,73139,35.383999,-97.53069
+NSA #00182,SecurCare Self Storage | N Sooner Rd,201 N Sooner Rd,Oklahoma City,OK,73117,35.465806,-97.424785
+NSA #00188,SecurCare Self Storage | S Sunnylane Rd,4900 S Sunnylane Rd,Oklahoma City,OK,73135,35.416022,-97.441073
+NSA #00191,SecurCare Self Storage | S Shields Blvd,7612 S Shields Blvd,Oklahoma City,OK,73149,35.390229,-97.504547
+NSA #00276,SecurCare Self Storage | W Wilshire Blvd,20 W Wilshire Blvd,Oklahoma City,OK,73116,35.550646,-97.513007
+NSA #00386,SecurCare Self Storage | W 59th St,11525 W 59th St,Sand Springs,OK,74063,36.078525,-96.120349
+NSA #00395,SecurCare Self Storage | S Sheridan Rd,4411 S Sheridan Rd,Tulsa,OK,74145,36.098658,-95.903835
+NSA #00370,SecurCare Self Storage | S Lewis Ave,8905 S Lewis Ave,Tulsa,OK,74137,36.033838,-95.953192
+NSA #00371,SecurCare Self Storage | S Garnett Rd,3218 S Garnett Rd,Tulsa,OK,74146,36.116571,-95.851519
+NSA #00396,SecurCare Self Storage | S Yale Ave,3210 S Yale Ave,Tulsa,OK,74135,36.117139,-95.923074
+NSA #00372,SecurCare Self Storage | S Sheridan Rd,1434 S Sheridan Rd,Tulsa,OK,74112,36.142005,-95.905583
+NSA #00394,SecurCare Self Storage | E 51st St,2916 E 51st St,Tulsa,OK,74105,36.088349,-95.946586
+NSA #00393,SecurCare Self Storage | S Elgin Ave,705 S Elgin Ave,Tulsa,OK,74120,36.151014,-95.98372
+NSA #00392,SecurCare Self Storage | S Peoria Ave,4530 S Peoria Ave,Tulsa,OK,74105,36.096477,-95.977144
+NSA #00391,SecurCare Self Storage | S Tacoma Ave,3655 S Tacoma Ave,Tulsa,OK,74107,36.109394,-96.009867
+NSA #00389,SecurCare Self Storage | S Mingo Rd,6308 S Mingo Rd,Tulsa,OK,74133,36.07166,-95.870811
+NSA #00388,SecurCare Self Storage | E 61st St,11122 E 61st St,Tulsa,OK,74133,36.073998,-95.852859
+NSA #00387,SecurCare Self Storage | S Mingo Rd,5815 S Mingo Rd,Tulsa,OK,74146,36.078145,-95.867185
+NSA #00378,SecurCare Self Storage | S Mingo Rd,4360 S Mingo Rd,Tulsa,OK,74146,36.101089,-95.870642
+NSA #00377,SecurCare Self Storage | S Sheridan Rd,9135 S Sheridan Rd,Tulsa,OK,74133,36.030219,-95.903004
+NSA #00376,SecurCare Self Storage | S Trenton Ave,6834 S Trenton Ave,Tulsa,OK,74136,36.061924,-95.971176
+NSA #00375,SecurCare Self Storage | S Peoria Ave,6436 S Peoria Ave,Tulsa,OK,74136,36.070051,-95.97669
+NSA #00374,SecurCare Self Storage | E Skelly Dr,12323 E Skelly Dr,Tulsa,OK,74128,36.155193,-95.83967
+NSA #00373,SecurCare Self Storage | E 11th St,9727 E 11th St,Tulsa,OK,74128,36.149749,-95.86803
+NSA #01064,SecurCare Self Storage | E Main St,801 E Main St,Yukon,OK,73099,35.508297,-97.730034
+NSA #01070,SecurCare Self Storage | S Czech Hall Rd,1513 S Czech Hall Rd,Yukon,OK,73099,35.451292,-97.74289
+NSA #01132,Northwest Self Storage | S 1st St,109 S 1st St,Amity,OR,97101,45.1196,-123.207048
+NSA #00030,Northwest Self Storage | 5th St,204 5th St,Amity,OR,97101,45.116085,-123.207898
+NSA #00067,Northwest Self Storage | NW Oak Way,42270 NW Oak Way,Banks,OR,97106,45.610155,-123.11181
+NSA #00050,Northwest Self Storage | SW Columbia St,317 SW Columbia St,Bend,OR,97702,44.045426,-121.327664
+NSA #00086,Northwest Self Storage | N Hwy 97,62939 N Hwy 97,Bend,OR,97703,44.085415,-121.306527
+NSA #00003,Northwest Self Storage | SE 3rd St,100 SE 3rd St,Bend,OR,97702,44.05166,-121.301927
+NSA #00021,Northwest Self Storage | SW Industrial Way,150 SW Industrial Way,Bend,OR,97702,44.05101,-121.309364
+NSA #00016,Northwest Self Storage | SW Century Dr,136 SW Century Dr,Bend,OR,97702,44.049407,-121.331211
+NSA #00043,Northwest Self Storage | S Barlow Rd,24622 S Barlow Rd,Canby,OR,97013,45.251258,-122.721351
+NSA #00012,Northwest Self Storage | 1239 SE 1st Ave,1239 SE 1st Ave,Canby,OR,97013,45.265369,-122.679613
+NSA #01075,Northwest Self Storage | 1753 SE 1st Ave,1753 SE 1st Ave,Canby,OR,97013,45.268657,-122.672526
+NSA #00020,Northwest Self Storage | SE 82nd Dr,14735 SE 82nd Dr,Clackamas,OR,97015,45.41584,-122.571275
+NSA #00014,Northwest Self Storage | SE Hwy 212,13003 SE Hwy 212,Clackamas,OR,97015,45.410058,-122.528677
+NSA #00071,Northwest Self Storage | NW Buchanan Ave,505 NW Buchanan Ave,Corvallis,OR,97330,44.574965,-123.25858
+NSA #00019,Northwest Self Storage | SE Old Barn Ln,14613 SE Old Barn Ln,Damascus,OR,97089,45.416997,-122.449262
+NSA #01130,Northwest Self Storage | NW Industrial Way,775 NW Industrial Way,Estacada,OR,97023,45.2968,-122.344509
+NSA #00036,Northwest Self Storage | NW Campus Dr,2330 NW Campus Dr,Estacada,OR,97023,45.308372,-122.34639
+NSA #00079,Northwest Self Storage | State Hwy 99 N,599 State Hwy 99 N,Eugene,OR,97402,44.067891,-123.139118
+NSA #00024,Northwest Self Storage | State Hwy 99 N,1601 State Hwy 99 N,Eugene,OR,97402,44.079376,-123.150129
+NSA #00060,Northwest Self Storage | W 11th Ave,3550 W 11th Ave,Eugene,OR,97402,44.047194,-123.144881
+NSA #00052,Northwest Self Storage | W 11th Ave,3210 W 11th Ave,Eugene,OR,97402,44.04764,-123.141008
+NSA #00049,Northwest Self Storage | Hawthorne Ave,3150 Hawthorne Ave,Eugene,OR,97402,44.072426,-123.147027
+NSA #00082,Northwest Self Storage | Elm St,620 Elm St,Forest Grove,OR,97116,45.506235,-123.103914
+NSA #00055,Northwest Self Storage | Pacific Ave,3312 Pacific Ave,Forest Grove,OR,97116,45.519649,-123.08912
+NSA #00088,Northwest Self Storage | 82nd Dr,660 82nd Dr,Gladstone,OR,97027,45.386428,-122.576835
+NSA #00046,Northwest Self Storage | NW Division St,2660 NW Division St,Gresham,OR,97030,45.502909,-122.459889
+NSA #00085,Northwest Self Storage | SE Mount Hood Hwy,629 SE Mount Hood Hwy,Gresham,OR,97080,45.492064,-122.404831
+NSA #00015,Northwest Self Storage | SE 130th Ave,13255 SE 130th Ave,Happy Valley,OR,97086,45.426772,-122.530625
+NSA #00057,Northwest Self Storage | E Baseline St,3437 E Baseline St,Hillsboro,OR,97123,45.51944,-123.029603
+NSA #00069,Northwest Self Storage | SE Witch Hazel Rd,4395 SE Witch Hazel Rd,Hillsboro,OR,97123,45.500318,-122.938053
+NSA #00042,Northwest Self Storage | Cascade Ave,2455 Cascade Ave,Hood River,OR,97031,45.709873,-121.535958
+NSA #00054,Northwest Self Storage | J St,3267 J St,Hubbard,OR,97032,45.17824,-122.806822
+NSA #00097,Northwest Self Storage | Hoffman Rd,9680 Hoffman Rd,Independence,OR,97351,44.864225,-123.22861
+NSA #00064,Northwest Self Storage | S 16th St,401 S 16th St,Independence,OR,97351,44.850239,-123.21135
+NSA #00013,Northwest Self Storage | SW Booth Bend Rd,1240 SW Booth Bend Rd,McMinnville,OR,97128,45.191462,-123.21246
+NSA #00089,Northwest Self Storage | W Main St,704 W Main St,Molalla,OR,97038,45.147456,-122.586854
+NSA #00037,Northwest Self Storage | NE Dunberg Loop,23830 NE Dunberg Loop,Newberg,OR,97132,45.29371,-122.99334
+NSA #00081,Northwest Self Storage | Molalla Ave,615 Molalla Ave,Oregon City,OR,97045,45.346569,-122.595979
+NSA #00072,Northwest Self Storage | SE 26th Ave,5122 SE 26th Ave,Portland,OR,97202,45.485539,-122.638814
+NSA #00078,Northwest Self Storage | SE 122nd Ave,5803 SE 122nd Ave,Portland,OR,97236,45.480123,-122.537891
+NSA #00080,Northwest Self Storage | SE 202nd Ave,614 SE 202nd Ave,Portland,OR,97233,45.517995,-122.454827
+NSA #00094,Northwest Self Storage | SW Canyon Rd,9065 SW Canyon Rd,Portland,OR,97225,45.497104,-122.770049
+NSA #00009,Northwest Self Storage | NE Erin Way,12107 NE Erin Way,Portland,OR,97220,45.558185,-122.538282
+NSA #00059,Northwest Self Storage | NE Columbia Blvd,3510 NE Columbia Blvd,Portland,OR,97211,45.572919,-122.627787
+NSA #00007,Northwest Self Storage | SE Alder St,109 SE Alder St,Portland,OR,97214,45.518196,-122.664446
+NSA #00034,Northwest Self Storage | SE Morrison St,215 SE Morrison St,Portland,OR,97214,45.517561,-122.663355
+NSA #00047,Northwest Self Storage | SE 82nd Ave,2922 SE 82nd Ave,Portland,OR,97266,45.500999,-122.578265
+NSA #00093,Northwest Self Storage | N Lombard St,8190 N Lombard St,Portland,OR,97203,45.58907,-122.750766
+NSA #00011,Northwest Self Storage | NW Madras Hwy,1222 NW Madras Hwy,Prineville,OR,97754,44.311865,-120.867918
+NSA #00063,Northwest Self Storage | SW 25th Pl,3925 SW 25th Pl,Redmond,OR,97756,44.240172,-121.196572
+NSA #00017,Northwest Self Storage | NW 6th St,1401 NW 6th St,Redmond,OR,97756,44.289286,-121.174678
+NSA #00075,Northwest Self Storage | NW Maple Ave,539 NW Maple Ave,Redmond,OR,97756,44.291253,-121.172947
+NSA #00092,Northwest Self Storage | Old Hwy 99 N,7901 Old Hwy 99 N,Roseburg,OR,97470,43.30938,-123.344759
+NSA #00023,Northwest Self Storage | Hickory St NE,1575 Hickory St NE,Salem,OR,97301,44.963618,-123.013206
+NSA #00068,Northwest Self Storage | Silverton Rd NE,4345 Silverton Rd NE,Salem,OR,97305,44.970733,-122.975433
+NSA #00051,Northwest Self Storage | Del Webb Ave NE,3191 Del Webb Ave NE,Salem,OR,97301,44.971036,-123.018371
+NSA #00061,Northwest Self Storage | Industrial Way,36800 Industrial Way,Sandy,OR,97055,45.401572,-122.285384
+NSA #00073,Northwest Self Storage | Columbia River Hwy,53365 Columbia River Hwy,Scappoose,OR,97056,45.769858,-122.881286
+NSA #00056,Northwest Self Storage | NE Crown Zellerbach Logging Rd,33484 NE Crown Zellerbach Logging Rd,Scappoose,OR,97056,45.763212,-122.878074
+NSA #01131,Northwest Self Storage | W Main St,1527 W Main St,Sheridan,OR,97378,45.095782,-123.42655
+NSA #00031,Northwest Self Storage | SW Cipole Rd,20475 SW Cipole Rd,Sherwood,OR,97140,45.371736,-122.810138
+NSA #00032,Northwest Self Storage | SW Wildrose Pl,20865 SW Wildrose Pl,Sherwood,OR,97140,45.369126,-122.813876
+NSA #00045,Northwest Self Storage | Olympic St,2656 Olympic St,Springfield,OR,97477,44.06166,-122.988053
+NSA #00048,Northwest Self Storage | S Vernonia Rd,295 S Vernonia Rd,St Helens,OR,97051,45.856025,-122.826492
+NSA #00091,Northwest Self Storage | N Columbia River Hwy,755 N Columbia River Hwy,St Helens,OR,97051,45.868777,-122.81713
+NSA #00005,Northwest Self Storage | B Ave,1030 B Ave,Terrebonne,OR,97760,44.350734,-121.180939
+NSA #00096,Northwest Self Storage | Hostetler Way W,954 Hostetler Way W,The Dalles,OR,97058,45.622651,-121.221627
+NSA #00038,Northwest Self Storage | W 7th St,2400 W 7th St,The Dalles,OR,97058,45.612997,-121.212516
+NSA #00077,Northwest Self Storage | SW Halsey St,576 SW Halsey St,Troutdale,OR,97060,45.539537,-122.393104
+NSA #00028,Northwest Self Storage | SW Pacific Hwy,18270 SW Pacific Hwy,Tualatin,OR,97062,45.387731,-122.806394
+NSA #00029,Northwest Self Storage | SW Cipole Rd,19800 SW Cipole Rd,Tualatin,OR,97062,45.37647,-122.812399
+NSA #00039,Northwest Self Storage | Willamette Falls Dr,2400 Willamette Falls Dr,West Linn,OR,97068,45.347328,-122.64569
+NSA #00095,Northwest Self Storage | SW Wilsonville Rd,9455 SW Wilsonville Rd,Wilsonville,OR,97070,45.303605,-122.773924
+NSA #00074,Northwest Self Storage | S Pacific Hwy,535 S Pacific Hwy,Woodburn,OR,97071,45.131142,-122.849522
+NSA #00444,iStorage | Market St,2520 Market St,Aston,PA,19061,39.837214,-75.425245
+NSA #00975,iStorage | Holly Pike,1545 Holly Pike,Carlisle,PA,17015,40.15793,-77.19371
+NSA #00961,iStorage | Germantown Pike,3930 Germantown Pike,Collegeville,PA,19426,40.182945,-75.438856
+NSA #00962,iStorage | N U.S. 15,845 N U.S. 15,Dillsburg,PA,17019,40.130843,-77.02179
+NSA #00952,iStorage | Benjamin Franklin Hwy,604 Benjamin Franklin Hwy,Douglassville,PA,19518,40.267837,-75.763517
+NSA #01033,iStorage | Sullivan Trail,3221 Sullivan Trail,Easton,PA,18040,40.736517,-75.235164
+NSA #00977,iStorage | Uhler Rd,1350 Uhler Rd,Easton,PA,18040,40.744979,-75.244935
+NSA #00443,iStorage | Oregon Pike,4353 Oregon Pike,Ephrata,PA,17522,40.136934,-76.212931
+NSA #00682,iStorage | Queen St,7600 Queen St,Glenside,PA,19038,40.079711,-75.181827
+NSA #01046,iStorage | Columbia Ave,3630 Columbia Ave,Lancaster,PA,17603,40.036879,-76.40731
+NSA #01045,iStorage | Prestige Ln,22 Prestige Ln,Lancaster,PA,17603,40.044894,-76.399749
+NSA #00973,iStorage | New Danville,1350 New Danville Pike,Lancaster,PA,17603,40.012556,-76.305403
+NSA #00948,iStorage | Shreiner Station Rd,1250 Shreiner Station Rd,Lancaster,PA,17601,40.078218,-76.348244
+NSA #00947,iStorage | Longfellow Dr,551 Longfellow Dr,Lancaster,PA,17602,40.027222,-76.266512
+NSA #00946,iStorage | Vermont Ave,1391 Vermont Ave,Lancaster,PA,17603,40.056631,-76.332819
+NSA #00945,iStorage | Stone Mill,103 Stone Mill Rd,Lancaster,PA,17603,40.036189,-76.344911
+NSA #00944,iStorage | Centerville Rd,220 Centerville Rd,Lancaster,PA,17603,40.047354,-76.393997
+NSA #00960,iStorage | US-22,895 US-22,Lewistown,PA,17044,40.578886,-77.551892
+NSA #00949,iStorage | Doe Run Rd,28 Doe Run Rd,Manheim,PA,17545,40.168689,-76.386562
+NSA #00976,iStorage | E Trindle Rd,5130 E Trindle Rd,Mechanicsburg,PA,17050,40.223086,-76.976674
+NSA #00965,iStorage | Universal Rd,1134 Universal Rd,Pittsburgh,PA,15235,40.461406,-79.803856
+NSA #00951,iStorage | Pleasantview,175 S Pleasantview Rd,Pottstown,PA,19464,40.241682,-75.59776
+NSA #00950,iStorage | Lancaster Pike,950 Lancaster Pike,Quarryville,PA,17566,39.878391,-76.230691
+NSA #00966,iStorage | Foxtown Hill Rd,1075 Foxtown Hill Rd,Stroudsburg,PA,18360,40.987281,-75.154113
+NSA #00964,iStorage | Allegheny River Blvd,10 Allegheny River Blvd,Verona,PA,15147,40.494691,-79.847196
+NSA #00942,iStorage | Greenbriar Rd,2290 Greenbriar Rd,York,PA,17404,40.017714,-76.809449
+NSA #00943,iStorage | Morgan Ln,140 Morgan Ln,York,PA,17406,40.029577,-76.728897
+NSA #01025,iStorage | Bull Rd,3420 Bull Rd,York,PA,17404,40.0115,-76.807558
+NSA #00972,iStorage | W Market St,4844 W Market St,York,PA,17408,39.927041,-76.835994
+NSA #00918,Southern Self Storage | Carr No 1 KM 29.8 Bo,Carr No 1 KM 29.8 Bo,Caguas,PR,00936,18.282817,-66.043269
+NSA #00931,Southern Self Storage | Estancias de Bairoa 1000 Ave Parque Central,Estancias de Bairoa 1000 Ave Parque Central,Caguas,PR,00727,18.251113,-66.043566
+NSA #00928,Southern Self Storage | Av. 65 de Infanteria,7500 Av. 65 de Infantería,Carolina,PR,00987,18.385497,-65.970928
+NSA #00932,Southern Self Storage | Zona Ind La Ceramica Carr 190 Esq Av. Roberto Sanchez Vilella,Zona Ind La Ceramica Carr 190 Esq Av. Roberto Sanchez Vilella,Carolina,PR,00984,18.416954,-65.984383
+NSA #00919,Southern Self Storage | Calle 2 Final West Gate,Calle 2 Final West Gate,Cataño,PR,00962,18.423045,-66.151446
+NSA #00920,Southern Self Storage | Carretera #1 KM 21.3 Sector La Muda,Carretera #1 KM 21.3 Sector La Muda,Guaynabo,PR,00971,18.329486,-66.097264
+NSA #00941,Southern Self Storage | Calle San Martin,70 Calle San Martín,Guaynabo,PR,00966,18.414001,-66.103766
+NSA #00929,Southern Self Storage | Urb Valencia 2 #102 Carr 198,Urb Valencia 2 #102 Carr 198,Juncos,PR,00777,18.223693,-65.914706
+NSA #00921,Southern Self Storage | Urb Ferry Barranca 245 Calle Rosas,245 Calle Rosas,Ponce,PR,00730,18.023463,-66.603678
+NSA #00916,Southern Self Storage | C. Concepcion 2 Pda20,C. Concepción 2 Pda20,San Juan,PR,00909,18.442704,-66.073165
+NSA #00926,Southern Self Storage |  C. Trinidad,108 C. Trinidad,San Juan,PR,00917,18.423797,-66.049652
+NSA #00927,Southern Self Storage | Cll Betances,227 Cll Betances,San Juan,PR,00911,18.447553,-66.051847
+NSA #00930,Southern Self Storage | C. Blay,25 C. Blay,San Juan,PR,00920,18.419278,-66.097025
+NSA #00917,Southern Self Storage | Carretera #2 Km. 19.5 Bo. Candelaria,Carretera #2 Km. 19.5 Bo. Candelaria,Toa Baja,PR,00949,18.408644,-66.229082
+NSA #00933,Southern Self Storage | PR-2,346 PR-2,Toa Baja,PR,00949,18.403688,-66.205741
+NSA #00696,iStorage | Okeefe Ln,50 Okeefe Ln,Warwick,RI,02888,41.756219,-71.436617
+NSA #00218,SecurCare Self Storage | Marginal Rd,3180 Marginal Rd,Charleston,SC,29414,32.798615,-80.087751
+NSA #00220,SecurCare Self Storage | Clements Ferry Rd,1074 Clements Ferry Rd,Charleston,SC,29492,32.933312,-79.820044
+NSA #00210,SecurCare Self Storage | Cranium Drive,1679 Cranium Drive,Rock Hill,SC,29732,34.948283,-81.059768
+NSA #00219,SecurCare Self Storage | Miles Jamison Rd,619 Miles Jamison Rd,Summerville,SC,29485,32.995502,-80.16815
+NSA #00558,iStorage | Airport Plaza Blvd,142 Airport Plaza Blvd,Alcoa,TN,37701,35.814395,-83.979821
+NSA #00701,iStorage | Pea Ridge Rd,2598 Pea Ridge Rd,Clarksville,TN,37040,36.578655,-87.322907
+NSA #00702,iStorage | Columbia Ave,1903 Columbia Ave,Franklin,TN,37064,35.898013,-86.873381
+NSA #00597,iStorage | Nelson Ln,645 Nelson Ln,Friendsville,TN,37737,35.757318,-84.068606
+NSA #00705,iStorage | Belvedere Dr N,465 Belvedere Dr N,Gallatin,TN,37066,36.383216,-86.477627
+NSA #00703,iStorage | W Main St,1066 W Main St,Hendersonville,TN,37075,36.307256,-86.653659
+NSA #00704,iStorage | Andrew Jackson Pkwy,4060B Andrew Jackson Pkwy,Hermitage,TN,37076,36.186298,-86.609568
+NSA #00602,iStorage | Dry Gap Pike,1831 Dry Gap Pike,Knoxville,TN,37918,36.06147,-83.977206
+NSA #00565,iStorage | Walker Blvd,4540 Walker Blvd,Knoxville,TN,37917,36.018722,-83.919835
+NSA #00564,iStorage | Unicorn Dr,8713 Unicorn Dr,Knoxville,TN,37923,35.918948,-84.075828
+NSA #00563,iStorage | Middlebrook Pike,4318 Middlebrook Pike,Knoxville,TN,37921,35.963444,-83.984181
+NSA #00562,iStorage | Linden Ave,1700 Linden Ave,Knoxville,TN,37917,35.977347,-83.906536
+NSA #00561,iStorage | Kingston Pike,8848 Kingston Pike,Knoxville,TN,37923,35.91474,-84.075859
+NSA #00560,iStorage | Chapman Hwy,4709 Chapman Hwy,Knoxville,TN,37920,35.92956,-83.900633
+NSA #00559,iStorage | Central Ave Pike,4811 Central Ave Pike,Knoxville,TN,37912,36.008969,-83.968163
+NSA #00707,iStorage | Maddox-Simpson Pkwy,136 Maddox-Simpson Pkwy,Lebanon,TN,37090,36.172806,-86.300604
+NSA #00706,iStorage | Quarry Loop Rd,400 Quarry Loop Rd,Mt Juliet,TN,37122,36.230015,-86.430643
+NSA #01208,iStorage | Belinda Pkwy,166 Belinda Pkwy,Mt. Juliet,TN,37122,36.171835,-86.490964
+NSA #00708,iStorage | Harrah Dr,3000 Harrah Dr,Spring Hill,TN,37174,35.778125,-86.911052
+NSA #00551,iStorage | Union Rd,2979 Union Rd,White House,TN,37188,36.464594,-86.693011
+NSA #00709,iStorage | TN-76,1120 TN-76,White House,TN,37188,36.470522,-86.692181
+NSA #00150,Move It Storage | S Alamo Rd,501 S Alamo Rd,Alamo,TX,78516,26.178591,-98.12481
+NSA #01054,Move It Storage | W Duranta Ave,1415 W Duranta Ave,Alamo,TX,78516,26.18984,-98.131258
+NSA #00743,SecurCare Self Storage | E Main St,610 E Main St,Allen,TX,75002,33.099949,-96.657717
+NSA #00274,SecurCare Self Storage | W Amarillo Blvd,3814 W Amarillo Blvd,Amarillo,TX,79106,35.222513,-101.880583
+NSA #00275,SecurCare Self Storage | I-40,4000 I-40,Amarillo,TX,79104,35.19124,-101.78877
+NSA #00281,SecurCare Self Storage | Lowes Ln,6620 Lowes Ln,Amarillo,TX,79106,35.21161,-101.909491
+NSA #00282,SecurCare Self Storage | Paramount Blvd,2501 Paramount Blvd,Amarillo,TX,79109,35.187746,-101.872688
+NSA #00283,SecurCare Self Storage | SW 34th Ave,7409 SW 34th Ave,Amarillo,TX,79121,35.175195,-101.922957
+NSA #00284,SecurCare Self Storage | 4708 Bell St,4708 Bell St,Amarillo,TX,79109,35.158903,-101.903224
+NSA #00285,SecurCare Self Storage | E 34th Ave,1500 E 34th Ave,Amarillo,TX,79118,35.176699,-101.822756
+NSA #00286,SecurCare Self Storage | Coulter St S,5300 Coulter St S,Amarillo,TX,79119,35.150236,-101.921885
+NSA #00390,SecurCare Self Storage | N Forest St,831 N Forest St,Amarillo,TX,79106,35.22351,-101.882038
+NSA #00408,SecurCare Self Storage | Teckla Blvd,4332 Teckla Blvd,Amarillo,TX,79109-5422,35.164703,-101.888593
+NSA #00834,SecurCare Self Storage | S Soncy Rd,8213 S Soncy Rd,Amarillo,TX,79119,35.123177,-101.937484
+NSA #01129,SecurCare Self Storage | 4600 Bell St,4600 Bell St,Amarillo,TX,79109,35.160475,-101.904322
+NSA #01115,SecurCare Self Storage | N Powell Pkwy,3119 N Powell Pkwy,Anna,TX,75409,33.383938,-96.558556
+NSA #00253,SecurCare Self Storage | S Cooper St,3016 S Cooper St,Arlington,TX,76015,32.695759,-97.126263
+NSA #00254,SecurCare Self Storage | S Collins St,2331 S Collins St,Arlington,TX,76014,32.705514,-97.09706
+NSA #00255,SecurCare Self Storage | N Collins St,2306 N Collins St,Arlington,TX,76011,32.772176,-97.097733
+NSA #00745,RightSpace Storage | State Hwy 71,9023 State Hwy 71,Austin,TX,78735,30.256703,-97.904298
+NSA #00747,RightSpace Storage | Menchaca Rd,9507 Menchaca Rd,Austin,TX,78748,30.175842,-97.820118
+NSA #00754,RightSpace Storage | Research Blvd,8956 Research Blvd,Austin,TX,78758,30.370124,-97.724206
+NSA #01203,RightSpace Storage | Midwood Pkwy,6401 Midwood Pkwy,Austin,TX,78736,30.255981,-97.905502
+NSA #00542,iStorage | Garth Rd,3908 Garth Rd,Baytown,TX,77521,29.76435,-94.976695
+NSA #00604,iStorage | N Alexander Dr,2900 N Alexander Dr,Baytown,TX,77521,29.7534,-94.944056
+NSA #00608,iStorage | Rollingbrook Dr,1670 Rollingbrook Dr,Baytown,TX,77521,29.762165,-94.979618
+NSA #00256,SecurCare Self Storage | Norwood Dr,1320 Norwood Dr,Bedford,TX,76022,32.835568,-97.167483
+NSA #00582,iStorage | TX-36,12085 TX-36,Bellville,TX,77418,29.918603,-96.239467
+NSA #00737,RightSpace Storage | Sparta Rd,1709 Sparta Rd,Belton,TX,76513,31.083421,-97.474004
+NSA #01112,iStorage | 30000 1 10,30000 I-10,Boerne,TX,78006,29.742839,-98.690572
+NSA #01114,iStorage | Shooting Club Rd,105 Shooting Club Rd,Boerne,TX,78006,29.82215,-98.750149
+NSA #00130,Move It Storage | Central Blvd,2315 Central Blvd,Brownsville,TX,78520,25.938336,-97.510191
+NSA #00151,Move It Storage | Ruben M Torres Blvd,6580 Ruben M Torres Blvd,Brownsville,TX,78521,25.939642,-97.424926
+NSA #00152,Move It Storage | Frontage Rd #77,654 Frontage Rd #77,Brownsville,TX,78521,25.931997,-97.49331
+NSA #00153,Move It Storage | Kings Hwy Ste 101A,274 Kings Hwy Ste 101A,Brownsville,TX,78521,25.922374,-97.471143
+NSA #00154,Move It Storage | Morningside Rd,205 Morningside Rd,Brownsville,TX,78521,25.903647,-97.455273
+NSA #00155,Move It Storage | US-281,1575 US-281,Brownsville,TX,78520,25.941614,-97.540836
+NSA #00156,Move It Storage | North Expy,3605 North Expy,Brownsville,TX,78520,25.956373,-97.50742
+NSA #01053,Move It Storage | Central Blvd,2655 Central Blvd,Brownsville,TX,78520,25.940173,-97.510256
+NSA #00384,SecurCare Self Storage | S College Ave,2306 S College Ave,Bryan,TX,77801,30.646131,-96.364575
+NSA #00385,SecurCare Self Storage | Baker Ave,1109 Baker Ave,Bryan,TX,77803,30.668039,-96.369511
+NSA #00748,RightSpace Storage | Park 35 Cove N,227 Park 35 Cove N,Buda,TX,78610,30.069896,-97.831839
+NSA #01118,SecurCare Self Storage | Exchange St,272 Exchange St,Burleson,TX,76028,32.540375,-97.336131
+NSA #01188,SecurCare Self Storage | NW Newton Dr,315 NW Newton Dr,Burleson,TX,76028,32.543131,-97.332966
+NSA #01195,SecurCare Self Storage | NW Newton Dr,245 NW Newton Dr,Burleson,TX,76028-4575,32.540381,-97.336139
+NSA #01161,SecurCare Self Storage | Hunsley Rd,73 Hunsley Rd,Canyon,TX,79015,34.999881,-101.930819
+NSA #00576,iStorage | FM2673,5622 FM2673,Canyon Lake,TX,78133,29.836673,-98.234055
+NSA #00662,SecurCare Self Storage | Oak Tree Dr,2771 Oak Tree Dr,Carrollton,TX,75006,32.984644,-96.855878
+NSA #00131,SecurCare Self Storage | S Preston Rd,3910 S Preston Rd,Celina,TX,75009,33.270804,-96.779632
+NSA #00133,iStorage | Cibolo Valley Dr,508 Cibolo Valley Dr,Cibolo,TX,78108,29.572774,-98.233976
+NSA #00380,SecurCare Self Storage | Longmire Dr,3400 Longmire Dr,College Station,TX,77845,30.584205,-96.28951
+NSA #00381,SecurCare Self Storage | Longmire Dr,3007 Longmire Dr,College Station,TX,77845,30.584205,-96.28951
+NSA #00382,SecurCare Self Storage | Texas 6 Frontage Rd,4074 Texas 6 Frontage Rd,College Station,TX,77845,30.576017,-96.279651
+NSA #00383,SecurCare Self Storage | Graham Rd,625 Graham Rd,College Station,TX,77845,30.569038,-96.296905
+NSA #00528,iStorage | N Loop 336 W,1777 N Loop 336 W,Conroe,TX,77304,30.331004,-95.486342
+NSA #00577,iStorage | N Frazier St,4215 N Frazier St,Conroe,TX,77303,30.367442,-95.47772
+NSA #00583,iStorage | W Davis St,4300 W Davis St,Conroe,TX,77304,30.330772,-95.505805
+NSA #00600,iStorage | W Davis St,2135 W Davis St,Conroe,TX,77304,30.317753,-95.479548
+NSA #00140,Move It Storage | Holly Rd,6001 Holly Rd,Corpus Christi,TX,78412,27.693096,-97.36877
+NSA #00141,Move It Storage | Callicoatte Rd,4302 Callicoatte Rd,Corpus Christi,TX,78410,27.854045,-97.603162
+NSA #00142,Move It Storage | Dunbarton Oak St,6197 Dunbarton Oak St,Corpus Christi,TX,78414,27.675904,-97.372886
+NSA #00143,Move It Storage | Weber Rd,7649 Weber Rd,Corpus Christi,TX,78415,27.690648,-97.433741
+NSA #00144,Move It Storage | S Staples St,6857 S Staples St,Corpus Christi,TX,78413,27.677039,-97.390068
+NSA #00146,Move It Storage | Weber Rd,6537 Weber Rd,Corpus Christi,TX,78413,27.699635,-97.415259
+NSA #00147,Move It Storage | S Padre Island Dr,9337 S Padre Island Dr,Corpus Christi,TX,78418,27.675323,-97.302536
+NSA #00166,Move It Storage | Yorktown Blvd,7101 Yorktown Blvd,Corpus Christi,TX,78414,27.653241,-97.369557
+NSA #00167,Move It Storage | Ayers St,4902 Ayers St,Corpus Christi,TX,78415,27.737612,-97.424447
+NSA #00168,Move It Storage | Holly Rd,3302 Holly Rd,Corpus Christi,TX,78415,27.719289,-97.416167
+NSA #00169,Move It Storage | Villa Dr,701 Villa Dr,Corpus Christi,TX,78408,27.797507,-97.438958
+NSA #00170,Move It Storage | McArdle Rd,6001 McArdle Rd,Corpus Christi,TX,78412,27.706634,-97.360051
+NSA #00171,Move It Storage | S Staples St,6534 S Staples St,Corpus Christi,TX,78413,27.683593,-97.383706
+NSA #00833,Move It Storage | S Padre Island Dr,2902 S Padre Island Dr,Corpus Christi,TX,78415,27.731695,-97.417609
+NSA #01119,SecurCare Self Storage | S Crowley Rd,717 S Crowley Rd,Crowley,TX,76036,32.569976,-97.351857
+NSA #01189,SecurCare Self Storage | 10701 Old Cleburne Crowley Jct Rd,10701 Old Cleburne Crowley Jct Rd,Crowley,TX,76036,32.585418,-97.388225
+NSA #01190,SecurCare Self Storage | 10531 Old Cleburne Crowley Jct Rd,10531 Old Cleburne Crowley Jct Rd,Crowley,TX,76036,32.58788,-97.387576
+NSA #00539,iStorage | Cypress North Houston Rd,14820 Cypress North Houston Rd,Cypress,TX,77429,29.945993,-95.645446
+NSA #01111,iStorage | 17010 Huffmeister Rd,17010 Huffmeister Rd,Cypress,TX,77429,29.995402,-95.678979
+NSA #01178,iStorage | 14130 Huffmeister Rd,14130 Huffmeister Rd,Cypress,TX,77429,29.972951,-95.643036
+NSA #00663,SecurCare | Hargrove Dr,9450 Hargrove Dr,Dallas,TX,75220,32.861113,-96.863466
+NSA #00760,SecurCare Storage | Scyene Rd,10331 Scyene Rd,Dallas,TX,75227,32.76314,-96.645552
+NSA #00529,iStorage | Center St,4013 Center St,Deer Park,TX,77536,29.675174,-95.121554
+NSA #00750,RightSpace Storage | E Hwy 71,4405 E Hwy 71,Del Valle,TX,78617,30.188128,-97.615937
+NSA #00294,SecurCare Self Storage | Fort Worth Dr,550 Fort Worth Dr,Denton,TX,76201,33.200596,-97.137884
+NSA #00764,SecurCare Self Storage | Dallas Dr,1002 Dallas Dr,Denton,TX,76205,33.198453,-97.124672
+NSA #00765,SecurCare Self Storage | E McKinney St,3919 E McKinney St,Denton,TX,76208,33.211369,-97.084191
+NSA #01113,iStorage | FM 646 Rd,4600 FM 646 Rd,Dickinson,TX,77539,29.49245,-95.013856
+NSA #00004,Move It Storage | W Expy 83,1015 W Expy 83,Donna,TX,78537,26.185662,-98.086784
+NSA #00102,Move It Storage | W Expy 83,1091 W Expy 83,Donna,TX,78537,26.185371,-98.089362
+NSA #00157,Move It Storage | E Business Hwy 83,1513 E Business Hwy 83,Donna,TX,78537,26.16928,-98.045272
+NSA #00749,RightSpace Storage | E US-290,3000 E US-290,Dripping Springs,TX,78620,30.193856,-98.03385
+NSA #00103,Move It Storage | South Expressway 281,2400 South Expressway 281,Edinburg,TX,78542,26.277464,-98.149917
+NSA #00158,Move It Storage | N Jackson Rd,222 N Jackson Rd,Edinburg,TX,78541,26.305957,-98.18557
+NSA #00272,SecurCare Self Storage | Will Ruth Ave,5717 Will Ruth Ave,El Paso,TX,79924,31.886487,-106.409647
+NSA #00273,SecurCare Self Storage | Osborne Dr,4701 Osborne Dr,El Paso,TX,79922,31.834827,-106.571827
+NSA #00278,SecurCare Self Storage | N Loop Dr,9565 N Loop Dr,El Paso,TX,79907,31.689676,-106.299107
+NSA #00279,SecurCare Self Storage | Alameda Ave,6982 Alameda Ave,El Paso,TX,79915,31.758849,-106.400217
+NSA #00280,SecurCare Self Storage | Pebble Hills Blvd,11290 Pebble Hills Blvd,El Paso,TX,79936,31.781305,-106.303728
+NSA #00756,SecurCare Storage | Helms Trail,9600 Helms Trail,Forney,TX,75126,32.699442,-96.42918
+NSA #00757,SecurCare Storage | E US Hwy 80,394 E US Hwy 80,Forney,TX,75126,32.750383,-96.458898
+NSA #01117,SecurCare Self Storage | McCart Ave,5197 McCart Ave,Fort Worth,TX,76115,32.670258,-97.353154
+NSA #00136,iStorage | FM 1093,29625 FM 1093,Fulshear,TX,77441,29.689453,-95.885392
+NSA #00293,SecurCare Self Storage | Bobtown Rd,3402 Bobtown Rd,Garland,TX,75043,32.850822,-96.578151
+NSA #00752,RightSpace Storage | TX-29,7650 TX-29,Georgetown,TX,78628,30.637883,-97.816899
+NSA #00111,SecurCare Storage | Robinson Rd,2422 Robinson Rd,Grand Prairie,TX,75051,32.712344,-97.020176
+NSA #00271,SecurCare Self Storage | N Belt Line Rd,914 N Belt Line Rd,Grand Prairie,TX,75050,32.757724,-96.99391
+NSA #00287,SecurCare Self Storage | Equestrian Ln,3031 Equestrian Ln,Grand Prairie,TX,75052,32.651253,-97.059095
+NSA #00759,SecurCare Storage | TX-360,4660 TX-360,Grand Prairie,TX,75052,32.659108,-97.059946
+NSA #00110,Move It Storage | W Expy 83,7802 W Expy 83,Harlingen,TX,78552,26.188538,-97.764932
+NSA #00159,Move It Storage | N Loop 499,513 N Loop 499,Harlingen,TX,78550,26.224546,-97.692596
+NSA #00160,Move It Storage | S Expressway 83,2222 S Expressway 83,Harlingen,TX,78550,26.171516,-97.700631
+NSA #00161,Move It Storage | N 77 Sunshine Strip,216 N 77 Sunshine Strip,Harlingen,TX,78550,26.194638,-97.678418
+NSA #00108,iStorage Self Storage | Normandy St,620 Normandy St,Houston,TX,77015,29.787475,-95.203084
+NSA #00116,iStorage Self Storage | Tully St,1101 Tully St,Houston,TX,77079,29.781027,-95.603049
+NSA #00494,iStorage | Katy Fwy,10200 Katy Fwy,Houston,TX,77043,29.785441,-95.549413
+NSA #00495,iStorage | W Gray St,224 W Gray St,Houston,TX,77019,29.753594,-95.383491
+NSA #00496,iStorage | Almeda Rd,5503 Almeda Rd,Houston,TX,77004,29.720172,-95.379151
+NSA #00497,iStorage | N Braeswood Blvd,4456 N Braeswood Blvd,Houston,TX,77096,29.685396,-95.453558
+NSA #00498,iStorage | Center St,3770 Center St,Houston,TX,77007,29.771031,-95.398295
+NSA #00499,iStorage | Old Spanish Trl,2915 Old Spanish Trl,Houston,TX,77054,29.699754,-95.384222
+NSA #00500,iStorage | Hwy 6 N,4177 Hwy 6 N,Houston,TX,77084,29.833204,-95.646945
+NSA #00527,iStorage | Wallisville Rd,16660 Wallisville Rd,Houston,TX,77049,29.817214,-95.139237
+NSA #00540,iStorage | Cypress Creek Pkwy,1429 Cypress Creek Pkwy,Houston,TX,77090,30.012511,-95.451089
+NSA #00599,iStorage | Blackhawk Blvd,10646 Blackhawk Blvd,Houston,TX,77089,29.588547,-95.239148
+NSA #00541,iStorage | FM 1960,2115 FM 1960,Humble,TX,77338,29.999298,-95.242738
+NSA #01116,SecurCare Self Storage | W Airport Fwy,304 W Airport Fwy,Irving,TX,75062,32.835883,-96.949138
+NSA #00137,iStorage Self Storage | FM 1463,4826 FM 1463,Katy,TX,77494,29.721658,-95.847346
+NSA #00483,iStorage | Gaston Rd,11511 Gaston Rd,Katy,TX,77494,29.751481,-95.831861
+NSA #00538,iStorage | N Fry Rd,5425 N Fry Rd,Katy,TX,77449,29.849398,-95.721015
+NSA #00578,iStorage | Franz Rd,24620 Franz Rd,Katy,TX,77493,29.804123,-95.796887
+NSA #00584,iStorage | Franz Rd,23014 Franz Rd,Katy,TX,77449,29.802197,-95.770565
+NSA #00585,iStorage | Kingsland Blvd,22223 Kingsland Blvd,Katy,TX,77450,29.77439,-95.757838
+NSA #00587,iStorage | 5310 E 5th St,5310 E 5th St,Katy,TX,77493,29.790417,-95.811941
+NSA #01194,iStorage | 5335 E 5th St,5335 E 5th St,Katy,TX,77493,29.789558,-95.813565
+NSA #00112,iStorage Self Storage | Cien Rd,525 Cien Rd,Kemah,TX,77565,29.533916,-95.014017
+NSA #00113,RightSpace Storage | W Stan Schlueter Loop,3601 W Stan Schlueter Loop,Killeen,TX,76549,31.086952,-97.787967
+NSA #00736,RightSpace Storage | E Central Texas Expy Ext,5400 E Central Texas Expy Ext 200,Killeen,TX,76543,31.07569,-97.690488
+NSA #00738,RightSpace Storage | E Rancier Ave,4601 E Rancier Ave,Killeen,TX,76543,31.116244,-97.678202
+NSA #00104,Move It Storage | W Expy 83,3401 W Expy 83,La Feria,TX,78559,26.159773,-97.854326
+NSA #00569,iStorage | FM1765,2919 FM1765,La Marque,TX,77568,29.378356,-94.986689
+NSA #00530,iStorage | Underwood Rd,2619 Underwood Rd,La Porte,TX,77571,29.66699,-95.08564
+NSA #00579,iStorage | N 23rd St,2915 N 23rd St,La Porte,TX,77571,29.667056,-95.042143
+NSA #00543,iStorage | S Egret Bay Blvd,1440 S Egret Bay Blvd,League City,TX,77573,29.508076,-95.069446
+NSA #00755,RightSpace Storage | Hero Way W,11520 Hero Way W,Leander,TX,78641,30.580673,-97.864319
+NSA #00266,SecurCare Self Storage | W Loop 281,1909 W Loop 281,Longview,TX,75604,32.522438,-94.78696
+NSA #00267,SecurCare Self Storage | E Marshall Ave,3400 E Marshall Ave,Longview,TX,75601,32.50254,-94.676806
+NSA #00268,SecurCare Self Storage | TX-281 Loop,1311 TX-281 Loop,Longview,TX,75604,32.531696,-94.774637
+NSA #00269,SecurCare Self Storage | W Cotton St,1005A W Cotton St,Longview,TX,75604,32.505274,-94.768259
+NSA #00295,SecurCare Self Storage | N Eastman Rd,2502 N Eastman Rd,Longview,TX,75605,32.529604,-94.720296
+NSA #00328,SecurCare Self Storage | Gilmer Rd,108 Gilmer Rd,Longview,TX,75604,32.505274,-94.768259
+NSA #00162,Move It Storage |  E Ocean Blvd,511 E Ocean Blvd,Los Fresnos,TX,78566,26.071594,-97.469114
+NSA #00526,iStorage | Bailey Rd,8750 Bailey Rd,Manvel,TX,77578,29.529933,-95.356926
+NSA #00098,Move It Storage | N 10th St,5901 N 10th St,McAllen,TX,78504,26.257046,-98.22149
+NSA #00099,Move It Storage | Industrial Dr,2101 Industrial Dr,McAllen,TX,78504,26.250705,-98.235822
+NSA #00124,Move It Storage | N 10th St,6600 N 10th St,McAllen,TX,78504,26.261811,-98.219015
+NSA #01051,Move It Storage | S McColl Rd,2500 S McColl Rd,McAllen,TX,78503,26.176907,-98.218261
+NSA #01052,Move It Storage | N 10th St,8412 N 10th St,McAllen,TX,78504,26.279648,-98.21645
+NSA #00163,Move It Storage |  N Vermont Ave,601 N Vermont Ave,Mercedes,TX,78570,26.155536,-97.921028
+NSA #00718,SecurCare Self Storage | N Belt Line Rd,4809 N Belt Line Rd,Mesquite,TX,75150,32.830946,-96.596872
+NSA #00762,SecurCare Storage | W Kearney St,502 W Kearney St,Mesquite,TX,75149,32.77048,-96.603516
+NSA #00291,SecurCare Self Storage | MH 379,3101 MH 379,Mineral Wells,TX,76067,32.789891,-98.082115
+NSA #00100,Move It Storage | W Griffin Pkwy,2101 W Griffin Pkwy,Mission,TX,78572,26.231564,-98.351282
+NSA #00101,Move It Storage | N Shary Rd,317 N Shary Rd,Mission,TX,78572,26.204472,-98.28823
+NSA #00125,Move It Storage | Bryan Rd STE 101,200 Bryan Rd STE 101,Mission,TX,78572,26.205305,-98.310598
+NSA #00126,Move It Storage | W Griffin Pkwy,304 W Griffin Pkwy,Mission,TX,78572,26.230308,-98.32725
+NSA #00132,Move It Storage | E Griffin Pkwy,2545 E Griffin Pkwy,Mission,TX,78572,26.224028,-98.279436
+NSA #01050,Move It Storage | E Mile 4 Rd,5700 E Mile 4 Rd,Mission,TX,78573,26.267316,-98.273021
+NSA #00605,iStorage | FM 1092 Rd,1850 FM 1092 Rd,Missouri City,TX,77459,29.594601,-95.56513
+NSA #00607,iStorage | FM 1092 Rd,1924 FM 1092 Rd,Missouri City,TX,77459,29.592241,-95.56462
+NSA #00586,iStorage | Hwy 105 W,18455 Hwy 105 W,Montgomery,TX,77356,30.3794,-95.646994
+NSA #00761,SecurCare Storage | 305 W Farm To Market 544,305 W Farm To Market 544,Murphy,TX,75094,33.01194,-96.618888
+NSA #01165,SecurCare Storage | 231 W Farm To Market 544,231 W Farm To Market 544,Murphy,TX,75094,33.011925,-96.618083
+NSA #00270,SecurCare Self Storage | W Pioneer Pkwy,3654 W Pioneer Pkwy,Pantego,TX,76013,32.713944,-97.166063
+NSA #00531,iStorage | Burke Rd,5035 Burke Rd,Pasadena,TX,77504,29.634053,-95.180643
+NSA #00105,Move It Storage | E Ferguson Ave,714 E Ferguson Ave,Pharr,TX,78577,26.208809,-98.173904
+NSA #00127,Move It Storage | W Ferguson Ave,212 W Ferguson Ave,Pharr,TX,78577,26.212435,-98.184699
+NSA #00164,Move It Storage |  S Cage Blvd,6101 S Cage Blvd,Pharr,TX,78577,26.136713,-98.19332
+NSA #00165,Move It Storage | TX-100 Ste 101,910 TX-100 Ste 101,Port Isabel,TX,78578,26.071933,-97.217655
+NSA #00119,iStorage Self Storage | FM359,5115 FM359,Richmond,TX,77406,29.629462,-95.790513
+NSA #00134,iStorage Self Storage | Crabb River Rd,1728 Crabb River Rd,Richmond,TX,77469,29.557284,-95.690867
+NSA #00139,iStorage Self Storage | FM359,4037 FM359,Richmond,TX,77406,29.62688,-95.773076
+NSA #00145,iStorage Self Storage | Avenue I,5820 Avenue I,Rosenberg,TX,77471,29.557658,-95.768177
+NSA #00753,RightSpace Storage | N FM 620,16450 N FM 620,Round Rock,TX,78681,30.497289,-97.725469
+NSA #00532,iStorage | Callaghan Rd,4003 Callaghan Rd,San Antonio,TX,78228,29.461675,-98.603748
+NSA #00533,iStorage | Culebra Rd,9428 Culebra Rd,San Antonio,TX,78251,29.485949,-98.669615
+NSA #00534,iStorage | Huebner Rd,9031 Huebner Rd,San Antonio,TX,78240,29.527036,-98.597956
+NSA #00535,iStorage | S General McMullen,1750 S General McMullen,San Antonio,TX,78237,29.399373,-98.557305
+NSA #00536,iStorage | Rigsby Ave,3007 Rigsby Ave,San Antonio,TX,78222,29.398783,-98.407243
+NSA #00592,iStorage | Roosevelt Ave,3535 Roosevelt Ave,San Antonio,TX,78214,29.354096,-98.481241
+NSA #00593,iStorage | Hot Wells Blvd,870 Hot Wells Blvd,San Antonio,TX,78223,29.367274,-98.448938
+NSA #00766,iStorage | O'Connor Rd,14611 O'Connor Rd,San Antonio,TX,78247,29.577384,-98.391459
+NSA #00767,iStorage Self Storage | Fredericksburg Rd,3567 Fredericksburg Rd,San Antonio,TX,78201,29.477293,-98.539361
+NSA #00106,Move It Storage | W Expy 83,1770 W Expy 83,San Benito,TX,78586,26.156249,-97.651692
+NSA #00129,Move It Storage | S Oscar Williams Rd,550 S Oscar Williams Rd,San Benito,TX,78586,26.142419,-97.654694
+NSA #00128,Move It Storage | N Raul Longoria Rd,2604 N Raul Longoria Rd,San Juan,TX,78589,26.220889,-98.150627
+NSA #00768,iStorage | N Hwy 123 Bypass,620 N Hwy 123 Bypass,Seguin,TX,78155,29.574085,-97.941857
+NSA #00744,RightSpace Storage | State Hwy 71,21012 State Hwy 71,Spicewood,TX,78669,30.351481,-98.062722
+NSA #00115,iStorage | Aldine Westfield Rd,25222 Aldine Westfield Rd,Spring,TX,77373,30.069186,-95.406002
+NSA #00484,iStorage | Farm to Market 2920,5000 Farm to Market 2920,Spring,TX,77388,30.07482,-95.495993
+NSA #00606,iStorage | Louetta Rd,9620 Louetta Rd,Spring,TX,77379,30.003344,-95.558036
+NSA #01139,iStorage | Aldine Westfield Rd,24011 Aldine Westfield Rd,Spring,TX,77373,30.056288,-95.39782
+NSA #00292,SecurCare Self Storage | Glen Rose Rd,1038 Glen Rose Rd,Stephenville,TX,76401,32.211837,-98.189797
+NSA #00751,RightSpace Storage | W 2nd St,4105 W 2nd St,Taylor,TX,76574,30.559074,-97.45678
+NSA #00120,RightSpace Storage | S 39th St,2708 S 39th St,Temple,TX,76504,31.076049,-97.372463
+NSA #00758,SecurCare Self Storage | US-80,3800 US-80,Terrell,TX,75160,32.738711,-96.319295
+NSA #00580,iStorage | Farm to Market 2920,16920 Farm to Market 2920,Tomball,TX,77377,30.079767,-95.684614
+NSA #01120,SecurCare Self Storage | Ric Williamson Memorial Hwy,1648 Ric Williamson Memorial Hwy,Weatherford,TX,76088,32.78216,-97.811627
+NSA #00581,iStorage | Old Galveston Rd,410 Old Galveston Rd,Webster,TX,77598,29.536432,-95.115604
+NSA #00107,Move It Storage | E 18th St,417 E 18th St,Weslaco,TX,78596,26.14319,-97.985429
+NSA #00746,RightSpace Storage | Ranch Rd 12,16955 Ranch Rd 12,Wimberley,TX,78676,30.041452,-98.104163
+NSA #00763,SecurCare Storage | FM 544,3475 FM 544,Wylie,TX,75098,33.012441,-96.594398
+NSA #00609,iStorage | Market Ridge Lane,70 Market Ridge Lane,Daleville,VA,24083,37.413695,-79.911784
+NSA #00501,iStorage | Wellington Rd,5579 Wellington Rd,Gainesville,VA,20155,38.79382,-77.593472
+NSA #00697,iStorage | Lakeside Dr,2637 Lakeside Dr,Lynchburg,VA,24501,37.394666,-79.229426
+NSA #00698,iStorage | Timberlake Rd,8117 Timberlake Rd,Lynchburg,VA,24502,37.349672,-79.232609
+NSA #00700,iStorage | Timberlake Rd,22195 Timberlake Rd,Lynchburg,VA,24502,37.322661,-79.257413
+NSA #00549,iStorage | Stowaway Ln,157 Stowaway Ln,Madison Heights,VA,24572,37.449817,-79.122218
+NSA #00699,iStorage | S Amherst Hwy,4107 S Amherst Hwy,Madison Heights,VA,24572,37.465713,-79.117948
+NSA #00463,iStorage | Ernies Way,951 Ernies Way,Norfolk,VA,23502,36.85288,-76.182763
+NSA #00027,Northwest Self Storage | NW 29th Ave,18 NW 29th Ave,Battle Ground,WA,98604,45.781259,-122.568219
+NSA #00084,Northwest Self Storage | NW Friberg-Strunk St,6250 NW Friberg-Strunk St,Camas,WA,98607,45.624627,-122.465216
+NSA #00058,Northwest Self Storage | N Shepherd Rd,345 N Shepherd Rd,Camas,WA,98607,45.588933,-122.373733
+NSA #00035,Northwest Self Storage | NE 3rd Loop,2327 NE 3rd Loop,Camas,WA,98607,45.588005,-122.38301
+NSA #00040,Northwest Self Storage | Harrison Ave,2401 Harrison Ave,Centralia,WA,98531,46.743735,-122.997789
+NSA #00022,Northwest Self Storage | Bishop Rd,1533 Bishop Rd,Chehalis,WA,98532,46.633076,-122.935601
+NSA #00025,Northwest Self Storage | 13th Ave S,1699 13th Ave S,Kelso,WA,98626,46.127607,-122.901078
+NSA #00087,Northwest Self Storage | S 11th St,6300 S 11th St,Ridgefield,WA,98642,45.808023,-122.684069
+NSA #00033,Northwest Self Storage | Mountain Hwy E,21303 Mountain Hwy E,Spanaway,WA,98387,47.063639,-122.407164
+NSA #00008,Northwest Self Storage | E Sprague Ave,11128 E Sprague Ave,Spokane Valley,WA,99206,47.656675,-117.254578
+NSA #00026,Northwest Self Storage | E Sprague Ave,17915 E Sprague Ave,Spokane Valley,WA,99016,47.657693,-117.163651
+NSA #00006,Northwest Self Storage | 18th Ave E,10611 18th Ave E,Tacoma,WA,98445,47.160326,-122.405187
+NSA #00041,Northwest Self Storage | SE 164th Ave,2410 SE 164th Ave,Vancouver,WA,98683,45.60334,-122.504144
+NSA #00065,Northwest Self Storage | NE 78th St,4200 NE 78th St,Vancouver,WA,98665,45.679611,-122.628306
+NSA #00066,Northwest Self Storage | NE 104th Ave,421 NE 104th Ave,Vancouver,WA,98664,45.62419,-122.564764
+NSA #00076,Northwest Self Storage | NE 121st Ave,5515 NE 121st Ave,Vancouver,WA,98682,45.662629,-122.548561
+NSA #00083,Northwest Self Storage | NE 89th St,6212 NE 89th St,Vancouver,WA,98665,45.6878,-122.60799
+NSA #00010,Northwest Self Storage | NE 117th Ave,12214 NE 117th Ave,Vancouver,WA,98662,45.70987,-122.554043
+NSA #00090,Northwest Self Storage | NE Hwy 99 Ste A,7523 NE Hwy 99 Ste A,Vancouver,WA,98665,45.676542,-122.661084

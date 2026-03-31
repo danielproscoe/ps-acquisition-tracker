@@ -20,7 +20,8 @@ const gapBorder = (d) => d <= 10 ? "rgba(232,122,46,0.08)" : d <= 20 ? "rgba(201
 const psIcon = L.divIcon({ className: "ps-marker", html: `<div style="width:10px;height:10px;border-radius:50%;background:${FIRE};border:2px solid #fff;box-shadow:0 0 6px rgba(232,122,46,0.6)"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
 const ps3rdPartyIcon = L.divIcon({ className: "ps-marker-3p", html: `<div style="width:10px;height:10px;border-radius:50%;background:#F59E0B;border:2px solid #fff;box-shadow:0 0 6px rgba(245,158,11,0.5)"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
 const psCombinedIcon = L.divIcon({ className: "ps-marker-cb", html: `<div style="width:10px;height:10px;border-radius:50%;background:#A78BFA;border:2px solid #fff;box-shadow:0 0 6px rgba(167,139,250,0.5)"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
-const getPsIcon = (ps) => ps.ownership === "3rdparty" ? ps3rdPartyIcon : ps.ownership === "combined" ? psCombinedIcon : psIcon;
+const psNsaIcon = L.divIcon({ className: "ps-marker-nsa", html: `<div style="width:10px;height:10px;border-radius:50%;background:#22C55E;border:2px solid #fff;box-shadow:0 0 6px rgba(34,197,94,0.5)"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
+const getPsIcon = (ps) => ps.ownership === "nsa" ? psNsaIcon : ps.ownership === "3rdparty" ? ps3rdPartyIcon : ps.ownership === "combined" ? psCombinedIcon : psIcon;
 const aiTargetIcon = L.divIcon({ className: "ai-target-marker", html: `<div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,${GOLD},${FIRE});border:3px solid #fff;box-shadow:0 0 16px ${GOLD}88,0 0 32px ${FIRE}44;animation:sitescore-glow 1.5s ease-in-out infinite alternate"></div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
 
 // P0 fix #1: Pre-built icon cache — one per phase, never re-created
@@ -423,16 +424,10 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
         <div style={{ position: "absolute", top: 12, right: 12, zIndex: 1000, display: "flex", gap: 8 }}>
           <div style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.25)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: GOLD, boxShadow: `0 0 8px ${GOLD}88` }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: GOLD, letterSpacing: "0.06em" }}>{psLocations.length.toLocaleString()} PS LOCATIONS</span>
-            {psLocations.some(p => p.ownership === "3rdparty" || p.ownership === "combined") && (
-              <span style={{ fontSize: 9, color: "#94A3B8", marginLeft: 2 }}>
-                ({psLocations.filter(p => !p.ownership || p.ownership === "owned").length.toLocaleString()} owned · {psLocations.filter(p => p.ownership === "3rdparty").length.toLocaleString()} 3P · {psLocations.filter(p => p.ownership === "combined").length.toLocaleString()} cmb)
-              </span>
-            )}
-          </div>
-          <div style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#86EFAC", letterSpacing: "0.06em" }}>NSA READY (+1,000)</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: GOLD, letterSpacing: "0.06em" }}>{psLocations.length.toLocaleString()} PS FAMILY</span>
+            <span style={{ fontSize: 9, color: "#94A3B8", marginLeft: 2 }}>
+              ({psLocations.filter(p => !p.ownership || p.ownership === "owned").length.toLocaleString()} PS · {psLocations.filter(p => p.ownership === "3rdparty").length.toLocaleString()} 3P · {psLocations.filter(p => p.ownership === "combined").length.toLocaleString()} cmb · {psLocations.filter(p => p.ownership === "nsa").length.toLocaleString()} NSA)
+            </span>
           </div>
         </div>
         <MapContainer center={USA_CENTER} zoom={4} style={{ height: "100%", width: "100%", borderRadius: 12, overflow: "hidden" }} zoomControl={false} ref={mapRef}>
@@ -449,8 +444,8 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
             {displayLocations.map(ps => <Marker key={`${ps.ownership || "owned"}-${ps.num || `${ps.lat}-${ps.lng}`}`} position={[ps.lat, ps.lng]} icon={getPsIcon(ps)}>
               <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
                 <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11 }}>
-                  <strong style={{ color: ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : FIRE }}>{ps.name || ps.num}</strong>
-                  {ps.ownership && ps.ownership !== "owned" && <span style={{ fontSize: 9, color: "#94A3B8", marginLeft: 4 }}>({ps.ownership === "3rdparty" ? "3rd Party" : "Combined"})</span>}
+                  <strong style={{ color: ps.ownership === "nsa" ? "#22C55E" : ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : FIRE }}>{ps.name || ps.num}</strong>
+                  {ps.ownership && ps.ownership !== "owned" && <span style={{ fontSize: 9, color: "#94A3B8", marginLeft: 4 }}>({ps.ownership === "nsa" ? "NSA" : ps.ownership === "3rdparty" ? "3rd Party" : "Combined"})</span>}
                   <br />{ps.address}, {ps.city} {ps.state}
                 </div>
               </Tooltip>
@@ -661,10 +656,10 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
         </div>}
 
         {/* PS Location Type Legend — always visible */}
-        {psLocations.some(p => p.ownership === "3rdparty" || p.ownership === "combined") && (
+        {psLocations.some(p => p.ownership === "3rdparty" || p.ownership === "combined" || p.ownership === "nsa") && (
           <div style={{ position: "absolute", bottom: 56, right: showLeaderboard ? "calc(30% + 20px)" : 16, zIndex: 999, background: GLASS, backdropFilter: "blur(12px)", borderRadius: 8, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.08)", transition: "right 0.3s ease", ...(showCCRents ? { display: "none" } : {}) }}>
-            {[{ color: FIRE, label: "PS Owned" }, { color: "#F59E0B", label: "3rd Party Managed" }, { color: "#A78BFA", label: "Combined/Joint" }].map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: i < 2 ? 2 : 0 }}>
+            {[{ color: FIRE, label: "PS Owned" }, { color: "#22C55E", label: "NSA (Acquired)" }, { color: "#F59E0B", label: "3rd Party Managed" }, { color: "#A78BFA", label: "Combined/Joint" }].map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: i < 3 ? 2 : 0 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color, border: "1.5px solid #fff", flexShrink: 0 }} />
                 <span style={{ fontSize: 9, color: "#9CA3AF" }}>{item.label}</span>
               </div>
