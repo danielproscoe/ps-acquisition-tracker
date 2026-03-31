@@ -1956,7 +1956,7 @@ function AppInner() {
                                     })}
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px 4px", borderTop: "2px solid rgba(243,124,51,.2)", marginTop: 4 }}>
                                       <div style={{ fontSize: 10, color: "#6B7394", fontWeight: 600 }}>
-                                        {iqD.flags && iqD.flags.length > 0 && iqD.flags.map((f, i) => <span key={i} style={{ display: "inline-block", fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4, marginRight: 4 }}>{f}</span>)}
+{/* Flags moved to FLAGS & ADJUSTMENTS section */}
                                       </div>
                                       <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>COMPOSITE: <span style={{ color: "#C9A84C", fontWeight: 900, fontSize: 13, fontFamily: "'Space Mono'" }}>{iqD.score.toFixed(2)}</span> / 10</div>
                                     </div>
@@ -3388,12 +3388,7 @@ function AppInner() {
                     })}
                   </div>
                   {/* Flags */}
-                  {qr.iq.flags.length > 0 && (
-                    <div style={{ marginBottom: 16, padding: "8px 10px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", letterSpacing: "0.08em", marginBottom: 4 }}>FLAGS</div>
-                      {qr.iq.flags.map((f, i) => <div key={i} style={{ fontSize: 11, color: "#FCA5A5", marginBottom: 2 }}>{f}</div>)}
-                    </div>
-                  )}
+{/* Flags moved to FLAGS & ADJUSTMENTS section in detail view */}
                   {/* Financial Snapshot */}
                   {qr.fin && qr.fin.totalSF > 0 && (
                     <div style={{ padding: "12px 14px", borderRadius: 10, background: "linear-gradient(135deg, rgba(46,125,50,0.08), rgba(30,39,97,0.12))", border: "1px solid rgba(46,125,50,0.15)" }}>
@@ -4343,7 +4338,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   {/* Top row: Name + Score */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 16 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{siteDisplayName(site)}</div>
+                      <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", marginBottom: 4, lineHeight: 1.2 }}>{siteDisplayName(site)}</div>
                       <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 8 }}>{site.address}, {site.city}, {site.state}</div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,.2)" }}>{site.market}</span>}
@@ -6088,7 +6083,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                         <span style={{ color: "#FFB347", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em" }}>SiteScore™ SCORECARD</span>
                         <span style={{ color: sc2(iqR.score), fontSize: 14, fontWeight: 900, fontFamily: "'Space Mono'" }}>{iqR.score.toFixed(2)}</span>
                       </div>
-                      {iqR.flags && iqR.flags.length > 0 && <div style={{ display: "flex", gap: 4 }}>{iqR.flags.map((f, i) => <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>)}</div>}
+{/* Flags shown in FLAGS & ADJUSTMENTS section below */}
                     </div>
                     <div style={{ background: "linear-gradient(180deg,#0F0A05,#0a0a0e)", padding: "8px 14px" }}>
                       {dims2.map((d, i) => {

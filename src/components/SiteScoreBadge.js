@@ -183,13 +183,7 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
           <span style={{ fontSize: 11, fontWeight: 700, color: "#CBD5E1", letterSpacing: "0.08em" }}>SiteScore<span style={{ fontSize: 8, verticalAlign: "super" }}>™</span></span>
           {iq.classification && <span style={{ fontSize: 10, fontWeight: 800, color: iq.classColor, background: iq.classColor + "18", padding: "2px 7px", borderRadius: 4, letterSpacing: "0.06em" }}>{iq.classification}</span>}
         </div>
-        {iq.flags && iq.flags.length > 0 && (
-          <div style={{ display: "flex", gap: 3, marginTop: 2, flexWrap: "wrap" }}>
-            {iq.flags.map((f, i) => (
-              <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "2px 6px", borderRadius: 4 }}>{f}</span>
-            ))}
-          </div>
-        )}
+{/* Flags moved to FLAGS & ADJUSTMENTS section below scorecard */}
         <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "flex-end", height: 64 }}>
           {dims.map((f) => {
             const v = iq.scores[f.key] || 0;
