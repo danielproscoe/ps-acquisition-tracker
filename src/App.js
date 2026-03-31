@@ -3950,27 +3950,29 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                           fetch("/ps-locations.csv").then(r => r.text()).then(csv => parsePsCsv(csv, "owned")),
                           fetch("/ps-locations-3rdparty.csv").then(r => r.text()).then(csv => parsePsCsv(csv, "3rdparty")).catch(() => []),
                           fetch("/ps-locations-combined.csv").then(r => r.text()).then(csv => parsePsCsv(csv, "combined")).catch(() => []),
-                        ]).then(([owned, thirdParty, combined]) => {
-                          const allPS = [...owned, ...thirdParty, ...combined];
-                          let psCount = 0, ownedCount = 0, tpCount = 0, cbCount = 0;
+                          fetch("/nsa-locations.csv").then(r => r.text()).then(csv => parsePsCsv(csv, "nsa")).catch(() => []),
+                        ]).then(([owned, thirdParty, combined, nsa]) => {
+                          const allPS = [...owned, ...thirdParty, ...combined, ...nsa];
+                          let psCount = 0, ownedCount = 0, tpCount = 0, cbCount = 0, nsaCount = 0;
                           const psIconOwned = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
                           const psIcon3P = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#F59E0B,#FBBF24);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(245,158,11,0.5),0 0 0 1px rgba(245,158,11,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
                           const psIconCB = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#A78BFA,#C4B5FD);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(167,139,250,0.5),0 0 0 1px rgba(167,139,250,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          const psIconNSA = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#22C55E,#4ADE80);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(34,197,94,0.5),0 0 0 1px rgba(34,197,94,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
                           for (const ps of allPS) {
                             const dist = haversine(siteLat, siteLng, ps.lat, ps.lng);
                             if (dist <= 25) {
                               psCount++;
-                              if (ps.ownership === "3rdparty") tpCount++; else if (ps.ownership === "combined") cbCount++; else ownedCount++;
-                              const icon = ps.ownership === "3rdparty" ? psIcon3P : ps.ownership === "combined" ? psIconCB : psIconOwned;
-                              const typeLabel = ps.ownership === "3rdparty" ? " (3rd Party)" : ps.ownership === "combined" ? " (Combined)" : "";
-                              const typeColor = ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : "#E87A2E";
+                              if (ps.ownership === "nsa") nsaCount++; else if (ps.ownership === "3rdparty") tpCount++; else if (ps.ownership === "combined") cbCount++; else ownedCount++;
+                              const icon = ps.ownership === "nsa" ? psIconNSA : ps.ownership === "3rdparty" ? psIcon3P : ps.ownership === "combined" ? psIconCB : psIconOwned;
+                              const typeLabel = ps.ownership === "nsa" ? " (NSA)" : ps.ownership === "3rdparty" ? " (3rd Party)" : ps.ownership === "combined" ? " (Combined)" : "";
+                              const typeColor = ps.ownership === "nsa" ? "#22C55E" : ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : "#E87A2E";
                               const marker = L.marker([ps.lat, ps.lng], { icon }).addTo(map);
                               marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${ps.num}</div><div style="font-size:10px;color:#334155">${ps.address}</div><div style="font-size:10px;color:#64748B">${ps.city}, ${ps.state}</div>${typeLabel ? `<div style="font-size:9px;color:${typeColor};font-weight:600">${typeLabel}</div>` : ""}<div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
                             }
                           }
                           const badge = document.createElement("div"); badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
-                          const breakdown = (tpCount || cbCount) ? `<div style="font-size:9px;color:#94A3B8;margin-top:2px;padding-left:32px">${ownedCount} owned` + (tpCount ? ` · ${tpCount} 3rd party` : "") + (cbCount ? ` · ${cbCount} combined` : "") + `</div>` : "";
-                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>${breakdown}`;
+                          const breakdown = `<div style="font-size:9px;color:#94A3B8;margin-top:2px;padding-left:32px">${ownedCount} PS` + (nsaCount ? ` · ${nsaCount} NSA` : "") + (tpCount ? ` · ${tpCount} 3P` : "") + (cbCount ? ` · ${cbCount} cmb` : "") + `</div>`;
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS family within 25 mi</span></div>${breakdown}`;
                           el.appendChild(badge);
                         }).catch(() => {});
                         const prospectGroup = L.layerGroup(); let prospectCount = 0;
@@ -4822,30 +4824,32 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                           fetch("/ps-locations.csv").then(r => r.text()).then(csv => parsePsCsv2(csv, "owned")),
                           fetch("/ps-locations-3rdparty.csv").then(r => r.text()).then(csv => parsePsCsv2(csv, "3rdparty")).catch(() => []),
                           fetch("/ps-locations-combined.csv").then(r => r.text()).then(csv => parsePsCsv2(csv, "combined")).catch(() => []),
-                        ]).then(([owned, thirdParty, combined]) => {
-                          const allPS = [...owned, ...thirdParty, ...combined];
-                          let psCount = 0, ownedCount = 0, tpCount = 0, cbCount = 0;
+                          fetch("/nsa-locations.csv").then(r => r.text()).then(csv => parsePsCsv2(csv, "nsa")).catch(() => []),
+                        ]).then(([owned, thirdParty, combined, nsa]) => {
+                          const allPS = [...owned, ...thirdParty, ...combined, ...nsa];
+                          let psCount = 0, ownedCount = 0, tpCount = 0, cbCount = 0, nsaCount = 0;
                           const psIconOwned = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5),0 0 0 1px rgba(232,122,46,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
                           const psIcon3P = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#F59E0B,#FBBF24);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(245,158,11,0.5),0 0 0 1px rgba(245,158,11,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
                           const psIconCB = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#A78BFA,#C4B5FD);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(167,139,250,0.5),0 0 0 1px rgba(167,139,250,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+                          const psIconNSA = L.divIcon({ className: "", html: '<div style="width:18px;height:18px;background:linear-gradient(135deg,#22C55E,#4ADE80);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(34,197,94,0.5),0 0 0 1px rgba(34,197,94,0.3)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
                           for (const ps of allPS) {
                             const dist = haversine(siteLat, siteLng, ps.lat, ps.lng);
                             if (dist <= 25) {
                               psCount++;
-                              if (ps.ownership === "3rdparty") tpCount++; else if (ps.ownership === "combined") cbCount++; else ownedCount++;
-                              const icon = ps.ownership === "3rdparty" ? psIcon3P : ps.ownership === "combined" ? psIconCB : psIconOwned;
-                              const typeLabel = ps.ownership === "3rdparty" ? " (3rd Party)" : ps.ownership === "combined" ? " (Combined)" : "";
-                              const typeColor = ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : "#E87A2E";
+                              if (ps.ownership === "nsa") nsaCount++; else if (ps.ownership === "3rdparty") tpCount++; else if (ps.ownership === "combined") cbCount++; else ownedCount++;
+                              const icon = ps.ownership === "nsa" ? psIconNSA : ps.ownership === "3rdparty" ? psIcon3P : ps.ownership === "combined" ? psIconCB : psIconOwned;
+                              const typeLabel = ps.ownership === "nsa" ? " (NSA)" : ps.ownership === "3rdparty" ? " (3rd Party)" : ps.ownership === "combined" ? " (Combined)" : "";
+                              const typeColor = ps.ownership === "nsa" ? "#22C55E" : ps.ownership === "3rdparty" ? "#F59E0B" : ps.ownership === "combined" ? "#A78BFA" : "#E87A2E";
                               const marker = L.marker([ps.lat, ps.lng], { icon }).addTo(map);
                               marker.bindTooltip(`<div style="font-weight:800;font-size:11px;color:#1565C0">${ps.num}</div><div style="font-size:10px;color:#334155">${ps.address}</div><div style="font-size:10px;color:#64748B">${ps.city}, ${ps.state}</div>${typeLabel ? `<div style="font-size:9px;color:${typeColor};font-weight:600">${typeLabel}</div>` : ""}<div style="font-size:10px;color:#E87A2E;font-weight:700;margin-top:3px">${dist.toFixed(1)} mi</div>`, { direction: "auto", offset: [0, -8] });
                               marker.bindPopup(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:${typeColor};border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:${typeColor}">${ps.num}</span></div><div style="font-size:12px;font-weight:600;color:#334155">${ps.name}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${ps.address}</div><div style="font-size:11px;color:#64748B">${ps.city}, ${ps.state}</div>${typeLabel ? `<div style="font-size:10px;color:${typeColor};font-weight:600;margin-top:3px">${typeLabel}</div>` : ""}<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">${dist.toFixed(1)} mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>`);
                             }
                           }
-                          // Count badge (bottom-right) — PS locations
+                          // Count badge (bottom-right) — PS family locations
                           const badge = document.createElement("div");
                           badge.style.cssText = "position:absolute;bottom:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);color:#fff;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid rgba(232,122,46,0.3);display:flex;flex-direction:column;gap:6px;min-width:180px";
-                          const breakdown = (tpCount || cbCount) ? `<div style="font-size:9px;color:#94A3B8;margin-top:2px;padding-left:32px">${ownedCount} owned` + (tpCount ? ` · ${tpCount} 3rd party` : "") + (cbCount ? ` · ${cbCount} combined` : "") + `</div>` : "";
-                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS locations within 25 mi</span></div>${breakdown}`;
+                          const breakdown = `<div style="font-size:9px;color:#94A3B8;margin-top:2px;padding-left:32px">${ownedCount} PS` + (nsaCount ? ` · ${nsaCount} NSA` : "") + (tpCount ? ` · ${tpCount} 3P` : "") + (cbCount ? ` · ${cbCount} cmb` : "") + `</div>`;
+                          badge.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border-radius:6px;font-size:12px;font-weight:900;color:#1a1a1a">${psCount}</span><span style="font-size:11px">PS family within 25 mi</span></div>${breakdown}`;
                           el.appendChild(badge);
                         }).catch(() => {});
 
