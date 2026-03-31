@@ -55,7 +55,8 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
   const hv1 = site.homeValue1mi || ""; const hv3 = site.homeValue3mi || ""; const hv5 = site.homeValue5mi || "";
   const growth = site.popGrowth3mi || site.growthRate || "";
   const renter = site.renterPct3mi || "";
-  const nearPS = iq.nearestPS ? iq.nearestPS + " mi" : "";
+  const nearPSBrand = iq.nearestPSBrand || site.discoverSource?.nearestPSBrand || "PS";
+  const nearPS = iq.nearestPS ? iq.nearestPS + " mi (" + nearPSBrand + ")" : "";
   const dateStr = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
   // Zoning detail

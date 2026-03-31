@@ -554,7 +554,7 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
             <Popup position={[clickResult.lat, clickResult.lng]} onClose={() => setClickResult(null)}>
               <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, minWidth: 240 }}>
                 <div style={{ background: clickResult.signalColor, color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, marginBottom: 8, textAlign: "center", letterSpacing: 1 }}>{clickResult.signal}</div>
-                <div style={{ marginBottom: 6 }}><strong>Nearest PS:</strong> {clickResult.nearestPS?.name || "—"}<br /><span style={{ color: "#6B7394" }}>{clickResult.nearestPS?.city} {clickResult.nearestPS?.state} — <strong style={{ color: FIRE }}>{clickResult.minPSDist.toFixed(1)} mi</strong></span></div>
+                <div style={{ marginBottom: 6 }}><strong>Nearest PS Family:</strong> {clickResult.nearestPS?.name || "—"}{clickResult.nearestPS?.ownership === "nsa" ? <span style={{ fontSize: 9, color: "#22C55E", fontWeight: 700, marginLeft: 4 }}>(NSA)</span> : clickResult.nearestPS?.ownership === "3rdparty" ? <span style={{ fontSize: 9, color: "#F59E0B", fontWeight: 700, marginLeft: 4 }}>(3P)</span> : null}<br /><span style={{ color: "#6B7394" }}>{clickResult.nearestPS?.city} {clickResult.nearestPS?.state} — <strong style={{ color: clickResult.nearestPS?.ownership === "nsa" ? "#22C55E" : FIRE }}>{clickResult.minPSDist.toFixed(1)} mi</strong></span></div>
                 {clickResult.nearestPipe && <div style={{ marginBottom: 6 }}><strong>Nearest Pipeline:</strong> {clickResult.nearestPipe.name || clickResult.nearestPipe.address || "—"}<br /><span style={{ color: "#6B7394" }}>{clickResult.minPipeDist.toFixed(1)} mi — {clickResult.nearestPipe.phase}</span></div>}
                 {/* CC Rent Intelligence — find nearest MSA */}
                 {(() => {
@@ -584,6 +584,7 @@ export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyze
                     nearestPS: clickResult.minPSDist ? clickResult.minPSDist.toFixed(1) : null,
                     nearestPSName: clickResult.nearestPS?.name || null,
                     nearestPSCity: clickResult.nearestPS ? `${clickResult.nearestPS.city} ${clickResult.nearestPS.state}` : null,
+                    nearestPSBrand: clickResult.nearestPS?.ownership === "nsa" ? "NSA" : clickResult.nearestPS?.ownership === "3rdparty" ? "3rd Party" : clickResult.nearestPS?.ownership === "combined" ? "Combined" : "PS",
                   };
                   // Find nearest MSA for rent intel
                   let nearMSA = null, minMSADist = Infinity;

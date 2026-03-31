@@ -130,7 +130,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   if (nearestPS !== undefined && nearestPS !== null) {
     const psDist = parseFloat(String(nearestPS));
     if (!isNaN(psDist)) {
-      if (psDist > 35) { psProxScore = 0; hardFail = true; flags.push("FAIL: >35 mi from nearest PS location — too remote"); }
+      if (psDist > 35) { psProxScore = 0; hardFail = true; flags.push("FAIL: >35 mi from nearest PS family location (PS/NSA) — too remote"); }
       else if (psDist <= 5) psProxScore = 10;
       else if (psDist <= 10) psProxScore = 9;
       else if (psDist <= 15) psProxScore = 7;
@@ -374,7 +374,8 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   const hhExplain = hhRaw > 0 ? `3-mi HH: ${hhRaw.toLocaleString()} → ${hhRaw >= 25000 ? "25K+ = 10" : hhRaw >= 18000 ? "18K+ = 8" : hhRaw >= 12000 ? "12K+ = 7" : hhRaw >= 6000 ? "6K+ = 5" : "<6K = 3"}` : "No data — default 5";
   const hvExplain = hvRaw > 0 ? `3-mi home value: $${hvRaw.toLocaleString()} → ${hvRaw >= 500000 ? "$500K+ = 10" : hvRaw >= 350000 ? "$350K+ = 9" : hvRaw >= 250000 ? "$250K+ = 8" : hvRaw >= 180000 ? "$180K+ = 6" : hvRaw >= 120000 ? "$120K+ = 4" : "<$120K = 2"}` : "No data — default 5";
   const psDist = nearestPS !== undefined && nearestPS !== null ? parseFloat(String(nearestPS)) : NaN;
-  const psExplain = !isNaN(psDist) ? `Nearest PS: ${psDist.toFixed(1)} mi → ${psDist <= 5 ? "≤5mi = 10" : psDist <= 10 ? "≤10mi = 9" : psDist <= 15 ? "≤15mi = 7" : psDist <= 25 ? "≤25mi = 5" : psDist <= 35 ? "≤35mi = 3" : ">35mi = FAIL"}` : "No data — default 5";
+  const nearBrand = site.siteiqData?.nearestPSBrand || site.discoverSource?.nearestPSBrand || "PS";
+  const psExplain = !isNaN(psDist) ? `Nearest PS family (${nearBrand}): ${psDist.toFixed(1)} mi → ${psDist <= 5 ? "≤5mi = 10" : psDist <= 10 ? "≤10mi = 9" : psDist <= 15 ? "≤15mi = 7" : psDist <= 25 ? "≤25mi = 5" : psDist <= 35 ? "≤35mi = 3" : ">35mi = FAIL"}` : "No data — default 5";
   const zoningExplain = explicitClassSet ? `Classification: ${zClass} → ${scores.zoning}` : (scores.zoning === 5 ? "Unverified — capped at 5 (set zoningClassification to unlock)" : isNoZoning ? `ETJ/no-zoning → ${scores.zoning}` : `Regex-matched: score ${scores.zoning}`);
   const acresStr = !isNaN(acres) ? `${acres.toFixed(1)} ac → ${acres >= 3.5 && acres <= 5 ? "primary range = 8" : acres > 5 && acres <= 7 ? "5-7ac = 7" : acres > 7 ? "7+ ac = 5 base" : acres >= 2.5 ? "2.5-3.5ac = 6" : "small = " + scores.access}` : "No acreage";
   const accessExplain = acresStr + (scores.access > accessScore ? " + bonuses" : "");
@@ -399,7 +400,7 @@ export const computeSiteScore = (site, siteScoreConfig) => {
     verified: !!(site.zoningTableAccessed || explicitClassSet || isNoZoning),
     url: site.zoningSource || null,
   };
-  const psSource = { source: "PS Corporate Location Database", rawValue: !isNaN(psDist) ? psDist.toFixed(1) + " miles" : null, methodology: !isNaN(psDist) ? "Haversine distance to nearest PS family location (PS + NSA + 3rd Party — 4,600+ total)" : "No proximity data — populate siteiqData.nearestPS", verified: !isNaN(psDist) };
+  const psSource = { source: "PS Family Location Database (PS + NSA + 3P)", rawValue: !isNaN(psDist) ? `${psDist.toFixed(1)} mi (${nearBrand})` : null, methodology: !isNaN(psDist) ? "Haversine distance to nearest PS family location (PS + NSA + 3rd Party — 4,600+ total)" : "No proximity data — populate siteiqData.nearestPS", verified: !isNaN(psDist) };
   const accessSource = { source: "Listing data + aerial imagery review", rawValue: !isNaN(acres) ? acres.toFixed(1) + " acres" : null, methodology: "Acreage from listing, frontage/access from aerial review and summary keywords" + (site.roadFrontage ? ` — ${site.roadFrontage}` : ""), verified: !isNaN(acres) && acres > 0 };
   const compSource = { source: compMethod === 'ccSPC' ? "Climate-controlled SF per capita analysis (current + projected 5-yr)" : compMethod === 'count' ? "3-mile radius facility scan" : "Summary keyword analysis (estimated)", rawValue: compMethod === 'ccSPC' ? `${effectiveSPC.toFixed(1)} CC SF/capita (effective)${ccSPCValid && projCCSPCValid ? ` — current ${parseFloat(ccSPC).toFixed(1)}, projected ${parseFloat(projCCSPC).toFixed(1)}` : ''}` : compCount !== undefined && compCount !== null ? compCount + " facilities within 3 mi" : null, methodology: compMethod === 'ccSPC' ? "CC SF within 3 mi ÷ 3-mi population; uses worse of current vs projected 5-yr" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : compMethod === 'count' ? "Google Maps + SpareFoot + SelfStorage.com scan" + (site.competitorNames ? ` — ${site.competitorNames}` : "") : "Keyword match on summary text — run full competition scan for verified count", verified: compMethod !== 'keyword' };
 
@@ -1321,8 +1322,9 @@ export const computeVettingIntel = (site) => {
     else { sizingText = `${acres} ac — Large tract, subdivision potential`; sizingColor = "#F59E0B"; sizingTag = "CAUTION"; }
   }
 
-  // ── PS Proximity ──
-  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null;
+  // ── PS Family Proximity ──
+  const psBrandLabel = site.siteiqData?.nearestPSBrand || site.discoverSource?.nearestPSBrand || "PS";
+  const psDistance = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi (${psBrandLabel})` : null;
   const psColor = site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS > 35 ? "#EF4444" : site.siteiqData.nearestPS <= 15 ? "#16A34A" : "#F59E0B") : "#94A3B8";
 
   // ── Competition ──

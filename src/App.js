@@ -224,7 +224,7 @@ const generateRecEmail = (site, regionKey, financials) => {
   if (waterLine) { lines.push(`${waterLine}`); lines.push(""); }
   if (compLine) { lines.push(`${compLine}`); lines.push(""); }
   if (growthLine) { lines.push(`${growthLine}`); lines.push(""); }
-  if (iq.nearestPS) { lines.push(`Nearest PS: ${iq.nearestPS} mi.`); lines.push(""); }
+  if (iq.nearestPS) { const brand = iq.nearestPSBrand || "PS"; lines.push(`Nearest PS Family: ${iq.nearestPS} mi (${brand}).`); lines.push(""); }
 
   // Watch items
   if (watchLines.length) {
@@ -962,9 +962,10 @@ function AppInner() {
       ...(discoverIntel ? {
         siteiqData: {
           nearestPS: discoverIntel.nearestPS ? parseFloat(discoverIntel.nearestPS) : null,
+          nearestPSBrand: discoverIntel.nearestPSBrand || "PS",
           ...(discoverIntel.ccRent ? { msaCCRent: discoverIntel.ccRent, msaCCGrowth: discoverIntel.ccGrowth, msaCCOcc: discoverIntel.ccOcc, msaRentTier: discoverIntel.rentTier } : {}),
         },
-        discoverSource: { msaName: discoverIntel.msaName || null, nearestPSName: discoverIntel.nearestPSName || null, nearestPSCity: discoverIntel.nearestPSCity || null, analyzedAt: now },
+        discoverSource: { msaName: discoverIntel.msaName || null, nearestPSName: discoverIntel.nearestPSName || null, nearestPSCity: discoverIntel.nearestPSCity || null, nearestPSBrand: discoverIntel.nearestPSBrand || "PS", analyzedAt: now },
       } : {}),
     };
     // Upload all attached files to Firebase Storage
@@ -1078,7 +1079,7 @@ function AppInner() {
       pop3mi: site.pop3mi || "",
       sellerBroker: site.sellerBroker || "",
       summary: site.summary || "",
-      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}${site.zoning ? " · Zoning: " + site.zoning : ""}${site.zoningClassification ? " (" + site.zoningClassification + ")" : ""}${site.waterHookupStatus ? " · Water: " + site.waterHookupStatus : ""}${site.siteiqData?.nearestPS ? " · Nearest PS: " + site.siteiqData.nearestPS + " mi" : ""}`,
+      callBrief: site.callBrief || `${site.acreage ? site.acreage + " ac" : ""}${site.askingPrice ? " · Ask " + site.askingPrice : ""}${site.zoning ? " · Zoning: " + site.zoning : ""}${site.zoningClassification ? " (" + site.zoningClassification + ")" : ""}${site.waterHookupStatus ? " · Water: " + site.waterHookupStatus : ""}${site.siteiqData?.nearestPS ? " · Nearest PS Family: " + site.siteiqData.nearestPS + " mi (" + (site.siteiqData?.nearestPSBrand || "PS") + ")" : ""}`,
       coordinates: site.coordinates || "",
       listingUrl: site.listingUrl || "",
       dateOnMarket: site.dateOnMarket || "",
@@ -2251,7 +2252,7 @@ function AppInner() {
                           { label: "Median Home Value (3-mi)", val: fP(site.homeValue3mi, "$"), icon: "🏡" },
                           { label: "Acreage", val: site.acreage ? site.acreage + " ac" + (parseFloat(String(site.acreage || "0").replace(/[^0-9.]/g, "")) >= 2.5 ? " · 2 layouts" : "") : null, icon: "📐" },
                           { label: "Price / Acre", val: (() => { const p = parsePrice(site.askingPrice); const a = parseFloat(String(site.acreage || "").replace(/[^0-9.]/g, " ").trim().split(/\s+/)[0]); return (!isNaN(p) && p > 0 && !isNaN(a) && a > 0) ? "$" + Math.round(p / a).toLocaleString() + "/ac" : null; })(), icon: "🏷️" },
-                          { label: "Nearest Facility", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi" : null, icon: "📍" },
+                          { label: "Nearest PS Family", val: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS.toFixed(1) + " mi (" + (site.siteiqData?.nearestPSBrand || "PS") + ")" : null, icon: "📍" },
                           { label: "Competitors (3-mi)", val: site.siteiqData?.competitorCount != null ? String(site.siteiqData.competitorCount) : null, icon: "🏪" },
                         ].filter(r => r.val != null);
                         return (
@@ -3895,7 +3896,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   { label: "3-Mi Med. HHI", value: site.income3mi || "—" },
                   { label: "Market", value: site.market || "—" },
                   { label: "Broker", value: site.sellerBroker || "—" },
-                  { label: "Nearest PS", value: site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : "—" },
+                  { label: "Nearest PS Family", value: site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi (${site.siteiqData?.nearestPSBrand || "PS"})` : "—" },
                 ].map(m => (
                   <div key={m.label} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ fontSize: 10, color: "#6B7394", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>{m.label}</div>
@@ -6413,7 +6414,7 @@ function generateAutoBlurb(site) {
   // Competition
   if (site.ccSPC || site.siteiqData?.ccSPC) parts.push(`CC SPC: ${site.ccSPC || site.siteiqData.ccSPC}.`);
   // PS proximity
-  if (site.siteiqData?.nearestPS) parts.push(`Nearest PS: ${site.siteiqData.nearestPS} mi.`);
+  if (site.siteiqData?.nearestPS) parts.push(`Nearest PS Family: ${site.siteiqData.nearestPS} mi (${site.siteiqData?.nearestPSBrand || "PS"}).`);
   // Broker
   if (site.sellerBroker) parts.push(`Broker: ${site.sellerBroker.split(" - ")[0].split(" — ")[0]}.`);
   // Water

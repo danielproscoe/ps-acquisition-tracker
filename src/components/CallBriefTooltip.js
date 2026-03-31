@@ -73,7 +73,7 @@ export default function CallBriefTooltip({ site, initialDraft, onSave, onClose, 
     { label: "ZONING", value: `${zoningShort}${zoningClsShort ? ` · ${zoningClsShort}` : ""}`, color: zoningColor },
     site.waterHookupStatus && { label: "WATER", value: site.waterHookupStatus.replace(/-/g, " "), color: waterColor },
     brokerShort && { label: "BROKER", value: brokerShort, color: "#C9A84C" },
-    site.siteiqData?.nearestPS != null && { label: "NEAREST PS", value: `${site.siteiqData.nearestPS} mi`, color: "#818CF8" },
+    site.siteiqData?.nearestPS != null && { label: `NEAREST ${(site.siteiqData?.nearestPSBrand || "PS").toUpperCase()}`, value: `${site.siteiqData.nearestPS} mi`, color: site.siteiqData?.nearestPSBrand === "NSA" ? "#22C55E" : "#818CF8" },
     site.siteiqData?.competitorCount != null && { label: "COMP.", value: `${site.siteiqData.competitorCount} in 3mi`, color: "#94A3B8" },
   ].filter(Boolean);
 

@@ -399,7 +399,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       { l: "ASKING PRICE", v: site.askingPrice || "—" },
       { l: "3-MI POP", v: popN > 0 ? fmtN(popN) : "—" },
       { l: "3-MI MED INC", v: incN > 0 ? ("$" + fmtN(incN)) : "—" },
-      { l: "NEAREST PS", v: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi" : "—" },
+      { l: "NEAREST PS FAMILY", v: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi (" + (site.siteiqData?.nearestPSBrand || "PS") + ")" : "—" },
     ].map(m => `<div style="padding:16px 10px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.08em;margin-bottom:5px">${m.l}</div><div style="font-size:15px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
   </div>
 
