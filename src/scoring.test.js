@@ -1203,12 +1203,11 @@ describe('computeSiteFinancials', () => {
     expect(result.climatePct).toBe(0.65);
   });
 
-  test('land price guide returns 3 tiers (walk away, strike, home run)', () => {
+  test('land price guide returns 2 tiers (walk away, recommended offer)', () => {
     const result = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' });
-    expect(result.landPrices).toHaveLength(3);
+    expect(result.landPrices).toHaveLength(2);
     expect(result.landPrices[0].label).toBe('Walk Away');
-    expect(result.landPrices[1].label).toBe('Strike Price');
-    expect(result.landPrices[2].label).toBe('Home Run');
+    expect(result.landPrices[1].label).toBe('Recommended Offer');
   });
 
   test('IRR is a valid percentage string', () => {
@@ -1436,9 +1435,9 @@ describe('Override flow-through pressure tests', () => {
     expect(parseFloat(expensive.yocStab)).toBeLessThan(parseFloat(base.yocStab));
   });
 
-  test('raising YOC strike threshold lowers max land price', () => {
+  test('raising YOC target threshold lowers max land price', () => {
     const base = baseFinancials();
-    const tight = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { yocStrike: 0.12 });
+    const tight = computeSiteFinancials({ ...baseSite, askingPrice: '$1,000,000' }, { yocTarget: 0.12 });
     // Higher YOC requirement → less land budget
     expect(tight.landPrices[1].maxLand).toBeLessThan(base.landPrices[1].maxLand);
   });
