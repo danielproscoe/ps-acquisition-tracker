@@ -1820,9 +1820,8 @@ function AppInner() {
                                 const stabNOI = fin.stabNOI || 0;
                                 const totalDev = fin.totalDevCost || 0;
                                 const yoc = fin.yocStab;
-                                const strike = fin.landPrices?.[1]; // Strike price (9% YOC)
-                                const walk = fin.landPrices?.[0]; // Walk away (7.5%)
-                                const homerun = fin.landPrices?.[2]; // Home run (10.5%)
+                                const strike = fin.landPrices?.[1]; // Recommended Offer (8.5% YOC)
+                                const walk = fin.landPrices?.[0]; // Walk away (7% YOC)
                                 const verdict = fin.landVerdict || "—";
                                 const verdictColor = fin.verdictColor || "#6B7394";
                                 const askRaw = fin.landCost || 0;
@@ -1882,20 +1881,18 @@ function AppInner() {
                                         </div>
                                       )}
                                     </div>
-                                    {/* Land Price Range Bar */}
-                                    {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
+                                    {/* Land Price Range Bar — 2-tier: Walk Away | Rec. Offer */}
+                                    {walk?.maxLand > 0 && strike?.maxLand > 0 && (
                                       <div style={{ marginTop: 10, position: "relative", height: 24, borderRadius: 6, overflow: "hidden", background: "rgba(255,255,255,.04)" }}>
-                                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
-                                        <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
-                                        <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
+                                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "50%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(201,168,76,0.3)" }} />
+                                        <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: "50%", background: "rgba(201,168,76,0.10)" }} />
                                         <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", display: "flex", justifyContent: "space-between", width: "100%", padding: "0 8px" }}>
-                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#EF4444" }}>WALK {walk.maxLand >= 1000000 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
-                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#C9A84C" }}>STRIKE {strike?.maxLand >= 1000000 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
-                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#22C55E" }}>HOME RUN {homerun.maxLand >= 1000000 ? `$${(homerun.maxLand/1e6).toFixed(1)}M` : `$${(homerun.maxLand/1000).toFixed(0)}K`}</span>
+                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#EF4444" }}>WALK AWAY {walk.maxLand >= 1000000 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
+                                          <span style={{ fontSize: 8, fontWeight: 700, color: "#C9A84C" }}>REC. OFFER {strike?.maxLand >= 1000000 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
                                         </div>
                                         {/* Ask price indicator */}
-                                        {hasAsk && walk.maxLand > 0 && homerun.maxLand > 0 && (() => {
-                                          const range = walk.maxLand - homerun.maxLand;
+                                        {hasAsk && walk.maxLand > 0 && strike.maxLand > 0 && (() => {
+                                          const range = walk.maxLand - strike.maxLand;
                                           const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50;
                                           return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />;
                                         })()}
@@ -3396,7 +3393,7 @@ function AppInner() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <div><div style={{ fontSize: 9, color: "#6B7394" }}>Est. Facility</div><div style={{ fontSize: 14, fontWeight: 800, color: "#E2E8F0" }}>{(qr.fin.totalSF / 1000).toFixed(0)}K SF</div><div style={{ fontSize: 9, color: "#6B7394" }}>{qr.fin.stories > 1 ? `${qr.fin.stories}-Story` : "1-Story"} | {Math.round(qr.fin.climatePct * 100)}% CC</div></div>
                         <div><div style={{ fontSize: 9, color: "#6B7394" }}>Stab. NOI (Y5)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#22C55E" }}>{qr.fin.stabNOI >= 1000000 ? `$${(qr.fin.stabNOI / 1e6).toFixed(2)}M` : `$${(qr.fin.stabNOI / 1000).toFixed(0)}K`}</div></div>
-                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Strike Price (9% YOC)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C" }}>{qr.fin.landPrices?.[1]?.maxLand >= 1e6 ? `$${(qr.fin.landPrices[1].maxLand / 1e6).toFixed(2)}M` : qr.fin.landPrices?.[1]?.maxLand > 0 ? `$${(qr.fin.landPrices[1].maxLand / 1000).toFixed(0)}K` : "$0"}</div></div>
+                        <div><div style={{ fontSize: 9, color: "#6B7394" }}>Rec. Offer (8.5% YOC)</div><div style={{ fontSize: 14, fontWeight: 800, color: "#C9A84C" }}>{qr.fin.landPrices?.[1]?.maxLand >= 1e6 ? `$${(qr.fin.landPrices[1].maxLand / 1e6).toFixed(2)}M` : qr.fin.landPrices?.[1]?.maxLand > 0 ? `$${(qr.fin.landPrices[1].maxLand / 1000).toFixed(0)}K` : "$0"}</div></div>
                         {qr.fin.yocStab !== "N/A" && <div><div style={{ fontSize: 9, color: "#6B7394" }}>YOC @ Ask</div><div style={{ fontSize: 14, fontWeight: 800, color: parseFloat(qr.fin.yocStab) >= 8 ? "#22C55E" : parseFloat(qr.fin.yocStab) >= 6 ? "#C9A84C" : "#EF4444" }}>{qr.fin.yocStab}%</div></div>}
                       </div>
                       {qr.fin.landVerdict && <div style={{ marginTop: 8, textAlign: "center", fontSize: 13, fontWeight: 900, color: qr.fin.verdictColor, padding: "6px 12px", borderRadius: 6, background: `${qr.fin.verdictColor}12`, border: `1px solid ${qr.fin.verdictColor}25` }}>{qr.fin.landVerdict}</div>}
@@ -4006,9 +4003,8 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
                   if (!fin || !fin.totalSF) return null;
                   const stabNOI = fin.stabNOI || 0;
-                  const strike = fin.landPrices?.[1];
-                  const walk = fin.landPrices?.[0];
-                  const homerun = fin.landPrices?.[2];
+                  const strike = fin.landPrices?.[1]; // Recommended Offer (8.5% YOC)
+                  const walk = fin.landPrices?.[0]; // Walk Away (7% YOC)
                   const verdict = fin.landVerdict || "—";
                   const vColor = fin.verdictColor || "#6B7394";
                   const yoc = fin.yocStab;
@@ -4062,17 +4058,15 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                           </div>
                         )}
                       </div>
-                      {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
+                      {walk?.maxLand > 0 && strike?.maxLand > 0 && (
                         <div style={{ marginTop: 10, position: "relative", height: 28, borderRadius: 6, overflow: "hidden", background: "rgba(255,255,255,.04)" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
-                          <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
-                          <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "50%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(201,168,76,0.3)" }} />
+                          <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: "50%", background: "rgba(201,168,76,0.10)" }} />
                           <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", display: "flex", justifyContent: "space-between", width: "100%", padding: "0 10px" }}>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444" }}>WALK {walk.maxLand >= 1e6 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C" }}>STRIKE {strike?.maxLand >= 1e6 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#22C55E" }}>HOME RUN {homerun.maxLand >= 1e6 ? `$${(homerun.maxLand/1e6).toFixed(1)}M` : `$${(homerun.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444" }}>WALK AWAY {walk.maxLand >= 1e6 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C" }}>REC. OFFER {strike?.maxLand >= 1e6 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
                           </div>
-                          {hasAsk && (() => { const range = walk.maxLand - homerun.maxLand; const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50; return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />; })()}
+                          {hasAsk && (() => { const range = walk.maxLand - strike.maxLand; const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50; return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />; })()}
                         </div>
                       )}
                     </div>
@@ -4555,7 +4549,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   } else if (recStrike > 0) {
                     recPrice = recStrike;
                     recYOC = recNOI / (recStrike + recBPC) * 100;
-                    recLabel = "STRIKE PRICE";
+                    recLabel = "REC. OFFER";
                     recColor = "#22C55E";
                   } else if (recPitch > 0) {
                     recPrice = recPitch;
@@ -4624,9 +4618,8 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   const fin = computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {});
                   if (!fin || !fin.totalSF) return null;
                   const stabNOI = fin.stabNOI || 0;
-                  const strike = fin.landPrices?.[1];
-                  const walk = fin.landPrices?.[0];
-                  const homerun = fin.landPrices?.[2];
+                  const strike = fin.landPrices?.[1]; // Recommended Offer (8.5% YOC)
+                  const walk = fin.landPrices?.[0]; // Walk Away (7% YOC)
                   const verdict = fin.landVerdict || "—";
                   const vColor = fin.verdictColor || "#6B7394";
                   const yoc = fin.yocStab;
@@ -4701,17 +4694,15 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                           </div>
                         </div>
                       </div>
-                      {walk?.maxLand > 0 && homerun?.maxLand > 0 && (
+                      {walk?.maxLand > 0 && strike?.maxLand > 0 && (
                         <div style={{ position: "relative", height: 28, background: "rgba(255,255,255,.04)" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "33.3%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(239,68,68,0.2)" }} />
-                          <div style={{ position: "absolute", left: "33.3%", top: 0, bottom: 0, width: "33.4%", background: "rgba(201,168,76,0.08)", borderRight: "1px solid rgba(201,168,76,0.2)" }} />
-                          <div style={{ position: "absolute", left: "66.7%", top: 0, bottom: 0, width: "33.3%", background: "rgba(34,197,94,0.08)" }} />
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "50%", background: "rgba(239,68,68,0.12)", borderRight: "1px solid rgba(201,168,76,0.3)" }} />
+                          <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: "50%", background: "rgba(201,168,76,0.10)" }} />
                           <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", display: "flex", justifyContent: "space-between", width: "100%", padding: "0 10px" }}>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444" }}>WALK {walk.maxLand >= 1e6 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C" }}>STRIKE {strike?.maxLand >= 1e6 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#22C55E" }}>HOME RUN {homerun.maxLand >= 1e6 ? `$${(homerun.maxLand/1e6).toFixed(1)}M` : `$${(homerun.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444" }}>WALK AWAY {walk.maxLand >= 1e6 ? `$${(walk.maxLand/1e6).toFixed(1)}M` : `$${(walk.maxLand/1000).toFixed(0)}K`}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#C9A84C" }}>REC. OFFER {strike?.maxLand >= 1e6 ? `$${(strike.maxLand/1e6).toFixed(1)}M` : `$${(strike?.maxLand/1000).toFixed(0)}K`}</span>
                           </div>
-                          {hasAsk && (() => { const range = walk.maxLand - homerun.maxLand; const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50; return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />; })()}
+                          {hasAsk && (() => { const range = walk.maxLand - strike.maxLand; const pos = range > 0 ? Math.max(2, Math.min(98, ((walk.maxLand - askRaw) / range) * 100)) : 50; return <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 2, background: "#fff", boxShadow: "0 0 6px rgba(255,255,255,0.8)" }} title={`Asking: $${(askRaw/1e6).toFixed(2)}M`} />; })()}
                         </div>
                       )}
                     </div>
@@ -5460,15 +5451,15 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
 
                 // Intelligent Internal Price — compute strike/pitchable suggestion
                 const intFin = (() => { try { return computeSiteFinancials(site, VALUATION_OVERRIDES, site.overrides || {}); } catch { return null; } })();
-                const intStrike = intFin?.landPrices?.[1]?.maxLand || 0; // 9% YOC strike
-                const intWalk = intFin?.landPrices?.[0]?.maxLand || 0; // 7.5% YOC walk
+                const intStrike = intFin?.landPrices?.[1]?.maxLand || 0; // Rec. Offer (8.5% YOC)
+                const intWalk = intFin?.landPrices?.[0]?.maxLand || 0; // Walk Away (7% YOC)
                 const intNOI = intFin?.stabNOI || 0;
                 const intBPC = intFin ? ((intFin.buildCosts || 0) + (intFin.carryCosts || 0) + (intFin.workingCapital || 0)) : 0;
                 // If strike is positive, suggest it. If not, find price for 8% YOC ("pitchable")
                 const pitchablePrice = intNOI > 0 ? Math.round(intNOI / 0.08 - intBPC) : 0;
                 const suggestedPrice = intStrike > 0 ? intStrike : (pitchablePrice > 0 ? pitchablePrice : 0);
                 const suggestedYOC = suggestedPrice > 0 && intNOI > 0 ? (intNOI / (suggestedPrice + intBPC) * 100) : 0;
-                const suggestedLabel = intStrike > 0 ? "STRIKE 9%" : (pitchablePrice > 0 ? "TARGET 8%" : "");
+                const suggestedLabel = intStrike > 0 ? "REC 8.5%" : (pitchablePrice > 0 ? "TARGET 8%" : "");
                 // Actual internal price and its YOC
                 const intPriceRaw = parsePrice(site.internalPrice) || 0;
                 const intPriceYOC = intPriceRaw > 0 && intNOI > 0 ? (intNOI / (intPriceRaw + intBPC) * 100) : 0;

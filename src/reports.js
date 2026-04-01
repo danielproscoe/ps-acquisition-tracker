@@ -1664,7 +1664,7 @@ function updateCustomCap(val){
 
           ${hdr('Target YOC (Land Pricing)')}
           ${row('Max Price (aggressive)', 'yocMax', pct2)}
-          ${row('Strike Price (target)', 'yocStrike', pct2)}
+          ${row('Recommended Offer (target)', 'yocStrike', pct2)}
           ${row('Min Price (conservative)', 'yocMin', pct2)}
         </table>
       </div>
@@ -2620,7 +2620,7 @@ function switchSiteInputs(siteId) {
           <div class="mi-header"><div class="mi-title">Land Acquisition Cost</div><div class="mi-conf mi-conf-${landCost > 0 ? "high" : "low"}">${landCost > 0 ? "Broker Listing" : "Not Priced"}</div></div>
           <div class="mi-body">
             <strong>${landCost > 0 ? "Asking price from broker listing. Subject to negotiation per Land Price Guide below." : "Asking price not yet available — use the Land Price Guide to determine offer range."}</strong>
-            <div class="mi-formula">${landCost > 0 ? `Asking: ${fmtD(landCost)} (${!isNaN(acres) && acres > 0 ? "$" + Math.round(landCost/acres).toLocaleString() + "/acre" : "—"})<br>SiteScore™ Strike Price: ${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}<br>Ask vs Strike: ${askVsStrike !== null ? askVsStrike + "%" : "—"}` : "Land cost TBD — enter asking price to activate valuation engine"}</div>
+            <div class="mi-formula">${landCost > 0 ? `Asking: ${fmtD(landCost)} (${!isNaN(acres) && acres > 0 ? "$" + Math.round(landCost/acres).toLocaleString() + "/acre" : "—"})<br>SiteScore™ Rec. Offer: ${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}<br>Ask vs Strike: ${askVsStrike !== null ? askVsStrike + "%" : "—"}` : "Land cost TBD — enter asking price to activate valuation engine"}</div>
             <div class="mi-row"><span class="mi-row-label">PS Significance</span><span class="mi-row-val">Land is typically 10-25% of total dev cost for PS projects. Sites where land exceeds 30% of total cost face tighter YOC — PS's internal hurdle is 8.0-9.0% YOC, and land is the primary variable the buyer controls.</span></div>
             <div class="mi-row"><span class="mi-row-label">Land as % of Total</span><span class="mi-row-val">${totalDevCost > 0 && landCost > 0 ? Math.round(landCost/totalDevCost*100) + "%" : "—"} — ${totalDevCost > 0 && landCost > 0 && landCost/totalDevCost > 0.30 ? "ABOVE typical PS range — negotiate aggressively" : totalDevCost > 0 && landCost > 0 ? "within normal PS range" : "pending"}</span></div>
             <div class="mi-source">Source: Broker listing (Crexi/LoopNet/CoStar) | SiteScore™ reverse-engineered from stabilized NOI</div>
@@ -2898,8 +2898,8 @@ function switchSiteInputs(siteId) {
         <div class="mi-header"><div class="mi-title">Land Verdict — ${landVerdict}</div><div class="mi-conf mi-conf-high">SiteScore™</div></div>
         <div class="mi-body">
           <strong>SiteScore™ determines the land verdict by comparing the asking price against the target (strike) price derived from the facility's projected NOI performance.</strong>
-          <div class="mi-formula">Strike Price: ${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"} (at ${(landPrices[1].yoc*100).toFixed(1)}% target YOC)<br>Asking Price: ${landCost > 0 ? fmtD(landCost) : "Not listed"}<br>Variance: ${askVsStrike !== null ? askVsStrike + "%" : "—"}<br>Verdict: <strong style="color:${verdictColor}">${landVerdict}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Verdict Logic</span><span class="mi-row-val">${parseFloat(askVsStrike) <= -15 ? "Ask is 15%+ BELOW strike → STRONG BUY. Move fast — this is a home run deal at current ask." : parseFloat(askVsStrike) <= 0 ? "Ask is at or below strike → BUY. Deal pencils at current ask." : parseFloat(askVsStrike) <= 15 ? "Ask is above strike but negotiable → NEGOTIATE. Counter at strike price." : parseFloat(askVsStrike) <= 30 ? "Ask is significantly above strike → STRETCH. Only for irreplaceable locations." : "Ask exceeds max ceiling → PASS. Does not pencil at any realistic YOC target."}</span></div>
+          <div class="mi-formula">Rec. Offer: ${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"} (at ${(landPrices[1].yoc*100).toFixed(1)}% target YOC)<br>Asking Price: ${landCost > 0 ? fmtD(landCost) : "Not listed"}<br>Variance: ${askVsStrike !== null ? askVsStrike + "%" : "—"}<br>Verdict: <strong style="color:${verdictColor}">${landVerdict}</strong></div>
+          <div class="mi-row"><span class="mi-row-label">Verdict Logic</span><span class="mi-row-val">${parseFloat(askVsStrike) <= -15 ? "Ask is 15%+ BELOW strike → STRONG BUY. Move fast — this is a home run deal at current ask." : parseFloat(askVsStrike) <= 0 ? "Ask is at or below strike → BUY. Deal pencils at current ask." : parseFloat(askVsStrike) <= 15 ? "Ask is above strike but negotiable → NEGOTIATE. Counter at recommended offer." : parseFloat(askVsStrike) <= 30 ? "Ask is significantly above strike → STRETCH. Only for irreplaceable locations." : "Ask exceeds max ceiling → PASS. Does not pencil at any realistic YOC target."}</span></div>
           <div class="mi-row"><span class="mi-row-label">Why PS Needs This</span><span class="mi-row-val">Traditional CRE brokerage uses comparable sales to value land. SiteScore™ inverts this: it prices land from the storage facility's income potential. This means PS knows the maximum justifiable price BEFORE entering negotiations — a fundamental informational advantage.</span></div>
           <div class="mi-source">Source: SiteScore™ reverse-engineering engine | Stabilized NOI ÷ target YOC − build costs = max land price</div>
         </div>
@@ -2943,19 +2943,17 @@ function switchSiteInputs(siteId) {
         <div class="mono" style="font-size:22px;font-weight:800;color:#E2E8F0;margin-top:4px">${fmtM(landCost)}</div>
       </div>
       <div style="text-align:center">
-        <div style="font-size:10px;color:#6B7394">vs Strike Price</div>
+        <div style="font-size:10px;color:#6B7394">vs Rec. Offer</div>
         <div class="mono" style="font-size:24px;font-weight:900;color:${verdictColor}">${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "—"}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:10px;color:#6B7394">Suggested Counter</div>
         ${(() => {
-          const minLand = landPrices[2]?.maxLand || 0;
-          const strikeLand = landPrices[1]?.maxLand || 0;
+          const recLand = landPrices[1]?.maxLand || 0;
           const maxLand = landPrices[0]?.maxLand || 0;
-          if (landCost <= 0 || strikeLand <= 0) return `<div class="mono" style="font-size:22px;font-weight:800;color:#6B7394">N/A</div>`;
-          if (landCost <= minLand) return `<div class="mono" style="font-size:18px;font-weight:800;color:#16A34A">BUY AT ASKING</div><div style="font-size:9px;color:#16A34A;margin-top:2px">Home run pricing — move fast</div>`;
-          if (landCost <= strikeLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#16A34A">${fmtM(landCost)}</div><div style="font-size:9px;color:#16A34A;margin-top:2px">At/below strike — buy at asking</div>`;
-          if (landCost <= maxLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${fmtM(strikeLand)}</div><div style="font-size:9px;color:#F59E0B;margin-top:2px">Counter to strike price</div>`;
+          if (landCost <= 0 || recLand <= 0) return `<div class="mono" style="font-size:22px;font-weight:800;color:#6B7394">N/A</div>`;
+          if (landCost <= recLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#16A34A">${fmtM(landCost)}</div><div style="font-size:9px;color:#16A34A;margin-top:2px">At/below rec — buy at asking</div>`;
+          if (landCost <= maxLand) return `<div class="mono" style="font-size:22px;font-weight:800;color:#C9A84C">${fmtM(recLand)}</div><div style="font-size:9px;color:#F59E0B;margin-top:2px">Counter to recommended offer</div>`;
           return `<div class="mono" style="font-size:22px;font-weight:800;color:#EF4444">${fmtM(maxLand)}</div><div style="font-size:9px;color:#EF4444;margin-top:2px">Above walk-away — counter to max or pass</div>`;
         })()}
       </div>
@@ -2966,8 +2964,7 @@ function switchSiteInputs(siteId) {
       <div style="width:100%;height:100%;border-radius:4px;background:linear-gradient(90deg,#16A34A,#F59E0B,#EF4444)"></div>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:#6B7394">
-      <span>Home Run</span>
-      <span>Strike</span>
+      <span>Rec. Offer</span>
       <span>Walk Away</span>
     </div>
   </div>` : ""}
@@ -2999,7 +2996,7 @@ function switchSiteInputs(siteId) {
             const pa = !isNaN(acres) && acres > 0 && maxL > 0 ? Math.round(maxL / acres) : 0;
             // EY AUDIT FIX 2026-03-28: Strike marker uses actual O()-overridden YOC, not hardcoded 0.085
             const isStrike = Math.abs(yoc - landPrices[1].yoc) < 0.001;
-            const signal = yoc <= 0.07 ? "Too Aggressive" : yoc <= landPrices[0].yoc ? "Walk Away" : yoc < landPrices[1].yoc ? "Aggressive" : yoc <= landPrices[1].yoc + 0.005 ? "Strike Zone" : yoc <= landPrices[2].yoc ? "Conservative" : "Home Run";
+            const signal = yoc < landPrices[0].yoc ? "Too Aggressive" : Math.abs(yoc - landPrices[0].yoc) < 0.003 ? "Walk Away" : yoc < landPrices[1].yoc ? "Negotiate" : Math.abs(yoc - landPrices[1].yoc) < 0.003 ? "Rec. Offer" : "Conservative";
             const sigColor = yoc <= 0.07 ? "#EF4444" : yoc <= 0.08 ? "#E87A2E" : yoc <= landPrices[1].yoc ? "#C9A84C" : yoc <= 0.10 ? "#16A34A" : "#16A34A";
             return `<tr style="${isStrike ? "background:rgba(201,168,76,0.08);border-left:3px solid #C9A84C" : ""}">
               <td class="mono" style="font-weight:700;${isStrike ? "color:#C9A84C" : ""}">${(yoc*100).toFixed(1)}%${isStrike ? " ◆" : ""}</td>
@@ -3019,20 +3016,19 @@ function switchSiteInputs(siteId) {
         ${landCost > 0 && landPrices[1].maxLand > 0 ? `<div style="margin-bottom:8px">
           ${parseFloat(askVsStrike) <= -15 ? `<div style="color:#16A34A;font-weight:700;margin-bottom:6px">The asking price is ${Math.abs(parseFloat(askVsStrike))}% BELOW strike — this is a strong buy. Move fast before competing offers emerge. Consider offering at or near ask to lock it up.</div>` :
           parseFloat(askVsStrike) <= 0 ? `<div style="color:#22C55E;font-weight:700;margin-bottom:6px">The asking price is at or below strike — this deal pencils at the current ask. Standard LOI at asking price is defensible.</div>` :
-          parseFloat(askVsStrike) <= 15 ? `<div style="color:#F59E0B;font-weight:700;margin-bottom:6px">The asking price is ${askVsStrike}% above strike — negotiate. Counter at ${fmtM(landPrices[1].maxLand)} (strike price) with a ${fmtD(Math.round((landCost - landPrices[1].maxLand) * 0.4 + landPrices[1].maxLand))} fallback position.</div>` :
+          parseFloat(askVsStrike) <= 15 ? `<div style="color:#F59E0B;font-weight:700;margin-bottom:6px">The asking price is ${askVsStrike}% above strike — negotiate. Counter at ${fmtM(landPrices[1].maxLand)} (recommended offer) with a ${fmtD(Math.round((landCost - landPrices[1].maxLand) * 0.4 + landPrices[1].maxLand))} fallback position.</div>` :
           parseFloat(askVsStrike) <= 30 ? `<div style="color:#E87A2E;font-weight:700;margin-bottom:6px">The asking price is ${askVsStrike}% above strike — this is a stretch. Only pursue if the site has exceptional strategic value (location, competition void, growth trajectory) that justifies compressed returns.</div>` :
           `<div style="color:#EF4444;font-weight:700;margin-bottom:6px">The asking price is ${askVsStrike}% above strike — this deal does not pencil at the current ask. The seller's expectations exceed what this facility can support. Pass or submit a significantly below-ask offer at ${fmtM(landPrices[1].maxLand)} with full justification.</div>`}
-        </div>` : `<div style="color:#6B7394">Asking price not available — use the strike price of ${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"} as the opening offer anchor.</div>`}
-        <div class="drill-row"><span class="drill-label">LOI Opening Offer</span><span class="drill-value" style="color:#16A34A">${landPrices[2].maxLand > 0 ? fmtM(Math.round((landPrices[2].maxLand + landPrices[1].maxLand) / 2)) : "N/A"}</span></div>
-        <div class="drill-row"><span class="drill-label">Walk-Away Price</span><span class="drill-value" style="color:#EF4444">${landPrices[0].maxLand > 0 ? fmtM(landPrices[0].maxLand) : "N/A"}</span></div>
-        <div class="drill-row"><span class="drill-label">Negotiation Range</span><span class="drill-value">${landPrices[2].maxLand > 0 && landPrices[0].maxLand > 0 ? fmtM(landPrices[2].maxLand) + " — " + fmtM(landPrices[0].maxLand) : "N/A"}</span></div>
+        </div>` : `<div style="color:#6B7394">Asking price not available — use the recommended offer of ${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"} as the opening offer anchor.</div>`}
+        <div class="drill-row"><span class="drill-label">Recommended Offer</span><span class="drill-value" style="color:#C9A84C">${landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "N/A"}</span></div>
+        <div class="drill-row"><span class="drill-label">Walk-Away Ceiling</span><span class="drill-value" style="color:#EF4444">${landPrices[0].maxLand > 0 ? fmtM(landPrices[0].maxLand) : "N/A"}</span></div>
+        <div class="drill-row"><span class="drill-label">Negotiation Range</span><span class="drill-value">${landPrices[1].maxLand > 0 && landPrices[0].maxLand > 0 ? fmtM(landPrices[1].maxLand) + " — " + fmtM(landPrices[0].maxLand) : "N/A"}</span></div>
       </div>
       <div class="insight-box">
         <div class="insight-title">Why These YOC Targets?</div>
         <div style="font-size:11px;color:#94A3B8;line-height:1.8">
-          <div><strong style="color:#EF4444">${(landPrices[0].yoc*100).toFixed(1)}% (Max/Ceiling)</strong> — Below PS's typical hurdle. Only justified for irreplaceable locations (freeway visibility, zero competition, top-5 metro growth). Requires EVP+ approval.</div>
-          <div style="margin-top:6px"><strong style="color:#C9A84C">${(landPrices[1].yoc*100).toFixed(1)}% (Strike/Target)</strong> — PS's development sweet spot. 250-350bps spread over acquisition cap rates. Provides cushion for construction overruns and slower-than-modeled lease-up.</div>
-          <div style="margin-top:6px"><strong style="color:#16A34A">${(landPrices[2].yoc*100).toFixed(1)}% (Min/Floor)</strong> — Conservative / home run. Maximum margin of safety. Easiest internal approval path. Typically achievable in secondary/tertiary markets with lower land costs.</div>
+          <div><strong style="color:#EF4444">${(landPrices[0].yoc*100).toFixed(1)}% (Walk Away)</strong> — Absolute ceiling. Below this the deal doesn't pencil without rent growth assumptions or EVP exception. Do not exceed.</div>
+          <div style="margin-top:6px"><strong style="color:#C9A84C">${(landPrices[1].yoc*100).toFixed(1)}% (Recommended Offer)</strong> — PS's development sweet spot. Standard REC approval zone. Provides cushion for construction overruns and slower-than-modeled lease-up.</div>
         </div>
       </div>
     </div>
@@ -4346,7 +4342,7 @@ function toggleMI(id,evt){
       <div id="mi-rec-verdict" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Land Pricing Verdict</div><div class="mi-conf ${landVerdict === "BUY" || landVerdict === "TARGET" ? "mi-conf-high" : landVerdict === "STRETCH" ? "mi-conf-med" : "mi-conf-low"}">${landVerdict === "BUY" ? "Favorable" : landVerdict === "TARGET" ? "At Target" : landVerdict === "STRETCH" ? "Above Target" : "Overpriced"}</div></div>
         <div class="mi-body">
-          <strong>Verdict is determined by comparing the asking price against the strike price (max land at target YOC).</strong>
+          <strong>Verdict is determined by comparing the asking price against the recommended offer (max land at target YOC).</strong>
           <div class="mi-formula">Strike Price = Max land at ${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "8.5"}% target YOC<br>= ${landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}<br>Ask vs Strike = ${parseFloat(askVsStrike) > 0 ? "+" : ""}${askVsStrike}%</div>
           <div class="mi-row"><span class="mi-row-label">BUY (≤-10%)</span><span class="mi-row-val">Below strike — strong acquisition opportunity</span></div>
           <div class="mi-row"><span class="mi-row-label">TARGET (-10% to +5%)</span><span class="mi-row-val">At or near strike — proceed with standard terms</span></div>
@@ -4357,7 +4353,7 @@ function toggleMI(id,evt){
       </div></div>
     </div>
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-askvstrike',event)">
-      <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">ASK vs STRIKE</div>
+      <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">ASK vs REC</div>
       <div style="font-size:20px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</div><em class="mi-hint">i</em>
       <div id="mi-rec-askvstrike" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Ask vs Strike Differential</div><div class="mi-conf ${parseFloat(askVsStrike) <= 0 ? "mi-conf-high" : parseFloat(askVsStrike) <= 15 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>

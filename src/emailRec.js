@@ -366,10 +366,9 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
     '</table></div>' : '',
 
     // ══ 9. STORVEX VALUATION TOOL — reference only ══
-    fin && fin.landPrices && fin.landPrices.length >= 3 ? (() => {
+    fin && fin.landPrices && fin.landPrices.length >= 2 ? (() => {
       const walk = fin.landPrices[0] || {};
       const strike = fin.landPrices[1] || {};
-      const hr = fin.landPrices[2] || {};
       const yocAtAsk = fin.yocStab ? fin.yocStab + "%" : "";
       return '<div style="padding:0 28px 20px;background:#FFFFFF">' +
         sectionTitle("STORVEX VALUATION TOOL") +
@@ -377,18 +376,15 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
         '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden">' +
         '<tr style="background:#0F172A">' +
         '<td style="padding:10px 14px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.1em"></td>' +
-        '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:#EF4444;text-align:right;text-transform:uppercase;letter-spacing:0.1em">Walk (7%)</td>' +
-        '<td style="padding:10px 12px;font-size:9px;font-weight:800;color:#F59E0B;text-align:right;text-transform:uppercase;letter-spacing:0.1em">Strike (9%)</td>' +
-        '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:#10B981;text-align:right;text-transform:uppercase;letter-spacing:0.1em">Home Run (11%)</td></tr>' +
+        '<td style="padding:10px 12px;font-size:9px;font-weight:800;color:#C9A84C;text-align:right;text-transform:uppercase;letter-spacing:0.1em">Rec. Offer (8.5%)</td>' +
+        '<td style="padding:10px 12px;font-size:9px;font-weight:700;color:#EF4444;text-align:right;text-transform:uppercase;letter-spacing:0.1em">Walk Away (7%)</td></tr>' +
         '<tr style="background:#F8FAFC"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">Max Land Price</td>' +
-        '<td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (walk.maxLand > 0 ? $k(walk.maxLand) : "-") + '</td>' +
         '<td style="padding:10px 12px;font-size:13px;color:#0F172A;font-weight:900;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (strike.maxLand > 0 ? $k(strike.maxLand) : "-") + '</td>' +
-        '<td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (hr.maxLand > 0 ? $k(hr.maxLand) : "-") + '</td></tr>' +
+        '<td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (walk.maxLand > 0 ? $k(walk.maxLand) : "-") + '</td></tr>' +
         '<tr style="background:#FFFFFF"><td style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600;border-bottom:1px solid #F1F5F9">Per Acre</td>' +
-        '<td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (walk.maxLandPerAc > 0 ? $k(walk.maxLandPerAc) : "-") + '</td>' +
         '<td style="padding:10px 12px;font-size:13px;color:#0F172A;font-weight:900;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (strike.maxLandPerAc > 0 ? $k(strike.maxLandPerAc) : "-") + '</td>' +
-        '<td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (hr.maxLandPerAc > 0 ? $k(hr.maxLandPerAc) : "-") + '</td></tr>' +
-        (yocAtAsk ? '<tr style="background:#F8FAFC"><td colspan="4" style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600">YOC at Ask: <span style="color:#0F172A;font-weight:800;font-family:' + MONO + '">' + yocAtAsk + '</span></td></tr>' : '') +
+        '<td style="padding:10px 12px;font-size:12px;color:#64748B;text-align:right;border-bottom:1px solid #F1F5F9;font-family:' + MONO + '">' + (walk.maxLandPerAc > 0 ? $k(walk.maxLandPerAc) : "-") + '</td></tr>' +
+        (yocAtAsk ? '<tr style="background:#F8FAFC"><td colspan="3" style="padding:10px 14px;font-size:12px;color:#475569;font-weight:600">YOC at Ask: <span style="color:#0F172A;font-weight:800;font-family:' + MONO + '">' + yocAtAsk + '</span></td></tr>' : '') +
         '</table></div>';
     })() : '',
 

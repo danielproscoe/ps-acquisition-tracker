@@ -775,15 +775,15 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // EY AUDIT FIX 2026-03-28: Guard against division by zero if cap rate overridden to 0
   const valuations = capRates.map(c => ({ ...c, value: c.rate > 0 ? Math.round(stabNOI / c.rate) : 0 }));
 
-  // ── Land Price Guide — PS development pipeline targets ──
-  // Walk Away 7.5% = floor for strategic sites (EVP+ approval required below this).
-  // Strike 9.0% = standard REC approval zone — PS targets 8-9% YOC.
-  // Home Run 10.5% = exceptional — deal-of-the-year territory.
+  // ── Land Price Guide — PS development pipeline targets (v2 — 2-tier model) ──
+  // Walk Away 7.0% = absolute ceiling — below this the deal doesn't pencil without
+  //   rent growth assumptions or EVP exception. Do not exceed.
+  // Recommended Offer 8.5% = sweet spot for standard REC approval. PS targets 8-9% YOC.
+  // Home Run removed — produced absurdly low floor prices that undermined credibility.
   // When max land is negative, shows $0 — means build costs alone exceed budget at that YOC.
   const landTargets = [
-    { label: "Walk Away", yoc: O('yocMax', 0.075), color: "#EF4444", tag: "MAX" },
-    { label: "Strike Price", yoc: O('yocStrike', 0.09), color: "#C9A84C", tag: "TARGET" },
-    { label: "Home Run", yoc: O('yocMin', 0.105), color: "#16A34A", tag: "STEAL" },
+    { label: "Walk Away", yoc: O('yocWalkAway', 0.07), color: "#EF4444", tag: "MAX" },
+    { label: "Recommended Offer", yoc: O('yocTarget', 0.085), color: "#C9A84C", tag: "TARGET" },
   ];
   const landPrices = landTargets.map(t => {
     const maxLand = stabNOI > 0 ? Math.round(stabNOI / t.yoc - buildCosts - carryCosts - workingCapital) : 0;
