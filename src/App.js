@@ -4557,11 +4557,27 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                     recLabel = "MINIMUM PITCHABLE";
                     recColor = "#C9A84C";
                   } else if (recAsk > 0) {
-                    // Fallback: strike/pitch unachievable — show YOC at ask
-                    recPrice = recAsk;
-                    recYOC = recNOI / (recAsk + recBPC) * 100;
-                    recLabel = "YOC AT ASKING";
-                    recColor = recYOC >= 7.5 ? "#C9A84C" : "#E87A2E";
+                    // Fallback: strike/pitch unachievable
+                    const askYocCalc = recNOI / (recAsk + recBPC) * 100;
+                    if (recWalk > 0 && recWalk < recAsk) {
+                      // Walk price exists but is below asking — recommend walk price
+                      recPrice = recWalk;
+                      recYOC = recNOI / (recWalk + recBPC) * 100;
+                      recLabel = "MAX LAND (7% YOC)";
+                      recColor = "#E87A2E";
+                    } else if (askYocCalc >= 7.0) {
+                      // Asking price still delivers acceptable YOC
+                      recPrice = recAsk;
+                      recYOC = askYocCalc;
+                      recLabel = "YOC AT ASKING";
+                      recColor = recYOC >= 7.5 ? "#C9A84C" : "#E87A2E";
+                    } else {
+                      // Deal doesn't work at asking — show what asking yields but flag PASS
+                      recPrice = recAsk;
+                      recYOC = askYocCalc;
+                      recLabel = "PASS AT ASKING";
+                      recColor = "#EF4444";
+                    }
                   } else return null;
                   // HARD RULE: Never recommend offering above asking price
                   // If strike math says we can pay more than ask, cap at ask (it's already a great deal)
@@ -4596,12 +4612,23 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                             <span style={{ fontSize: 8, fontWeight: 700, color: "#4A5074", letterSpacing: "0.08em" }}>{recLabel}</span>
                           </div>
                           <div style={{ fontSize: 15, fontWeight: 900, color: "#E2E8F0", lineHeight: 1.4 }}>
-                            Come in at <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{fmtP(recPrice)}</span> for a <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{recYOC.toFixed(1)}%</span> YOC
-                            {discStr ? <span style={{ color: "#94A3B8", fontWeight: 600 }}> — {discStr}</span> : ""}
+                            {recLabel === "PASS AT ASKING" ? (
+                              <><span style={{ color: "#EF4444", fontFamily: "'Space Mono', monospace" }}>PASS</span> at {fmtP(recAsk)} — only <span style={{ color: "#EF4444", fontFamily: "'Space Mono', monospace" }}>{recYOC.toFixed(1)}%</span> YOC</>
+                            ) : recLabel === "MAX LAND (7% YOC)" ? (
+                              <>Max land price <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{fmtP(recPrice)}</span> for a <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{recYOC.toFixed(1)}%</span> YOC
+                              {recAsk > 0 ? <span style={{ color: "#94A3B8", fontWeight: 600 }}> — {((recAsk - recPrice) / recAsk * 100).toFixed(0)}% below ask</span> : ""}</>
+                            ) : (
+                              <>Come in at <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{fmtP(recPrice)}</span> for a <span style={{ color: recColor, fontFamily: "'Space Mono', monospace" }}>{recYOC.toFixed(1)}%</span> YOC
+                              {discStr ? <span style={{ color: "#94A3B8", fontWeight: 600 }}> — {discStr}</span> : ""}</>
+                            )}
                           </div>
                           <div style={{ fontSize: 11, color: "#6B7394", marginTop: 4, lineHeight: 1.5 }}>
-                            Based on {(recSF/1000).toFixed(0)}K SF facility, {recNOI >= 1e6 ? `$${(recNOI/1e6).toFixed(2)}M` : `$${Math.round(recNOI/1e3)}K`} stabilized NOI{grStr ? `, ${grStr}` : ""}.
-                            {recLabel === "YOC AT ASKING"
+                            Based on {(recSF/1000).toFixed(0)}K SF facility, {recNOI >= 1e6 ? `$${(recNOI/1e6).toFixed(02)}M` : `$${Math.round(recNOI/1e3)}K`} stabilized NOI{grStr ? `, ${grStr}` : ""}.
+                            {recLabel === "PASS AT ASKING"
+                              ? ` At ${fmtP(recAsk)}, build costs (${fmtP(recBPC)}) push total basis to ${fmtP(recAsk + recBPC)} — NOI cannot support. ${recWalk > 0 ? `Negotiate to ${fmtP(recWalk)} or below for 7%+ YOC.` : "No viable land price at current rents — pass."}`
+                              : recLabel === "MAX LAND (7% YOC)"
+                              ? ` Asking ${fmtP(recAsk)} delivers ${(recNOI / (recAsk + recBPC) * 100).toFixed(1)}% YOC — below threshold. Negotiate to ${fmtP(recPrice)} for walk-away floor.`
+                              : recLabel === "YOC AT ASKING"
                               ? ` PS strike/pitch unachievable at current rents — build costs (${fmtP(recBPC)}) exceed NOI capacity. ${recYOC > 5 ? "Site works if rents grow or ask drops." : "Significant gap — negotiate hard or pass."}`
                               : askYOC > 0 ? ` At the ${fmtP(recAsk)} ask: ${askYOC.toFixed(1)}% YOC${askYOC >= 9 ? " — already hits target." : askYOC >= 7.5 ? " — workable with minor negotiation." : askYOC >= 6 ? " — needs reduction to hit strike." : " — significant gap to strike."}` : ""}
                           </div>
