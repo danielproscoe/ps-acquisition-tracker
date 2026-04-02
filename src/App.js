@@ -4623,7 +4623,7 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                             )}
                           </div>
                           <div style={{ fontSize: 11, color: "#6B7394", marginTop: 4, lineHeight: 1.5 }}>
-                            Based on {(recSF/1000).toFixed(0)}K SF facility, {recNOI >= 1e6 ? `$${(recNOI/1e6).toFixed(02)}M` : `$${Math.round(recNOI/1e3)}K`} stabilized NOI{grStr ? `, ${grStr}` : ""}.
+                            Based on {(recSF/1000).toFixed(0)}K SF facility, {recNOI >= 1e6 ? `$${(recNOI/1e6).toFixed(2)}M` : `$${Math.round(recNOI/1e3)}K`} stabilized NOI{grStr ? `, ${grStr}` : ""}.
                             {recLabel === "PASS AT ASKING"
                               ? ` At ${fmtP(recAsk)}, build costs (${fmtP(recBPC)}) push total basis to ${fmtP(recAsk + recBPC)} — NOI cannot support. ${recWalk > 0 ? `Negotiate to ${fmtP(recWalk)} or below for 7%+ YOC.` : "No viable land price at current rents — pass."}`
                               : recLabel === "MAX LAND (7% YOC)"
