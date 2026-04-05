@@ -1912,7 +1912,6 @@ function AppInner() {
                                 { key: "households", label: "Households (3-mi)", weight: getIQWeight("households"), icon: "🏠", tip: "Household count — demand proxy" },
                                 { key: "homeValue", label: "Home Value (3-mi)", weight: getIQWeight("homeValue"), icon: "🏡", tip: "Median home value — affluence signal" },
                                 { key: "zoning", label: "Zoning", weight: getIQWeight("zoning"), icon: "🏛️", tip: "Storage permissibility in zoning district" },
-                                { key: "psProximity", label: "PS Proximity", weight: getIQWeight("psProximity"), icon: "📦", tip: "Distance to nearest PS — closer = validated market" },
                                 { key: "access", label: "Site Access & Size", weight: getIQWeight("access"), icon: "🛣️", tip: "Acreage, frontage, flood, access quality" },
                                 { key: "competition", label: "Competition", weight: getIQWeight("competition"), icon: "🏪", tip: "Competing storage within 3 mi" },
                               ];
@@ -3756,21 +3755,28 @@ function AppInner() {
 <div class="info-panel"><div class="info-title">${(site.name || "Subject Site").replace(/"/g, "&quot;")}</div>
 <div class="info-sub">${(site.address || "").replace(/"/g, "&quot;")}, ${(site.city || "").replace(/"/g, "&quot;")} ${site.state || ""}</div>
 <div class="info-badges">${site.acreage ? `<span class="info-badge" style="background:rgba(21,101,192,0.15);color:#42A5F5">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span class="info-badge" style="background:rgba(201,168,76,0.15);color:#C9A84C">${site.askingPrice}</span>` : ""}${site.zoning ? `<span class="info-badge" style="background:rgba(46,125,50,0.15);color:#66BB6A">${site.zoning}</span>` : ""}</div></div>
-<div class="legend"><div class="leg-item"><div class="dot-site"></div>Subject Site</div><div class="leg-item"><div class="dot-ps"></div>PS Locations</div><div class="leg-item"><div class="dot-ring"></div>3-Mile Radius</div></div>
+<div class="legend"><div class="leg-item"><div class="dot-site"></div>Subject Site</div><div class="leg-item"><div class="dot-ps"></div>PS Owned</div><div class="leg-item"><div style="width:12px;height:12px;background:linear-gradient(135deg,#22C55E,#4ADE80);border:2px solid #1a1a1a;border-radius:50%"></div>NSA / iStorage</div><div class="leg-item"><div class="dot-ring"></div>3-Mile Radius</div></div>
 <script>${hav}
-var map=L.map("map",{attributionControl:false}).setView([${lat},${lng}],12);
+var map=L.map("map",{attributionControl:false}).setView([${lat},${lng}],10);
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(map);
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,opacity:0.6}).addTo(map);
 var sI=L.divIcon({className:"",html:'<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:pulse 2s ease-in-out infinite"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div>',iconSize:[36,36],iconAnchor:[18,18]});
 L.marker([${lat},${lng}],{icon:sI,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-weight:900;font-size:14px;color:#1565C0">${(site.name || "Subject Site").replace(/'/g, "\\'")}</div>');
 L.circle([${lat},${lng}],{radius:4828,color:"#C9A84C",weight:2,opacity:0.5,fillColor:"#C9A84C",fillOpacity:0.04,dashArray:"8,6"}).addTo(map);
+var psCnt=0,nsaCnt=0;
 fetch("https://storvex.vercel.app/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
-var lines=csv.trim().split("\\n"),cnt=0,pI=L.divIcon({className:"",html:'<div style="width:16px;height:16px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+var lines=csv.trim().split("\\n"),pI=L.divIcon({className:"",html:'<div style="width:14px;height:14px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[14,14],iconAnchor:[7,7]});
 for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<7)continue;var pLa=parseFloat(p[5]),pLn=parseFloat(p[6]);if(isNaN(pLa)||isNaN(pLn))continue;
-var d=hav(${lat},${lng},pLa,pLn);if(d<=25){cnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
-m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#E87A2E">'+p[0]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi from subject</div>',{direction:"auto",offset:[0,-8]});
-m.bindPopup('<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">'+p[0]+'</span></div><div style="font-size:12px;font-weight:600;color:#334155">'+p[1]+'</div><div style="font-size:11px;color:#64748B;margin-top:3px">'+p[2]+'</div><div style="font-size:11px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">'+d.toFixed(1)+' mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>');}}
-document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(232,122,46,0.15);color:#E87A2E">'+cnt+' PS within 25mi</span>';
+var d=hav(${lat},${lng},pLa,pLn);if(d<=50){psCnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
+m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#E87A2E">'+p[0]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi</div>',{direction:"auto",offset:[0,-8]});}}
+return fetch("https://storvex.vercel.app/nsa-locations.csv");}).then(function(r){return r.text()}).then(function(csv){
+var lines=csv.trim().split("\\n"),nI=L.divIcon({className:"",html:'<div style="width:14px;height:14px;background:linear-gradient(135deg,#22C55E,#4ADE80);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(34,197,94,0.5)"></div>',iconSize:[14,14],iconAnchor:[7,7]});
+for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<8)continue;var pLa=parseFloat(p[6]),pLn=parseFloat(p[7]);if(isNaN(pLa)||isNaN(pLn))continue;
+var d=hav(${lat},${lng},pLa,pLn);if(d<=50){nsaCnt++;var m=L.marker([pLa,pLn],{icon:nI}).addTo(map);
+m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#22C55E">'+p[1]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi</div>',{direction:"auto",offset:[0,-8]});}}
+var total=psCnt+nsaCnt;
+document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(232,122,46,0.15);color:#E87A2E">'+total+' PS family within 50mi</span>';
+if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(239,68,68,0.15);color:#EF4444">Coverage gap market</span>';}
 });<\/script></body></html>`;
                     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
                     window.open(URL.createObjectURL(blob), "_blank");
@@ -4454,21 +4460,28 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
 <div class="info-panel"><div class="info-title">${(site.name || "Subject Site").replace(/"/g, "&quot;")}</div>
 <div class="info-sub">${(site.address || "").replace(/"/g, "&quot;")}, ${(site.city || "").replace(/"/g, "&quot;")} ${site.state || ""}</div>
 <div class="info-badges">${site.acreage ? `<span class="info-badge" style="background:rgba(21,101,192,0.15);color:#42A5F5">${site.acreage} ac</span>` : ""}${site.askingPrice ? `<span class="info-badge" style="background:rgba(201,168,76,0.15);color:#C9A84C">${site.askingPrice}</span>` : ""}${site.zoning ? `<span class="info-badge" style="background:rgba(46,125,50,0.15);color:#66BB6A">${site.zoning}</span>` : ""}</div></div>
-<div class="legend"><div class="leg-item"><div class="dot-site"></div>Subject Site</div><div class="leg-item"><div class="dot-ps"></div>PS Locations</div><div class="leg-item"><div class="dot-ring"></div>3-Mile Radius</div></div>
+<div class="legend"><div class="leg-item"><div class="dot-site"></div>Subject Site</div><div class="leg-item"><div class="dot-ps"></div>PS Owned</div><div class="leg-item"><div style="width:12px;height:12px;background:linear-gradient(135deg,#22C55E,#4ADE80);border:2px solid #1a1a1a;border-radius:50%"></div>NSA / iStorage</div><div class="leg-item"><div class="dot-ring"></div>3-Mile Radius</div></div>
 <script>${hav}
-var map=L.map("map",{attributionControl:false}).setView([${lat},${lng}],12);
+var map=L.map("map",{attributionControl:false}).setView([${lat},${lng}],10);
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(map);
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,opacity:0.6}).addTo(map);
 var sI=L.divIcon({className:"",html:'<div style="position:relative;width:36px;height:36px"><div style="position:absolute;inset:0;background:rgba(21,101,192,0.2);border-radius:50%;animation:pulse 2s ease-in-out infinite"></div><div style="position:absolute;top:5px;left:5px;width:26px;height:26px;background:linear-gradient(135deg,#1565C0,#1976D2);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 16px rgba(21,101,192,0.6)"></div></div>',iconSize:[36,36],iconAnchor:[18,18]});
 L.marker([${lat},${lng}],{icon:sI,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-weight:900;font-size:14px;color:#1565C0">${(site.name || "Subject Site").replace(/'/g, "\\'")}</div>');
 L.circle([${lat},${lng}],{radius:4828,color:"#C9A84C",weight:2,opacity:0.5,fillColor:"#C9A84C",fillOpacity:0.04,dashArray:"8,6"}).addTo(map);
+var psCnt=0,nsaCnt=0;
 fetch("https://storvex.vercel.app/ps-locations.csv").then(function(r){return r.text()}).then(function(csv){
-var lines=csv.trim().split("\\n"),cnt=0,pI=L.divIcon({className:"",html:'<div style="width:16px;height:16px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+var lines=csv.trim().split("\\n"),pI=L.divIcon({className:"",html:'<div style="width:14px;height:14px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(232,122,46,0.5)"></div>',iconSize:[14,14],iconAnchor:[7,7]});
 for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<7)continue;var pLa=parseFloat(p[5]),pLn=parseFloat(p[6]);if(isNaN(pLa)||isNaN(pLn))continue;
-var d=hav(${lat},${lng},pLa,pLn);if(d<=25){cnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
-m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#E87A2E">'+p[0]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi</div>',{direction:"auto",offset:[0,-8]});
-m.bindPopup('<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:10px;height:10px;background:linear-gradient(135deg,#E87A2E,#F59E0B);border:1.5px solid #1a1a1a;border-radius:50%"></div><span style="font-weight:900;font-size:13px;color:#E87A2E">'+p[0]+'</span></div><div style="font-size:12px;font-weight:600;color:#334155">'+p[1]+'</div><div style="font-size:11px;color:#64748B;margin-top:3px">'+p[2]+'</div><div style="font-size:11px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0"><span style="font-size:12px;color:#1565C0;font-weight:800">'+d.toFixed(1)+' mi</span><span style="font-size:10px;color:#94A3B8;margin-left:4px">from subject</span></div>');}}
-document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(232,122,46,0.15);color:#E87A2E">'+cnt+' PS within 25mi</span>';
+var d=hav(${lat},${lng},pLa,pLn);if(d<=50){psCnt++;var m=L.marker([pLa,pLn],{icon:pI}).addTo(map);
+m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#E87A2E">'+p[0]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi</div>',{direction:"auto",offset:[0,-8]});}}
+return fetch("https://storvex.vercel.app/nsa-locations.csv");}).then(function(r){return r.text()}).then(function(csv){
+var lines=csv.trim().split("\\n"),nI=L.divIcon({className:"",html:'<div style="width:14px;height:14px;background:linear-gradient(135deg,#22C55E,#4ADE80);border:2px solid #1a1a1a;border-radius:50%;box-shadow:0 2px 8px rgba(34,197,94,0.5)"></div>',iconSize:[14,14],iconAnchor:[7,7]});
+for(var i=1;i<lines.length;i++){var p=lines[i].split(",");if(p.length<8)continue;var pLa=parseFloat(p[6]),pLn=parseFloat(p[7]);if(isNaN(pLa)||isNaN(pLn))continue;
+var d=hav(${lat},${lng},pLa,pLn);if(d<=50){nsaCnt++;var m=L.marker([pLa,pLn],{icon:nI}).addTo(map);
+m.bindTooltip('<div style="font-weight:800;font-size:11px;color:#22C55E">'+p[1]+'</div><div style="font-size:10px;color:#334155">'+p[2]+'</div><div style="font-size:10px;color:#64748B">'+p[3]+', '+p[4]+'</div><div style="font-size:10px;color:#1565C0;font-weight:700;margin-top:3px">'+d.toFixed(1)+' mi</div>',{direction:"auto",offset:[0,-8]});}}
+var total=psCnt+nsaCnt;
+document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(232,122,46,0.15);color:#E87A2E">'+total+' PS family within 50mi</span>';
+if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="info-badge" style="background:rgba(239,68,68,0.15);color:#EF4444">Coverage gap market</span>';}
 });<\/script></body></html>`;
                     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
                     window.open(URL.createObjectURL(blob), "_blank");
@@ -6088,7 +6101,6 @@ document.querySelector(".info-badges").innerHTML+='<span class="info-badge" styl
                   { key: "households", label: "Households", icon: "🏠", weight: getIQWeight("households") },
                   { key: "homeValue", label: "Home Value", icon: "🏡", weight: getIQWeight("homeValue") },
                   { key: "zoning", label: "Zoning", icon: "🏛️", weight: getIQWeight("zoning") },
-                  { key: "psProximity", label: "PS Proximity", icon: "📦", weight: getIQWeight("psProximity") },
                   { key: "access", label: "Site Access", icon: "🛣️", weight: getIQWeight("access") },
                   { key: "competition", label: "Competition", icon: "🏪", weight: getIQWeight("competition") },
                 ];

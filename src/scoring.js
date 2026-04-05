@@ -1579,8 +1579,8 @@ export const computeValidationStats = (sites) => {
   });
 
   // --- Per-Dimension Predictive Power ---
-  const dimKeys = ["population", "growth", "income", "households", "homeValue", "zoning", "psProximity", "access", "competition", "marketTier"];
-  const dimLabels = { population: "Population", growth: "Growth", income: "Income", households: "Households", homeValue: "Home Value", zoning: "Zoning", psProximity: "PS Proximity", access: "Access & Size", competition: "Competition", marketTier: "Market Tier" };
+  const dimKeys = ["population", "growth", "income", "households", "homeValue", "zoning", "access", "competition", "marketTier"];
+  const dimLabels = { population: "Population", growth: "Growth", income: "Income", households: "Households", homeValue: "Home Value", zoning: "Zoning", access: "Access & Size", competition: "Competition", marketTier: "Market Tier" };
   const dimStats = dimKeys.map(key => {
     const appScores = approved.map(s => s.scoresAtReicSubmit?.[key]).filter(v => v != null && !isNaN(v));
     const rejScores = rejected.map(s => s.scoresAtReicSubmit?.[key]).filter(v => v != null && !isNaN(v));
