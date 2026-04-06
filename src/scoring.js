@@ -537,23 +537,38 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // The primary model still uses full landCost for conservative underwriting.
   // padLandCost is surfaced as an alternative "if subdivisible" scenario.
 
-  // ── Market Rate Intelligence ──
-  // Priority chain: (1) MSA CC rent from Discover/REIT data → (2) Income-tier proxy
-  // MSA data is $/SF/yr annualized from REIT 10-K filings; convert to $/SF/mo for model.
+  // ── Market Rate Intelligence (v2 — 2026-04-06) ──
+  // Priority chain: (1) Local competitor rents → (2) MSA CC rent → (3) Income-tier proxy
+  // Local rents: $/SF/mo from actual competitor research (SpareFoot, operator sites).
+  // MSA data: $/SF/yr annualized from REIT 10-K filings; convert to $/SF/mo.
+  // Income-tier: last-resort proxy based on 3-mi median HHI.
   const incTier = incN >= 90000 ? "premium" : incN >= 75000 ? "upper" : incN >= 60000 ? "mid" : "value";
+  const localCCRent = site.siteiqData?.localCCRent || null;   // $/SF/mo from competitor research
+  const localDriveRent = site.siteiqData?.localDriveRent || null;
   const msaCCRent = site.siteiqData?.msaCCRent || null; // $/SF/yr from Discover MSA data
   const msaCCGrowth = site.siteiqData?.msaCCGrowth || null; // Annual growth %
-  const rateSource = msaCCRent ? "msa" : "income-tier";
-  // MSA-sourced: convert annual to monthly, apply as base CC rate. Drive-up = 55% of CC rate.
-  const baseClimateRate = msaCCRent
-    ? Math.round((msaCCRent / 12) * 100) / 100
-    : (incTier === "premium" ? O('climateRatePremium', 1.45) : incTier === "upper" ? O('climateRateUpper', 1.25) : incTier === "mid" ? O('climateRateMid', 1.10) : O('climateRateValue', 0.95));
-  const baseDriveRate = msaCCRent
-    ? Math.round((msaCCRent / 12) * 0.55 * 100) / 100 // Drive-up = ~55% of CC rent
-    : (incTier === "premium" ? O('driveRatePremium', 0.85) : incTier === "upper" ? O('driveRateUpper', 0.72) : incTier === "mid" ? O('driveRateMid', 0.62) : O('driveRateValue', 0.52));
-  const compAdj = compCount <= 2 ? 1.08 : compCount <= 5 ? 1.00 : compCount <= 8 ? 0.94 : 0.88;
-  const mktClimateRate = Math.round(baseClimateRate * compAdj * 100) / 100;
-  const mktDriveRate = Math.round(baseDriveRate * compAdj * 100) / 100;
+  const rateSource = localCCRent ? "local" : msaCCRent ? "msa" : "income-tier";
+  // Base climate rate: local ($/SF/mo) → MSA (convert $/SF/yr to $/SF/mo) → income-tier fallback
+  const baseClimateRate = localCCRent
+    ? localCCRent
+    : msaCCRent
+      ? Math.round((msaCCRent / 12) * 100) / 100
+      : (incTier === "premium" ? O('climateRatePremium', 1.45) : incTier === "upper" ? O('climateRateUpper', 1.25) : incTier === "mid" ? O('climateRateMid', 1.10) : O('climateRateValue', 0.95));
+  const baseDriveRate = localDriveRent
+    ? localDriveRent
+    : msaCCRent
+      ? Math.round((msaCCRent / 12) * 0.55 * 100) / 100
+      : (incTier === "premium" ? O('driveRatePremium', 0.85) : incTier === "upper" ? O('driveRateUpper', 0.72) : incTier === "mid" ? O('driveRateMid', 0.62) : O('driveRateValue', 0.52));
+  // Competition adjustment: CC SPC-based (preferred) → competitor count fallback.
+  // CC SPC accounts for population density — 8 competitors in a 100K-pop market is different
+  // from 8 competitors in a 10K-pop market. SPC normalizes supply per capita.
+  const ccSPC = parseFloat(site.siteiqData?.ccSPC) || 0;
+  const compAdj = ccSPC > 0
+    ? (ccSPC < 1.5 ? 1.15 : ccSPC < 3.0 ? 1.08 : ccSPC < 5.0 ? 1.00 : ccSPC < 7.0 ? 0.94 : 0.88)
+    : (compCount <= 2 ? 1.08 : compCount <= 5 ? 1.00 : compCount <= 8 ? 0.94 : 0.88);
+  // When using local rents, skip compAdj — local rents already reflect competition pricing.
+  const mktClimateRate = Math.round(baseClimateRate * (rateSource === "local" ? 1.0 : compAdj) * 100) / 100;
+  const mktDriveRate = Math.round(baseDriveRate * (rateSource === "local" ? 1.0 : compAdj) * 100) / 100;
 
   // ── Regional Construction Costs — Recalibrated 2026-03-22 ──
   // RECALIBRATED 2026-03-22: Full development cost stack including site work, fire
@@ -654,11 +669,40 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     { yr: 4, label: "Year 4 — Stabilization", occRate: O('leaseUpY4Occ', 0.88), climDisc: 0.00, driveDisc: 0.00, desc: "At or near market rate. ECRIs pushing above street rate." },
     { yr: 5, label: "Year 5 — Mature", occRate: O('leaseUpY5Occ', 0.92), climDisc: 0.00, driveDisc: 0.00, desc: "Fully stabilized. ECRI revenue above street rate." },
   ];
-  // Annual escalation: use MSA-specific CC growth rate when available, else default 3%
-  // EY AUDIT FIX 2026-03-28: Parse msaCCGrowth as float with NaN guard — raw string like "N/A"
-  // would propagate NaN through every Math.pow(1 + annualEsc, i) in all revenue projections.
+  // ── Rent Escalation Engine (v2 — 2026-04-06, "Storvex Edge") ──
+  // Three-factor rent projection: demand growth + supply trajectory + market intelligence.
+  // This is Storvex's competitive moat — real data driving projections, not flat 3%.
+  //
+  // Factor 1: DEMAND GROWTH — income growth CAGR proxies willingness-to-pay trajectory.
+  //   Higher income growth → customers absorb higher rents → stronger escalation.
+  // Factor 2: SUPPLY TRAJECTORY — CC SPC current vs. projected 5-yr.
+  //   If SPC is declining (pop outpacing new supply) → pricing power → boost escalation.
+  //   If SPC is rising (pipeline flooding the market) → pressure → temper escalation.
+  // Factor 3: MSA-specific CC rent growth (when available from REIT/Discover data).
+  //
+  // EY AUDIT FIX 2026-03-28: Parse msaCCGrowth as float with NaN guard.
   const msaCCGrowthParsed = msaCCGrowth != null ? parseFloat(String(msaCCGrowth)) : NaN;
-  const annualEsc = !isNaN(msaCCGrowthParsed) ? Math.round(msaCCGrowthParsed / 100 * 1000) / 1000 : O('annualEscalation', 0.03);
+  const incGrowthStr = site.incomeGrowth3mi || "";
+  const incGrowthPct = parseFloat(String(incGrowthStr).replace(/[^0-9.\-]/g, "")) || 0;
+  // Base escalation: MSA CC growth (most specific) → income growth CAGR → 3% default
+  const baseEsc = !isNaN(msaCCGrowthParsed) && msaCCGrowthParsed > 0
+    ? Math.round(msaCCGrowthParsed / 100 * 1000) / 1000
+    : incGrowthPct > 0
+      ? Math.round(incGrowthPct / 100 * 1000) / 1000
+      : O('annualEscalation', 0.03);
+  // Supply trajectory adjustment: CC SPC current vs. projected
+  // Negative spcDelta = demand outpacing supply → rent tailwind → ADD to escalation
+  // Positive spcDelta = supply flooding market → rent headwind → SUBTRACT from escalation
+  const currentSPC = parseFloat(site.siteiqData?.ccSPC) || 0;
+  const projectedSPC = parseFloat(site.siteiqData?.projectedCCSPC) || 0;
+  const spcDelta = (currentSPC > 0 && projectedSPC > 0)
+    ? (projectedSPC - currentSPC) / currentSPC
+    : 0;
+  const supplyAdj = Math.round(-spcDelta * 0.5 * 1000) / 1000; // 50% pass-through
+  // Final escalation: base + supply adjustment, floored at 1%, capped at 5%
+  const annualEsc = Math.max(0.01, Math.min(0.05, baseEsc + supplyAdj));
+  const escSource = !isNaN(msaCCGrowthParsed) && msaCCGrowthParsed > 0 ? "msa"
+    : incGrowthPct > 0 ? "income-growth" : "default";
 
   // ── OpEx Helper — single source of truth for fixed + variable operating expenses ──
   // COD AUDIT 2026-03-22: Extracted from 3 duplicate calculation sites (yearData, yrDataExt, sensitivity)
@@ -1075,7 +1119,8 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     // Facility
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
     // Rates
-    baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc, rateSource, msaCCRent, msaCCGrowth,
+    baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc, rateSource, escSource,
+    msaCCRent, msaCCGrowth, localCCRent, localDriveRent, baseEsc, supplyAdj, spcDelta, currentSPC, projectedSPC,
     // Year data
     leaseUpSchedule, yearData,
     // NOI
