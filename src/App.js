@@ -4559,7 +4559,11 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                     recYOC = recNOI / (recInt + recBPC) * 100;
                     recLabel = "INTERNAL TARGET";
                     recColor = recYOC >= 9 ? "#22C55E" : recYOC > 0 ? "#C9A84C" : "#EF4444";
-                  } else if (recStrike > 0) {
+                  } else if (recStrike > 0 && (recAsk <= 0 || recStrike >= recAsk * 0.30)) {
+                    // Only show REC. OFFER if there's no asking price or the strike price
+                    // is within 70% of ask. When strike is <30% of asking, the model says
+                    // build costs consume almost all budget — fall through to asking-price
+                    // analysis (which may show the deal works at ask via walk-price headroom).
                     recPrice = recStrike;
                     recYOC = recNOI / (recStrike + recBPC) * 100;
                     recLabel = "REC. OFFER";
