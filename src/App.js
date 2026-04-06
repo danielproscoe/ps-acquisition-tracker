@@ -4564,7 +4564,11 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                     recYOC = recNOI / (recStrike + recBPC) * 100;
                     recLabel = "REC. OFFER";
                     recColor = "#22C55E";
-                  } else if (recPitch > 0) {
+                  } else if (recPitch > 0 && (recAsk <= 0 || recPitch >= recAsk * 0.30)) {
+                    // Only show MINIMUM PITCHABLE if there's no asking price or the pitch
+                    // is within striking distance (≥30% of ask). When pitch is <30% of asking
+                    // (i.e., >70% below ask), the recommendation is not actionable — fall through
+                    // to walk-price or asking-price analysis which gives better guidance.
                     recPrice = recPitch;
                     recYOC = 8.0;
                     recLabel = "MINIMUM PITCHABLE";
