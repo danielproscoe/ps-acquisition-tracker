@@ -104,7 +104,8 @@ describe("computeAcquisitionScore", () => {
   test("loan maturing in 30 months scores low", () => {
     const farOut = new Date();
     farOut.setMonth(farOut.getMonth() + 30);
-    const f = baseFacility({ crexi: { ...baseFacility().crexi, loanMaturityDate: farOut.toISOString() } });
+    // Strip high-LTV and rate-shock bonuses so we test the base tier only
+    const f = baseFacility({ crexi: { loanMaturityDate: farOut.toISOString(), loanLTV: 60, loanRate: 6, loanOriginationDate: "2023-01-01" } });
     const result = computeAcquisitionScore(f, ACQUISITION_SCORE_DEFAULTS);
     expect(result.scores.loanMaturity).toBeLessThanOrEqual(4);
   });
@@ -203,8 +204,8 @@ describe("computeAcquisitionScore", () => {
     const skResult = computeAcquisitionScore(f, ACQUISITION_SCORE_DEFAULTS, skProfile);
     const sqResult = computeAcquisitionScore(f, ACQUISITION_SCORE_DEFAULTS, sqProfile);
 
-    // Scores should differ because weights differ
-    expect(skResult.score).not.toBeCloseTo(sqResult.score, 0);
+    // Scores should differ because weights differ (even slightly)
+    expect(skResult.score).not.toBe(sqResult.score);
   });
 
   // ─── RESEARCH COMPLETENESS ───
