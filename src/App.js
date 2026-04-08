@@ -39,6 +39,7 @@ import ValuationInputs from './components/ValuationInputs';
 import { DiscoverMap } from './components/DiscoverMap';
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { useNavigation } from './hooks/useNavigation';
+import { AcquisitionsView } from './acquisitions/AcquisitionsView';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 
@@ -2583,6 +2584,7 @@ function AppInner() {
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
+            { key: "acquisitions", label: "Acquisitions" },
             // Hidden for now — re-enable when core is nailed down:
             // { key: "quickscore", label: "Quick Score" },
             // { key: "executive", label: "Executive" },
@@ -6369,6 +6371,9 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
             </div>
           );
         })()}
+
+        {/* ═══ ACQUISITIONS — Off-Market Existing Facility Engine (SK/StorQuest) ═══ */}
+        {tab === "acquisitions" && <AcquisitionsView />}
 
         {/* ═══ TRACKERS ═══ */}
         {(tab === "southwest" || tab === "east") && !detailView && <TrackerCards regionKey={tab} />}

@@ -63,6 +63,37 @@
       }
     },
 
+    "acquisitions": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "targets": {
+        "$facilityId": {
+          ".validate": "newData.hasChild('address') || newData.hasChild('name') || !newData.exists()"
+        }
+      },
+      "config": {
+        "acquisition_weights": {
+          ".validate": "newData.hasChild('dimensions')"
+        },
+        "buyer_profiles": {
+          "$buyerId": {
+            ".validate": "newData.hasChild('label')"
+          }
+        },
+        "territories": {
+          ".validate": true
+        }
+      },
+      "pipeline": {
+        "$facilityId": {
+          ".validate": "newData.hasChild('stage') || !newData.exists()"
+        }
+      },
+      "scans": {
+        ".indexOn": ["completedAt", "type"]
+      }
+    },
+
     "$other": {
       ".validate": false
     }
