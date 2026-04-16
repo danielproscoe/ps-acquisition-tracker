@@ -4153,18 +4153,26 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   // ═══════════════════════════════════════════════════════════════════════
   // CAPSTONE PRE-COMPUTES — sec-CAP (Institutional Investment Analysis)
   // See docs/CAPSTONE_DESIGN_SPEC.md
+  // Wrapped in try/catch: if a helper fails, the rest of the REC Package
+  // still renders. Diagnostic flag surfaces the error at the sec-CAP slot.
   // ═══════════════════════════════════════════════════════════════════════
-  const sxYocSens = sxYOCSens(fin);
-  const sxVSens = sxValSens(fin, { baseCap: STORAGE_CONST.EXIT_CAP });
-  const sxScenarios = sxComputeScenarios(fin);
-  const sxSaleCompsState = sxSaleComps(site.state || "");
-  const sxLandCompsState = sxLandComps(site.state || "");
-  const sxAvgCompCap = sxAvgCap(site.state || "");
-  const sxTri = sxTriangulate(fin, sxLandCompsState);
-  const sxFin1 = sxFinancing(fin);
-  const sxRisk = sxRiskAdjIRR(fin);
+  let sxYocSens, sxVSens, sxScenarios, sxSaleCompsState, sxLandCompsState, sxAvgCompCap, sxTri, sxFin1, sxRisk;
+  let sxCapError = null;
+  try {
+    sxYocSens = sxYOCSens(fin);
+    sxVSens = sxValSens(fin, { baseCap: STORAGE_CONST.EXIT_CAP });
+    sxScenarios = sxComputeScenarios(fin);
+    sxSaleCompsState = sxSaleComps(site.state || "");
+    sxLandCompsState = sxLandComps(site.state || "");
+    sxAvgCompCap = sxAvgCap(site.state || "");
+    sxTri = sxTriangulate(fin, sxLandCompsState);
+    sxFin1 = sxFinancing(fin);
+    sxRisk = sxRiskAdjIRR(fin);
+  } catch (e) {
+    sxCapError = e;
+    console.error("sec-CAP pre-compute failed:", e);
+  }
   // Defensive numeric coercion — forces any value to a finite number for .toFixed calls.
-  // Guards against scoring.js returning string/undefined/object for fields like dscr, moic.
   const toN = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
 
   // ── Risks: merge vetting risks + pricing risks (circular — pricing findings feed back) ──
@@ -4549,7 +4557,7 @@ function toggleMI(id,evt){
 </div>
 
 <!-- sec-CAP wrapped in IIFE try/catch — isolates capstone render from rest of REC Package -->
-${(() => { try { return `
+${(() => { try { if (sxCapError) throw sxCapError; return `
 <div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.04),rgba(201,168,76,0.06));border-left:4px solid #1E2761">
   <h2><span class="sec-num" style="background:#1E2761">&Sigma;</span> Institutional Investment Analysis</h2>
   <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">PSA / EXR / CUBE / NSA 10-K calibrated, Green Street Self-Storage Sector Report + Cushman &amp; Wakefield verified. Every number traceable to a primary source. Sub-sections below: 10-year pro forma, ECRI build-up, sensitivity analysis, scenarios, land triangulation, comp sales, financing, risk-adjusted IRR, source provenance.</div>
