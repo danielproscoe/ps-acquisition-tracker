@@ -995,7 +995,7 @@ function AppInner() {
       fbSet(`submissions/${id}`, { ...site, status: "approved" });
       notify(`Added → ${REGIONS[form.region].label}`);
       setShareLink(null);
-      autoGenerateVettingReport(form.region, id, site);
+      // Vetting report auto-gen retired — REC package (sec-CAP capstone) is the single holistic deliverable
       autoEnrichESRI(form.region, id, site); // ESRI 2025 current + projected
     } else {
       fbSet(`submissions/${id}`, { ...site, status: "pending" });
@@ -1044,8 +1044,8 @@ function AppInner() {
     // Activity log on the submission (not tracker — site isn't there yet)
     fbPush(`submissions/${id}/activityLog`, { action: `Recommended → ${routeLabel}`, comment: approvalComment, ts: now, by: "Dan R.", type: "recommendation" });
     notify(`Recommended → ${routeLabel} (awaiting PS approval)`);
-    // Vetting report + ESRI enrichment target submissions path (site not in tracker yet)
-    autoGenerateVettingReport("queue", id, { ...site, region: routeTo });
+    // ESRI enrichment targets submissions path (site not in tracker yet).
+    // Vetting report auto-gen retired — REC package (sec-CAP capstone) is the single holistic deliverable.
     autoEnrichESRI("queue", id, { ...site, region: routeTo });
   };
 
@@ -1143,11 +1143,11 @@ function AppInner() {
       updates[`submissions/${s.id}/activityLog/${logId}`] = { action: `Batch-recommended → ${routeLabel}`, ts: now, by: "Dan R.", type: "recommendation" };
     });
     update(ref(db, "/"), updates).then(() => {
-      // Trigger ESRI enrichment + vetting reports after batch write succeeds
+      // Trigger ESRI enrichment after batch write succeeds.
+      // Vetting report auto-gen retired — REC package (sec-CAP capstone) is the single holistic deliverable.
       p.forEach((s) => {
         const ri = reviewInputs[s.id] || {};
         const routeTo = ri.routeTo || s.region || "southwest";
-        autoGenerateVettingReport("queue", s.id, { ...s, region: routeTo });
         autoEnrichESRI("queue", s.id, { ...s, region: routeTo });
       });
       notify(`Recommended ${p.length} sites (awaiting PS approval)`);
@@ -2057,14 +2057,11 @@ function AppInner() {
 
                       {/* ── PREMIUM ACTION BAR ── */}
                       <div style={{ margin: "16px 0", padding: "14px 0", borderTop: "1px solid rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.08)" }}>
-                        {/* Top Row — Big Report Buttons */}
+                        {/* Top Row — Big Report Buttons (vet report retired — REC Package is the single holistic deliverable) */}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
                           <button onClick={() => {
                             try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1565C0, #0D47A1)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(21,101,192,0.4), 0 0 0 1px rgba(21,101,192,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📊 Demos</button>
-                          <button onClick={() => {
-                            try { const iqR = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); autoGenerateVettingReport(regionKey, site.id, site); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
-                          }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(232,122,46,0.4), 0 0 0 1px rgba(232,122,46,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>🔬 Vet Report</button>
                           <button onClick={() => {
                             try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>💰 Pricing</button>
@@ -3755,13 +3752,10 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                 )}
                 </div>
                 {/* Row 2 — Reports + Email Rec */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   <button onClick={() => {
                     try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #0D47A1, #1565C0)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📊 Demos</button>
-                  <button onClick={() => {
-                    try { const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
-                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(232,122,46,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>🔬 Vet Report</button>
                   <button onClick={() => {
                     try { const iqPR = computeSiteScore(site); const rpt = generatePricingReport(site, iqPR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>💰 Pricing</button>
@@ -4465,13 +4459,10 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                 )}
                 </div>
                 {/* Row 2 — Reports + Email Rec */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   <button onClick={() => {
                     try { const rpt = generateDemographicsReport(site); if (!rpt) { notify("No demographic data — pull ESRI demographics first."); return; } const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Demographics report failed."); console.error(err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #0D47A1, #1565C0)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(21,101,192,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📊 Demos</button>
-                  <button onClick={() => {
-                    try { const iqGen = computeSiteScore(site); const psD = site.siteiqData?.nearestPS ? `${site.siteiqData.nearestPS} mi` : null; const rpt = generateVettingReport(site, psD, iqGen); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); autoGenerateVettingReport(dv.regionKey, site.id, site); } catch (err) { notify("Report generation failed — some site data may be missing."); console.error("Vet report error:", err); }
-                  }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #E87A2E, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(232,122,46,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>🔬 Vet Report</button>
                   <button onClick={() => {
                     try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>💰 Pricing</button>
