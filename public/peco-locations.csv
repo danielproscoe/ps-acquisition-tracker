@@ -1,23 +1,325 @@
-PECO001,Cinco Ranch at Market Center,23720 Westheimer Pkwy,Katy,TX,77494,29.7363,-95.7760,HomeGoods / Target,97761,Houston
-PECO002,Coppell Market Center,700 N Denton Tap Rd,Coppell,TX,75019,32.9886,-96.9916,Market Street,90225,Dallas
-PECO003,Creekside Park Village,26400 Kuykendahl Rd,The Woodlands,TX,77389,30.1439,-95.5482,Club Pilates,74670,Houston
-PECO004,Hickory Creek Plaza,5017 Teasley Ln,Denton,TX,76210,33.1453,-97.1040,Kroger,28134,Dallas
-PECO005,Kleinwood Center,7312 Louetta Rd,Spring,TX,77379,30.0655,-95.4375,H-E-B,148863,Houston
-PECO006,Lake Pointe Market,6702 Dalrock Rd,Rowlett,TX,75088,32.9206,-96.5172,Tom Thumb,40600,Dallas
-PECO007,Lakeland Village Center,10533 Fry Rd,Cypress,TX,77433,29.9449,-95.7092,CVS,83542,Houston
-PECO008,Mansfield Market Center,1550 E Debbie Ln,Mansfield,TX,76063,32.6060,-97.1131,Sprouts,55353,Dallas
-PECO009,Market at Cross Creek Ranch,27120 Fulshear Bend Dr,Fulshear,TX,77441,29.7185,-95.8481,H-E-B,59803,Houston
-PECO010,Mayfair Village,602 Grapevine Hwy,Hurst,TX,76054,32.8511,-97.1918,Tom Thumb,223020,Dallas
-PECO011,McKinney Market Street,6100 W Eldorado Pkwy,McKinney,TX,75070,33.1752,-96.6955,Market Street,88389,Dallas
-PECO012,Memorial at Kirkwood,14000 Memorial Dr,Houston,TX,77079,29.7712,-95.5900,Dollar Tree,104887,Houston
-PECO013,Murphy Marketplace,299 E FM 544,Murphy,TX,75094,33.0115,-96.6050,Sprouts / EoS Fitness,150000,Dallas
-PECO014,Oak Meadows Marketplace,5731 Williams Dr,Georgetown,TX,78633,30.7042,-97.7507,Randalls,78841,Austin
-PECO015,Plano Market Street,1901 Preston Rd,Plano,TX,75093,33.0133,-96.7953,Market Street,85000,Dallas
-PECO016,Riverpark Shopping Center,19900 Southwest Fwy,Sugar Land,TX,77479,29.5651,-95.6853,H-E-B / LA Fitness,317331,Houston
-PECO017,Seville Commons,2101 N Collins St,Arlington,TX,76011,32.7675,-97.0967,Walmart NM,112421,Dallas
-PECO018,Shops at Cross Creek,6630 FM 1463 Rd,Fulshear,TX,77441,29.6977,-95.8468,Firehouse Subs,24188,Houston
-PECO019,Spring Cypress Village,22506 Tomball Pkwy,Houston,TX,77070,30.0120,-95.5876,Sprouts,102758,Houston
-PECO020,Stone Gate Plaza,1004 S Crowley Rd,Crowley,TX,76036,32.5634,-97.3539,Kroger,90675,Dallas
-PECO021,Suntree Square,100 W Southlake Blvd,Southlake,TX,76092,32.9431,-97.1521,Tom Thumb,99269,Dallas
-PECO022,Towne Crossing,3600 Gus Thomasson Rd,Mesquite,TX,75150,32.8125,-96.6331,Kroger,167921,Dallas
-PECO023,Walden Park,10900 Lakeline Mall Dr,Austin,TX,78717,30.4764,-97.7970,Target / HomeGoods,90888,Austin
+PECO0001,51st & Olive Square,5108-5166 West Olive Avenue,Glendale,AZ,85302,33.5387,-112.1860,Fry's Food Stores,
+PECO0002,Alameda Crossing,1611 N. Dysart Road,Avondale,AZ,85392,33.4652,-112.3374,Sprouts Farmers Market,141721
+PECO0003,Albertville Crossing,5600-5721 Labeaux Avenue,Albertville,MN,55301,45.2347,-93.6642,Coborn's,
+PECO0004,Alico Commons,16960 Alico Mission Way,Fort Myers,FL,33908,26.6406,-81.8723,Publix,
+PECO0005,Apache Shoppes,1200 16th Street SW,Rochester,MN,55902,44.0006,-92.4812,Trader Joe's,
+PECO0006,Arapahoe Marketplace,8525 East Arapahoe Road,Greenwood Village,CO,80112,39.5960,-104.8913,Sprouts Farmers Market,49271
+PECO0007,Arcadia Plaza,2808-2836 E. Indian School Road,Phoenix,AZ,85016,33.4667,-112.0721,Sprouts Farmers Market,
+PECO0008,Ashburn Farm Market Center,43330 Junction Plaza,Ashburn,VA,20147,39.0364,-77.5009,Giant,
+PECO0009,Atlantic Plaza,271 North Main Street,North Reading,MA,01864,42.5751,-71.0787,Stop & Shop,
+PECO0010,Baker Hill,880 Roosevelt Road,Glen Ellyn,IL,60137,41.8595,-88.0495,Pete's Fresh Market,125497
+PECO0011,Bartow Marketplace,103 Marketplace Boulevard,Cartersville,GA,30121,34.2001,-84.7923,Walmart,49271
+PECO0012,Bear Creek Plaza,1590-1850 Anderson Road,Petoskey,MI,49770,45.3733,-84.9553,Walmart,311933
+PECO0013,Beavercreek Towne Center,2850 Centre Drive,Beavercreek,OH,45324,39.7726,-84.0465,Lowe's,
+PECO0014,Bel Air Town Center,502 Baltimore Pike,Bel Air,MD,21014,39.5278,-76.3535,My Salon Suite,
+PECO0015,Bethany Village,13800 Georgia Highway 9 North,Alpharetta,GA,30004,34.0756,-84.2946,Publix,
+PECO0016,Bethel Shopping Center,83 Stony Hill Road,Bethel,CT,06801,41.4126,-73.3791,Big Y,101205
+PECO0017,Birdneck Shopping Center,1077 Virginia Beach Boulevard,Virginia Beach,VA,23451,36.8405,-75.9947,Food Lion,106689
+PECO0018,Bloomingdale Hills,10863 West Bloomingdale Avenue,Riverview,FL,33578,27.8937,-82.3344,Walmart Neighborhood Market,
+PECO0019,Boronda Plaza,1576 N. Sanborn Road,Salinas,CA,93905,36.6931,-121.5959,Food 4 Less,93071
+PECO0020,Breakfast Point Marketplace,11150 Panama City Beach Parkway,Panama City Beach,FL,32407,30.1959,-85.8093,Publix,
+PECO0021,Brentwood Commons,1047-1147 S York Road,Bensenville,IL,60106,41.9538,-87.9432,Jewel-Osco,
+PECO0022,Broadlands Marketplace,3700 W. 144th Avenue,Broomfield,CO,80020,39.9578,-105.0357,Safeway,
+PECO0023,Broadway Pavilion,2440 South Broadway,Santa Maria,CA,93454,34.9153,-120.4343,Food Maxx,
+PECO0024,Broadway Plaza,7787 East Broadway Boulevard,Tucson,AZ,85710,32.2211,-110.8252,Sprouts Farmers Market,63637
+PECO0025,Broadway Promenade,1044 N. Tamiami Trail,Sarasota,FL,34236,27.2174,-82.4902,Publix,
+PECO0026,Broomfield Marketplace,1100-1170 US Highway 287,Broomfield,CO,80020,39.9404,-105.0521,King Soopers,
+PECO0027,Burbank Plaza,7910 S. Cicero Avenue,Burbank,IL,60459,41.7468,-87.7424,Jewel-Osco,99395
+PECO0028,Burwood Village Center,7061-7095 Baltimore Annapolis Blvd. Rt. 648,Glen Burnie,MD,21061,39.1648,-76.6249,Food Lion,109438
+PECO0029,Butler Creek,3330 Cobb Parkway NW,Acworth,GA,30101,34.0659,-84.6769,Kroger,37616
+PECO0030,Cahill Plaza,7850 Cahill Avenue,Inver Grove Heights,MN,55076,44.8355,-93.0411,Cub Foods,
+PECO0031,Carriagetown Marketplace,100 Macy Street,Amesbury,MA,01913,42.8476,-70.9109,Stop & Shop,
+PECO0032,Cascades Overlook,21399 Epicerie Plaza,Sterling,VA,20164,39.0237,-77.3965,Harris Teeter,
+PECO0033,Centennial Lakes Plaza,7401-7595 France Avenue South,Edina,MN,55435,44.8897,-93.3501,Whole Foods Market,
+PECO0034,Centerpoint,6525-6615 Calhoun Memorial Highway,Easley,SC,29640,34.8269,-82.5817,Publix,19570
+PECO0035,Central Station,3165 S. 2nd Street,Louisville,KY,40208,38.2026,-85.7613,Kroger,
+PECO0036,Central Valley Marketplace,1507-1571 Mitchell Road,Ceres,CA,95307,37.5949,-120.9577,Food 4 Less,
+PECO0037,Champions Gate Village,8281-8311 Championsgate Boulevard,Davenport,FL,33896,28.1614,-81.6017,Publix,
+PECO0038,Chapel Hill North Center,1800 Martin Luther King Jr. Drive,Chapel Hill,NC,27514,35.9132,-79.0558,Harris Teeter,96290
+PECO0039,Cherry Hill Marketplace,200 Merriman Road,Westland,MI,48186,42.3091,-83.3502,Kroger,120568
+PECO0040,Chinoe Center,1060-1070 Chinoe Road,Lexington,KY,40502,38.0464,-84.4970,Kroger,
+PECO0041,Cinco Ranch at Market Center,23720 Westheimer Parkway,Katy,TX,77494,29.7858,-95.8244,HomeGoods,104794
+PECO0042,CitiCentre Plaza,905 US Highway 30,Carroll,IA,51401,42.0651,-94.8666,Hy-Vee,
+PECO0043,Claremont Village,4817-4831 Evergreen Way,Everett,WA,98203,47.9793,-122.2127,Quality Food Centers,
+PECO0044,Clayton Station,5433 Clayton Road,Clayton,CA,94517,37.9516,-121.9560,Sherwin Williams,66724
+PECO0045,Cocoa Commons,2301 State Road 524,Cocoa,FL,32926,28.3557,-80.7325,Publix,90116
+PECO0046,College Plaza,1700 E. College Avenue,Normal,IL,61761,40.5119,-88.9518,Ross Dress for Less,177741
+PECO0047,Collington Plaza,3400-3570 Crain Highway,Bowie,MD,20716,39.0081,-76.7798,Advance Auto Parts,121932
+PECO0048,Colonial Promenade,303-399 Cypress Gardens Boulevard,Winter Haven,FL,33880,28.0222,-81.7329,Walmart,
+PECO0049,Commonwealth Square,713-817 E. Bidwell Street,Folsom,CA,95630,38.6780,-121.1761,Raley's,141310
+PECO0050,Contra Loma Plaza,3100 Contra Loma Boulevard,Antioch,CA,94509,37.9925,-121.8225,Lucky Supermarkets,74616
+PECO0051,Coppell Market Center,700-760 N. Denton Tap Road,Coppell,TX,75019,32.9553,-97.0156,Market Street,
+PECO0052,Coquina Plaza,15701-15801 Sheridan Street,Southwest Ranches,FL,33331,26.0587,-80.3382,Publix,
+PECO0053,Coronado Center,504 W. Cordova Road,Santa Fe,NM,87505,35.6726,-105.9509,Trader Joe's,116005
+PECO0054,Courthouse Marketplace,2476 Nimmo Parkway,Virginia Beach,VA,23456,36.7549,-76.0652,Harris Teeter,
+PECO0055,Creekside Park Village,26400 Kuykendahl Road,The Woodlands,TX,77389,30.1438,-95.5503,Club Pilates,
+PECO0056,Cross Creek Centre,1301-1315 W. Boynton Beach Boulevard,Boynton Beach,FL,33426,26.5290,-80.0723,CosmoProf,
+PECO0057,Cross Creek Village,3372 Canoe Creek Road,St Cloud,FL,34772,28.1965,-81.2949,Publix,
+PECO0058,Crossroads of Shakopee,1198 Vierling Drive E,Shakopee,MN,55379,44.7813,-93.5099,Cub Foods,140949
+PECO0059,Crossroads Plaza,1359 E Dixie Drive,Asheboro,NC,27203,35.6974,-79.7888,Food Lion,101977
+PECO0060,Crossroads Towne Center,6436-6512 N. Decatur Boulevard,North Las Vegas,NV,89131,36.2005,-115.1215,Bath & Body Works,90855
+PECO0061,Crystal Beach Plaza,2900 Palm Harbor Blvd.,Palm Harbor,FL,34683,28.0874,-82.7698,Publix,
+PECO0062,Cureton Town Center,8157 Kensington Drive,Waxhaw,NC,28173,34.9538,-80.7595,Harris Teeter,
+PECO0063,Cushing Plaza,739 Chief Justice Cushing Highway,Cohasset,MA,02025,42.2220,-70.8052,Shaw's Supermarket,71210
+PECO0064,Dean Taylor Crossing,2121 Lawrenceville-Suwanee Road,Suwanee,GA,30024,34.0037,-84.0384,Kroger,
+PECO0065,Deerwood Lake Commons,4320 Deerwood Lake Parkway,Jacksonville,FL,32216,30.2683,-81.5610,Publix,
+PECO0066,Del Paso Marketplace,2800-2860 Del Paso Road,Sacramento,CA,95834,38.5811,-121.4939,Sprouts Farmers Market,49271
+PECO0067,Des Peres Corners,12332 Manchester Road,Des Peres,MO,63131,38.6016,-90.4422,Schnucks,112300
+PECO0068,Driftwood Village,2234-2254 S. Euclid Ave,Ontario,CA,91762,34.0658,-117.6484,Food 4 Less,95421
+PECO0069,Duck Creek Plaza,858 Middle Road,Bettendorf,IA,52722,41.5390,-90.5206,Malibu Jack's,67019
+PECO0070,Dunlop Village,1 Dunlop Village Circle,Colonial Heights,VA,23834,37.2556,-77.4112,Food Lion,77315
+PECO0071,Dyer Town Center,801-907 Joliet Street,Dyer,IN,46311,41.4942,-87.5217,Jewel-Osco,
+PECO0072,East Burnside Plaza,5504-5512 E. Burnside Street,Portland,OR,97215,45.5202,-122.6742,Quality Food Centers,
+PECO0073,East Side Square,3451-3471 E. National Road,Springfield,OH,45505,39.9234,-83.8101,Hot Head Burritos,
+PECO0074,Edgecombe Square,1102 Western Boulevard,Tarboro,NC,27886,35.8980,-77.5587,Food Lion,
+PECO0075,Edgewood Towne Center,1775 S. Braddock Avenue,Edgewood,PA,15218,40.4282,-79.8858,Giant Eagle,90855
+PECO0076,Evans Towne Centre,4274 Washington Road,Evans,GA,30809,33.5342,-82.1278,Publix,
+PECO0077,Everson Pointe,3035 Centerville Hwy SW,Snellville,GA,30039,33.8573,-84.0199,Kroger,
+PECO0078,Everybody's Plaza,1021 South Main Street,Cheshire,CT,06410,41.4763,-72.9076,Big Y,49975
+PECO0079,Fair Acres Shopping Center,1900 Jackson Street,Oshkosh,WI,54901,44.0414,-88.5425,Pick 'n Save,106689
+PECO0080,Fairfield Commons,98 Wadsworth Boulevard,Lakewood,CO,80226,39.7181,-105.0794,Sprouts Farmers Market,
+PECO0081,Fairfield Crossing,3310-3320 Pentagon Boulevard,Beavercreek,OH,45431,39.7092,-84.0633,Office Depot,
+PECO0082,Fairlawn Town Centre,2755 W. Market Street,Fairlawn,OH,44333,41.1265,-81.6062,Giant Eagle,
+PECO0083,Fairview Oaks,101 Fairview Road,Ellenwood,GA,30294,33.6194,-84.2390,Kroger,81516
+PECO0084,Fairview Plaza,120 Old York Road,New Cumberland,PA,17070,40.2242,-76.8607,Giant,
+PECO0085,Falcon Valley,19601 W. 101st Street,Lenexa,KS,66220,38.9430,-94.8133,Price Chopper,123908
+PECO0086,Five Town Plaza,300 Cooley Street,Springfield,MA,01128,42.0948,-72.5013,Burlington,
+PECO0087,Flag City Station,2320-2560 Tiffin Avenue,Findlay,OH,45840,41.0414,-83.6504,Walmart,
+PECO0088,Flynn Crossing,5158-5238 McGinnis Ferry Road,Alpharetta,GA,30005,34.0756,-84.2946,Publix,
+PECO0089,Foothill Park Plaza,102 West Foothill Boulevard,Monrovia,CA,91016,34.1511,-118.0014,Blaze Pizza,43618
+PECO0090,Forest Park Square,1212 W Kemper Road,Cincinnati,OH,45240,39.2900,-84.5250,Kroger,92824
+PECO0091,Foxridge Plaza,8160-8290 South Holly Street,Centennial,CO,80122,39.5792,-104.8769,H&R Block,
+PECO0092,Franklin Centre,7199-7255 S. 76th Street,Franklin,WI,53132,42.8886,-88.0384,Pick 'n Save,
+PECO0093,French Golden Gate,155 East Van Fleet Drive,Bartow,FL,33830,27.9040,-81.8459,Publix,67528
+PECO0094,Georgesville Square,1516-1710 Georgesville Square Drive,Columbus,OH,43228,39.9623,-83.0007,Lowe's,
+PECO0095,Glenbrook Marketplace,2823-2863 Pfingsten Road,Glenview,IL,60026,42.0701,-87.8114,Athletico Physical Therapy,49271
+PECO0096,Glenwood Crossing,10575 Springfield Pike,Cincinnati,OH,45215,39.1015,-84.5125,Kroger,101021
+PECO0097,Glenwood Crossings,2811 18th Street,Kenosha,WI,53140,42.6244,-87.8432,Pick 'n Save,101021
+PECO0098,Golden Eagle Village,2430 U.S. Hwy 27,Clermont,FL,34714,28.5552,-81.7669,Publix,140276
+PECO0099,Golden Town Center,17121-17221 South Golden Road,Golden,CO,80401,39.7546,-105.2206,King Soopers,
+PECO0100,Goolsby Pointe,11539-11709 Boyette Road,Riverview,FL,33569,27.8712,-82.3270,Publix,64051
+PECO0101,Goshen Station,6725 Dick Flynn Boulevard,Goshen,OH,45122,39.2316,-84.1647,Kroger,53802
+PECO0102,Grassland Crossing,5665 Atlanta Highway,Alpharetta,GA,30004,34.1441,-84.2513,Kroger,
+PECO0103,Grayson Village,2715 Loganville Highway,Loganville,GA,30052,33.8792,-83.9383,Publix,
+PECO0104,Green Valley Plaza,2716 North Green Valley Parkway,Henderson,NV,89014,36.0696,-115.0813,Trader Joe's,
+PECO0105,Greentree Centre,5111-5141 Douglas Avenue,Racine,WI,53402,42.7314,-87.7835,Pick 'n Save,
+PECO0106,Hamilton Mill Village,2463 Hamilton Mill Parkway,Dacula,GA,30019,34.0739,-83.9157,Publix,
+PECO0107,Hamilton Ridge,3280 Hamilton Mill Road,Buford,GA,30519,34.1113,-83.9891,Kroger,96941
+PECO0108,Hamilton Village,2004 Gunbarrel Road,Chattanooga,TN,37421,35.0317,-85.1546,Walmart,
+PECO0109,Hampton Pointe,525-615 Hampton Pointe,Hillsborough,NC,27278,36.0570,-79.0840,Hwy 55 Burgers Shakes & Fries,
+PECO0110,Hampton Village,2801 Wade Hampton Boulevard,Taylors,SC,29687,34.9020,-82.3358,Publix,
+PECO0111,Harbour Village,13475 Atlantic Boulevard,Jacksonville,FL,32225,30.3207,-81.4518,The Fresh Market,
+PECO0112,Harpers Station,11315 Montgomery Road,Cincinnati,OH,45249,39.2705,-84.3300,T.J. Maxx,124258
+PECO0113,Harrison Pointe,270 Grande Heights Drive,Cary,NC,27513,35.8055,-78.7804,Harris Teeter,
+PECO0114,Hartville Centre,855-907 West Maple Street,Hartville,OH,44632,40.9637,-81.3312,Giant Eagle,
+PECO0115,Harvest Plaza,2801 E. Waterloo Road,Akron,OH,44312,41.0321,-81.4264,Giant Eagle,
+PECO0116,Hastings Marketplace,1729-1828 Market Boulevard,Hastings,MN,55033,44.7427,-92.8519,Cub Foods,49271
+PECO0117,Heath Brook Commons,5400 SW College Road,Ocala,FL,34474,29.1697,-82.1644,Publix,113069
+PECO0118,Heritage Plaza,750 West Army Trail Road,Carol Stream,IL,60188,41.9397,-88.1355,Jewel-Osco,
+PECO0119,Herndon Place,6797 Milburn Avenue,Fresno,CA,93722,36.8365,-119.8813,Save Mart Supermarkets,89188
+PECO0120,Heron Creek Towne Center,1289 South Sumter Boulevard,North Port,FL,34287,27.0697,-82.2087,Publix,
+PECO0121,Hickory Creek Plaza,5017 Teasley Lane,Denton,TX,76210,33.1452,-97.1038,Kroger,
+PECO0122,Hickory Flat Commons,6764-6776 Hickory Flat Highway,Canton,GA,30115,34.2368,-84.4908,Kroger,
+PECO0123,Hickory Plaza,5753 Nolensville Pike,Nashville,TN,37211,36.0994,-86.7394,Kroger,72136
+PECO0124,Hilander Village,4860 Hononegah Road,Roscoe,IL,61073,42.4328,-89.0206,Schnucks,
+PECO0125,Hilfiker Shopping Center,4450 Commercial Street SE,Salem,OR,97302,44.8897,-123.0327,Petco,106689
+PECO0126,Hoffman Village,2575 Golf Road,Hoffman Estates,IL,60169,42.0464,-88.1437,Mariano's,
+PECO0127,Irmo Station,7467 St. Andrew Road,Irmo,SC,29063,34.0885,-81.1802,Kroger,
+PECO0128,Island Walk Shopping Center,1421 Sadler Road,Fernandina Beach,FL,32034,30.6411,-81.4544,Publix,213656
+PECO0129,Kings Crossing,4874 Sun City Center Boulevard,Sun City Center,FL,33573,27.7125,-82.3386,Publix,
+PECO0130,Kipling Marketplace,5005 S. Kipling Parkway,Littleton,CO,80127,39.6133,-105.0166,Safeway,49271
+PECO0131,Kleinwood Center,7312 Louetta Road,Spring,TX,77379,30.0628,-95.4479,H-E-B,152900
+PECO0132,Kohl's Onalaska,9404 State Road 16,Onalaska,WI,54650,43.8831,-91.2344,Kohl's,
+PECO0133,Lafayette Square,2224-2500 Teal Road,Lafayette,IN,47905,40.4191,-86.8919,Rural King Supply,249956
+PECO0134,Laguna 99 Plaza,8469 Elk Grove Boulevard,Elk Grove,CA,95758,38.4090,-121.3907,Walmart Neighborhood Market,98015
+PECO0135,Lake Pointe Market,6702 Dalrock Road,Rowlett,TX,75088,32.9164,-96.5178,Pet Supplies Plus,40608
+PECO0136,Lake Washington Crossing,3000 N Lake Washington Road,Melbourne,FL,32934,28.1471,-80.6510,Publix,
+PECO0137,Lakeland Village Center,10533 Fry Road,Cypress,TX,77433,29.9449,-95.7092,CVS,83542
+PECO0138,Lakeside Plaza,161 Electric Road,Salem,VA,24153,37.2969,-80.0272,Kroger,
+PECO0139,Lakewood City Center,14861 Detroit Avenue,Lakewood,OH,44107,41.4840,-81.8010,Marc's,
+PECO0140,Lakewood Plaza,4329 US Highway 19,Spring Hill,FL,34606,28.4262,-82.6435,Publix,
+PECO0141,LaPlata Plaza,301 Shining Willow Way,La Plata,MD,20646,38.5430,-76.9782,Safeway,123561
+PECO0142,Lemont Plaza,1100 State Street,Lemont,IL,60439,41.6609,-88.0013,Pete's Fresh Market,
+PECO0143,Livonia Plaza,30935 5 Mile Road,Livonia,MI,48154,42.3966,-83.3484,Kroger,
+PECO0144,Loganville Crossing,4753 Atlanta Highway,Loganville,GA,30052,33.8313,-83.8842,Kroger,149133
+PECO0145,Loganville Town Center,4325 Atlanta Highway,Loganville,GA,30052,33.8392,-83.9082,Publix,84978
+PECO0146,Lumina Commons,1994 Eastwood Road,Wilmington,NC,28403,34.2224,-77.8202,Harris Teeter,
+PECO0147,Lutz Lake Crossing,19211-19247 N Dale Mabry Highway,Lutz,FL,32828,28.1511,-82.4615,Publix,
+PECO0148,Lynnwood Place,941 North Parkway,Jackson,TN,38305,35.6520,-88.8274,Kroger,110137
+PECO0149,Mableton Crossing,4875 Floyd Road SW,Mableton,GA,30126,33.8352,-84.5744,Kroger,86819
+PECO0150,Macland Pointe,1750 Powder Springs Road SW,Marietta,GA,30064,33.9034,-84.6070,Publix,79699
+PECO0151,Mansell Village,570 East Crossville Road,Roswell,GA,30075,34.0375,-84.3454,Kroger,89688
+PECO0152,Mansfield Market Center,1550 E. Debbie Lane,Mansfield,TX,76063,32.6060,-97.1131,Sprouts Farmers Market,
+PECO0153,Maple View,885 East Belvidere Road,Grayslake,IL,60030,42.3357,-88.0265,Jewel-Osco,151203
+PECO0154,Market at Cross Creek Ranch,27120 Fulshear Bend Drive,Fulshear,TX,77441,29.7180,-95.8487,MOD Pizza,
+PECO0155,Market Place at Pabst Farms,1300 Pabst Farms Circle,Oconomowoc,WI,53066,43.0760,-88.4693,Metro Market,
+PECO0156,Market Walk,318 Mall Boulevard,Savannah,GA,31406,32.0058,-81.1119,Kroger,263829
+PECO0157,Mayfair Village,602-754 Grapevine Highway,Hurst,TX,76054,32.8235,-97.1706,Tom Thumb,230778
+PECO0158,McKinney Market Street,6100 - 6250 W. Eldorado Pkwy,McKinney,TX,75070,33.1976,-96.6154,Market Street,97486
+PECO0159,Meadows on the Parkway,4760-4800 Baseline Road,Boulder,CO,80303,40.0150,-105.2705,Safeway,
+PECO0160,Meadowthorpe Manor Shoppes,1600 Leestown Road,Lexington,KY,40511,38.0679,-84.5265,Kroger,
+PECO0161,Memorial at Kirkwood,14000 Memorial Drive,Houston,TX,77079,29.7712,-95.5900,Dollar Tree,
+PECO0162,MetroWest Village,2435 S. Hiawassee Road,Orlando,FL,32835,28.5169,-81.4839,,
+PECO0163,Milan Plaza,531 W. Main Street,Milan,MI,48160,42.0898,-83.6976,Kroger,61357
+PECO0164,Montville Commons,2020 Norwich - New London Turnpike,Montville,CT,06382,41.4776,-72.1002,Stop & Shop,
+PECO0165,Mountain Crossing,2700 Braselton Highway,Dacula,GA,30019,34.0513,-83.9304,Kroger,93396
+PECO0166,Mountain Park Plaza,4750 Alabama Road,Roswell,GA,30075,34.0652,-84.4227,Publix,
+PECO0167,Murphy Marketplace,299 E Farm to Market Road 544,Murphy,TX,75094,33.0151,-96.6130,EoS Fitness,78841
+PECO0168,Murray Landing,2732 North Lake Drive,Columbia,SC,29212,34.0979,-81.2210,Publix,218610
+PECO0169,Naperville Crossings,2656-2940 Showplace Drive,Naperville,IL,60564,41.7729,-88.1479,ALDI,
+PECO0170,New Bern Plaza,4401-4551 New Bern Avenue,Raleigh,NC,27610,35.7804,-78.6391,Starbucks,58745
+PECO0171,New Prague Commons,200 Alton Avenue,New Prague,MN,56071,44.5419,-93.5538,Coborn's,
+PECO0172,Nor'Wood Shopping Center,6945 Austin Bluffs Parkway,Colorado Springs,CO,80918,38.9323,-104.7419,Safeway,22759
+PECO0173,Nordan Shopping Center,211 Nordan Drive,Danville,VA,24540,36.5880,-79.3917,Walmart Neighborhood Market,106689
+PECO0174,Normandale Village,5101 98th Street West,Bloomington,MN,55437,44.8248,-93.3460,Lunds & Byerlys,
+PECO0175,North Point Landing,3848 McHenry Avenue,Modesto,CA,95356,37.6946,-120.9919,Walmart,
+PECO0176,North Pointe Plaza,7580 Rivers Avenue,North Charleston,SC,29406,32.9390,-80.0401,Walmart,
+PECO0177,Northpark Plaza,10343 Federal Boulevard,Westminster,CO,80260,39.8825,-105.0274,Wendy's,
+PECO0178,Northside Plaza,313 North Boulevard,Clinton,NC,28328,35.0160,-78.3292,Food Lion,79865
+PECO0179,Northstar Marketplace,7876-7988 Sunwood Drive,Ramsey,MN,55303,45.2321,-93.4605,Coborn's,49271
+PECO0180,Northtowne Square,5600 William Flynn Highway,Gibsonia,PA,15044,40.6301,-79.9695,Giant Eagle,
+PECO0181,Northwoods Crossing,2085 Bay Street,Taunton,MA,02780,41.9599,-71.1162,BJ's Wholesale Club,
+PECO0182,Oak Creek Center,1156-1296 E. Powell Road,Lewis Center,OH,43035,40.1984,-83.0102,Fleet Feet Sports,104124
+PECO0183,Oak Grove Shoppes,1005 N. State Road 434,Altamonte Springs,FL,32714,28.6619,-81.3886,Publix,122912
+PECO0184,Oak Meadows Marketplace,5731 Williams Drive,Georgetown,TX,78633,30.7042,-97.7507,Randalls,
+PECO0185,Oak Mill Plaza,7900 N. Milwaukee Ave.,Niles,IL,60714,42.0246,-87.8140,Jewel-Osco,163800
+PECO0186,Oakhurst Plaza,9201-9394 Oakhurst Road,Seminole,FL,33776,27.8401,-82.7911,Publix,106999
+PECO0187,Ocean Breeze Plaza,1780 NE Jensen Beach Boulevard,Ocean Breeze,FL,34957,27.2410,-80.2265,Publix,64986
+PECO0188,Old Alabama Square,3005 Old Alabama Road,Johns Creek,GA,30022,34.0204,-84.2734,The Fresh Market,
+PECO0189,Orange Grove Shopping Center,4065 Hancock Bridges Parkway,North Fort Myers,FL,33903,26.6729,-81.8841,Publix,106689
+PECO0190,Orchard Square,64660-64992 Van Dyke Road,Washington Township,MI,48095,42.7712,-83.0302,Kroger,92450
+PECO0191,Ormond Beach Mall,1278 Ocean Shore Boulevard,Ormond Beach,FL,32176,29.3242,-81.0559,Publix,
+PECO0192,Palmer Town Center,721 South 25th Street,Easton,PA,18045,40.6793,-75.2491,Giant,
+PECO0193,Palmetto Pavilion,8409 Dorchester Road,North Charleston,SC,29420,32.9130,-80.1097,Publix,
+PECO0194,Paradise Crossing,2675-2785  Lee Road,Lithia Springs,GA,30122,33.7940,-84.6605,Publix,
+PECO0195,Park Place Plaza,3761 S Nova Road,Port Orange,FL,32129,29.1313,-81.0060,Bealls,51502
+PECO0196,Parsons Village,710 W. Martin Luther King Boulevard,Seffner,FL,33584,27.9817,-82.2815,COMING AVAILABLE,96192
+PECO0197,Plano Market Street,1901-1941 Preston Road,Plano,TX,75093,33.0137,-96.6925,Market Street,24188
+PECO0198,Plaza 23,500 Route 23 North,Pompton Plains,NJ,07444,40.9682,-74.2957,Stop & Shop,
+PECO0199,Plaza Farmington,3550 East Main Street,Farmington,NM,87402,36.7504,-108.1592,T.J. Maxx,
+PECO0200,Plaza West Covina,312 S California Avenue,West Covina,CA,91793,34.0698,-117.9283,Umiya Sushi & Hotpot,
+PECO0201,Providence Commons,631 S. Mt. Juliet Road,Mt Juliet,TN,37122,36.1712,-86.5130,Publix,
+PECO0202,Publix at Northridge,5100 Clark Road,Sarasota,FL,34233,27.2658,-82.4679,Publix,65320
+PECO0203,Publix at Seven Hills,138-188 Mariner Boulevard,Spring Hill,FL,34609,28.4635,-82.5364,Publix,65320
+PECO0204,Publix at St. Cloud,4401 13th Street,St Cloud,FL,34769,28.2465,-81.3028,Publix,78779
+PECO0205,Quail Pointe,5315-5353 Sunrise Boulevard,Fair Oaks,CA,95628,38.6422,-121.2702,Trader Joe's,
+PECO0206,Quartz Hill Towne Centre,4033 West Avenue L,Lancaster,CA,93536,34.6617,-118.2024,Vons,
+PECO0207,Quivira Crossings,11740 W 135th Street,Overland Park,KS,66221,38.8838,-94.7206,Price Chopper,
+PECO0208,Rainbow Plaza,873-1049 S. Rainbow Blvd.,Las Vegas,NV,89145,36.1674,-115.1484,Albertsons,
+PECO0209,Red Maple Village,2550 S. Tracy Boulevard,Tracy,CA,95376,37.7394,-121.4363,Raley's,
+PECO0210,Renton Highlands Shopping Center,4110 NE 4th St,Renton,WA,98059,47.4899,-122.1631,,
+PECO0211,Richmond Plaza,3435 Wrightsboro Road,Augusta,GA,30909,33.4690,-82.0822,Ashley HomeStore and Ashley Outlet,174585
+PECO0212,Ridgeview Marketplace,5990-6050 Stetson Hills Boulevard,Colorado Springs,CO,80923,38.8340,-104.8253,OrangeTheory Fitness,49271
+PECO0213,Rio Hill Shopping Center,1980 Rio Hill Center,Charlottesville,VA,22901,38.0889,-78.4742,Kroger,106689
+PECO0214,Riverlakes Village,4420-4580 Coffee Road,Bakersfield,CA,93308,35.3739,-119.0195,Vons,
+PECO0215,Rivermont Station,8465 Holcomb Bridge Road,Johns Creek,GA,30022,33.9873,-84.2692,Kroger,
+PECO0216,Riverpark Shopping Center,19900 Southwest Freeway,Sugar Land,TX,77479,29.5766,-95.6546,H-E-B,106689
+PECO0217,Riverplace Centre,172 Logan Street,Noblesville,IN,46060,40.0499,-86.0198,Kroger,74189
+PECO0218,Rockledge Square,1880 Highway 1 South,Rockledge,FL,32955,28.3308,-80.7349,Publix,78879
+PECO0219,Rocky Ridge Town Center,2030 Douglas Boulevard,Roseville,CA,95661,38.7435,-121.2504,Sprouts Farmers Market,
+PECO0220,Rolling Meadows Shopping Center,3068 Kirchoff Road,Rolling Meadows,IL,60008,42.0780,-88.0178,Jewel-Osco,
+PECO0221,Rosewick Crossing,100 Rosewick Road,La Plata,MD,20646,38.5560,-76.9855,Giant,116057
+PECO0222,Roxborough Marketplace,8355 N. Rampart Range Road,Littleton,CO,80125,39.6133,-105.0166,Safeway,
+PECO0223,Rue de France,7101 France Avenue South,Edina,MN,55435,44.8745,-93.3274,Ethan Allen,61515
+PECO0224,Sanibel Beach Place,20321 Summerlin Road,Fort Myers,FL,33908,26.4915,-81.9726,Publix,
+PECO0225,Savage Town Square,14075 Highway 13 North,Savage,MN,55378,44.7779,-93.3356,Cub Foods,
+PECO0226,Savoy Plaza,1201 Savoy Plaza Lane,Savoy,IL,61874,40.0694,-88.2519,Goodwill,140624
+PECO0227,Seville Commons,2101-2151 North Collins Street,Arlington,TX,76011,32.7356,-97.1071,Walmart Neighborhood Market,
+PECO0228,Shasta Crossroads,1330 Churn Creek Road,Redding,CA,96003,40.5879,-122.3510,Food Maxx,97655
+PECO0229,Shaw's Plaza Easton,690 Depot Street,Easton,MA,02356,42.0247,-71.1163,Shaw's Supermarket,
+PECO0230,Shaw's Plaza Hanover,35 Columbia Road,Hanover,MA,02339,42.1173,-70.8237,Shaw's Supermarket,
+PECO0231,Shaw's Plaza Raynham,300 New State Highway,Raynham,MA,02767,41.9068,-71.0534,Shaw's Supermarket,
+PECO0232,Sheffield Crossing,5231 Detroit Road,Sheffield Village,OH,44054,41.4276,-82.0792,Giant Eagle,
+PECO0233,Shiloh Square Shopping Center,3895 Cherokee Street,Kennesaw,GA,30144,34.0486,-84.6034,Kroger,106689
+PECO0234,Shoppes at Avalon,13455 County Line Road,Spring Hill,FL,34609,28.4338,-82.5017,Publix,66601
+PECO0235,Shoppes at Glen Lakes,9595 Commercial Way (U.S. 19),Weeki Wachee,FL,34613,28.5156,-82.5736,Publix,66601
+PECO0236,Shoppes at Lake Mary,4215 W. Lake Mary Boulevard,Lake Mary,FL,32746,28.7561,-81.3498,PNC Bank,66601
+PECO0237,Shoppes of Lake Village,10601 US-441,Leesburg,FL,34788,28.8220,-81.7810,Publix,133283
+PECO0238,Shoppes of Paradise Lakes,16760-16836 SW 88th Street,Miami,FL,33196,25.7742,-80.1936,Publix,133283
+PECO0239,Shops at Butler Crossing,3190 Cobb Parkway NW,Kennesaw,GA,30152,34.0234,-84.6155,Planet Fitness,72420
+PECO0240,Shops at Cross Creek,6630 FM 1463 Road,Fulshear,TX,77441,29.6926,-95.9002,Yen Fulshear,72420
+PECO0241,Shops at Sunset Lakes,18401-18499 Miramar Parkway,Miramar,FL,33029,25.9873,-80.2323,Publix,72420
+PECO0242,Shops at Westridge,2142 Highway 20 W,McDonough,GA,30253,33.4473,-84.1469,Publix,80988
+PECO0243,Shoregate Town Center,29700-30450 Lake Shore Boulevard,Willowick,OH,44095,41.6331,-81.4687,Giant Eagle,
+PECO0244,Shorewood Crossing,994 Brook Forest Avenue,Shorewood,IL,60404,41.5426,-88.1996,Mariano's,
+PECO0245,Sidney Towne Center,2016-2170 West Michigan Street,Sidney,OH,45365,40.2842,-84.1555,Kroger,90855
+PECO0246,Sierra Vista Plaza,25030-25100 Hancock Avenue,Murrieta,CA,92562,33.5608,-117.2107,Pacific Dental,
+PECO0247,Snow View Plaza,1795 Snow Road,Parma,OH,44134,41.4052,-81.6919,Giant Eagle,
+PECO0248,South Oaks Plaza,5764-5796 S. Lindbergh Boulevard,St Louis,MO,63123,38.6254,-90.1900,Kloss Furniture,109397
+PECO0249,South Point Plaza,2700 West Baseline Road,Tempe,AZ,85283,33.3791,-111.9768,Goodwill,84298
+PECO0250,Southampton Village,1512 Highway 74 North,Tyrone,GA,30290,33.4713,-84.5972,Publix,
+PECO0251,Southern Palms,1706 East Southern Avenue,Tempe,AZ,85282,33.3943,-111.9113,Sprouts Farmers Market,256346
+PECO0252,Southfield Center,5400-5479 Southfield Center Boulevard,St Louis,MO,63123,38.6254,-90.1900,Schnucks,
+PECO0253,Southgate Shopping Center,3221-3411 SE 14th Street,Des Moines,IA,50320,41.5869,-93.6249,Hy-Vee,106689
+PECO0254,Southwest Marketplace,7910-8060 S. Rainbow Boulevard,Las Vegas,NV,89139,36.1674,-115.1484,Smith's,49271
+PECO0255,Spivey Junction,1748 Hudson Bridge Road,Stockbridge,GA,30281,33.5042,-84.2369,Kroger,
+PECO0256,Spring Cypress Village,22506 Tomball Parkway,Houston,TX,77070,30.0120,-95.5876,Sprouts Farmers Market,
+PECO0257,Springs Plaza,8951 Bonita Beach Road SE,Bonita Springs,FL,34135,26.3298,-81.8035,ALDI,
+PECO0258,Sprouts Plaza,731-853 S. Rainbow Blvd.,Las Vegas,NV,89145,36.1674,-115.1484,Sprouts Farmers Market,
+PECO0259,St. Charles Plaza,39857-39899 US Highway 27,Davenport,FL,33837,28.1614,-81.6017,Publix,
+PECO0260,St. Johns Plaza,3275 Garden Street,Titusville,FL,32796,28.6173,-80.8431,Publix,
+PECO0261,Statler Square,850 Statler Boulevard,Staunton,VA,24401,38.1393,-79.0687,Kroger,86432
+PECO0262,Staunton Plaza,1015 Richmond Road,Staunton,VA,24401,38.1806,-79.0866,Martin's,
+PECO0263,Sterling Pointe Center,685-945 S. Highway 65,Lincoln,CA,95648,38.8916,-121.2932,Raley's,
+PECO0264,Stockbridge Commons,867 Stockbridge Drive,Fort Mill,SC,29708,35.0616,-80.9947,Harris Teeter,
+PECO0265,Stone Gate Plaza,1004 S. Crowley Rd.,Crowley,TX,76036,32.5738,-97.3533,Kroger,
+PECO0266,Stonewall Plaza,200 Rivendell Court,Winchester,VA,22603,39.1852,-78.1652,Martin's,
+PECO0267,Stop & Shop Plaza,54 Hazard Avenue,Enfield,CT,06082,41.9877,-72.5761,Stop & Shop,117718
+PECO0268,Sudbury Crossing,421-437 Boston Post Road,Sudbury,MA,01776,42.3834,-71.4162,T.J. Maxx,101144
+PECO0269,Sulphur Grove,7740-7760 Brandt Pike,Huber Heights,OH,45424,39.8590,-84.1113,Rent-A-Center,
+PECO0270,Summerville Galleria,975 Bacons Bridge Road,Summerville,SC,29485,32.9960,-80.1841,Food Lion,
+PECO0271,Sunburst Plaza,4315 W. Bell Road,Glendale,AZ,85308,33.6391,-112.1696,Fry's Food Stores,99913
+PECO0272,Sunridge Plaza,4030 Sunrise Blvd,Rancho Cordova,CA,95742,38.5575,-121.2450,Raley's,93337
+PECO0273,Sunset Shopping Center,1555 SW 53rd Street,Corvallis,OR,97333,44.5498,-123.3113,Safeway,106689
+PECO0274,Suntree Square,100 W. Southlake Blvd.,Southlake,TX,76092,32.9431,-97.1521,Tom Thumb,
+PECO0275,Surprise Lake Square,900 Meridian Avenue East,Milton,WA,98371,47.2478,-122.2960,Grocery Outlet,
+PECO0276,The Fresh Market Commons,11421 Ocean Highway,Pawleys Island,SC,29585,33.4504,-79.1203,The Fresh Market,
+PECO0277,The Oaks,8800-8962 State Road 52,Hudson,FL,34667,28.3618,-82.6933,EoS Fitness,69425
+PECO0278,The Orchards,420 South 72nd Avenue,Yakima,WA,98908,46.5933,-120.6048,Rosauers Supermarkets,
+PECO0279,The Shoppes at Ardrey Kell,16615 Lancaster Highway,Charlotte,NC,28277,35.0240,-80.8489,Harris Teeter,124576
+PECO0280,The Shoppes at Windmill Place,119 South Randall Road,Batavia,IL,60510,41.8483,-88.3424,Jewel-Osco,124576
+PECO0281,The Shops at Hamilton Mill,3523 Braselton Hwy,Dacula,GA,30019,33.9887,-83.8980,Pure Barre,
+PECO0282,The Shops of Uptown,190 N Northwest Highway,Park Ridge,IL,60068,42.0128,-87.8324,Trader Joe's,
+PECO0283,The Village at Indian Wells,74895 CA-111,Indian Wells,CA,92210,33.7212,-116.3579,Sprouts Farmers Market,155502
+PECO0284,The Village Shopping Center,370-530 Indiana Street,Mooresville,IN,46158,39.6128,-86.3742,Kroger,106689
+PECO0285,Thompson Valley Towne Center,1275 Eagle Drive,Loveland,CO,80537,40.3792,-105.0994,King Soopers,
+PECO0286,Town & Country Shopping Center,16751-16865 Clover Road,Noblesville,IN,46060,40.0461,-86.0140,Walmart,249833
+PECO0287,Town & Country Village,2735 Marconi Avenue,Sacramento,CA,95821,38.6193,-121.3983,Sprouts Farmers Market,249833
+PECO0288,Town Center at Jensen Beach,4163 NW Federal Highway,Jensen Beach,FL,34957,27.2444,-80.2718,Publix,
+PECO0289,Town Fair Center,1915-1987 S. Hurstbourne Parkway,Louisville,KY,40220,38.2542,-85.7594,Staples,126384
+PECO0290,Towne Centre at Wesley Chapel,27425-27327 Wesley Chapel Boulevard,Wesley Chapel,FL,33543,28.1866,-82.3661,Winn-Dixie,
+PECO0291,Towne Crossing Shopping Center,3600 Gus Thomasson Road,Mesquite,TX,75150,32.8125,-96.6331,Kroger,
+PECO0292,Townfair Center,475 S. Ben Franklin Road,Indiana,PA,15701,40.6408,-79.2016,Lowe's,153020
+PECO0293,Trader Joe's Center,6301-6393 Sawmill Road,Dublin,OH,43017,40.0996,-83.1136,Trader Joe's,
+PECO0294,Tramway Crossing,2242 Jefferson Davis Road,Sanford,NC,27330,35.4799,-79.1803,Food Lion,
+PECO0295,University Plaza,3500 Main Street,Amherst,NY,14226,42.9598,-78.8171,Tops Markets,
+PECO0296,Valrico Commons,1901 SR 60 E,Valrico,FL,33594,27.9378,-82.2328,Publix,
+PECO0297,Village At Glynn Place,109 Altama Avenue,Brunswick,GA,31525,31.2051,-81.4828,Publix,
+PECO0298,Village at Sandhill,120 Forum Drive,Columbia,SC,29229,34.1334,-80.8816,Lowes Foods,
+PECO0299,Village at Waterford,13530 Waterford Place,Midlothian,VA,23112,37.5063,-77.6493,Food Lion,
+PECO0300,Village Center,5540 Washington Avenue,Racine,WI,53406,42.7190,-87.8467,Kohl's,109438
+PECO0301,Village One Plaza,3020 Floyd Avenue,Modesto,CA,95355,37.6778,-120.9388,Raley's,90124
+PECO0302,Village Shoppes at Windermere,3120-3130 Mathis Airport Pkwy,Suwanee,GA,30024,34.0515,-84.0713,Publix,
+PECO0303,Villages at Eagles Landing,909 Eagles Landing Parkway,Stockbridge,GA,30281,33.5105,-84.2199,Publix,
+PECO0304,Vineyard Center,1111-1115 Rossi Road,Templeton,CA,93465,35.5497,-120.7060,Trader Joe's,52192
+PECO0305,Vineyard Shopping Center,6615 Mahan Drive,Tallahassee,FL,32308,30.4798,-84.1670,Publix,106689
+PECO0306,Walden Park,10900 Lakeline Mall Dr,Austin,TX,78717,30.4751,-97.7986,HomeGoods,
+PECO0307,Waterford Park Plaza,10160 6th Avenue North,Plymouth,MN,55441,44.9856,-93.4097,Sherwin Williams,
+PECO0308,Waynesboro Plaza,437 Tiffany Drive,Waynesboro,VA,22980,38.0671,-78.9297,Martin's,
+PECO0309,West Acres Shopping Center,3209-3241 West Shaw Avenue,Fresno,CA,93711,36.7394,-119.7848,Food Maxx,75242
+PECO0310,West Creek Commons,4760 West Hillsboro Boulevard,Coconut Creek,FL,33073,26.3162,-80.1879,CVS,137316
+PECO0311,West Creek Plaza,4800 W. Hillsboro Blvd.,Coconut Creek,FL,33073,26.3174,-80.1998,Publix,137316
+PECO0312,West Village Center,800 W. 78th Street,Chanhassen,MN,55317,44.8637,-93.5414,Lunds & Byerlys,109438
+PECO0313,Westgate North Shopping Center,2601 N. Pearl Street,Tacoma,WA,98407,47.2716,-122.5155,Chase,
+PECO0314,Westgate Shopping Center,20900 Westgate Mall Drive,Fairview Park,OH,44126,41.4579,-81.8507,Ulta,106689
+PECO0315,Westwoods Shopping Center,15400 W. 64th Avenue,Arvada,CO,80007,39.8126,-105.1725,King Soopers,103115
+PECO0316,Wheat Ridge Marketplace,3800-3928 Wadsworth Boulevard,Wheat Ridge,CO,80033,39.7661,-105.0772,Safeway,
+PECO0317,Willimantic Plaza,1589 West Main Street,Willimantic,CT,06226,41.7229,-72.2386,BJ's Wholesale Club,97938
+PECO0318,Willowbrook Commons,61 E. Thompson Lane,Nashville,TN,37211,36.1097,-86.7277,Kroger,
+PECO0319,Winchester Gateway,121 Gateway Drive,Winchester,VA,22603,39.1866,-78.1310,Martin's,
+PECO0320,Windmill Marketplace,1835 Herndon Avenue,Clovis,CA,93611,36.8389,-119.6825,Panda Express,49271
+PECO0321,Windover Square,2227 West New Haven Avenue,Melbourne,FL,32904,28.0785,-80.6078,Publix,
+PECO0322,Windsor Center,3130 Dallas-High Shoals Highway,Dallas,NC,28034,35.3188,-81.1897,Southern States Cooperative,81423
+PECO0323,Winter Springs Town Center,1160 E. State Road 434,Winter Springs,FL,32708,28.6987,-81.3055,Publix,58537
+PECO0324,Wyandotte Plaza,7646 State Avenue,Kansas City,KS,66112,39.1175,-94.7579,Price Chopper,
+PECO0325,Yorktown Centre,2525 West 12th Street,Millcreek Township,PA,16505,42.1029,-80.1367,Giant Eagle,
