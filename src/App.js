@@ -2625,48 +2625,6 @@ function AppInner() {
               ))}
             </div>
 
-            {/* ── ACTION ITEMS BANNER — personalized for DW/MT ── */}
-            {(() => {
-              const dwQueue = subs.filter(s => s.status === "recommended" && (s.routedTo === "southwest" || s.region === "southwest"));
-              const mtQueue = subs.filter(s => s.status === "recommended" && (s.routedTo === "east" || s.region === "east"));
-              const myQueue = subs.filter(s => s.status === "pending");
-              const actionItems = [];
-              if (myQueue.length > 0) {
-                const topSite = myQueue.sort((a, b) => (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0))[0];
-                actionItems.push({ who: "Dan R.", count: myQueue.length, top: topSite, color: "#C9A84C", tab: "mine", icon: "📋" });
-              }
-              if (dwQueue.length > 0) {
-                const topSite = dwQueue.sort((a, b) => (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0))[0];
-                actionItems.push({ who: "Daniel Wollent", count: dwQueue.length, top: topSite, color: "#42A5F5", tab: "dw", icon: "◆" });
-              }
-              if (mtQueue.length > 0) {
-                const topSite = mtQueue.sort((a, b) => (getSiteScore(b).score || 0) - (getSiteScore(a).score || 0))[0];
-                actionItems.push({ who: "Matthew Toussaint", count: mtQueue.length, top: topSite, color: "#4CAF50", tab: "mt", icon: "●" });
-              }
-              if (actionItems.length === 0) return null;
-              return (
-                <div className="card-reveal" style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, marginBottom: 24, borderLeft: "3px solid #C9A84C", border: "1px solid rgba(201,168,76,0.1)", borderLeftWidth: 3, borderLeftColor: "#C9A84C", animationDelay: "0.35s" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#C9A84C" }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.1em" }}>Action Required</span>
-                  </div>
-                  <div style={{ display: "grid", gap: 8 }}>
-                    {actionItems.map(ai => (
-                      <div key={ai.who} onClick={() => { navigateTo("review"); setTimeout(() => setReviewTab(ai.tab), 50); }} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "rgba(15,21,56,0.5)", border: `1px solid ${ai.color}25`, cursor: "pointer", transition: "all 0.2s" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${ai.color}50`; e.currentTarget.style.transform = "translateX(4px)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${ai.color}25`; e.currentTarget.style.transform = "translateX(0)"; }}
-                      >
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>{ai.icon} {ai.who} — <span style={{ color: ai.color }}>{ai.count} site{ai.count !== 1 ? "s" : ""} awaiting review</span></div>
-                          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Top: <strong style={{ color: "#E2E8F0" }}>{ai.top.name}</strong> — {getSiteScore(ai.top).label}</div>
-                        </div>
-                        <span style={{ fontSize: 12, color: ai.color, fontWeight: 700 }}>Review →</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Velocity Stats + Last Updated */}
             {(() => {
