@@ -4163,6 +4163,9 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   const sxTri = sxTriangulate(fin, sxLandCompsState);
   const sxFin1 = sxFinancing(fin);
   const sxRisk = sxRiskAdjIRR(fin);
+  // Defensive numeric coercion — forces any value to a finite number for .toFixed calls.
+  // Guards against scoring.js returning string/undefined/object for fields like dscr, moic.
+  const toN = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
 
   // ── Risks: merge vetting risks + pricing risks (circular — pricing findings feed back) ──
   const risks = [...vetRisks];
@@ -4545,10 +4548,8 @@ function toggleMI(id,evt){
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SEC-CAP — INSTITUTIONAL INVESTMENT ANALYSIS (CAPSTONE, STORAGE)          -->
-<!-- Design: docs/CAPSTONE_DESIGN_SPEC.md · Storage variant                    -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- sec-CAP wrapped in IIFE try/catch — isolates capstone render from rest of REC Package -->
+${(() => { try { return `
 <div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.04),rgba(201,168,76,0.06));border-left:4px solid #1E2761">
   <h2><span class="sec-num" style="background:#1E2761">&Sigma;</span> Institutional Investment Analysis</h2>
   <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">PSA / EXR / CUBE / NSA 10-K calibrated, Green Street Self-Storage Sector Report + Cushman &amp; Wakefield verified. Every number traceable to a primary source. Sub-sections below: 10-year pro forma, ECRI build-up, sensitivity analysis, scenarios, land triangulation, comp sales, financing, risk-adjusted IRR, source provenance.</div>
@@ -4799,7 +4800,7 @@ function toggleMI(id,evt){
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div style="background:#F0FDF4;border:1px solid rgba(22,163,74,0.25);border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#16A34A;margin-bottom:4px">STAB DSCR</div><div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#16A34A">${sxFin1.dscr.toFixed(2)}x</div></div>
+        <div style="background:#F0FDF4;border:1px solid rgba(22,163,74,0.25);border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#16A34A;margin-bottom:4px">STAB DSCR</div><div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#16A34A">${toN(sxFin1.dscr).toFixed(2)}x</div></div>
         <div style="background:#EFF6FF;border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#3B82F6;margin-bottom:4px">CASH-ON-CASH Y5</div><div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#3B82F6">${(sxFin1.cashOnCash*100).toFixed(1)}%</div></div>
         <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#94A3B8;margin-bottom:4px">UNLEV IRR</div><div style="font-family:'Space Mono',monospace;font-size:18px;font-weight:900;color:#1E2761">${isFinite(sxFin1.unleveredIRR) ? (sxFin1.unleveredIRR*100).toFixed(1) + "%" : "\u2014"}</div></div>
         <div style="background:linear-gradient(135deg,#C9A84C20,#C9A84C08);border:2px solid #C9A84C;border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#C9A84C;margin-bottom:4px">LEVERED IRR</div><div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#1E2761">${isFinite(sxFin1.leveredIRR) ? (sxFin1.leveredIRR*100).toFixed(1) + "%" : "\u2014"}</div></div>
@@ -4830,8 +4831,8 @@ function toggleMI(id,evt){
             <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${(r.prob*100).toFixed(0)}%</td>
             <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${isFinite(r.unleveredIRR) ? (r.unleveredIRR*100).toFixed(1) + "%" : "\u2014"}</td>
             <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace;font-weight:700;color:${color}">${isFinite(r.leveredIRR) ? (r.leveredIRR*100).toFixed(1) + "%" : "\u2014"}</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${r.moic.toFixed(2)}x</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${r.dscr > 0 ? r.dscr.toFixed(2) + "x" : "\u2014"}</td>
+            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${toN(r.moic).toFixed(2)}x</td>
+            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${toN(r.dscr) > 0 ? toN(r.dscr).toFixed(2) + "x" : "\u2014"}</td>
           </tr>`;
         }).join("")}
         <tr style="background:#1E2761;color:#fff">
@@ -4839,7 +4840,7 @@ function toggleMI(id,evt){
           <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">100%</td>
           <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${isFinite(sxRisk.weightedUnlevered) ? (sxRisk.weightedUnlevered*100).toFixed(1) + "%" : "\u2014"}</td>
           <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900;color:#C9A84C">${isFinite(sxRisk.weightedLevered) ? (sxRisk.weightedLevered*100).toFixed(1) + "%" : "\u2014"}</td>
-          <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${sxRisk.weightedMOIC.toFixed(2)}x</td>
+          <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${toN(sxRisk.weightedMOIC).toFixed(2)}x</td>
           <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace">\u2014</td>
         </tr>
       </tbody>
@@ -4893,6 +4894,7 @@ function toggleMI(id,evt){
     Sources: PSA FY2025 10-K &middot; EXR FY2025 10-K &middot; CUBE + LSI + NSA 10-Ks &middot; Green Street Q1 2026 Self-Storage Sector Report &middot; Cushman &amp; Wakefield Self-Storage Market Report &middot; RSMeans Q1 2026 &middot; ESRI ArcGIS GeoEnrichment 2025
   </div>
 </div>
+`; } catch (e) { console.error("sec-CAP (Storvex) render error:", e); return `<div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;padding:24px;margin:10px 0"><h2 style="color:#92400E;margin:0 0 8px">&Sigma; Institutional Investment Analysis</h2><p style="color:#78350F;font-size:13px;margin:0 0 6px"><b>Capstone section temporarily unavailable.</b> The rest of this REC Package (exec summary, demographics, valuation, rent analysis, competition, utilities, etc.) continues to render below.</p><p style="color:#92400E;font-size:11px;font-family:'Space Mono',monospace;margin:0;background:#FDE68A;padding:8px 12px;border-radius:6px">Error: ${e.message}</p></div>`; } })()}
 
 <!-- ═══════════════ SECTION 4: SITESCORE BREAKDOWN ═══════════════ -->
 <div id="sec-R2" class="section" style="scroll-margin-top:20px">
