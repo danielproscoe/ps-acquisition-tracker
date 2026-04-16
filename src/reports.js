@@ -4460,7 +4460,7 @@ function toggleMI(id,evt){
         ${opexDetail && Array.isArray(opexDetail) ? opexDetail.map((o, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 10px;color:#64748B">${o.label}</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';color:#EF4444">-${fmtD(o.amount || 0)}</td></tr>`).join("") : ""}
         <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Total Operating Expenses</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800;color:#EF4444">-${totalOpexDetail ? fmtD(totalOpexDetail) : "—"}</td></tr>
         <tr style="background:#16A34A;color:#fff"><td style="padding:12px 10px;font-weight:900">STABILIZED NOI (Year 5)</td><td style="padding:12px 10px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">${stabNOI ? fmtD(stabNOI) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#64748B;font-size:10px">NOI Margin (${operatorLabel || "PS Operating Platform"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-size:10px;color:#64748B">${noiMarginPct ? noiMarginPct.toFixed(1) + "%" : "—"} (benchmark: ${noiMarginBenchmark || "78.4%"})</td></tr>
+        <tr><td style="padding:8px 10px;color:#64748B;font-size:10px">NOI Margin (${operatorLabel || "PS Operating Platform"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-size:10px;color:#64748B">${noiMarginPct && noiMarginPct !== "N/A" ? noiMarginPct + "%" : "—"} (benchmark: ${noiMarginBenchmark || "78.4%"})</td></tr>
       </tbody>
     </table>
   </div>
