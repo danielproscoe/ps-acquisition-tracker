@@ -22,9 +22,6 @@ const ps3rdPartyIcon = L.divIcon({ className: "ps-marker-3p", html: `<div style=
 const psCombinedIcon = L.divIcon({ className: "ps-marker-cb", html: `<div style="width:10px;height:10px;border-radius:50%;background:#A78BFA;border:2px solid #fff;box-shadow:0 0 6px rgba(167,139,250,0.5)"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
 const psNsaIcon = L.divIcon({ className: "ps-marker-nsa", html: `<div style="width:10px;height:10px;border-radius:50%;background:#22C55E;border:2px solid #fff;box-shadow:0 0 6px rgba(34,197,94,0.5)"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
 const getPsIcon = (ps) => ps.ownership === "nsa" ? psNsaIcon : ps.ownership === "3rdparty" ? ps3rdPartyIcon : ps.ownership === "combined" ? psCombinedIcon : psIcon;
-// ─── PECO Marker Icon — blue diamond to distinguish from PS circles ───
-const PECO_BLUE = "#3B82F6";
-const pecoIcon = L.divIcon({ className: "peco-marker", html: `<div style="width:12px;height:12px;transform:rotate(45deg);background:${PECO_BLUE};border:2px solid #fff;box-shadow:0 0 8px rgba(59,130,246,0.6)"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
 const aiTargetIcon = L.divIcon({ className: "ai-target-marker", html: `<div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,${GOLD},${FIRE});border:3px solid #fff;box-shadow:0 0 16px ${GOLD}88,0 0 32px ${FIRE}44;animation:sitescore-glow 1.5s ease-in-out infinite alternate"></div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
 
 // P0 fix #1: Pre-built icon cache — one per phase, never re-created
@@ -210,11 +207,10 @@ function CoverageGrid({ grid }) {
 }
 
 // ─── Main Component ───
-export function DiscoverMap({ psLocations, pecoLocations = [], pipelineSites, onSiteClick, onAnalyzeLocation }) {
+export function DiscoverMap({ psLocations, pipelineSites, onSiteClick, onAnalyzeLocation }) {
   const [showCoverage, setShowCoverage] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showSatellite, setShowSatellite] = useState(false);
-  const [showPECO, setShowPECO] = useState(true);
   const [showDemographics, setShowDemographics] = useState(false);
   const [demoMode, setDemoMode] = useState("population");
   const [showAITargets, setShowAITargets] = useState(false);
@@ -433,13 +429,6 @@ export function DiscoverMap({ psLocations, pecoLocations = [], pipelineSites, on
               ({psLocations.filter(p => !p.ownership || p.ownership === "owned").length.toLocaleString()} PS · {psLocations.filter(p => p.ownership === "3rdparty").length.toLocaleString()} 3P · {psLocations.filter(p => p.ownership === "combined").length.toLocaleString()} cmb · {psLocations.filter(p => p.ownership === "nsa").length.toLocaleString()} NSA)
             </span>
           </div>
-          {showPECO && pecoLocations.length > 0 && (
-            <div style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 6, height: 6, transform: "rotate(45deg)", background: PECO_BLUE, boxShadow: `0 0 8px ${PECO_BLUE}88` }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: PECO_BLUE, letterSpacing: "0.06em" }}>{pecoLocations.length} PECO</span>
-              <span style={{ fontSize: 9, color: "#94A3B8", marginLeft: 2 }}>Grocery-Anchored</span>
-            </div>
-          )}
         </div>
         <MapContainer center={USA_CENTER} zoom={4} style={{ height: "100%", width: "100%", borderRadius: 12, overflow: "hidden" }} zoomControl={false} ref={mapRef}>
           {showSatellite
@@ -462,21 +451,6 @@ export function DiscoverMap({ psLocations, pecoLocations = [], pipelineSites, on
               </Tooltip>
             </Marker>)}
           </MarkerClusterGroup>
-
-          {/* PECO Locations — blue diamond markers */}
-          {showPECO && pecoLocations.length > 0 && pecoLocations.map(peco => (
-            <Marker key={`peco-${peco.num}`} position={[peco.lat, peco.lng]} icon={pecoIcon}>
-              <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
-                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, maxWidth: 260 }}>
-                  <strong style={{ color: PECO_BLUE }}>{peco.name}</strong>
-                  <span style={{ fontSize: 9, color: "#94A3B8", marginLeft: 4 }}>(PECO)</span>
-                  <br /><span style={{ color: "#D1D5DB" }}>{peco.address}, {peco.city} {peco.state}</span>
-                  {peco.anchor && <><br /><span style={{ color: GOLD, fontSize: 10 }}>Anchor: {peco.anchor}</span></>}
-                  {peco.gla && <span style={{ color: "#6B7394", fontSize: 10, marginLeft: 6 }}>{parseInt(peco.gla).toLocaleString()} SF</span>}
-                </div>
-              </Tooltip>
-            </Marker>
-          ))}
 
           {/* P0 fix #1: cached icons from PIPELINE_ICONS */}
           {!timeLapsePlaying && pipeSites.map(s => (
@@ -642,7 +616,6 @@ export function DiscoverMap({ psLocations, pecoLocations = [], pipelineSites, on
           <LayerBtn active={showCCRents} onClick={() => setShowCCRents(!showCCRents)} label={showCCRents ? "CC Rents ON" : "CC Rents"} color="#22C55E" />
           <LayerBtn active={showCompetitors} onClick={() => setShowCompetitors(!showCompetitors)} label={showCompetitors ? "Competitors ON" : "Competitors"} color="#8B5CF6" />
           <LayerBtn active={showAITargets} onClick={() => setShowAITargets(!showAITargets)} label={showAITargets ? "AI Targets ON" : "AI Top 10"} color={GOLD} />
-          {pecoLocations.length > 0 && <LayerBtn active={showPECO} onClick={() => setShowPECO(!showPECO)} label={showPECO ? `PECO (${pecoLocations.length})` : "PECO Sites"} color={PECO_BLUE} />}
           <LayerBtn active={timeLapsePlaying} onClick={() => setTimeLapsePlaying(!timeLapsePlaying)} label={timeLapsePlaying ? `Playing ${timeLapseYear}` : "Time-Lapse"} color="#8B5CF6" />
           <LayerBtn active={showSatellite} onClick={() => setShowSatellite(!showSatellite)} label={showSatellite ? "Satellite ON" : "Satellite"} />
           <LayerBtn active={showLeaderboard} onClick={() => setShowLeaderboard(!showLeaderboard)} label="Leaderboard" />
@@ -683,12 +656,12 @@ export function DiscoverMap({ psLocations, pecoLocations = [], pipelineSites, on
           <div style={{ fontSize: 8, color: "#4B5563", marginTop: 6, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 4 }}>Source: REIT 10-K filings, Yardi Matrix Q4 2025. Rents: avg CC 10x10 equivalent, annualized.</div>
         </div>}
 
-        {/* PS + PECO Location Type Legend — always visible */}
-        {(psLocations.some(p => p.ownership === "3rdparty" || p.ownership === "combined" || p.ownership === "nsa") || pecoLocations.length > 0) && (
+        {/* PS Location Type Legend — always visible */}
+        {psLocations.some(p => p.ownership === "3rdparty" || p.ownership === "combined" || p.ownership === "nsa") && (
           <div style={{ position: "absolute", bottom: 56, right: showLeaderboard ? "calc(30% + 20px)" : 16, zIndex: 999, background: GLASS, backdropFilter: "blur(12px)", borderRadius: 8, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.08)", transition: "right 0.3s ease", ...(showCCRents ? { display: "none" } : {}) }}>
-            {[{ color: FIRE, label: "PS Owned", shape: "circle" }, { color: "#22C55E", label: "NSA (Acquired)", shape: "circle" }, { color: "#F59E0B", label: "3rd Party Managed", shape: "circle" }, { color: "#A78BFA", label: "Combined/Joint", shape: "circle" }, ...(pecoLocations.length > 0 ? [{ color: PECO_BLUE, label: `PECO (${pecoLocations.length})`, shape: "diamond" }] : [])].map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                <div style={{ width: 8, height: 8, borderRadius: item.shape === "diamond" ? 0 : "50%", background: item.color, border: "1.5px solid #fff", flexShrink: 0, transform: item.shape === "diamond" ? "rotate(45deg)" : "none" }} />
+            {[{ color: FIRE, label: "PS Owned" }, { color: "#22C55E", label: "NSA (Acquired)" }, { color: "#F59E0B", label: "3rd Party Managed" }, { color: "#A78BFA", label: "Combined/Joint" }].map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: i < 3 ? 2 : 0 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color, border: "1.5px solid #fff", flexShrink: 0 }} />
                 <span style={{ fontSize: 9, color: "#9CA3AF" }}>{item.label}</span>
               </div>
             ))}
@@ -701,7 +674,6 @@ export function DiscoverMap({ psLocations, pecoLocations = [], pipelineSites, on
         <div style={{ position: "absolute", bottom: 0, left: 0, right: showLeaderboard ? "30%" : 0, zIndex: 1000, background: DARK_BG, backdropFilter: "blur(12px)", borderTop: `1px solid rgba(201,168,76,0.15)`, padding: "8px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "right 0.3s ease" }}>
           <div style={{ display: "flex", gap: 24 }}>
             <StatChip label="PS Locations" value={displayLocations.length.toLocaleString()} color={FIRE} />
-            {showPECO && pecoLocations.length > 0 && <StatChip label="PECO Sites" value={pecoLocations.length} color={PECO_BLUE} />}
             <StatChip label="Pipeline" value={totalPipeline} color="#3B82F6" />
             <StatChip label="States" value={statesWithPS} color={GOLD} />
           </div>

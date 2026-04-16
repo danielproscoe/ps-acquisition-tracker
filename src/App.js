@@ -345,8 +345,6 @@ function AppInner() {
 
   // ─── PS Family Locations — owned + 3rd-party + combined + NSA (loaded once for Discover tab map) ───
   const [psLocations, setPsLocations] = useState([]);
-  // ─── PECO Locations (grocery-anchored retail REIT — separate layer on Discover map) ───
-  const [pecoLocations, setPecoLocations] = useState([]);
   useEffect(() => {
     const parseCsv = (csv, ownership) => {
       const lines = csv.trim().split("\n");
@@ -370,22 +368,6 @@ function AppInner() {
       fetch("/nsa-locations.csv").then(r => r.text()).then(csv => parseCsv(csv, "nsa")).catch(() => []),
     ]).then(([owned, thirdParty, combined, nsa]) => {
       setPsLocations([...owned, ...thirdParty, ...combined, ...nsa]);
-    }).catch(() => {});
-  }, []);
-
-  // ─── PECO Locations — loaded once ───
-  useEffect(() => {
-    fetch("/peco-locations.csv").then(r => r.text()).then(csv => {
-      const lines = csv.trim().split("\n");
-      const locs = [];
-      for (let i = 0; i < lines.length; i++) {
-        const parts = lines[i].split(",");
-        if (parts.length < 8) continue;
-        const lat = parseFloat(parts[6]), lng = parseFloat(parts[7]);
-        if (isNaN(lat) || isNaN(lng)) continue;
-        locs.push({ num: parts[0], name: parts[1], address: parts[2], city: parts[3], state: parts[4], zip: parts[5], lat, lng, anchor: parts[8] || "", gla: parts[9] || "", metro: parts[10] || "" });
-      }
-      setPecoLocations(locs);
     }).catch(() => {});
   }, []);
 
@@ -3095,7 +3077,6 @@ function AppInner() {
         {tab === "discover" && (
           <DiscoverMap
             psLocations={psLocations}
-            pecoLocations={pecoLocations}
             pipelineSites={[
               ...subs.filter(s => s.coordinates).map(s => ({ ...s, _source: "queue" })),
               ...sw.filter(s => s.coordinates && s.phase !== "Dead" && s.phase !== "Declined").map(s => ({ ...s, _source: "DW" })),
