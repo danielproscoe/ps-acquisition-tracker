@@ -161,12 +161,72 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
   const headerOneLiner = headerParts.join(" | ");
 
   // ════════════════════════════════════════════════
-  // ASSEMBLE EMAIL — dark header + light body (Outlook-safe)
+  // SHORT-FORMAT EMAIL v5.0 — 4/16/26
+  // Per DW feedback: short + punchy. Links/info upfront. Exhaustive
+  // REC package PDF attached for depth. Email body = 10-sec summary.
   // ════════════════════════════════════════════════
-  const emailBody = [
-    '<div style="font-family:' + SANS + ';max-width:700px;margin:0 auto;border-radius:0;overflow:hidden;background:#FFFFFF">',
+  const waterStatus = site.waterHookupStatus === "by-right" ? "BY-RIGHT" :
+                      site.waterHookupStatus === "by-request" ? "BY-REQUEST" :
+                      site.waterHookupStatus === "no-provider" ? "NO PROVIDER" : "";
+  const zDisplay = isUnzoned ? "NO ZONING — UNRESTRICTED" :
+                   zClass === "by-right" ? "BY-RIGHT" :
+                   zClass === "conditional" ? "CONDITIONAL (SUP)" :
+                   zClass === "rezone-required" ? "REZONE REQUIRED" : "";
+  const frontageStr = site.roadFrontage ? fe(site.roadFrontage) : "";
+  const ordinanceStr = site.zoningOrdinanceSection ? " per " + fe(site.zoningOrdinanceSection) : "";
+  const marketSignal = ccSPC && parseFloat(ccSPC) < 3 ?
+                       "Underserved CC market — " + ccSPC + " SF/capita within 3 mi" :
+                       nearPS ?
+                       "Nearest PS: " + nearPS :
+                       "";
+  // Recommended offer — 10% below ask for by-right, 15% else (conservative)
+  const askPriceNum = site.askingPrice ? parseFloat(String(site.askingPrice).replace(/[^0-9.]/g, "")) : 0;
+  const recDiscount = zClass === "by-right" || isUnzoned ? 0.10 : zClass === "conditional" ? 0.15 : 0.20;
+  const recOffer = askPriceNum > 0 ? Math.round(askPriceNum * (1 - recDiscount) / 100000) * 100000 : 0;
+  const recOfferStr = recOffer > 0 ? $k(recOffer) : "";
 
-    // ══ 1. SITE HEADER — dark banner ══
+  const emailBody = [
+    '<div style="font-family:Calibri,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#FFFFFF;color:#0F172A;font-size:14px;line-height:1.55">',
+
+    // 1. Greeting + hook
+    '<p style="margin:0 0 14px">' + h(recip.name || "Team") + ',</p>',
+    '<p style="margin:0 0 16px">Site recommendation for your review. Full REC package + survey attached.</p>',
+
+    // 2. Address + links (CORE — DW scans this first)
+    '<p style="margin:0 0 6px;font-weight:700;font-size:16px">' + h(fe(site.address || site.name || "")) + (site.city ? ', ' + h(site.city) : '') + (site.state ? ', ' + h(site.state) : '') + '</p>',
+    '<p style="margin:0 0 18px">',
+    pinDrop ? '<a href="' + h(pinDrop) + '" style="color:#1E2761;font-weight:700;text-decoration:underline;margin-right:14px">📍 Pin Drop</a>' : '',
+    listingUrl ? '<a href="' + h(listingUrl) + '" style="color:#1E2761;font-weight:700;text-decoration:underline;margin-right:14px">🔗 Listing</a>' : '',
+    '<a href="' + h(dashLink) + '" style="color:#C9A84C;font-weight:700;text-decoration:underline">💎 Storvex</a>',
+    '</p>',
+
+    // 3. Property facts (5-bullet summary — what DW wants upfront)
+    '<ul style="margin:0 0 16px;padding-left:22px;line-height:1.8">',
+    '<li><b>Acreage:</b> ' + (h(acreageRaw) || "TBD") + (fin && fin.acres ? " gross" : "") + '</li>',
+    '<li><b>Ask:</b> ' + h(askClean) + (pricePerAc ? ' (' + pricePerAc + '/AC)' : '') + '</li>',
+    zDisplay ? '<li><b>Zoning:</b> ' + h(site.zoning || "") + (zDisplay ? ' — <span style="color:' + (zClass === "by-right" || isUnzoned ? "#16A34A" : zClass === "conditional" ? "#D97706" : "#DC2626") + ';font-weight:700">' + zDisplay + '</span>' : '') + h(ordinanceStr) + '</li>' : '',
+    waterStatus ? '<li><b>Water:</b> <span style="color:' + (site.waterHookupStatus === "by-right" ? "#16A34A" : "#D97706") + ';font-weight:700">' + waterStatus + '</span>' + (site.waterProvider ? ' — ' + h(fe(site.waterProvider)) : '') + '</li>' : '',
+    frontageStr ? '<li><b>Frontage:</b> ' + h(frontageStr) + '</li>' : '',
+    '</ul>',
+
+    // 4. One-line market signal
+    marketSignal ? '<p style="margin:0 0 16px;color:#475569;font-size:13px;font-style:italic">' + h(marketSignal) + '</p>' : '',
+
+    // 5. Recommended offer in prose (no tables, no YOC)
+    recOfferStr ? '<p style="margin:0 0 18px">Suggest coming in at <b style="color:#16A34A">' + h(recOfferStr) + '</b>' + (recDiscount > 0 ? ' (' + Math.round(recDiscount * 100) + '% below ask' + (zClass === "by-right" || isUnzoned ? ", by-right) as a clean entry point" : ", reflecting entitlement risk") : "") + '.</p>' : '',
+
+    // 6. Signature — simple DJR block
+    '<p style="margin:24px 0 4px">Best,</p>',
+    '<p style="margin:0;font-weight:700">Daniel P. Roscoe</p>',
+    '<p style="margin:0;font-size:12px;color:#475569">DJR Real Estate LLC</p>',
+    '<p style="margin:0;font-size:12px"><a href="mailto:Droscoe@DJRrealestate.com" style="color:#1E2761">Droscoe@DJRrealestate.com</a> · 312-805-5996</p>',
+
+    '</div>',
+
+    // ── LEGACY DARK FORMAT (DISABLED — retained below for reference) ──
+    '<!-- LEGACY:',
+
+    // ══ LEGACY 1. SITE HEADER — dark banner ══
     '<div style="background:#0A0F1E;padding:28px">',
     // Top line: STORVEX + date
     '<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:16px"><tr>',
@@ -412,6 +472,7 @@ export const generateRecEmailHTML = (site, regionKey, valuationOverrides, dualSt
     '</div>',
 
     '</div>',
+    '-->',
   ].join("");
 
   // ── Preview page ──
