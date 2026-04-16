@@ -5012,7 +5012,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
           <div class="mi-row"><span class="mi-row-label">Upper ($80-100K)</span><span class="mi-row-val">Above-average rates — $1.15-1.40/SF/mo</span></div>
           <div class="mi-row"><span class="mi-row-label">Middle ($60-80K)</span><span class="mi-row-val">Market rates — $0.95-1.15/SF/mo</span></div>
           <div class="mi-row"><span class="mi-row-label">Value ($45-60K)</span><span class="mi-row-val">Below-market rates — $0.75-0.95/SF/mo</span></div>
-          <div class="mi-row"><span class="mi-row-label">This Site Rate</span><span class="mi-row-val">$${mktClimateRate.toFixed(2)}/SF/mo climate</span></div>
+          <div class="mi-row"><span class="mi-row-label">This Site Rate</span><span class="mi-row-val">$${toN(mktClimateRate).toFixed(2)}/SF/mo climate</span></div>
           <div class="mi-source">Source: SiteScore Income-Tier Rate Methodology | Calibrated to PSA/EXR submarket rate cards (Q4 2025)</div>
         </div>
       </div></div>
@@ -5556,10 +5556,10 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
         <div class="mi-header"><div class="mi-title">Rental Rate Confidence</div><div class="mi-conf ${rateConfidence === "HIGH" ? "mi-conf-high" : rateConfidence === "MEDIUM" ? "mi-conf-med" : "mi-conf-low"}">${rateConfidence}</div></div>
         <div class="mi-body">
           <strong>Three independent rate-estimation methods are cross-validated to determine confidence in the modeled rental rates.</strong>
-          <div class="mi-row"><span class="mi-row-label">Method 1: Income-Tier</span><span class="mi-row-val">$${m1Rate.toFixed(2)}/SF/mo (HHI-based)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Method 2: Comp Scan</span><span class="mi-row-val">$${m2ClimRate.toFixed(2)} clim / $${m2DriveRate.toFixed(2)} drive</span></div>
-          <div class="mi-row"><span class="mi-row-label">Method 3: Pop Density</span><span class="mi-row-val">$${m3ClimRate.toFixed(2)}/SF/mo</span></div>
-          <div class="mi-row"><span class="mi-row-label">Consensus Rate</span><span class="mi-row-val" style="color:#1E2761">$${consensusClimRate.toFixed(2)}/SF/mo climate</span></div>
+          <div class="mi-row"><span class="mi-row-label">Method 1: Income-Tier</span><span class="mi-row-val">$${toN(m1Rate).toFixed(2)}/SF/mo (HHI-based)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Method 2: Comp Scan</span><span class="mi-row-val">$${toN(m2ClimRate).toFixed(2)} clim / $${toN(m2DriveRate).toFixed(2)} drive</span></div>
+          <div class="mi-row"><span class="mi-row-label">Method 3: Pop Density</span><span class="mi-row-val">$${toN(m3ClimRate).toFixed(2)}/SF/mo</span></div>
+          <div class="mi-row"><span class="mi-row-label">Consensus Rate</span><span class="mi-row-val" style="color:#1E2761">$${toN(consensusClimRate).toFixed(2)}/SF/mo climate</span></div>
           <div class="mi-row"><span class="mi-row-label">Methodology</span><span class="mi-row-val">Median of 3 methods (outlier-resistant)</span></div>
           <div class="mi-row"><span class="mi-row-label">Confidence Logic</span><span class="mi-row-val">${rateConfidence === "HIGH" ? "All 3 methods within 15% of consensus" : rateConfidence === "MEDIUM" ? "2 of 3 methods within 20% of consensus" : "Methods diverge >25% — verify with comps"}</span></div>
           <div class="mi-source">Source: SiteScore 3-Method Rate Engine | Census ACS (M1), SpareFoot/operator websites (M2), ESRI pop density (M3)</div>
