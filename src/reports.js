@@ -4379,7 +4379,7 @@ function toggleMI(id,evt){
         <div class="mi-header"><div class="mi-title">Land Pricing Verdict</div><div class="mi-conf ${landVerdict === "BUY" || landVerdict === "TARGET" ? "mi-conf-high" : landVerdict === "STRETCH" ? "mi-conf-med" : "mi-conf-low"}">${landVerdict === "BUY" ? "Favorable" : landVerdict === "TARGET" ? "At Target" : landVerdict === "STRETCH" ? "Above Target" : "Overpriced"}</div></div>
         <div class="mi-body">
           <strong>Verdict is determined by comparing the asking price against the recommended offer (max land at target YOC).</strong>
-          <div class="mi-formula">Strike Price = Max land at ${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "8.5"}% target YOC<br>= ${landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}<br>Ask vs Strike = ${parseFloat(askVsStrike) > 0 ? "+" : ""}${askVsStrike}%</div>
+          <div class="mi-formula">Strike Price = Max land at ${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "8.5"}% target YOC<br>= ${landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}<br>Ask vs Strike = ${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "— (asking price not listed)"}</div>
           <div class="mi-row"><span class="mi-row-label">BUY (≤-10%)</span><span class="mi-row-val">Below strike — strong acquisition opportunity</span></div>
           <div class="mi-row"><span class="mi-row-label">TARGET (-10% to +5%)</span><span class="mi-row-val">At or near strike — proceed with standard terms</span></div>
           <div class="mi-row"><span class="mi-row-label">STRETCH (+5% to +30%)</span><span class="mi-row-val">Above strike — requires negotiation or rent upside</span></div>
@@ -4390,15 +4390,15 @@ function toggleMI(id,evt){
     </div>
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-askvstrike',event)">
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">ASK vs REC</div>
-      <div style="font-size:20px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</div><em class="mi-hint">i</em>
+      <div style="font-size:20px;font-weight:900;color:${askVsStrike !== null && parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'};font-family:'Space Mono',monospace">${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? '+' : '') + askVsStrike + '%' : '—'}</div><em class="mi-hint">i</em>
       <div id="mi-rec-askvstrike" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Ask vs Strike Differential</div><div class="mi-conf ${parseFloat(askVsStrike) <= 0 ? "mi-conf-high" : parseFloat(askVsStrike) <= 15 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
+        <div class="mi-header"><div class="mi-title">Ask vs Strike Differential</div><div class="mi-conf ${askVsStrike === null ? "mi-conf-med" : parseFloat(askVsStrike) <= 0 ? "mi-conf-high" : parseFloat(askVsStrike) <= 15 ? "mi-conf-med" : "mi-conf-low"}">${askVsStrike === null ? "Asking Not Listed" : parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
         <div class="mi-body">
           <strong>Measures the gap between asking price and maximum land price at target development yield.</strong>
-          <div class="mi-formula">Ask vs Strike = (Asking - Strike) ÷ Strike × 100<br>= (${fmtD(landCost)} - ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}) ÷ ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}<br>= <strong style="color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'}">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</strong></div>
+          <div class="mi-formula">Ask vs Strike = (Asking - Strike) ÷ Strike × 100<br>= (${landCost > 0 ? fmtD(landCost) : "asking not listed"} - ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}) ÷ ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}<br>= <strong style="color:${askVsStrike !== null && parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'}">${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? '+' : '') + askVsStrike + '%' : '— (needs ask)'}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Asking Price</span><span class="mi-row-val">${fmtD(landCost)}</span></div>
           <div class="mi-row"><span class="mi-row-label">Strike Price (${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "9.0"}% YOC)</span><span class="mi-row-val">${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Negotiation Room</span><span class="mi-row-val">${parseFloat(askVsStrike) > 0 ? fmtD(landCost - (landPrices[1] ? landPrices[1].maxLand : 0)) + " reduction needed" : "Already below strike"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Negotiation Room</span><span class="mi-row-val">${askVsStrike === null ? "— (asking price not listed)" : parseFloat(askVsStrike) > 0 ? fmtD(landCost - (landPrices[1] ? landPrices[1].maxLand : 0)) + " reduction needed" : "Already below strike"}</span></div>
           <div class="mi-source">Source: SiteScore Financial Engine | Strike = NOI ÷ Target YOC − Construction Costs</div>
         </div>
       </div></div>
