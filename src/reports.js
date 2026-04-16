@@ -4325,6 +4325,15 @@ function toggleMI(id,evt){
   ].map(m => `<div style="padding:14px 8px;text-align:center;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.08em;margin-bottom:3px">${m.l}</div><div style="font-size:15px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace">${m.v}</div></div>`).join("")}
 </div>
 
+<!-- ═══════════════ INTERACTIVE LINKS ═══════════════ -->
+<div style="padding:16px 28px;background:linear-gradient(90deg,rgba(30,39,97,0.03),rgba(201,168,76,0.05),rgba(30,39,97,0.03));border-bottom:1px solid #E2E8F0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center">
+  <div style="font-size:9px;letter-spacing:0.12em;color:#94A3B8;font-weight:700;margin-right:8px">QUICK ACCESS →</div>
+  ${site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#16A34A;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(22,163,74,0.25)">📍 Google Maps Pin</a>` : ""}
+  ${site.listingUrl ? `<a href="${h(site.listingUrl)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#F37C33;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(243,124,51,0.25)">🔗 Property Listing</a>` : ""}
+  <a href="https://storvex.vercel.app/?site=${h(site.id || "")}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#1E2761;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(30,39,97,0.25)">💎 Storvex Dashboard</a>
+  ${site.zoningSource ? `<a href="${h(site.zoningSource)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#7C3AED;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(124,58,237,0.25)">📜 Zoning Ordinance</a>` : ""}
+</div>
+
 <!-- ═══════════════ SECTION 1: RECOMMENDATION ═══════════════ -->
 <div id="sec-R1" class="section" style="scroll-margin-top:20px;background:${recColor}08;border-left:4px solid ${recColor}">
   <h2><span class="sec-num">1</span> Storvex Recommendation</h2>
@@ -4386,9 +4395,143 @@ function toggleMI(id,evt){
   </div>` : ""}
 </div>
 
-<!-- ═══════════════ SECTION 2: SITESCORE BREAKDOWN ═══════════════ -->
+<!-- ═══════════════ VALUATION WORKUP — FULL STORAGE PRO FORMA ═══════════════ -->
+<div id="sec-VW" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(22,163,74,0.03),rgba(201,168,76,0.04));border-left:4px solid #16A34A">
+  <h2><span class="sec-num" style="background:#16A34A">2</span> Valuation Workup — Full Development Pro Forma</h2>
+  <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">PS 10-K calibrated Storvex Engine v2.0: 78.4% NOI margin (Q4 2025), 92% stabilized occupancy, 32% cumulative ECRI by Y5, 6.0% exit cap, 8-10.5% Walk/Strike/Home Run YOC. All construction costs state-indexed; operating expenses per PS 10-K.</div>
+
+  <!-- FACILITY PROGRAM -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">FACILITY PROGRAM — SIZING MODEL</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">BUILD TYPE</div><div style="font-size:14px;font-weight:900;color:#16A34A;margin-top:4px">${isMultiStory ? stories + "-Story" : "1-Story"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${isMultiStory ? "Tighter site — vertical" : "Suburban format"}</div></div>
+      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">TOTAL GROSS SF</div><div style="font-size:14px;font-weight:900;color:#1E2761;margin-top:4px">${grossSF ? (grossSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${footprint ? Math.round(footprint).toLocaleString() + " SF × " + stories + " stories" : "—"}</div></div>
+      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">NET RENTABLE SF</div><div style="font-size:14px;font-weight:900;color:#3B82F6;margin-top:4px">${totalSF ? (totalSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${netToGross ? (netToGross*100).toFixed(0) + "% efficiency" : "—"}</div></div>
+      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">INCOME TIER</div><div style="font-size:14px;font-weight:900;color:#C9A84C;margin-top:4px">${(incTier || "").toUpperCase()}</div><div style="font-size:9px;color:#64748B;margin-top:2px">HHI ${incN ? "$" + Math.round(incN/1000) + "K" : "—"}</div></div>
+    </div>
+  </div>
+
+  <!-- UNIT MIX -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">UNIT MIX — CLIMATE vs DRIVE-UP</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px;border-bottom:2px solid #1E2761">Product Type</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Net Rentable SF</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">% of Total</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Stabilized Rate ($/SF/mo)</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Annual Revenue (Y5)</th></tr></thead>
+      <tbody>
+        <tr><td style="padding:10px;font-weight:700;color:#3B82F6">Climate-Controlled</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${climateSF ? climateSF.toLocaleString() : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${climatePct ? Math.round(climatePct*100) + "%" : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">${climateSF && mktClimateRate ? fmtD(climateSF * mktClimateRate * 12 * 0.92) : "—"}</td></tr>
+        <tr style="background:#FAFBFC"><td style="padding:10px;font-weight:700;color:#E87A2E">Drive-Up</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${driveSF ? driveSF.toLocaleString() : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${drivePct ? Math.round(drivePct*100) + "%" : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">$${mktDriveRate ? mktDriveRate.toFixed(2) : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">${driveSF && mktDriveRate ? fmtD(driveSF * mktDriveRate * 12 * 0.92) : "—"}</td></tr>
+        <tr style="background:#1E2761;color:#fff"><td style="padding:12px;font-weight:900">TOTAL NET RENTABLE</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">${totalSF ? totalSF.toLocaleString() : "—"}</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">100%</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">—</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">${stabRev ? fmtD(stabRev) : "—"}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- NOI BUILD-UP -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">STABILIZED NOI BUILD-UP (YEAR 5)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tbody>
+        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Stabilized Revenue (92% occ + ECRI)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800">${stabRev ? fmtD(stabRev) : "—"}</td></tr>
+        ${opexDetail && Array.isArray(opexDetail) ? opexDetail.map((o, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 10px;color:#64748B">${o.label}</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';color:#EF4444">-${fmtD(o.amount || 0)}</td></tr>`).join("") : ""}
+        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Total Operating Expenses</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800;color:#EF4444">-${totalOpexDetail ? fmtD(totalOpexDetail) : "—"}</td></tr>
+        <tr style="background:#16A34A;color:#fff"><td style="padding:12px 10px;font-weight:900">STABILIZED NOI (Year 5)</td><td style="padding:12px 10px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">${stabNOI ? fmtD(stabNOI) : "—"}</td></tr>
+        <tr><td style="padding:8px 10px;color:#64748B;font-size:10px">NOI Margin (${operatorLabel || "PS Operating Platform"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-size:10px;color:#64748B">${noiMarginPct ? noiMarginPct.toFixed(1) + "%" : "—"} (benchmark: ${noiMarginBenchmark || "78.4%"})</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- DEV COST STACK -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">DEVELOPMENT COST STACK</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tbody>
+        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Land Cost (ask: ${site.askingPrice || "—"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:700">${landCost ? fmtD(landCost) : "—"}</td></tr>
+        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Building Shell + HVAC ($${hardCostPerSF || "—"}/SF × ${grossSF ? (grossSF/1000).toFixed(0) + "K gross" : "—"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${hardCost ? fmtD(hardCost) : "—"}</td></tr>
+        <tr><td style="padding:8px 10px;color:#64748B">Site Development ($${baseSiteWorkPerSF || "—"}/SF × ${siteAreaSF ? (siteAreaSF/1000).toFixed(0) + "K site" : "—"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${siteWorkCost ? fmtD(siteWorkCost) : "—"}</td></tr>
+        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Fire Suppression (NFPA 13/72, $${baseFireSuppressionPerSF || "—"}/SF)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${fireSuppressionCost ? fmtD(fireSuppressionCost) : "—"}</td></tr>
+        <tr><td style="padding:8px 10px;color:#64748B">Interior Buildout ($${baseInteriorPerSF || "—"}/SF net — partitions, doors, office)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${interiorBuildoutCost ? fmtD(interiorBuildoutCost) : "—"}</td></tr>
+        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Technology & Security ($${baseTechPerSF || "—"}/SF — access, cameras, IoT)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${technologyCost ? fmtD(technologyCost) : "—"}</td></tr>
+        <tr><td style="padding:8px 10px;color:#64748B">Utility Infrastructure (base ${utilityInfraBase ? fmtD(utilityInfraBase) : "—"} + $${baseUtilityPerSF || "—"}/SF)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${utilityInfraCost ? fmtD(utilityInfraCost) : "—"}</td></tr>
+        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Total Hard Costs</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800">${totalHardCost ? fmtD(totalHardCost) : "—"}</td></tr>
+        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Soft Costs (${softCostPct ? (softCostPct*100).toFixed(0) + "%" : "20%"} of all hard — A&E, permits, legal, dev fee)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${softCost ? fmtD(softCost) : "—"}</td></tr>
+        <tr><td style="padding:8px 10px;color:#64748B">Contingency (${contingencyPct ? (contingencyPct*100).toFixed(1) + "%" : "7.5%"} of all hard)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${contingency ? fmtD(contingency) : "—"}</td></tr>
+        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Construction Carry (${constructionMonths || "—"}mo — interest + tax + insurance)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${carryCosts ? fmtD(carryCosts) : "—"}</td></tr>
+        <tr style="background:#1E2761;color:#fff"><td style="padding:12px 10px;font-weight:900">TOTAL DEVELOPMENT COST</td><td style="padding:12px 10px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">${totalDevCost ? fmtD(totalDevCost) : "—"}</td></tr>
+        <tr><td style="padding:8px 10px;color:#64748B;font-size:10px">Cost per Gross SF</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-size:10px;color:#64748B">$${grossSF && totalDevCost ? Math.round(totalDevCost / grossSF) : "—"}/SF</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- RETURN METRICS -->
+  <div style="background:linear-gradient(135deg,${verdictColor}15,${verdictColor}05);border:2px solid ${verdictColor}40;border-radius:12px;padding:20px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:${verdictColor};margin-bottom:14px">RETURN METRICS — STORVEX LAND PRICING MODEL</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">YOC @ STAB.</div><div style="font-size:22px;font-weight:900;color:${verdictColor};font-family:'Space Mono'">${yocStab || "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">NOI ÷ Total Dev Cost</div></div>
+      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STRIKE LAND PRICE</div><div style="font-size:22px;font-weight:900;color:#16A34A;font-family:'Space Mono'">${landPrices && landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ 9% Strike YOC</div></div>
+      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">ASK vs STRIKE</div><div style="font-size:22px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? "#16A34A" : "#EF4444"};font-family:'Space Mono'">${askVsStrike != null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
+      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STAB. VALUE</div><div style="font-size:22px;font-weight:900;color:#C9A84C;font-family:'Space Mono'">${valuations && valuations[1] ? fmtM(valuations[1].value) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ ${mktAcqCap ? (mktAcqCap*100).toFixed(1) + "%" : "5.75%"} market cap</div></div>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:${verdictColor};color:#fff;border-radius:8px;text-align:center"><span style="font-size:14px;font-weight:900;letter-spacing:0.06em">${landVerdict || "—"}</span><span style="font-size:11px;margin-left:10px;opacity:0.9">vs PS Walk (7.5%) / Strike (9%) / Home Run (10.5%) YOC</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════ RENT ANALYSIS WORKUP ═══════════════ -->
+<div id="sec-RA" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(201,168,76,0.04),rgba(59,130,246,0.03));border-left:4px solid #C9A84C">
+  <h2><span class="sec-num" style="background:#C9A84C">3</span> Rent Analysis — Rate Build-up & Comparables</h2>
+  <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">Three-source consensus methodology: Local SpareFoot comps (M1), MSA REIT data (M2 — PSA/EXR/CUBE 10-K filings), and income-tier proxy (M3). Competition adjustment layered on base rate. ECRI premium builds revenue above street rate over 5-year lease-up.</div>
+
+  <!-- RATE CONSENSUS -->
+  ${m1Rate || m2ClimRate || m3ClimRate ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">CLIMATE-CONTROLLED RATE — 3-SOURCE CONSENSUS</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px;border-bottom:2px solid #C9A84C">Source</th><th style="text-align:right;padding:10px;border-bottom:2px solid #C9A84C">Rate ($/SF/mo)</th><th style="text-align:left;padding:10px;border-bottom:2px solid #C9A84C">Methodology</th></tr></thead>
+      <tbody>
+        ${m1Rate ? `<tr><td style="padding:10px;font-weight:700;color:#3B82F6">M1: Local SpareFoot Comps</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m1Rate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">Competitor facility rates within 3 mi — best signal for submarket pricing power</td></tr>` : ""}
+        ${m2ClimRate ? `<tr style="background:#FAFBFC"><td style="padding:10px;font-weight:700;color:#16A34A">M2: MSA REIT Data</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m2ClimRate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">PSA/EXR/CUBE 10-K disclosures for same metro — institutional scale benchmark</td></tr>` : ""}
+        ${m3ClimRate ? `<tr><td style="padding:10px;font-weight:700;color:#C9A84C">M3: Income-Tier Proxy</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m3ClimRate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">Fallback based on 3-mi median HHI (${(incTier || "").toUpperCase()} tier — ${incN ? "$" + Math.round(incN/1000) + "K" : "—"})</td></tr>` : ""}
+        <tr style="background:#1E2761;color:#fff"><td style="padding:12px;font-weight:900">CONSENSUS (weighted)</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">$${consensusClimRate ? consensusClimRate.toFixed(2) : mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</td><td style="padding:12px;font-size:10px">${rateConfidence || "—"} confidence</td></tr>
+      </tbody>
+    </table>
+  </div>` : ""}
+
+  <!-- ADJUSTMENTS -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">RATE ADJUSTMENT STACK</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tbody>
+        <tr><td style="padding:10px;color:#64748B;width:40%">Base Climate Rate</td><td style="padding:10px;color:#1E2761;font-weight:700">${incTier} tier</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${baseClimateRate ? baseClimateRate.toFixed(2) : "—"}</td></tr>
+        <tr style="background:#FAFBFC"><td style="padding:10px;color:#64748B">Base Drive-Up Rate</td><td style="padding:10px;color:#1E2761;font-weight:700">${incTier} tier</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${baseDriveRate ? baseDriveRate.toFixed(2) : "—"}</td></tr>
+        <tr><td style="padding:10px;color:#64748B">Competition Adjustment (${compCount || 0} competitors within 3mi)</td><td style="padding:10px;color:${compAdj < 1 ? "#EF4444" : compAdj > 1 ? "#16A34A" : "#64748B"};font-weight:700">${compAdj < 1 ? "Oversupply discount" : compAdj > 1 ? "Underserved premium" : "Neutral"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700;color:${compAdj < 1 ? "#EF4444" : compAdj > 1 ? "#16A34A" : "#64748B"}">× ${compAdj ? compAdj.toFixed(2) : "1.00"}</td></tr>
+        <tr style="background:#1E2761;color:#fff"><td style="padding:12px" colspan="2"><b>STABILIZED CLIMATE RATE</b> (base × compAdj)</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}/SF/mo</td></tr>
+        <tr><td style="padding:12px;color:#64748B" colspan="2"><b>Annual Escalation Engine</b> (demand growth + supply trajectory blend)</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900;color:#16A34A">${annualEsc ? (annualEsc * 100).toFixed(1) + "%" : "3.0%"}/yr</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ECRI PREMIUM SCHEDULE -->
+  ${ecriSchedule && Array.isArray(ecriSchedule) && ecriSchedule.length > 0 ? `<div style="background:linear-gradient(135deg,rgba(22,163,74,0.05),rgba(201,168,76,0.04));border:1px solid rgba(22,163,74,0.25);border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A">ECRI PREMIUM — EXISTING CUSTOMER RATE INCREASES</div><span style="font-size:9px;color:#64748B;background:#fff;padding:2px 8px;border-radius:4px;border:1px solid #E2E8F0">PS benchmark: 32% cumulative Y5, 38-42% of mature revenue</span></div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px">Year</th><th style="text-align:right;padding:10px">ECRI Premium Above Street</th><th style="text-align:right;padding:10px">Effective In-Place Rate</th></tr></thead>
+      <tbody>
+        ${ecriSchedule.slice(0, 5).map((e, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:10px;font-weight:700;color:#1E2761">Year ${i + 1}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';color:#16A34A">+${typeof e === "number" ? (e * 100).toFixed(0) : e.premium ? (e.premium * 100).toFixed(0) : "—"}%</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">$${mktClimateRate ? (mktClimateRate * (1 + (typeof e === "number" ? e : e.premium || 0))).toFixed(2) : "—"}/SF/mo</td></tr>`).join("")}
+      </tbody>
+    </table>
+  </div>` : ""}
+
+  <!-- FINAL APPLIED RATES -->
+  <div style="background:linear-gradient(135deg,rgba(22,163,74,0.05),rgba(201,168,76,0.04));border:1px solid rgba(22,163,74,0.25);border-radius:10px;padding:18px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">APPLIED RATES — THIS SITE</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
+      <div style="background:#fff;padding:16px;border-radius:8px;text-align:center;border-top:3px solid #3B82F6"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">CLIMATE-CONTROLLED</div><div style="font-size:28px;font-weight:900;color:#3B82F6;font-family:'Space Mono'">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</div><div style="font-size:10px;color:#64748B;margin-top:2px">per SF per month</div><div style="font-size:9px;color:#94A3B8;margin-top:4px">${climateSF ? (climateSF/1000).toFixed(0) + "K SF × 92% occ × $/SF × 12mo = " + fmtD((climateSF || 0) * (mktClimateRate || 0) * 12 * 0.92) : "—"}</div></div>
+      <div style="background:#fff;padding:16px;border-radius:8px;text-align:center;border-top:3px solid #E87A2E"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">DRIVE-UP</div><div style="font-size:28px;font-weight:900;color:#E87A2E;font-family:'Space Mono'">$${mktDriveRate ? mktDriveRate.toFixed(2) : "—"}</div><div style="font-size:10px;color:#64748B;margin-top:2px">per SF per month</div><div style="font-size:9px;color:#94A3B8;margin-top:4px">${driveSF ? (driveSF/1000).toFixed(0) + "K SF × 92% occ × $/SF × 12mo = " + fmtD((driveSF || 0) * (mktDriveRate || 0) * 12 * 0.92) : "—"}</div></div>
+    </div>
+    <div style="margin-top:14px;padding:12px;background:#1E2761;color:#fff;border-radius:8px;text-align:center"><span style="font-size:11px;letter-spacing:0.08em;color:#C9A84C;font-weight:700">STABILIZED REVENUE (Y5)</span><span style="font-size:20px;font-weight:900;margin-left:14px;font-family:'Space Mono'">${stabRev ? fmtD(stabRev) : "—"}</span></div>
+    <div style="margin-top:10px;font-size:10px;color:#64748B;text-align:center">Annual escalation: ${annualEsc ? (annualEsc * 100).toFixed(1) + "%" : "3.0%"} | ECRI cumulative Y5: 32% (PS 10-K benchmark) | NOI margin: ${noiMarginBenchmark || "78.4%"}</div>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 4: SITESCORE BREAKDOWN ═══════════════ -->
 <div id="sec-R2" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">2</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10</h2>
+  <h2><span class="sec-num">4</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10</h2>
   <table>
     <thead><tr><th>Dimension</th><th>Score (0–10)</th><th>Weight</th><th>Weighted</th></tr></thead>
     <tbody>${breakdownRows}</tbody>

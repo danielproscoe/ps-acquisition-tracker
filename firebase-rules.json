@@ -63,6 +63,29 @@
       }
     },
 
+    "peco": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "submissions": {
+        "$siteId": {
+          ".validate": "newData.hasChild('address') || newData.hasChild('name') || !newData.exists()"
+        }
+      },
+      "pipeline": {
+        "$siteId": {
+          ".validate": "newData.hasChild('address') || newData.hasChild('name') || !newData.exists()"
+        }
+      },
+      "archive": {
+        "$siteId": {
+          ".validate": "newData.hasChild('address') || newData.hasChild('name') || !newData.exists()"
+        }
+      },
+      "config": {
+        ".validate": true
+      }
+    },
+
     "acquisitions": {
       ".read": "auth != null",
       ".write": "auth != null",
