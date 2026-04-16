@@ -4363,12 +4363,12 @@ function toggleMI(id,evt){
     </div>
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-askvstrike',event)">
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">ASK vs REC</div>
-      <div style="font-size:20px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</div><em class="mi-hint">i</em>
+      <div style="font-size:20px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</div><em class="mi-hint">i</em>
       <div id="mi-rec-askvstrike" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Ask vs Strike Differential</div><div class="mi-conf ${parseFloat(askVsStrike) <= 0 ? "mi-conf-high" : parseFloat(askVsStrike) <= 15 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
         <div class="mi-body">
           <strong>Measures the gap between asking price and maximum land price at target development yield.</strong>
-          <div class="mi-formula">Ask vs Strike = (Asking - Strike) ÷ Strike × 100<br>= (${fmtD(landCost)} - ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}) ÷ ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}<br>= <strong style="color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#EF4444'}">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</strong></div>
+          <div class="mi-formula">Ask vs Strike = (Asking - Strike) ÷ Strike × 100<br>= (${fmtD(landCost)} - ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}) ÷ ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}<br>= <strong style="color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'}">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</strong></div>
           <div class="mi-row"><span class="mi-row-label">Asking Price</span><span class="mi-row-val">${fmtD(landCost)}</span></div>
           <div class="mi-row"><span class="mi-row-label">Strike Price (${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "9.0"}% YOC)</span><span class="mi-row-val">${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Negotiation Room</span><span class="mi-row-val">${parseFloat(askVsStrike) > 0 ? fmtD(landCost - (landPrices[1] ? landPrices[1].maxLand : 0)) + " reduction needed" : "Already below strike"}</span></div>
@@ -4378,7 +4378,7 @@ function toggleMI(id,evt){
     </div>
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-yoc',event)">
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">STABILIZED YOC</div>
-      <div style="font-size:20px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : parseFloat(yocStab) >= 7.0 ? '#F59E0B' : '#EF4444'};font-family:'Space Mono',monospace">${yocStab}%</div><em class="mi-hint">i</em>
+      <div style="font-size:20px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : parseFloat(yocStab) >= 7.0 ? '#F59E0B' : '#1E2761'};font-family:'Space Mono',monospace">${yocStab}%</div><em class="mi-hint">i</em>
       <div id="mi-rec-yoc" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Stabilized Yield on Cost</div><div class="mi-conf ${parseFloat(yocStab) >= 8.5 ? "mi-conf-high" : parseFloat(yocStab) >= 7.0 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(yocStab) >= 9 ? "Exceeds Target" : parseFloat(yocStab) >= 8.0 ? "Meets Target" : "Below Target"}</div></div>
         <div class="mi-body">
