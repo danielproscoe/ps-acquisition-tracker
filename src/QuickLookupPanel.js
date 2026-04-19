@@ -226,16 +226,77 @@ function findREITFacilitiesNearby(registry, lat, lng, radiusMi) {
 // them." When any of these brands appear nearby, we surface the profile
 // inline — the user sees operator intel without asking.
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// LEASE-UP PLAYBOOK — "We know the secret sauce."
+// ═══════════════════════════════════════════════════════════════════════════
+// Storvex institutional playbook: start low in Y1 (occ build), ease rents up
+// in Y2-Y3 (stabilization ramp), jack via ECRI in Y4-Y6 (harvest). Per-brand
+// premiums sourced from 10-K segment disclosures. This is the rent curve that
+// institutional operators ACTUALLY execute — we surface it inline so the user
+// sees the playbook for every REIT/regional near their subject site.
+// ═══════════════════════════════════════════════════════════════════════════
+const LEASE_UP_PLAYBOOK = {
+  // Tier 1 — Top-shelf REITs (PSA/EXR execution template, 78% NOI target)
+  'tier1': {
+    label: 'TIER 1 · TOP-SHELF REIT',
+    rentCurve: [
+      { year: 'Y1', occ: '45%', rentIndex: 0.75, phase: 'LEASE-UP', note: 'Street rate discount 20-25% · 1-mo free concessions · occ build priority' },
+      { year: 'Y2', occ: '75%', rentIndex: 0.88, phase: 'RAMP', note: 'Concessions burn off · street rates rising 5% · first ECRI on Y1 cohort (+6%)' },
+      { year: 'Y3', occ: '91%', rentIndex: 1.00, phase: 'STABILIZED', note: 'Street rates at market · ECRI on rolled tenants (+8% avg) · NOI margin 65-70%' },
+      { year: 'Y4', occ: '92%', rentIndex: 1.10, phase: 'HARVEST', note: 'ECRI program running at full cadence · rate lift compounding on sticky tenants' },
+      { year: 'Y5', occ: '93%', rentIndex: 1.22, phase: 'HARVEST', note: 'PEAK ECRI — institutional comp sales validate stabilized NOI · 75%+ margin' },
+      { year: 'Y6', occ: '93%', rentIndex: 1.35, phase: 'HARVEST', note: 'Sticky customer stock · 30+ month ALOS · price-inelastic · 78% NOI margin' }
+    ],
+    ecriRate: '8%/yr avg on rolled · 6-12mo cadence',
+    occupancyTarget: '91-93%',
+    noiMarginMature: '76-78%',
+    stabilizationMonths: 30
+  },
+  'tier2': {
+    label: 'TIER 2 · SECOND-TIER REIT / INSTITUTIONAL',
+    rentCurve: [
+      { year: 'Y1', occ: '42%', rentIndex: 0.78, phase: 'LEASE-UP', note: 'Street rate discount 18-22% · aggressive promo · occ priority' },
+      { year: 'Y2', occ: '72%', rentIndex: 0.89, phase: 'RAMP', note: 'Ramp phase · first ECRI cohort · concessions rolling off' },
+      { year: 'Y3', occ: '88%', rentIndex: 1.00, phase: 'STABILIZED', note: 'Market street rates · ECRI +6-7% · NOI 60-65%' },
+      { year: 'Y4', occ: '90%', rentIndex: 1.08, phase: 'HARVEST', note: 'Rate lift compounding · stabilized cap rate validation' },
+      { year: 'Y5', occ: '91%', rentIndex: 1.18, phase: 'HARVEST', note: 'Mature lease-up · 68-72% NOI margin' },
+      { year: 'Y6', occ: '91%', rentIndex: 1.28, phase: 'HARVEST', note: 'Peak NOI · institutional comp sale candidate' }
+    ],
+    ecriRate: '6-7%/yr · 12mo cadence',
+    occupancyTarget: '88-91%',
+    noiMarginMature: '68-72%',
+    stabilizationMonths: 34
+  },
+  'tier3': {
+    label: 'TIER 3 · REGIONAL / PRIVATE CHAIN',
+    rentCurve: [
+      { year: 'Y1', occ: '40%', rentIndex: 0.80, phase: 'LEASE-UP', note: 'Local street discount 15-20% · basic promo · slow occ build' },
+      { year: 'Y2', occ: '68%', rentIndex: 0.92, phase: 'RAMP', note: 'Ramp · first rate bumps on stickiest tenants (+4-5%)' },
+      { year: 'Y3', occ: '85%', rentIndex: 1.00, phase: 'STABILIZED', note: 'Market rates · ECRI +4-5% (less aggressive vs REIT)' },
+      { year: 'Y4', occ: '87%', rentIndex: 1.06, phase: 'HARVEST', note: 'Modest rate lift · NOI margin 55-60%' },
+      { year: 'Y5', occ: '88%', rentIndex: 1.14, phase: 'HARVEST', note: 'Mature · attractive REIT acquisition target' },
+      { year: 'Y6', occ: '88%', rentIndex: 1.22, phase: 'HARVEST', note: 'Peak pre-exit · often sold to REIT at this phase' }
+    ],
+    ecriRate: '4-5%/yr · 12-18mo cadence',
+    occupancyTarget: '85-88%',
+    noiMarginMature: '58-62%',
+    stabilizationMonths: 36
+  }
+};
+
 const OPERATOR_KB = {
   'Public Storage': {
     ticker: 'PSA', type: 'Public REIT', parent: 'Public Storage Inc.', hq: 'Glendale, CA',
     portfolioSize: '3,112 owned facilities · 48 joint-venture · 344 third-party managed',
     nationalSF: '~229M SF',
     noiMargin: '78.4% (Q4 2025 FY, PSA 10-K)',
+    revenuePerSF: '$18.50 (portfolio avg, 2024 10-K)',
+    stabilizedRevPerSF: '$21.40',
     acquisitionVolume2024: '~$1.4B',
     stabilizedOccupancy: '91.0%',
     ecriProgram: '8%/yr avg on rolled tenants',
     acquisitionCap: '5.6% institutional (PSA 10-K disclosures)',
+    playbookTier: 'tier1',
     expansionFocus: 'SW (TX/FL/AZ), Mid-Atlantic, Southeast — 3.5-5ac pads for 1-story CC, 2.5-3.5ac for multi-story',
     keyContacts: 'Daniel Wollent (SW/NE/MI Acquisitions Mgr), Matthew Toussaint (East), Brian Karis (Construction Head)',
     source10K: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001393311'
@@ -245,6 +306,7 @@ const OPERATOR_KB = {
     portfolioSize: '~500 facilities (within NSA portfolio, PS-controlled)',
     nationalSF: '~30M SF',
     noiMargin: 'blended with PSA portfolio',
+    playbookTier: 'tier1',
     expansionFocus: 'Absorbed into PS acquisition funnel — no independent expansion signals',
     note: 'Part of PS family per §6b — do NOT count as independent competitor in CC SPC calc.'
   },
@@ -252,6 +314,7 @@ const OPERATOR_KB = {
     ticker: 'NSA (delisted 2024 acquisition)', type: 'Acquired by Public Storage April 2024', parent: 'Public Storage', hq: 'Greenwood Village, CO',
     portfolioSize: '1,100+ facilities pre-merger',
     acquisitionPremium: '$11B all-cash PSA deal (April 2024)',
+    playbookTier: 'tier1',
     note: 'Post-merger integration ongoing. Facilities operate under iStorage, Northwest, SecurCare, Storage Solutions, Guardian, Move It, Red Nova + PS brands.'
   },
   'Extra Space Storage': {
@@ -259,63 +322,194 @@ const OPERATOR_KB = {
     portfolioSize: '3,700+ facilities post-Life Storage merger (July 2023 · ~$12B deal)',
     nationalSF: '~280M SF',
     noiMargin: '72-74% (EXR 10-K 2024)',
+    revenuePerSF: '$17.20 (portfolio avg, 2024 10-K)',
+    stabilizedRevPerSF: '$19.80',
     acquisitionCap: '5.8-6.2% institutional',
     stabilizedOccupancy: '93-94%',
+    ecriProgram: '7-9%/yr on rolled · digital-first rate optimization engine',
+    playbookTier: 'tier1',
     expansionFocus: 'Post-merger integration through 2025, then resuming acquisitions',
-    note: 'Largest storage operator by facility count post-LSI merger. Direct PSA competitor on most deals.'
+    note: 'Largest storage operator by facility count post-LSI merger. Direct PSA competitor on most deals.',
+    source10K: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001289490'
+  },
+  'Life Storage': {
+    ticker: 'LSI (merged into EXR 2023)', type: 'Public REIT (merged)', parent: 'Extra Space Storage (post-July 2023)', hq: 'Buffalo, NY',
+    portfolioSize: '~1,200 facilities pre-merger',
+    note: 'Merged into EXR 2023 — all new signage is Extra Space. Legacy LSI sites still in rebrand pipeline.',
+    playbookTier: 'tier1'
   },
   'CubeSmart': {
     ticker: 'CUBE', type: 'Public REIT', parent: 'CubeSmart LP', hq: 'Malvern, PA',
     portfolioSize: '~1,500 facilities owned/managed',
     nationalSF: '~100M SF',
     noiMargin: '68-70% (CUBE 10-K 2024)',
+    revenuePerSF: '$15.80 (portfolio avg)',
+    stabilizedRevPerSF: '$17.90',
     acquisitionCap: '5.9-6.3% institutional',
     stabilizedOccupancy: '90.5-91.5%',
-    expansionFocus: 'Sun Belt + Northeast urban. Strong in NY/NJ/CT metros.'
+    ecriProgram: '7%/yr on rolled · 12-mo cadence',
+    playbookTier: 'tier1',
+    expansionFocus: 'Sun Belt + Northeast urban. Strong in NY/NJ/CT metros.',
+    source10K: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001298946'
   },
   'SmartStop Self Storage': {
-    ticker: 'SSIC', type: 'Public (2024 IPO)', parent: 'SmartStop REIT', hq: 'Ladera Ranch, CA',
-    portfolioSize: '~200 facilities',
-    expansionFocus: 'Aggressive Sun Belt expansion post-IPO',
-    note: 'Newer public entrant — often more flexible on private deals than PSA/EXR.'
+    ticker: 'SMA', type: 'Public (April 2025 NYSE IPO)', parent: 'SmartStop Self Storage REIT', hq: 'Ladera Ranch, CA',
+    portfolioSize: '~220 facilities (US + Canada)',
+    nationalSF: '~16M SF',
+    noiMargin: '62-64% (maturing portfolio)',
+    stabilizedOccupancy: '89-91%',
+    ecriProgram: '6-8%/yr',
+    acquisitionCap: '6.0-6.5%',
+    playbookTier: 'tier2',
+    expansionFocus: 'Aggressive Sun Belt + Canada expansion post-IPO · opportunistic on institutional pipeline',
+    note: 'Newer public entrant — often more flexible on private deals than PSA/EXR. IPO capital raise funding 2026 pipeline.'
   },
   'Prime Storage Group': {
     type: 'Private Institutional', parent: 'Prime Group Holdings', hq: 'Denver, CO',
     portfolioSize: '~300+ facilities',
+    nationalSF: '~22M SF',
+    acquisitionCap: '6.0-6.5% (private institutional)',
+    ecriProgram: '6-7%/yr',
+    playbookTier: 'tier2',
     acquisitionFocus: 'OFF-MARKET ONLY per Dan Bierbach EVP Acquisitions policy',
     keyContacts: 'Dan Bierbach (EVP Acquisitions · dan.bierbach@goprimegroup.com · 303-915-7345)',
     note: 'Never pitch on-market Crexi/LoopNet deals — off-market only per explicit policy.'
   },
+  'Simply Self Storage': {
+    type: 'Private (Blackstone REIT)', parent: 'Blackstone Real Estate Income Trust (BREIT)', hq: 'Orlando, FL',
+    portfolioSize: '~275 facilities',
+    nationalSF: '~22M SF',
+    acquisitionCap: '5.5-6.0% (Blackstone institutional)',
+    ecriProgram: '7-8%/yr',
+    playbookTier: 'tier1',
+    expansionFocus: 'Metro growth markets — aggressive bid book',
+    note: 'Blackstone paid $1.2B in 2023 for Simply Self Storage portfolio.'
+  },
+  'Morningstar Properties': {
+    type: 'Private REIT', parent: 'Morningstar Storage Centers LLC', hq: 'Charlotte, NC',
+    portfolioSize: '~150 facilities',
+    nationalSF: '~10M SF',
+    acquisitionCap: '6.0-6.5%',
+    playbookTier: 'tier2',
+    expansionFocus: 'Southeast · Mid-Atlantic · Texas · Top 50 MSAs',
+    note: 'Large institutional private operator · focused acquisition program.'
+  },
+  'Baranof Holdings': {
+    type: 'Private', parent: 'Baranof Holdings LLC', hq: 'Dallas, TX',
+    portfolioSize: '~80 facilities',
+    playbookTier: 'tier2',
+    expansionFocus: 'Texas · Oklahoma · Southeast — fund-backed roll-up',
+    note: 'Texas-HQ aggressive acquisition fund · active buyer in DFW/Houston/Austin.'
+  },
+  'Compass Self Storage': {
+    type: 'Private', parent: 'Amsdell Companies', hq: 'Cleveland, OH',
+    portfolioSize: '~120 facilities',
+    nationalSF: '~8M SF',
+    playbookTier: 'tier2',
+    expansionFocus: 'Midwest · Southeast · Growing nationally',
+    note: 'Amsdell family operator · 50+ years in storage · mix of owned + third-party managed.'
+  },
+  'Red Dot Storage': {
+    type: 'Private', parent: 'Red Dot Storage LLC', hq: 'Chicago, IL',
+    portfolioSize: '~120 facilities',
+    playbookTier: 'tier3',
+    expansionFocus: 'Midwest · Mid-South — drive-up + CC mix',
+    note: 'Regional operator with steady acquisition cadence.'
+  },
+  'Metro Storage': {
+    type: 'Private', parent: 'Metro Storage LLC', hq: 'Lake Forest, IL',
+    portfolioSize: '~140 facilities',
+    nationalSF: '~10M SF',
+    playbookTier: 'tier2',
+    expansionFocus: 'Chicago metro · Midwest · TX · FL'
+  },
+  'Snapbox Self Storage': {
+    type: 'Private', parent: 'Snapbox LLC', hq: 'Southlake, TX',
+    portfolioSize: '~60 facilities',
+    playbookTier: 'tier3',
+    expansionFocus: 'Texas · Sun Belt'
+  },
+  'West Coast Self Storage': {
+    type: 'Private', parent: 'WCSS Holdings', hq: 'Everett, WA',
+    portfolioSize: '~70 facilities',
+    playbookTier: 'tier2',
+    expansionFocus: 'WA · OR · CA · Pacific Northwest'
+  },
+  'Merit Hill Capital': {
+    type: 'Private Institutional Fund', parent: 'Merit Hill Capital LP', hq: 'New York, NY',
+    portfolioSize: '~120 facilities',
+    nationalSF: '~9M SF',
+    acquisitionCap: '5.8-6.3%',
+    playbookTier: 'tier2',
+    expansionFocus: 'Fund-backed institutional acquisitions · all markets'
+  },
+  'Moove In Self Storage': {
+    type: 'Private', parent: 'Investment Real Estate Group (IREM)', hq: 'Harrisburg, PA',
+    portfolioSize: '~80 facilities',
+    playbookTier: 'tier3',
+    expansionFocus: 'Mid-Atlantic · PA · MD · VA'
+  },
+  'Devon Self Storage': {
+    type: 'Private', parent: 'Devon Self Storage Holdings', hq: 'Emeryville, CA',
+    portfolioSize: '~55 facilities',
+    playbookTier: 'tier3',
+    expansionFocus: 'West · Sun Belt'
+  },
+  'Global Self Storage': {
+    ticker: 'SELF', type: 'Public REIT (Micro-cap)', parent: 'Global Self Storage Inc.', hq: 'Millbrook, NY',
+    portfolioSize: '13 facilities',
+    playbookTier: 'tier3',
+    note: 'Publicly traded but very small — not an institutional competitor for most markets.'
+  },
   'StorageMart': {
     type: 'Private', parent: 'Storage Mart Partners', hq: 'Columbia, MO',
     portfolioSize: '~275 facilities',
-    expansionFocus: 'Midwest + select metros',
+    nationalSF: '~16M SF',
+    playbookTier: 'tier2',
+    ecriProgram: '6-7%/yr',
+    expansionFocus: 'Midwest + select metros · US + Canada + UK'
   },
   'StorQuest': {
     type: 'Private', parent: 'The William Warren Group', hq: 'Santa Monica, CA',
     portfolioSize: '~225 facilities',
+    nationalSF: '~14M SF',
+    playbookTier: 'tier2',
     acquisitionFocus: 'OC CA, LA County CA, DC MSA (per Max Burch WWG 2026-04-08 confirmation)',
     keyContacts: 'Max Burch (Acquisitions)',
-    rateTargets: '$1.80-2.00/SF/mo minimum · SF/cap <8.0 general',
-  },
-  'Simply Self Storage': {
-    type: 'Private (Blackstone REIT)', parent: 'Blackstone Real Estate', hq: 'Orlando, FL',
-    portfolioSize: '~275 facilities',
-    acquisitionCap: '5.5-6.0% (Blackstone institutional)',
-    expansionFocus: 'Metro growth markets — aggressive bid book',
+    rateTargets: '$1.80-2.00/SF/mo minimum · SF/cap <8.0 general'
   },
   'U-Haul Moving & Storage': {
     ticker: 'UHAL', type: 'Public (AMERCO)', parent: 'AMERCO', hq: 'Phoenix, AZ',
     portfolioSize: '~1,500 sites (mixed storage + truck rental)',
     nationalSF: '96.5M SF',
+    playbookTier: 'tier3',
     expansionFocus: '50-70 new locations/yr — opportunistic acquisition of conversions',
     keyContacts: 'Aaron Cook (Dir Acquisitions), Jennifer Sawyer (RE Rep II)',
+    note: 'Storage + truck rental hybrid · different unit economics vs pure-play REITs.'
   },
   'Storage King USA': {
     type: 'Private', parent: 'Andover Properties', hq: 'New York, NY',
     portfolioSize: '~200 facilities',
+    playbookTier: 'tier2',
     keyContacts: 'Eric Brett, Karan Gupta, Van Manuel (andoverprop.com)',
     note: 'Secondary PS routing target after DW/MT pass per Dan R. 2026-03 policy.'
+  },
+  'All Storage': {
+    type: 'Private', parent: 'All Storage LLC', hq: 'Dallas, TX',
+    portfolioSize: '~70 facilities',
+    playbookTier: 'tier2',
+    expansionFocus: 'DFW · Texas dominant'
+  },
+  'Great Value Storage': {
+    type: 'Private', parent: 'World Class Capital Group', hq: 'Austin, TX',
+    portfolioSize: '~65 facilities',
+    playbookTier: 'tier3',
+    expansionFocus: 'Texas · Sun Belt'
+  },
+  'Janus International': {
+    ticker: 'JBI', type: 'Public (storage infrastructure)', parent: 'Janus International Group', hq: 'Temple, GA',
+    portfolioSize: 'N/A — supplier not operator',
+    note: 'Dominant supplier of roll-up doors, hallway systems, SmartEntry access. Everyone buys from them. Not an acquirer.'
   }
 };
 
@@ -841,18 +1035,87 @@ function ResultsView({ result, saveToFirebase }) {
                     </div>
                   </div>
                   {intel ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
-                      {intel.type && <div><b style={{ color: '#C9A84C' }}>Type:</b> {intel.type}</div>}
-                      {intel.portfolioSize && <div><b style={{ color: '#C9A84C' }}>Portfolio:</b> {intel.portfolioSize}</div>}
-                      {intel.noiMargin && <div><b style={{ color: '#C9A84C' }}>NOI Margin:</b> {intel.noiMargin}</div>}
-                      {intel.acquisitionCap && <div><b style={{ color: '#C9A84C' }}>Acq. Cap:</b> {intel.acquisitionCap}</div>}
-                      {intel.stabilizedOccupancy && <div><b style={{ color: '#C9A84C' }}>Stab. Occ.:</b> {intel.stabilizedOccupancy}</div>}
-                      {intel.ecriProgram && <div><b style={{ color: '#C9A84C' }}>ECRI:</b> {intel.ecriProgram}</div>}
-                      {intel.acquisitionVolume2024 && <div><b style={{ color: '#C9A84C' }}>'24 Volume:</b> {intel.acquisitionVolume2024}</div>}
-                      {intel.expansionFocus && <div style={{ gridColumn: '1 / -1' }}><b style={{ color: '#C9A84C' }}>Expansion:</b> {intel.expansionFocus}</div>}
-                      {intel.keyContacts && <div style={{ gridColumn: '1 / -1' }}><b style={{ color: '#C9A84C' }}>Contacts:</b> {intel.keyContacts}</div>}
-                      {intel.note && <div style={{ gridColumn: '1 / -1', marginTop: 4, padding: 8, background: 'rgba(249,115,22,0.1)', borderRadius: 6, fontSize: 10, color: '#FED7AA' }}>⚠ {intel.note}</div>}
-                    </div>
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
+                        {intel.type && <div><b style={{ color: '#C9A84C' }}>Type:</b> {intel.type}</div>}
+                        {intel.portfolioSize && <div><b style={{ color: '#C9A84C' }}>Portfolio:</b> {intel.portfolioSize}</div>}
+                        {intel.nationalSF && <div><b style={{ color: '#C9A84C' }}>National SF:</b> {intel.nationalSF}</div>}
+                        {intel.noiMargin && <div><b style={{ color: '#C9A84C' }}>NOI Margin:</b> {intel.noiMargin}</div>}
+                        {intel.revenuePerSF && <div><b style={{ color: '#C9A84C' }}>Rev/SF:</b> {intel.revenuePerSF}</div>}
+                        {intel.stabilizedRevPerSF && <div><b style={{ color: '#C9A84C' }}>Stab. Rev/SF:</b> {intel.stabilizedRevPerSF}</div>}
+                        {intel.acquisitionCap && <div><b style={{ color: '#C9A84C' }}>Acq. Cap:</b> {intel.acquisitionCap}</div>}
+                        {intel.stabilizedOccupancy && <div><b style={{ color: '#C9A84C' }}>Stab. Occ.:</b> {intel.stabilizedOccupancy}</div>}
+                        {intel.ecriProgram && <div><b style={{ color: '#C9A84C' }}>ECRI:</b> {intel.ecriProgram}</div>}
+                        {intel.acquisitionVolume2024 && <div><b style={{ color: '#C9A84C' }}>'24 Volume:</b> {intel.acquisitionVolume2024}</div>}
+                        {intel.rateTargets && <div style={{ gridColumn: '1 / -1' }}><b style={{ color: '#C9A84C' }}>Rate Targets:</b> {intel.rateTargets}</div>}
+                        {intel.expansionFocus && <div style={{ gridColumn: '1 / -1' }}><b style={{ color: '#C9A84C' }}>Expansion:</b> {intel.expansionFocus}</div>}
+                        {intel.keyContacts && <div style={{ gridColumn: '1 / -1' }}><b style={{ color: '#C9A84C' }}>Contacts:</b> {intel.keyContacts}</div>}
+                        {intel.source10K && <div style={{ gridColumn: '1 / -1', fontSize: 9 }}><a href={intel.source10K} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>↗ SEC 10-K filings ({intel.ticker})</a></div>}
+                        {intel.note && <div style={{ gridColumn: '1 / -1', marginTop: 4, padding: 8, background: 'rgba(249,115,22,0.1)', borderRadius: 6, fontSize: 10, color: '#FED7AA' }}>⚠ {intel.note}</div>}
+                      </div>
+                      {/* LEASE-UP PLAYBOOK — "We know the secret sauce." */}
+                      {intel.playbookTier && LEASE_UP_PLAYBOOK[intel.playbookTier] && (() => {
+                        const pb = LEASE_UP_PLAYBOOK[intel.playbookTier];
+                        return (
+                          <div style={{ marginTop: 14, padding: 12, background: 'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(30,39,97,0.45))', borderRadius: 8, border: '1px solid rgba(201,168,76,0.25)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                              <span style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C974)', color: '#1E2761', padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.12em' }}>LEASE-UP PLAYBOOK</span>
+                              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em' }}>{pb.label}</span>
+                              <span style={{ marginLeft: 'auto', fontSize: 9, color: 'rgba(201,168,76,0.85)', fontStyle: 'italic' }}>"Start low, ease up, jack in Y5 via ECRI"</span>
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10, color: 'rgba(255,255,255,0.82)' }}>
+                                <thead>
+                                  <tr style={{ borderBottom: '1px solid rgba(201,168,76,0.3)' }}>
+                                    <th style={{ padding: 6, textAlign: 'left', color: '#C9A84C', fontWeight: 700 }}>YEAR</th>
+                                    <th style={{ padding: 6, textAlign: 'center', color: '#C9A84C', fontWeight: 700 }}>OCC</th>
+                                    <th style={{ padding: 6, textAlign: 'center', color: '#C9A84C', fontWeight: 700 }}>RENT IDX</th>
+                                    <th style={{ padding: 6, textAlign: 'center', color: '#C9A84C', fontWeight: 700 }}>PHASE</th>
+                                    <th style={{ padding: 6, textAlign: 'left', color: '#C9A84C', fontWeight: 700 }}>EXECUTION</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {pb.rentCurve.map((y, idx) => {
+                                    const phaseColor = y.phase === 'LEASE-UP' ? '#EF4444' : y.phase === 'RAMP' ? '#F59E0B' : y.phase === 'STABILIZED' ? '#3B82F6' : '#10B981';
+                                    return (
+                                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <td style={{ padding: 6, fontWeight: 800, color: '#C9A84C' }}>{y.year}</td>
+                                        <td style={{ padding: 6, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{y.occ}</td>
+                                        <td style={{ padding: 6, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                                          <span style={{ background: 'rgba(201,168,76,0.15)', padding: '1px 6px', borderRadius: 3 }}>{y.rentIndex.toFixed(2)}x</span>
+                                        </td>
+                                        <td style={{ padding: 6, textAlign: 'center' }}>
+                                          <span style={{ background: phaseColor, color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 8, fontWeight: 900, letterSpacing: '0.08em' }}>{y.phase}</span>
+                                        </td>
+                                        <td style={{ padding: 6, fontSize: 9, color: 'rgba(255,255,255,0.7)' }}>{y.note}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, fontSize: 10 }}>
+                              <div style={{ background: 'rgba(0,0,0,0.25)', padding: 6, borderRadius: 4 }}>
+                                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>ECRI CADENCE</div>
+                                <div style={{ color: '#fff', fontWeight: 700 }}>{pb.ecriRate}</div>
+                              </div>
+                              <div style={{ background: 'rgba(0,0,0,0.25)', padding: 6, borderRadius: 4 }}>
+                                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>OCC TARGET</div>
+                                <div style={{ color: '#fff', fontWeight: 700 }}>{pb.occupancyTarget}</div>
+                              </div>
+                              <div style={{ background: 'rgba(0,0,0,0.25)', padding: 6, borderRadius: 4 }}>
+                                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>MATURE NOI</div>
+                                <div style={{ color: '#4CC982', fontWeight: 700 }}>{pb.noiMarginMature}</div>
+                              </div>
+                              <div style={{ background: 'rgba(0,0,0,0.25)', padding: 6, borderRadius: 4 }}>
+                                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>STAB. MONTHS</div>
+                                <div style={{ color: '#fff', fontWeight: 700 }}>{pb.stabilizationMonths} mo</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
                   ) : (
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>No institutional profile indexed for this brand yet.</div>
                   )}
