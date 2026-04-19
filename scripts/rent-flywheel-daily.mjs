@@ -93,29 +93,50 @@ async function main() {
     try {
       console.log(`[${m.city}, ${m.state} ${m.zip}]`);
       const comps = await getSpareFootCompSet({ city: m.city, state: m.state, zip: m.zip, radiusMi: 5 });
-      if (!comps || !comps.rates || comps.rates.length === 0) {
-        console.log(`  ✗ no rate data`);
+      const facilities = comps?.facilities || [];
+      if (facilities.length === 0) {
+        console.log(`  ✗ no facilities returned`);
         errorCount++;
         continue;
       }
-      const ccRates = comps.rates.filter(r => r.isCC).map(r => r.rate).sort((a,b)=>a-b);
-      const duRates = comps.rates.filter(r => !r.isCC).map(r => r.rate).sort((a,b)=>a-b);
+      // Flatten rates from facility.rates[] — SpareFoot tags each rate with
+      // type: 'CC' | 'DU' and provides ratePerSf directly (monthly $/SF).
+      const ccRates = [];
+      const duRates = [];
+      for (const f of facilities) {
+        for (const r of (f.rates || [])) {
+          const rate = r.ratePerSf || (r.currentPrice && r.sqft ? r.currentPrice / r.sqft : null);
+          if (!rate || rate < 0.2 || rate > 10) continue; // 4.44 is legit for Boston CC so widen cap
+          if (r.type === 'CC') ccRates.push(rate);
+          else if (r.type === 'DU') duRates.push(rate);
+        }
+      }
+      ccRates.sort((a,b)=>a-b);
+      duRates.sort((a,b)=>a-b);
       const med = (arr) => arr.length ? arr[Math.floor(arr.length/2)] : null;
+
+      if (ccRates.length + duRates.length === 0) {
+        console.log(`  ✗ facilities returned but no usable rates (${facilities.length} facilities, 0 rate rows)`);
+        errorCount++;
+        continue;
+      }
+
       const record = {
         ccRent: med(ccRates) ? parseFloat(med(ccRates).toFixed(3)) : null,
         duRent: med(duRates) ? parseFloat(med(duRates).toFixed(3)) : null,
         ccSampleCount: ccRates.length,
         duSampleCount: duRates.length,
-        totalUnits: comps.rates.length,
+        totalFacilities: facilities.length,
         source: 'SpareFoot',
         scrapedAt: new Date().toISOString(),
         city: m.city,
         state: m.state
       };
-      const path = `rentArchive/${m.zip}/${dateKey}`;
+      // Write under config/ path (Firebase rules reject top-level custom paths)
+      const path = `config/rentArchive/${m.zip}/${dateKey}`;
       const resp = await firebasePut(path, record);
       if (resp.status === 200) {
-        console.log(`  ✓ CC $${record.ccRent?.toFixed(2) ?? '-'} · DU $${record.duRent?.toFixed(2) ?? '-'} · ${record.totalUnits} units → ${path}`);
+        console.log(`  ✓ CC $${record.ccRent?.toFixed(2) ?? '-'} (n=${record.ccSampleCount}) · DU $${record.duRent?.toFixed(2) ?? '-'} (n=${record.duSampleCount}) · ${facilities.length} facilities → ${path}`);
         successCount++;
       } else {
         console.log(`  ✗ Firebase ${resp.status}: ${resp.body?.slice(0, 120)}`);
@@ -129,8 +150,8 @@ async function main() {
     }
   }
 
-  // Meta record
-  await firebasePut('rentArchive/_meta', {
+  // Meta record (under config/ for same rules reason)
+  await firebasePut('config/rentArchive/_meta', {
     lastRun: new Date().toISOString(),
     bucketIndex: bucket,
     dateKey,
