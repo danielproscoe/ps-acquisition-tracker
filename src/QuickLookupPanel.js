@@ -830,7 +830,7 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
       </div>
 
       {/* RESULTS */}
-      {result && <ResultsView result={result} saveToFirebase={saveToFirebase} />}
+      {result && <ResultsView result={result} saveToFirebase={saveToFirebase} fbPush={fbPush} />}
     </div>
   );
 }
@@ -1149,7 +1149,7 @@ function shareURL(result) {
   }
 }
 
-function ResultsView({ result, saveToFirebase }) {
+function ResultsView({ result, saveToFirebase, fbPush }) {
   const { geo, r3, r1, r5, competitors, metrics, elapsed } = result;
   const label = { fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(201,168,76,0.85)', marginBottom: 6 };
   const card = { background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 14, padding: 20, marginBottom: 14 };
@@ -1220,7 +1220,7 @@ function ResultsView({ result, saveToFirebase }) {
       </div>
 
       {/* NATIONAL PERCENTILE BENCHMARKS + YIELD-ON-COST CALCULATOR */}
-      <PercentileAndYOCCard r3={r3} competitors={competitors} geo={geo} result={result} />
+      <PercentileAndYOCCard r3={r3} competitors={competitors} geo={geo} result={result} fbPush={fbPush} />
 
       {/* TAPESTRY */}
       {r3?.TSEGNAME && (
@@ -1692,7 +1692,7 @@ function buildGmailComposeUrl({ to, cc, subject, body }) {
   return `https://mail.google.com/mail/?${params.toString()}`;
 }
 
-function PercentileAndYOCCard({ r3, competitors, geo, result }) {
+function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
   // ─── Operator selection drives underwriting defaults ───
   const [operator, setOperator] = React.useState('STORVEX BENCHMARK');
   const opEcon = OPERATOR_ECONOMICS[operator] || OPERATOR_ECONOMICS['STORVEX BENCHMARK'];
@@ -2021,6 +2021,7 @@ function PercentileAndYOCCard({ r3, competitors, geo, result }) {
         setOperator={setOperator}
         currentOperator={operator}
         geo={geo}
+        fbPush={fbPush}
       />
     </div>
   );
@@ -2034,7 +2035,34 @@ function PercentileAndYOCCard({ r3, competitors, geo, result }) {
 // by YOC. Best-fit operator at the top. One-click to load that operator
 // into the main calculator.
 // ═══════════════════════════════════════════════════════════════════════════
-function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents, buildablePct, totalCost, netRentableSF, setOperator, currentOperator, geo }) {
+function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents, buildablePct, totalCost, netRentableSF, setOperator, currentOperator, geo, fbPush }) {
+  // Log every pitch click to Firebase for deal-flow analytics
+  const logPitch = (row, contact) => {
+    if (!fbPush) return;
+    try {
+      fbPush('pitchLog', {
+        siteAddress: geo?.formatted || '',
+        city: geo?.city || '',
+        state: geo?.state || '',
+        lat: geo?.lat,
+        lon: geo?.lng,
+        operator: row.name,
+        contactName: contact?.name || '',
+        contactEmail: contact?.email || '',
+        cc: Array.isArray(contact?.cc) ? contact.cc : [],
+        yoc: parseFloat(row.yoc.toFixed(2)),
+        stabValue: Math.round(row.stabValue),
+        noi: Math.round(row.noi),
+        hurdle: row.economics?.hurdle,
+        fit: row.fit,
+        cap: row.economics?.cap,
+        acres, landPerAc, buildPerSF, ccPremium,
+        pitchedAt: new Date().toISOString(),
+        source: 'quick-lookup'
+      });
+    } catch (e) { /* silent — log shouldn't block pitch */ }
+  };
+
   // Build pitch email for a given operator row — opens Gmail compose with prefill.
   const buildPitch = (row) => {
     const contact = resolveContact(row.name, geo?.state);
@@ -2066,7 +2094,7 @@ function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents,
       `C: 312-805-5996`
     ].join('\n');
     const url = buildGmailComposeUrl({ to: contact.email, cc: contact.cc, subject, body });
-    return { url, contact };
+    return { url, contact, log: () => logPitch(row, contact) };
   };
 
   const ccSF = netRentableSF * (ccPremium / 100);
@@ -2132,7 +2160,7 @@ function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents,
                     <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontStyle: 'italic' }}>{pitch.contact.note}</div>
                   )}
                 </div>
-                <a href={pitch.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', display: 'inline-block', padding: '10px 16px', background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', borderRadius: 6, fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', textDecoration: 'none', textTransform: 'uppercase' }}>
+                <a href={pitch.url} target="_blank" rel="noopener noreferrer" onClick={() => pitch.log?.()} style={{ marginLeft: 'auto', display: 'inline-block', padding: '10px 16px', background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', borderRadius: 6, fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', textDecoration: 'none', textTransform: 'uppercase' }}>
                   📧 Pitch this site →
                 </a>
               </div>
@@ -2190,7 +2218,7 @@ function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents,
                   </td>
                   <td style={{ padding: 6, textAlign: 'center' }}>
                     {pitch ? (
-                      <a href={pitch.url} target="_blank" rel="noopener noreferrer" title={`Pitch to ${pitch.contact.name} (${pitch.contact.email})`} style={{ display: 'inline-block', padding: '4px 8px', background: fitColor === '#EF4444' ? 'rgba(255,255,255,0.08)' : fitColor, color: fitColor === '#EF4444' ? 'rgba(255,255,255,0.5)' : '#fff', borderRadius: 4, fontSize: 10, fontWeight: 900, textDecoration: 'none' }}>📧</a>
+                      <a href={pitch.url} target="_blank" rel="noopener noreferrer" onClick={() => pitch.log?.()} title={`Pitch to ${pitch.contact.name} (${pitch.contact.email})`} style={{ display: 'inline-block', padding: '4px 8px', background: fitColor === '#EF4444' ? 'rgba(255,255,255,0.08)' : fitColor, color: fitColor === '#EF4444' ? 'rgba(255,255,255,0.5)' : '#fff', borderRadius: 4, fontSize: 10, fontWeight: 900, textDecoration: 'none' }}>📧</a>
                     ) : (
                       <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>—</span>
                     )}
