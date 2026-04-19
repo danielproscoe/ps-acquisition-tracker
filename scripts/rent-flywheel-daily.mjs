@@ -33,49 +33,28 @@
  */
 
 import { getSpareFootCompSet } from './sparefoot-scraper.mjs';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import https from 'https';
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, set } from 'firebase/database';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Firebase client SDK — same config as cc-rent-audit.mjs (public apiKey, uses
+// Firebase auth flow which the DB rules allow). Raw REST PUT returns
+// "Permission denied" so we must use the client SDK path.
+const firebaseConfig = {
+  apiKey: "AIzaSyAjfLspo0mesgOSFR3r0kFfAv_7cnD8yZk",
+  authDomain: "ps-pipeline-engine---djr---v1.firebaseapp.com",
+  databaseURL: "https://ps-pipeline-engine---djr---v1-default-rtdb.firebaseio.com",
+  projectId: "ps-pipeline-engine---djr---v1",
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-// Load Firebase DB URL from .env
-function loadEnv() {
+async function firebasePut(path, data) {
   try {
-    const env = readFileSync(resolve(__dirname, '..', '.env'), 'utf-8');
-    const lines = env.split(/\r?\n/);
-    const map = {};
-    for (const line of lines) {
-      const m = line.match(/^([A-Z_]+)=(.*)$/);
-      if (m) map[m[1]] = m[2].replace(/^"(.*)"$/, '$1');
-    }
-    return map;
-  } catch { return {}; }
-}
-
-const env = loadEnv();
-const FIREBASE_DB = env.REACT_APP_FIREBASE_DATABASE_URL || env.FIREBASE_DATABASE_URL || 'https://ps-pipeline-engine---djr---v1-default-rtdb.firebaseio.com';
-
-// Firebase REST PUT helper (public rules OK per project config)
-function firebasePut(path, data) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify(data);
-    const u = new URL(`${FIREBASE_DB}/${path}.json`);
-    const req = https.request({
-      hostname: u.hostname,
-      path: u.pathname + u.search,
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
-    }, (res) => {
-      let buf = '';
-      res.on('data', c => buf += c);
-      res.on('end', () => resolve({ status: res.statusCode, body: buf }));
-    });
-    req.on('error', reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')); });
-    req.write(body); req.end();
-  });
+    await set(ref(db, path), data);
+    return { status: 200 };
+  } catch (e) {
+    return { status: 500, body: e.message };
+  }
 }
 
 // 70 seed markets — rotates across 7 days × 10 markets. Cross-section of
@@ -105,7 +84,7 @@ async function main() {
   const dateKey = new Date().toISOString().slice(0, 10);
   console.log(`\n═══════════════════════════════════════════════════════`);
   console.log(`  STORVEX · Rent Flywheel · Bucket ${bucket} · ${dateKey}`);
-  console.log(`  Firebase DB: ${FIREBASE_DB}`);
+  console.log(`  Firebase: ${firebaseConfig.databaseURL}`);
   console.log(`  Markets: ${todays.length}`);
   console.log(`═══════════════════════════════════════════════════════\n`);
 
