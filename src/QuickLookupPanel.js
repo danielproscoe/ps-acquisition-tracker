@@ -1451,6 +1451,65 @@ const OPERATOR_ECONOMICS = {
   'STORVEX BENCHMARK':      { cap: 0.060, ccRent: 1.45, duRent: 0.85, expRatio: 28, stabOcc: 91, ecriBump: 0.07, hurdle: 7.0, color: '#C9A84C', rentLabel: 'Blended REIT benchmark — weighted avg of top 10 institutional operators' }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTACT ROUTING — "Who to send it to?"
+// ─────────────────────────────────────────────────────────────────────────
+// Given an operator + site state, resolve the correct acquisitions lead.
+// Per CLAUDE.md §5: PSA East territories (MT) auto-CC Madeleine/Jose/Dan;
+// PSA SW/NE/MI (DW) auto-CC Dan only. Dan sends PS recs from Gmail personally.
+// ═══════════════════════════════════════════════════════════════════════════
+const PSA_EAST_STATES = new Set(['OH','IN','KY','TN','FL','GA','NC','SC','VA','WV','PA','NJ','NY','MA','CT','DE','MD','DC','ME','NH','VT','RI']);
+const PSA_CC_EAST = ['mleonard@publicstorage.com', 'jsaucedo@publicstorage.com', 'Droscoe@DJRrealestate.com'];
+const PSA_CC_SW = ['Droscoe@DJRrealestate.com'];
+
+const CONTACT_ROUTING = {
+  'Public Storage': (state) => {
+    const east = PSA_EAST_STATES.has(String(state || '').toUpperCase());
+    return east
+      ? { name: 'Matthew Toussaint', title: 'PSA East Acquisitions', email: 'mtoussaint@publicstorage.com', cc: PSA_CC_EAST, note: 'East territory — Madeleine Leonard + Jose Saucedo + Dan auto-CC per CLAUDE.md §5', isPSFamily: true }
+      : { name: 'Daniel Wollent', title: 'PSA SW/NE/MI Acquisitions', email: 'dwollent@publicstorage.com', cc: PSA_CC_SW, note: 'SW/NE/MI territory — Dan auto-CC per CLAUDE.md §5', isPSFamily: true };
+  },
+  'iStorage':    () => ({ name: 'Routes to PSA', title: 'PS Family — acquired by PSA 2022', email: 'dwollent@publicstorage.com', cc: PSA_CC_SW, note: 'iStorage integrated into PSA — pitch via DW/MT based on state', isPSFamily: true }),
+  'NSA':         () => ({ name: 'Routes to PSA', title: 'PS Family — acquired by PSA April 2024', email: 'dwollent@publicstorage.com', cc: PSA_CC_SW, note: 'NSA integrated into PSA — pitch via DW/MT based on state', isPSFamily: true }),
+  'Extra Space Storage':    () => ({ name: 'EXR Acquisitions', title: 'Extra Space Acquisitions', email: 'acquisitions@extraspace.com', cc: ['Droscoe@DJRrealestate.com'], note: 'No direct DJR contact yet — general acquisitions inbox' }),
+  'Life Storage':           () => ({ name: 'EXR Acquisitions', title: 'Extra Space Acquisitions (post-merger)', email: 'acquisitions@extraspace.com', cc: ['Droscoe@DJRrealestate.com'], note: 'LSI merged into EXR July 2023' }),
+  'CubeSmart':              () => ({ name: 'CUBE Acquisitions', title: 'CubeSmart Acquisitions', email: 'acquisitions@cubesmart.com', cc: ['Droscoe@DJRrealestate.com'], note: 'No direct DJR contact yet — general acquisitions inbox' }),
+  'SmartStop Self Storage': () => ({ name: 'SMA Acquisitions', title: 'SmartStop Acquisitions', email: 'acquisitions@smartstop.com', cc: ['Droscoe@DJRrealestate.com'], note: 'Newer public REIT, often more flexible on private deals' }),
+  'Prime Storage Group':    () => ({ name: 'Dan Bierbach', title: 'EVP Acquisitions, Prime Group', email: 'dan.bierbach@goprimegroup.com', phone: '303-915-7345', cc: ['Droscoe@DJRrealestate.com'], warning: 'OFF-MARKET ONLY policy — never pitch on-market Crexi/LoopNet deals' }),
+  'Simply Self Storage':    () => ({ name: 'BREIT Acquisitions', title: 'Simply Self Storage (Blackstone REIT)', email: 'acquisitions@simplyss.com', cc: ['Droscoe@DJRrealestate.com'], note: 'Blackstone Real Estate Income Trust — aggressive bid book' }),
+  'Morningstar Properties': () => ({ name: 'Morningstar Acquisitions', title: 'Morningstar Storage Centers', email: 'acquisitions@morningstarstorage.com', cc: ['Droscoe@DJRrealestate.com'], note: 'Charlotte NC-based private REIT' }),
+  'Baranof Holdings':       () => ({ name: 'Baranof Acquisitions', title: 'Baranof Holdings', email: 'acquisitions@baranofholdings.com', cc: ['Droscoe@DJRrealestate.com'], note: 'Dallas TX fund-backed roll-up — active in DFW/Houston/Austin' }),
+  'Compass Self Storage':   () => ({ name: 'Amsdell Acquisitions', title: 'Compass Self Storage (Amsdell)', email: 'acquisitions@compass-selfstorage.com', cc: ['Droscoe@DJRrealestate.com'], note: '50+ years storage operator' }),
+  'Merit Hill Capital':     () => ({ name: 'Merit Hill Acquisitions', title: 'Merit Hill Capital', email: 'acquisitions@merithillcapital.com', cc: ['Droscoe@DJRrealestate.com'], note: 'NY institutional fund' }),
+  'U-Haul Moving & Storage':() => ({ name: 'Aaron Cook', title: 'Director of Acquisitions, U-Haul', email: 'aaron_cook@uhaul.com', cc: ['jennifer_sawyer@uhaul.com', 'Droscoe@DJRrealestate.com'], note: 'Jennifer Sawyer RE Rep II auto-CC' }),
+  'Storage King USA':       () => ({ name: 'Andover Acquisitions', title: 'Storage King USA / Andover Properties', email: 'ebrett@andoverprop.com', cc: ['kgupta@andoverprop.com', 'vmanuel@andoverprop.com', 'Droscoe@DJRrealestate.com'], note: 'Eric Brett + Karan Gupta + Van Manuel all team members' }),
+  'StorQuest': (state) => {
+    const target = new Set(['CA','DC','MD','VA']);
+    const inTarget = target.has(String(state || '').toUpperCase());
+    return { name: 'Max Burch', title: 'Acquisitions, StorQuest (WWG)', email: 'mburch@thewilliamwarrengroup.com', cc: ['Droscoe@DJRrealestate.com'], warning: inTarget ? null : `StorQuest targets OC CA / LA County / DC MSA only — this site is outside their stated geography` };
+  },
+  'StorageMart':            () => ({ name: 'StorageMart Acquisitions', title: 'Storage Mart Partners', email: 'acquisitions@storage-mart.com', cc: ['Droscoe@DJRrealestate.com'], note: 'Midwest HQ in Columbia MO · active in US+Canada+UK' })
+};
+
+function resolveContact(operator, state) {
+  const fn = CONTACT_ROUTING[operator];
+  return fn ? fn(state) : null;
+}
+
+// Build a Gmail compose URL (web compose, not mailto) so Dan's Gmail
+// web client opens with fields prefilled. Gmail ignores body HTML but
+// honors plain-text line breaks via %0A.
+function buildGmailComposeUrl({ to, cc, subject, body }) {
+  const params = new URLSearchParams();
+  params.set('view', 'cm');
+  params.set('fs', '1');
+  if (to) params.set('to', Array.isArray(to) ? to.join(',') : to);
+  if (cc) params.set('cc', Array.isArray(cc) ? cc.join(',') : cc);
+  if (subject) params.set('su', subject);
+  if (body) params.set('body', body);
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
 function PercentileAndYOCCard({ r3, competitors, geo }) {
   // ─── Operator selection drives underwriting defaults ───
   const [operator, setOperator] = React.useState('STORVEX BENCHMARK');
@@ -1772,6 +1831,7 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
         netRentableSF={netRentableSF}
         setOperator={setOperator}
         currentOperator={operator}
+        geo={geo}
       />
     </div>
   );
@@ -1785,7 +1845,41 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
 // by YOC. Best-fit operator at the top. One-click to load that operator
 // into the main calculator.
 // ═══════════════════════════════════════════════════════════════════════════
-function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents, buildablePct, totalCost, netRentableSF, setOperator, currentOperator }) {
+function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents, buildablePct, totalCost, netRentableSF, setOperator, currentOperator, geo }) {
+  // Build pitch email for a given operator row — opens Gmail compose with prefill.
+  const buildPitch = (row) => {
+    const contact = resolveContact(row.name, geo?.state);
+    if (!contact) return null;
+    const subject = `Off-market pad site — ${geo?.city || 'Site'}, ${geo?.state || ''} · ${acres}ac · ${row.yoc.toFixed(2)}% projected YOC`;
+    const body = [
+      `${contact.name?.split(' ')[0] || 'Team'},`,
+      ``,
+      `Off-market opportunity that underwrites to ${row.yoc.toFixed(2)}% YOC at your cap:`,
+      ``,
+      `${geo?.formatted || 'Site address'}`,
+      `Pin: https://www.google.com/maps?q=${geo?.lat},${geo?.lng}`,
+      ``,
+      `PROJECTED ECONOMICS (Storvex-calibrated to ${row.name} 10-K):`,
+      `  Acreage: ${acres} ac | Land: $${(landPerAc*acres/1e6).toFixed(2)}M | Build: $${(buildPerSF*netRentableSF/1e6).toFixed(2)}M`,
+      `  Net Rentable SF: ${Math.round(netRentableSF).toLocaleString()}`,
+      `  Stabilized NOI: $${(row.noi/1e3).toFixed(0)}K (@ ${row.stabOcc}% occ, ${row.expRatio}% exp ratio)`,
+      `  Stabilized Value: $${(row.stabValue/1e6).toFixed(2)}M (@ ${row.cap.toFixed(1)}% cap)`,
+      `  Projected YOC: ${row.yoc.toFixed(2)}% ${row.fit === 'HOME RUN' ? '· HOME RUN vs hurdle' : row.fit === 'STRIKE' ? '· STRIKE (hits hurdle)' : ''}`,
+      `  Value Creation: ${row.valueCreation >= 0 ? '+' : '-'}$${Math.abs(row.valueCreation/1e6).toFixed(2)}M`,
+      ``,
+      `Live Storvex breakdown: https://storvex.vercel.app/?addr=${encodeURIComponent(geo?.formatted || '')}`,
+      ``,
+      `Available to discuss — please advise interest.`,
+      ``,
+      `Best,`,
+      `Daniel P. Roscoe`,
+      `E: Droscoe@DJRrealestate.com`,
+      `C: 312-805-5996`
+    ].join('\n');
+    const url = buildGmailComposeUrl({ to: contact.email, cc: contact.cc, subject, body });
+    return { url, contact };
+  };
+
   const ccSF = netRentableSF * (ccPremium / 100);
   const duSF = netRentableSF * (1 - ccPremium / 100);
   const benchmarkCC = OPERATOR_ECONOMICS['STORVEX BENCHMARK'].ccRent;
@@ -1821,20 +1915,47 @@ function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents,
         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>All 15 operators underwritten simultaneously on identical cost stack · sorted by projected YOC</div>
       </div>
 
-      <div style={{ marginBottom: 14, padding: 12, background: 'rgba(16,185,129,0.12)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.4)' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ background: '#10B981', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 900, letterSpacing: '0.1em' }}>🏆 BEST-FIT BUYER</span>
-          <span style={{ fontSize: 18, fontWeight: 900, color: topFit.economics.color }}>{topFit.name}</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#10B981', fontFamily: "'Space Mono', monospace" }}>{topFit.yoc.toFixed(2)}% YOC</span>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>· Stab Value <b>${(topFit.stabValue/1e6).toFixed(2)}M</b> @ {topFit.cap.toFixed(1)}% cap</span>
-          <span style={{ fontSize: 11, color: topFit.valueCreation > 0 ? '#10B981' : '#EF4444' }}>· {topFit.valueCreation >= 0 ? '+' : '-'}${Math.abs(topFit.valueCreation/1e6).toFixed(2)}M value creation</span>
-        </div>
-        {psa && topFit.name !== 'Public Storage' && (
-          <div style={{ marginTop: 6, fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>
-            ↳ PSA delta: <b style={{ color: psa.yoc - topFit.yoc > 0 ? '#10B981' : '#F59E0B' }}>{psa.yoc.toFixed(2)}% YOC</b> ({(psa.yoc - topFit.yoc).toFixed(2)}% gap · ${((psa.stabValue - topFit.stabValue)/1e6).toFixed(2)}M value delta)
+      {(() => {
+        const pitch = buildPitch(topFit);
+        return (
+          <div style={{ marginBottom: 14, padding: 14, background: 'rgba(16,185,129,0.12)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.4)' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+              <span style={{ background: '#10B981', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 900, letterSpacing: '0.1em' }}>🏆 BEST-FIT BUYER</span>
+              <span style={{ fontSize: 18, fontWeight: 900, color: topFit.economics.color }}>{topFit.name}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#10B981', fontFamily: "'Space Mono', monospace" }}>{topFit.yoc.toFixed(2)}% YOC</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>· Stab Value <b>${(topFit.stabValue/1e6).toFixed(2)}M</b> @ {topFit.cap.toFixed(1)}% cap</span>
+              <span style={{ fontSize: 11, color: topFit.valueCreation > 0 ? '#10B981' : '#EF4444' }}>· {topFit.valueCreation >= 0 ? '+' : '-'}${Math.abs(topFit.valueCreation/1e6).toFixed(2)}M value creation</span>
+            </div>
+            {pitch?.contact && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: 10, background: 'rgba(0,0,0,0.3)', borderRadius: 6, borderLeft: `3px solid ${pitch.contact.isPSFamily ? '#0052A3' : topFit.economics.color}` }}>
+                <div>
+                  <div style={{ fontSize: 9, color: 'rgba(201,168,76,0.85)', letterSpacing: '0.08em', fontWeight: 700 }}>SEND TO</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{pitch.contact.name}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>{pitch.contact.title}</div>
+                  <div style={{ fontSize: 10, color: '#4CC982', marginTop: 2 }}>📧 {pitch.contact.email}</div>
+                  {Array.isArray(pitch.contact.cc) && pitch.contact.cc.length > 0 && (
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>CC: {pitch.contact.cc.join(', ')}</div>
+                  )}
+                  {pitch.contact.warning && (
+                    <div style={{ fontSize: 10, color: '#FED7AA', marginTop: 4, padding: 4, background: 'rgba(249,115,22,0.15)', borderRadius: 3 }}>⚠ {pitch.contact.warning}</div>
+                  )}
+                  {pitch.contact.note && !pitch.contact.warning && (
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontStyle: 'italic' }}>{pitch.contact.note}</div>
+                  )}
+                </div>
+                <a href={pitch.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', display: 'inline-block', padding: '10px 16px', background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', borderRadius: 6, fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', textDecoration: 'none', textTransform: 'uppercase' }}>
+                  📧 Pitch this site →
+                </a>
+              </div>
+            )}
+            {psa && topFit.name !== 'Public Storage' && (
+              <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>
+                ↳ PSA delta: <b style={{ color: psa.yoc - topFit.yoc > 0 ? '#10B981' : '#F59E0B' }}>{psa.yoc.toFixed(2)}% YOC</b> ({(psa.yoc - topFit.yoc).toFixed(2)}% gap · ${((psa.stabValue - topFit.stabValue)/1e6).toFixed(2)}M value delta)
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>
@@ -1850,28 +1971,40 @@ function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents,
               <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>YOC</th>
               <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>STAB VALUE</th>
               <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>FIT</th>
+              <th style={{ padding: 8, textAlign: 'center', color: '#C9A84C', fontWeight: 700 }}>SEND</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, idx) => {
               const fitColor = r.fit === 'HOME RUN' ? '#10B981' : r.fit === 'STRIKE' ? '#22C55E' : r.fit === 'MARGINAL' ? '#F59E0B' : '#EF4444';
               const isCurrent = r.name === currentOperator;
+              const pitch = buildPitch(r);
               return (
-                <tr key={r.name} onClick={() => setOperator(r.name)} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: isCurrent ? 'rgba(201,168,76,0.12)' : 'transparent', cursor: 'pointer' }}>
-                  <td style={{ padding: 8, fontWeight: 900, color: idx === 0 ? '#10B981' : 'rgba(255,255,255,0.55)' }}>#{idx+1}</td>
-                  <td style={{ padding: 8, fontWeight: 700 }}>
+                <tr key={r.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: isCurrent ? 'rgba(201,168,76,0.12)' : 'transparent' }}>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, fontWeight: 900, color: idx === 0 ? '#10B981' : 'rgba(255,255,255,0.55)', cursor: 'pointer' }}>#{idx+1}</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, fontWeight: 700, cursor: 'pointer' }}>
                     <span style={{ color: r.economics.color }}>{r.name}</span>
                     {isCurrent && <span style={{ marginLeft: 6, background: '#C9A84C', color: '#1E2761', padding: '1px 4px', borderRadius: 2, fontSize: 8, fontWeight: 900 }}>ACTIVE</span>}
+                    {pitch?.contact && (
+                      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>→ {pitch.contact.name}</div>
+                    )}
                   </td>
-                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>${r.ccRent.toFixed(2)}</td>
-                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.stabOcc}%</td>
-                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.expRatio}%</td>
-                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.cap.toFixed(1)}%</td>
-                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#4CC982' }}>${(r.noi/1e3).toFixed(0)}K</td>
-                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 900, color: fitColor }}>{r.yoc.toFixed(2)}%</td>
-                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.economics.color }}>${(r.stabValue/1e6).toFixed(2)}M</td>
-                  <td style={{ padding: 8, textAlign: 'right' }}>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', cursor: 'pointer' }}>${r.ccRent.toFixed(2)}</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', cursor: 'pointer' }}>{r.stabOcc}%</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', cursor: 'pointer' }}>{r.expRatio}%</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', cursor: 'pointer' }}>{r.cap.toFixed(1)}%</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#4CC982', cursor: 'pointer' }}>${(r.noi/1e3).toFixed(0)}K</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 900, color: fitColor, cursor: 'pointer' }}>{r.yoc.toFixed(2)}%</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.economics.color, cursor: 'pointer' }}>${(r.stabValue/1e6).toFixed(2)}M</td>
+                  <td onClick={() => setOperator(r.name)} style={{ padding: 8, textAlign: 'right', cursor: 'pointer' }}>
                     <span style={{ background: fitColor, color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 9, fontWeight: 900, letterSpacing: '0.06em' }}>{r.fit}</span>
+                  </td>
+                  <td style={{ padding: 6, textAlign: 'center' }}>
+                    {pitch ? (
+                      <a href={pitch.url} target="_blank" rel="noopener noreferrer" title={`Pitch to ${pitch.contact.name} (${pitch.contact.email})`} style={{ display: 'inline-block', padding: '4px 8px', background: fitColor === '#EF4444' ? 'rgba(255,255,255,0.08)' : fitColor, color: fitColor === '#EF4444' ? 'rgba(255,255,255,0.5)' : '#fff', borderRadius: 4, fontSize: 10, fontWeight: 900, textDecoration: 'none' }}>📧</a>
+                    ) : (
+                      <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>—</span>
+                    )}
                   </td>
                 </tr>
               );
