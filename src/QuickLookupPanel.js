@@ -1059,12 +1059,78 @@ ${r3?.TSEGNAME ? `<div class="section">
 
 <script>
   document.title = ${JSON.stringify(fileLabel)};
-  window.addEventListener('load', () => setTimeout(() => window.print(), 600));
+  // Preview mode — no auto-print. Print button in parent modal triggers window.print()
+  // via postMessage; or user can print manually from the modal.
+  window.addEventListener('message', (e) => {
+    if (e.data === 'storvex-print') window.print();
+  });
 </script>
 </body></html>`;
+  return { html, fileLabel };
+}
+
+// Helper: open preview modal with iframe rendering the PDF HTML
+function openPDFPreview(result, opts = {}) {
+  const { html, fileLabel } = downloadPDF(result, opts);
+  // If a previous modal exists, remove
+  const existing = document.getElementById('storvex-pdf-preview-modal');
+  if (existing) existing.remove();
+
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
+
+  const modal = document.createElement('div');
+  modal.id = 'storvex-pdf-preview-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.88);z-index:99999;display:flex;flex-direction:column;padding:20px;box-sizing:border-box';
+
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 16px;background:linear-gradient(135deg,#1E2761,#0F1538);border-radius:10px 10px 0 0;border-bottom:1px solid rgba(201,168,76,0.3);flex-wrap:wrap';
+  toolbar.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="background:linear-gradient(135deg,#C9A84C,#E4CB7C);color:#1E2761;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:900;letter-spacing:0.12em">📄 STORVEX PDF PREVIEW</span>
+      <span style="color:rgba(255,255,255,0.65);font-size:11px">${fileLabel}</span>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button id="storvex-pdf-print" style="padding:8px 16px;border-radius:6px;border:none;background:linear-gradient(135deg,#DC2626,#991B1B);color:#fff;font-size:11px;font-weight:800;cursor:pointer;letter-spacing:0.04em">🖨 Print / Save as PDF</button>
+      <button id="storvex-pdf-download" style="padding:8px 16px;border-radius:6px;border:none;background:linear-gradient(135deg,#3B82F6,#1E3A8A);color:#fff;font-size:11px;font-weight:800;cursor:pointer;letter-spacing:0.04em">⬇ Download HTML</button>
+      <button id="storvex-pdf-newtab" style="padding:8px 16px;border-radius:6px;border:none;background:linear-gradient(135deg,#22C55E,#16A34A);color:#fff;font-size:11px;font-weight:800;cursor:pointer;letter-spacing:0.04em">↗ Open in New Tab</button>
+      <button id="storvex-pdf-close" style="padding:8px 16px;border-radius:6px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;font-size:11px;font-weight:800;cursor:pointer;letter-spacing:0.04em">✕ Close</button>
+    </div>`;
+  modal.appendChild(toolbar);
+
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.style.cssText = 'flex:1;width:100%;border:none;border-radius:0 0 10px 10px;background:#fff';
+  iframe.setAttribute('title', 'Storvex Report Preview');
+  modal.appendChild(iframe);
+
+  document.body.appendChild(modal);
+  // Disable body scroll while modal open
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  const cleanup = () => {
+    URL.revokeObjectURL(url);
+    document.body.style.overflow = prevOverflow;
+    modal.remove();
+  };
+
+  toolbar.querySelector('#storvex-pdf-close').onclick = cleanup;
+  toolbar.querySelector('#storvex-pdf-print').onclick = () => {
+    try { iframe.contentWindow.postMessage('storvex-print', '*'); } catch { iframe.contentWindow?.print?.(); }
+  };
+  toolbar.querySelector('#storvex-pdf-newtab').onclick = () => {
+    window.open(url, '_blank');
+  };
+  toolbar.querySelector('#storvex-pdf-download').onclick = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileLabel + '.html';
+    a.click();
+  };
+  // Esc closes
+  const onEsc = (e) => { if (e.key === 'Escape') { cleanup(); document.removeEventListener('keydown', onEsc); } };
+  document.addEventListener('keydown', onEsc);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1112,8 +1178,8 @@ function ResultsView({ result, saveToFirebase }) {
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>ESRI + Places + geocode (parallel)</div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => downloadPDF(result)} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #DC2626, #991B1B)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.05em' }}>
-              📄 PDF
+            <button onClick={() => openPDFPreview(result)} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #DC2626, #991B1B)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.05em' }}>
+              📄 PREVIEW PDF
             </button>
             <button onClick={() => shareURL(result)} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #3B82F6, #1E3A8A)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.05em' }}>
               🔗 COPY LINK
@@ -1772,11 +1838,11 @@ function PercentileAndYOCCard({ r3, competitors, geo, result }) {
           <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚡ OPERATOR-CALIBRATED UNDERWRITING · LIVE</div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Pick an operator — underwriting re-calibrates to their 10-K portfolio economics</div>
           <button
-            onClick={() => downloadPDF(result, { acres, landPerAc, buildPerSF, ccPremium, liveCC: liveRents?.ccRent, liveDU: liveRents?.duRent })}
+            onClick={() => openPDFPreview(result, { acres, landPerAc, buildPerSF, ccPremium, liveCC: liveRents?.ccRent, liveDU: liveRents?.duRent })}
             style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #DC2626, #991B1B)', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.04em' }}
-            title="Export this underwriting as an institutional-grade PDF with current inputs"
+            title="Preview the institutional-grade PDF with current inputs — print or download from modal"
           >
-            📄 EXPORT PDF
+            📄 PREVIEW PDF
           </button>
         </div>
 
