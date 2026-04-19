@@ -1759,6 +1759,129 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
           </div>
         </div>
       )}
+
+      {/* OPERATOR STACK-RANK — "Who Should Own This Site?" */}
+      <OperatorStackRank
+        acres={acres}
+        landPerAc={landPerAc}
+        buildPerSF={buildPerSF}
+        ccPremium={ccPremium}
+        liveRents={liveRents}
+        buildablePct={buildablePct}
+        totalCost={totalCost}
+        netRentableSF={netRentableSF}
+        setOperator={setOperator}
+        currentOperator={operator}
+      />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OperatorStackRank — "Who Should Own This Site?"
+// ─────────────────────────────────────────────────────────────────────────
+// For every operator in OPERATOR_ECONOMICS, compute projected YOC + stab
+// value using THEIR 10-K rent, occ, expense ratio, and cap rate. Sort desc
+// by YOC. Best-fit operator at the top. One-click to load that operator
+// into the main calculator.
+// ═══════════════════════════════════════════════════════════════════════════
+function OperatorStackRank({ acres, landPerAc, buildPerSF, ccPremium, liveRents, buildablePct, totalCost, netRentableSF, setOperator, currentOperator }) {
+  const ccSF = netRentableSF * (ccPremium / 100);
+  const duSF = netRentableSF * (1 - ccPremium / 100);
+  const benchmarkCC = OPERATOR_ECONOMICS['STORVEX BENCHMARK'].ccRent;
+  const benchmarkDU = OPERATOR_ECONOMICS['STORVEX BENCHMARK'].duRent;
+
+  const rows = Object.entries(OPERATOR_ECONOMICS).map(([name, e]) => {
+    const marketCC = liveRents?.ccRent || benchmarkCC;
+    const marketDU = liveRents?.duRent || benchmarkDU;
+    const ccRent = marketCC * (e.ccRent / benchmarkCC);
+    const duRent = marketDU * (e.duRent / benchmarkDU);
+    const grossRent = ((ccSF * ccRent) + (duSF * duRent)) * 12;
+    const rev = grossRent * (e.stabOcc / 100);
+    const noi = rev * (1 - e.expRatio / 100);
+    const yoc = totalCost > 0 ? (noi / totalCost) * 100 : 0;
+    const stabValue = noi / e.cap;
+    const valueCreation = stabValue - totalCost;
+    return {
+      name, economics: e, ccRent, duRent,
+      stabOcc: e.stabOcc, expRatio: e.expRatio, cap: e.cap * 100,
+      noi, yoc, stabValue, valueCreation,
+      fit: yoc >= e.hurdle + 1 ? 'HOME RUN' : yoc >= e.hurdle ? 'STRIKE' : yoc >= e.hurdle - 1 ? 'MARGINAL' : 'BELOW'
+    };
+  }).sort((a, b) => b.yoc - a.yoc);
+
+  const card = { background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 14, padding: 20, marginBottom: 14 };
+  const topFit = rows[0];
+  const psa = rows.find(r => r.name === 'Public Storage');
+
+  return (
+    <div style={{ ...card, marginTop: 14, background: 'linear-gradient(135deg, rgba(139,92,246,0.06), rgba(15,21,56,0.6))', border: '1px solid rgba(139,92,246,0.25)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>OPERATOR STACK-RANK · WHO SHOULD OWN THIS SITE?</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>All 15 operators underwritten simultaneously on identical cost stack · sorted by projected YOC</div>
+      </div>
+
+      <div style={{ marginBottom: 14, padding: 12, background: 'rgba(16,185,129,0.12)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.4)' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ background: '#10B981', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 900, letterSpacing: '0.1em' }}>🏆 BEST-FIT BUYER</span>
+          <span style={{ fontSize: 18, fontWeight: 900, color: topFit.economics.color }}>{topFit.name}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#10B981', fontFamily: "'Space Mono', monospace" }}>{topFit.yoc.toFixed(2)}% YOC</span>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>· Stab Value <b>${(topFit.stabValue/1e6).toFixed(2)}M</b> @ {topFit.cap.toFixed(1)}% cap</span>
+          <span style={{ fontSize: 11, color: topFit.valueCreation > 0 ? '#10B981' : '#EF4444' }}>· {topFit.valueCreation >= 0 ? '+' : '-'}${Math.abs(topFit.valueCreation/1e6).toFixed(2)}M value creation</span>
+        </div>
+        {psa && topFit.name !== 'Public Storage' && (
+          <div style={{ marginTop: 6, fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>
+            ↳ PSA delta: <b style={{ color: psa.yoc - topFit.yoc > 0 ? '#10B981' : '#F59E0B' }}>{psa.yoc.toFixed(2)}% YOC</b> ({(psa.yoc - topFit.yoc).toFixed(2)}% gap · ${((psa.stabValue - topFit.stabValue)/1e6).toFixed(2)}M value delta)
+          </div>
+        )}
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.35)' }}>
+              <th style={{ padding: 8, textAlign: 'left', color: '#C9A84C', fontWeight: 700 }}>RANK</th>
+              <th style={{ padding: 8, textAlign: 'left', color: '#C9A84C', fontWeight: 700 }}>OPERATOR</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>CC $/SF</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>OCC %</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>EXP %</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>CAP %</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>NOI</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>YOC</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>STAB VALUE</th>
+              <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>FIT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, idx) => {
+              const fitColor = r.fit === 'HOME RUN' ? '#10B981' : r.fit === 'STRIKE' ? '#22C55E' : r.fit === 'MARGINAL' ? '#F59E0B' : '#EF4444';
+              const isCurrent = r.name === currentOperator;
+              return (
+                <tr key={r.name} onClick={() => setOperator(r.name)} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: isCurrent ? 'rgba(201,168,76,0.12)' : 'transparent', cursor: 'pointer' }}>
+                  <td style={{ padding: 8, fontWeight: 900, color: idx === 0 ? '#10B981' : 'rgba(255,255,255,0.55)' }}>#{idx+1}</td>
+                  <td style={{ padding: 8, fontWeight: 700 }}>
+                    <span style={{ color: r.economics.color }}>{r.name}</span>
+                    {isCurrent && <span style={{ marginLeft: 6, background: '#C9A84C', color: '#1E2761', padding: '1px 4px', borderRadius: 2, fontSize: 8, fontWeight: 900 }}>ACTIVE</span>}
+                  </td>
+                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>${r.ccRent.toFixed(2)}</td>
+                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.stabOcc}%</td>
+                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.expRatio}%</td>
+                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.cap.toFixed(1)}%</td>
+                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#4CC982' }}>${(r.noi/1e3).toFixed(0)}K</td>
+                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 900, color: fitColor }}>{r.yoc.toFixed(2)}%</td>
+                  <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.economics.color }}>${(r.stabValue/1e6).toFixed(2)}M</td>
+                  <td style={{ padding: 8, textAlign: 'right' }}>
+                    <span style={{ background: fitColor, color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 9, fontWeight: 900, letterSpacing: '0.06em' }}>{r.fit}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: 10, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
+        Click any row to load that operator into the calculator above. All operators underwritten on identical cost stack ({acres} ac × ${landPerAc.toLocaleString()}/ac + ${buildPerSF}/SF build) and identical {liveRents ? 'LIVE submarket' : 'market band'} CC base rent — only operator-specific 10-K economics (rent premium, occ, expense ratio, cap rate, hurdle) vary.
+      </div>
     </div>
   );
 }
