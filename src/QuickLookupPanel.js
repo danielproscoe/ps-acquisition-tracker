@@ -1456,6 +1456,10 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
   const [operator, setOperator] = React.useState('STORVEX BENCHMARK');
   const opEcon = OPERATOR_ECONOMICS[operator] || OPERATOR_ECONOMICS['STORVEX BENCHMARK'];
 
+  // ─── Live SpareFoot rent pull ───
+  const [liveRents, setLiveRents] = React.useState(null);
+  const [liveRentsStatus, setLiveRentsStatus] = React.useState('pending');
+
   // ─── State for YOC calculator (seeded from operator) ───
   const [acres, setAcres] = React.useState(4.0);
   const [landPerAc, setLandPerAc] = React.useState(400000);
@@ -1467,16 +1471,35 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
   const [expenseRatio, setExpenseRatio] = React.useState(opEcon.expRatio); // % of revenue
   const [capRate, setCapRate] = React.useState(opEcon.cap * 100);
 
-  // When operator changes, re-seed underwriting inputs to that operator's 10-K defaults
+  // Fire SpareFoot rent pull on mount (once per Quick Lookup)
+  React.useEffect(() => {
+    if (!geo?.city || !geo?.state) return;
+    const url = `/api/sparefoot-rents?city=${encodeURIComponent(geo.city)}&state=${encodeURIComponent(geo.state)}&zip=${encodeURIComponent(geo.zip||'')}&lat=${geo.lat}&lon=${geo.lng}`;
+    setLiveRentsStatus('fetching');
+    fetch(url).then(r => r.ok ? r.json() : null).then(j => {
+      if (j && j.ok) { setLiveRents(j); setLiveRentsStatus(j.fallback ? 'fallback' : 'live'); }
+      else { setLiveRentsStatus('error'); }
+    }).catch(() => setLiveRentsStatus('error'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo?.city, geo?.state]);
+
+  // When operator changes, re-seed underwriting inputs to that operator's 10-K defaults.
+  // BUT if we have LIVE SpareFoot rents, use market rents instead of 10-K defaults
+  // (market rents reflect reality; 10-K is portfolio average).
   React.useEffect(() => {
     const e = OPERATOR_ECONOMICS[operator];
     if (!e) return;
-    setCcRent(e.ccRent);
-    setDuRent(e.duRent);
+    const marketCC = liveRents?.ccRent;
+    const marketDU = liveRents?.duRent;
+    // Operator premium vs blended benchmark (e.g., StorQuest runs +10% of market)
+    const opPremium = e.ccRent / OPERATOR_ECONOMICS['STORVEX BENCHMARK'].ccRent;
+    const opDuPremium = e.duRent / OPERATOR_ECONOMICS['STORVEX BENCHMARK'].duRent;
+    setCcRent(marketCC ? parseFloat((marketCC * opPremium).toFixed(2)) : e.ccRent);
+    setDuRent(marketDU ? parseFloat((marketDU * opDuPremium).toFixed(2)) : e.duRent);
     setStabilizedOcc(e.stabOcc);
     setExpenseRatio(e.expRatio);
     setCapRate(e.cap * 100);
-  }, [operator]);
+  }, [operator, liveRents]);
 
   // Percentiles
   const pop = r3?.TOTPOP_CY || 0;
@@ -1607,6 +1630,31 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
             ↳ {opEcon.rentLabel}
           </div>
+          {liveRents && (
+            <div style={{ marginTop: 8, padding: 8, background: liveRentsStatus === 'live' ? 'rgba(76,201,130,0.12)' : 'rgba(201,168,76,0.08)', borderRadius: 6, border: `1px solid ${liveRentsStatus === 'live' ? 'rgba(76,201,130,0.35)' : 'rgba(201,168,76,0.25)'}`, fontSize: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ background: liveRentsStatus === 'live' ? '#4CC982' : '#C9A84C', color: '#1E2761', padding: '1px 6px', borderRadius: 3, fontSize: 8, fontWeight: 900, letterSpacing: '0.1em' }}>
+                  {liveRentsStatus === 'live' ? '🔴 LIVE SPAREFOOT' : '📊 MARKET BAND'}
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.85)' }}>
+                  Benchmark CC <b style={{ color: '#fff' }}>${liveRents.ccRent?.toFixed(2)}</b>/SF · DU <b style={{ color: '#fff' }}>${liveRents.duRent?.toFixed(2)}</b>/SF
+                </span>
+                {liveRents.compCount > 0 && (
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 9 }}>
+                    ({liveRents.compCount} unit comps, {liveRents.ccSampleCount} CC + {liveRents.duSampleCount} DU)
+                  </span>
+                )}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 9, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
+                {liveRents.confidence} · operator premium applied: {operator} runs {((opEcon.ccRent / OPERATOR_ECONOMICS['STORVEX BENCHMARK'].ccRent - 1) * 100).toFixed(0) > 0 ? '+' : ''}{((opEcon.ccRent / OPERATOR_ECONOMICS['STORVEX BENCHMARK'].ccRent - 1) * 100).toFixed(0)}% vs blended benchmark
+              </div>
+            </div>
+          )}
+          {liveRentsStatus === 'fetching' && (
+            <div style={{ marginTop: 8, padding: 6, fontSize: 9, color: 'rgba(201,168,76,0.7)', fontStyle: 'italic' }}>
+              ⏳ Pulling live submarket rents from SpareFoot...
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
