@@ -1896,6 +1896,40 @@ function switchSiteInputs(siteId) {
       ${exitScenarios ? exitScenarios.map(s => `<span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.1);color:${parseFloat(s.irr) >= 15 ? "#16A34A" : parseFloat(s.irr) >= 10 ? "#C9A84C" : "#EF4444"}">${s.label}: ${s.irr}% IRR</span>`).join("") : ""}
     </div>
     <div style="font-size:9px;color:#4A5080;margin-top:8px">Operating Profile: ${operatorLabel || "Public Storage"} | NOI Margin Benchmark: ${noiMarginBenchmark || "78.4% (PSA Q4 2025)"}</div>
+    ${site.ccRentData ? `<div style="margin-top:14px;padding:12px;background:linear-gradient(135deg,rgba(30,39,97,0.15),rgba(201,168,76,0.08));border:1px solid rgba(201,168,76,0.25);border-radius:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="background:#C9A84C;color:#1E2761;padding:3px 10px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:0.12em">STORVEX MARKET INTEL</div>
+        <div style="background:${site.ccRentData.auditConfidence === 'HIGH' ? '#16A34A' : site.ccRentData.auditConfidence === 'MEDIUM' ? '#C9A84C' : '#94A3B8'};color:#fff;padding:3px 10px;border-radius:4px;font-size:9px;font-weight:700">${site.ccRentData.auditConfidence || '—'} CONF</div>
+        <div style="font-size:9px;color:#94A3B8">Audited ${site.ccRentData.lastAudited ? new Date(site.ccRentData.lastAudited).toLocaleDateString() : '—'} · ${site.ccRentData.auditVersion || 'v2.0'} · <a href="#sec-MI" style="color:#C9A84C;text-decoration:none" onclick="document.getElementById('sec-MI').scrollIntoView({behavior:'smooth'});return false">jump to Market Intel →</a></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+        <div style="text-align:center;padding:8px;background:rgba(15,21,56,0.4);border-radius:6px">
+          <div style="font-size:8px;color:#6B7394;letter-spacing:0.08em;font-weight:700">CC SPC VERIFIED</div>
+          <div class="mono" style="font-size:16px;font-weight:800;color:${(site.ccRentData.ccSPC_verified || 99) < 3 ? '#16A34A' : (site.ccRentData.ccSPC_verified || 99) < 5 ? '#C9A84C' : '#EF4444'}">${site.ccRentData.ccSPC_verified?.toFixed(2) || '—'}</div>
+          <div style="font-size:8px;color:#6B7394">${(site.ccRentData.ccSPC_verified || 99) < 1.5 ? 'severely underserved' : (site.ccRentData.ccSPC_verified || 99) < 3 ? 'underserved' : (site.ccRentData.ccSPC_verified || 99) < 5 ? 'balanced' : 'saturated'}</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:rgba(15,21,56,0.4);border-radius:6px">
+          <div style="font-size:8px;color:#6B7394;letter-spacing:0.08em;font-weight:700">CC RENT MEDIAN</div>
+          <div class="mono" style="font-size:16px;font-weight:800;color:#C9A84C">$${site.ccRentData.marketRentBand?.ccBand?.median?.toFixed(2) || '—'}</div>
+          <div style="font-size:8px;color:#6B7394">$${Math.round((site.ccRentData.marketRentBand?.ccBand?.median || 0) * 100)}/mo 10×10</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:rgba(15,21,56,0.4);border-radius:6px">
+          <div style="font-size:8px;color:#6B7394;letter-spacing:0.08em;font-weight:700">Y5 PROJECTION</div>
+          <div class="mono" style="font-size:16px;font-weight:800;color:${(site.ccRentData.rentCurveSummary?.y5_10x10 || 0) > (site.ccRentData.rentCurveSummary?.y1_10x10 || 999) ? '#16A34A' : '#EF4444'}">$${site.ccRentData.rentCurveSummary?.y5_10x10 || '—'}</div>
+          <div style="font-size:8px;color:#6B7394">${site.ccRentData.rentCurveSummary?.y1_to_y5_cagr || '—'} CAGR</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:rgba(15,21,56,0.4);border-radius:6px">
+          <div style="font-size:8px;color:#6B7394;letter-spacing:0.08em;font-weight:700">COMP SET</div>
+          <div class="mono" style="font-size:16px;font-weight:800;color:#fff">${site.ccRentData.ccFacilityCount || 0}<span style="font-size:10px;color:#6B7394"> CC</span></div>
+          <div style="font-size:8px;color:#6B7394">${site.ccRentData.psFamilyCount || 0} PS-fam excluded</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:rgba(15,21,56,0.4);border-radius:6px">
+          <div style="font-size:8px;color:#6B7394;letter-spacing:0.08em;font-weight:700">ABSORPTION</div>
+          <div class="mono" style="font-size:12px;font-weight:800;color:${(site.ccRentData.absorption?.verdict || '').includes('flood') ? '#EF4444' : (site.ccRentData.absorption?.verdict || '').includes('healthy') ? '#16A34A' : '#C9A84C'}">${site.ccRentData.absorption?.monthsToAbsorb ? site.ccRentData.absorption.monthsToAbsorb + ' mo' : 'no pipeline'}</div>
+          <div style="font-size:8px;color:#6B7394">${(site.ccRentData.absorption?.verdict || '').split('—')[0] || '—'}</div>
+        </div>
+      </div>
+    </div>` : ''}
   </div>
 
   <div id="exec" class="expand-panel">
@@ -3858,6 +3892,7 @@ ${padScenario ? `
   <table>
     <thead><tr><th>Source</th><th>Data Type</th><th>Access</th><th>Use Case</th></tr></thead>
     <tbody>
+      ${site.ccRentData ? `<tr style="background:linear-gradient(90deg,rgba(201,168,76,0.18),rgba(30,39,97,0.08));border-left:3px solid #C9A84C"><td style="font-weight:800;color:#C9A84C">Storvex Market Intel (in-house)</td><td>Live SpareFoot comp set (${site.ccRentData.totalCompetitorsFound || 0} facilities, ${site.ccRentData.marketRentBand?.samples?.allSizes || 0} rate obs), PS Family Registry (4,247 locations), ESRI 2025→2030 projections, churn-adjusted absorption, forward rent curve Y1-Y10</td><td style="font-size:10px;color:#16A34A;font-weight:700">Running (${site.ccRentData.auditConfidence || '—'} conf)</td><td style="font-size:10px;color:#16A34A;font-weight:700">Primary source — THIS REPORT (Tier 0)</td></tr>` : ''}
       <tr style="background:rgba(201,168,76,0.04)"><td style="font-weight:700;color:#C9A84C">Yardi Matrix Self-Storage</td><td>Street rates, occupancy, new supply, rent comps</td><td style="font-size:10px">Subscription ($2K-5K/yr)</td><td style="font-size:10px;color:#16A34A;font-weight:600">Rate validation (Tier 1)</td></tr>
       <tr><td style="font-weight:700">Radius+</td><td>Trade area analytics, supply pipeline, demand modeling</td><td style="font-size:10px">Subscription</td><td style="font-size:10px">Supply/demand analysis</td></tr>
       <tr style="background:rgba(201,168,76,0.04)"><td style="font-weight:700;color:#C9A84C">StorTrack / SpareFoot</td><td>Live street rates by unit size, real-time pricing</td><td style="font-size:10px">Free (basic) / Paid</td><td style="font-size:10px;color:#16A34A;font-weight:600">Street rate cross-check (Tier 1)</td></tr>
@@ -4556,6 +4591,530 @@ function toggleMI(id,evt){
   </div>
 </div>
 
+<!-- ═══════════════ MARKET INTEL — SPAREFOOT + ESRI + PROJECTION ═══════════════ -->
+${site.ccRentData ? (() => {
+  const cc = site.ccRentData;
+  const conf = cc.auditConfidence || 'UNKNOWN';
+  const confPct = conf === 'HIGH' ? 0.85 : conf === 'MEDIUM' ? 0.55 : 0.25;
+  const confColor = conf === 'HIGH' ? '#16A34A' : conf === 'MEDIUM' ? '#C9A84C' : '#94A3B8';
+  // Gauge geometry: 180° arc from (20,110) to (220,110), radius 100
+  const gaugeAngle = Math.PI - (confPct * Math.PI);
+  const needleX = 120 + 90 * Math.cos(gaugeAngle);
+  const needleY = 110 - 90 * Math.sin(gaugeAngle);
+
+  // Rent histogram — prepare the bars
+  const ccBand = cc.marketRentBand?.ccBand;
+  const nonCCBand = cc.marketRentBand?.nonCCBand;
+  const marketBand = cc.marketRentBand?.marketBand;
+  const allRates = [];
+  if (cc.competitorSet) {
+    for (const c of cc.competitorSet) {
+      for (const r of (c.rates || [])) {
+        if (r.ratePerSf && r.sf >= 50 && r.sf <= 200) {
+          allRates.push({ rate: r.ratePerSf, type: r.type, facility: c.name, size: r.size });
+        }
+      }
+    }
+  }
+  allRates.sort((a, b) => a.rate - b.rate);
+  // Histogram bins
+  const histMin = allRates.length ? Math.min(...allRates.map(r => r.rate)) : 0.4;
+  const histMax = allRates.length ? Math.max(...allRates.map(r => r.rate)) : 2.0;
+  const histRange = Math.max(0.01, histMax - histMin);
+  const binCount = 12;
+  const binSize = histRange / binCount;
+  const bins = Array(binCount).fill(0).map((_, i) => ({ loRate: histMin + i*binSize, hiRate: histMin + (i+1)*binSize, cc: 0, nonCC: 0 }));
+  for (const r of allRates) {
+    const binIdx = Math.min(binCount - 1, Math.floor((r.rate - histMin) / binSize));
+    if (r.type === 'CC') bins[binIdx].cc++; else bins[binIdx].nonCC++;
+  }
+  const maxBinCount = Math.max(1, ...bins.map(b => b.cc + b.nonCC));
+
+  // Projection curve — prepare sparkline path
+  const curve = cc.rentProjection?.curve || [];
+  const curveW = 520, curveH = 140, curveMarginL = 40, curveMarginR = 10;
+  const curveRates = curve.map(p => p.streetRentPerSf);
+  const curveMin = Math.min(...curveRates, 0.1);
+  const curveMax = Math.max(...curveRates, curveMin + 0.1);
+  const curveRange = curveMax - curveMin || 0.1;
+  const curveXStep = curve.length > 1 ? (curveW - curveMarginL - curveMarginR) / (curve.length - 1) : 0;
+  const curvePoints = curve.map((p, i) => ({
+    x: curveMarginL + i * curveXStep,
+    y: 30 + (curveH - 60) * (1 - (p.streetRentPerSf - curveMin) / curveRange),
+    rate: p.streetRentPerSf,
+    y10x10: p.streetRent10x10Monthly,
+    year: p.year,
+    growth: p.growthRate
+  }));
+  const linePath = curvePoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  const areaPath = linePath + ` L${curvePoints[curvePoints.length-1]?.x || 0},${curveH-20} L${curveMarginL},${curveH-20} Z`;
+
+return `<div id="sec-MI" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,#0F1538 0%,#1E2761 45%,#0A1127 100%);color:#fff;padding:0;margin:20px 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(15,21,56,0.4),0 0 0 1px rgba(201,168,76,0.3)">
+
+  <!-- HERO HEADER -->
+  <div style="padding:28px 32px 22px;background:linear-gradient(180deg,rgba(201,168,76,0.08),transparent);border-bottom:1px solid rgba(201,168,76,0.2);position:relative;overflow:hidden">
+    <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(201,168,76,0.15),transparent 70%);pointer-events:none"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,rgba(76,201,130,0.18),rgba(76,201,130,0.06));padding:4px 12px;border-radius:20px;border:1px solid rgba(76,201,130,0.35)">
+        <span style="width:6px;height:6px;border-radius:50%;background:#4CC982;box-shadow:0 0 12px #4CC982;animation:miPulse 1.8s ease-in-out infinite"></span>
+        <span style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#4CC982">LIVE MARKET INTELLIGENCE</span>
+      </div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.08em">AUDIT ${cc.auditVersion || 'v2.0'} · ${cc.lastAudited ? new Date(cc.lastAudited).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
+    </div>
+    <h2 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.02em;color:#fff;line-height:1.1">
+      <span style="background:linear-gradient(90deg,#C9A84C 0%,#E4CB7C 50%,#C9A84C 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Storvex</span>
+      <span style="color:#fff">&nbsp;Market Intel</span>
+      <span style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.55);letter-spacing:0.04em;margin-left:8px">— Live Comp Set · Forward Rent Curve · Value-Add Thesis</span>
+    </h2>
+    <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:8px;letter-spacing:0.02em">
+      ${cc.totalCompetitorsFound || 0} competitors enumerated · ${cc.marketRentBand?.samples?.allSizes || 0} live rate observations · ${cc.psFamilyCount || 0} PS Family facilities auto-excluded · ESRI 2025→2030 demographic projections
+    </div>
+  </div>
+
+  <!-- HERO GRID: Confidence Gauge + Big Numbers -->
+  <div style="padding:24px 32px;display:grid;grid-template-columns:260px 1fr;gap:28px;border-bottom:1px solid rgba(201,168,76,0.15)">
+
+    <!-- CONFIDENCE GAUGE (SVG) -->
+    <div style="background:rgba(0,0,0,0.25);border-radius:12px;padding:16px;text-align:center;position:relative">
+      <div style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:4px">AUDIT CONFIDENCE</div>
+      <svg width="240" height="130" viewBox="0 0 240 130" style="margin:0 auto;display:block">
+        <!-- gauge track -->
+        <path d="M 30 110 A 90 90 0 0 1 210 110" stroke="rgba(255,255,255,0.08)" stroke-width="14" fill="none" stroke-linecap="round" />
+        <!-- LOW zone (red) -->
+        <path d="M 30 110 A 90 90 0 0 1 82 33" stroke="#EF4444" stroke-width="14" fill="none" stroke-linecap="butt" opacity="${conf === 'LOW' ? 1 : 0.25}" />
+        <!-- MED zone (gold) -->
+        <path d="M 82 33 A 90 90 0 0 1 158 33" stroke="#C9A84C" stroke-width="14" fill="none" stroke-linecap="butt" opacity="${conf === 'MEDIUM' ? 1 : 0.25}" />
+        <!-- HIGH zone (green) -->
+        <path d="M 158 33 A 90 90 0 0 1 210 110" stroke="#16A34A" stroke-width="14" fill="none" stroke-linecap="butt" opacity="${conf === 'HIGH' ? 1 : 0.25}" />
+        <!-- needle -->
+        <line x1="120" y1="110" x2="${needleX}" y2="${needleY}" stroke="${confColor}" stroke-width="3" stroke-linecap="round" />
+        <circle cx="120" cy="110" r="7" fill="${confColor}" />
+        <circle cx="120" cy="110" r="3" fill="#0F1538" />
+        <!-- labels -->
+        <text x="40" y="122" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">LOW</text>
+        <text x="120" y="22" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">MED</text>
+        <text x="200" y="122" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">HIGH</text>
+      </svg>
+      <div style="margin-top:-4px;font-size:22px;font-weight:900;color:${confColor};letter-spacing:0.02em">${conf}</div>
+      <div style="font-size:9.5px;color:rgba(255,255,255,0.45);margin-top:2px;line-height:1.4;padding:0 8px">${cc.confidenceReason || 'Confidence reflects % of CC facilities with measured live rate inventory'}</div>
+    </div>
+
+    <!-- BIG NUMBERS -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${(cc.ccSPC_verified || 99) < 3 ? '#16A34A' : (cc.ccSPC_verified || 99) < 5 ? '#C9A84C' : '#EF4444'}">
+        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">CC SPC VERIFIED</div>
+        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:${(cc.ccSPC_verified || 99) < 3 ? '#22C55E' : (cc.ccSPC_verified || 99) < 5 ? '#C9A84C' : '#EF4444'};line-height:1">${cc.ccSPC_verified?.toFixed(2) || '—'}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px;letter-spacing:0.04em">${(cc.ccSPC_verified || 99) < 1.5 ? 'severely underserved' : (cc.ccSPC_verified || 99) < 3 ? 'underserved' : (cc.ccSPC_verified || 99) < 5 ? 'balanced' : 'saturated'}</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #C9A84C">
+        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">CC RENT (10×10)</div>
+        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:#C9A84C;line-height:1">$${Math.round((ccBand?.median || 0) * 100) || '—'}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">median · $${ccBand?.p25?.toFixed(2) || '—'}–$${ccBand?.p75?.toFixed(2) || '—'}/SF band</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${(cc.rentCurveSummary?.y5_10x10 || 0) > (cc.rentCurveSummary?.y1_10x10 || 999) ? '#16A34A' : '#EF4444'}">
+        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">Y5 PROJECTION</div>
+        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:${(cc.rentCurveSummary?.y5_10x10 || 0) > (cc.rentCurveSummary?.y1_10x10 || 999) ? '#22C55E' : '#EF4444'};line-height:1">$${cc.rentCurveSummary?.y5_10x10 || '—'}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">${cc.rentCurveSummary?.y1_to_y5_cagr || '—'} CAGR · Y10 $${cc.rentCurveSummary?.y10_10x10 || '—'}</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${(cc.absorption?.verdict || '').includes('flood') ? '#EF4444' : (cc.absorption?.verdict || '').includes('healthy') ? '#16A34A' : '#C9A84C'}">
+        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">ABSORPTION</div>
+        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:${(cc.absorption?.verdict || '').includes('flood') ? '#EF4444' : (cc.absorption?.verdict || '').includes('healthy') ? '#22C55E' : '#C9A84C'};line-height:1">${cc.absorption?.monthsToAbsorb ? cc.absorption.monthsToAbsorb.toFixed(0) : '—'}<span style="font-size:14px;color:rgba(255,255,255,0.5);margin-left:4px">mo</span></div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px;line-height:1.2">${(cc.absorption?.verdict || 'no pipeline').split('—')[0].trim()}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROVENANCE CHAIN -->
+  <div style="padding:14px 32px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(201,168,76,0.1)">
+    <div style="font-size:8.5px;letter-spacing:0.14em;color:rgba(201,168,76,0.7);font-weight:800;margin-bottom:8px">DATA PROVENANCE</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px">
+      <div style="background:linear-gradient(135deg,#C9A84C,#E4CB7C);color:#1E2761;padding:6px 10px;border-radius:5px;font-weight:800;letter-spacing:0.04em;box-shadow:0 0 12px rgba(201,168,76,0.3)">SpareFoot ${cc.totalCompetitorsFound || 0} facs</div>
+      <span style="color:rgba(201,168,76,0.5)">→</span>
+      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">PS Family Registry (4,247 excl ${cc.psFamilyCount || 0})</div>
+      <span style="color:rgba(201,168,76,0.5)">→</span>
+      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">Places API (gap fill)</div>
+      <span style="color:rgba(201,168,76,0.5)">→</span>
+      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">ESRI GeoEnrichment 2025+2030</div>
+      <span style="color:rgba(201,168,76,0.5)">→</span>
+      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">Churn Model (70% CC turnover)</div>
+      <span style="color:rgba(201,168,76,0.5)">→</span>
+      <div style="background:linear-gradient(135deg,#16A34A,#22C55E);color:#fff;padding:6px 10px;border-radius:5px;font-weight:800;letter-spacing:0.04em;box-shadow:0 0 12px rgba(22,163,74,0.3)">THIS REPORT</div>
+    </div>
+  </div>
+
+  ${allRates.length > 0 ? `<!-- LIVE RENT HISTOGRAM -->
+  <div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">CC VS NON-CC RATE DISTRIBUTION</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Live competitor rates from SpareFoot comp set (50-200 SF units) · ${allRates.length} observations</div>
+      </div>
+      <div style="display:flex;gap:10px;font-size:10px">
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#3B82F6;border-radius:2px"></span><span style="color:rgba(255,255,255,0.7)">CC units</span></div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#F97316;border-radius:2px"></span><span style="color:rgba(255,255,255,0.7)">Drive-up units</span></div>
+      </div>
+    </div>
+    <svg width="100%" height="180" viewBox="0 0 720 180" preserveAspectRatio="none" style="display:block">
+      <!-- axis -->
+      <line x1="50" y1="150" x2="680" y2="150" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+      ${bins.map((b, i) => {
+        const total = b.cc + b.nonCC;
+        if (total === 0) return '';
+        const w = (680 - 50) / binCount - 2;
+        const x = 50 + i * ((680 - 50) / binCount);
+        const ccH = (b.cc / maxBinCount) * 120;
+        const nonCCH = (b.nonCC / maxBinCount) * 120;
+        const totalH = ccH + nonCCH;
+        return `<g>
+          <rect x="${x}" y="${150 - nonCCH}" width="${w}" height="${nonCCH}" fill="#F97316" opacity="0.9"/>
+          <rect x="${x}" y="${150 - totalH}" width="${w}" height="${ccH}" fill="#3B82F6" opacity="0.95"/>
+        </g>`;
+      }).join('')}
+      <!-- P25/P50/P75 markers for CC -->
+      ${ccBand ? `
+        <line x1="${50 + ((ccBand.p25 - histMin) / histRange) * (680 - 50)}" y1="20" x2="${50 + ((ccBand.p25 - histMin) / histRange) * (680 - 50)}" y2="150" stroke="#C9A84C" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
+        <text x="${50 + ((ccBand.p25 - histMin) / histRange) * (680 - 50)}" y="15" fill="#C9A84C" font-size="9" text-anchor="middle" font-family="sans-serif">P25 $${ccBand.p25.toFixed(2)}</text>
+        <line x1="${50 + ((ccBand.median - histMin) / histRange) * (680 - 50)}" y1="20" x2="${50 + ((ccBand.median - histMin) / histRange) * (680 - 50)}" y2="150" stroke="#C9A84C" stroke-width="2"/>
+        <text x="${50 + ((ccBand.median - histMin) / histRange) * (680 - 50)}" y="15" fill="#C9A84C" font-size="10" text-anchor="middle" font-weight="800" font-family="sans-serif">MEDIAN $${ccBand.median.toFixed(2)}</text>
+        <line x1="${50 + ((ccBand.p75 - histMin) / histRange) * (680 - 50)}" y1="20" x2="${50 + ((ccBand.p75 - histMin) / histRange) * (680 - 50)}" y2="150" stroke="#C9A84C" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
+        <text x="${50 + ((ccBand.p75 - histMin) / histRange) * (680 - 50)}" y="15" fill="#C9A84C" font-size="9" text-anchor="middle" font-family="sans-serif">P75 $${ccBand.p75.toFixed(2)}</text>
+      ` : ''}
+      <!-- x-axis labels -->
+      <text x="50" y="170" fill="rgba(255,255,255,0.4)" font-size="10" font-family="sans-serif">$${histMin.toFixed(2)}/SF</text>
+      <text x="680" y="170" fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="end" font-family="sans-serif">$${histMax.toFixed(2)}/SF</text>
+    </svg>
+  </div>` : ''}
+
+  ${curve.length > 0 ? `<!-- FORWARD RENT CURVE SPARKLINE -->
+  <div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">10-YEAR FORWARD RENT CURVE · 10×10 CC STREET RATE</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Driven by ESRI ${cc.rentProjection?.assumptions?.popCagr || '—'}% pop CAGR · ${cc.rentProjection?.assumptions?.hhiCagr || '—'}% HHI CAGR · ${cc.rentProjection?.assumptions?.pipelineRatio || '—'}% pipeline/existing supply drag${cc.rentProjection?.assumptions?.reitDominated ? ' · REIT premium +50bps' : ''}</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:6px;border:1px solid rgba(201,168,76,0.25);font-size:10px;color:rgba(255,255,255,0.7)">
+        <span style="color:rgba(201,168,76,0.8)">Y1→Y5:</span> <b style="color:${curvePoints[4]?.rate > curvePoints[0]?.rate ? '#22C55E' : '#EF4444'}">${cc.rentCurveSummary?.y1_to_y5_cagr}</b>
+        <span style="margin-left:10px;color:rgba(201,168,76,0.8)">Y1→Y10:</span> <b style="color:${curvePoints[9]?.rate > curvePoints[0]?.rate ? '#22C55E' : '#EF4444'}">${cc.rentCurveSummary?.y1_to_y10_cagr || '—'}</b>
+      </div>
+    </div>
+    <svg width="100%" height="${curveH + 20}" viewBox="0 0 ${curveW + 20} ${curveH + 20}" preserveAspectRatio="none" style="display:block">
+      <defs>
+        <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#C9A84C" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#C9A84C" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- horizontal grid -->
+      ${[0.25, 0.5, 0.75].map(p => {
+        const y = 30 + (curveH - 60) * p;
+        return `<line x1="${curveMarginL}" y1="${y}" x2="${curveW - curveMarginR}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+      }).join('')}
+      <!-- area -->
+      <path d="${areaPath}" fill="url(#curveGrad)"/>
+      <!-- line -->
+      <path d="${linePath}" fill="none" stroke="#C9A84C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <!-- points + labels -->
+      ${curvePoints.map((p, i) => `
+        <circle cx="${p.x}" cy="${p.y}" r="4" fill="${p.y <= curvePoints[0].y ? '#22C55E' : '#EF4444'}" stroke="#0F1538" stroke-width="2"/>
+        ${i === 0 || i === 4 || i === 9 || i === curvePoints.length - 1 ? `<text x="${p.x}" y="${p.y - 10}" fill="#fff" font-size="10" font-weight="800" text-anchor="middle" font-family="'Space Mono',monospace">$${p.y10x10}</text>` : ''}
+        <text x="${p.x}" y="${curveH - 4}" fill="rgba(255,255,255,0.5)" font-size="9" text-anchor="middle" font-family="sans-serif">Y${p.year}</text>
+      `).join('')}
+      <!-- y-axis min/max labels -->
+      <text x="${curveMarginL - 5}" y="32" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="end" font-family="sans-serif">$${curveMax.toFixed(2)}</text>
+      <text x="${curveMarginL - 5}" y="${curveH - 20}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="end" font-family="sans-serif">$${curveMin.toFixed(2)}</text>
+    </svg>
+  </div>` : ''}
+
+  <div style="padding:24px 32px">
+  <!-- NARRATIVE EXECUTIVE SUMMARY -->
+  ${cc.narrative?.executiveSummary ? `<div style="background:rgba(0,0,0,0.25);border-left:3px solid #C9A84C;border-radius:0 10px 10px 0;padding:20px 24px;margin-bottom:16px">
+    <div style="font-size:9px;font-weight:800;letter-spacing:0.16em;color:#C9A84C;margin-bottom:12px">EXECUTIVE NARRATIVE · SOURCE-STAMPED</div>
+    <div style="font-size:12px;line-height:1.8;color:rgba(255,255,255,0.88);white-space:pre-wrap">${cc.narrative.executiveSummary.replace(/\*\*(.*?)\*\*/g, '<b style="color:#C9A84C">$1</b>')}</div>
+  </div>` : ''}
+  </div>
+  <style>@keyframes miPulse {0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.6}}</style>
+</div>` + `
+
+<!-- MARKET INTEL DETAIL PANELS (light theme, extend the hero) -->
+${site.ccRentData.marketRentBand ? `<div class="section" style="background:#fff;padding:24px;margin:0 0 20px;border-radius:10px;border:1px solid #E2E8F0">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:12px">MARKET RENT BANDS · $/SF/MO (10×10 MONTHLY IN PARENTHESES)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      ${site.ccRentData.marketRentBand.ccBand ? `<div style="background:linear-gradient(135deg,#3B82F6,#1E3A8A);color:#fff;padding:16px;border-radius:8px">
+        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">CLIMATE-CONTROLLED</div>
+        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.ccBand.median.toFixed(2)}</div>
+        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.ccBand.sampleSize} rates)</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.ccBand.p25.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p25*100)}/mo) · P75 $${site.ccRentData.marketRentBand.ccBand.p75.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p75*100)}/mo)</div>
+      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">CC band — insufficient sample</div>'}
+      ${site.ccRentData.marketRentBand.nonCCBand ? `<div style="background:linear-gradient(135deg,#F97316,#9A3412);color:#fff;padding:16px;border-radius:8px">
+        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">DRIVE-UP / NON-CC</div>
+        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.nonCCBand.median.toFixed(2)}</div>
+        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.nonCCBand.sampleSize} rates)</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.nonCCBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.nonCCBand.p75.toFixed(2)}</div>
+      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">Non-CC band — insufficient sample</div>'}
+      ${site.ccRentData.marketRentBand.marketBand ? `<div style="background:linear-gradient(135deg,#64748B,#334155);color:#fff;padding:16px;border-radius:8px">
+        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">MARKET-WIDE (ALL TYPES)</div>
+        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.marketBand.median.toFixed(2)}</div>
+        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.marketBand.sampleSize} rates)</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.marketBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.marketBand.p75.toFixed(2)}</div>
+      </div>` : ''}
+    </div>
+  </div>` : ''}
+
+  <!-- NARRATIVE EXECUTIVE SUMMARY -->
+  ${site.ccRentData.narrative?.executiveSummary ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">EXECUTIVE NARRATIVE</div>
+    <div style="font-size:11.5px;line-height:1.7;color:#1E2761;white-space:pre-wrap">${site.ccRentData.narrative.executiveSummary.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</div>
+  </div>` : ''}
+
+  <!-- RENT BANDS — CC vs Non-CC vs Market-wide -->
+  ${site.ccRentData.marketRentBand ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:12px">LIVE MARKET RENT BANDS — $/SF/mo (10×10 monthly in parentheses)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      ${site.ccRentData.marketRentBand.ccBand ? `<div style="background:linear-gradient(135deg,#3B82F6,#1E3A8A);color:#fff;padding:16px;border-radius:8px">
+        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">CLIMATE-CONTROLLED</div>
+        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.ccBand.median.toFixed(2)}</div>
+        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.ccBand.sampleSize} rates)</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.ccBand.p25.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p25*100)}/mo) · P75 $${site.ccRentData.marketRentBand.ccBand.p75.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p75*100)}/mo)</div>
+      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">CC band — insufficient sample</div>'}
+      ${site.ccRentData.marketRentBand.nonCCBand ? `<div style="background:linear-gradient(135deg,#F97316,#9A3412);color:#fff;padding:16px;border-radius:8px">
+        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">DRIVE-UP / NON-CC</div>
+        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.nonCCBand.median.toFixed(2)}</div>
+        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.nonCCBand.sampleSize} rates)</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.nonCCBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.nonCCBand.p75.toFixed(2)}</div>
+      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">Non-CC band — insufficient sample</div>'}
+      ${site.ccRentData.marketRentBand.marketBand ? `<div style="background:linear-gradient(135deg,#64748B,#334155);color:#fff;padding:16px;border-radius:8px">
+        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">MARKET-WIDE (ALL TYPES)</div>
+        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.marketBand.median.toFixed(2)}</div>
+        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.marketBand.sampleSize} rates)</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.marketBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.marketBand.p75.toFixed(2)}</div>
+      </div>` : ''}
+    </div>
+  </div>` : ''}
+
+<!-- ═══════════════ SEC-VA — VALUE-ADD WORKUP (Existing Facility Acquisitions) ═══════════════ -->
+${site.ccRentData.valueAddWorkup ? (() => {
+  const va = site.ccRentData.valueAddWorkup;
+  const v = va.verdict || {};
+  const b = va.bridge || {};
+  const sc = va.scenarioIRRs || {};
+  const ps = va.priceSensitivity || {};
+  const fmt$ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString();
+  const fmtM = (n) => n == null ? '—' : '$' + (n / 1000000).toFixed(2) + 'M';
+  const fmtK = (n) => n == null ? '—' : '$' + Math.round(n / 1000) + 'K';
+  const pct = (n, d = 1) => n == null ? '—' : (n > 0 ? '+' : '') + n.toFixed(d) + '%';
+
+  // NOI Bridge waterfall geometry
+  const wf = b.waterfall || {};
+  const bars = [
+    { label: 'In-Place NOI', value: wf.inPlaceNOI || 0, type: 'start', cumul: wf.inPlaceNOI || 0 },
+    { label: 'Rent Mark-to-Market', value: wf.rentMarkToMarket || 0, type: 'positive', cumul: (wf.inPlaceNOI || 0) + (wf.rentMarkToMarket || 0) },
+    { label: 'Occupancy Lift', value: wf.occupancyLift || 0, type: 'positive', cumul: (wf.inPlaceNOI || 0) + (wf.rentMarkToMarket || 0) + (wf.occupancyLift || 0) },
+    { label: 'ECRI Program', value: wf.ecriBenefit || 0, type: 'positive', cumul: (wf.finalNOI || 0) },
+    { label: 'Market NOI', value: wf.finalNOI || 0, type: 'end', cumul: wf.finalNOI || 0 },
+  ];
+  const maxBarVal = Math.max(...bars.map(x => x.cumul), 1);
+  const barW = 820, barH = 220, barPad = 40;
+  const colW = (barW - barPad * 2) / bars.length - 12;
+
+  return `<div id="sec-VA" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,#0A2E1A 0%,#0F1538 40%,#1E2761 100%);color:#fff;padding:0;margin:20px 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(10,46,26,0.45),0 0 0 1px ${v.color || '#22C55E'}">
+
+  <!-- VA HERO -->
+  <div style="padding:28px 32px 22px;background:linear-gradient(180deg,rgba(22,163,74,0.12),transparent);border-bottom:1px solid rgba(${v.color === '#EF4444' ? '239,68,68' : '22,163,74'},0.25);position:relative;overflow:hidden">
+    <div style="position:absolute;top:-40px;right:-40px;width:260px;height:260px;background:radial-gradient(circle,${v.color === '#EF4444' ? 'rgba(239,68,68,0.15)' : 'rgba(22,163,74,0.2)'},transparent 70%);pointer-events:none"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,${v.color === '#EF4444' ? 'rgba(239,68,68,0.25)' : 'rgba(22,163,74,0.25)'},${v.color === '#EF4444' ? 'rgba(239,68,68,0.08)' : 'rgba(22,163,74,0.08)'});padding:4px 12px;border-radius:20px;border:1px solid ${v.color === '#EF4444' ? 'rgba(239,68,68,0.4)' : 'rgba(22,163,74,0.4)'}">
+        <span style="width:6px;height:6px;border-radius:50%;background:${v.color || '#22C55E'};box-shadow:0 0 14px ${v.color || '#22C55E'};animation:vaPulse 2s ease-in-out infinite"></span>
+        <span style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:${v.color || '#22C55E'}">EXISTING FACILITY · VALUE-ADD WORKUP</span>
+      </div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.06em">${va.engine || 'storvex-value-add-v1.0'} · ${va.generatedAt ? new Date(va.generatedAt).toLocaleDateString() : '—'}</div>
+    </div>
+    <h2 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.02em;color:#fff;line-height:1.1">
+      <span style="background:linear-gradient(90deg,${v.color || '#22C55E'} 0%,${v.color === '#EF4444' ? '#FCA5A5' : '#86EFAC'} 50%,${v.color || '#22C55E'} 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${v.verdict || 'Value-Add'}</span>
+    </h2>
+    <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:10px;line-height:1.55;max-width:1000px">
+      ${v.thesis || '—'}
+    </div>
+  </div>
+
+  <!-- VA HERO GRID -->
+  <div style="padding:24px 32px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;border-bottom:1px solid rgba(201,168,76,0.15)">
+    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #64748B">
+      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">IN-PLACE RENT</div>
+      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:#fff;line-height:1">$${va.inPlace?.ccRent?.toFixed(2) || '—'}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">${va.inPlace?.occupancy ? (va.inPlace.occupancy * 100).toFixed(0) : '—'}% occ · CC $/SF/mo</div>
+    </div>
+    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #C9A84C">
+      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">MARKET RENT</div>
+      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:#C9A84C;line-height:1">$${va.market?.ccRent?.toFixed(2) || '—'}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">${va.market?.source || 'SpareFoot'}</div>
+    </div>
+    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${v.color || '#22C55E'}">
+      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">RENT GAP</div>
+      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:${v.color || '#22C55E'};line-height:1">${pct(v.rentGapPct)}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">mark-to-market delta</div>
+    </div>
+    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #22C55E">
+      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">NOI UPLIFT</div>
+      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:#22C55E;line-height:1">${fmtK(v.noiUplift)}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">annual · at market rates</div>
+    </div>
+    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #C9A84C">
+      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">PROB-WEIGHTED IRR</div>
+      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:${(sc.weightedIRR || 0) >= 15 ? '#22C55E' : (sc.weightedIRR || 0) >= 10 ? '#C9A84C' : '#EF4444'};line-height:1">${sc.weightedIRR?.toFixed(1) || '—'}%</div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">25/50/25 scenarios · ${fmtM(sc.weightedValueCreation)} val creation</div>
+    </div>
+  </div>
+
+  <!-- NOI BRIDGE WATERFALL (SVG) -->
+  <div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">NOI BRIDGE · IN-PLACE → MARKET (Annual $)</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Source-stamped waterfall — every component traceable to SpareFoot comps + ESRI projections + PSA/EXR 10-K OpEx ratios</div>
+      </div>
+    </div>
+    <svg width="100%" height="${barH + 50}" viewBox="0 0 ${barW + 20} ${barH + 50}" preserveAspectRatio="none" style="display:block">
+      <!-- base line -->
+      <line x1="${barPad}" y1="${barH}" x2="${barW - barPad}" y2="${barH}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+      ${bars.map((bar, i) => {
+        const x = barPad + i * (colW + 12);
+        let yTop, yBot, fill, label;
+        if (bar.type === 'start' || bar.type === 'end') {
+          const h = (bar.cumul / maxBarVal) * (barH - 40);
+          yTop = barH - h; yBot = barH;
+          fill = bar.type === 'start' ? '#64748B' : '#22C55E';
+          label = fmtK(bar.value);
+        } else {
+          const prevCumul = bars[i-1]?.cumul || 0;
+          const h1 = (prevCumul / maxBarVal) * (barH - 40);
+          const h2 = (bar.cumul / maxBarVal) * (barH - 40);
+          if (bar.value >= 0) {
+            yTop = barH - h2; yBot = barH - h1; fill = '#16A34A';
+          } else {
+            yTop = barH - h1; yBot = barH - h2; fill = '#EF4444';
+          }
+          label = (bar.value >= 0 ? '+' : '') + fmtK(bar.value);
+        }
+        const h = Math.max(2, yBot - yTop);
+        return `<g>
+          <rect x="${x}" y="${yTop}" width="${colW}" height="${h}" fill="${fill}" opacity="0.88" rx="3"/>
+          <text x="${x + colW/2}" y="${yTop - 6}" font-size="11" font-weight="800" fill="#fff" text-anchor="middle" font-family="'Space Mono',monospace">${label}</text>
+          <text x="${x + colW/2}" y="${barH + 18}" font-size="10" fill="rgba(255,255,255,0.75)" text-anchor="middle" font-family="sans-serif">${bar.label}</text>
+          ${bar.type !== 'start' && bar.type !== 'end' ? `<text x="${x + colW/2}" y="${barH + 32}" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">cumul ${fmtK(bar.cumul)}</text>` : ''}
+          ${i < bars.length - 1 ? `<line x1="${x + colW}" y1="${barH - (bar.cumul / maxBarVal) * (barH - 40)}" x2="${x + colW + 12}" y2="${barH - (bar.cumul / maxBarVal) * (barH - 40)}" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3,3"/>` : ''}
+        </g>`;
+      }).join('')}
+    </svg>
+  </div>
+
+  <!-- 3-SCENARIO IRR PANEL -->
+  ${sc.scenarios?.length ? `<div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">3-SCENARIO IRR · CONSERVATIVE · BASE · AGGRESSIVE</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Different ramp timelines (24/36/48mo) + rent capture rates (70/85/95%) + exit cap shifts. Total basis: ${fmtM(sc.totalBasis)} (acq ${fmtM(sc.acquisitionPrice)} + acq costs ${fmtK(sc.acqCosts)} + capex ${fmtK(sc.repositioningCapex)})</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      ${sc.scenarios.map(s => {
+        const c = s.key === 'aggressive' ? '#22C55E' : s.key === 'base' ? '#C9A84C' : '#64748B';
+        return `<div style="background:rgba(0,0,0,0.3);border-radius:12px;padding:18px;border-top:4px solid ${c}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:10px;color:${c};letter-spacing:0.14em;font-weight:800">${(s.label || '').toUpperCase()}</div>
+              <div style="font-size:9px;color:rgba(255,255,255,0.4);margin-top:2px">${s.rampMonths || '—'}mo ramp · ${((s.rentCaptureRate || 0) * 100).toFixed(0)}% rent capture</div>
+            </div>
+            <div style="background:${c};color:#0F1538;padding:3px 9px;border-radius:4px;font-size:9px;font-weight:800">${((s.prob || 0) * 100).toFixed(0)}% weight</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div>
+              <div style="font-size:8px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;font-weight:700">IRR</div>
+              <div style="font-size:24px;font-weight:900;font-family:'Space Mono',monospace;color:${(s.irr || 0) >= 15 ? '#22C55E' : (s.irr || 0) >= 10 ? '#C9A84C' : '#EF4444'};line-height:1">${(s.irr || 0).toFixed(1)}%</div>
+            </div>
+            <div>
+              <div style="font-size:8px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;font-weight:700">MOIC</div>
+              <div style="font-size:24px;font-weight:900;font-family:'Space Mono',monospace;color:#fff;line-height:1">${(s.moic || 0).toFixed(2)}x</div>
+            </div>
+          </div>
+          <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:4px;font-size:10px">
+            <div style="display:flex;justify-content:space-between;color:rgba(255,255,255,0.65)"><span>Exit Cap</span><span class="mono">${s.exitCap}%</span></div>
+            <div style="display:flex;justify-content:space-between;color:rgba(255,255,255,0.65)"><span>Exit NOI</span><span class="mono">${fmtK(s.exitNOI)}</span></div>
+            <div style="display:flex;justify-content:space-between;color:rgba(255,255,255,0.65)"><span>Net Exit Proceeds</span><span class="mono">${fmtM(s.netExitProceeds)}</span></div>
+            <div style="display:flex;justify-content:space-between;color:${(s.valueCreation || 0) > 0 ? '#22C55E' : '#EF4444'};font-weight:700"><span>Value Creation</span><span class="mono">${fmtM(s.valueCreation)}</span></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : ''}
+
+  <!-- PURCHASE PRICE SENSITIVITY -->
+  ${ps.cells?.length ? `<div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">PURCHASE PRICE × EXIT CAP SENSITIVITY · BASE SCENARIO IRR</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Columns: price (${ps.baseAcquisitionPrice ? fmtM(ps.baseAcquisitionPrice) : '—'} ± 10%). Rows: exit cap (${sc.scenarios?.[1]?.exitCap || '—'}% ± 50 bps). Cell = base-scenario IRR %</div>
+      </div>
+      <div style="background:rgba(22,163,74,0.15);border:1px solid rgba(22,163,74,0.35);padding:10px 16px;border-radius:8px;text-align:right">
+        <div style="font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:0.1em;font-weight:700;margin-bottom:2px">MAX PURCHASE @ ${ps.targetIRR}% IRR</div>
+        <div style="font-size:18px;font-weight:900;font-family:'Space Mono',monospace;color:#22C55E">${fmtM(ps.maxPurchasePriceAtTarget)}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:2px">${ps.strikeDiscount > 0 ? ps.strikeDiscount.toFixed(1) + '% below asking' : Math.abs(ps.strikeDiscount).toFixed(1) + '% above asking'}</div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;background:rgba(0,0,0,0.2);border-radius:8px;overflow:hidden">
+      <thead><tr><th style="padding:8px;color:rgba(201,168,76,0.7);letter-spacing:0.08em;font-weight:700;text-align:center">Cap / Price</th>${ps.priceSteps.map(p => `<th style="padding:8px;color:rgba(201,168,76,0.7);letter-spacing:0.08em;font-weight:700;text-align:center">${p > 0 ? '+' : ''}${(p * 100).toFixed(0)}%<div style="font-size:8px;color:rgba(255,255,255,0.4);font-weight:500">${fmtM(ps.baseAcquisitionPrice * (1 + p))}</div></th>`).join('')}</tr></thead>
+      <tbody>
+        ${ps.cells.map((row, ri) => {
+          const capBps = ps.capSteps[ri] * 10000;
+          return `<tr><td style="padding:8px;color:rgba(255,255,255,0.75);text-align:center;font-weight:700">${capBps > 0 ? '+' : ''}${capBps}bps</td>${row.map(cell => {
+            const irrColor = cell.irr >= 20 ? '#16A34A' : cell.irr >= 15 ? '#22C55E' : cell.irr >= 10 ? '#C9A84C' : cell.irr >= 5 ? '#F59E0B' : '#EF4444';
+            const bg = cell.irr >= (ps.targetIRR || 14) ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.08)';
+            return `<td style="padding:10px;text-align:center;background:${bg}" class="mono"><span style="color:${irrColor};font-weight:800;font-size:13px">${cell.irr.toFixed(1)}%</span></td>`;
+          }).join('')}</tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>` : ''}
+
+  <!-- FOOTER -->
+  <div style="padding:16px 32px;background:rgba(0,0,0,0.25);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.04em;line-height:1.6">
+    Value-Add Workup methodology: Mark-to-market NOI computed from SpareFoot live comp rates (${site.ccRentData.marketRentBand?.ccBand?.sampleSize || 0} observations). ECRI uplift calibrated to PSA 10-K disclosures (~8% annualized on rolled tenants). OpEx ratio 38% blended from PSA/EXR/CUBE/NSA operating expense benchmarks. Exit cap ${(sc.scenarios?.[1]?.exitCap || 5.80)}% from Green Street Q1 2026 storage sector report. Acquisition costs 1.5% of purchase (DD, legal, title, survey). Every $ traceable to primary source. <b style="color:rgba(201,168,76,0.9)">This is the acquisition workpaper. Every number defensible under institutional due diligence.</b>
+  </div>
+
+  <style>@keyframes vaPulse {0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.6}}</style>
+</div>`;
+})() : ''}
+
+<!-- COMP SET + ANOMALY + VALUE-ADD panels (light theme extensions of sec-MI hero) -->
+${site.ccRentData.competitorSet?.length ? `<div class="section" style="background:#fff;padding:24px;margin:0 0 16px;border-radius:10px;border:1px solid #E2E8F0">
+  <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">COMPETITOR COMP SET — ${site.ccRentData.competitorSet.length} FACILITIES WITHIN 3 MI</div>
+  <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+    <thead><tr style="background:#1E2761;color:#fff"><th style="text-align:left;padding:8px">Facility</th><th style="text-align:right;padding:8px">Dist</th><th style="text-align:center;padding:8px">Class</th><th style="text-align:center;padding:8px">Source</th><th style="text-align:right;padding:8px">Rates</th></tr></thead>
+    <tbody>
+      ${site.ccRentData.competitorSet.slice(0, 20).map((c, i) => `<tr style="background:${i % 2 ? '#FAFBFC' : '#fff'};border-bottom:1px solid #F1F5F9">
+        <td style="padding:8px;font-weight:600;color:#1E2761">${c.name || '—'}${c.address ? `<div style="font-size:9px;color:#94A3B8;margin-top:2px">${typeof c.address === 'string' ? c.address : [c.address.street, c.address.city, c.address.state].filter(Boolean).join(', ')}</div>` : ''}</td>
+        <td style="padding:8px;text-align:right;font-family:'Space Mono'">${c.distanceMi ? c.distanceMi + ' mi' : '—'}</td>
+        <td style="padding:8px;text-align:center"><span style="background:${c.classification?.includes('cc_confirmed') || c.classification?.includes('cc_mixed') ? '#DCFCE7' : c.classification?.includes('non_cc') ? '#FED7AA' : '#F1F5F9'};color:${c.classification?.includes('cc_confirmed') || c.classification?.includes('cc_mixed') ? '#166534' : c.classification?.includes('non_cc') ? '#9A3412' : '#64748B'};padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700">${(c.classification || 'unknown').replace(/_confirmed|_likely/, '').replace('_', ' ').toUpperCase()}</span></td>
+        <td style="padding:8px;text-align:center;font-size:9px;color:#64748B">${c.primarySource === 'sparefoot' ? 'SpareFoot' : c.primarySource === 'places_only' ? 'Places' : c.source || '—'}</td>
+        <td style="padding:8px;text-align:right;font-family:'Space Mono';font-weight:700;color:${(c.rates?.length || c.rateDataCount || 0) > 0 ? '#16A34A' : '#94A3B8'}">${c.rates?.length || c.rateDataCount || 0}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+</div>` : ''}
+
+${site.ccRentData.narrative?.anomalyFlags?.length ? `<div class="section" style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);padding:18px;margin:0 0 16px;border-radius:10px">
+  <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#991B1B;margin-bottom:10px">⚠️ ANOMALY FLAGS</div>
+  <ul style="margin:0;padding-left:20px;font-size:11px;color:#1E2761;line-height:1.7">
+    ${site.ccRentData.narrative.anomalyFlags.map(f => `<li>${f}</li>`).join('')}
+  </ul>
+</div>` : ''}
+
+${site.ccRentData.narrative?.valueAddThesis ? `<div class="section" style="background:linear-gradient(135deg,rgba(22,163,74,0.08),rgba(201,168,76,0.06));border:1px solid rgba(22,163,74,0.3);padding:18px;margin:0 0 16px;border-radius:10px">
+  <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">VALUE-ADD THESIS</div>
+  <div style="font-size:11.5px;line-height:1.7;color:#1E2761">${site.ccRentData.narrative.valueAddThesis.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</div>
+</div>` : ''}
+`;
+})() : ''}
+
 <!-- sec-CAP wrapped in IIFE try/catch — isolates capstone render from rest of REC Package -->
 ${(() => { try { if (sxCapError) throw sxCapError; return `
 <div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.04),rgba(201,168,76,0.06));border-left:4px solid #1E2761">
@@ -5024,6 +5583,23 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 <!-- ═══════════════ SECTION 4: COMPETITION LANDSCAPE ═══════════════ -->
 <div id="sec-R4" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">4</span> Competition Landscape</h2>
+  ${site.ccRentData ? `<div style="margin-bottom:16px;padding:14px;background:linear-gradient(135deg,rgba(30,39,97,0.06),rgba(201,168,76,0.04));border:1px solid rgba(201,168,76,0.3);border-radius:10px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="background:#C9A84C;color:#1E2761;padding:4px 10px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:0.12em">SPAREFOOT-VERIFIED</div>
+      <div style="background:#1E2761;color:#fff;padding:4px 10px;border-radius:4px;font-size:9px;font-weight:700">${site.ccRentData.auditConfidence || '—'} CONF</div>
+      <div style="font-size:9px;color:#64748B">Comp set verified via live SpareFoot + Places API enumeration, PS Family coord-match exclusion. Primary competition data. Full detail in <a href="#sec-MI" style="color:#C9A84C" onclick="document.getElementById('sec-MI').scrollIntoView({behavior:'smooth'});return false">Market Intel section →</a></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="background:rgba(15,21,56,0.3)"><th style="text-align:left;padding:8px;color:#C9A84C">Metric</th><th style="text-align:center;padding:8px;color:#C9A84C">Legacy Estimate</th><th style="text-align:center;padding:8px;color:#C9A84C">Verified (v2.0)</th><th style="text-align:left;padding:8px;color:#C9A84C">Source / Method</th></tr></thead>
+      <tbody>
+        <tr><td style="padding:8px;font-weight:600">CC SPC (SF/capita)</td><td style="padding:8px;text-align:center;color:#64748B" class="mono">${site.siteiqData?.ccSPC?.toFixed(2) || '—'}</td><td style="padding:8px;text-align:center" class="mono"><span style="background:rgba(201,168,76,0.15);color:${(site.ccRentData.ccSPC_verified || 99) < 3 ? '#16A34A' : (site.ccRentData.ccSPC_verified || 99) < 5 ? '#C9A84C' : '#EF4444'};padding:3px 8px;border-radius:4px;font-weight:800">${site.ccRentData.ccSPC_verified?.toFixed(2) || '—'}</span></td><td style="padding:8px;color:#64748B;font-size:10px">CC-only facility count × calibrated SF (${site.ccRentData.ccSFMeasuredFromInventory?.toLocaleString() || 0} SF measured / ${site.ccRentData.ccSFFromFallback?.toLocaleString() || 0} SF fallback)</td></tr>
+        <tr style="background:rgba(15,21,56,0.2)"><td style="padding:8px;font-weight:600">CC Facility Count (3-mi)</td><td style="padding:8px;text-align:center;color:#64748B" class="mono">${site.siteiqData?.competitorCount || '—'} <span style="font-size:9px;color:#64748B">(all types)</span></td><td style="padding:8px;text-align:center" class="mono"><span style="color:#C9A84C;font-weight:800">${site.ccRentData.ccFacilityCount || 0}</span><span style="color:#64748B;font-size:9px"> CC / ${site.ccRentData.nonCCFacilityCount || 0} non-CC</span></td><td style="padding:8px;color:#64748B;font-size:10px">SpareFoot amenityFeature + Puppeteer fallback classification</td></tr>
+        <tr><td style="padding:8px;font-weight:600">PS Family Facilities</td><td style="padding:8px;text-align:center;color:#64748B">—</td><td style="padding:8px;text-align:center" class="mono"><span style="color:#C9A84C;font-weight:800">${site.ccRentData.psFamilyCount || 0}</span><span style="color:#64748B;font-size:9px"> excluded</span></td><td style="padding:8px;color:#64748B;font-size:10px">PS + iStorage + NSA coord-matched against 4,247-location registry (not counted as competitors)</td></tr>
+        <tr style="background:rgba(15,21,56,0.2)"><td style="padding:8px;font-weight:600">CC Rent Band (Median)</td><td style="padding:8px;text-align:center;color:#64748B" class="mono">—</td><td style="padding:8px;text-align:center" class="mono"><span style="color:#C9A84C;font-weight:800">$${site.ccRentData.marketRentBand?.ccBand?.median?.toFixed(2) || '—'}</span><span style="color:#64748B;font-size:9px"> /SF (n=${site.ccRentData.marketRentBand?.ccBand?.sampleSize || 0})</span></td><td style="padding:8px;color:#64748B;font-size:10px">Live SpareFoot unit rates, P25/P50/P75 from 50-200 SF CC sample (3mi core + 5mi wide)</td></tr>
+        ${site.ccRentData.absorption ? `<tr><td style="padding:8px;font-weight:600">Absorption Verdict</td><td style="padding:8px;text-align:center;color:#64748B">—</td><td style="padding:8px;text-align:center" class="mono"><span style="color:${(site.ccRentData.absorption.verdict || '').includes('flood') ? '#EF4444' : (site.ccRentData.absorption.verdict || '').includes('healthy') ? '#16A34A' : '#C9A84C'};font-weight:800;font-size:10px">${site.ccRentData.absorption.verdict?.split('—')[0] || '—'}</span><div style="font-size:9px;color:#64748B">${site.ccRentData.absorption.monthsToAbsorb ? site.ccRentData.absorption.monthsToAbsorb + ' mo to absorb' : 'no pipeline'}</div></td><td style="padding:8px;color:#64748B;font-size:10px">Churn-adjusted demand (${site.ccRentData.absorption.totalAnnualDemandSF?.toLocaleString() || 0} SF/yr) vs pipeline (${site.ccRentData.absorption.pipelineSF?.toLocaleString() || 0} SF)</td></tr>` : ''}
+      </tbody>
+    </table>
+  </div>` : ''}
   <div class="grid3" style="margin-bottom:16px">
     <div class="metric mi" onclick="toggleMI('comp-count',event)"><div class="label">Competitors (3-Mi)</div><div class="value" style="color:${compCount <= 2 ? '#16A34A' : compCount <= 5 ? '#F59E0B' : '#EF4444'}">${compCount}</div><em class="mi-hint">i</em>
       <div id="mi-comp-count" class="mi-panel"><div class="mi-panel-inner">

@@ -537,28 +537,47 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   // The primary model still uses full landCost for conservative underwriting.
   // padLandCost is surfaced as an alternative "if subdivisible" scenario.
 
-  // ── Market Rate Intelligence (v2 — 2026-04-06) ──
-  // Priority chain: (1) Local competitor rents → (2) MSA CC rent → (3) Income-tier proxy
-  // Local rents: $/SF/mo from actual competitor research (SpareFoot, operator sites).
-  // MSA data: $/SF/yr annualized from REIT 10-K filings; convert to $/SF/mo.
-  // Income-tier: last-resort proxy based on 3-mi median HHI.
+  // ── Market Rate Intelligence (v3 — 2026-04-18) ──
+  // Priority chain: (1) SpareFoot-verified market rent band (via cc-rent-audit engine)
+  //               → (2) Manual local competitor rents
+  //               → (3) MSA CC rent from REIT 10-K data
+  //               → (4) Income-tier proxy
+  // Source of truth for tier 1: ccRentData.marketRentBand from the audit engine,
+  // containing live-scraped competitor rates with confidence tiering.
   const incTier = incN >= 90000 ? "premium" : incN >= 75000 ? "upper" : incN >= 60000 ? "mid" : "value";
-  const localCCRent = site.siteiqData?.localCCRent || null;   // $/SF/mo from competitor research
+  const auditedCCBand = site.ccRentData?.marketRentBand?.ccBand || null;
+  const auditedNonCCBand = site.ccRentData?.marketRentBand?.nonCCBand || null;
+  const auditedMarketBand = site.ccRentData?.marketRentBand?.marketBand || null;
+  // Prefer CC-specific band when sample ≥3; fall back to marketBand if CC sample too thin
+  const spareFootCCRent = (auditedCCBand && auditedCCBand.sampleSize >= 3) ? auditedCCBand.median
+    : (auditedMarketBand && auditedMarketBand.sampleSize >= 3) ? auditedMarketBand.median
+    : null;
+  const spareFootDriveRent = (auditedNonCCBand && auditedNonCCBand.sampleSize >= 3) ? auditedNonCCBand.median
+    : (spareFootCCRent ? Math.round(spareFootCCRent * 0.60 * 100) / 100 : null); // 60% of CC as default
+  const localCCRent = site.siteiqData?.localCCRent || null;
   const localDriveRent = site.siteiqData?.localDriveRent || null;
-  const msaCCRent = site.siteiqData?.msaCCRent || null; // $/SF/yr from Discover MSA data
-  const msaCCGrowth = site.siteiqData?.msaCCGrowth || null; // Annual growth %
-  const rateSource = localCCRent ? "local" : msaCCRent ? "msa" : "income-tier";
-  // Base climate rate: local ($/SF/mo) → MSA (convert $/SF/yr to $/SF/mo) → income-tier fallback
-  const baseClimateRate = localCCRent
-    ? localCCRent
-    : msaCCRent
-      ? Math.round((msaCCRent / 12) * 100) / 100
-      : (incTier === "premium" ? O('climateRatePremium', 1.45) : incTier === "upper" ? O('climateRateUpper', 1.25) : incTier === "mid" ? O('climateRateMid', 1.10) : O('climateRateValue', 0.95));
-  const baseDriveRate = localDriveRent
-    ? localDriveRent
-    : msaCCRent
-      ? Math.round((msaCCRent / 12) * 0.55 * 100) / 100
-      : (incTier === "premium" ? O('driveRatePremium', 0.85) : incTier === "upper" ? O('driveRateUpper', 0.72) : incTier === "mid" ? O('driveRateMid', 0.62) : O('driveRateValue', 0.52));
+  const msaCCRent = site.siteiqData?.msaCCRent || null;
+  const msaCCGrowth = site.siteiqData?.msaCCGrowth || null;
+  const rateSource = spareFootCCRent ? "sparefoot-verified"
+    : localCCRent ? "local"
+    : msaCCRent ? "msa"
+    : "income-tier";
+  const spareFootRateConfidence = site.ccRentData?.auditConfidence || null;
+  // Base climate rate: SpareFoot audit → local → MSA → income-tier fallback
+  const baseClimateRate = spareFootCCRent
+    ? spareFootCCRent
+    : localCCRent
+      ? localCCRent
+      : msaCCRent
+        ? Math.round((msaCCRent / 12) * 100) / 100
+        : (incTier === "premium" ? O('climateRatePremium', 1.45) : incTier === "upper" ? O('climateRateUpper', 1.25) : incTier === "mid" ? O('climateRateMid', 1.10) : O('climateRateValue', 0.95));
+  const baseDriveRate = spareFootDriveRent
+    ? spareFootDriveRent
+    : localDriveRent
+      ? localDriveRent
+      : msaCCRent
+        ? Math.round((msaCCRent / 12) * 0.55 * 100) / 100
+        : (incTier === "premium" ? O('driveRatePremium', 0.85) : incTier === "upper" ? O('driveRateUpper', 0.72) : incTier === "mid" ? O('driveRateMid', 0.62) : O('driveRateValue', 0.52));
   // Competition adjustment: CC SPC-based (preferred) → competitor count fallback.
   // CC SPC accounts for population density — 8 competitors in a 100K-pop market is different
   // from 8 competitors in a 10K-pop market. SPC normalizes supply per capita.
@@ -567,8 +586,11 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     ? (ccSPC < 1.5 ? 1.15 : ccSPC < 3.0 ? 1.08 : ccSPC < 5.0 ? 1.00 : ccSPC < 7.0 ? 0.94 : 0.88)
     : (compCount <= 2 ? 1.08 : compCount <= 5 ? 1.00 : compCount <= 8 ? 0.94 : 0.88);
   // When using local rents, skip compAdj — local rents already reflect competition pricing.
-  const mktClimateRate = Math.round(baseClimateRate * (rateSource === "local" ? 1.0 : compAdj) * 100) / 100;
-  const mktDriveRate = Math.round(baseDriveRate * (rateSource === "local" ? 1.0 : compAdj) * 100) / 100;
+  // Skip compAdj for rates that ALREADY reflect local competition pricing
+  // (SpareFoot-verified rates and manual local research both capture real competitor rates).
+  const rateAlreadyLocal = rateSource === "sparefoot-verified" || rateSource === "local";
+  const mktClimateRate = Math.round(baseClimateRate * (rateAlreadyLocal ? 1.0 : compAdj) * 100) / 100;
+  const mktDriveRate = Math.round(baseDriveRate * (rateAlreadyLocal ? 1.0 : compAdj) * 100) / 100;
 
   // ── Regional Construction Costs — Recalibrated 2026-03-22 ──
   // RECALIBRATED 2026-03-22: Full development cost stack including site work, fire
@@ -1121,6 +1143,19 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     // Rates
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc, rateSource, escSource,
     msaCCRent, msaCCGrowth, localCCRent, localDriveRent, baseEsc, supplyAdj, spcDelta, currentSPC, projectedSPC,
+    // SpareFoot audit data (v3 — 2026-04-18)
+    spareFootCCRent, spareFootDriveRent,
+    spareFootRateConfidence,
+    ccRentBand: auditedCCBand,
+    nonCCRentBand: auditedNonCCBand,
+    marketRentBand_wide: auditedMarketBand,
+    compSet: site.ccRentData?.competitorSet || null,
+    rentProjection: site.ccRentData?.rentProjection || null,
+    rentCurveSummary: site.ccRentData?.rentCurveSummary || null,
+    ccSPC_verified: site.ccRentData?.ccSPC_verified || null,
+    absorptionVerdict: site.ccRentData?.absorption?.verdict || null,
+    psFamilyCount: site.ccRentData?.psFamilyCount || 0,
+    intelNarrative: site.ccRentData?.narrative || null,
     // Year data
     leaseUpSchedule, yearData,
     // NOI

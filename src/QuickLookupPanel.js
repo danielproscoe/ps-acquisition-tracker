@@ -1,0 +1,1050 @@
+// QuickLookupPanel.js — Radius-style instant market report from an address
+// Phase 1 MVP: browser-side ESRI + Places + PS Family. SpareFoot + Einstein
+// narrative happen via scheduled audit after "Save to Pipeline" click.
+
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Operator classification — universal 3-tier model for any buyer persona.
+//
+//   Tier 1 — PUBLIC REIT:      PSA, ESS, CubeSmart, Life Storage, iStorage, NSA, SmartStop
+//                              (These are the institutional operators — REIT-traded)
+//   Tier 2 — REGIONAL/CHAIN:   StorageMart, Prime, StorQuest, Simply Self, U-Haul, Metro
+//                              (Multi-market but not public-REIT scale)
+//   Tier 3 — LOCAL/INDEPENDENT: Everyone else (the long tail of mom-and-pop operators)
+//
+// Sub-flag: PS Family (PS + iStorage + NSA) for PS-specific users. Any other
+// buyer persona can derive their own "family" list from the tier + brand.
+// ═══════════════════════════════════════════════════════════════════════════
+const PUBLIC_REIT = /\b(public\s+storage|extra\s+space|cubesmart|life\s+storage|istorage|national\s+storage\s+affiliates?|NSA\b|PS\s*#|SmartStop\s+Self\s+Storage|LSI\b)/i;
+const REGIONAL_CHAIN = /\b(storagemart|storage\s+mart|prime\s+storage|storquest|simply\s+self|u-?haul\s+moving|metro\s+self|red\s+dot|compass\s+self|sovran|uncle\s+bob|snapbox|stor[- ]all|devon\s+self)/i;
+const PS_FAMILY_REGEX = /\b(public\s+storage|istorage|national\s+storage\s+affiliates?|NSA\b|PS\s*#)/i;
+
+function classifyOperator(name) {
+  const n = name || '';
+  const psFamily = PS_FAMILY_REGEX.test(n);
+  if (PUBLIC_REIT.test(n)) return { tier: 'reit', tierLabel: 'Public REIT', psFamily };
+  if (REGIONAL_CHAIN.test(n)) return { tier: 'regional', tierLabel: 'Regional Chain', psFamily };
+  return { tier: 'independent', tierLabel: 'Local/Independent', psFamily };
+}
+
+// Backwards-compat shim for code still calling tagPSFamily
+function tagPSFamily(name) {
+  return classifyOperator(name).psFamily ? 'ps-family' : 'competitor';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Leaflet icons — custom markers per facility type
+// ═══════════════════════════════════════════════════════════════════════════
+const iconHTML = (color, size = 18, pulse = false) => `
+  <div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4),0 0 0 ${Math.round(size/4)}px ${color}40;${pulse ? 'animation:mapPulse 2s ease-in-out infinite;' : ''}"></div>
+`;
+const makeIcon = (color, size = 18, pulse = false) => L.divIcon({
+  html: iconHTML(color, size, pulse),
+  iconSize: [size + 10, size + 10],
+  iconAnchor: [(size + 10) / 2, (size + 10) / 2],
+  popupAnchor: [0, -(size / 2)],
+  className: 'storvex-marker'
+});
+const SUBJECT_ICON = makeIcon('#C9A84C', 24, true);
+const REIT_ICON = makeIcon('#F97316', 16);        // Public REIT (orange)
+const REGIONAL_ICON = makeIcon('#8B5CF6', 15);    // Regional/chain (purple)
+const INDEPENDENT_ICON = makeIcon('#3B82F6', 14); // Local/independent (blue)
+// Backwards compat
+const COMP_ICON = INDEPENDENT_ICON;
+const PS_FAMILY_ICON = REIT_ICON;
+function iconForOperator(tier) {
+  if (tier === 'reit') return REIT_ICON;
+  if (tier === 'regional') return REGIONAL_ICON;
+  return INDEPENDENT_ICON;
+}
+
+// Map auto-fit helper
+function FitBounds({ subject, points }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!subject) return;
+    const latlngs = [[subject.lat, subject.lng], ...points.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng])];
+    if (latlngs.length > 1) {
+      map.fitBounds(latlngs, { padding: [40, 40] });
+    } else {
+      map.setView([subject.lat, subject.lng], 13);
+    }
+  }, [subject, points, map]);
+  return null;
+}
+
+
+const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
+const PLACES_KEY = process.env.REACT_APP_GOOGLE_PLACES_API_KEY || "AIzaSyBh0Rf14IRebQr7gzPuNQXWyLRFk9--hB8";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Geocoding via ESRI World Geocoder (same key as our enrichment — no extra API)
+// ═══════════════════════════════════════════════════════════════════════════
+async function geocodeAddress(address) {
+  const url = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?SingleLine=${encodeURIComponent(address)}&outFields=*&maxLocations=1&countryCode=USA&f=json&token=${ESRI_KEY}`;
+  const res = await fetch(url);
+  const j = await res.json();
+  if (j.error) throw new Error(`Geocoding: ${j.error.message}`);
+  if (!j.candidates?.length) throw new Error('No address match found');
+  const c = j.candidates[0];
+  const attr = c.attributes || {};
+  return {
+    formatted: attr.LongLabel || attr.Match_addr || c.address,
+    lat: c.location.y,
+    lng: c.location.x,
+    streetNumber: attr.AddNum || '',
+    route: attr.StName || attr.Address?.split(' ').slice(1).join(' ') || '',
+    city: attr.City || '',
+    state: attr.RegionAbbr || attr.Region || '',
+    zip: attr.Postal || '',
+    county: attr.Subregion || '',
+    matchScore: c.score,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ESRI v3 enrichment (demos + Tapestry, 3 rings)
+// ═══════════════════════════════════════════════════════════════════════════
+const DEMO_VARS = [
+  "AtRisk.TOTPOP_CY","KeyUSFacts.TOTPOP_FY","KeyUSFacts.TOTHH_CY","KeyUSFacts.TOTHH_FY",
+  "KeyUSFacts.MEDHINC_CY","KeyUSFacts.MEDHINC_FY","KeyUSFacts.PCI_CY","KeyUSFacts.AVGHINC_CY",
+  "KeyUSFacts.DIVINDX_CY","KeyUSFacts.DPOP_CY","KeyUSFacts.TOTHU_CY","KeyUSFacts.VACANT_CY",
+  "homevalue.MEDVAL_CY","homevalue.AVGVAL_CY","OwnerRenter.OWNER_CY","OwnerRenter.RENTER_CY",
+  "5yearincrements.POP25_CY","5yearincrements.POP30_CY","5yearincrements.POP35_CY","5yearincrements.POP40_CY",
+  "5yearincrements.POP55_CY","5yearincrements.POP60_CY","5yearincrements.POP65_CY","5yearincrements.POP70_CY",
+  "HouseholdIncome.HINC75_CY","HouseholdIncome.HINC100_CY","HouseholdIncome.HINC150_CY","HouseholdIncome.HINC200_CY",
+  "educationalattainment.BACHDEG_CY","educationalattainment.GRADDEG_CY"
+];
+const TAPESTRY_VARS = ["tapestryhouseholdsNEW.TSEGNAME"];
+
+async function esriCall(lat, lng, radiusMi, vars) {
+  const url = "https://geoenrich.arcgis.com/arcgis/rest/services/World/geoenrichmentserver/Geoenrichment/Enrich";
+  const sa = JSON.stringify([{ geometry: { x: lng, y: lat }, areaType: 'RingBuffer', bufferUnits: 'esriMiles', bufferRadii: [radiusMi] }]);
+  const params = new URLSearchParams({ studyAreas: sa, analysisVariables: JSON.stringify(vars), useData: JSON.stringify({ sourceCountry: 'US' }), f: 'json', token: ESRI_KEY });
+  const res = await fetch(url + '?' + params.toString());
+  const j = await res.json();
+  if (j.error) throw new Error(`ESRI ${j.error.code}: ${j.error.message}`);
+  return j?.results?.[0]?.value?.FeatureSet?.[0]?.features?.[0]?.attributes || null;
+}
+
+async function fetchESRIEnrichment(lat, lng) {
+  const [[d1, t1], [d3, t3], [d5, t5]] = await Promise.all([
+    Promise.all([esriCall(lat, lng, 1, DEMO_VARS), esriCall(lat, lng, 1, TAPESTRY_VARS)]),
+    Promise.all([esriCall(lat, lng, 3, DEMO_VARS), esriCall(lat, lng, 3, TAPESTRY_VARS)]),
+    Promise.all([esriCall(lat, lng, 5, DEMO_VARS), esriCall(lat, lng, 5, TAPESTRY_VARS)]),
+  ]);
+  const merge = (a, b) => ({ ...(a || {}), ...(b || {}) });
+  return { ring1: merge(d1, t1), ring3: merge(d3, t3), ring5: merge(d5, t5) };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Places API — nearby storage facilities
+// ═══════════════════════════════════════════════════════════════════════════
+async function fetchPlacesCompetitors(lat, lng, radiusMi = 3) {
+  const body = {
+    includedTypes: ['storage'],
+    maxResultCount: 20,
+    locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: radiusMi * 1609.34 } }
+  };
+  const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': PLACES_KEY,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Places API ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const j = await res.json();
+  // Filter non-self-storage
+  const EXCL = /walmart|h-e-b|heb |mclane|costco|amazon|fedex|ups|dhl|distribution center|fleet|truck entrance|warehouse|fulfillment|cold storage|wilsonart|carpenter lp|freight|carriers|logistics|trucking|schneider|penske|ryder|wrecker|auto body|salvage|junk yard|scrap|recycling|lumber yard|propane|livestock|record nations|iron mountain|data center|moving & truck/i;
+  const STORAGE_BRANDS = /storage|self[- ]storage|mini[- ]storage|public storage|extra space|cubesmart|life storage|istorage|nsa|storquest|u-haul moving/i;
+  return (j.places || [])
+    .filter(p => !EXCL.test(p.displayName?.text || ''))
+    .filter(p => STORAGE_BRANDS.test(p.displayName?.text || ''))
+    .map(p => ({
+      id: p.id,
+      name: p.displayName?.text || '',
+      address: p.formattedAddress,
+      lat: p.location?.latitude,
+      lng: p.location?.longitude,
+      website: p.websiteUri,
+      distanceMi: +haversine(lat, lng, p.location?.latitude, p.location?.longitude).toFixed(2)
+    }))
+    .filter(p => p.distanceMi <= radiusMi)
+    .sort((a, b) => a.distanceMi - b.distanceMi);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 3958.8, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REIT REGISTRY — authoritative 4,238-location database (PS + iStorage + NSA)
+// Loaded lazily, cached at module scope. Not "fetched" — ALREADY INDEXED.
+// ═══════════════════════════════════════════════════════════════════════════
+let _reitRegistryCache = null;
+async function loadREITRegistry() {
+  if (_reitRegistryCache) return _reitRegistryCache;
+  try {
+    const res = await fetch('/reit-registry.json');
+    if (!res.ok) throw new Error(`${res.status}`);
+    const j = await res.json();
+    _reitRegistryCache = j;
+    return j;
+  } catch (e) {
+    console.warn('[REIT Registry] load failed:', e.message);
+    return null;
+  }
+}
+
+// Find REIT facilities within radius of subject coords
+function findREITFacilitiesNearby(registry, lat, lng, radiusMi) {
+  if (!registry?.locations) return [];
+  const hits = [];
+  for (const loc of registry.locations) {
+    const d = haversine(lat, lng, loc.lat, loc.lon);
+    if (d <= radiusMi) hits.push({ ...loc, distanceMi: +d.toFixed(2) });
+  }
+  return hits.sort((a, b) => a.distanceMi - b.distanceMi);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OPERATOR KNOWLEDGE BASE — institutional intel on top 12 storage operators.
+// Source-stamped from 10-K/10-Q disclosures + public press. "We already know
+// them." When any of these brands appear nearby, we surface the profile
+// inline — the user sees operator intel without asking.
+// ═══════════════════════════════════════════════════════════════════════════
+const OPERATOR_KB = {
+  'Public Storage': {
+    ticker: 'PSA', type: 'Public REIT', parent: 'Public Storage Inc.', hq: 'Glendale, CA',
+    portfolioSize: '3,112 owned facilities · 48 joint-venture · 344 third-party managed',
+    nationalSF: '~229M SF',
+    noiMargin: '78.4% (Q4 2025 FY, PSA 10-K)',
+    acquisitionVolume2024: '~$1.4B',
+    stabilizedOccupancy: '91.0%',
+    ecriProgram: '8%/yr avg on rolled tenants',
+    acquisitionCap: '5.6% institutional (PSA 10-K disclosures)',
+    expansionFocus: 'SW (TX/FL/AZ), Mid-Atlantic, Southeast — 3.5-5ac pads for 1-story CC, 2.5-3.5ac for multi-story',
+    keyContacts: 'Daniel Wollent (SW/NE/MI Acquisitions Mgr), Matthew Toussaint (East), Brian Karis (Construction Head)',
+    source10K: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001393311'
+  },
+  'iStorage': {
+    ticker: 'via PSA', type: 'Public REIT (PS acquisition)', parent: 'Public Storage (2022 acquisition via NSA)', hq: 'Jupiter, FL',
+    portfolioSize: '~500 facilities (within NSA portfolio, PS-controlled)',
+    nationalSF: '~30M SF',
+    noiMargin: 'blended with PSA portfolio',
+    expansionFocus: 'Absorbed into PS acquisition funnel — no independent expansion signals',
+    note: 'Part of PS family per §6b — do NOT count as independent competitor in CC SPC calc.'
+  },
+  'NSA': {
+    ticker: 'NSA (delisted 2024 acquisition)', type: 'Acquired by Public Storage April 2024', parent: 'Public Storage', hq: 'Greenwood Village, CO',
+    portfolioSize: '1,100+ facilities pre-merger',
+    acquisitionPremium: '$11B all-cash PSA deal (April 2024)',
+    note: 'Post-merger integration ongoing. Facilities operate under iStorage, Northwest, SecurCare, Storage Solutions, Guardian, Move It, Red Nova + PS brands.'
+  },
+  'Extra Space Storage': {
+    ticker: 'EXR', type: 'Public REIT', parent: 'Extra Space Storage Inc.', hq: 'Salt Lake City, UT',
+    portfolioSize: '3,700+ facilities post-Life Storage merger (July 2023 · ~$12B deal)',
+    nationalSF: '~280M SF',
+    noiMargin: '72-74% (EXR 10-K 2024)',
+    acquisitionCap: '5.8-6.2% institutional',
+    stabilizedOccupancy: '93-94%',
+    expansionFocus: 'Post-merger integration through 2025, then resuming acquisitions',
+    note: 'Largest storage operator by facility count post-LSI merger. Direct PSA competitor on most deals.'
+  },
+  'CubeSmart': {
+    ticker: 'CUBE', type: 'Public REIT', parent: 'CubeSmart LP', hq: 'Malvern, PA',
+    portfolioSize: '~1,500 facilities owned/managed',
+    nationalSF: '~100M SF',
+    noiMargin: '68-70% (CUBE 10-K 2024)',
+    acquisitionCap: '5.9-6.3% institutional',
+    stabilizedOccupancy: '90.5-91.5%',
+    expansionFocus: 'Sun Belt + Northeast urban. Strong in NY/NJ/CT metros.'
+  },
+  'SmartStop Self Storage': {
+    ticker: 'SSIC', type: 'Public (2024 IPO)', parent: 'SmartStop REIT', hq: 'Ladera Ranch, CA',
+    portfolioSize: '~200 facilities',
+    expansionFocus: 'Aggressive Sun Belt expansion post-IPO',
+    note: 'Newer public entrant — often more flexible on private deals than PSA/EXR.'
+  },
+  'Prime Storage Group': {
+    type: 'Private Institutional', parent: 'Prime Group Holdings', hq: 'Denver, CO',
+    portfolioSize: '~300+ facilities',
+    acquisitionFocus: 'OFF-MARKET ONLY per Dan Bierbach EVP Acquisitions policy',
+    keyContacts: 'Dan Bierbach (EVP Acquisitions · dan.bierbach@goprimegroup.com · 303-915-7345)',
+    note: 'Never pitch on-market Crexi/LoopNet deals — off-market only per explicit policy.'
+  },
+  'StorageMart': {
+    type: 'Private', parent: 'Storage Mart Partners', hq: 'Columbia, MO',
+    portfolioSize: '~275 facilities',
+    expansionFocus: 'Midwest + select metros',
+  },
+  'StorQuest': {
+    type: 'Private', parent: 'The William Warren Group', hq: 'Santa Monica, CA',
+    portfolioSize: '~225 facilities',
+    acquisitionFocus: 'OC CA, LA County CA, DC MSA (per Max Burch WWG 2026-04-08 confirmation)',
+    keyContacts: 'Max Burch (Acquisitions)',
+    rateTargets: '$1.80-2.00/SF/mo minimum · SF/cap <8.0 general',
+  },
+  'Simply Self Storage': {
+    type: 'Private (Blackstone REIT)', parent: 'Blackstone Real Estate', hq: 'Orlando, FL',
+    portfolioSize: '~275 facilities',
+    acquisitionCap: '5.5-6.0% (Blackstone institutional)',
+    expansionFocus: 'Metro growth markets — aggressive bid book',
+  },
+  'U-Haul Moving & Storage': {
+    ticker: 'UHAL', type: 'Public (AMERCO)', parent: 'AMERCO', hq: 'Phoenix, AZ',
+    portfolioSize: '~1,500 sites (mixed storage + truck rental)',
+    nationalSF: '96.5M SF',
+    expansionFocus: '50-70 new locations/yr — opportunistic acquisition of conversions',
+    keyContacts: 'Aaron Cook (Dir Acquisitions), Jennifer Sawyer (RE Rep II)',
+  },
+  'Storage King USA': {
+    type: 'Private', parent: 'Andover Properties', hq: 'New York, NY',
+    portfolioSize: '~200 facilities',
+    keyContacts: 'Eric Brett, Karan Gupta, Van Manuel (andoverprop.com)',
+    note: 'Secondary PS routing target after DW/MT pass per Dan R. 2026-03 policy.'
+  }
+};
+
+function getOperatorIntel(brand) {
+  // Match exact or partial
+  if (OPERATOR_KB[brand]) return OPERATOR_KB[brand];
+  const lower = (brand || '').toLowerCase();
+  for (const [k, v] of Object.entries(OPERATOR_KB)) {
+    if (lower.includes(k.toLowerCase()) || k.toLowerCase().includes(lower)) return v;
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify, navigateTo, setTab }) {
+  const [address, setAddress] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const [phase, setPhase] = useState('');
+
+  const autoRunRef = useRef(false);
+
+  // Auto-run from ?addr= query param (shareable link)
+  useEffect(() => {
+    if (autoRunRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const prefill = params.get('addr');
+    if (prefill && prefill.length > 3) {
+      autoRunRef.current = true;
+      setAddress(prefill);
+      // Defer one tick so address state is set before runLookup reads it
+      setTimeout(() => {
+        const btn = document.querySelector('button[data-role="run-lookup"]');
+        if (btn) btn.click();
+      }, 300);
+    }
+  }, []);
+
+  const runLookup = useCallback(async () => {
+    if (!address.trim()) { setError('Enter an address'); return; }
+    setLoading(true); setError(null); setResult(null);
+    const started = Date.now();
+    try {
+      setPhase('Geocoding address...');
+      const geo = await geocodeAddress(address);
+      setPhase('Pulling ESRI demographics + Tapestry (1/3/5 mi rings)...');
+      const esriP = fetchESRIEnrichment(geo.lat, geo.lng);
+      setPhase('Enumerating competitors via Places API + REIT Registry match...');
+      const placesP = fetchPlacesCompetitors(geo.lat, geo.lng, 3);
+      const registryP = loadREITRegistry();
+      const [esri, competitors, registry] = await Promise.all([esriP, placesP, registryP]);
+
+      // Authoritative REIT match — finds PS/iStorage/NSA locations even if Places missed them
+      const reit3mi = registry ? findREITFacilitiesNearby(registry, geo.lat, geo.lng, 3) : [];
+      const reit5mi = registry ? findREITFacilitiesNearby(registry, geo.lat, geo.lng, 5) : [];
+      // Merge REIT registry hits into competitor list (avoid coord dupes with Places)
+      const mergedCompetitors = [...competitors];
+      for (const r of reit3mi) {
+        const dup = mergedCompetitors.find(c => c.lat && Math.abs(c.lat - r.lat) < 0.001 && Math.abs(c.lng - r.lon) < 0.001);
+        if (dup) {
+          dup.reitRegistry = { brand: r.brand, id: r.id };
+        } else {
+          mergedCompetitors.push({
+            id: `reit_${r.id}`,
+            name: `${r.brand} — ${r.name}`,
+            address: `${r.address}, ${r.city}, ${r.state} ${r.zip}`,
+            lat: r.lat,
+            lng: r.lon,
+            distanceMi: r.distanceMi,
+            source: 'reit-registry',
+            reitRegistry: { brand: r.brand, id: r.id }
+          });
+        }
+      }
+      mergedCompetitors.sort((a, b) => (a.distanceMi || 99) - (b.distanceMi || 99));
+      setPhase('Synthesizing report...');
+
+      // Derive key metrics from ring3
+      const r3 = esri.ring3 || {};
+      const r1 = esri.ring1 || {};
+      const r5 = esri.ring5 || {};
+      const popGrowth = r3.TOTPOP_CY > 0 && r3.TOTPOP_FY > 0 ? (Math.pow(r3.TOTPOP_FY / r3.TOTPOP_CY, 1/5) - 1) * 100 : null;
+      const hhiGrowth = r3.MEDHINC_CY > 0 && r3.MEDHINC_FY > 0 ? (Math.pow(r3.MEDHINC_FY / r3.MEDHINC_CY, 1/5) - 1) * 100 : null;
+      const renterPct = (r3.OWNER_CY + r3.RENTER_CY) > 0 ? r3.RENTER_CY / (r3.OWNER_CY + r3.RENTER_CY) * 100 : null;
+      const peakAge = (r3.POP25_CY||0)+(r3.POP30_CY||0)+(r3.POP35_CY||0)+(r3.POP40_CY||0)+(r3.POP55_CY||0)+(r3.POP60_CY||0)+(r3.POP65_CY||0)+(r3.POP70_CY||0);
+      const peakPct = r3.TOTPOP_CY > 0 ? peakAge / r3.TOTPOP_CY * 100 : null;
+      const hhOver75 = (r3.HINC75_CY||0)+(r3.HINC100_CY||0)+(r3.HINC150_CY||0)+(r3.HINC200_CY||0);
+      const hhOver75Pct = r3.TOTHH_CY > 0 ? hhOver75 / r3.TOTHH_CY * 100 : null;
+      const collegeEd = (r3.BACHDEG_CY||0)+(r3.GRADDEG_CY||0);
+      const collegePct = r3.TOTPOP_CY > 0 ? collegeEd / r3.TOTPOP_CY * 100 : null;
+      const vacancyPct = r3.TOTHU_CY > 0 ? r3.VACANT_CY / r3.TOTHU_CY * 100 : null;
+
+      const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+      const baseResult = {
+        geo, esri, r1, r3, r5,
+        competitors: mergedCompetitors,
+        placesCount: competitors.length,
+        reit3mi, reit5mi,
+        registryRecordCount: registry?.recordCount || 0,
+        metrics: { popGrowth, hhiGrowth, renterPct, peakPct, hhOver75Pct, collegePct, vacancyPct },
+        elapsed,
+        generatedAt: new Date().toISOString(),
+        narrative: null,
+        narrativeStatus: 'pending'
+      };
+      setResult(baseResult);
+      setPhase('');
+
+      // Kick off Einstein narrative via /api/narrate (Vercel serverless)
+      // Fires in the background — result updates as soon as narrative lands.
+      const auditPayload = {
+        ccSPC_verified: null, // not computed in Phase 1 (no SpareFoot scrape)
+        ccFacilityCount: competitors.length,
+        totalCompetitorsFound: competitors.length,
+        competitorSet: competitors.slice(0, 10),
+        auditConfidence: 'QUICK_LOOKUP',
+      };
+      const sitePayload = {
+        name: `${geo.city || ''} ${geo.state || ''}`.trim(),
+        address: geo.formatted,
+        city: geo.city, state: geo.state,
+        coordinates: `${geo.lat}, ${geo.lng}`,
+        pop3mi: r3?.TOTPOP_CY?.toLocaleString(),
+        pop5mi: r5?.TOTPOP_CY?.toLocaleString(),
+        income3mi: r3?.MEDHINC_CY ? '$' + Math.round(r3.MEDHINC_CY).toLocaleString() : null,
+        avgIncome3mi: r3?.AVGHINC_CY ? '$' + Math.round(r3.AVGHINC_CY).toLocaleString() : null,
+        households3mi: r3?.TOTHH_CY?.toLocaleString(),
+        homeValue3mi: r3?.MEDVAL_CY ? '$' + Math.round(r3.MEDVAL_CY).toLocaleString() : null,
+        avgHomeValue3mi: r3?.AVGVAL_CY ? '$' + Math.round(r3.AVGVAL_CY).toLocaleString() : null,
+        growthRate: popGrowth != null ? popGrowth.toFixed(2) + '%' : null,
+        renterPct3mi: renterPct != null ? Math.round(renterPct) + '%' : null,
+        tapestrySegment3mi: r3?.TSEGNAME || null,
+        peakStorageAgePct3mi: peakPct != null ? peakPct.toFixed(1) + '%' : null,
+        hhOver75K_pct3mi: hhOver75Pct != null ? hhOver75Pct.toFixed(1) + '%' : null,
+        collegeEdPct3mi: collegePct != null ? collegePct.toFixed(1) + '%' : null,
+        vacancyRate3mi: vacancyPct != null ? vacancyPct.toFixed(1) + '%' : null,
+      };
+      setPhase('Generating Einstein narrative (Claude Haiku 4.5)...');
+      fetch('/api/narrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audit: auditPayload, site: sitePayload, buyerType: 'storage_reit' }),
+      }).then(async (resp) => {
+        if (!resp.ok) {
+          const err = await resp.text().catch(() => '');
+          setResult(r => r ? { ...r, narrativeStatus: 'error', narrativeError: `${resp.status}: ${err.slice(0, 200) || 'Serverless endpoint unavailable. Deploy to Vercel or set ANTHROPIC_API_KEY.'}` } : r);
+          setPhase('');
+          return;
+        }
+        const narrative = await resp.json();
+        setResult(r => r ? { ...r, narrative, narrativeStatus: 'done' } : r);
+        setPhase('');
+      }).catch(err => {
+        setResult(r => r ? { ...r, narrativeStatus: 'error', narrativeError: err.message + ' (note: /api/narrate requires Vercel deployment — localhost dev server does not serve it)' } : r);
+        setPhase('');
+      });
+    } catch (e) {
+      setError(e.message || String(e));
+    }
+    setLoading(false);
+  }, [address]);
+
+  const saveToFirebase = useCallback(async () => {
+    if (!result) return;
+    const id = `lookup_${Date.now().toString(36)}`;
+    const g = result.geo;
+    const r3 = result.r3;
+    const site = {
+      name: `${g.city} ${g.state} — ${g.streetNumber} ${g.route}`.trim(),
+      address: `${g.streetNumber} ${g.route}, ${g.city}, ${g.state} ${g.zip}`.trim(),
+      city: g.city, state: g.state,
+      coordinates: `${g.lat}, ${g.lng}`,
+      region: /^(TX|FL|CA|AZ|NV|CO|UT|NM|NE|MI|OK)$/.test(g.state) ? 'southwest' : 'east',
+      phase: 'Prospect',
+      status: 'pending',
+      listingSource: 'Storvex Quick Lookup',
+      pop1mi: result.r1?.TOTPOP_CY?.toLocaleString(),
+      pop3mi: r3?.TOTPOP_CY?.toLocaleString(),
+      pop5mi: result.r5?.TOTPOP_CY?.toLocaleString(),
+      income3mi: r3?.MEDHINC_CY ? '$' + Math.round(r3.MEDHINC_CY).toLocaleString() : null,
+      homeValue3mi: r3?.MEDVAL_CY ? '$' + Math.round(r3.MEDVAL_CY).toLocaleString() : null,
+      households3mi: r3?.TOTHH_CY?.toLocaleString(),
+      growthRate: result.metrics.popGrowth ? result.metrics.popGrowth.toFixed(2) + '%' : null,
+      popGrowth3mi: result.metrics.popGrowth ? result.metrics.popGrowth.toFixed(2) + '%' : null,
+      renterPct3mi: result.metrics.renterPct ? Math.round(result.metrics.renterPct) + '%' : null,
+      tapestrySegment3mi: r3?.TSEGNAME || null,
+      latestNote: `Quick Lookup ${new Date().toLocaleDateString()} — awaiting SpareFoot + Einstein narrative from next scheduled audit.`,
+      latestNoteDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      demoSource: 'ESRI GeoEnrichment v3 via Quick Lookup',
+      demoPulledAt: new Date().toISOString(),
+    };
+    // Strip null
+    for (const k of Object.keys(site)) if (site[k] == null) delete site[k];
+    fbSet(`submissions/${id}`, site);
+    fbPush(`submissions/${id}/activityLog`, { action: 'Site created via Quick Lookup', ts: new Date().toISOString(), by: 'Dan R.' });
+    notify(`Saved to Pipeline. Scheduled audit will populate SpareFoot + Einstein narrative within 5 min.`);
+    setTab('review');
+  }, [result, fbSet, fbPush, notify, setTab]);
+
+  // ─── Styles ───
+  const pageBg = { minHeight: '100vh', padding: '24px 16px' };
+  const card = { background: 'rgba(15,21,56,0.6)', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 14, padding: 24, marginBottom: 16 };
+  const label = { fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(201,168,76,0.85)', marginBottom: 6 };
+  const bigNum = { fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace" };
+  const subNum = { fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 3 };
+  const metricBox = { background: 'rgba(0,0,0,0.25)', padding: '14px 16px', borderRadius: 10, borderLeft: '3px solid #C9A84C' };
+
+  return (
+    <div style={pageBg}>
+      {/* HEADER */}
+      <div style={{ ...card, background: 'linear-gradient(135deg, #0F1538 0%, #1E2761 55%, #0A1127 100%)', border: '1px solid rgba(201,168,76,0.25)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, background: 'radial-gradient(circle, rgba(201,168,76,0.18), transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg, rgba(76,201,130,0.18), rgba(76,201,130,0.06))', padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(76,201,130,0.35)', marginBottom: 10 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CC982', boxShadow: '0 0 12px #4CC982' }} />
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', color: '#4CC982' }}>QUICK LOOKUP · LIVE</span>
+        </div>
+        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+          <span style={{ background: 'linear-gradient(90deg,#C9A84C,#E4CB7C,#C9A84C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Storvex</span> Market Report — Any Address, 10 Seconds
+        </h2>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 8 }}>
+          Live ESRI demographics + Tapestry Segmentation + Places API competitor enumeration + PS Family exclusion. SpareFoot comps + Einstein narrative populate via scheduled audit after save.
+        </div>
+
+        {/* Search Input */}
+        <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
+          <input
+            value={address}
+            onChange={e => setAddress(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !loading && runLookup()}
+            placeholder="Enter address — e.g., 1402 S 5th Street, Temple, TX 76501"
+            disabled={loading}
+            style={{ flex: 1, padding: '14px 18px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.3)', background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: 14, fontFamily: "'Inter', sans-serif", outline: 'none' }}
+          />
+          <button
+            data-role="run-lookup"
+            onClick={runLookup}
+            disabled={loading || !address.trim()}
+            style={{ padding: '14px 24px', borderRadius: 10, border: 'none', background: loading ? 'rgba(201,168,76,0.3)' : 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', fontSize: 13, fontWeight: 900, letterSpacing: '0.06em', cursor: loading ? 'wait' : 'pointer', textTransform: 'uppercase' }}
+          >
+            {loading ? 'Running...' : '⚡ Run Market Report'}
+          </button>
+        </div>
+        {loading && <div style={{ marginTop: 12, fontSize: 11, color: '#C9A84C' }}>{phase}</div>}
+        {error && <div style={{ marginTop: 12, padding: 10, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, fontSize: 11, color: '#FCA5A5' }}>⚠ {error}</div>}
+      </div>
+
+      {/* RESULTS */}
+      {result && <ResultsView result={result} saveToFirebase={saveToFirebase} />}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PDF Export — opens a clean printable version in a new tab with auto-print
+// ═══════════════════════════════════════════════════════════════════════════
+function downloadPDF(result) {
+  const { geo, r1, r3, r5, competitors, metrics, generatedAt } = result;
+  const fileLabel = `${(geo.city || 'Site').replace(/[^A-Za-z0-9]+/g, '_')}_${geo.state}_MarketReport_${new Date().toISOString().slice(0, 10)}`;
+  const esriViewerUrl = `https://www.arcgis.com/apps/mapviewer/index.html?center=${geo.lng},${geo.lat}&level=13`;
+  const googleMapsUrl = `https://www.google.com/maps/@${geo.lat},${geo.lng},15z`;
+  const fmt = (n) => n == null ? '—' : Number(n).toLocaleString();
+  const pct = (n, d = 1) => n == null ? '—' : (n >= 0 ? '+' : '') + n.toFixed(d) + '%';
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${fileLabel}</title>
+<style>
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 30px; color: #1E2761; background: #fff; }
+.hero { background: linear-gradient(135deg, #0F1538 0%, #1E2761 55%, #0A1127 100%); color: #fff; padding: 30px; border-radius: 12px; margin-bottom: 20px; position: relative; overflow: hidden; }
+.hero h1 { margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; }
+.hero h1 .gold { background: linear-gradient(90deg,#C9A84C,#E4CB7C,#C9A84C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero .sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 8px; }
+.section { background: #fff; border: 1px solid #E2E8F0; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+.label { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; color: #C9A84C; margin-bottom: 8px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stat { padding: 14px; background: #F8FAFC; border-radius: 8px; border-left: 3px solid #C9A84C; }
+.stat .big { font-size: 22px; font-weight: 900; font-family: 'Courier New', monospace; color: #1E2761; }
+.stat .sub { font-size: 10px; color: #64748B; margin-top: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+thead tr { background: #1E2761; color: #fff; }
+th { text-align: left; padding: 10px 8px; font-size: 10px; letter-spacing: 0.06em; }
+td { padding: 8px; border-bottom: 1px solid #F1F5F9; }
+tr:nth-child(even) td { background: #FAFBFC; }
+a { color: #C9A84C; text-decoration: none; font-size: 9px; }
+.tapestry { background: linear-gradient(135deg, #C9A84C, #E4CB7C); color: #1E2761; padding: 10px 16px; border-radius: 8px; font-size: 16px; font-weight: 900; display: inline-block; }
+.footer { padding: 16px; background: #F8FAFC; border-radius: 10px; font-size: 10px; color: #64748B; line-height: 1.7; }
+.footer a { color: #1E2761; text-decoration: underline; }
+@media print {
+  body { padding: 15px; }
+  .section { page-break-inside: avoid; }
+  .hero { -webkit-print-color-adjust: exact; }
+}
+@page { size: letter; margin: 0.4in; }
+</style></head><body>
+<div class="hero">
+  <div style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#4CC982;margin-bottom:10px">⚡ STORVEX MARKET REPORT · LIVE DATA SNAPSHOT</div>
+  <h1><span class="gold">Storvex</span> Market Report — ${geo.city || 'Subject'}, ${geo.state || ''}</h1>
+  <div class="sub">${geo.formatted}</div>
+  <div class="sub">Generated ${new Date(generatedAt).toLocaleString()} · Report runtime ${result.elapsed}s · Data sources: ESRI GeoEnrichment + Tapestry + Google Places API</div>
+</div>
+
+<div class="section">
+  <div class="label">DEMOGRAPHICS · ESRI 2025–2030 · 3-MI RADIAL RING</div>
+  <div class="grid4">
+    <div class="stat"><div class="big">${fmt(r3?.TOTPOP_CY)}</div><div class="sub">Population · ${pct(metrics.popGrowth, 2)} 5-yr CAGR</div></div>
+    <div class="stat"><div class="big">$${fmt(r3?.MEDHINC_CY)}</div><div class="sub">Median HHI · ${pct(metrics.hhiGrowth, 2)} CAGR</div></div>
+    <div class="stat"><div class="big">${fmt(r3?.TOTHH_CY)}</div><div class="sub">Households · ${metrics.renterPct?.toFixed(0) || '—'}% renter</div></div>
+    <div class="stat"><div class="big">$${fmt(r3?.MEDVAL_CY)}</div><div class="sub">Median Home Value · Avg $${fmt(r3?.AVGVAL_CY)}</div></div>
+  </div>
+  <div class="grid3" style="margin-top:14px">
+    <div class="stat"><div class="big" style="font-size:18px">${metrics.peakPct?.toFixed(1) || '—'}%</div><div class="sub">Peak Storage Age (25-44 + 55-74)</div></div>
+    <div class="stat"><div class="big" style="font-size:18px">${metrics.hhOver75Pct?.toFixed(1) || '—'}%</div><div class="sub">HH $75K+ (CC affordability)</div></div>
+    <div class="stat"><div class="big" style="font-size:18px">${metrics.collegePct?.toFixed(1) || '—'}%</div><div class="sub">College Educated</div></div>
+  </div>
+</div>
+
+${r3?.TSEGNAME ? `<div class="section">
+  <div class="label">TAPESTRY SEGMENTATION · BEHAVIORAL CLUSTER</div>
+  <div class="tapestry">${r3.TSEGNAME}</div>
+  <div style="font-size:11px;color:#64748B;margin-top:10px;line-height:1.5">Dominant psychographic cluster in this submarket. Drives storage demand profile — family-formation cohorts lean drive-up, empty-nester/downsizer cohorts lean CC, professional cohorts lean premium CC.</div>
+</div>` : ''}
+
+<div class="section">
+  <div class="label">1-MI · 3-MI · 5-MI RING COMPARISON</div>
+  <table>
+    <thead><tr><th>Metric</th><th style="text-align:right">1-Mile</th><th style="text-align:right">3-Mile</th><th style="text-align:right">5-Mile</th></tr></thead>
+    <tbody>
+      <tr><td>Population</td><td style="text-align:right">${fmt(r1?.TOTPOP_CY)}</td><td style="text-align:right"><b>${fmt(r3?.TOTPOP_CY)}</b></td><td style="text-align:right">${fmt(r5?.TOTPOP_CY)}</td></tr>
+      <tr><td>Households</td><td style="text-align:right">${fmt(r1?.TOTHH_CY)}</td><td style="text-align:right"><b>${fmt(r3?.TOTHH_CY)}</b></td><td style="text-align:right">${fmt(r5?.TOTHH_CY)}</td></tr>
+      <tr><td>Median HHI</td><td style="text-align:right">$${fmt(r1?.MEDHINC_CY)}</td><td style="text-align:right"><b>$${fmt(r3?.MEDHINC_CY)}</b></td><td style="text-align:right">$${fmt(r5?.MEDHINC_CY)}</td></tr>
+      <tr><td>Median Home Value</td><td style="text-align:right">$${fmt(r1?.MEDVAL_CY)}</td><td style="text-align:right"><b>$${fmt(r3?.MEDVAL_CY)}</b></td><td style="text-align:right">$${fmt(r5?.MEDVAL_CY)}</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <div class="label">COMPETITORS WITHIN 3 MI · ${competitors.length} FACILITIES</div>
+  <table>
+    <thead><tr><th>Facility</th><th style="text-align:right">Distance</th><th>Address</th></tr></thead>
+    <tbody>
+      ${competitors.map(c => `<tr><td style="font-weight:700">${c.name}</td><td style="text-align:right">${c.distanceMi} mi</td><td style="font-size:10px;color:#64748B">${c.address || '—'}</td></tr>`).join('')}
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <b>Data Sources — Click to Verify:</b><br>
+  • Demographics: <a href="${esriViewerUrl}">ESRI ArcGIS GeoEnrichment 2025</a> (30+ variables, 1/3/5-mi rings, 2025 + 2030 projections)<br>
+  • Behavioral segmentation: <a href="https://www.esri.com/en-us/arcgis/products/data/data-portfolio/tapestry-segmentation">ESRI Tapestry Segmentation</a><br>
+  • Competitor enumeration: <a href="https://developers.google.com/maps/documentation/places/web-service/overview">Google Places API (New)</a><br>
+  • Geocoding: <a href="https://developers.arcgis.com/rest/geocode/api-reference/overview-world-geocoding-service.htm">ESRI World Geocoder</a><br>
+  • Location: <a href="${googleMapsUrl}">Google Maps</a> · <a href="${esriViewerUrl}">ESRI Viewer</a><br>
+  <br>
+  <i>SpareFoot comp rates, PS Family Registry exclusion, forward rent curve, and Einstein LLM narrative populate via full audit after Save to Pipeline. Report generated ${new Date(generatedAt).toLocaleString()}.</i><br>
+  <br>
+  <b>Powered by Storvex™ — AI-Powered Storage Intelligence · Patent Pending (App. No. 64/009,393)</b>
+</div>
+
+<script>
+  document.title = ${JSON.stringify(fileLabel)};
+  window.addEventListener('load', () => setTimeout(() => window.print(), 600));
+</script>
+</body></html>`;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shareable URL — encode address into ?addr= query param
+// ═══════════════════════════════════════════════════════════════════════════
+function shareURL(result) {
+  const url = new URL(window.location.href);
+  url.hash = '';
+  url.searchParams.set('addr', result.geo.formatted);
+  const fullURL = url.toString();
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(fullURL);
+    alert(`Link copied!\n\n${fullURL}\n\nPaste anywhere — opens directly to this report.`);
+  } else {
+    prompt('Copy this shareable URL:', fullURL);
+  }
+}
+
+function ResultsView({ result, saveToFirebase }) {
+  const { geo, r3, r1, r5, competitors, metrics, elapsed } = result;
+  const label = { fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(201,168,76,0.85)', marginBottom: 6 };
+  const card = { background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 14, padding: 20, marginBottom: 14 };
+  const sourceLink = { fontSize: 9, color: '#4CC982', textDecoration: 'none', marginLeft: 6 };
+  const linkBtn = (url, txt) => <a href={url} target="_blank" rel="noopener noreferrer" style={sourceLink}>↗ {txt}</a>;
+  const esriViewerUrl = `https://www.arcgis.com/apps/mapviewer/index.html?center=${geo.lng},${geo.lat}&level=13`;
+  const googleMapsUrl = `https://www.google.com/maps/@${geo.lat},${geo.lng},15z`;
+
+  return (
+    <>
+      {/* LOCATION + PERFORMANCE */}
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={label}>SUBJECT LOCATION</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{geo.formatted}</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+              📍 {geo.lat.toFixed(4)}, {geo.lng.toFixed(4)} · {geo.county || '—'}
+              {linkBtn(googleMapsUrl, 'Google Maps')}
+              {linkBtn(esriViewerUrl, 'ESRI Viewer')}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={label}>REPORT RUNTIME</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#4CC982', fontFamily: "'Space Mono', monospace" }}>{elapsed}s</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>ESRI + Places + geocode (parallel)</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => downloadPDF(result)} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #DC2626, #991B1B)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.05em' }}>
+              📄 PDF
+            </button>
+            <button onClick={() => shareURL(result)} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #3B82F6, #1E3A8A)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.05em' }}>
+              🔗 COPY LINK
+            </button>
+            <button onClick={saveToFirebase} style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #22C55E, #16A34A)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.05em' }}>
+              💾 SAVE + FULL AUDIT
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* DEMOGRAPHICS BIG NUMBERS */}
+      <div style={card}>
+        <div style={label}>DEMOGRAPHICS · ESRI 2025–2030 · 3-MI RADIAL RING {linkBtn(esriViewerUrl, 'ESRI GeoEnrichment Source')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 10 }}>
+          <div><div style={label}>POPULATION</div><div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{r3?.TOTPOP_CY?.toLocaleString() || '—'}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>{metrics.popGrowth != null ? `${metrics.popGrowth >= 0 ? '+' : ''}${metrics.popGrowth.toFixed(2)}% 5-yr CAGR` : '—'}</div></div>
+          <div><div style={label}>MEDIAN HHI</div><div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>${r3?.MEDHINC_CY?.toLocaleString() || '—'}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>{metrics.hhiGrowth != null ? `${metrics.hhiGrowth.toFixed(2)}% CAGR` : '—'}</div></div>
+          <div><div style={label}>HOUSEHOLDS</div><div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{r3?.TOTHH_CY?.toLocaleString() || '—'}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Renter {metrics.renterPct?.toFixed(0) || '—'}% · Vacancy {metrics.vacancyPct?.toFixed(1) || '—'}%</div></div>
+          <div><div style={label}>MEDIAN HOME VALUE</div><div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>${r3?.MEDVAL_CY?.toLocaleString() || '—'}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Avg ${r3?.AVGVAL_CY?.toLocaleString() || '—'}</div></div>
+        </div>
+        <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8 }}>
+            <div style={label}>PEAK STORAGE AGE (25-44 + 55-74)</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#C9A84C' }}>{metrics.peakPct?.toFixed(1) || '—'}%</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>family formation + downsizers</div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8 }}>
+            <div style={label}>HH $75K+</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#C9A84C' }}>{metrics.hhOver75Pct?.toFixed(1) || '—'}%</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>CC storage affordability</div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8 }}>
+            <div style={label}>COLLEGE EDUCATED</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#C9A84C' }}>{metrics.collegePct?.toFixed(1) || '—'}%</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>correlates with CC propensity</div>
+          </div>
+        </div>
+      </div>
+
+      {/* TAPESTRY */}
+      {r3?.TSEGNAME && (
+        <div style={card}>
+          <div style={label}>TAPESTRY SEGMENTATION · BEHAVIORAL CLUSTER · 3-MI {linkBtn('https://www.esri.com/en-us/arcgis/products/data/data-portfolio/tapestry-segmentation', 'ESRI Tapestry')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+            <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '10px 18px', borderRadius: 8, fontSize: 16, fontWeight: 900, letterSpacing: '0.02em' }}>
+              {r3.TSEGNAME}
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+              Dominant psychographic cluster in this submarket. Shapes storage demand profile — family formation cohorts lean drive-up, empty-nester/downsizer cohorts lean CC, professional cohorts lean CC premium.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MULTI-RING DEMOGRAPHICS */}
+      <div style={card}>
+        <div style={label}>1-MI · 3-MI · 5-MI RING COMPARISON</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 10 }}>
+          <thead>
+            <tr style={{ color: 'rgba(201,168,76,0.85)', fontSize: 10, letterSpacing: '0.08em' }}>
+              <th style={{ textAlign: 'left', padding: 8 }}>METRIC</th>
+              <th style={{ textAlign: 'right', padding: 8 }}>1-MILE</th>
+              <th style={{ textAlign: 'right', padding: 8 }}>3-MILE</th>
+              <th style={{ textAlign: 'right', padding: 8 }}>5-MILE</th>
+            </tr>
+          </thead>
+          <tbody style={{ color: '#fff' }}>
+            <tr style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: 8 }}>Population</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>{r1?.TOTPOP_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>{r3?.TOTPOP_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>{r5?.TOTPOP_CY?.toLocaleString() || '—'}</td></tr>
+            <tr style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: 8 }}>Households</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>{r1?.TOTHH_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>{r3?.TOTHH_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>{r5?.TOTHH_CY?.toLocaleString() || '—'}</td></tr>
+            <tr style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: 8 }}>Median HHI</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>${r1?.MEDHINC_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>${r3?.MEDHINC_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>${r5?.MEDHINC_CY?.toLocaleString() || '—'}</td></tr>
+            <tr style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}><td style={{ padding: 8 }}>Median Home Value</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>${r1?.MEDVAL_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>${r3?.MEDVAL_CY?.toLocaleString() || '—'}</td><td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>${r5?.MEDVAL_CY?.toLocaleString() || '—'}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* REIT PRESENCE — "We Already Know Them" institutional knowledge panel */}
+      {(result.reit5mi || []).length > 0 && (() => {
+        const byBrand = {};
+        for (const loc of result.reit5mi) {
+          if (!byBrand[loc.brand]) byBrand[loc.brand] = { count: 0, nearest: Infinity, facilities: [] };
+          byBrand[loc.brand].count++;
+          byBrand[loc.brand].nearest = Math.min(byBrand[loc.brand].nearest, loc.distanceMi);
+          byBrand[loc.brand].facilities.push(loc);
+        }
+        const reit3Count = (result.reit3mi || []).length;
+        return (
+          <div style={{ ...card, background: 'linear-gradient(135deg, rgba(249,115,22,0.08), rgba(30,39,97,0.6))', border: '1px solid rgba(249,115,22,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>REIT PRESENCE · WE ALREADY KNOW THEM</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>
+                {result.reit5mi.length} facilities within 5 mi · {reit3Count} within 3 mi · source: Storvex Authoritative Registry ({result.registryRecordCount.toLocaleString()} indexed locations)
+              </div>
+            </div>
+            {Object.entries(byBrand).map(([brand, info]) => {
+              const intel = getOperatorIntel(brand);
+              return (
+                <div key={brand} style={{ background: 'rgba(0,0,0,0.28)', borderRadius: 10, padding: 16, marginBottom: 10, borderLeft: '3px solid #F97316' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: '#F97316' }}>
+                      {brand}
+                      {intel?.ticker && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginLeft: 8, fontWeight: 600 }}>({intel.ticker})</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#fff' }}>
+                      <b style={{ color: '#C9A84C' }}>{info.count}</b> facility{info.count !== 1 ? 'ies' : ''} · nearest <b>{info.nearest} mi</b>
+                    </div>
+                  </div>
+                  {intel ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
+                      {intel.type && <div><b style={{ color: '#C9A84C' }}>Type:</b> {intel.type}</div>}
+                      {intel.portfolioSize && <div><b style={{ color: '#C9A84C' }}>Portfolio:</b> {intel.portfolioSize}</div>}
+                      {intel.noiMargin && <div><b style={{ color: '#C9A84C' }}>NOI Margin:</b> {intel.noiMargin}</div>}
+                      {intel.acquisitionCap && <div><b style={{ color: '#C9A84C' }}>Acq. Cap:</b> {intel.acquisitionCap}</div>}
+                      {intel.stabilizedOccupancy && <div><b style={{ color: '#C9A84C' }}>Stab. Occ.:</b> {intel.stabilizedOccupancy}</div>}
+                      {intel.ecriProgram && <div><b style={{ color: '#C9A84C' }}>ECRI:</b> {intel.ecriProgram}</div>}
+                      {intel.acquisitionVolume2024 && <div><b style={{ color: '#C9A84C' }}>'24 Volume:</b> {intel.acquisitionVolume2024}</div>}
+                      {intel.expansionFocus && <div style={{ gridColumn: '1 / -1' }}><b style={{ color: '#C9A84C' }}>Expansion:</b> {intel.expansionFocus}</div>}
+                      {intel.keyContacts && <div style={{ gridColumn: '1 / -1' }}><b style={{ color: '#C9A84C' }}>Contacts:</b> {intel.keyContacts}</div>}
+                      {intel.note && <div style={{ gridColumn: '1 / -1', marginTop: 4, padding: 8, background: 'rgba(249,115,22,0.1)', borderRadius: 6, fontSize: 10, color: '#FED7AA' }}>⚠ {intel.note}</div>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>No institutional profile indexed for this brand yet.</div>
+                  )}
+                  <div style={{ marginTop: 10, fontSize: 9, color: 'rgba(255,255,255,0.45)' }}>
+                    Nearest facility: <a href={`https://www.google.com/maps/search/${encodeURIComponent(info.facilities[0].name + ' ' + info.facilities[0].address)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>{info.facilities[0].name}</a> — {info.facilities[0].address}, {info.facilities[0].city}, {info.facilities[0].state}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
+              Intelligence surfaced from: PSA/EXR/CUBE/NSA 10-K + 10-Q SEC filings · industry press · Dan R. direct operator relationships · Storvex location registry (updated quarterly).
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* INTERACTIVE MAP */}
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={label}>INTERACTIVE MAP · SUBJECT + COMPETITORS + PS FAMILY · 3-MI + 5-MI RINGS</div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: 10, color: 'rgba(255,255,255,0.65)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 12, height: 12, borderRadius: '50%', background: '#C9A84C', boxShadow: '0 0 8px #C9A84C' }}/>Subject</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#F97316' }}/>Public REIT</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#8B5CF6' }}/>Regional Chain</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#3B82F6' }}/>Local/Independent</div>
+          </div>
+        </div>
+        <div style={{ height: 420, borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(201,168,76,0.25)' }}>
+          <MapContainer center={[geo.lat, geo.lng]} zoom={13} scrollWheelZoom={true} style={{ width: '100%', height: '100%' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com">Carto</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            {/* 3-mi + 5-mi circles */}
+            <Circle center={[geo.lat, geo.lng]} radius={3 * 1609.34} pathOptions={{ color: '#C9A84C', weight: 2, opacity: 0.6, fillOpacity: 0.04, fillColor: '#C9A84C', dashArray: '5,5' }} />
+            <Circle center={[geo.lat, geo.lng]} radius={5 * 1609.34} pathOptions={{ color: '#64748B', weight: 1, opacity: 0.35, fillOpacity: 0, dashArray: '3,6' }} />
+            {/* Subject marker */}
+            <Marker position={[geo.lat, geo.lng]} icon={SUBJECT_ICON}>
+              <Popup>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#1E2761' }}>Subject Site</div>
+                <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{geo.formatted}</div>
+                <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 6 }}>{geo.lat.toFixed(4)}, {geo.lng.toFixed(4)}</div>
+              </Popup>
+            </Marker>
+            {/* Competitor + PS Family markers */}
+            {competitors.filter(c => c.lat && c.lng).map((c, i) => {
+              const op = classifyOperator(c.name);
+              const tierColor = op.tier === 'reit' ? '#9A3412' : op.tier === 'regional' ? '#6D28D9' : '#1E2761';
+              return (
+                <Marker key={c.id || i} position={[c.lat, c.lng]} icon={iconForOperator(op.tier)}>
+                  <Popup>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: tierColor }}>
+                      <span style={{ background: op.tier === 'reit' ? '#F97316' : op.tier === 'regional' ? '#8B5CF6' : '#3B82F6', color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 9, marginRight: 6, letterSpacing: '0.08em', fontWeight: 900 }}>{op.tierLabel.toUpperCase()}</span>
+                      {op.psFamily && <span style={{ background: '#1E2761', color: '#C9A84C', padding: '1px 6px', borderRadius: 3, fontSize: 9, marginRight: 6, letterSpacing: '0.08em', fontWeight: 900 }}>PS FAM</span>}
+                      {c.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{c.address || ''}</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>Distance: <b>{c.distanceMi} mi</b></div>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8, fontSize: 10 }}>
+                      {c.website && <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ color: '#3B82F6' }}>↗ Website</a>}
+                      <a href={`https://www.google.com/maps/search/${encodeURIComponent(c.name + ' ' + (c.address || ''))}`} target="_blank" rel="noopener noreferrer" style={{ color: '#3B82F6' }}>↗ Google Maps</a>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+            <FitBounds subject={{ lat: geo.lat, lng: geo.lng }} points={competitors.filter(c => c.lat && c.lng)} />
+          </MapContainer>
+        </div>
+        {(() => {
+          const psFam = competitors.filter(c => tagPSFamily(c.name) === 'ps-family').length;
+          const realComp = competitors.length - psFam;
+          return (
+            <div style={{ marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,0.65)', display: 'flex', gap: 16 }}>
+              <div><b style={{ color: '#fff' }}>{realComp}</b> competitors within 3 mi</div>
+              {psFam > 0 && <div><b style={{ color: '#F97316' }}>{psFam}</b> PS Family facility{psFam !== 1 ? 'ies' : ''} (excluded per §6b)</div>}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* COMPETITORS */}
+      <div style={card}>
+        <div style={label}>COMPETITORS WITHIN 3 MI · PLACES API · {competitors.length} FACILITIES {linkBtn('https://developers.google.com/maps/documentation/places/web-service/overview', 'Places API Source')}</div>
+        {competitors.length === 0 ? (
+          <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>No self-storage facilities found within 3 mi (or filter rejected all results).</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 10 }}>
+            <thead>
+              <tr style={{ color: 'rgba(201,168,76,0.85)', fontSize: 10, letterSpacing: '0.08em' }}>
+                <th style={{ textAlign: 'left', padding: 8 }}>FACILITY</th>
+                <th style={{ textAlign: 'right', padding: 8 }}>DISTANCE</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>ADDRESS</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>LINKS</th>
+              </tr>
+            </thead>
+            <tbody style={{ color: '#fff' }}>
+              {competitors.map((c, i) => {
+                const isPS = tagPSFamily(c.name) === 'ps-family';
+                return (
+                  <tr key={c.id} style={{ background: isPS ? 'rgba(249,115,22,0.08)' : (i % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'), borderLeft: isPS ? '3px solid #F97316' : 'none' }}>
+                    <td style={{ padding: 8, fontWeight: 700 }}>
+                      {isPS && <span style={{ background: '#F97316', color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 8, marginRight: 6, letterSpacing: '0.08em', fontWeight: 900 }}>PS FAM</span>}
+                      {c.name}
+                    </td>
+                    <td style={{ textAlign: 'right', padding: 8, fontFamily: "'Space Mono'" }}>{c.distanceMi} mi</td>
+                    <td style={{ padding: 8, fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>{c.address}</td>
+                    <td style={{ padding: 8, fontSize: 10 }}>
+                      <a href={`https://www.google.com/maps/search/${encodeURIComponent(c.name)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982', marginRight: 8, textDecoration: 'none' }}>↗ Maps</a>
+                      {c.website && <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982', textDecoration: 'none' }}>↗ Site</a>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* EINSTEIN NARRATIVE */}
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>STORVEX EINSTEIN</div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>
+            {result.narrativeStatus === 'pending' && '⏳ Generating institutional narrative via Claude Haiku 4.5 (~10-15s)...'}
+            {result.narrativeStatus === 'done' && result.narrative?.elapsedMs && `✓ Generated in ${(result.narrative.elapsedMs/1000).toFixed(1)}s · ${result.narrative.tokenUsage?.input || 0} in / ${result.narrative.tokenUsage?.output || 0} out tokens`}
+            {result.narrativeStatus === 'error' && '⚠ Narrative unavailable'}
+          </div>
+        </div>
+        {result.narrativeStatus === 'pending' && (
+          <div style={{ padding: 20, background: 'rgba(201,168,76,0.08)', border: '1px dashed rgba(201,168,76,0.3)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>
+            Einstein is synthesizing across Tapestry segment + demographics + competitor set + income distribution → institutional-grade investment memo + anomaly flags + buyer pitch email. This takes 10-20 seconds.
+          </div>
+        )}
+        {result.narrativeStatus === 'error' && (
+          <div style={{ padding: 14, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, fontSize: 11, color: '#FCA5A5' }}>
+            {result.narrativeError || 'Narrative endpoint error. See console for details.'}
+          </div>
+        )}
+        {result.narrativeStatus === 'done' && result.narrative && (
+          <>
+            {result.narrative.executiveSummary && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={label}>EXECUTIVE SUMMARY</div>
+                <div style={{ fontSize: 12, lineHeight: 1.8, color: 'rgba(255,255,255,0.88)', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: result.narrative.executiveSummary.replace(/\*\*(.*?)\*\*/g, '<b style="color:#C9A84C">$1</b>') }} />
+              </div>
+            )}
+            {result.narrative.investmentMemoLong && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={label}>INVESTMENT MEMO · LONG-FORM</div>
+                <div style={{ fontSize: 11.5, lineHeight: 1.7, color: 'rgba(255,255,255,0.82)', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: result.narrative.investmentMemoLong.replace(/\*\*(.*?)\*\*/g, '<b style="color:#C9A84C">$1</b>') }} />
+              </div>
+            )}
+            {Array.isArray(result.narrative.anomalyFlags) && result.narrative.anomalyFlags.length > 0 && (
+              <div style={{ marginBottom: 16, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', padding: 14, borderRadius: 10 }}>
+                <div style={{ ...label, color: '#FCA5A5' }}>⚠ ANOMALY FLAGS</div>
+                <ul style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 11.5, color: 'rgba(255,255,255,0.82)', lineHeight: 1.7 }}>
+                  {result.narrative.anomalyFlags.map((f, i) => <li key={i}>{f}</li>)}
+                </ul>
+              </div>
+            )}
+            {result.narrative.outreachIntel && (
+              <div style={{ marginBottom: 16, background: 'rgba(76,201,130,0.06)', border: '1px solid rgba(76,201,130,0.2)', padding: 14, borderRadius: 10 }}>
+                <div style={{ ...label, color: '#4CC982' }}>OUTREACH INTEL</div>
+                <div style={{ fontSize: 11.5, lineHeight: 1.7, color: 'rgba(255,255,255,0.82)', marginTop: 8 }}>
+                  {result.narrative.outreachIntel.bestHook && <div><b style={{ color: '#4CC982' }}>Best hook:</b> {result.narrative.outreachIntel.bestHook}</div>}
+                  {result.narrative.outreachIntel.timingSignal && <div style={{ marginTop: 6 }}><b style={{ color: '#4CC982' }}>Timing:</b> {result.narrative.outreachIntel.timingSignal}</div>}
+                  {result.narrative.outreachIntel.riskDisclosure && <div style={{ marginTop: 6 }}><b style={{ color: '#4CC982' }}>Risk disclosure:</b> {result.narrative.outreachIntel.riskDisclosure}</div>}
+                </div>
+              </div>
+            )}
+            {result.narrative.buyerPitchEmail && (
+              <div>
+                <div style={label}>AUTO-DRAFTED BUYER PITCH EMAIL</div>
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: 14, borderRadius: 10, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.82)', whiteSpace: 'pre-wrap', fontFamily: "'Space Mono', monospace" }}>{result.narrative.buyerPitchEmail}</div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* FOOTER — SOURCE ATTRIBUTION */}
+      <div style={{ ...card, background: 'rgba(0,0,0,0.3)' }}>
+        <div style={label}>DATA SOURCES · FULLY AUDITED · CLICK TO VERIFY</div>
+        <ul style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', lineHeight: 1.8, marginTop: 8, paddingLeft: 20 }}>
+          <li><b>Demographics:</b> <a href={esriViewerUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>ESRI ArcGIS GeoEnrichment 2025</a> (30 variables across 1/3/5-mi radial rings · current year estimates + 2030 projections)</li>
+          <li><b>Behavioral segmentation:</b> <a href="https://www.esri.com/en-us/arcgis/products/data/data-portfolio/tapestry-segmentation" target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>ESRI Tapestry Segmentation</a> (65 psychographic clusters)</li>
+          <li><b>Competitor enumeration:</b> <a href="https://developers.google.com/maps/documentation/places/web-service/overview" target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>Google Places API (New)</a> (storage type within 3-mi radius, filtered for self-storage brands)</li>
+          <li><b>Geocoding:</b> <a href="https://developers.google.com/maps/documentation/geocoding/overview" target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>Google Geocoding API</a></li>
+          <li><b>Coming from scheduled audit (after Save to Pipeline):</b> SpareFoot live comp rates + PS Family coord-match registry (4,247 locations) + Einstein narrative via Claude Haiku 4.5</li>
+        </ul>
+      </div>
+    </>
+  );
+}

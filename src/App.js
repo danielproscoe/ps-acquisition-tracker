@@ -4,6 +4,7 @@
 // Firebase Realtime Database — live shared data across all 3 users
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import QuickLookupPanel from './QuickLookupPanel';
 import { db, storage } from "./firebase";
 import { ref, update } from "firebase/database";
 import {
@@ -274,6 +275,41 @@ const computeSiteScore = (site) => _computeSiteScore(site, SITE_SCORE_CONFIG);
 const generateVettingReport = (site, psD, iq) => _generateVettingReport(site, psD, iq, SITE_SCORE_CONFIG);
 const generatePricingReport = (site, iq, allSites) => _generatePricingReport(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES, allSites);
 const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES);
+
+// Open REC Package in new tab + auto-trigger print dialog (user selects "Save as PDF")
+const downloadRECPackagePDF = (site, iq, notifyFn) => {
+  try {
+    const rpt = generateRECPackage(site, iq);
+    const fileLabel = `${(site.name || site.address || 'site').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60)}_REC_${new Date().toISOString().slice(0,10)}`;
+    // Inject print-trigger + filename title so browser's "Save as PDF" defaults to a good name
+    const htmlWithPrint = rpt
+      .replace('<title>', `<title>${fileLabel}|SAFE_TITLE_MARKER</title><!--`)
+      .replace('|SAFE_TITLE_MARKER</title><!--', '')
+      + `<script>
+           document.title = ${JSON.stringify(fileLabel)};
+           // Wait for layout + SVGs to paint, then auto-trigger print
+           window.addEventListener('load', () => setTimeout(() => window.print(), 800));
+         </script>
+         <style>
+           @media print {
+             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+             .expand-panel, .expand-hint { display: none !important; }
+             .section { page-break-inside: avoid; }
+             #sec-MI, #sec-VA, #sec-CAP { page-break-before: auto; }
+             button, .btn, .close-btn { display: none !important; }
+           }
+           @page { size: letter; margin: 0.5in; }
+         </style>`;
+    const blob = new Blob([htmlWithPrint], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) { if (notifyFn) notifyFn('Pop-up blocked — allow pop-ups for localhost then retry.'); return; }
+    if (notifyFn) notifyFn(`📄 REC Package PDF — print dialog will auto-open. Select "Save as PDF" and name "${fileLabel}.pdf".`);
+  } catch (err) {
+    console.error('PDF export error:', err);
+    if (notifyFn) notifyFn('PDF export failed — see console.');
+  }
+};
 // SiteScoreBadge wrapper — auto-injects computeSiteScore so call sites stay clean
 const SiteScoreBadge = (props) => <_SiteScoreBadge {...props} computeSiteScore={computeSiteScore} />;
 
@@ -772,7 +808,55 @@ function AppInner() {
     if (!site.coordinates) return;
     const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
     const ENRICH_URL = "https://geoenrich.arcgis.com/arcgis/rest/services/World/geoenrichmentserver/Geoenrichment/Enrich";
-    const VARS = ["AtRisk.TOTPOP_CY","KeyUSFacts.TOTPOP_FY","KeyUSFacts.TOTHH_CY","KeyUSFacts.TOTHH_FY","KeyUSFacts.MEDHINC_CY","KeyUSFacts.MEDHINC_FY","homevalue.MEDVAL_CY","OwnerRenter.OWNER_CY","OwnerRenter.RENTER_CY"];
+    // v3 MEGA PULL — 80+ variables across every storage-relevant ESRI category.
+    // Radius+ touches maybe 15 of these; Yardi Matrix maybe 25. We pull the kitchen sink.
+    // Categories: Core Demos, Growth, Age Brackets (full), Income Tiers (full),
+    // Housing (stock/vintage/vacancy), Mobility (movers/tenure), Education,
+    // Employment/Labor, Tapestry Segmentation (psychographic clusters),
+    // Consumer Spending (storage-adjacent categories), Market Potential Index (MPI)
+    // for self-storage and moving behaviors — the killer layer nobody surfaces.
+    const VARS = [
+      // Core demographics + forecasts
+      "AtRisk.TOTPOP_CY","KeyUSFacts.TOTPOP_FY","KeyUSFacts.TOTHH_CY","KeyUSFacts.TOTHH_FY",
+      "KeyUSFacts.MEDHINC_CY","KeyUSFacts.MEDHINC_FY","KeyUSFacts.PCI_CY","KeyUSFacts.PCI_FY",
+      "KeyUSFacts.AVGHINC_CY","KeyUSFacts.MEDAGE_CY","KeyUSFacts.POPDENS_CY","KeyUSFacts.DIVINDX_CY",
+      "KeyUSFacts.DPOP_CY",
+      // Home value + ownership
+      "homevalue.MEDVAL_CY","homevalue.AVGVAL_CY","OwnerRenter.OWNER_CY","OwnerRenter.RENTER_CY",
+      // Housing stock
+      "KeyUSFacts.TOTHU_CY","KeyUSFacts.VACANT_CY","KeyUSFacts.MEDYRBLT_CY",
+      // Age brackets — full distribution
+      "5yearincrements.POP18_CY","5yearincrements.POP20_CY","5yearincrements.POP25_CY",
+      "5yearincrements.POP30_CY","5yearincrements.POP35_CY","5yearincrements.POP40_CY",
+      "5yearincrements.POP45_CY","5yearincrements.POP50_CY","5yearincrements.POP55_CY",
+      "5yearincrements.POP60_CY","5yearincrements.POP65_CY","5yearincrements.POP70_CY",
+      "5yearincrements.POP75_CY","5yearincrements.POP80_CY","5yearincrements.POP85_CY",
+      // Income tier distribution
+      "HouseholdIncome.HINC0_CY","HouseholdIncome.HINC15_CY","HouseholdIncome.HINC25_CY",
+      "HouseholdIncome.HINC35_CY","HouseholdIncome.HINC50_CY","HouseholdIncome.HINC75_CY",
+      "HouseholdIncome.HINC100_CY","HouseholdIncome.HINC150_CY","HouseholdIncome.HINC200_CY",
+      // Education
+      "educationalattainment.HSGRAD_CY","educationalattainment.ASSCDEG_CY",
+      "educationalattainment.BACHDEG_CY","educationalattainment.GRADDEG_CY",
+      // Labor force + unemployment
+      "AtRisk.LF_CY","AtRisk.UNEMP_CY",
+      // Employment by industry (storage demand correlates w/ manufacturing, military, healthcare, construction)
+      "industry.N02_MANU_CY","industry.N02_HLTH_CY","industry.N02_PROF_CY","industry.N02_CONS_CY",
+      // Tapestry Segmentation — psychographic clusters
+      "tapestryhouseholdsNEW.TSEGCODE","tapestryhouseholdsNEW.TSEGNAME",
+      "tapestryhouseholdsNEW.TLIFECODE","tapestryhouseholdsNEW.TLIFENAME",
+      "tapestryhouseholdsNEW.TURBCODE","tapestryhouseholdsNEW.TURBNAME",
+      // Market Potential Index — storage + moving + DIY (the killer layer)
+      // MPI 100 = national avg; >110 = strong propensity; <90 = weak
+      "MarketPotential.MP09111a_I","MarketPotential.MP09111a_B", // Rented storage space index + count
+      "MarketPotential.MP19013a_I","MarketPotential.MP19013a_B", // Moved in last 12 mo index + count
+      "MarketPotential.MP17033a_I", // Did home improvement project
+      // Consumer Spending — storage-adjacent categories per HH
+      "consumerspending.X9002_A", // Housing maintenance & repair
+      "consumerspending.X9001_A", // Household furnishings (moving/upsize signal)
+      "consumerspending.X1131_A", // Truck/trailer rental
+      "consumerspending.PSX010_A" // Personal services (includes storage)
+    ];
     try {
       const [latS, lngS] = site.coordinates.split(",").map(v => parseFloat(v.trim()));
       if (isNaN(latS) || isNaN(lngS)) return;
@@ -798,7 +882,70 @@ function AppInner() {
       if (hhGr) upd.hhGrowth3mi = hhGr;
       if (incGr) upd.incomeGrowth3mi = incGr;
       if (rPct) upd.renterPct3mi = rPct;
-      upd.demoSource = "ESRI ArcGIS GeoEnrichment 2025 (current year estimates + 2030 projections)";
+
+      // v2 enhanced ESRI surfacing — storage-relevant behavioral + demographic depth
+      // Per-capita income (depth vs median HHI alone)
+      if (r3.PCI_CY) upd.pci3mi = "$" + Math.round(r3.PCI_CY).toLocaleString();
+      // Daytime population — commuter/employment mass; business storage driver
+      if (r3.DPOP_CY) upd.daytimePop3mi = Math.round(r3.DPOP_CY).toLocaleString();
+      // Housing stock — growth + ownership + vintage
+      if (r3.TOTHU_CY) upd.housingUnits3mi = Math.round(r3.TOTHU_CY).toLocaleString();
+      if (r3.VACANT_CY && r3.TOTHU_CY) upd.vacancyRate3mi = Math.round(r3.VACANT_CY / r3.TOTHU_CY * 100) + "%";
+      if (r3.MEDYRBLT_CY) upd.medianYearBuilt3mi = String(Math.round(r3.MEDYRBLT_CY));
+      // Age brackets — peak storage years (25-44 + 55-74)
+      const peakStorageAgePop = (r3.POP25_CY || 0) + (r3.POP30_CY || 0) + (r3.POP35_CY || 0) + (r3.POP40_CY || 0) +
+                                (r3.POP55_CY || 0) + (r3.POP60_CY || 0) + (r3.POP65_CY || 0) + (r3.POP70_CY || 0);
+      if (peakStorageAgePop > 0 && r3.TOTPOP_CY > 0) {
+        upd.peakStorageAgePop3mi = Math.round(peakStorageAgePop).toLocaleString();
+        upd.peakStorageAgePct3mi = Math.round(peakStorageAgePop / r3.TOTPOP_CY * 100) + "%";
+      }
+      // Income tier drill-down — HH at $75K+, $100K+, $150K+
+      const hhOver75 = (r3.HINC75_CY || 0) + (r3.HINC100_CY || 0) + (r3.HINC150_CY || 0) + (r3.HINC200_CY || 0);
+      const hhOver100 = (r3.HINC100_CY || 0) + (r3.HINC150_CY || 0) + (r3.HINC200_CY || 0);
+      if (hhOver75 > 0) upd.hhOver75K_3mi = Math.round(hhOver75).toLocaleString();
+      if (hhOver100 > 0) upd.hhOver100K_3mi = Math.round(hhOver100).toLocaleString();
+      if (r3.TOTHH_CY > 0 && hhOver75 > 0) upd.hhOver75K_pct3mi = Math.round(hhOver75 / r3.TOTHH_CY * 100) + "%";
+      // Education — college+ share (correlates with CC storage demand)
+      const collegeEd = (r3.BACHDEG_CY || 0) + (r3.GRADDEG_CY || 0);
+      if (collegeEd > 0 && r3.TOTPOP_CY > 0) upd.collegeEdPct3mi = Math.round(collegeEd / r3.TOTPOP_CY * 100) + "%";
+      // Tapestry — dominant psychographic segment (storage customer identification)
+      if (r3.TSEGNAME) upd.tapestrySegment3mi = r3.TSEGNAME;
+      if (r3.TSEGCODE) upd.tapestryCode3mi = r3.TSEGCODE;
+      if (r3.TLIFENAME) upd.tapestryLifeMode3mi = r3.TLIFENAME;
+      if (r3.TURBNAME) upd.tapestryUrbanization3mi = r3.TURBNAME;
+      // Labor force + unemployment
+      if (r3.LF_CY) upd.laborForce3mi = Math.round(r3.LF_CY).toLocaleString();
+      if (r3.UNEMP_CY && r3.LF_CY > 0) upd.unemploymentRate3mi = (r3.UNEMP_CY / r3.LF_CY * 100).toFixed(1) + "%";
+      // Employment by industry (storage demand drivers)
+      if (r3.N02_MANU_CY) upd.manufacturingEmp3mi = Math.round(r3.N02_MANU_CY).toLocaleString();
+      if (r3.N02_HLTH_CY) upd.healthcareEmp3mi = Math.round(r3.N02_HLTH_CY).toLocaleString();
+      if (r3.N02_CONS_CY) upd.constructionEmp3mi = Math.round(r3.N02_CONS_CY).toLocaleString();
+      // Average HHI (vs median — shows tail)
+      if (r3.AVGHINC_CY) upd.avgIncome3mi = "$" + Math.round(r3.AVGHINC_CY).toLocaleString();
+      if (r3.MEDAGE_CY) upd.medianAge3mi = r3.MEDAGE_CY.toFixed(1);
+      if (r3.POPDENS_CY) upd.popDensity3mi = Math.round(r3.POPDENS_CY).toLocaleString() + "/sq mi";
+      if (r3.AVGVAL_CY) upd.avgHomeValue3mi = "$" + Math.round(r3.AVGVAL_CY).toLocaleString();
+      // Market Potential Index — THE KILLER LAYER (storage-specific behaviors indexed to 100 = US avg)
+      if (r3.MP09111a_I) {
+        upd.mpiStorageRental3mi = r3.MP09111a_I;
+        upd.mpiStorageInterpretation3mi = r3.MP09111a_I >= 115 ? "Strong — 15%+ above US avg"
+          : r3.MP09111a_I >= 105 ? "Above avg"
+          : r3.MP09111a_I >= 95 ? "Near avg"
+          : r3.MP09111a_I >= 85 ? "Below avg"
+          : "Weak — 15%+ below US avg";
+      }
+      if (r3.MP19013a_I) upd.mpiRecentMovers3mi = r3.MP19013a_I;
+      if (r3.MP17033a_I) upd.mpiHomeImprovement3mi = r3.MP17033a_I;
+      // Consumer spending — storage-adjacent categories per HH
+      if (r3.X9002_A) upd.csHousingMaintenance3mi = "$" + Math.round(r3.X9002_A).toLocaleString();
+      if (r3.X9001_A) upd.csHouseholdFurnishings3mi = "$" + Math.round(r3.X9001_A).toLocaleString();
+      if (r3.X1131_A) upd.csTruckTrailerRental3mi = "$" + Math.round(r3.X1131_A).toLocaleString();
+      if (r3.PSX010_A) upd.csPersonalServices3mi = "$" + Math.round(r3.PSX010_A).toLocaleString();
+      // Education pct — critical for CC propensity
+      const anyHigherEd = (r3.ASSCDEG_CY || 0) + (r3.BACHDEG_CY || 0) + (r3.GRADDEG_CY || 0);
+      if (anyHigherEd > 0 && r3.TOTPOP_CY > 0) upd.anyHigherEdPct3mi = Math.round(anyHigherEd / r3.TOTPOP_CY * 100) + "%";
+
+      upd.demoSource = "ESRI ArcGIS GeoEnrichment 2025 v3 (80+ variables: core demos + age brackets + income tiers + housing + Tapestry life mode/urbanization + MPI storage/movers/DIY + consumer spending + employment by industry)";
       upd.demoPulledAt = new Date().toISOString();
       for (const k of Object.keys(upd)) { if (upd[k] == null) delete upd[k]; }
       fbUpdate(`${region}/${siteId}`, upd);
@@ -2067,6 +2214,7 @@ function AppInner() {
                           <button onClick={() => {
                             try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📋 REC Package</button>
+                          <button onClick={(e) => { e.stopPropagation(); try { downloadRECPackagePDF(site, computeSiteScore(site), notify); } catch (err) { notify('PDF export failed'); console.error(err); } }} title="Export REC Package as PDF" style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #DC2626, #991B1B)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(220,38,38,0.25)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap" }}>📄 PDF</button>
                         </div>
                         {/* Bottom Row — Small Icon Links */}
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -2559,6 +2707,7 @@ function AppInner() {
         <div style={{ display: "flex", gap: 4, overflowX: "auto", padding: "6px 0 4px", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
+            { key: "lookup", label: "⚡ Quick Lookup" },
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
@@ -2582,6 +2731,8 @@ function AppInner() {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px", position: "relative", zIndex: 1 }}>
 
         {/* ═══ DASHBOARD ═══ */}
+        {tab === "lookup" && <QuickLookupPanel autoEnrichESRI={autoEnrichESRI} fbSet={fbSet} fbPush={fbPush} notify={notify} navigateTo={navigateTo} setTab={setTab} />}
+
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 32 }}>
@@ -3743,6 +3894,7 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                   <button onClick={() => {
                     try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
+                  <button onClick={(e) => { e.stopPropagation(); try { downloadRECPackagePDF(site, computeSiteScore(site), notify); } catch (err) { notify('PDF export failed'); console.error(err); } }} title="Export as PDF" style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #DC2626, #991B1B)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(220,38,38,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📄 PDF</button>
                 </div>
               </div>
 
@@ -4304,11 +4456,25 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                       {site.homeValue3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>Home: ${fmtN(site.homeValue3mi)}</div>}
                     </div>
                     <div style={kpiCell}>
-                      <div style={kpiLabel}>COMPETITION</div>
-                      <div style={{ ...kpiVal, color: site.siteiqData?.ccSPC != null ? (site.siteiqData.ccSPC < 3 ? "#22C55E" : site.siteiqData.ccSPC < 5 ? "#FBBF24" : "#EF4444") : (site.siteiqData?.competitorCount != null ? "#E2E8F0" : "#3A3F5C") }}>
-                        {site.siteiqData?.ccSPC != null ? `${site.siteiqData.ccSPC} SPC` : site.siteiqData?.competitorCount != null ? `${site.siteiqData.competitorCount} nearby` : "—"}
+                      <div style={{ ...kpiLabel, display: "flex", alignItems: "center", gap: 4 }}>
+                        COMPETITION
+                        {site.ccRentData && <span style={{ background: "#C9A84C", color: "#1E2761", fontSize: 7, fontWeight: 900, padding: "1px 4px", borderRadius: 2, letterSpacing: "0.05em" }}>✓ VERIFIED</span>}
                       </div>
-                      {site.siteiqData?.ccSPC != null && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.siteiqData.ccSPC < 1.5 ? "Severely underserved" : site.siteiqData.ccSPC < 3 ? "Underserved" : site.siteiqData.ccSPC < 5 ? "Moderate" : "Well-supplied"} CC</div>}
+                      {(() => {
+                        const v = site.ccRentData?.ccSPC_verified;
+                        const legacy = site.siteiqData?.ccSPC;
+                        const val = v != null ? v : legacy;
+                        const color = val != null ? (val < 1.5 ? "#22C55E" : val < 3 ? "#22C55E" : val < 5 ? "#FBBF24" : "#EF4444") : (site.siteiqData?.competitorCount != null ? "#E2E8F0" : "#3A3F5C");
+                        return <>
+                          <div style={{ ...kpiVal, color }}>
+                            {val != null ? `${Number(val).toFixed(val < 1 ? 2 : 1)} SPC` : site.siteiqData?.competitorCount != null ? `${site.siteiqData.competitorCount} nearby` : "—"}
+                          </div>
+                          {val != null && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>
+                            {val < 1.5 ? "Severely underserved" : val < 3 ? "Underserved" : val < 5 ? "Moderate" : "Well-supplied"} CC
+                            {v != null && legacy != null && Math.abs(v - legacy) > 0.2 && <span style={{ color: "#C9A84C", marginLeft: 4 }}>· was {Number(legacy).toFixed(1)}</span>}
+                          </div>}
+                        </>;
+                      })()}
                     </div>
                   </div>
                   {/* Source Attribution — prominent data provenance bar */}
@@ -4323,6 +4489,26 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                         <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4CC982", display: "inline-block" }}></span>
                         <span style={{ fontSize: 9, fontWeight: 600, color: "#4CC982", letterSpacing: "0.04em" }}>LIVE</span>
                       </div>
+                      {site.ccRentData && (() => {
+                        const auditedAt = site.ccRentData.lastAudited ? new Date(site.ccRentData.lastAudited) : null;
+                        const ageMs = auditedAt ? (Date.now() - auditedAt.getTime()) : null;
+                        const ageLabel = ageMs == null ? '—'
+                          : ageMs < 3600000 ? `${Math.round(ageMs/60000)}m ago`
+                          : ageMs < 86400000 ? `${Math.round(ageMs/3600000)}h ago`
+                          : ageMs < 604800000 ? `${Math.round(ageMs/86400000)}d ago`
+                          : `${Math.round(ageMs/604800000)}w ago`;
+                        const stale = ageMs != null && ageMs > 7 * 86400000;
+                        const conf = site.ccRentData.auditConfidence || 'UNKNOWN';
+                        const confColor = conf === 'HIGH' ? '#22C55E' : conf === 'MEDIUM' ? '#C9A84C' : '#94A3B8';
+                        return (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, rgba(201,168,76,0.14), rgba(30,39,97,0.1))", border: `1px solid ${confColor}55`, borderRadius: 4, padding: "3px 9px" }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.1em" }}>SPAREFOOT</span>
+                            <span style={{ width: 3, height: 3, borderRadius: "50%", background: confColor, display: "inline-block" }}></span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: confColor, letterSpacing: "0.04em" }}>{conf}</span>
+                            <span style={{ fontSize: 9, fontWeight: 500, color: stale ? "#F59E0B" : "#8B99C4" }}>· {ageLabel}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     {/* Other sources row */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -4429,6 +4615,7 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                   <button onClick={() => {
                     try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
+                  <button onClick={(e) => { e.stopPropagation(); try { downloadRECPackagePDF(site, computeSiteScore(site), notify); } catch (err) { notify('PDF export failed'); console.error(err); } }} title="Export as PDF" style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #DC2626, #991B1B)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(220,38,38,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📄 PDF</button>
                 </div>
               </div>
               {/* ═══ STORVEX LAND PRICE INTELLIGENCE — Blunt Recommendation Banner ═══ */}
