@@ -524,6 +524,53 @@ function getOperatorIntel(brand) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Stream Einstein narrative via SSE (/api/narrate-stream)
+// Browser parses incoming "data: {...}" events and dispatches to callbacks.
+// ═══════════════════════════════════════════════════════════════════════════
+async function streamNarrative(url, body, { onDelta, onSectionEnd, onDone, onError, onUsage } = {}) {
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      onError?.(`${resp.status}: ${errText.slice(0, 300) || 'Streaming endpoint unavailable'}`);
+      return;
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nlIdx;
+      while ((nlIdx = buf.indexOf('\n\n')) >= 0) {
+        const rawEvent = buf.slice(0, nlIdx);
+        buf = buf.slice(nlIdx + 2);
+        for (const line of rawEvent.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === 'delta') onDelta?.(evt.section, evt.text);
+            else if (evt.type === 'section_end') onSectionEnd?.(evt.section);
+            else if (evt.type === 'done') onDone?.(evt.elapsedMs);
+            else if (evt.type === 'error') onError?.(evt.error + (evt.detail ? ': ' + evt.detail : ''));
+            else if (evt.type === 'usage') onUsage?.(evt.usage);
+          } catch { /* ignore malformed */ }
+        }
+      }
+    }
+  } catch (err) {
+    onError?.(err.message || String(err));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify, navigateTo, setTab }) {
@@ -650,24 +697,47 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
         collegeEdPct3mi: collegePct != null ? collegePct.toFixed(1) + '%' : null,
         vacancyRate3mi: vacancyPct != null ? vacancyPct.toFixed(1) + '%' : null,
       };
-      setPhase('Generating Einstein narrative (Claude Haiku 4.5)...');
-      fetch('/api/narrate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audit: auditPayload, site: sitePayload, buyerType: 'storage_reit' }),
-      }).then(async (resp) => {
-        if (!resp.ok) {
-          const err = await resp.text().catch(() => '');
-          setResult(r => r ? { ...r, narrativeStatus: 'error', narrativeError: `${resp.status}: ${err.slice(0, 200) || 'Serverless endpoint unavailable. Deploy to Vercel or set ANTHROPIC_API_KEY.'}` } : r);
+      setPhase('Streaming Einstein narrative (Claude Haiku 4.5)...');
+      streamNarrative('/api/narrate-stream', { audit: auditPayload, site: sitePayload, buyerType: 'storage_reit' }, {
+        onDelta: (section, text) => {
+          setResult(r => {
+            if (!r) return r;
+            const narrative = r.narrative || { executiveSummary: '', investmentMemoLong: '', anomalyFlagsRaw: '', buyerPitchEmail: '', outreachIntelRaw: '' };
+            if (section === 'EXECUTIVE_SUMMARY') narrative.executiveSummary = (narrative.executiveSummary || '') + text;
+            else if (section === 'INVESTMENT_MEMO_LONG') narrative.investmentMemoLong = (narrative.investmentMemoLong || '') + text;
+            else if (section === 'ANOMALY_FLAGS') narrative.anomalyFlagsRaw = (narrative.anomalyFlagsRaw || '') + text;
+            else if (section === 'BUYER_PITCH_EMAIL') narrative.buyerPitchEmail = (narrative.buyerPitchEmail || '') + text;
+            else if (section === 'OUTREACH_INTEL') narrative.outreachIntelRaw = (narrative.outreachIntelRaw || '') + text;
+            return { ...r, narrative, narrativeStatus: 'streaming' };
+          });
+        },
+        onSectionEnd: (section) => {
+          setResult(r => {
+            if (!r || !r.narrative) return r;
+            const n = { ...r.narrative };
+            // Parse anomaly flags from lines starting with "• " or "- "
+            if (section === 'ANOMALY_FLAGS' && n.anomalyFlagsRaw) {
+              n.anomalyFlags = n.anomalyFlagsRaw.split('\n').map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean);
+            }
+            // Parse outreach intel into structured object
+            if (section === 'OUTREACH_INTEL' && n.outreachIntelRaw) {
+              const intel = {};
+              const bh = n.outreachIntelRaw.match(/BEST_HOOK:\s*(.*)/i); if (bh) intel.bestHook = bh[1].trim();
+              const ts = n.outreachIntelRaw.match(/TIMING_SIGNAL:\s*(.*)/i); if (ts) intel.timingSignal = ts[1].trim();
+              const rd = n.outreachIntelRaw.match(/RISK_DISCLOSURE:\s*(.*)/i); if (rd) intel.riskDisclosure = rd[1].trim();
+              n.outreachIntel = intel;
+            }
+            return { ...r, narrative: n };
+          });
+        },
+        onDone: (elapsedMs) => {
+          setResult(r => r ? { ...r, narrative: { ...r.narrative, elapsedMs }, narrativeStatus: 'done' } : r);
           setPhase('');
-          return;
+        },
+        onError: (err) => {
+          setResult(r => r ? { ...r, narrativeStatus: 'error', narrativeError: err + ' (note: streaming endpoint requires Vercel deployment — localhost dev server does not serve /api/*)' } : r);
+          setPhase('');
         }
-        const narrative = await resp.json();
-        setResult(r => r ? { ...r, narrative, narrativeStatus: 'done' } : r);
-        setPhase('');
-      }).catch(err => {
-        setResult(r => r ? { ...r, narrativeStatus: 'error', narrativeError: err.message + ' (note: /api/narrate requires Vercel deployment — localhost dev server does not serve it)' } : r);
-        setPhase('');
       });
     } catch (e) {
       setError(e.message || String(e));
@@ -1243,14 +1313,15 @@ function ResultsView({ result, saveToFirebase }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>STORVEX EINSTEIN</div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>
-            {result.narrativeStatus === 'pending' && '⏳ Generating institutional narrative via Claude Haiku 4.5 (~10-15s)...'}
-            {result.narrativeStatus === 'done' && result.narrative?.elapsedMs && `✓ Generated in ${(result.narrative.elapsedMs/1000).toFixed(1)}s · ${result.narrative.tokenUsage?.input || 0} in / ${result.narrative.tokenUsage?.output || 0} out tokens`}
+            {result.narrativeStatus === 'pending' && '⏳ Connecting to Claude Haiku 4.5 SSE stream...'}
+            {result.narrativeStatus === 'streaming' && <span style={{ color: '#4CC982' }}>🔴 LIVE · streaming tokens from Claude Haiku 4.5 <span style={{ animation: 'blink 1s infinite', display: 'inline-block' }}>▊</span></span>}
+            {result.narrativeStatus === 'done' && result.narrative?.elapsedMs && `✓ Streamed in ${(result.narrative.elapsedMs/1000).toFixed(1)}s`}
             {result.narrativeStatus === 'error' && '⚠ Narrative unavailable'}
           </div>
         </div>
         {result.narrativeStatus === 'pending' && (
           <div style={{ padding: 20, background: 'rgba(201,168,76,0.08)', border: '1px dashed rgba(201,168,76,0.3)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>
-            Einstein is synthesizing across Tapestry segment + demographics + competitor set + income distribution → institutional-grade investment memo + anomaly flags + buyer pitch email. This takes 10-20 seconds.
+            Einstein is synthesizing across Tapestry segment + demographics + competitor set + income distribution → institutional-grade investment memo + anomaly flags + buyer pitch email. Streaming word-by-word...
           </div>
         )}
         {result.narrativeStatus === 'error' && (
@@ -1258,7 +1329,7 @@ function ResultsView({ result, saveToFirebase }) {
             {result.narrativeError || 'Narrative endpoint error. See console for details.'}
           </div>
         )}
-        {result.narrativeStatus === 'done' && result.narrative && (
+        {(result.narrativeStatus === 'done' || result.narrativeStatus === 'streaming') && result.narrative && (
           <>
             {result.narrative.executiveSummary && (
               <div style={{ marginBottom: 16 }}>
@@ -1358,16 +1429,54 @@ function percentileTierLabel(p) {
   return { label: 'WEAK', color: '#EF4444' };
 }
 
+// ─── Operator default economics (pulls 10-K data from OPERATOR_KB) ───
+// When user selects an operator from the dropdown, the YOC inputs
+// re-calibrate to that operator's 10-K-disclosed portfolio averages.
+// Result: same site, different operators → different projected YOC.
+const OPERATOR_ECONOMICS = {
+  'Public Storage':         { cap: 0.056, ccRent: 1.55, duRent: 0.95, expRatio: 22, stabOcc: 91, ecriBump: 0.08, hurdle: 7.0, color: '#0052A3', rentLabel: 'PSA portfolio avg 2024 10-K ($18.50 rev/SF blended, 78% CC premium)' },
+  'Extra Space Storage':    { cap: 0.060, ccRent: 1.48, duRent: 0.90, expRatio: 26, stabOcc: 93, ecriBump: 0.08, hurdle: 6.8, color: '#5B2C82', rentLabel: 'EXR 10-K 2024 ($17.20 rev/SF, post-LSI merger)' },
+  'CubeSmart':              { cap: 0.061, ccRent: 1.42, duRent: 0.85, expRatio: 30, stabOcc: 91, ecriBump: 0.07, hurdle: 6.8, color: '#E30613', rentLabel: 'CUBE 10-K 2024 ($15.80 rev/SF portfolio avg)' },
+  'SmartStop Self Storage': { cap: 0.062, ccRent: 1.38, duRent: 0.82, expRatio: 36, stabOcc: 90, ecriBump: 0.07, hurdle: 7.5, color: '#004B8D', rentLabel: 'SMA post-IPO 2025, maturing portfolio' },
+  'Simply Self Storage':    { cap: 0.058, ccRent: 1.50, duRent: 0.92, expRatio: 24, stabOcc: 91, ecriBump: 0.08, hurdle: 7.0, color: '#F47521', rentLabel: 'Blackstone REIT institutional benchmark' },
+  'Prime Storage Group':    { cap: 0.063, ccRent: 1.45, duRent: 0.88, expRatio: 32, stabOcc: 90, ecriBump: 0.07, hurdle: 7.5, color: '#C8102E', rentLabel: 'Prime Group private institutional' },
+  'StorQuest':              { cap: 0.065, ccRent: 1.90, duRent: 1.00, expRatio: 34, stabOcc: 89, ecriBump: 0.06, hurdle: 8.0, color: '#00A3E0', rentLabel: 'WWG OC/LA/DC premium markets, $1.80-2.00/SF target' },
+  'U-Haul Moving & Storage':{ cap: 0.068, ccRent: 1.30, duRent: 0.75, expRatio: 40, stabOcc: 87, ecriBump: 0.05, hurdle: 8.5, color: '#F58220', rentLabel: 'UHAL hybrid storage + rental, lower NOI margin' },
+  'Storage King USA':       { cap: 0.065, ccRent: 1.40, duRent: 0.82, expRatio: 34, stabOcc: 89, ecriBump: 0.06, hurdle: 8.0, color: '#004990', rentLabel: 'Andover private institutional' },
+  'Storage Mart':           { cap: 0.063, ccRent: 1.40, duRent: 0.82, expRatio: 34, stabOcc: 89, ecriBump: 0.06, hurdle: 7.5, color: '#006341', rentLabel: 'StorageMart private operator' },
+  'Morningstar Properties': { cap: 0.063, ccRent: 1.42, duRent: 0.85, expRatio: 32, stabOcc: 90, ecriBump: 0.07, hurdle: 7.5, color: '#D32F2F', rentLabel: 'Morningstar SE/Mid-Atlantic private REIT' },
+  'Baranof Holdings':       { cap: 0.065, ccRent: 1.38, duRent: 0.82, expRatio: 35, stabOcc: 88, ecriBump: 0.06, hurdle: 8.0, color: '#2E3B4E', rentLabel: 'TX fund-backed roll-up' },
+  'Compass Self Storage':   { cap: 0.062, ccRent: 1.40, duRent: 0.83, expRatio: 33, stabOcc: 89, ecriBump: 0.07, hurdle: 7.5, color: '#F26522', rentLabel: 'Amsdell-owned Midwest/SE operator' },
+  'Merit Hill Capital':     { cap: 0.060, ccRent: 1.42, duRent: 0.85, expRatio: 30, stabOcc: 90, ecriBump: 0.07, hurdle: 7.2, color: '#1A365D', rentLabel: 'NY institutional fund' },
+  'STORVEX BENCHMARK':      { cap: 0.060, ccRent: 1.45, duRent: 0.85, expRatio: 28, stabOcc: 91, ecriBump: 0.07, hurdle: 7.0, color: '#C9A84C', rentLabel: 'Blended REIT benchmark — weighted avg of top 10 institutional operators' }
+};
+
 function PercentileAndYOCCard({ r3, competitors, geo }) {
-  // ─── State for YOC calculator ───
+  // ─── Operator selection drives underwriting defaults ───
+  const [operator, setOperator] = React.useState('STORVEX BENCHMARK');
+  const opEcon = OPERATOR_ECONOMICS[operator] || OPERATOR_ECONOMICS['STORVEX BENCHMARK'];
+
+  // ─── State for YOC calculator (seeded from operator) ───
   const [acres, setAcres] = React.useState(4.0);
   const [landPerAc, setLandPerAc] = React.useState(400000);
   const [buildPerSF, setBuildPerSF] = React.useState(95);
   const [ccPremium, setCcPremium] = React.useState(70); // % CC vs drive-up
-  const [ccRent, setCcRent] = React.useState(1.45); // $/SF/mo
-  const [duRent, setDuRent] = React.useState(0.85);
-  const [stabilizedOcc, setStabilizedOcc] = React.useState(91);
-  const [expenseRatio, setExpenseRatio] = React.useState(28); // % of revenue
+  const [ccRent, setCcRent] = React.useState(opEcon.ccRent); // $/SF/mo
+  const [duRent, setDuRent] = React.useState(opEcon.duRent);
+  const [stabilizedOcc, setStabilizedOcc] = React.useState(opEcon.stabOcc);
+  const [expenseRatio, setExpenseRatio] = React.useState(opEcon.expRatio); // % of revenue
+  const [capRate, setCapRate] = React.useState(opEcon.cap * 100);
+
+  // When operator changes, re-seed underwriting inputs to that operator's 10-K defaults
+  React.useEffect(() => {
+    const e = OPERATOR_ECONOMICS[operator];
+    if (!e) return;
+    setCcRent(e.ccRent);
+    setDuRent(e.duRent);
+    setStabilizedOcc(e.stabOcc);
+    setExpenseRatio(e.expRatio);
+    setCapRate(e.cap * 100);
+  }, [operator]);
 
   // Percentiles
   const pop = r3?.TOTPOP_CY || 0;
@@ -1397,13 +1506,31 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
   const stabilizedRev = grossRentPerYr * (stabilizedOcc / 100);
   const stabilizedNOI = stabilizedRev * (1 - expenseRatio / 100);
   const projYOC = totalCost > 0 ? (stabilizedNOI / totalCost) * 100 : 0;
-  const yocColor = projYOC >= 8.0 ? '#10B981' : projYOC >= 7.0 ? '#22C55E' : projYOC >= 6.0 ? '#F59E0B' : '#EF4444';
-  const yocVerdict = projYOC >= 8.0 ? 'HOME RUN' : projYOC >= 7.0 ? 'STRIKE (PS target)' : projYOC >= 6.0 ? 'MARGINAL' : 'BELOW HURDLE';
+  const hurdle = opEcon.hurdle;
+  const yocColor = projYOC >= hurdle + 1 ? '#10B981' : projYOC >= hurdle ? '#22C55E' : projYOC >= hurdle - 1 ? '#F59E0B' : '#EF4444';
+  const yocVerdict = projYOC >= hurdle + 1 ? 'HOME RUN' : projYOC >= hurdle ? `STRIKE (${operator.split(' ')[0]} hurdle)` : projYOC >= hurdle - 1 ? 'MARGINAL' : 'BELOW HURDLE';
 
-  // Stabilized value at 5.6% PS acquisition cap
-  const stabValueAtPSCap = stabilizedNOI / 0.056;
-  const stabValueAtInstCap = stabilizedNOI / 0.060;
-  const valueCreation = stabValueAtPSCap - totalCost;
+  // Stabilized value at operator-specific cap
+  const stabValueAtOpCap = stabilizedNOI / (capRate / 100);
+  const stabValueAtBenchmarkCap = stabilizedNOI / 0.060;
+  const valueCreation = stabValueAtOpCap - totalCost;
+
+  // ─── 10-YR PRO FORMA using operator's lease-up playbook ───
+  // Use OPERATOR_KB[operator].playbookTier → LEASE_UP_PLAYBOOK[tier].rentCurve
+  const opKB = OPERATOR_KB[operator];
+  const tierKey = opKB?.playbookTier || 'tier1';
+  const playbook = LEASE_UP_PLAYBOOK[tierKey];
+  const stabilizedStreetRate = grossRentPerMo * 12; // Y3 stabilized (street rate baseline)
+  const proForma = playbook ? playbook.rentCurve.map((y) => {
+    const occDecimal = parseFloat(y.occ) / 100;
+    const rev = stabilizedStreetRate * y.rentIndex * occDecimal;
+    const noiMargin = 1 - (expenseRatio / 100);
+    // Mature NOI margin scales up by year as operators harvest ECRI
+    const yearMargin = y.phase === 'LEASE-UP' ? noiMargin * 0.55 : y.phase === 'RAMP' ? noiMargin * 0.82 : y.phase === 'STABILIZED' ? noiMargin * 0.95 : noiMargin;
+    const noi = rev * yearMargin;
+    const yoc = totalCost > 0 ? (noi / totalCost) * 100 : 0;
+    return { year: y.year, occ: y.occ, rentIndex: y.rentIndex, phase: y.phase, rev, noi, yoc };
+  }) : [];
 
   const label = { fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(201,168,76,0.85)', marginBottom: 6 };
   const card = { background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 14, padding: 20, marginBottom: 14 };
@@ -1442,13 +1569,47 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
       </div>
 
       {/* YOC CALCULATOR */}
-      <div style={{ padding: 14, background: 'rgba(0,0,0,0.35)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚡ YIELD-ON-COST CALCULATOR · LIVE</div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Adjust inputs — stabilized YOC updates instantly. PS target: 7%+</div>
+      <div style={{ padding: 14, background: 'rgba(0,0,0,0.35)', borderRadius: 10, border: `2px solid ${opEcon.color}55` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚡ OPERATOR-CALIBRATED UNDERWRITING · LIVE</div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Pick an operator — underwriting re-calibrates to their 10-K portfolio economics</div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
+        {/* OPERATOR SELECTOR */}
+        <div style={{ marginBottom: 16, padding: 12, background: `linear-gradient(135deg, ${opEcon.color}22, rgba(0,0,0,0.3))`, borderRadius: 8, border: `1px solid ${opEcon.color}66` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+            <span style={{ ...label, marginBottom: 0 }}>UNDERWRITE FOR OPERATOR</span>
+            <select value={operator} onChange={e => setOperator(e.target.value)} style={{ ...inp, width: 'auto', flex: 1, minWidth: 200, fontSize: 13, fontWeight: 700 }}>
+              <optgroup label="━ STORVEX BENCHMARK ━">
+                <option value="STORVEX BENCHMARK">🎯 Storvex Blended REIT Benchmark</option>
+              </optgroup>
+              <optgroup label="━ PUBLIC REITS ━">
+                <option value="Public Storage">Public Storage (PSA) — 5.6% cap</option>
+                <option value="Extra Space Storage">Extra Space (EXR) — 6.0% cap</option>
+                <option value="CubeSmart">CubeSmart (CUBE) — 6.1% cap</option>
+                <option value="SmartStop Self Storage">SmartStop (SMA) — 6.2% cap</option>
+                <option value="U-Haul Moving & Storage">U-Haul (UHAL) — 6.8% cap</option>
+              </optgroup>
+              <optgroup label="━ PRIVATE INSTITUTIONAL ━">
+                <option value="Simply Self Storage">Simply Self Storage (Blackstone) — 5.8% cap</option>
+                <option value="Prime Storage Group">Prime Storage Group — 6.3% cap</option>
+                <option value="Merit Hill Capital">Merit Hill Capital — 6.0% cap</option>
+                <option value="Morningstar Properties">Morningstar Properties — 6.3% cap</option>
+                <option value="Baranof Holdings">Baranof Holdings — 6.5% cap</option>
+                <option value="Storage King USA">Storage King USA (Andover) — 6.5% cap</option>
+                <option value="StorQuest">StorQuest (WWG) — 6.5% cap</option>
+                <option value="Storage Mart">Storage Mart — 6.3% cap</option>
+                <option value="Compass Self Storage">Compass Self Storage — 6.2% cap</option>
+              </optgroup>
+            </select>
+            <span style={{ background: opEcon.color, color: '#fff', padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 900, letterSpacing: '0.08em' }}>HURDLE {hurdle}% YOC</span>
+          </div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
+            ↳ {opEcon.rentLabel}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
           <div><div style={label}>ACREAGE</div><input type="number" step="0.1" value={acres} onChange={e=>setAcres(parseFloat(e.target.value)||0)} style={inp}/></div>
           <div><div style={label}>LAND $/AC</div><input type="number" step="10000" value={landPerAc} onChange={e=>setLandPerAc(parseFloat(e.target.value)||0)} style={inp}/></div>
           <div><div style={label}>BUILD $/SF</div><input type="number" step="5" value={buildPerSF} onChange={e=>setBuildPerSF(parseFloat(e.target.value)||0)} style={inp}/></div>
@@ -1457,6 +1618,7 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
           <div><div style={label}>DRIVE-UP $/SF/MO</div><input type="number" step="0.05" value={duRent} onChange={e=>setDuRent(parseFloat(e.target.value)||0)} style={inp}/></div>
           <div><div style={label}>STAB. OCC %</div><input type="number" step="1" value={stabilizedOcc} onChange={e=>setStabilizedOcc(parseFloat(e.target.value)||0)} style={inp}/></div>
           <div><div style={label}>EXPENSE RATIO %</div><input type="number" step="1" value={expenseRatio} onChange={e=>setExpenseRatio(parseFloat(e.target.value)||0)} style={inp}/></div>
+          <div><div style={label}>CAP RATE %</div><input type="number" step="0.1" value={capRate} onChange={e=>setCapRate(parseFloat(e.target.value)||0)} style={inp}/></div>
         </div>
 
         {/* COMPUTED PROJECT DECK */}
@@ -1481,10 +1643,10 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
             <div style={{ fontSize: 22, fontWeight: 900, color: yocColor, fontFamily: "'Space Mono', monospace" }}>{projYOC.toFixed(2)}%</div>
             <div style={{ fontSize: 9, color: yocColor, fontWeight: 700 }}>{yocVerdict}</div>
           </div>
-          <div style={{ background: 'rgba(30,39,97,0.4)', padding: 10, borderRadius: 6, borderLeft: '3px solid #3B82F6' }}>
-            <div style={label}>STAB. VALUE @ 5.6% CAP</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#60A5FA', fontFamily: "'Space Mono', monospace" }}>${(stabValueAtPSCap/1e6).toFixed(2)}M</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>PS acquisition cap · 6.0% inst ${(stabValueAtInstCap/1e6).toFixed(2)}M</div>
+          <div style={{ background: 'rgba(30,39,97,0.4)', padding: 10, borderRadius: 6, borderLeft: `3px solid ${opEcon.color}` }}>
+            <div style={label}>STAB. VALUE @ {capRate.toFixed(1)}% CAP</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: opEcon.color, fontFamily: "'Space Mono', monospace" }}>${(stabValueAtOpCap/1e6).toFixed(2)}M</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>{operator} cap · benchmark 6.0% = ${(stabValueAtBenchmarkCap/1e6).toFixed(2)}M</div>
           </div>
           <div style={{ background: valueCreation > 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', padding: 10, borderRadius: 6, borderLeft: `3px solid ${valueCreation > 0 ? '#10B981' : '#EF4444'}` }}>
             <div style={label}>VALUE CREATION</div>
@@ -1495,9 +1657,60 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
           </div>
         </div>
         <div style={{ marginTop: 10, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-          Formula: YOC = Stabilized NOI ÷ (Land + Build Cost). Assumes {acres >= 3.5 ? '1-story' : 'multi-story'} plate at {(buildablePct*100).toFixed(0)}% site coverage × 85% net rentable. Adjust inputs to match market comps.
+          Formula: YOC = Stabilized NOI ÷ (Land + Build Cost). Assumes {acres >= 3.5 ? '1-story' : 'multi-story'} plate at {(buildablePct*100).toFixed(0)}% site coverage × 85% net rentable. Hurdle = {hurdle}% (per {operator} institutional target).
         </div>
       </div>
+
+      {/* 10-YR PRO FORMA — using operator's lease-up playbook */}
+      {proForma.length > 0 && (
+        <div style={{ marginTop: 14, padding: 14, background: 'rgba(0,0,0,0.35)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+            <div style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>10-YR PRO FORMA · {operator.toUpperCase()} PLAYBOOK</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>
+              {playbook.label} · ECRI {playbook.ecriRate} · Mature NOI {playbook.noiMarginMature}
+            </div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(201,168,76,0.35)' }}>
+                  <th style={{ padding: 8, textAlign: 'left', color: '#C9A84C', fontWeight: 700 }}>YEAR</th>
+                  <th style={{ padding: 8, textAlign: 'center', color: '#C9A84C', fontWeight: 700 }}>OCC</th>
+                  <th style={{ padding: 8, textAlign: 'center', color: '#C9A84C', fontWeight: 700 }}>RENT INDEX</th>
+                  <th style={{ padding: 8, textAlign: 'center', color: '#C9A84C', fontWeight: 700 }}>PHASE</th>
+                  <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>REVENUE</th>
+                  <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>NOI</th>
+                  <th style={{ padding: 8, textAlign: 'right', color: '#C9A84C', fontWeight: 700 }}>YOC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proForma.map((y, idx) => {
+                  const phaseColor = y.phase === 'LEASE-UP' ? '#EF4444' : y.phase === 'RAMP' ? '#F59E0B' : y.phase === 'STABILIZED' ? '#3B82F6' : '#10B981';
+                  const yocC = y.yoc >= hurdle + 1 ? '#10B981' : y.yoc >= hurdle ? '#22C55E' : y.yoc >= hurdle - 1 ? '#F59E0B' : '#EF4444';
+                  return (
+                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: 8, fontWeight: 800, color: '#C9A84C' }}>{y.year}</td>
+                      <td style={{ padding: 8, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{y.occ}</td>
+                      <td style={{ padding: 8, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                        <span style={{ background: 'rgba(201,168,76,0.15)', padding: '1px 6px', borderRadius: 3 }}>{y.rentIndex.toFixed(2)}x</span>
+                      </td>
+                      <td style={{ padding: 8, textAlign: 'center' }}>
+                        <span style={{ background: phaseColor, color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 8, fontWeight: 900, letterSpacing: '0.08em' }}>{y.phase}</span>
+                      </td>
+                      <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>${(y.rev/1e3).toFixed(0)}K</td>
+                      <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#4CC982', fontWeight: 700 }}>${(y.noi/1e3).toFixed(0)}K</td>
+                      <td style={{ padding: 8, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: yocC, fontWeight: 900 }}>{y.yoc.toFixed(2)}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
+            Revenue = stabilized street rate × rent index × occupancy. NOI margin scales by phase: LEASE-UP 55% · RAMP 82% · STABILIZED 95% · HARVEST 100% of operator's mature margin ({playbook.noiMarginMature}).
+          </div>
+        </div>
+      )}
     </div>
   );
 }
