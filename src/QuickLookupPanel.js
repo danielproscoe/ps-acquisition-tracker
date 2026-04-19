@@ -84,6 +84,22 @@ const PLACES_KEY = process.env.REACT_APP_GOOGLE_PLACES_API_KEY || "AIzaSyBh0Rf14
 // ═══════════════════════════════════════════════════════════════════════════
 // Geocoding via ESRI World Geocoder (same key as our enrichment — no extra API)
 // ═══════════════════════════════════════════════════════════════════════════
+// ESRI suggest endpoint — fast autocomplete (same API key, ~100ms per call).
+// Returns up to 5 US candidates as user types. Caller passes text + optional
+// anchor lat/lng for local bias (not used here but available).
+async function esriSuggest(text, signal) {
+  if (!text || text.trim().length < 3) return [];
+  const url = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/suggest?text=${encodeURIComponent(text)}&maxSuggestions=6&countryCode=USA&f=json&token=${ESRI_KEY}`;
+  try {
+    const res = await fetch(url, { signal });
+    const j = await res.json();
+    return (j.suggestions || []).filter(s => !s.isCollection).slice(0, 6);
+  } catch (e) {
+    if (e.name === 'AbortError') return null;
+    return [];
+  }
+}
+
 async function geocodeAddress(address) {
   const url = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?SingleLine=${encodeURIComponent(address)}&outFields=*&maxLocations=1&countryCode=USA&f=json&token=${ESRI_KEY}`;
   const res = await fetch(url);
@@ -579,8 +595,42 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [phase, setPhase] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestIdx, setActiveSuggestIdx] = useState(-1);
 
   const autoRunRef = useRef(false);
+  const suggestTimerRef = useRef(null);
+  const suggestAbortRef = useRef(null);
+  const suggestBoxRef = useRef(null);
+
+  // Debounced address suggestions (ESRI suggest — 220ms after last keypress)
+  useEffect(() => {
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    if (suggestAbortRef.current) suggestAbortRef.current.abort();
+    const text = address.trim();
+    if (text.length < 3) { setSuggestions([]); return; }
+    suggestTimerRef.current = setTimeout(async () => {
+      const ctrl = new AbortController();
+      suggestAbortRef.current = ctrl;
+      const sugs = await esriSuggest(text, ctrl.signal);
+      if (sugs === null) return; // aborted
+      setSuggestions(sugs);
+      setActiveSuggestIdx(-1);
+    }, 220);
+    return () => clearTimeout(suggestTimerRef.current);
+  }, [address]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (suggestBoxRef.current && !suggestBoxRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Auto-run from ?addr= query param (shareable link)
   useEffect(() => {
@@ -806,19 +856,67 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
           Live ESRI demographics + Tapestry Segmentation + Places API competitor enumeration + PS Family exclusion. SpareFoot comps + Einstein narrative populate via scheduled audit after save.
         </div>
 
-        {/* Search Input */}
-        <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
-          <input
-            value={address}
-            onChange={e => setAddress(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !loading && runLookup()}
-            placeholder="Enter address — e.g., 1402 S 5th Street, Temple, TX 76501"
-            disabled={loading}
-            style={{ flex: 1, padding: '14px 18px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.3)', background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: 14, fontFamily: "'Inter', sans-serif", outline: 'none' }}
-          />
+        {/* Search Input with ESRI autocomplete */}
+        <div style={{ marginTop: 20, display: 'flex', gap: 10, position: 'relative' }} ref={suggestBoxRef}>
+          <div style={{ flex: 1, position: 'relative' }}>
+            <input
+              value={address}
+              onChange={e => { setAddress(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+              onKeyDown={e => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setShowSuggestions(true);
+                  setActiveSuggestIdx(i => Math.min(i + 1, suggestions.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setActiveSuggestIdx(i => Math.max(i - 1, -1));
+                } else if (e.key === 'Enter') {
+                  if (showSuggestions && activeSuggestIdx >= 0 && suggestions[activeSuggestIdx]) {
+                    setAddress(suggestions[activeSuggestIdx].text);
+                    setShowSuggestions(false);
+                    setTimeout(() => runLookup(), 50);
+                  } else if (!loading) {
+                    setShowSuggestions(false);
+                    runLookup();
+                  }
+                } else if (e.key === 'Escape') {
+                  setShowSuggestions(false);
+                }
+              }}
+              placeholder="Start typing an address — e.g., 1402 S 5th Street, Temple, TX"
+              disabled={loading}
+              autoComplete="off"
+              spellCheck="false"
+              style={{ width: '100%', padding: '14px 18px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.3)', background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: 14, fontFamily: "'Inter', sans-serif", outline: 'none', boxSizing: 'border-box' }}
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: 'linear-gradient(135deg, #0F1538, #1E2761)', border: '1px solid rgba(201,168,76,0.4)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.6)', zIndex: 50, overflow: 'hidden' }}>
+                {suggestions.map((s, i) => (
+                  <div
+                    key={s.magicKey || i}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setAddress(s.text);
+                      setShowSuggestions(false);
+                      setTimeout(() => runLookup(), 50);
+                    }}
+                    onMouseEnter={() => setActiveSuggestIdx(i)}
+                    style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 13, color: '#fff', background: activeSuggestIdx === i ? 'rgba(201,168,76,0.18)' : 'transparent', borderBottom: i < suggestions.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                  >
+                    <span style={{ color: '#C9A84C', fontSize: 11 }}>📍</span>
+                    <span>{s.text}</span>
+                  </div>
+                ))}
+                <div style={{ padding: '6px 12px', fontSize: 9, color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.35)', letterSpacing: '0.08em', textAlign: 'right' }}>
+                  ↑↓ NAVIGATE · ↵ SELECT · ESC CLOSE · Powered by ESRI World Geocoder
+                </div>
+              </div>
+            )}
+          </div>
           <button
             data-role="run-lookup"
-            onClick={runLookup}
+            onClick={() => { setShowSuggestions(false); runLookup(); }}
             disabled={loading || !address.trim()}
             style={{ padding: '14px 24px', borderRadius: 10, border: 'none', background: loading ? 'rgba(201,168,76,0.3)' : 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', fontSize: 13, fontWeight: 900, letterSpacing: '0.06em', cursor: loading ? 'wait' : 'pointer', textTransform: 'uppercase' }}
           >
