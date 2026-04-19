@@ -836,15 +836,70 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PDF Export — opens a clean printable version in a new tab with auto-print
+// PDF Export — institutional-grade printable report with all Quick Lookup
+// sections: Best-Fit Buyer, National Percentiles, Operator Stack-Rank,
+// 10-yr Pro Forma preview, plus the original demographics / Tapestry /
+// ring comparison / competitors.
 // ═══════════════════════════════════════════════════════════════════════════
-function downloadPDF(result) {
+function downloadPDF(result, opts = {}) {
   const { geo, r1, r3, r5, competitors, metrics, generatedAt } = result;
-  const fileLabel = `${(geo.city || 'Site').replace(/[^A-Za-z0-9]+/g, '_')}_${geo.state}_MarketReport_${new Date().toISOString().slice(0, 10)}`;
+  const fileLabel = `${(geo.city || 'Site').replace(/[^A-Za-z0-9]+/g, '_')}_${geo.state}_StorvexReport_${new Date().toISOString().slice(0, 10)}`;
   const esriViewerUrl = `https://www.arcgis.com/apps/mapviewer/index.html?center=${geo.lng},${geo.lat}&level=13`;
   const googleMapsUrl = `https://www.google.com/maps/@${geo.lat},${geo.lng},15z`;
   const fmt = (n) => n == null ? '—' : Number(n).toLocaleString();
   const pct = (n, d = 1) => n == null ? '—' : (n >= 0 ? '+' : '') + n.toFixed(d) + '%';
+
+  // ─── Compute underwriting stack-rank using default assumptions ───
+  // (opts overrides let PercentileAndYOCCard pass current calculator state)
+  const acres = opts.acres || 4.0;
+  const landPerAc = opts.landPerAc || 400000;
+  const buildPerSF = opts.buildPerSF || 95;
+  const ccPremium = opts.ccPremium ?? 70;
+  const liveCC = opts.liveCC || null;
+  const liveDU = opts.liveDU || null;
+  const buildablePct = acres >= 3.5 ? 0.35 : 0.45;
+  const totalSF = acres * 43560 * buildablePct;
+  const netRentableSF = totalSF * 0.85;
+  const ccSF = netRentableSF * (ccPremium / 100);
+  const duSF = netRentableSF * (1 - ccPremium / 100);
+  const landCost = acres * landPerAc;
+  const buildCost = totalSF * buildPerSF;
+  const totalCost = landCost + buildCost;
+  const benchCC = OPERATOR_ECONOMICS['STORVEX BENCHMARK'].ccRent;
+  const benchDU = OPERATOR_ECONOMICS['STORVEX BENCHMARK'].duRent;
+  const mktCC = liveCC || benchCC;
+  const mktDU = liveDU || benchDU;
+
+  const stackRows = Object.entries(OPERATOR_ECONOMICS).map(([name, e]) => {
+    const ccR = mktCC * (e.ccRent / benchCC);
+    const duR = mktDU * (e.duRent / benchDU);
+    const gross = ((ccSF * ccR) + (duSF * duR)) * 12;
+    const rev = gross * (e.stabOcc / 100);
+    const noi = rev * (1 - e.expRatio / 100);
+    const yoc = totalCost > 0 ? (noi / totalCost) * 100 : 0;
+    const stabValue = noi / e.cap;
+    const valueCreation = stabValue - totalCost;
+    const fit = yoc >= e.hurdle + 1 ? 'HOME RUN' : yoc >= e.hurdle ? 'STRIKE' : yoc >= e.hurdle - 1 ? 'MARGINAL' : 'BELOW';
+    return { name, economics: e, ccRent: ccR, duRent: duR, noi, yoc, stabValue, valueCreation, fit };
+  }).sort((a, b) => b.yoc - a.yoc);
+  const topFit = stackRows[0];
+  const topFitContact = resolveContact(topFit.name, geo?.state);
+  const fitColor = (fit) => fit === 'HOME RUN' ? '#10B981' : fit === 'STRIKE' ? '#22C55E' : fit === 'MARGINAL' ? '#F59E0B' : '#EF4444';
+
+  // ─── National percentile ranks ───
+  const popP = computePercentile(r3?.TOTPOP_CY, NATIONAL_BENCHMARKS_3MI.population);
+  const hhiP = computePercentile(r3?.MEDHINC_CY, NATIONAL_BENCHMARKS_3MI.medianHHI);
+  const homeValP = computePercentile(r3?.MEDVAL_CY, NATIONAL_BENCHMARKS_3MI.medianHomeValue);
+  const growthP = computePercentile(metrics?.popGrowth, NATIONAL_BENCHMARKS_3MI.popGrowthCAGR);
+  const hh75P = computePercentile(metrics?.hhOver75Pct, NATIONAL_BENCHMARKS_3MI.householdsOver75K);
+  const percentileRows = [
+    { label: 'Population (3-mi)', value: fmt(r3?.TOTPOP_CY), pct: popP },
+    { label: 'Median HHI', value: '$' + fmt(r3?.MEDHINC_CY), pct: hhiP },
+    { label: 'Median Home Value', value: '$' + fmt(r3?.MEDVAL_CY), pct: homeValP },
+    { label: '5-yr Pop Growth CAGR', value: pct(metrics?.popGrowth, 2), pct: growthP },
+    { label: 'HH $75K+ Share', value: metrics?.hhOver75Pct != null ? metrics.hhOver75Pct.toFixed(1) + '%' : '—', pct: hh75P },
+  ];
+  const tierForP = (p) => p == null ? { label: 'N/A', color: '#64748B' } : p >= 85 ? { label: 'ELITE', color: '#10B981' } : p >= 70 ? { label: 'STRONG', color: '#22C55E' } : p >= 50 ? { label: 'ABOVE AVG', color: '#3B82F6' } : p >= 30 ? { label: 'MODERATE', color: '#F59E0B' } : p >= 15 ? { label: 'BELOW AVG', color: '#F97316' } : { label: 'WEAK', color: '#EF4444' };
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${fileLabel}</title>
 <style>
@@ -878,10 +933,71 @@ a { color: #C9A84C; text-decoration: none; font-size: 9px; }
 @page { size: letter; margin: 0.4in; }
 </style></head><body>
 <div class="hero">
-  <div style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#4CC982;margin-bottom:10px">⚡ STORVEX MARKET REPORT · LIVE DATA SNAPSHOT</div>
-  <h1><span class="gold">Storvex</span> Market Report — ${geo.city || 'Subject'}, ${geo.state || ''}</h1>
+  <div style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#4CC982;margin-bottom:10px">⚡ STORVEX INSTITUTIONAL REPORT · OPERATOR-CALIBRATED UNDERWRITING</div>
+  <h1><span class="gold">Storvex</span> Report — ${geo.city || 'Subject'}, ${geo.state || ''}</h1>
   <div class="sub">${geo.formatted}</div>
-  <div class="sub">Generated ${new Date(generatedAt).toLocaleString()} · Report runtime ${result.elapsed}s · Data sources: ESRI GeoEnrichment + Tapestry + Google Places API</div>
+  <div class="sub">Generated ${new Date(generatedAt).toLocaleString()} · Report runtime ${result.elapsed}s · Underwritten @ ${acres}ac · $${(landPerAc/1000).toFixed(0)}K/ac land · $${buildPerSF}/SF build</div>
+</div>
+
+<div class="section" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),#F8FAFC);border:2px solid #10B981">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <span style="background:#10B981;color:#fff;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:900;letter-spacing:0.1em">🏆 BEST-FIT BUYER</span>
+    <span style="font-size:22px;font-weight:900;color:${topFit.economics.color}">${topFit.name}</span>
+    <span style="font-size:18px;font-weight:800;color:#10B981;font-family:'Courier New',monospace">${topFit.yoc.toFixed(2)}% YOC</span>
+    <span style="background:${fitColor(topFit.fit)};color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:900">${topFit.fit}</span>
+  </div>
+  <div class="grid4" style="margin-top:10px">
+    <div class="stat"><div class="big">$${(topFit.stabValue/1e6).toFixed(2)}M</div><div class="sub">Stabilized Value @ ${(topFit.economics.cap*100).toFixed(1)}% cap</div></div>
+    <div class="stat"><div class="big">$${(topFit.noi/1e3).toFixed(0)}K</div><div class="sub">Stabilized NOI · ${topFit.economics.stabOcc}% occ</div></div>
+    <div class="stat"><div class="big" style="color:${topFit.valueCreation>0?'#10B981':'#EF4444'}">${topFit.valueCreation>=0?'+':'-'}$${Math.abs(topFit.valueCreation/1e6).toFixed(2)}M</div><div class="sub">Value Creation (Stab Value − Cost)</div></div>
+    <div class="stat"><div class="big">$${(totalCost/1e6).toFixed(2)}M</div><div class="sub">Total Cost · Land $${(landCost/1e6).toFixed(2)}M + Build $${(buildCost/1e6).toFixed(2)}M</div></div>
+  </div>
+  ${topFitContact ? `<div style="margin-top:14px;padding:12px;background:#fff;border-radius:8px;border-left:4px solid ${topFitContact.isPSFamily?'#0052A3':topFit.economics.color}">
+    <div class="label">SEND THIS SITE TO</div>
+    <div style="font-size:14px;font-weight:800;color:#1E2761">${topFitContact.name}</div>
+    <div style="font-size:11px;color:#64748B">${topFitContact.title}</div>
+    <div style="font-size:11px;color:#1E2761;margin-top:4px">📧 <a href="mailto:${topFitContact.email}" style="color:#1E2761;text-decoration:underline">${topFitContact.email}</a></div>
+    ${Array.isArray(topFitContact.cc) && topFitContact.cc.length ? `<div style="font-size:10px;color:#64748B;margin-top:2px">CC: ${topFitContact.cc.join(', ')}</div>` : ''}
+    ${topFitContact.warning ? `<div style="margin-top:6px;padding:6px;background:#FEF3C7;border-radius:4px;font-size:10px;color:#92400E">⚠ ${topFitContact.warning}</div>` : ''}
+    ${topFitContact.note && !topFitContact.warning ? `<div style="font-size:10px;color:#64748B;margin-top:2px;font-style:italic">${topFitContact.note}</div>` : ''}
+  </div>` : ''}
+</div>
+
+<div class="section">
+  <div class="label">NATIONAL PERCENTILE BENCHMARK · VS US STORAGE-ELIGIBLE 3-MI MEDIAN</div>
+  <table>
+    <thead><tr><th>Metric</th><th style="text-align:right">Value</th><th style="text-align:center">Percentile</th><th style="text-align:right" colspan="2">Visual · 50th = US median</th></tr></thead>
+    <tbody>
+      ${percentileRows.map(r => { const t = tierForP(r.pct); return `<tr>
+        <td>${r.label}</td>
+        <td style="text-align:right;font-family:'Courier New';font-weight:700">${r.value}</td>
+        <td style="text-align:center"><span style="background:${t.color};color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:900">${t.label}</span> <span style="color:#64748B;font-size:10px">${r.pct != null ? Math.round(r.pct) + 'th' : '—'}</span></td>
+        <td colspan="2" style="padding:6px"><div style="height:10px;background:#E2E8F0;border-radius:5px;position:relative;overflow:hidden"><div style="position:absolute;left:0;top:0;height:100%;width:${r.pct||0}%;background:${t.color}"></div><div style="position:absolute;left:50%;top:0;height:100%;width:1px;background:rgba(30,39,97,0.5)"></div></div></td>
+      </tr>`; }).join('')}
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <div class="label">OPERATOR STACK-RANK · WHO SHOULD OWN THIS SITE?</div>
+  <div style="font-size:10px;color:#64748B;margin-bottom:10px">All 15 operators underwritten on IDENTICAL cost stack (${acres}ac × $${landPerAc.toLocaleString()}/ac + $${buildPerSF}/SF build) and IDENTICAL ${liveCC ? 'LIVE submarket' : 'state market band'} CC base rent. Only operator-specific 10-K economics (rent premium, occ, expense ratio, cap rate, hurdle) vary.</div>
+  <table>
+    <thead><tr><th>Rank</th><th>Operator</th><th style="text-align:right">CC $/SF</th><th style="text-align:right">Occ</th><th style="text-align:right">Exp</th><th style="text-align:right">Cap</th><th style="text-align:right">NOI</th><th style="text-align:right">YOC</th><th style="text-align:right">Stab Value</th><th style="text-align:center">Fit</th></tr></thead>
+    <tbody>
+      ${stackRows.map((r, idx) => `<tr>
+        <td style="font-weight:900;color:${idx===0?'#10B981':'#64748B'}">#${idx+1}</td>
+        <td style="font-weight:700;color:${r.economics.color}">${r.name}</td>
+        <td style="text-align:right;font-family:'Courier New'">$${r.ccRent.toFixed(2)}</td>
+        <td style="text-align:right;font-family:'Courier New'">${r.economics.stabOcc}%</td>
+        <td style="text-align:right;font-family:'Courier New'">${r.economics.expRatio}%</td>
+        <td style="text-align:right;font-family:'Courier New'">${(r.economics.cap*100).toFixed(1)}%</td>
+        <td style="text-align:right;font-family:'Courier New';color:#059669">$${(r.noi/1e3).toFixed(0)}K</td>
+        <td style="text-align:right;font-family:'Courier New';font-weight:900;color:${fitColor(r.fit)}">${r.yoc.toFixed(2)}%</td>
+        <td style="text-align:right;font-family:'Courier New';color:${r.economics.color}">$${(r.stabValue/1e6).toFixed(2)}M</td>
+        <td style="text-align:center"><span style="background:${fitColor(r.fit)};color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:900">${r.fit}</span></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
 </div>
 
 <div class="section">
@@ -1038,7 +1154,7 @@ function ResultsView({ result, saveToFirebase }) {
       </div>
 
       {/* NATIONAL PERCENTILE BENCHMARKS + YIELD-ON-COST CALCULATOR */}
-      <PercentileAndYOCCard r3={r3} competitors={competitors} geo={geo} />
+      <PercentileAndYOCCard r3={r3} competitors={competitors} geo={geo} result={result} />
 
       {/* TAPESTRY */}
       {r3?.TSEGNAME && (
@@ -1510,7 +1626,7 @@ function buildGmailComposeUrl({ to, cc, subject, body }) {
   return `https://mail.google.com/mail/?${params.toString()}`;
 }
 
-function PercentileAndYOCCard({ r3, competitors, geo }) {
+function PercentileAndYOCCard({ r3, competitors, geo, result }) {
   // ─── Operator selection drives underwriting defaults ───
   const [operator, setOperator] = React.useState('STORVEX BENCHMARK');
   const opEcon = OPERATOR_ECONOMICS[operator] || OPERATOR_ECONOMICS['STORVEX BENCHMARK'];
@@ -1655,6 +1771,13 @@ function PercentileAndYOCCard({ r3, competitors, geo }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
           <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚡ OPERATOR-CALIBRATED UNDERWRITING · LIVE</div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Pick an operator — underwriting re-calibrates to their 10-K portfolio economics</div>
+          <button
+            onClick={() => downloadPDF(result, { acres, landPerAc, buildPerSF, ccPremium, liveCC: liveRents?.ccRent, liveDU: liveRents?.duRent })}
+            style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #DC2626, #991B1B)', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.04em' }}
+            title="Export this underwriting as an institutional-grade PDF with current inputs"
+          >
+            📄 EXPORT PDF
+          </button>
         </div>
 
         {/* OPERATOR SELECTOR */}
