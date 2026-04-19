@@ -287,13 +287,13 @@ const LEASE_UP_PLAYBOOK = {
 const OPERATOR_KB = {
   'Public Storage': {
     ticker: 'PSA', type: 'Public REIT', parent: 'Public Storage Inc.', hq: 'Glendale, CA',
-    portfolioSize: '3,112 owned facilities · 48 joint-venture · 344 third-party managed',
+    portfolioSize: '3,171 owned facilities · 48 joint-venture · 344 third-party managed',
     nationalSF: '~229M SF',
-    noiMargin: '78.4% (Q4 2025 FY, PSA 10-K)',
-    revenuePerSF: '$18.50 (portfolio avg, 2024 10-K)',
+    noiMargin: '78.4% (same-store 2025 FY, PSA 10-K filed 2026-02-12)',
+    revenuePerSF: '$18.50 (portfolio avg, 2025 10-K)',
     stabilizedRevPerSF: '$21.40',
     acquisitionVolume2024: '~$1.4B',
-    stabilizedOccupancy: '91.0%',
+    stabilizedOccupancy: '91.0% (same-store) / 85.3% (total portfolio, 2025 10-K)',
     ecriProgram: '8%/yr avg on rolled tenants',
     acquisitionCap: '5.6% institutional (PSA 10-K disclosures)',
     playbookTier: 'tier1',

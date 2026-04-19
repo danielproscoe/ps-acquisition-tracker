@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-04-19T00:55:56.986Z",
+  "source": "SEC EDGAR",
+  "reitCount": 4,
+  "note": "Regex-parsed 10-K filings. For deeper structured extraction, pass the filing URL to scripts/parse-om.mjs which uses Claude Opus 4.7.",
+  "reits": [
+    {
+      "operator": "Public Storage",
+      "extractedAt": "2026-04-19T00:55:51.610Z",
+      "facilityCount": "3,171",
+      "totalSF": "229 million net rentable square feet",
+      "occupancyPct": "85.3%",
+      "ticker": "PSA",
+      "cik": "0001393311",
+      "filingDate": "2026-02-12",
+      "filingUrl": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+      "entityName": "Public Storage"
+    },
+    {
+      "operator": "Extra Space Storage",
+      "extractedAt": "2026-04-19T00:55:53.038Z",
+      "facilityCount": "10",
+      "ticker": "EXR",
+      "cik": "0001289490",
+      "filingDate": "2026-02-20",
+      "filingUrl": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+      "entityName": "Extra Space Storage Inc."
+    },
+    {
+      "operator": "CubeSmart",
+      "extractedAt": "2026-04-19T00:55:54.343Z",
+      "ticker": "CUBE",
+      "cik": "0001298946",
+      "filingDate": "2026-02-27",
+      "filingUrl": "https://www.sec.gov/Archives/edgar/data/1298946/000129894626000013/drh-20251231.htm",
+      "entityName": "DiamondRock Hospitality Co"
+    },
+    {
+      "operator": "SmartStop Self Storage",
+      "extractedAt": "2026-04-19T00:55:56.062Z",
+      "facilityCount": "221",
+      "totalSF": "13.9 million net rentable square feet",
+      "sameStoreRevenueRef": "same-store revenues of approximately $25.8",
+      "ticker": "SMA",
+      "cik": "0001585389",
+      "filingDate": "2026-02-27",
+      "filingUrl": "https://www.sec.gov/Archives/edgar/data/1585389/000119312526082573/ck0001585389-20251231.htm",
+      "entityName": "SmartStop Self Storage REIT, Inc."
+    }
+  ]
+}
