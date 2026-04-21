@@ -62,7 +62,11 @@ RESEARCH STRATEGY:
 2. Prefer primary sources: Municode, ecode360, American Legal, the city's official code website, or the jurisdiction's planning department page
 3. Ignore forum posts, commercial real estate blog posts, or third-party summaries unless they cite the ordinance section
 4. If the first search returns a landing page, do a follow-up search for the specific chapter (e.g., "{city} zoning chapter 14 permitted uses")
-5. Read the actual permitted use table — identify:
+5. **USE web_fetch AGGRESSIVELY**: Municode and ecode360 serve code via JavaScript, so web_search only returns landing pages. When you find a PDF URL or a direct ordinance link in the search results, IMMEDIATELY call web_fetch on that URL to pull the full document contents. PDFs especially are invaluable — they contain the complete use table rendered statically. A typical workflow:
+   a. web_search returns PDF URL: https://cms.city.gov/zoning.pdf
+   b. web_fetch that URL to get the full PDF text
+   c. Extract the permitted use table from the fetched content
+6. Read the actual permitted use table — identify:
    - The exact storage term as it appears in the table
    - Which zoning districts (C-1, C-2, GC, M-1, etc.) permit it BY-RIGHT (P / Permitted)
    - Which permit it CONDITIONALLY (C / CUP / SUP / special permit)
@@ -126,6 +130,11 @@ async function runZoningResearch(apiKey, city, state, county, address, zoningDis
         name: "web_search",
         max_uses: 4,
       },
+      {
+        type: "web_fetch_20250910",
+        name: "web_fetch",
+        max_uses: 4,
+      },
     ],
     messages: [
       { role: "user", content: userPrompt },
@@ -135,7 +144,8 @@ async function runZoningResearch(apiKey, city, state, county, address, zoningDis
   const resp = await httpsPostJSON("api.anthropic.com", "/v1/messages", {
     "x-api-key": apiKey,
     "anthropic-version": "2023-06-01",
-    "anthropic-beta": "web-search-2025-03-05",
+    // Both beta flags: web_search (search snippets) + web_fetch (full page/PDF content)
+    "anthropic-beta": "web-search-2025-03-05,web-fetch-2025-09-10",
     "content-type": "application/json",
   }, payload);
 
