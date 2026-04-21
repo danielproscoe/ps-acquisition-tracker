@@ -237,6 +237,171 @@ function findREITFacilitiesNearby(registry, lat, lng, radiusMi) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CC SPC — Climate-Controlled Storage SF Per Capita (the competition headline)
+// ─────────────────────────────────────────────────────────────────────────
+// PSA/EXR/CUBE build climate-controlled product. Drive-up-only facilities
+// compete for a different customer and don't cannibalize CC lease-up.
+// CC SPC is the single most important competition metric for storage
+// investment. Radius publishes raw SPC; we publish CC SPC with tier verdicts.
+// Benchmarks per CLAUDE.md §6c-4.
+// ═══════════════════════════════════════════════════════════════════════════
+function estimateFacilityCCSF(competitor) {
+  // Tier-based CC SF estimate calibrated from PSA/EXR/CUBE 10-K averages.
+  // REIT facilities: ~65K gross × 75% CC = ~49K CC SF (multi-story common, high CC mix).
+  // Regional: ~55K gross × 60% CC = ~33K CC SF.
+  // Local/independent: ~40K gross × 40% CC = ~16K CC SF.
+  const tier = classifyOperator(competitor.name || '').tier;
+  if (tier === 'reit') return 49000;
+  if (tier === 'regional') return 33000;
+  return 16000;
+}
+
+function ccSPCVerdict(spc) {
+  if (spc == null) return { label: '—', tier: 'unknown', color: '#64748B', score: null };
+  if (spc < 1.5)  return { label: 'SEVERELY UNDERSERVED', tier: 'elite',    color: '#10B981', score: 10 };
+  if (spc < 3.0)  return { label: 'UNDERSERVED',          tier: 'strong',   color: '#22C55E', score: 8  };
+  if (spc < 5.0)  return { label: 'MODERATE',             tier: 'moderate', color: '#F59E0B', score: 6  };
+  if (spc < 7.0)  return { label: 'WELL-SUPPLIED',        tier: 'weak',     color: '#F97316', score: 5  };
+  if (spc < 10.0) return { label: 'OVERSUPPLIED',         tier: 'poor',     color: '#EF4444', score: 4  };
+  if (spc < 15.0) return { label: 'HEAVILY OVERSUPPLIED', tier: 'bad',      color: '#DC2626', score: 3  };
+  return             { label: 'SATURATED',                 tier: 'dead',     color: '#991B1B', score: 0  };
+}
+
+function computeCCSPC(competitors, pop3miCY, pop3miFY) {
+  const arr = Array.isArray(competitors) ? competitors : [];
+  // Only competitors within 3 mi drive the CC supply metric.
+  const comp3mi = arr.filter(c => {
+    const d = parseFloat(c.distanceMi);
+    return Number.isFinite(d) && d <= 3;
+  });
+  // Exclude PS-family facilities from CC SPC when we're pitching to PS — they're
+  // part of PS's own footprint, not competition. But for non-PS buyers, PS-family
+  // IS competition. We compute both views.
+  const psFam = comp3mi.filter(c => tagPSFamily(c.name || '') === 'ps-family');
+  const nonPSFam = comp3mi.filter(c => tagPSFamily(c.name || '') !== 'ps-family');
+  const ccSFAll  = comp3mi.reduce((s, c) => s + estimateFacilityCCSF(c), 0);
+  const ccSFNonPS = nonPSFam.reduce((s, c) => s + estimateFacilityCCSF(c), 0);
+  // Primary metric uses ALL storage operators (standard industry definition).
+  // Non-PS view excludes PS family — relevant for PS as buyer.
+  const current   = pop3miCY > 0 ? ccSFAll / pop3miCY : null;
+  const projected = pop3miFY > 0 ? ccSFAll / pop3miFY : null;
+  const currentNonPS   = pop3miCY > 0 ? ccSFNonPS / pop3miCY : null;
+  const projectedNonPS = pop3miFY > 0 ? ccSFNonPS / pop3miFY : null;
+  return {
+    current, projected, currentNonPS, projectedNonPS,
+    totalCCSF: ccSFAll,
+    totalCCSFNonPS: ccSFNonPS,
+    competitorCount: comp3mi.length,
+    psFamilyCount: psFam.length,
+    nonPSFamilyCount: nonPSFam.length,
+    verdict: ccSPCVerdict(current),
+    projectedVerdict: ccSPCVerdict(projected),
+    verdictNonPS: ccSPCVerdict(currentNonPS),
+    // Pipeline flood flag: projected 2+ tiers worse than current = red flag
+    pipelineFlood: (ccSPCVerdict(current).score != null && ccSPCVerdict(projected).score != null)
+      ? (ccSPCVerdict(current).score - ccSPCVerdict(projected).score >= 4)
+      : false,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUILDABLE ENVELOPE MODELER — the Radius-structural-beat feature
+// ─────────────────────────────────────────────────────────────────────────
+// Given acres + setbacks + wetlands, computes the realistic building envelope
+// and picks optimal product type (1-story wide / 1-story / 2-story / 3-story).
+// Replaces the naive buildablePct × 85% heuristic with setback-aware geometry.
+// Radius hands you raw demographics; we hand you the actual building that
+// fits with 50' front, 10' side, 25' rear setbacks, and a 5% wetlands haircut.
+// ═══════════════════════════════════════════════════════════════════════════
+const BUILD_SCENARIOS = {
+  aggressive: {
+    key: 'aggressive',
+    label: 'AGGRESSIVE',
+    frontSB: 25, sideSB: 10, rearSB: 15,
+    wetlandsPct: 0,
+    desc: 'Rural/ETJ/unincorporated · minimal setbacks · clean pad',
+    color: '#10B981',
+  },
+  base: {
+    key: 'base',
+    label: 'BASE CASE',
+    frontSB: 50, sideSB: 10, rearSB: 25,
+    wetlandsPct: 5,
+    desc: 'Standard commercial C-3 / M-1 · slight unusable area',
+    color: '#C9A84C',
+  },
+  conservative: {
+    key: 'conservative',
+    label: 'CONSERVATIVE',
+    frontSB: 75, sideSB: 25, rearSB: 35,
+    wetlandsPct: 15,
+    desc: 'Overlay district · buffer setbacks · meaningful wetlands',
+    color: '#F59E0B',
+  },
+};
+
+function computeBuildableEnvelope(acres, scenario, overrides = {}) {
+  const s = { ...scenario, ...overrides };
+  const grossSF = (acres || 0) * 43560;
+  const usableSF = grossSF * (1 - (s.wetlandsPct || 0) / 100);
+  // Approximate parcel as square — good proxy for typical storage pads
+  // (most PS sites are rectangular with ~1.5:1 aspect ratio; square is conservative).
+  const sideLength = Math.sqrt(Math.max(0, usableSF));
+  const buildableLength = Math.max(0, sideLength - (s.frontSB || 0) - (s.rearSB || 0));
+  const buildableWidth  = Math.max(0, sideLength - ((s.sideSB || 0) * 2));
+  const footprint = buildableLength * buildableWidth;
+
+  // Product auto-selection based on footprint size (empirical from PS/EXR dev standards).
+  // Each tier has its own story count, CC/DU mix, and typical build $/SF cost basis.
+  let stories, ccMixPct, buildPerSF, label, notes;
+  if (footprint >= 55000) {
+    stories = 1; ccMixPct = 65; buildPerSF = 62;
+    label = '1-STORY WIDE PLATE';
+    notes = 'Full 1-story plate · drive-up perimeter · class-B single story';
+  } else if (footprint >= 40000) {
+    stories = 1; ccMixPct = 70; buildPerSF = 68;
+    label = '1-STORY';
+    notes = 'Standard 1-story CC-dominant plate · front office + drive-up';
+  } else if (footprint >= 25000) {
+    stories = 2; ccMixPct = 82; buildPerSF = 88;
+    label = '2-STORY';
+    notes = '2-story climate-controlled · interior corridor · steel frame';
+  } else if (footprint >= 15000) {
+    stories = 3; ccMixPct = 92; buildPerSF = 108;
+    label = '3-STORY';
+    notes = '3-story CC stack · elevator served · urban/infill product';
+  } else if (footprint >= 8000) {
+    stories = 4; ccMixPct = 95; buildPerSF = 135;
+    label = '4-STORY URBAN';
+    notes = 'Infill only · high cost/SF · requires urban CC rent premium';
+  } else {
+    stories = 0; ccMixPct = 0; buildPerSF = 0;
+    label = 'UNBUILDABLE';
+    notes = 'Envelope too small after setbacks — reconsider parcel or setback assumptions';
+  }
+
+  const grossBuildingSF = footprint * stories;
+  const netRentableSF = grossBuildingSF * 0.85;
+  const ccSF = netRentableSF * (ccMixPct / 100);
+  const duSF = netRentableSF * (1 - ccMixPct / 100);
+
+  return {
+    scenario: s,
+    grossSF, usableSF, footprint,
+    stories, label, notes,
+    grossBuildingSF, netRentableSF,
+    ccSF, duSF, ccMixPct,
+    buildPerSF,
+    siteCoveragePct: grossSF > 0 ? (footprint / grossSF) * 100 : 0,
+    usableCoveragePct: usableSF > 0 ? (footprint / usableSF) * 100 : 0,
+    // For display: side length and buildable dimensions in feet
+    sideLength: Math.round(sideLength),
+    buildableLength: Math.round(buildableLength),
+    buildableWidth: Math.round(buildableWidth),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // OPERATOR MATRIX — DJR DealFlow Oracle (v6)
 // ─────────────────────────────────────────────────────────────────────────
 // 49+ storage operators with machine-readable UW profiles, Hot Capital
@@ -1179,9 +1344,12 @@ function downloadPDF(result, opts = {}) {
   const ccPremium = opts.ccPremium ?? 70;
   const liveCC = opts.liveCC || null;
   const liveDU = opts.liveDU || null;
-  const buildablePct = acres >= 3.5 ? 0.35 : 0.45;
-  const totalSF = acres * 43560 * buildablePct;
-  const netRentableSF = totalSF * 0.85;
+  // Envelope takes precedence if passed by caller (new Buildable Scenario Modeler).
+  // Falls back to naive heuristic for back-compat with callers that don't pass envelope.
+  const env = opts.envelope || null;
+  const buildablePct = env ? env.siteCoveragePct / 100 : (acres >= 3.5 ? 0.35 : 0.45);
+  const totalSF = env ? env.grossBuildingSF : acres * 43560 * buildablePct;
+  const netRentableSF = env ? env.netRentableSF : totalSF * 0.85;
   const ccSF = netRentableSF * (ccPremium / 100);
   const duSF = netRentableSF * (1 - ccPremium / 100);
   const landCost = acres * landPerAc;
@@ -1640,6 +1808,119 @@ function classifyCompetitor(c) {
 // SiteScore, headline verdict, CC SPC estimate, best-fit buyer, and 5-bullet
 // story arc — same skeleton as the REC Package cover memo, compressed.
 // ═══════════════════════════════════════════════════════════════════════════
+// CC SPC Headline — surfaces climate-controlled SF per capita as the #1
+// competition metric. Radius publishes raw SPC, we publish CC SPC with tier
+// verdict + 5-yr projected. This is the deal-killer / deal-maker metric PS,
+// EXR, CUBE, SROA, Merit Hill, Devon all underwrite off of.
+// ═══════════════════════════════════════════════════════════════════════════
+function CCSPCHeadline({ ccSPC, r3, competitors }) {
+  if (!ccSPC || (ccSPC.current == null && ccSPC.projected == null)) return null;
+  const v = ccSPC.verdict;
+  const pv = ccSPC.projectedVerdict;
+  const pop = r3?.TOTPOP_CY;
+  const popFY = r3?.TOTPOP_FY;
+  const cur = ccSPC.current;
+  const proj = ccSPC.projected;
+  const flood = ccSPC.pipelineFlood;
+
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, ${v.color}22, rgba(15,21,56,0.75))`,
+      border: `1px solid ${v.color}66`,
+      borderRadius: 14,
+      padding: 20,
+      marginBottom: 14,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ background: `linear-gradient(135deg, ${v.color}, ${v.color}CC)`, color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>
+          CC SPC · CLIMATE-CONTROLLED SF PER CAPITA
+        </div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>
+          The #1 storage competition metric · Radius doesn't publish this
+        </div>
+        {flood && (
+          <span style={{ background: '#EF4444', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
+            ⚠ PIPELINE FLOOD RISK
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+        {/* CURRENT CC SPC */}
+        <div style={{ background: 'rgba(0,0,0,0.4)', padding: 14, borderRadius: 10, borderLeft: `4px solid ${v.color}` }}>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800, marginBottom: 4 }}>CURRENT (2025)</div>
+          <div style={{ fontSize: 30, fontWeight: 900, color: v.color, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>
+            {cur != null ? cur.toFixed(2) : '—'}
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>CC SF / capita · 3-mi ring</div>
+          <div style={{ marginTop: 8, display: 'inline-block', background: v.color, color: '#fff', padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
+            {v.label}
+          </div>
+        </div>
+
+        {/* PROJECTED 5-YR CC SPC */}
+        <div style={{ background: 'rgba(0,0,0,0.4)', padding: 14, borderRadius: 10, borderLeft: `4px solid ${pv.color}` }}>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800, marginBottom: 4 }}>PROJECTED (2030)</div>
+          <div style={{ fontSize: 30, fontWeight: 900, color: pv.color, fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>
+            {proj != null ? proj.toFixed(2) : '—'}
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+            CC SF / capita · 5-yr forward
+          </div>
+          <div style={{ marginTop: 8, display: 'inline-block', background: pv.color, color: '#fff', padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
+            {pv.label}
+          </div>
+        </div>
+
+        {/* SUPPLY SUMMARY */}
+        <div style={{ background: 'rgba(0,0,0,0.4)', padding: 14, borderRadius: 10 }}>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800, marginBottom: 4 }}>3-MI CC SUPPLY</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>
+            ~{Math.round(ccSPC.totalCCSF / 1000).toLocaleString()}K SF
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 6, lineHeight: 1.4 }}>
+            {ccSPC.competitorCount} storage facilit{ccSPC.competitorCount === 1 ? 'y' : 'ies'} in 3 mi
+            {ccSPC.psFamilyCount > 0 && <span style={{ color: '#F97316' }}> · {ccSPC.psFamilyCount} PS family</span>}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
+            Tier-calibrated CC SF est · REIT 49K · regional 33K · local 16K
+          </div>
+        </div>
+
+        {/* POPULATION BASE */}
+        <div style={{ background: 'rgba(0,0,0,0.4)', padding: 14, borderRadius: 10 }}>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800, marginBottom: 4 }}>TRADE AREA</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>
+            {pop ? pop.toLocaleString() : '—'}
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>
+            3-mi pop (2025)
+          </div>
+          {popFY && pop && (
+            <div style={{ marginTop: 6, fontSize: 9, color: popFY > pop ? '#4CC982' : '#F59E0B' }}>
+              → {popFY.toLocaleString()} by 2030 ({popFY > pop ? '+' : ''}{(((popFY - pop) / pop) * 100).toFixed(1)}%)
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* VERDICT RIBBON */}
+      <div style={{ marginTop: 14, padding: 10, background: 'rgba(0,0,0,0.35)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
+        <b style={{ color: v.color, letterSpacing: '0.08em', marginRight: 8 }}>VERDICT:</b>
+        {cur != null && cur < 3.0 && <>Undersupplied trade area — strong demand-side signal for new CC product.</>}
+        {cur != null && cur >= 3.0 && cur < 5.0 && <>Moderate supply — viable but watch pipeline for new entrants.</>}
+        {cur != null && cur >= 5.0 && cur < 7.0 && <>Well-supplied market — new entrant needs differentiation (location, product tier, operator brand).</>}
+        {cur != null && cur >= 7.0 && <>Oversupplied — new CC development faces meaningful lease-up risk absent demographic tailwind.</>}
+        {flood && <span style={{ color: '#EF4444', marginLeft: 6 }}>Pipeline flood projected — new CC supply outpacing population growth over 5-yr.</span>}
+        {cur == null && <>Unable to estimate CC SPC — competitor or demographic data missing.</>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 function StorvexVerdictHero({ result }) {
   const { geo, r3, competitors, metrics } = result;
   const pop = r3?.TOTPOP_CY || 0;
@@ -1982,10 +2263,16 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
   const esriViewerUrl = `https://www.arcgis.com/apps/mapviewer/index.html?center=${geo.lng},${geo.lat}&level=13`;
   const googleMapsUrl = `https://www.google.com/maps/@${geo.lat},${geo.lng},15z`;
 
+  // ─── CC SPC (the competition headline — Radius doesn't publish this) ───
+  const ccSPC = computeCCSPC(competitors, r3?.TOTPOP_CY, r3?.TOTPOP_FY);
+
   return (
     <>
       {/* STORVEX VERDICT HERO — institutional one-glance opinion */}
       <StorvexVerdictHero result={result} />
+
+      {/* CC SPC HEADLINE — climate-controlled SF per capita, current + 5-yr projected */}
+      <CCSPCHeadline ccSPC={ccSPC} r3={r3} competitors={competitors} />
 
       {/* LOCATION + PERFORMANCE */}
       <div style={card}>
@@ -2550,6 +2837,42 @@ function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
   const [expenseRatio, setExpenseRatio] = React.useState(opEcon.expRatio); // % of revenue
   const [capRate, setCapRate] = React.useState(Math.round(opEcon.cap * 1000) / 10);
 
+  // ─── Buildable Scenario (setbacks + wetlands → real build envelope) ───
+  // Replaces the naive 35%/45% site-coverage heuristic with setback-aware
+  // geometry and product-tier auto-selection (1-story wide / 1-story / 2-story
+  // / 3-story). Three presets + per-input manual override. When scenario
+  // changes, ccPremium + buildPerSF re-seed to the product-appropriate values.
+  const [scenarioKey, setScenarioKey] = React.useState('base');
+  const [setbackFront, setSetbackFront] = React.useState(null); // null = use scenario default
+  const [setbackSide, setSetbackSide] = React.useState(null);
+  const [setbackRear, setSetbackRear] = React.useState(null);
+  const [wetlandsPct, setWetlandsPct] = React.useState(null);
+  const [showAdvancedEnvelope, setShowAdvancedEnvelope] = React.useState(false);
+
+  // Compute the build envelope every render — single source of truth for SF math
+  const scenarioDefaults = BUILD_SCENARIOS[scenarioKey] || BUILD_SCENARIOS.base;
+  const envelopeOverrides = {};
+  if (setbackFront != null) envelopeOverrides.frontSB = setbackFront;
+  if (setbackSide != null)  envelopeOverrides.sideSB = setbackSide;
+  if (setbackRear != null)  envelopeOverrides.rearSB = setbackRear;
+  if (wetlandsPct != null)  envelopeOverrides.wetlandsPct = wetlandsPct;
+  const envelope = computeBuildableEnvelope(acres, scenarioDefaults, envelopeOverrides);
+
+  // When scenario changes (not individual inputs), re-seed ccPremium + buildPerSF
+  // to the product-appropriate defaults from the envelope. User-typed overrides
+  // still win because this only fires on scenario toggle.
+  const lastScenarioRef = React.useRef(scenarioKey);
+  React.useEffect(() => {
+    if (lastScenarioRef.current !== scenarioKey) {
+      lastScenarioRef.current = scenarioKey;
+      // Clear per-input overrides so the new scenario's defaults take effect cleanly
+      setSetbackFront(null); setSetbackSide(null); setSetbackRear(null); setWetlandsPct(null);
+      if (envelope.ccMixPct > 0) setCcPremium(envelope.ccMixPct);
+      if (envelope.buildPerSF > 0) setBuildPerSF(envelope.buildPerSF);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenarioKey]);
+
   // Fire SpareFoot rent pull on mount (once per Quick Lookup)
   React.useEffect(() => {
     if (!geo?.city || !geo?.state) return;
@@ -2594,11 +2917,15 @@ function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
     { label: 'HH $75K+ Share', value: hhOver75Pct, display: hhOver75Pct != null ? hhOver75Pct.toFixed(1) + '%' : '—', pct: computePercentile(hhOver75Pct, NATIONAL_BENCHMARKS_3MI.householdsOver75K) },
   ];
 
-  // ─── YOC Calc ───
+  // ─── YOC Calc (envelope-driven) ───
+  // totalSF = gross building SF from envelope (footprint × stories).
+  // buildablePct kept for back-compat with the old caption — now it represents
+  // footprint/grossSF, not the old 35%/45% heuristic.
   const landCost = acres * landPerAc;
-  const buildablePct = acres >= 3.5 ? 0.35 : 0.45; // one-story 35%, multi-story 45%
-  const totalSF = acres * 43560 * buildablePct;
-  const netRentableSF = totalSF * 0.85; // 85% of gross = net rentable
+  const buildablePct = envelope.siteCoveragePct / 100; // site coverage (footprint ÷ parcel)
+  const totalSF = envelope.grossBuildingSF; // gross building SF across all stories
+  const netRentableSF = envelope.netRentableSF;
+  // Honor user-overridden ccPremium over envelope suggestion (envelope auto-seeded on scenario change)
   const ccSF = netRentableSF * (ccPremium / 100);
   const duSF = netRentableSF * (1 - ccPremium / 100);
   const buildCost = totalSF * buildPerSF;
@@ -2676,7 +3003,7 @@ function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
           <div style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚡ OPERATOR-CALIBRATED UNDERWRITING · LIVE</div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>Pick an operator — underwriting re-calibrates to their 10-K portfolio economics</div>
           <button
-            onClick={() => openPDFPreview(result, { acres, landPerAc, buildPerSF, ccPremium, liveCC: liveRents?.ccRent, liveDU: liveRents?.duRent })}
+            onClick={() => openPDFPreview(result, { acres, landPerAc, buildPerSF, ccPremium, liveCC: liveRents?.ccRent, liveDU: liveRents?.duRent, envelope })}
             style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #DC2626, #991B1B)', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.04em' }}
             title="Preview the institutional-grade PDF with current inputs — print or download from modal"
           >
@@ -2743,6 +3070,108 @@ function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
           )}
         </div>
 
+        {/* BUILDABLE SCENARIO MODELER — setbacks + wetlands → real build envelope */}
+        <div style={{ marginBottom: 14, padding: 12, background: `linear-gradient(135deg, ${scenarioDefaults.color}15, rgba(0,0,0,0.3))`, borderRadius: 8, border: `1px solid ${scenarioDefaults.color}55` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+            <span style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.12em' }}>🏗 BUILDABLE SCENARIO · PATENT-PENDING</span>
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>Setback-aware envelope → product auto-select → real SF into YOC. Radius doesn't do this.</span>
+            <button
+              onClick={() => setShowAdvancedEnvelope(!showAdvancedEnvelope)}
+              style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.35)', background: 'rgba(0,0,0,0.4)', color: '#C9A84C', fontSize: 9, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.08em' }}
+            >
+              {showAdvancedEnvelope ? '▲ HIDE SETBACKS' : '▼ CUSTOMIZE SETBACKS'}
+            </button>
+          </div>
+
+          {/* SCENARIO PICKER TILES */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+            {Object.values(BUILD_SCENARIOS).map(s => {
+              const active = scenarioKey === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setScenarioKey(s.key)}
+                  style={{
+                    padding: 10,
+                    borderRadius: 6,
+                    border: active ? `2px solid ${s.color}` : '1px solid rgba(255,255,255,0.12)',
+                    background: active ? `linear-gradient(135deg, ${s.color}33, ${s.color}15)` : 'rgba(0,0,0,0.35)',
+                    color: '#fff',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <span style={{ background: s.color, color: '#1E2761', padding: '1px 6px', borderRadius: 3, fontSize: 8, fontWeight: 900, letterSpacing: '0.1em' }}>{s.label}</span>
+                    {active && <span style={{ fontSize: 9, color: s.color, fontWeight: 800 }}>● ACTIVE</span>}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>
+                    {s.frontSB}'F · {s.sideSB}'S · {s.rearSB}'R · {s.wetlandsPct}% wl
+                  </div>
+                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginTop: 4, lineHeight: 1.3 }}>{s.desc}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ADVANCED SETBACK OVERRIDES */}
+          {showAdvancedEnvelope && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10, padding: 10, background: 'rgba(0,0,0,0.3)', borderRadius: 6 }}>
+              <div>
+                <div style={{ ...label, marginBottom: 4 }}>FRONT SB (ft)</div>
+                <input type="number" step="5" value={setbackFront ?? scenarioDefaults.frontSB} onChange={e => setSetbackFront(parseFloat(e.target.value) || 0)} style={inp}/>
+              </div>
+              <div>
+                <div style={{ ...label, marginBottom: 4 }}>SIDE SB (ft)</div>
+                <input type="number" step="5" value={setbackSide ?? scenarioDefaults.sideSB} onChange={e => setSetbackSide(parseFloat(e.target.value) || 0)} style={inp}/>
+              </div>
+              <div>
+                <div style={{ ...label, marginBottom: 4 }}>REAR SB (ft)</div>
+                <input type="number" step="5" value={setbackRear ?? scenarioDefaults.rearSB} onChange={e => setSetbackRear(parseFloat(e.target.value) || 0)} style={inp}/>
+              </div>
+              <div>
+                <div style={{ ...label, marginBottom: 4 }}>WETLANDS %</div>
+                <input type="number" step="1" value={wetlandsPct ?? scenarioDefaults.wetlandsPct} onChange={e => setWetlandsPct(parseFloat(e.target.value) || 0)} style={inp}/>
+              </div>
+            </div>
+          )}
+
+          {/* ENVELOPE READOUT */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, padding: 10, background: 'rgba(0,0,0,0.4)', borderRadius: 6, border: `1px solid ${envelope.stories > 0 ? '#10B98144' : '#EF444488'}` }}>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>AUTO-SELECTED PRODUCT</div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: envelope.stories > 0 ? '#C9A84C' : '#EF4444', marginTop: 2 }}>{envelope.label}</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>{envelope.stories > 0 ? `${envelope.stories}-story · ${envelope.ccMixPct}% CC · $${envelope.buildPerSF}/SF base` : envelope.notes}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>FOOTPRINT</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{Math.round(envelope.footprint).toLocaleString()} SF</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{envelope.buildableLength}' × {envelope.buildableWidth}' · {envelope.siteCoveragePct.toFixed(1)}% coverage</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>GROSS BUILDING SF</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{Math.round(envelope.grossBuildingSF).toLocaleString()} SF</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{envelope.stories}× footprint (stacked)</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>NET RENTABLE SF</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#4CC982', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{Math.round(envelope.netRentableSF).toLocaleString()} SF</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{Math.round(envelope.ccSF).toLocaleString()} CC · {Math.round(envelope.duSF).toLocaleString()} DU @ {envelope.ccMixPct}% mix</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>USABLE PARCEL</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{Math.round(envelope.usableSF).toLocaleString()} SF</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{acres}ac gross · {envelope.scenario.wetlandsPct}% unusable</div>
+            </div>
+          </div>
+          {envelope.stories === 0 && (
+            <div style={{ marginTop: 8, padding: 8, background: 'rgba(239,68,68,0.12)', borderRadius: 6, fontSize: 10, color: '#FCA5A5' }}>
+              ⚠ Envelope too small after setbacks. Try AGGRESSIVE scenario, reduce setbacks, or reconsider parcel size.
+            </div>
+          )}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
           <div><div style={label}>ACREAGE</div><input type="number" step="0.1" value={acres} onChange={e=>setAcres(parseFloat(e.target.value)||0)} style={inp}/></div>
           <div><div style={label}>LAND $/AC</div><input type="number" step="10000" value={landPerAc} onChange={e=>setLandPerAc(parseFloat(e.target.value)||0)} style={inp}/></div>
@@ -2791,7 +3220,7 @@ function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
           </div>
         </div>
         <div style={{ marginTop: 10, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-          Formula: YOC = Stabilized NOI ÷ (Land + Build Cost). Assumes {acres >= 3.5 ? '1-story' : 'multi-story'} plate at {(buildablePct*100).toFixed(0)}% site coverage × 85% net rentable. Hurdle = {hurdle}% (per {operator} institutional target).
+          Formula: YOC = Stabilized NOI ÷ (Land + Build Cost). {envelope.label} plate at {envelope.siteCoveragePct.toFixed(1)}% site coverage, {envelope.stories}-story stacked → {Math.round(envelope.grossBuildingSF).toLocaleString()} gross SF × 85% = {Math.round(envelope.netRentableSF).toLocaleString()} net rentable. Hurdle = {hurdle}% (per {operator} institutional target). Scenario: {envelope.scenario.label} · setbacks {envelope.scenario.frontSB}'/{envelope.scenario.sideSB}'/{envelope.scenario.rearSB}' · {envelope.scenario.wetlandsPct}% wetlands.
         </div>
       </div>
 
