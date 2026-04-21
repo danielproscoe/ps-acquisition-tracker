@@ -1708,6 +1708,216 @@ ${(() => {
   </table>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     5-ORACLE INTEL STACK — CC SPC · BUILDABLE · ZONING · UTILITY · ACCESS
+     All five Radius-structural-beat panels inlined into the PDF.
+     Each section renders from result.*Intel fields populated live by Oracle
+     endpoints. Graceful degradation when a panel has no data.
+     ═══════════════════════════════════════════════════════════════════ -->
+${(() => {
+  // ─── CC SPC (client-side compute, matches CCSPCHeadline component) ───
+  const ccSPC = computeCCSPC(competitors, r3?.TOTPOP_CY, r3?.TOTPOP_FY);
+  const v = ccSPC?.verdict;
+  const pv = ccSPC?.projectedVerdict;
+  const ccSPCHtml = ccSPC && (ccSPC.current != null || ccSPC.projected != null) ? `
+<div class="section" style="background:linear-gradient(135deg,${v.color}15,#F8FAFC);border:2px solid ${v.color}">
+  <div class="label" style="color:${v.color}">CC SPC · CLIMATE-CONTROLLED SF PER CAPITA · THE #1 COMPETITION METRIC</div>
+  <div class="grid4">
+    <div class="stat" style="border-left:4px solid ${v.color}">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">CURRENT (2025)</div>
+      <div style="font-size:28px;font-weight:900;color:${v.color};font-family:'Courier New',monospace;line-height:1.1">${ccSPC.current != null ? ccSPC.current.toFixed(2) : '—'}</div>
+      <div style="font-size:9px;color:#64748B;margin-top:2px">CC SF / capita · 3-mi</div>
+      <div style="margin-top:6px;display:inline-block;background:${v.color};color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:900">${v.label}</div>
+    </div>
+    <div class="stat" style="border-left:4px solid ${pv.color}">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">PROJECTED (2030)</div>
+      <div style="font-size:28px;font-weight:900;color:${pv.color};font-family:'Courier New',monospace;line-height:1.1">${ccSPC.projected != null ? ccSPC.projected.toFixed(2) : '—'}</div>
+      <div style="font-size:9px;color:#64748B;margin-top:2px">CC SF / capita · 5-yr forward</div>
+      <div style="margin-top:6px;display:inline-block;background:${pv.color};color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:900">${pv.label}</div>
+    </div>
+    <div class="stat">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">3-MI CC SUPPLY</div>
+      <div style="font-size:22px;font-weight:900;color:#1E2761;font-family:'Courier New',monospace">~${Math.round(ccSPC.totalCCSF/1000).toLocaleString()}K SF</div>
+      <div style="font-size:10px;color:#64748B;margin-top:4px">${ccSPC.competitorCount} facilit${ccSPC.competitorCount === 1 ? 'y' : 'ies'} · ${ccSPC.ccConfidentCount || 0} CC-confident · ${ccSPC.mixedCount || 0} mixed</div>
+    </div>
+    <div class="stat">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">TRADE AREA</div>
+      <div style="font-size:22px;font-weight:900;color:#1E2761;font-family:'Courier New',monospace">${fmt(r3?.TOTPOP_CY)}</div>
+      <div style="font-size:10px;color:#64748B;margin-top:4px">3-mi pop (2025) → ${fmt(r3?.TOTPOP_FY)} by 2030</div>
+    </div>
+  </div>
+  ${ccSPC.pipelineFlood ? `<div style="margin-top:10px;padding:8px 10px;background:#FEE2E2;border-left:3px solid #EF4444;border-radius:4px;font-size:11px;color:#991B1B"><b>⚠ PIPELINE FLOOD RISK:</b> projected CC SPC tier drops materially — new supply outpacing population growth over 5-yr.</div>` : ''}
+</div>` : '';
+
+  // ─── BUILDABLE SCENARIO (from opts.envelope) ───
+  const envelopeHtml = env ? `
+<div class="section" style="background:linear-gradient(135deg,rgba(139,92,246,0.08),#F8FAFC);border:2px solid #8B5CF6">
+  <div class="label" style="color:#8B5CF6">🏗 BUILDABLE SCENARIO · SETBACK-AWARE ENVELOPE · PATENT-PENDING</div>
+  <div style="font-size:10px;color:#64748B;margin-bottom:10px">Real building envelope after ${env.scenario?.label || 'BASE CASE'} setbacks (${env.scenario?.frontSB || 0}'/${env.scenario?.sideSB || 0}'/${env.scenario?.rearSB || 0}'), ${env.scenario?.wetlandsPct || 0}% wetlands haircut, and ${((env.siteUtilization || 0.55) * 100).toFixed(0)}% site-utilization factor (drive aisles + parking + detention + landscape). Radius doesn't do this.</div>
+  <div class="grid4">
+    <div class="stat" style="border-left:4px solid #8B5CF6">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">AUTO-SELECTED PRODUCT</div>
+      <div style="font-size:16px;font-weight:900;color:#8B5CF6;margin-top:2px">${env.label}</div>
+      <div style="font-size:9px;color:#64748B;margin-top:4px">${env.stories}-story · ${env.ccMixPct}% CC · $${env.buildPerSF}/SF base</div>
+    </div>
+    <div class="stat">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">REALISTIC FOOTPRINT</div>
+      <div class="big">${Math.round(env.footprint).toLocaleString()} SF</div>
+      <div style="font-size:9px;color:#64748B;margin-top:2px">${(env.siteCoveragePct || 0).toFixed(1)}% site coverage</div>
+    </div>
+    <div class="stat">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">GROSS BUILDING SF</div>
+      <div class="big">${Math.round(env.grossBuildingSF).toLocaleString()} SF</div>
+      <div style="font-size:9px;color:#64748B;margin-top:2px">${env.stories}× footprint stacked</div>
+    </div>
+    <div class="stat">
+      <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">NET RENTABLE SF</div>
+      <div class="big" style="color:#10B981">${Math.round(env.netRentableSF).toLocaleString()} SF</div>
+      <div style="font-size:9px;color:#64748B;margin-top:2px">${Math.round(env.ccSF).toLocaleString()} CC · ${Math.round(env.duSF).toLocaleString()} DU</div>
+    </div>
+  </div>
+  ${env.stories === 0 ? `<div style="margin-top:10px;padding:8px 10px;background:#FEE2E2;border-left:3px solid #EF4444;border-radius:4px;font-size:11px;color:#991B1B"><b>⚠ UNBUILDABLE:</b> envelope too small after setbacks. Try AGGRESSIVE scenario or reconsider parcel size.</div>` : ''}
+</div>` : '';
+
+  // ─── ZONING ORACLE (from result.zoningIntel) ───
+  const zi = result.zoningIntel;
+  const ziFound = zi && zi.found && zi.ok !== false;
+  const zConf = zi?.confidence || 'low';
+  const zConfColor = zConf === 'high' ? '#10B981' : zConf === 'medium' ? '#F59E0B' : '#EF4444';
+  const zoningHtml = zi ? `
+<div class="section" style="background:linear-gradient(135deg,rgba(139,92,246,0.06),#F8FAFC);border:2px solid #8B5CF6">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <span style="background:#8B5CF6;color:#fff;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:900;letter-spacing:0.1em">⚖ ZONING ORACLE · PATENT-PENDING</span>
+    <span style="font-size:10px;color:#64748B">The #1 deal-killer. Radius doesn't cite the ordinance.</span>
+    <span style="margin-left:auto;background:${zConfColor};color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:900">${zConf.toUpperCase()} CONFIDENCE</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="label" style="color:#64748B">JURISDICTION</div>
+      <div style="font-size:14px;font-weight:800;color:#1E2761">${zi.jurisdiction || '—'}</div>
+      ${zi.sourceUrl && zi.source !== 'manual-required' ? `<div style="font-size:10px;color:#64748B;margin-top:3px">Source: <a href="${zi.sourceUrl}">${zi.source}</a>${zi.ordinanceSection ? ' · ' + zi.ordinanceSection : ''}</div>` : ''}
+    </div>
+    ${ziFound && zi.storageTerm ? `<div>
+      <div class="label" style="color:#64748B">STORAGE USE CATEGORY</div>
+      <div style="font-size:14px;font-weight:800;color:#C9A84C;font-style:italic">"${zi.storageTerm}"</div>
+      ${zi.tableName ? `<div style="font-size:10px;color:#64748B;margin-top:3px">Table: ${zi.tableName}</div>` : ''}
+    </div>` : ''}
+  </div>
+  ${ziFound && (Array.isArray(zi.byRightDistricts) && zi.byRightDistricts.length > 0 || Array.isArray(zi.conditionalDistricts) && zi.conditionalDistricts.length > 0 || Array.isArray(zi.rezoneRequired) && zi.rezoneRequired.length > 0) ? `
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+    ${Array.isArray(zi.byRightDistricts) && zi.byRightDistricts.length > 0 ? `<div style="background:#ECFDF5;padding:8px;border-radius:6px;border-left:3px solid #10B981">
+      <div style="font-size:9px;color:#10B981;letter-spacing:0.1em;font-weight:800">BY-RIGHT (PERMITTED)</div>
+      <div style="margin-top:6px">${zi.byRightDistricts.map(d => `<span style="background:#10B981;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;font-family:'Courier New',monospace;margin:2px">${d}</span>`).join('')}</div>
+    </div>` : ''}
+    ${Array.isArray(zi.conditionalDistricts) && zi.conditionalDistricts.length > 0 ? `<div style="background:#FEF3C7;padding:8px;border-radius:6px;border-left:3px solid #F59E0B">
+      <div style="font-size:9px;color:#F59E0B;letter-spacing:0.1em;font-weight:800">CONDITIONAL (SUP/CUP)</div>
+      <div style="margin-top:6px">${zi.conditionalDistricts.map(d => `<span style="background:#F59E0B;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;font-family:'Courier New',monospace;margin:2px">${d}</span>`).join('')}</div>
+    </div>` : ''}
+    ${Array.isArray(zi.rezoneRequired) && zi.rezoneRequired.length > 0 ? `<div style="background:#FEE2E2;padding:8px;border-radius:6px;border-left:3px solid #EF4444">
+      <div style="font-size:9px;color:#EF4444;letter-spacing:0.1em;font-weight:800">REZONE REQUIRED</div>
+      <div style="margin-top:6px">${zi.rezoneRequired.map(d => `<span style="background:#EF4444;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;font-family:'Courier New',monospace;margin:2px">${d}</span>`).join('')}</div>
+    </div>` : ''}
+  </div>` : ''}
+  ${zi.overlayNotes || zi.supStandards ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    ${zi.overlayNotes ? `<div style="background:#F8FAFC;padding:8px;border-radius:6px"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:800">OVERLAY REQUIREMENTS</div><div style="font-size:11px;color:#1E293B;margin-top:4px;line-height:1.5">${zi.overlayNotes}</div></div>` : ''}
+    ${zi.supStandards ? `<div style="background:#F8FAFC;padding:8px;border-radius:6px"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:800">SUPPLEMENTAL STANDARDS</div><div style="font-size:11px;color:#1E293B;margin-top:4px;line-height:1.5">${zi.supStandards}</div></div>` : ''}
+  </div>` : ''}
+  ${zi.notes ? `<div style="padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#8B5CF6">INTERPRETATION:</b> ${zi.notes}</div>` : ''}
+</div>` : '';
+
+  // ─── UTILITY ORACLE (from result.utilityIntel) ───
+  const ui = result.utilityIntel;
+  const uiFound = ui && ui.found !== false && ui.ok !== false;
+  const uConf = ui?.confidence || 'low';
+  const uConfColor = uConf === 'high' ? '#10B981' : uConf === 'medium' ? '#F59E0B' : '#EF4444';
+  const hookup = ui?.waterHookupStatus || 'unknown';
+  const hookupColor = hookup === 'by-right' ? '#10B981' : hookup === 'by-request' ? '#F59E0B' : hookup === 'no-provider' ? '#EF4444' : '#64748B';
+  const hookupLabel = hookup === 'by-right' ? 'BY-RIGHT (inside boundary)' : hookup === 'by-request' ? 'BY-REQUEST (extension)' : hookup === 'no-provider' ? 'NO PROVIDER' : 'UNKNOWN';
+  const utilityHtml = ui ? `
+<div class="section" style="background:linear-gradient(135deg,rgba(14,165,233,0.08),#F8FAFC);border:2px solid #0EA5E9">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <span style="background:#0EA5E9;color:#fff;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:900;letter-spacing:0.1em">💧 UTILITY ORACLE · PATENT-PENDING</span>
+    <span style="font-size:10px;color:#64748B">The #2 deal-killer. Who do we call for the tap?</span>
+    <span style="margin-left:auto;background:${uConfColor};color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:900">${uConf.toUpperCase()} CONFIDENCE</span>
+  </div>
+  ${uiFound && (ui.waterProvider || hookup !== 'unknown') ? `
+  <div style="background:#F0F9FF;padding:12px;border-radius:8px;margin-bottom:10px;border-left:4px solid ${hookupColor}">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+      <div>
+        <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">WATER PROVIDER</div>
+        <div style="font-size:16px;font-weight:800;color:#1E2761">${ui.waterProvider || '—'}</div>
+      </div>
+      <span style="margin-left:auto;background:${hookupColor};color:#fff;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:900;font-family:'Courier New',monospace">${hookupLabel}</span>
+    </div>
+    ${ui.waterContact && (ui.waterContact.phone || ui.waterContact.email || ui.waterContact.name) ? `<div style="font-size:11px;line-height:1.6;padding:8px;background:#E0F2FE;border-radius:6px;color:#0C4A6E">
+      <b style="color:#0EA5E9">⚡ WHO TO CALL FOR HOOKUP:</b>
+      ${ui.waterContact.name ? `<b>${ui.waterContact.name}</b> · ` : ''}
+      ${ui.waterContact.dept ? ui.waterContact.dept + ' · ' : ''}
+      ${ui.waterContact.phone ? `<span style="font-family:'Courier New',monospace;color:#059669">${ui.waterContact.phone}</span> · ` : ''}
+      ${ui.waterContact.email ? `<a href="mailto:${ui.waterContact.email}" style="color:#059669">${ui.waterContact.email}</a>` : ''}
+      ${ui.waterContact.website ? ` · <a href="${ui.waterContact.website}" style="color:#059669">↗ website</a>` : ''}
+    </div>` : ''}
+    ${ui.fireFlowNotes ? `<div style="margin-top:8px;font-size:11px;color:#475569"><b style="color:#F97316">🔥 FIRE FLOW:</b> ${ui.fireFlowNotes}</div>` : ''}
+  </div>` : ''}
+  ${uiFound ? `<div class="grid4">
+    ${ui.sewerProvider ? `<div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">SEWER</div><div style="font-size:13px;font-weight:700;color:#1E2761;margin-top:4px">${ui.sewerProvider}</div><div style="font-size:9px;color:${ui.sewerAvailable ? '#10B981' : '#64748B'};margin-top:4px">${ui.sewerAvailable ? '✓ municipal available' : 'septic viable for storage'}</div></div>` : ''}
+    ${ui.electricProvider ? `<div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">ELECTRIC</div><div style="font-size:13px;font-weight:700;color:#1E2761;margin-top:4px">${ui.electricProvider}</div><div style="font-size:9px;margin-top:4px;color:${ui.threePhase === true ? '#10B981' : ui.threePhase === false ? '#EF4444' : '#F59E0B'}">3-phase: ${ui.threePhase === true ? '✓ confirmed' : ui.threePhase === false ? '✗ not available' : (ui.threePhase || 'verify').toString().replace('-', ' ')}</div></div>` : ''}
+    ${ui.gasProvider && ui.gasProvider !== 'N/A' ? `<div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">NATURAL GAS</div><div style="font-size:13px;font-weight:700;color:#1E2761;margin-top:4px">${ui.gasProvider}</div></div>` : ''}
+    ${ui.tapFees ? `<div class="stat" style="border-left:3px solid #C9A84C"><div style="font-size:9px;color:#C9A84C;letter-spacing:0.1em;font-weight:700">TAP / IMPACT FEES</div><div style="font-size:11px;font-weight:700;color:#1E2761;margin-top:4px;line-height:1.5">${ui.tapFees}</div></div>` : ''}
+  </div>` : ''}
+  ${ui.notes ? `<div style="margin-top:10px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#0EA5E9">INTERPRETATION:</b> ${ui.notes}</div>` : ''}
+</div>` : '';
+
+  // ─── ACCESS ORACLE (from result.accessIntel) ───
+  const ai = result.accessIntel;
+  const aiFound = ai && ai.found !== false && ai.ok !== false;
+  const aConf = ai?.confidence || 'low';
+  const aConfColor = aConf === 'high' ? '#10B981' : aConf === 'medium' ? '#F59E0B' : '#EF4444';
+  const vpd = ai?.vpd;
+  const vpdTier = vpd == null ? null
+    : vpd >= 30000 ? { label: 'ELITE', color: '#10B981' }
+    : vpd >= 20000 ? { label: 'STRONG', color: '#22C55E' }
+    : vpd >= 12000 ? { label: 'GOOD', color: '#3B82F6' }
+    : vpd >= 6000  ? { label: 'VIABLE', color: '#F59E0B' }
+    : vpd >= 3000  ? { label: 'WEAK', color: '#F97316' }
+    : { label: 'LOW', color: '#EF4444' };
+  const decelRisk = ai?.decelLaneRisk;
+  const decelColor = decelRisk === 'low' ? '#10B981' : decelRisk === 'medium' ? '#F59E0B' : decelRisk === 'high' ? '#EF4444' : '#64748B';
+  const accessHtml = ai ? `
+<div class="section" style="background:linear-gradient(135deg,rgba(245,158,11,0.08),#F8FAFC);border:2px solid #F59E0B">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <span style="background:#F59E0B;color:#fff;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:900;letter-spacing:0.1em">🚧 ACCESS ORACLE · PATENT-PENDING</span>
+    <span style="font-size:10px;color:#64748B">VPD from state DOT · Radius shows the road, we underwrite the turn</span>
+    <span style="margin-left:auto;background:${aConfColor};color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:900">${aConf.toUpperCase()} CONFIDENCE</span>
+  </div>
+  ${aiFound ? `<div style="background:#FFFBEB;padding:12px;border-radius:8px;margin-bottom:10px;border-left:4px solid ${vpdTier?.color || '#64748B'}">
+    <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">VPD · ${ai.vpdYear || ''}</div>
+        <div style="font-size:32px;font-weight:900;color:${vpdTier?.color || '#1E2761'};font-family:'Courier New',monospace;line-height:1">${vpd != null ? vpd.toLocaleString() : '—'}</div>
+        <div style="font-size:10px;color:#64748B;margin-top:4px">vehicles/day${ai.vpdSource ? ` · <a href="${ai.vpdSourceUrl || '#'}">↗ ${ai.vpdSource}</a>` : ''}</div>
+      </div>
+      ${vpdTier ? `<span style="background:${vpdTier.color};color:#fff;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:900;letter-spacing:0.1em">${vpdTier.label} VISIBILITY</span>` : ''}
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">FRONTAGE ROAD</div>
+        <div style="font-size:16px;font-weight:800;color:#C9A84C;font-family:'Courier New',monospace">${ai.frontageRoad || '—'}</div>
+        <div style="font-size:10px;color:#64748B">${(ai.frontageRoadType || 'unknown').replace(/-/g, ' ')}</div>
+      </div>
+    </div>
+  </div>` : ''}
+  ${aiFound ? `<div class="grid4">
+    <div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">MEDIAN</div><div style="font-size:12px;font-weight:700;color:#1E2761;margin-top:4px;text-transform:capitalize">${(ai.medianType || 'unknown').replace(/_/g, ' ')}</div></div>
+    <div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">NEAREST SIGNAL</div><div style="font-size:11px;font-weight:700;color:#1E2761;margin-top:4px;line-height:1.4">${ai.nearestSignal || '—'}</div></div>
+    <div class="stat" style="border-left:3px solid ${decelColor}"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">DECEL LANE RISK</div><div style="font-size:12px;font-weight:700;color:${decelColor};margin-top:4px;text-transform:uppercase">${decelRisk || 'unknown'}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${decelRisk === 'high' ? '$50K-$150K' : decelRisk === 'medium' ? 'possible ask' : decelRisk === 'low' ? '✓ unlikely' : ''}</div></div>
+    <div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">VISIBILITY · DRIVEWAY GRADE</div><div style="font-size:12px;font-weight:700;color:#1E2761;margin-top:4px;text-transform:capitalize">${ai.visibility || 'unknown'} · ${ai.drivewayGrade || 'unknown'}</div></div>
+  </div>` : ''}
+  ${ai.landlockedRisk ? `<div style="margin-top:10px;padding:10px;background:#FEE2E2;border-left:3px solid #EF4444;border-radius:4px;font-size:11px;color:#991B1B"><b>🚨 LANDLOCKED RISK:</b> Interior parcel or easement-only access — major deal flag. Verify platted frontage before advancing.</div>` : ''}
+  ${ai.notes ? `<div style="margin-top:10px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#F59E0B">INTERPRETATION:</b> ${ai.notes}</div>` : ''}
+</div>` : '';
+
+  return ccSPCHtml + envelopeHtml + zoningHtml + utilityHtml + accessHtml;
+})()}
+
 <div class="section pdf-section-demos">
   <div class="label">DEMOGRAPHICS · ESRI 2025–2030 · 3-MI RADIAL RING</div>
   <div class="grid4">
