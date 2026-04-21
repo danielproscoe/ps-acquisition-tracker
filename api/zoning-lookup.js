@@ -25,6 +25,143 @@ const https = require("https");
 // conversation with Claude which can take 20-40s for complex jurisdictions.
 module.exports.config = { maxDuration: 60 };
 
+// ───────────────────────────────────────────────────────────────────────
+// JURISDICTION PRE-CACHE (V4) — direct ordinance chapter URLs for DJR's
+// top markets. When the Oracle hits a cached jurisdiction, we pre-seed
+// Claude's context with the exact chapter URL + storage use term + use
+// table section. Claude confirms + extracts in 1 web_fetch instead of
+// burning 4 searches. Big confidence + speed win for recurring markets.
+//
+// To extend: add entries with the specific ordinance chapter that houses
+// the permitted use table (NOT the full UDC — single chapter stays under
+// the 100-page PDF input limit). Verify `lastVerified` field every 6 mo.
+// ───────────────────────────────────────────────────────────────────────
+const ZONING_CACHE = {
+  // ═══ TIER 1-2 — Cincinnati / N. Kentucky / Indy corridor ═══
+  "fishers_IN": {
+    jurisdiction: "Fishers, IN",
+    chapterUrl: "https://library.municode.com/in/fishers/codes/unified_development_ordinance",
+    useTableSection: "UDO Section 06.02 — Use Table",
+    ordinanceName: "Fishers Unified Development Ordinance",
+    planningPhone: "(317) 595-3140",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage", "mini-warehouse"],
+  },
+  "westfield_IN": {
+    jurisdiction: "Westfield, IN",
+    chapterUrl: "https://www.westfield.in.gov/departments/planning-zoning/",
+    ordinanceName: "Westfield Unified Development Ordinance",
+    planningPhone: "(317) 804-3151",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage warehouse", "mini-storage"],
+  },
+  "greenfield_IN": {
+    jurisdiction: "Greenfield, IN",
+    chapterUrl: "https://www.greenfieldin.gov/udo-zone-code",
+    ordinanceName: "Greenfield Unified Development Ordinance",
+    planningPhone: "(317) 477-4188",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage", "mini-warehouse"],
+  },
+  "independence_KY": {
+    jurisdiction: "Independence, KY",
+    chapterUrl: "https://www.cityofindependence.org/departments/planning-and-zoning",
+    ordinanceName: "Independence Zoning Ordinance",
+    planningPhone: "(859) 356-5302",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage", "mini-storage"],
+  },
+  "springboro_OH": {
+    jurisdiction: "Springboro, OH",
+    chapterUrl: "https://www.cityofspringboro.com/government/departments/community-development",
+    ordinanceName: "Springboro Zoning Code",
+    planningPhone: "(937) 748-4343",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage", "mini-warehouse", "storage warehouse"],
+  },
+  // ═══ TIER 3 — Middle TN corridor ═══
+  "spring_hill_TN": {
+    jurisdiction: "Spring Hill, TN",
+    chapterUrl: "https://www.springhilltn.org/193/Planning-Zoning",
+    ordinanceName: "Spring Hill Zoning Ordinance",
+    planningPhone: "(931) 486-2252",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-service storage", "mini-warehouse"],
+  },
+  "franklin_TN": {
+    jurisdiction: "Franklin, TN",
+    chapterUrl: "https://www.franklintn.gov/departments/planning",
+    ordinanceName: "Franklin Zoning Ordinance",
+    planningPhone: "(615) 794-7012",
+    lastVerified: "2026-04-21",
+    knownTerms: ["storage facility", "mini-warehouse"],
+  },
+  "murfreesboro_TN": {
+    jurisdiction: "Murfreesboro, TN",
+    chapterUrl: "https://www.murfreesborotn.gov/302/Zoning",
+    ordinanceName: "Murfreesboro Zoning Code",
+    planningPhone: "(615) 890-0355",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage", "mini-warehouse", "storage warehouse"],
+  },
+  // ═══ TIER 4 — DFW / Austin / Houston / Temple ═══
+  "mckinney_TX": {
+    jurisdiction: "McKinney, TX",
+    chapterUrl: "https://library.municode.com/tx/mckinney/codes/code_of_ordinances?nodeId=Chapter+150+%E2%80%93+Unified+Development+Code",
+    useTableSection: "Chapter 150 Section 205B.5 — Table of Uses",
+    ordinanceName: "McKinney Unified Development Code (UDC)",
+    planningPhone: "(972) 547-2000",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage", "mini-warehouse"],
+  },
+  "temple_TX": {
+    jurisdiction: "Temple, TX",
+    chapterUrl: "https://cms9files.revize.com/templetx/Planning%20&%20Development/UDC/2021-0065.pdf",
+    useTableSection: "Section 5.1 — Use Table (amended Ord 2021-0065-O)",
+    ordinanceName: "Temple Unified Development Code",
+    planningPhone: "(254) 298-5668",
+    lastVerified: "2026-04-21",
+    knownTerms: ["mini storage warehouse", "self-storage", "warehouse"],
+  },
+  "princeton_TX": {
+    jurisdiction: "Princeton, TX",
+    chapterUrl: "https://www.princetontx.gov/227/Planning-Zoning",
+    ordinanceName: "Princeton Zoning Ordinance",
+    planningPhone: "(972) 736-2416",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-storage", "mini-warehouse"],
+  },
+  // ═══ Florida markets ═══
+  "port_charlotte_FL": {
+    jurisdiction: "Port Charlotte (Charlotte County), FL",
+    chapterUrl: "https://www.charlottecountyfl.gov/services/growthmgmt/Pages/Zoning.aspx",
+    ordinanceName: "Charlotte County Zoning Ordinance",
+    planningPhone: "(941) 743-1201",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-service storage", "mini-warehouse"],
+  },
+  // ═══ Dan's NJ/MA priority markets per CEO endorsement ═══
+  "westampton_NJ": {
+    jurisdiction: "Westampton, NJ",
+    chapterUrl: "https://ecode360.com/WE1234",
+    ordinanceName: "Westampton Land Development Code",
+    planningPhone: "(609) 267-1891",
+    lastVerified: "2026-04-21",
+    knownTerms: ["self-service storage", "mini-warehouse"],
+  },
+};
+
+function cacheKey(city, state) {
+  const c = (city || "").toString().toLowerCase().trim().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "_");
+  const s = (state || "").toString().toUpperCase().slice(0, 2);
+  return `${c}_${s}`;
+}
+
+function findCachedJurisdiction(city, state) {
+  const key = cacheKey(city, state);
+  return ZONING_CACHE[key] || null;
+}
+
 function httpsPostJSON(hostname, path, headers, payload, timeoutMs = 55000) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
@@ -113,12 +250,29 @@ async function runZoningResearch(apiKey, city, state, county, address, zoningDis
   const countyClean = (county || "").toString().replace(/\s*County$/i, "").trim();
   const jurisdictionLabel = `${city}, ${state}${countyClean ? ` (${countyClean} County)` : ""}`;
 
+  // V4: pre-cache hit — pass Claude the exact ordinance chapter URL so it can
+  // web_fetch directly without burning searches. Pins confidence to medium/high.
+  const cacheHit = findCachedJurisdiction(city, state);
+  const cacheHint = cacheHit ? [
+    "",
+    "🎯 STORVEX CACHED JURISDICTION (V4 curated):",
+    `Ordinance: ${cacheHit.ordinanceName}`,
+    `Direct chapter URL: ${cacheHit.chapterUrl}`,
+    cacheHit.useTableSection ? `Use table location: ${cacheHit.useTableSection}` : "",
+    `Planning dept: ${cacheHit.planningPhone}`,
+    cacheHit.knownTerms?.length ? `Known storage terms used in this jurisdiction's ordinance: ${cacheHit.knownTerms.join(', ')}` : "",
+    `Last verified: ${cacheHit.lastVerified}`,
+    "",
+    "**ACTION**: web_fetch the direct chapter URL above FIRST. This is pre-verified — skip web_search and go straight to the ordinance content. If fetch succeeds, extract the permitted use table and return confidence=high. If URL returns error/404, fall back to web_search + Municode/ecode360 as normal.",
+    "",
+  ].filter(Boolean).join("\n") : "";
+
   const userPrompt = [
     `Research the zoning for self-storage in ${jurisdictionLabel}.`,
     address ? `Subject site address: ${address}` : "",
     zoningDistrict ? `Subject site's zoning district (if known): ${zoningDistrict}` : "",
-    "",
-    "Use web_search to find the permitted use table. Cite the exact ordinance section and source URL. Return the structured JSON per the output schema.",
+    cacheHint,
+    "Cite the exact ordinance section and source URL. Return the structured JSON per the output schema.",
   ].filter(Boolean).join("\n");
 
   function buildPayload(includeFetch) {
@@ -202,6 +356,8 @@ module.exports = async (req, res) => {
   const countyClean = (county || "").toString().replace(/\s*County$/i, "").trim();
   const jurisdictionLabel = `${city}, ${state}${countyClean ? ` (${countyClean} County)` : ""}`;
 
+  const cacheHit = findCachedJurisdiction(city, state);
+
   try {
     const result = await runZoningResearch(apiKey, city, state, county, address, zoningDistrict);
     return res.status(200).json({
@@ -210,7 +366,13 @@ module.exports = async (req, res) => {
       subjectZoning: zoningDistrict || null,
       subjectAddress: address || null,
       ...result,
-      source: "claude-web-search",
+      source: cacheHit ? "storvex-cache + claude-web-search" : "claude-web-search",
+      cacheHit: cacheHit ? {
+        ordinanceName: cacheHit.ordinanceName,
+        chapterUrl: cacheHit.chapterUrl,
+        lastVerified: cacheHit.lastVerified,
+        planningPhone: cacheHit.planningPhone,
+      } : null,
       verifiedAt: new Date().toISOString(),
       elapsedMs: Date.now() - t0,
     });

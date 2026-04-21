@@ -2135,6 +2135,11 @@ function ZoningOraclePanel({ zoningIntel, zoningStatus, jurisdiction }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <div style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚖ ZONING ORACLE · PATENT-PENDING</div>
         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>The #1 deal-killer. Radius doesn't cite the ordinance.</div>
+        {zoningIntel.cacheHit && (
+          <span title={`Cached ${zoningIntel.cacheHit.lastVerified} — ${zoningIntel.cacheHit.ordinanceName}`} style={{ background: 'linear-gradient(135deg, #C9A84C, #E4CB7C)', color: '#1E2761', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.08em' }}>
+            🎯 STORVEX CURATED
+          </span>
+        )}
         <span style={{ marginLeft: 'auto', background: confColor, color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
           {confidence.toUpperCase()} CONFIDENCE
         </span>
