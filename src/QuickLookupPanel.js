@@ -1094,9 +1094,14 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
         collegeEdPct3mi: collegePct != null ? collegePct.toFixed(1) + '%' : null,
         vacancyRate3mi: vacancyPct != null ? vacancyPct.toFixed(1) + '%' : null,
       };
-      // Fire Zoning + Utility Oracles in parallel with the narrative stream.
-      // Both land async as r.zoningIntel / r.utilityIntel when done.
-      setResult(r => r ? { ...r, zoningIntel: null, zoningStatus: 'pending', utilityIntel: null, utilityStatus: 'pending' } : r);
+      // Fire Zoning + Utility + Access Oracles in parallel with the narrative
+      // stream. Each lands async as r.zoningIntel / r.utilityIntel / r.accessIntel.
+      setResult(r => r ? {
+        ...r,
+        zoningIntel: null, zoningStatus: 'pending',
+        utilityIntel: null, utilityStatus: 'pending',
+        accessIntel: null, accessStatus: 'pending',
+      } : r);
       if (geo.city && geo.state) {
         fetch('/api/zoning-lookup', {
           method: 'POST',
@@ -1121,6 +1126,19 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
           .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
           .then(j => setResult(r => r ? { ...r, utilityIntel: j, utilityStatus: j.ok === false || j.found === false ? 'not-found' : 'done' } : r))
           .catch(e => setResult(r => r ? { ...r, utilityIntel: { ok: false, error: e.message }, utilityStatus: 'error' } : r));
+
+        fetch('/api/access-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            city: geo.city, state: geo.state, county: geo.county || null,
+            address: geo.formatted, zip: geo.zip || null,
+            coordinates: { lat: geo.lat, lon: geo.lng },
+          })
+        })
+          .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
+          .then(j => setResult(r => r ? { ...r, accessIntel: j, accessStatus: j.ok === false || j.found === false ? 'not-found' : 'done' } : r))
+          .catch(e => setResult(r => r ? { ...r, accessIntel: { ok: false, error: e.message }, accessStatus: 'error' } : r));
       }
 
       setPhase('Streaming Einstein narrative (Claude Haiku 4.5)...');
@@ -2169,6 +2187,169 @@ function UtilityOraclePanel({ utilityIntel, utilityStatus, jurisdiction }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ACCESS ORACLE PANEL — Radius-structural-beat feature #5
+// ─────────────────────────────────────────────────────────────────────────
+// VPD (vehicles per day) + road frontage + signalization + decel lane risk.
+// Per CLAUDE.md §6b-2, storage customers tow trailers and drive box trucks.
+// Radius shows road name; we pull the state DOT traffic count + underwrite
+// the turn via Claude Haiku web_search + web_fetch.
+// ═══════════════════════════════════════════════════════════════════════════
+function AccessOraclePanel({ accessIntel, accessStatus, jurisdiction }) {
+  if (accessStatus === 'pending') {
+    return (
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(15,21,56,0.6))',
+        border: '1px solid rgba(245,158,11,0.25)',
+        borderRadius: 14, padding: 16, marginBottom: 14,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>🚧 ACCESS ORACLE</div>
+          <div style={{ fontSize: 11, color: 'rgba(245,158,11,0.85)', fontStyle: 'italic' }}>⏳ Pulling VPD + frontage + signalization from state DOT...</div>
+        </div>
+      </div>
+    );
+  }
+  if (!accessIntel) return null;
+
+  const found = accessIntel.found !== false && accessIntel.ok !== false;
+  const confidence = accessIntel.confidence || 'low';
+  const confColor = confidence === 'high' ? '#10B981' : confidence === 'medium' ? '#F59E0B' : '#EF4444';
+  const vpd = accessIntel.vpd;
+  // VPD tier for storage: >20K elite, >12K strong, >8K good, >4K viable, <4K weak
+  const vpdTier = vpd == null ? null
+    : vpd >= 30000 ? { label: 'ELITE', color: '#10B981' }
+    : vpd >= 20000 ? { label: 'STRONG', color: '#22C55E' }
+    : vpd >= 12000 ? { label: 'GOOD', color: '#3B82F6' }
+    : vpd >= 6000  ? { label: 'VIABLE', color: '#F59E0B' }
+    : vpd >= 3000  ? { label: 'WEAK', color: '#F97316' }
+    : { label: 'LOW', color: '#EF4444' };
+
+  const decelRisk = accessIntel.decelLaneRisk;
+  const decelColor = decelRisk === 'low' ? '#4CC982' : decelRisk === 'medium' ? '#F59E0B' : decelRisk === 'high' ? '#EF4444' : '#64748B';
+  const vizColor = accessIntel.visibility === 'excellent' ? '#10B981' : accessIntel.visibility === 'good' ? '#22C55E' : accessIntel.visibility === 'moderate' ? '#F59E0B' : accessIntel.visibility === 'poor' ? '#EF4444' : '#64748B';
+
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, ${found ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.06)'}, rgba(15,21,56,0.65))`,
+      border: `1px solid ${found ? 'rgba(245,158,11,0.35)' : 'rgba(239,68,68,0.3)'}`,
+      borderRadius: 14, padding: 18, marginBottom: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>🚧 ACCESS ORACLE · PATENT-PENDING</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>VPD from state DOT · Radius shows the road, we underwrite the turn</div>
+        <span style={{ marginLeft: 'auto', background: confColor, color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
+          {confidence.toUpperCase()} CONFIDENCE
+        </span>
+      </div>
+
+      {/* VPD HEADLINE */}
+      {found && (
+        <div style={{ background: 'rgba(0,0,0,0.4)', padding: 14, borderRadius: 10, marginBottom: 10, borderLeft: `4px solid ${vpdTier?.color || '#64748B'}` }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>VPD · {accessIntel.vpdYear || ''}</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: vpdTier?.color || '#fff', fontFamily: "'Space Mono', monospace", lineHeight: 1 }}>
+                {vpd != null ? vpd.toLocaleString() : '—'}
+              </div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+                vehicles/day
+                {accessIntel.vpdSource && <> · <a href={accessIntel.vpdSourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982', textDecoration: 'none' }}>↗ {accessIntel.vpdSource}</a></>}
+              </div>
+            </div>
+            {vpdTier && (
+              <span style={{ background: vpdTier.color, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 900, letterSpacing: '0.12em' }}>
+                {vpdTier.label} VISIBILITY
+              </span>
+            )}
+            <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>FRONTAGE ROAD</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#C9A84C', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{accessIntel.frontageRoad || '—'}</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>{(accessIntel.frontageRoadType || 'unknown').replace('-', ' ')}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACCESS DETAIL GRID */}
+      {found && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginBottom: 10 }}>
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>MEDIAN</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 4, textTransform: 'capitalize' }}>{(accessIntel.medianType || 'unknown').replace(/_/g, ' ')}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+              {accessIntel.medianType === 'raised' ? '⚠ restricts L-turn access' : accessIntel.medianType === 'TWLTL' ? '✓ L-turn friendly' : accessIntel.medianType === 'none' ? '✓ no restriction' : ''}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>NEAREST SIGNAL</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 4 }}>{accessIntel.nearestSignal || '—'}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>storage customers need signaled L-turns</div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>CURB CUTS</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 4, textTransform: 'capitalize' }}>{(accessIntel.curbCutsLikely || 'unknown').replace(/_/g, ' ')}</div>
+            <div style={{ fontSize: 9, color: accessIntel.curbCutsLikely === 'existing' ? '#4CC982' : accessIntel.curbCutsLikely === 'new required' ? '#F59E0B' : 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+              {accessIntel.curbCutsLikely === 'existing' ? '✓ no permit needed' : accessIntel.curbCutsLikely === 'new required' ? '⚠ DOT permit' : ''}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6, borderLeft: `3px solid ${decelColor}` }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>DECEL LANE RISK</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: decelColor, marginTop: 4, textTransform: 'uppercase' }}>{decelRisk || 'unknown'}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+              {decelRisk === 'high' ? '$50K-$150K' : decelRisk === 'medium' ? 'possible ask' : decelRisk === 'low' ? '✓ unlikely' : ''}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>VISIBILITY</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: vizColor, marginTop: 4, textTransform: 'uppercase' }}>{accessIntel.visibility || 'unknown'}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>drive-by signage value</div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>DRIVEWAY GRADE</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 4, textTransform: 'capitalize' }}>{accessIntel.drivewayGrade || 'unknown'}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{accessIntel.drivewayGrade === 'steep' ? '⚠ trailers struggle' : ''}</div>
+          </div>
+          {accessIntel.landlockedRisk && (
+            <div style={{ background: 'rgba(239,68,68,0.15)', padding: 10, borderRadius: 6, borderLeft: '3px solid #EF4444', gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: 10, color: '#EF4444', fontWeight: 900, letterSpacing: '0.1em' }}>🚨 LANDLOCKED RISK</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>Interior parcel or easement-only access — major deal flag. Verify platted frontage before advancing.</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {accessIntel.notes && (
+        <div style={{ padding: 10, background: 'rgba(0,0,0,0.35)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
+          <b style={{ color: '#F59E0B', letterSpacing: '0.08em', marginRight: 8 }}>INTERPRETATION:</b>
+          {accessIntel.notes}
+        </div>
+      )}
+
+      {!found && accessIntel.searchHints && (
+        <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
+            <b style={{ color: '#EF4444' }}>⚠ AUTOMATED ACCESS LOOKUP FAILED</b> — try state DOT manually:
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10 }}>
+            {accessIntel.searchHints.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ background: 'rgba(245,158,11,0.15)', color: '#C9A84C', padding: '4px 10px', borderRadius: 4, textDecoration: 'none', fontWeight: 700 }}>
+                ↗ Google Search
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {accessIntel.elapsedMs && (
+        <div style={{ marginTop: 8, fontSize: 9, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>
+          Oracle lookup: {(accessIntel.elapsedMs / 1000).toFixed(1)}s · extraction via Claude Haiku 4.5
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CC SPC Headline — surfaces climate-controlled SF per capita as the #1
 // competition metric. Radius publishes raw SPC, we publish CC SPC with tier
 // verdict + 5-yr projected. This is the deal-killer / deal-maker metric PS,
@@ -2652,6 +2833,15 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
         <UtilityOraclePanel
           utilityIntel={result.utilityIntel}
           utilityStatus={result.utilityStatus}
+          jurisdiction={`${geo.city || ''}, ${geo.state || ''}`.replace(/^, /, '')}
+        />
+      )}
+
+      {/* ACCESS ORACLE — VPD + frontage + signalization + decel lane risk via Claude Haiku */}
+      {(result.accessStatus === 'pending' || result.accessIntel) && (
+        <AccessOraclePanel
+          accessIntel={result.accessIntel}
+          accessStatus={result.accessStatus}
           jurisdiction={`${geo.city || ''}, ${geo.state || ''}`.replace(/^, /, '')}
         />
       )}
