@@ -925,6 +925,18 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
   const [activeSuggestIdx, setActiveSuggestIdx] = useState(-1);
 
   const autoRunRef = useRef(false);
+
+  // Persist lookup result to localStorage cache as oracles resolve. Writes
+  // debounce naturally via the result state — every oracle resolution
+  // triggers one write with the latest enriched state. Skip writes when
+  // this IS a cache read (prevents loop) or before any oracle has finished.
+  React.useEffect(() => {
+    if (!result || !address) return;
+    if (result._fromCache) return;
+    if (!result.zoningIntel && !result.utilityIntel && !result.accessIntel) return;
+    writeLookupCache(address, result);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, address]);
   const suggestTimerRef = useRef(null);
   const suggestAbortRef = useRef(null);
   const suggestBoxRef = useRef(null);
@@ -973,11 +985,75 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
     }
   }, []);
 
+  // ─── localStorage address-result cache ─────────────────────────────
+  // Stores the complete lookup result (demographics + competitors + all 3
+  // oracles + matrix) keyed by normalized address, TTL 24h. Eliminates
+  // rate-limit burn on repeat lookups of the same address (Dan's common
+  // pattern: look up site, get broker response 2-3 days later, look it up
+  // again). Keep size bounded by evicting oldest on 5MB cap.
+  //
+  // Cache is client-side only (per-user) — appropriate for single-tenant
+  // weapon usage. When Tier 2 SaaS layer launches, move to Firebase-backed
+  // shared cache with per-org namespace.
+  const CACHE_VERSION = 'v1';
+  const CACHE_PREFIX = `storvex-lookup-cache-${CACHE_VERSION}:`;
+  const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  const normalizeAddressKey = (addr) => (addr || '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+
+  const readLookupCache = (addr) => {
+    try {
+      const key = CACHE_PREFIX + normalizeAddressKey(addr);
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { data, ts } = JSON.parse(raw);
+      if (Date.now() - ts > CACHE_TTL_MS) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return { data, cachedAt: new Date(ts), ageMs: Date.now() - ts };
+    } catch (e) { return null; }
+  };
+
+  const writeLookupCache = (addr, data) => {
+    try {
+      const key = CACHE_PREFIX + normalizeAddressKey(addr);
+      const payload = JSON.stringify({ data, ts: Date.now() });
+      try {
+        localStorage.setItem(key, payload);
+      } catch (quotaErr) {
+        // QuotaExceeded — evict oldest entries and retry once
+        const entries = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(CACHE_PREFIX)) {
+            try { entries.push({ k, ts: JSON.parse(localStorage.getItem(k)).ts }); } catch (e) { /* skip */ }
+          }
+        }
+        entries.sort((a, b) => a.ts - b.ts).slice(0, Math.max(1, Math.floor(entries.length / 2))).forEach(e => localStorage.removeItem(e.k));
+        try { localStorage.setItem(key, payload); } catch (e2) { /* give up */ }
+      }
+    } catch (e) { /* cache write best-effort — never blocks lookup */ }
+  };
+
   const runLookup = useCallback(async () => {
     if (!address.trim()) { setError('Enter an address'); return; }
     setLoading(true); setError(null); setResult(null);
     const started = Date.now();
     try {
+      // Check cache first — serve instant if < 24h old. Skip via Shift-click
+      // Run button (future enhancement) or clear localStorage to force fresh.
+      const cacheHit = readLookupCache(address);
+      if (cacheHit) {
+        setPhase('');
+        const hours = (cacheHit.ageMs / (60*60*1000)).toFixed(1);
+        setResult({ ...cacheHit.data, _fromCache: true, _cacheAgeHours: hours });
+        setLoading(false);
+        return;
+      }
+
       setPhase('Geocoding address...');
       const geo = await geocodeAddress(address);
       setPhase('Pulling ESRI demographics + Tapestry (1/3/5 mi rings)...');
@@ -3108,7 +3184,17 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <div style={label}>SUBJECT LOCATION</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={label}>SUBJECT LOCATION</div>
+              {result._fromCache && (
+                <span
+                  title={`Served from localStorage cache · ${result._cacheAgeHours}h old · TTL 24h · click Run Market Report again or wait for cache to expire for fresh data`}
+                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.1em' }}
+                >
+                  🔋 CACHED · {result._cacheAgeHours}h
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{geo.formatted}</div>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
               📍 {geo.lat.toFixed(4)}, {geo.lng.toFixed(4)} · {geo.county || '—'}
