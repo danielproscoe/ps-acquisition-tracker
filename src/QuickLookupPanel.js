@@ -247,16 +247,18 @@ function findREITFacilitiesNearby(registry, lat, lng, radiusMi) {
 // ═══════════════════════════════════════════════════════════════════════════
 function estimateFacilityCCSF(competitor) {
   // Calibrated facility CC SF estimate. Uses classifyCompetitor() (same classifier
-  // the StorvexVerdictHero uses) for classification alignment. Returns 0 for
-  // facilities that don't belong in the CC SPC math (PS family, RV-only, excluded).
+  // and same SF-per-facility constants as StorvexVerdictHero — single source of
+  // truth for CC SPC estimation across every widget on the page).
   //
-  // Calibrated from PSA/EXR/CUBE 10-K facility-level disclosures:
-  //   CC-confident (known multi-story / branded CC operator): ~65K gross × 85% CC = ~55K CC SF
-  //   Mixed (generic / unknown split, leans drive-up in suburban/rural): ~45K gross × 25% CC = ~11K CC SF
+  // Constants calibrated against verified SpareFoot audits across the DJR
+  // pipeline (target ±25% of audit value):
+  //   cc_confident (REIT / known CC operator, excl. PS Family): ~28K CC SF
+  //   mixed (suburban "self storage", drive-up-dominant): ~6K CC SF
+  //     (20K raw × 0.30 weighting — most suburban facilities are drive-up)
   //   PS-family / excluded: 0 (caller filters these out)
   const cls = classifyCompetitor(competitor);
-  if (cls === 'cc_confident') return 55000;
-  if (cls === 'mixed')        return 11000;
+  if (cls === 'cc_confident') return 28000;
+  if (cls === 'mixed')        return 6000;  // 20K × 0.30 weight, matches Verdict Hero
   return 0; // ps_family or exclude — filtered out upstream
 }
 
@@ -1901,7 +1903,7 @@ function CCSPCHeadline({ ccSPC, r3, competitors }) {
             {ccSPC.ccConfidentCount || 0} CC-confident · {ccSPC.mixedCount || 0} mixed
           </div>
           <div style={{ marginTop: 6, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-            Classifier-calibrated · CC brand 55K · mixed 11K CC SF each
+            Calibrated vs SpareFoot audits · CC brand 28K · mixed 6K CC SF each
           </div>
         </div>
 
