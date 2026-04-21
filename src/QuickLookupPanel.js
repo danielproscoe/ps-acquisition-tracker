@@ -1096,49 +1096,71 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
       };
       // Fire Zoning + Utility + Access Oracles in parallel with the narrative
       // stream. Each lands async as r.zoningIntel / r.utilityIntel / r.accessIntel.
+      //
+      // RATE-LIMIT RETRY WRAPPER: Anthropic Haiku enforces 50K tokens/min sliding
+      // window. Each Oracle burns ~15-20K tokens, so 3 parallel oracles for one
+      // address = 45-60K tokens in a ~30s burst — right at the ceiling. If Dan
+      // runs a 2nd address within 60s, the next batch 429s. This wrapper detects
+      // the rate-limit error string and retries once after 60s (plenty of time
+      // for the sliding window to clear). Status updates reflect the wait.
       setResult(r => r ? {
         ...r,
         zoningIntel: null, zoningStatus: 'pending',
         utilityIntel: null, utilityStatus: 'pending',
         accessIntel: null, accessStatus: 'pending',
       } : r);
+
+      const isRateLimitError = (j) => {
+        if (!j) return false;
+        const body = JSON.stringify(j).toLowerCase();
+        return body.includes('rate_limit') || body.includes('429') || body.includes('rate limit');
+      };
+
+      const fetchOracleWithRetry = async (url, body, setIntel, setStatus, statusKey) => {
+        const attempt = async (attemptNum) => {
+          try {
+            const r = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            if (!r.ok) throw new Error(`${r.status}`);
+            const j = await r.json();
+            if (isRateLimitError(j) && attemptNum < 2) {
+              // Rate-limit hit on first attempt — surface retry-pending status + wait 60s
+              setStatus('retrying');
+              await new Promise(res => setTimeout(res, 60000));
+              return attempt(attemptNum + 1);
+            }
+            setIntel(j);
+            setStatus(j.ok === false || j.found === false ? 'not-found' : 'done');
+          } catch (e) {
+            setIntel({ ok: false, error: e.message });
+            setStatus('error');
+          }
+        };
+        return attempt(1);
+      };
+
       if (geo.city && geo.state) {
-        fetch('/api/zoning-lookup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            city: geo.city, state: geo.state, county: geo.county || null,
-            address: geo.formatted, zoningDistrict: null,
-          })
-        })
-          .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
-          .then(j => setResult(r => r ? { ...r, zoningIntel: j, zoningStatus: j.ok === false ? 'not-found' : 'done' } : r))
-          .catch(e => setResult(r => r ? { ...r, zoningIntel: { ok: false, error: e.message }, zoningStatus: 'error' } : r));
-
-        fetch('/api/utility-lookup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            city: geo.city, state: geo.state, county: geo.county || null,
-            address: geo.formatted, zip: geo.zip || null,
-          })
-        })
-          .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
-          .then(j => setResult(r => r ? { ...r, utilityIntel: j, utilityStatus: j.ok === false || j.found === false ? 'not-found' : 'done' } : r))
-          .catch(e => setResult(r => r ? { ...r, utilityIntel: { ok: false, error: e.message }, utilityStatus: 'error' } : r));
-
-        fetch('/api/access-lookup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            city: geo.city, state: geo.state, county: geo.county || null,
-            address: geo.formatted, zip: geo.zip || null,
-            coordinates: { lat: geo.lat, lon: geo.lng },
-          })
-        })
-          .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
-          .then(j => setResult(r => r ? { ...r, accessIntel: j, accessStatus: j.ok === false || j.found === false ? 'not-found' : 'done' } : r))
-          .catch(e => setResult(r => r ? { ...r, accessIntel: { ok: false, error: e.message }, accessStatus: 'error' } : r));
+        fetchOracleWithRetry('/api/zoning-lookup',
+          { city: geo.city, state: geo.state, county: geo.county || null, address: geo.formatted, zoningDistrict: null },
+          (j) => setResult(r => r ? { ...r, zoningIntel: j } : r),
+          (s) => setResult(r => r ? { ...r, zoningStatus: s } : r),
+          'zoning'
+        );
+        fetchOracleWithRetry('/api/utility-lookup',
+          { city: geo.city, state: geo.state, county: geo.county || null, address: geo.formatted, zip: geo.zip || null },
+          (j) => setResult(r => r ? { ...r, utilityIntel: j } : r),
+          (s) => setResult(r => r ? { ...r, utilityStatus: s } : r),
+          'utility'
+        );
+        fetchOracleWithRetry('/api/access-lookup',
+          { city: geo.city, state: geo.state, county: geo.county || null, address: geo.formatted, zip: geo.zip || null, coordinates: { lat: geo.lat, lon: geo.lng } },
+          (j) => setResult(r => r ? { ...r, accessIntel: j } : r),
+          (s) => setResult(r => r ? { ...r, accessStatus: s } : r),
+          'access'
+        );
       }
 
       setPhase('Streaming Einstein narrative (Claude Haiku 4.5)...');
@@ -2103,16 +2125,23 @@ function classifyCompetitor(c) {
 // this; we do it in 10s via Claude Haiku 4.5 extraction from Municode/ecode360.
 // ═══════════════════════════════════════════════════════════════════════════
 function ZoningOraclePanel({ zoningIntel, zoningStatus, jurisdiction }) {
-  if (zoningStatus === 'pending') {
+  if (zoningStatus === 'pending' || zoningStatus === 'retrying') {
+    const isRetry = zoningStatus === 'retrying';
     return (
       <div style={{
-        background: 'linear-gradient(135deg, rgba(139,92,246,0.06), rgba(15,21,56,0.6))',
-        border: '1px solid rgba(139,92,246,0.25)',
+        background: `linear-gradient(135deg, rgba(139,92,246,${isRetry ? 0.12 : 0.06}), rgba(15,21,56,0.6))`,
+        border: `1px solid rgba(139,92,246,${isRetry ? 0.5 : 0.25})`,
         borderRadius: 14, padding: 16, marginBottom: 14,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚖ ZONING ORACLE</div>
-          <div style={{ fontSize: 11, color: 'rgba(201,168,76,0.75)', fontStyle: 'italic' }}>⏳ Searching Municode + ecode360 for {jurisdiction || 'jurisdiction'} ordinance...</div>
+          {isRetry ? (
+            <div style={{ fontSize: 11, color: '#F59E0B', fontStyle: 'italic' }}>
+              ⏸ Rate-limit cooldown — retrying in 60s (Anthropic 50K tpm sliding window)
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'rgba(201,168,76,0.75)', fontStyle: 'italic' }}>⏳ Searching Municode + ecode360 for {jurisdiction || 'jurisdiction'} ordinance...</div>
+          )}
         </div>
       </div>
     );
@@ -2260,16 +2289,23 @@ function ZoningOraclePanel({ zoningIntel, zoningStatus, jurisdiction }) {
 // Claude web_search + web_fetch, ~20-30s per lookup.
 // ═══════════════════════════════════════════════════════════════════════════
 function UtilityOraclePanel({ utilityIntel, utilityStatus, jurisdiction }) {
-  if (utilityStatus === 'pending') {
+  if (utilityStatus === 'pending' || utilityStatus === 'retrying') {
+    const isRetry = utilityStatus === 'retrying';
     return (
       <div style={{
-        background: 'linear-gradient(135deg, rgba(14,165,233,0.06), rgba(15,21,56,0.6))',
-        border: '1px solid rgba(14,165,233,0.25)',
+        background: `linear-gradient(135deg, rgba(14,165,233,${isRetry ? 0.12 : 0.06}), rgba(15,21,56,0.6))`,
+        border: `1px solid rgba(14,165,233,${isRetry ? 0.5 : 0.25})`,
         borderRadius: 14, padding: 16, marginBottom: 14,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ background: 'linear-gradient(135deg, #0EA5E9, #0369A1)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>💧 UTILITY ORACLE</div>
-          <div style={{ fontSize: 11, color: 'rgba(14,165,233,0.8)', fontStyle: 'italic' }}>⏳ Identifying water/sewer/electric providers for {jurisdiction || 'jurisdiction'}...</div>
+          {isRetry ? (
+            <div style={{ fontSize: 11, color: '#F59E0B', fontStyle: 'italic' }}>
+              ⏸ Rate-limit cooldown — retrying in 60s
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'rgba(14,165,233,0.8)', fontStyle: 'italic' }}>⏳ Identifying water/sewer/electric providers for {jurisdiction || 'jurisdiction'}...</div>
+          )}
         </div>
       </div>
     );
@@ -2410,16 +2446,23 @@ function UtilityOraclePanel({ utilityIntel, utilityStatus, jurisdiction }) {
 // the turn via Claude Haiku web_search + web_fetch.
 // ═══════════════════════════════════════════════════════════════════════════
 function AccessOraclePanel({ accessIntel, accessStatus, jurisdiction }) {
-  if (accessStatus === 'pending') {
+  if (accessStatus === 'pending' || accessStatus === 'retrying') {
+    const isRetry = accessStatus === 'retrying';
     return (
       <div style={{
-        background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(15,21,56,0.6))',
-        border: '1px solid rgba(245,158,11,0.25)',
+        background: `linear-gradient(135deg, rgba(245,158,11,${isRetry ? 0.12 : 0.06}), rgba(15,21,56,0.6))`,
+        border: `1px solid rgba(245,158,11,${isRetry ? 0.5 : 0.25})`,
         borderRadius: 14, padding: 16, marginBottom: 14,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>🚧 ACCESS ORACLE</div>
-          <div style={{ fontSize: 11, color: 'rgba(245,158,11,0.85)', fontStyle: 'italic' }}>⏳ Pulling VPD + frontage + signalization from state DOT...</div>
+          {isRetry ? (
+            <div style={{ fontSize: 11, color: '#F59E0B', fontStyle: 'italic' }}>
+              ⏸ Rate-limit cooldown — retrying in 60s
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'rgba(245,158,11,0.85)', fontStyle: 'italic' }}>⏳ Pulling VPD + frontage + signalization from state DOT...</div>
+          )}
         </div>
       </div>
     );
@@ -3035,7 +3078,7 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
       <CCSPCHeadline ccSPC={ccSPC} r3={r3} competitors={competitors} />
 
       {/* ZONING ORACLE — Municode/ecode360 permitted use table extraction via Claude Haiku */}
-      {(result.zoningStatus === 'pending' || result.zoningIntel) && (
+      {(result.zoningStatus === 'pending' || result.zoningStatus === 'retrying' || result.zoningIntel) && (
         <ZoningOraclePanel
           zoningIntel={result.zoningIntel}
           zoningStatus={result.zoningStatus}
@@ -3044,7 +3087,7 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
       )}
 
       {/* UTILITY ORACLE — water/sewer/electric provider + hookup status via Claude Haiku */}
-      {(result.utilityStatus === 'pending' || result.utilityIntel) && (
+      {(result.utilityStatus === 'pending' || result.utilityStatus === 'retrying' || result.utilityIntel) && (
         <UtilityOraclePanel
           utilityIntel={result.utilityIntel}
           utilityStatus={result.utilityStatus}
@@ -3053,7 +3096,7 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
       )}
 
       {/* ACCESS ORACLE — VPD + frontage + signalization + decel lane risk via Claude Haiku */}
-      {(result.accessStatus === 'pending' || result.accessIntel) && (
+      {(result.accessStatus === 'pending' || result.accessStatus === 'retrying' || result.accessIntel) && (
         <AccessOraclePanel
           accessIntel={result.accessIntel}
           accessStatus={result.accessStatus}
