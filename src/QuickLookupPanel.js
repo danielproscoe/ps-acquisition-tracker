@@ -334,6 +334,7 @@ const BUILD_SCENARIOS = {
     label: 'AGGRESSIVE',
     frontSB: 25, sideSB: 10, rearSB: 15,
     wetlandsPct: 0,
+    siteUtilization: 0.62,  // Rural/ETJ — can spread out, less code-driven landscaping
     desc: 'Rural/ETJ/unincorporated · minimal setbacks · clean pad',
     color: '#10B981',
   },
@@ -342,6 +343,7 @@ const BUILD_SCENARIOS = {
     label: 'BASE CASE',
     frontSB: 50, sideSB: 10, rearSB: 25,
     wetlandsPct: 5,
+    siteUtilization: 0.55,  // Typical suburban C-3 / M-1 with standard parking + detention
     desc: 'Standard commercial C-3 / M-1 · slight unusable area',
     color: '#C9A84C',
   },
@@ -350,6 +352,7 @@ const BUILD_SCENARIOS = {
     label: 'CONSERVATIVE',
     frontSB: 75, sideSB: 25, rearSB: 35,
     wetlandsPct: 15,
+    siteUtilization: 0.48,  // Overlay with heavy landscape buffers + enhanced parking
     desc: 'Overlay district · buffer setbacks · meaningful wetlands',
     color: '#F59E0B',
   },
@@ -364,7 +367,17 @@ function computeBuildableEnvelope(acres, scenario, overrides = {}) {
   const sideLength = Math.sqrt(Math.max(0, usableSF));
   const buildableLength = Math.max(0, sideLength - (s.frontSB || 0) - (s.rearSB || 0));
   const buildableWidth  = Math.max(0, sideLength - ((s.sideSB || 0) * 2));
-  const footprint = buildableLength * buildableWidth;
+  const postSetbackEnvelope = buildableLength * buildableWidth;
+
+  // Site-utilization factor — the post-setback envelope isn't 100% buildable.
+  // Real storage sites lose area to: customer drive aisles (20-30' wide perimeter),
+  // interior drive aisles, office parking, detention pond, landscape buffers.
+  // Industry-standard FAR for 1-story storage is 0.30-0.40 of GROSS parcel.
+  // That works out to roughly 0.55 of the post-setback envelope on typical pads.
+  // This is the factor that converts "geometric max building envelope" into
+  // "realistic 1-story footprint we could actually build and permit".
+  const siteUtilization = s.siteUtilization != null ? s.siteUtilization : 0.55;
+  const footprint = postSetbackEnvelope * siteUtilization;
 
   // Product auto-selection based on footprint size (empirical from PS/EXR dev standards).
   // Each tier has its own story count, CC/DU mix, and typical build $/SF cost basis.
@@ -402,14 +415,17 @@ function computeBuildableEnvelope(acres, scenario, overrides = {}) {
 
   return {
     scenario: s,
-    grossSF, usableSF, footprint,
+    grossSF, usableSF,
+    postSetbackEnvelope,          // max geometric envelope after setbacks
+    siteUtilization,              // factor applied to get realistic footprint
+    footprint,                    // realistic building footprint (what we'll actually build)
     stories, label, notes,
     grossBuildingSF, netRentableSF,
     ccSF, duSF, ccMixPct,
     buildPerSF,
-    siteCoveragePct: grossSF > 0 ? (footprint / grossSF) * 100 : 0,
-    usableCoveragePct: usableSF > 0 ? (footprint / usableSF) * 100 : 0,
-    // For display: side length and buildable dimensions in feet
+    siteCoveragePct:    grossSF > 0 ? (footprint / grossSF) * 100 : 0,
+    envelopeCoveragePct: grossSF > 0 ? (postSetbackEnvelope / grossSF) * 100 : 0,
+    // For display: side length and post-setback dimensions in feet
     sideLength: Math.round(sideLength),
     buildableLength: Math.round(buildableLength),
     buildableWidth: Math.round(buildableWidth),
@@ -3163,9 +3179,14 @@ function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
               <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>{envelope.stories > 0 ? `${envelope.stories}-story · ${envelope.ccMixPct}% CC · $${envelope.buildPerSF}/SF base` : envelope.notes}</div>
             </div>
             <div>
-              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>FOOTPRINT</div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>REALISTIC FOOTPRINT</div>
               <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{Math.round(envelope.footprint).toLocaleString()} SF</div>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{envelope.buildableLength}' × {envelope.buildableWidth}' · {envelope.siteCoveragePct.toFixed(1)}% coverage</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{envelope.siteCoveragePct.toFixed(1)}% of parcel · {(envelope.siteUtilization*100).toFixed(0)}% site utilization</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>POST-SETBACK ENVELOPE</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: 'rgba(255,255,255,0.7)', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{Math.round(envelope.postSetbackEnvelope).toLocaleString()} SF</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{envelope.buildableLength}' × {envelope.buildableWidth}' · max geometric</div>
             </div>
             <div>
               <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>GROSS BUILDING SF</div>
@@ -3238,7 +3259,7 @@ function PercentileAndYOCCard({ r3, competitors, geo, result, fbPush }) {
           </div>
         </div>
         <div style={{ marginTop: 10, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-          Formula: YOC = Stabilized NOI ÷ (Land + Build Cost). {envelope.label} plate at {envelope.siteCoveragePct.toFixed(1)}% site coverage, {envelope.stories}-story stacked → {Math.round(envelope.grossBuildingSF).toLocaleString()} gross SF × 85% = {Math.round(envelope.netRentableSF).toLocaleString()} net rentable. Hurdle = {hurdle}% (per {operator} institutional target). Scenario: {envelope.scenario.label} · setbacks {envelope.scenario.frontSB}'/{envelope.scenario.sideSB}'/{envelope.scenario.rearSB}' · {envelope.scenario.wetlandsPct}% wetlands.
+          Formula: YOC = Stabilized NOI ÷ (Land + Build Cost). {envelope.label} plate at {envelope.siteCoveragePct.toFixed(1)}% site coverage ({(envelope.siteUtilization*100).toFixed(0)}% site-util factor · accounts for drive aisles + parking + detention + landscape), {envelope.stories}-story stacked → {Math.round(envelope.grossBuildingSF).toLocaleString()} gross SF × 85% = {Math.round(envelope.netRentableSF).toLocaleString()} net rentable. Hurdle = {hurdle}% (per {operator} institutional target). Scenario: {envelope.scenario.label} · setbacks {envelope.scenario.frontSB}'/{envelope.scenario.sideSB}'/{envelope.scenario.rearSB}' · {envelope.scenario.wetlandsPct}% wetlands.
         </div>
       </div>
 
