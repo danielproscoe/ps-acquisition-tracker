@@ -1094,25 +1094,33 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
         collegeEdPct3mi: collegePct != null ? collegePct.toFixed(1) + '%' : null,
         vacancyRate3mi: vacancyPct != null ? vacancyPct.toFixed(1) + '%' : null,
       };
-      // Fire Zoning Oracle in parallel with the narrative stream. Lands async
-      // as r.zoningIntel when done. Falls back gracefully if the endpoint is
-      // unavailable (localhost dev) or the jurisdiction isn't in Municode/ecode360.
-      setResult(r => r ? { ...r, zoningIntel: null, zoningStatus: 'pending' } : r);
+      // Fire Zoning + Utility Oracles in parallel with the narrative stream.
+      // Both land async as r.zoningIntel / r.utilityIntel when done.
+      setResult(r => r ? { ...r, zoningIntel: null, zoningStatus: 'pending', utilityIntel: null, utilityStatus: 'pending' } : r);
       if (geo.city && geo.state) {
         fetch('/api/zoning-lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            city: geo.city,
-            state: geo.state,
-            county: geo.county || null,
-            address: geo.formatted,
-            zoningDistrict: null, // future: pull from county GIS when available
+            city: geo.city, state: geo.state, county: geo.county || null,
+            address: geo.formatted, zoningDistrict: null,
           })
         })
           .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
           .then(j => setResult(r => r ? { ...r, zoningIntel: j, zoningStatus: j.ok === false ? 'not-found' : 'done' } : r))
           .catch(e => setResult(r => r ? { ...r, zoningIntel: { ok: false, error: e.message }, zoningStatus: 'error' } : r));
+
+        fetch('/api/utility-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            city: geo.city, state: geo.state, county: geo.county || null,
+            address: geo.formatted, zip: geo.zip || null,
+          })
+        })
+          .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
+          .then(j => setResult(r => r ? { ...r, utilityIntel: j, utilityStatus: j.ok === false || j.found === false ? 'not-found' : 'done' } : r))
+          .catch(e => setResult(r => r ? { ...r, utilityIntel: { ok: false, error: e.message }, utilityStatus: 'error' } : r));
       }
 
       setPhase('Streaming Einstein narrative (Claude Haiku 4.5)...');
@@ -2011,6 +2019,156 @@ function ZoningOraclePanel({ zoningIntel, zoningStatus, jurisdiction }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// UTILITY ORACLE PANEL — Radius-structural-beat feature #4
+// ─────────────────────────────────────────────────────────────────────────
+// Surfaces water/sewer/electric providers + hookup status on every lookup.
+// Per CLAUDE.md §6c-2, water is the #2 deal-killer — commercial storage fire
+// suppression requires municipal water (wells can't hit 1,500 GPM @ 20 PSI).
+// Claude web_search + web_fetch, ~20-30s per lookup.
+// ═══════════════════════════════════════════════════════════════════════════
+function UtilityOraclePanel({ utilityIntel, utilityStatus, jurisdiction }) {
+  if (utilityStatus === 'pending') {
+    return (
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(14,165,233,0.06), rgba(15,21,56,0.6))',
+        border: '1px solid rgba(14,165,233,0.25)',
+        borderRadius: 14, padding: 16, marginBottom: 14,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ background: 'linear-gradient(135deg, #0EA5E9, #0369A1)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>💧 UTILITY ORACLE</div>
+          <div style={{ fontSize: 11, color: 'rgba(14,165,233,0.8)', fontStyle: 'italic' }}>⏳ Identifying water/sewer/electric providers for {jurisdiction || 'jurisdiction'}...</div>
+        </div>
+      </div>
+    );
+  }
+  if (!utilityIntel) return null;
+
+  const found = utilityIntel.found !== false && utilityIntel.ok !== false;
+  const confidence = utilityIntel.confidence || 'low';
+  const confColor = confidence === 'high' ? '#10B981' : confidence === 'medium' ? '#F59E0B' : '#EF4444';
+  const hookup = utilityIntel.waterHookupStatus || 'unknown';
+  const hookupColor = hookup === 'by-right' ? '#10B981' : hookup === 'by-request' ? '#F59E0B' : hookup === 'no-provider' ? '#EF4444' : '#64748B';
+  const hookupLabel = hookup === 'by-right' ? 'BY-RIGHT (inside boundary)' : hookup === 'by-request' ? 'BY-REQUEST (extension)' : hookup === 'no-provider' ? 'NO PROVIDER' : 'UNKNOWN';
+
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, ${found ? 'rgba(14,165,233,0.08)' : 'rgba(239,68,68,0.06)'}, rgba(15,21,56,0.65))`,
+      border: `1px solid ${found ? 'rgba(14,165,233,0.35)' : 'rgba(239,68,68,0.3)'}`,
+      borderRadius: 14, padding: 18, marginBottom: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0EA5E9, #0369A1)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>💧 UTILITY ORACLE · PATENT-PENDING</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>Water is the #2 deal-killer. Who do we call for the tap?</div>
+        <span style={{ marginLeft: 'auto', background: confColor, color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
+          {confidence.toUpperCase()} CONFIDENCE
+        </span>
+      </div>
+
+      {/* WATER — the headline */}
+      {found && (utilityIntel.waterProvider || hookup !== 'unknown') && (
+        <div style={{ background: 'rgba(0,0,0,0.35)', padding: 14, borderRadius: 10, marginBottom: 10, borderLeft: `4px solid ${hookupColor}` }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>WATER PROVIDER</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 2 }}>{utilityIntel.waterProvider || '—'}</div>
+            </div>
+            <span style={{ marginLeft: 'auto', background: hookupColor, color: '#fff', padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', fontFamily: "'Space Mono', monospace" }}>
+              {hookupLabel}
+            </span>
+          </div>
+          {utilityIntel.waterContact && (utilityIntel.waterContact.phone || utilityIntel.waterContact.email || utilityIntel.waterContact.name) && (
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, padding: 8, background: 'rgba(14,165,233,0.08)', borderRadius: 6, marginTop: 6 }}>
+              <b style={{ color: '#0EA5E9', letterSpacing: '0.05em' }}>⚡ WHO TO CALL FOR HOOKUP: </b>
+              {utilityIntel.waterContact.name && <><b>{utilityIntel.waterContact.name}</b> · </>}
+              {utilityIntel.waterContact.dept && <>{utilityIntel.waterContact.dept} · </>}
+              {utilityIntel.waterContact.phone && <><a href={`tel:${utilityIntel.waterContact.phone}`} style={{ color: '#4CC982', textDecoration: 'none', fontFamily: "'Space Mono', monospace" }}>{utilityIntel.waterContact.phone}</a> · </>}
+              {utilityIntel.waterContact.email && <><a href={`mailto:${utilityIntel.waterContact.email}`} style={{ color: '#4CC982', textDecoration: 'none' }}>{utilityIntel.waterContact.email}</a> · </>}
+              {utilityIntel.waterContact.website && <a href={utilityIntel.waterContact.website} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982', textDecoration: 'none' }}>↗ website</a>}
+            </div>
+          )}
+          {utilityIntel.fireFlowNotes && (
+            <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
+              <b style={{ color: '#F97316' }}>🔥 FIRE FLOW:</b> {utilityIntel.fireFlowNotes}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SEWER + ELECTRIC + GAS grid */}
+      {found && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 10 }}>
+          {utilityIntel.sewerProvider && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>SEWER</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginTop: 4 }}>{utilityIntel.sewerProvider}</div>
+              <div style={{ fontSize: 9, color: utilityIntel.sewerAvailable ? '#4CC982' : 'rgba(255,255,255,0.5)', marginTop: 4 }}>
+                {utilityIntel.sewerAvailable ? '✓ municipal available' : 'septic — storage uses minimal wastewater'}
+              </div>
+            </div>
+          )}
+          {utilityIntel.electricProvider && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>ELECTRIC</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginTop: 4 }}>{utilityIntel.electricProvider}</div>
+              <div style={{ fontSize: 9, marginTop: 4, color: utilityIntel.threePhase === true ? '#4CC982' : utilityIntel.threePhase === false ? '#EF4444' : '#F59E0B' }}>
+                3-phase: {utilityIntel.threePhase === true ? '✓ confirmed' : utilityIntel.threePhase === false ? '✗ not available' : (utilityIntel.threePhase || 'verify').toString().replace('-', ' ')}
+              </div>
+            </div>
+          )}
+          {utilityIntel.gasProvider && utilityIntel.gasProvider !== 'N/A' && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>NATURAL GAS</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginTop: 4 }}>{utilityIntel.gasProvider}</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>nice-to-have for climate control</div>
+            </div>
+          )}
+          {utilityIntel.tapFees && (
+            <div style={{ background: 'rgba(201,168,76,0.08)', padding: 10, borderRadius: 6, borderLeft: '3px solid #C9A84C' }}>
+              <div style={{ fontSize: 8, color: '#C9A84C', letterSpacing: '0.14em', fontWeight: 800 }}>TAP / IMPACT FEES</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 4 }}>{utilityIntel.tapFees}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {utilityIntel.serviceBoundaryUrl && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginBottom: 8 }}>
+          Service boundary: <a href={utilityIntel.serviceBoundaryUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>↗ verify map</a>
+        </div>
+      )}
+
+      {utilityIntel.notes && (
+        <div style={{ padding: 10, background: 'rgba(0,0,0,0.35)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
+          <b style={{ color: '#0EA5E9', letterSpacing: '0.08em', marginRight: 8 }}>INTERPRETATION:</b>
+          {utilityIntel.notes}
+        </div>
+      )}
+
+      {!found && utilityIntel.searchHints && (
+        <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
+            <b style={{ color: '#EF4444' }}>⚠ AUTOMATED UTILITY LOOKUP FAILED</b> — try manual sources:
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10 }}>
+            {utilityIntel.searchHints.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ background: 'rgba(14,165,233,0.15)', color: '#C9A84C', padding: '4px 10px', borderRadius: 4, textDecoration: 'none', fontWeight: 700 }}>
+                ↗ {url.includes('google') ? 'Google Search' : url.includes('tceq') ? 'TCEQ CCN Map (TX)' : 'Manual source'}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {utilityIntel.elapsedMs && (
+        <div style={{ marginTop: 8, fontSize: 9, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>
+          Oracle lookup: {(utilityIntel.elapsedMs / 1000).toFixed(1)}s · extraction via Claude Haiku 4.5
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CC SPC Headline — surfaces climate-controlled SF per capita as the #1
 // competition metric. Radius publishes raw SPC, we publish CC SPC with tier
 // verdict + 5-yr projected. This is the deal-killer / deal-maker metric PS,
@@ -2485,6 +2643,15 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
         <ZoningOraclePanel
           zoningIntel={result.zoningIntel}
           zoningStatus={result.zoningStatus}
+          jurisdiction={`${geo.city || ''}, ${geo.state || ''}`.replace(/^, /, '')}
+        />
+      )}
+
+      {/* UTILITY ORACLE — water/sewer/electric provider + hookup status via Claude Haiku */}
+      {(result.utilityStatus === 'pending' || result.utilityIntel) && (
+        <UtilityOraclePanel
+          utilityIntel={result.utilityIntel}
+          utilityStatus={result.utilityStatus}
           jurisdiction={`${geo.city || ''}, ${geo.state || ''}`.replace(/^, /, '')}
         />
       )}
