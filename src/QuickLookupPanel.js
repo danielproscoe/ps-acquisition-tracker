@@ -246,14 +246,18 @@ function findREITFacilitiesNearby(registry, lat, lng, radiusMi) {
 // Benchmarks per CLAUDE.md §6c-4.
 // ═══════════════════════════════════════════════════════════════════════════
 function estimateFacilityCCSF(competitor) {
-  // Tier-based CC SF estimate calibrated from PSA/EXR/CUBE 10-K averages.
-  // REIT facilities: ~65K gross × 75% CC = ~49K CC SF (multi-story common, high CC mix).
-  // Regional: ~55K gross × 60% CC = ~33K CC SF.
-  // Local/independent: ~40K gross × 40% CC = ~16K CC SF.
-  const tier = classifyOperator(competitor.name || '').tier;
-  if (tier === 'reit') return 49000;
-  if (tier === 'regional') return 33000;
-  return 16000;
+  // Calibrated facility CC SF estimate. Uses classifyCompetitor() (same classifier
+  // the StorvexVerdictHero uses) for classification alignment. Returns 0 for
+  // facilities that don't belong in the CC SPC math (PS family, RV-only, excluded).
+  //
+  // Calibrated from PSA/EXR/CUBE 10-K facility-level disclosures:
+  //   CC-confident (known multi-story / branded CC operator): ~65K gross × 85% CC = ~55K CC SF
+  //   Mixed (generic / unknown split, leans drive-up in suburban/rural): ~45K gross × 25% CC = ~11K CC SF
+  //   PS-family / excluded: 0 (caller filters these out)
+  const cls = classifyCompetitor(competitor);
+  if (cls === 'cc_confident') return 55000;
+  if (cls === 'mixed')        return 11000;
+  return 0; // ps_family or exclude — filtered out upstream
 }
 
 function ccSPCVerdict(spc) {
@@ -274,15 +278,21 @@ function computeCCSPC(competitors, pop3miCY, pop3miFY) {
     const d = parseFloat(c.distanceMi);
     return Number.isFinite(d) && d <= 3;
   });
-  // Exclude PS-family facilities from CC SPC when we're pitching to PS — they're
-  // part of PS's own footprint, not competition. But for non-PS buyers, PS-family
-  // IS competition. We compute both views.
-  const psFam = comp3mi.filter(c => tagPSFamily(c.name || '') === 'ps-family');
-  const nonPSFam = comp3mi.filter(c => tagPSFamily(c.name || '') !== 'ps-family');
-  const ccSFAll  = comp3mi.reduce((s, c) => s + estimateFacilityCCSF(c), 0);
-  const ccSFNonPS = nonPSFam.reduce((s, c) => s + estimateFacilityCCSF(c), 0);
-  // Primary metric uses ALL storage operators (standard industry definition).
-  // Non-PS view excludes PS family — relevant for PS as buyer.
+  // Classify every facility (same classifier StorvexVerdictHero uses — single
+  // source of truth so CC SPC Headline agrees with the Verdict Hero).
+  const classified = comp3mi.map(c => ({ ...c, _class: classifyCompetitor(c) }));
+  // PS family: Public Storage + iStorage + NSA. For PS-as-buyer these are NOT
+  // competition; for non-PS buyers they ARE. We compute both views.
+  const psFam      = classified.filter(c => c._class === 'ps_family');
+  const excluded   = classified.filter(c => c._class === 'exclude');
+  const ccConfident = classified.filter(c => c._class === 'cc_confident');
+  const mixed       = classified.filter(c => c._class === 'mixed');
+  // "Non-PS view" excludes PS family + RV/non-storage. "All view" includes PS
+  // family (treat them as competition for non-PS buyers) but still excludes RV.
+  const validForCCAll    = classified.filter(c => c._class !== 'exclude');
+  const validForCCNonPS  = classified.filter(c => c._class !== 'exclude' && c._class !== 'ps_family');
+  const ccSFAll   = validForCCAll.reduce((s, c) => s + estimateFacilityCCSF(c), 0);
+  const ccSFNonPS = validForCCNonPS.reduce((s, c) => s + estimateFacilityCCSF(c), 0);
   const current   = pop3miCY > 0 ? ccSFAll / pop3miCY : null;
   const projected = pop3miFY > 0 ? ccSFAll / pop3miFY : null;
   const currentNonPS   = pop3miCY > 0 ? ccSFNonPS / pop3miCY : null;
@@ -291,9 +301,12 @@ function computeCCSPC(competitors, pop3miCY, pop3miFY) {
     current, projected, currentNonPS, projectedNonPS,
     totalCCSF: ccSFAll,
     totalCCSFNonPS: ccSFNonPS,
-    competitorCount: comp3mi.length,
+    competitorCount: validForCCAll.length,
     psFamilyCount: psFam.length,
-    nonPSFamilyCount: nonPSFam.length,
+    nonPSFamilyCount: validForCCNonPS.length,
+    ccConfidentCount: ccConfident.length,
+    mixedCount: mixed.length,
+    excludedCount: excluded.length,
     verdict: ccSPCVerdict(current),
     projectedVerdict: ccSPCVerdict(projected),
     verdictNonPS: ccSPCVerdict(currentNonPS),
@@ -1884,8 +1897,11 @@ function CCSPCHeadline({ ccSPC, r3, competitors }) {
             {ccSPC.competitorCount} storage facilit{ccSPC.competitorCount === 1 ? 'y' : 'ies'} in 3 mi
             {ccSPC.psFamilyCount > 0 && <span style={{ color: '#F97316' }}> · {ccSPC.psFamilyCount} PS family</span>}
           </div>
-          <div style={{ marginTop: 8, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-            Tier-calibrated CC SF est · REIT 49K · regional 33K · local 16K
+          <div style={{ marginTop: 4, fontSize: 9, color: 'rgba(255,255,255,0.55)' }}>
+            {ccSPC.ccConfidentCount || 0} CC-confident · {ccSPC.mixedCount || 0} mixed
+          </div>
+          <div style={{ marginTop: 6, fontSize: 9, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
+            Classifier-calibrated · CC brand 55K · mixed 11K CC SF each
           </div>
         </div>
 
