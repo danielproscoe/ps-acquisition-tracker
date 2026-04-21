@@ -1824,7 +1824,7 @@ function StorvexVerdictHero({ result }) {
 // matrix data alongside the standard Quick Lookup output so address-in →
 // ranked buyer shortlist is a single-screen experience.
 // ═══════════════════════════════════════════════════════════════════════════
-function MatrixShortlistPanel({ shortlist, matrixVersion, matrixOperatorCount }) {
+function MatrixShortlistPanel({ shortlist, matrixVersion, matrixOperatorCount, geo, fbPush }) {
   const card = { background: 'rgba(15,21,56,0.5)', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 14, padding: 20, marginBottom: 14, borderLeft: '3px solid #C9A84C' };
   const label = { fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(201,168,76,0.85)', marginBottom: 6 };
   const tierColors = {
@@ -1837,6 +1837,76 @@ function MatrixShortlistPanel({ shortlist, matrixVersion, matrixOperatorCount })
   const copyHook = (text) => {
     if (!text) return;
     try { navigator.clipboard.writeText(text); } catch { /* ignore */ }
+  };
+
+  // Log every matrix pitch click to Firebase /pitchLog/ — compound learning loop.
+  // Every response (YES/NO/COUNTER/SILENT) becomes a training datum that sharpens
+  // the matrix's tier + deployment pressure + hard_nos fields over time.
+  const logMatrixPitch = (op, contact) => {
+    if (!fbPush) return;
+    try {
+      fbPush('pitchLog', {
+        siteAddress: geo?.formatted || '',
+        city: geo?.city || '',
+        state: geo?.state || '',
+        lat: geo?.lat,
+        lon: geo?.lng,
+        operator: op.key,
+        operatorTier: op.tier,
+        matrixRank: op.hotCapitalRank,
+        deploymentPressure: op.uwProfile?.deploymentPressure || null,
+        matrixScore: Math.round(op.score || 0),
+        contactName: contact?.name || '',
+        contactEmail: contact?.email || '',
+        contactPhone: contact?.phone || null,
+        cc: Array.isArray(contact?.cc) ? contact.cc : [],
+        pitchHookPreview: (op.pitchHook || '').slice(0, 200),
+        matrixVersion: matrixVersion || 'unknown',
+        pitchedAt: new Date().toISOString(),
+        source: 'dealflow-oracle-shortlist'
+      });
+    } catch { /* silent — log shouldn't block pitch */ }
+  };
+
+  // Build Gmail compose URL with matrix contact + matrix-specific pitch hook.
+  // Top-of-funnel pitch — institutional framing + Storvex deep-link + operator
+  // pitch hook from Part 13. No cost stack (YOC calculator downstream handles that).
+  const buildMatrixPitch = (op) => {
+    const primary = op.contacts?.primary;
+    if (!primary?.email) return null;
+    const firstName = (primary.name || 'Team').split(' ')[0];
+    const cityState = `${geo?.city || 'Site'}, ${geo?.state || ''}`.trim();
+    const subject = `Off-market opportunity — ${cityState}${op.tier === 'TIER_1_HOT_CAPITAL' ? ' · institutional-grade pad site' : ''}`;
+    const pitchHookLine = op.pitchHook ? op.pitchHook.replace(/\[specific site\]|\[site\]|\[matching site\]/gi, cityState).replace(/\[([^\]]+)\]/g, '$1') : '';
+    const pin = geo?.lat && geo?.lng ? `https://www.google.com/maps?q=${geo.lat},${geo.lng}` : '';
+    const storvexLink = geo?.formatted ? `https://storvex.vercel.app/?addr=${encodeURIComponent(geo.formatted)}` : 'https://storvex.vercel.app';
+    const body = [
+      `${firstName},`,
+      ``,
+      pitchHookLine,
+      ``,
+      `${geo?.formatted || 'Site address'}`,
+      pin ? `Pin: ${pin}` : '',
+      ``,
+      `Full institutional report (ESRI demographics · REIT proximity · CC SPC · operator-calibrated YOC):`,
+      storvexLink,
+      ``,
+      `Available to discuss — please advise interest.`,
+      ``,
+      `Best,`,
+      `Daniel P. Roscoe`,
+      `E: Droscoe@DJRrealestate.com`,
+      `C: 312-805-5996`
+    ].filter(Boolean).join('\n');
+    const url = buildGmailComposeUrl({ to: primary.email, cc: op.contacts?.cc || [], subject, body });
+    return { url, contact: primary, log: () => logMatrixPitch(op, primary) };
+  };
+
+  const firePitch = (op) => {
+    const p = buildMatrixPitch(op);
+    if (!p) return;
+    p.log();
+    window.open(p.url, '_blank');
   };
   return (
     <div style={card}>
@@ -1881,7 +1951,12 @@ function MatrixShortlistPanel({ shortlist, matrixVersion, matrixOperatorCount })
               {op.pitchHook && (
                 <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, fontStyle: 'italic', paddingLeft: 10, borderLeft: '2px solid rgba(201,168,76,0.3)' }}>
                   "{op.pitchHook}"
-                  <button onClick={() => copyHook(op.pitchHook)} style={{ marginLeft: 10, padding: '2px 8px', fontSize: 9, fontWeight: 700, background: 'rgba(201,168,76,0.18)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 4, cursor: 'pointer' }}>COPY HOOK</button>
+                  <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', fontStyle: 'normal' }}>
+                    {primary?.email && (
+                      <button onClick={() => firePitch(op)} style={{ padding: '6px 14px', fontSize: 10, fontWeight: 800, background: 'linear-gradient(135deg, #C9A84C, #A88A3A)', color: '#0B0D1E', border: 'none', borderRadius: 6, cursor: 'pointer', letterSpacing: '0.06em' }}>📧 PITCH THIS SITE</button>
+                    )}
+                    <button onClick={() => copyHook(op.pitchHook)} style={{ padding: '6px 12px', fontSize: 9, fontWeight: 700, background: 'rgba(201,168,76,0.18)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 6, cursor: 'pointer' }}>COPY HOOK</button>
+                  </div>
                 </div>
               )}
               {op.operationalFlag && (
@@ -1973,7 +2048,13 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
 
       {/* DEALFLOW ORACLE — MATRIX-RANKED BUYER SHORTLIST */}
       {Array.isArray(result.matrixShortlist) && result.matrixShortlist.length > 0 && (
-        <MatrixShortlistPanel shortlist={result.matrixShortlist} matrixVersion={result.matrixVersion} matrixOperatorCount={result.matrixOperatorCount} />
+        <MatrixShortlistPanel
+          shortlist={result.matrixShortlist}
+          matrixVersion={result.matrixVersion}
+          matrixOperatorCount={result.matrixOperatorCount}
+          geo={geo}
+          fbPush={fbPush}
+        />
       )}
 
       {/* NATIONAL PERCENTILE BENCHMARKS + YIELD-ON-COST CALCULATOR */}
