@@ -1094,6 +1094,27 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
         collegeEdPct3mi: collegePct != null ? collegePct.toFixed(1) + '%' : null,
         vacancyRate3mi: vacancyPct != null ? vacancyPct.toFixed(1) + '%' : null,
       };
+      // Fire Zoning Oracle in parallel with the narrative stream. Lands async
+      // as r.zoningIntel when done. Falls back gracefully if the endpoint is
+      // unavailable (localhost dev) or the jurisdiction isn't in Municode/ecode360.
+      setResult(r => r ? { ...r, zoningIntel: null, zoningStatus: 'pending' } : r);
+      if (geo.city && geo.state) {
+        fetch('/api/zoning-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            city: geo.city,
+            state: geo.state,
+            county: geo.county || null,
+            address: geo.formatted,
+            zoningDistrict: null, // future: pull from county GIS when available
+          })
+        })
+          .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
+          .then(j => setResult(r => r ? { ...r, zoningIntel: j, zoningStatus: j.ok === false ? 'not-found' : 'done' } : r))
+          .catch(e => setResult(r => r ? { ...r, zoningIntel: { ok: false, error: e.message }, zoningStatus: 'error' } : r));
+      }
+
       setPhase('Streaming Einstein narrative (Claude Haiku 4.5)...');
       streamNarrative('/api/narrate-stream', { audit: auditPayload, site: sitePayload, buyerType: 'storage_reit' }, {
         onDelta: (section, text) => {
@@ -1839,6 +1860,157 @@ function classifyCompetitor(c) {
 // SiteScore, headline verdict, CC SPC estimate, best-fit buyer, and 5-bullet
 // story arc — same skeleton as the REC Package cover memo, compressed.
 // ═══════════════════════════════════════════════════════════════════════════
+// ZONING ORACLE PANEL — Radius-structural-beat feature #3
+// ─────────────────────────────────────────────────────────────────────────
+// Surfaces the permitted use table citation on every address lookup.
+// Per CLAUDE.md §6c, zoning is the #1 deal-killer. Brokers spend 30 min on
+// this; we do it in 10s via Claude Haiku 4.5 extraction from Municode/ecode360.
+// ═══════════════════════════════════════════════════════════════════════════
+function ZoningOraclePanel({ zoningIntel, zoningStatus, jurisdiction }) {
+  if (zoningStatus === 'pending') {
+    return (
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(139,92,246,0.06), rgba(15,21,56,0.6))',
+        border: '1px solid rgba(139,92,246,0.25)',
+        borderRadius: 14, padding: 16, marginBottom: 14,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚖ ZONING ORACLE</div>
+          <div style={{ fontSize: 11, color: 'rgba(201,168,76,0.75)', fontStyle: 'italic' }}>⏳ Searching Municode + ecode360 for {jurisdiction || 'jurisdiction'} ordinance...</div>
+        </div>
+      </div>
+    );
+  }
+  if (!zoningIntel) return null;
+
+  const found = zoningIntel.found && zoningIntel.ok !== false;
+  const confidence = zoningIntel.confidence || 'low';
+  const confColor = confidence === 'high' ? '#10B981' : confidence === 'medium' ? '#F59E0B' : '#EF4444';
+  const byRight = Array.isArray(zoningIntel.byRightDistricts) ? zoningIntel.byRightDistricts : [];
+  const conditional = Array.isArray(zoningIntel.conditionalDistricts) ? zoningIntel.conditionalDistricts : [];
+  const rezone = Array.isArray(zoningIntel.rezoneRequired) ? zoningIntel.rezoneRequired : [];
+
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, ${found ? 'rgba(139,92,246,0.08)' : 'rgba(239,68,68,0.06)'}, rgba(15,21,56,0.65))`,
+      border: `1px solid ${found ? 'rgba(139,92,246,0.35)' : 'rgba(239,68,68,0.3)'}`,
+      borderRadius: 14, padding: 18, marginBottom: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: '0.14em' }}>⚖ ZONING ORACLE · PATENT-PENDING</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)' }}>The #1 deal-killer. Radius doesn't cite the ordinance.</div>
+        <span style={{ marginLeft: 'auto', background: confColor, color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }}>
+          {confidence.toUpperCase()} CONFIDENCE
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
+        <div style={{ flex: '1 1 280px' }}>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>JURISDICTION</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginTop: 2 }}>{zoningIntel.jurisdiction || jurisdiction}</div>
+          {zoningIntel.source && zoningIntel.source !== 'manual-required' && (
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+              Source: <a href={zoningIntel.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4CC982' }}>↗ {zoningIntel.source}</a>
+              {zoningIntel.ordinanceSection && <> · {zoningIntel.ordinanceSection}</>}
+            </div>
+          )}
+        </div>
+        {found && zoningIntel.storageTerm && (
+          <div style={{ flex: '1 1 280px' }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>STORAGE USE CATEGORY</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#C9A84C', marginTop: 2, fontStyle: 'italic' }}>"{zoningIntel.storageTerm}"</div>
+            {zoningIntel.tableName && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>From: {zoningIntel.tableName}</div>}
+          </div>
+        )}
+      </div>
+
+      {found && (byRight.length > 0 || conditional.length > 0 || rezone.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 10 }}>
+          {byRight.length > 0 && (
+            <div style={{ background: 'rgba(16,185,129,0.08)', padding: 10, borderRadius: 8, borderLeft: '3px solid #10B981' }}>
+              <div style={{ fontSize: 8, color: '#10B981', letterSpacing: '0.14em', fontWeight: 800 }}>BY-RIGHT (PERMITTED)</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                {byRight.map((d, i) => (
+                  <span key={i} style={{ background: '#10B981', color: '#fff', padding: '2px 8px', borderRadius: 3, fontSize: 10, fontWeight: 800, fontFamily: "'Space Mono', monospace" }}>{d}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {conditional.length > 0 && (
+            <div style={{ background: 'rgba(245,158,11,0.08)', padding: 10, borderRadius: 8, borderLeft: '3px solid #F59E0B' }}>
+              <div style={{ fontSize: 8, color: '#F59E0B', letterSpacing: '0.14em', fontWeight: 800 }}>CONDITIONAL (SUP/CUP)</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                {conditional.map((d, i) => (
+                  <span key={i} style={{ background: '#F59E0B', color: '#fff', padding: '2px 8px', borderRadius: 3, fontSize: 10, fontWeight: 800, fontFamily: "'Space Mono', monospace" }}>{d}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {rezone.length > 0 && (
+            <div style={{ background: 'rgba(239,68,68,0.08)', padding: 10, borderRadius: 8, borderLeft: '3px solid #EF4444' }}>
+              <div style={{ fontSize: 8, color: '#EF4444', letterSpacing: '0.14em', fontWeight: 800 }}>REZONE REQUIRED</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                {rezone.map((d, i) => (
+                  <span key={i} style={{ background: '#EF4444', color: '#fff', padding: '2px 8px', borderRadius: 3, fontSize: 10, fontWeight: 800, fontFamily: "'Space Mono', monospace" }}>{d}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(zoningIntel.overlayNotes || zoningIntel.supStandards) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10, marginBottom: 10 }}>
+          {zoningIntel.overlayNotes && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>OVERLAY REQUIREMENTS</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 4, lineHeight: 1.5 }}>{zoningIntel.overlayNotes}</div>
+            </div>
+          )}
+          {zoningIntel.supStandards && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 6 }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 800 }}>SUPPLEMENTAL STANDARDS</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 4, lineHeight: 1.5 }}>{zoningIntel.supStandards}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {zoningIntel.notes && (
+        <div style={{ padding: 10, background: 'rgba(0,0,0,0.35)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
+          <b style={{ color: '#8B5CF6', letterSpacing: '0.08em', marginRight: 8 }}>INTERPRETATION:</b>
+          {zoningIntel.notes}
+        </div>
+      )}
+
+      {!found && zoningIntel.searchHints && (
+        <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
+            <b style={{ color: '#EF4444' }}>⚠ AUTOMATED LOOKUP FAILED</b> — ordinance not retrievable via Municode or ecode360. Try these manual sources:
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10 }}>
+            {zoningIntel.searchHints.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{
+                background: 'rgba(139,92,246,0.15)', color: '#C9A84C', padding: '4px 10px',
+                borderRadius: 4, textDecoration: 'none', fontWeight: 700,
+              }}>
+                {i === 0 ? '↗ Google Search' : i === 1 ? '↗ Municode Direct' : '↗ ecode360 Direct'}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {zoningIntel.elapsedMs && (
+        <div style={{ marginTop: 8, fontSize: 9, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>
+          Oracle lookup: {(zoningIntel.elapsedMs / 1000).toFixed(1)}s · extraction via Claude Haiku 4.5
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CC SPC Headline — surfaces climate-controlled SF per capita as the #1
 // competition metric. Radius publishes raw SPC, we publish CC SPC with tier
 // verdict + 5-yr projected. This is the deal-killer / deal-maker metric PS,
@@ -2307,6 +2479,15 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
 
       {/* CC SPC HEADLINE — climate-controlled SF per capita, current + 5-yr projected */}
       <CCSPCHeadline ccSPC={ccSPC} r3={r3} competitors={competitors} />
+
+      {/* ZONING ORACLE — Municode/ecode360 permitted use table extraction via Claude Haiku */}
+      {(result.zoningStatus === 'pending' || result.zoningIntel) && (
+        <ZoningOraclePanel
+          zoningIntel={result.zoningIntel}
+          zoningStatus={result.zoningStatus}
+          jurisdiction={`${geo.city || ''}, ${geo.state || ''}`.replace(/^, /, '')}
+        />
+      )}
 
       {/* LOCATION + PERFORMANCE */}
       <div style={card}>
