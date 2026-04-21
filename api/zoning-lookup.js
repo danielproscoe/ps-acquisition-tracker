@@ -62,10 +62,12 @@ RESEARCH STRATEGY:
 2. Prefer primary sources: Municode, ecode360, American Legal, the city's official code website, or the jurisdiction's planning department page
 3. Ignore forum posts, commercial real estate blog posts, or third-party summaries unless they cite the ordinance section
 4. If the first search returns a landing page, do a follow-up search for the specific chapter (e.g., "{city} zoning chapter 14 permitted uses")
-5. **USE web_fetch AGGRESSIVELY**: Municode and ecode360 serve code via JavaScript, so web_search only returns landing pages. When you find a PDF URL or a direct ordinance link in the search results, IMMEDIATELY call web_fetch on that URL to pull the full document contents. PDFs especially are invaluable — they contain the complete use table rendered statically. A typical workflow:
-   a. web_search returns PDF URL: https://cms.city.gov/zoning.pdf
-   b. web_fetch that URL to get the full PDF text
-   c. Extract the permitted use table from the fetched content
+5. **USE web_fetch — but carefully with PDFs**: Municode and ecode360 serve code via JavaScript, so web_search only returns landing pages. Use web_fetch to pull the actual ordinance content when needed. CRITICAL PDF CONSTRAINT: Claude's input limit is 100 PDF pages — a full municipal zoning code is typically 200-400 pages and WILL FAIL. Strategies:
+   a. **PREFER HTML URLs over PDF URLs**: ecode360 chapter pages, Municode chapter URLs, and city-direct HTML code pages render the use table without the size problem.
+   b. If only a PDF is available, look for DIRECT LINKS to the specific chapter/article (e.g., "Article 5 Use Regulations.pdf" or "Chapter 14 Zoning.pdf") rather than the master UDC PDF.
+   c. If the entire code is one giant PDF, DO NOT fetch it — instead, report what you learned from web_search snippets and cite the PDF URL for the user to consult manually.
+   d. You can always combine: web_fetch a targeted HTML chapter page + cite the PDF for verification.
+   e. Call web_fetch up to 4 times per research session. Budget wisely.
 6. Read the actual permitted use table — identify:
    - The exact storage term as it appears in the table
    - Which zoning districts (C-1, C-2, GC, M-1, etc.) permit it BY-RIGHT (P / Permitted)
@@ -104,7 +106,8 @@ STRICT RULES:
 3. If confidence is "low", say why.
 4. If the jurisdiction is an unincorporated county or ETJ (no zoning), return found: true with notes explaining the site has no use-table restrictions — that is the strongest possible result.`;
 
-// Claude Messages API with web_search tool — multi-turn until model returns final text.
+// Claude Messages API with web_search + web_fetch tools.
+// Retries without web_fetch if a large PDF triggers the 100-page input limit.
 async function runZoningResearch(apiKey, city, state, county, address, zoningDistrict) {
   const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
   const jurisdictionLabel = `${city}, ${state}${county ? ` (${county} County)` : ""}`;
@@ -117,37 +120,36 @@ async function runZoningResearch(apiKey, city, state, county, address, zoningDis
     "Use web_search to find the permitted use table. Cite the exact ordinance section and source URL. Return the structured JSON per the output schema.",
   ].filter(Boolean).join("\n");
 
-  // Start with a single message. The tool loop runs inside Claude's execution
-  // when the web_search tool is configured as a server tool (Anthropic hosts
-  // the search execution, so we don't loop client-side).
-  const payload = {
-    model,
-    max_tokens: 3000,
-    system: [{ type: "text", text: ZONING_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-    tools: [
-      {
-        type: "web_search_20250305",
-        name: "web_search",
-        max_uses: 4,
-      },
-      {
-        type: "web_fetch_20250910",
-        name: "web_fetch",
-        max_uses: 4,
-      },
-    ],
-    messages: [
-      { role: "user", content: userPrompt },
-    ],
-  };
+  function buildPayload(includeFetch) {
+    const tools = [
+      { type: "web_search_20250305", name: "web_search", max_uses: 4 },
+    ];
+    if (includeFetch) {
+      tools.push({ type: "web_fetch_20250910", name: "web_fetch", max_uses: 4 });
+    }
+    return {
+      model,
+      max_tokens: 3000,
+      system: [{ type: "text", text: ZONING_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      tools,
+      messages: [{ role: "user", content: userPrompt }],
+    };
+  }
 
-  const resp = await httpsPostJSON("api.anthropic.com", "/v1/messages", {
+  const headers = {
     "x-api-key": apiKey,
     "anthropic-version": "2023-06-01",
-    // Both beta flags: web_search (search snippets) + web_fetch (full page/PDF content)
     "anthropic-beta": "web-search-2025-03-05,web-fetch-2025-09-10",
     "content-type": "application/json",
-  }, payload);
+  };
+
+  // First attempt: web_search + web_fetch. If 400 from Claude on PDF size limit,
+  // retry with web_search only (accept snippet-only research).
+  let resp = await httpsPostJSON("api.anthropic.com", "/v1/messages", headers, buildPayload(true));
+  if (resp.status === 400 && /pdf|100 PDF pages|page limit/i.test(resp.body)) {
+    // Large PDF blew up the fetch context — retry without web_fetch tool
+    resp = await httpsPostJSON("api.anthropic.com", "/v1/messages", headers, buildPayload(false));
+  }
 
   if (resp.status !== 200) {
     throw new Error(`Claude API ${resp.status}: ${resp.body.slice(0, 500)}`);
