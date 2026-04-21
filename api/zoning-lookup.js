@@ -1,61 +1,31 @@
 // Vercel Serverless Function — Storvex Zoning Oracle
-// Looks up the permitted use table for self-storage in a given jurisdiction.
+// Automated permitted use table lookup via Claude Haiku 4.5 web_search tool.
 // Per CLAUDE.md §6c, zoning is the #1 deal-killer. Radius doesn't do this.
 //
-// Flow (V1 — optimized for <30s worst case):
-//   1. Race Municode (library.municode.com) + ecode360 (ecode360.com) in parallel
-//   2. Use the first source that returns usable HTML
-//   3. Call Claude Haiku 4.5 to find the permitted use table row for
-//      self-storage / mini-warehouse / storage warehouse terms
-//   4. Return structured JSON with source URL + section citation
-//
-// Cost: ~$0.01-0.02 per call (Claude Haiku). Firebase-cacheable client-side.
+// WHY web_search (not manual scraping):
+// - Municode serves code chapters via client-side JS — raw HTML fetch gets a
+//   search shell, not the ordinance text. Every other code library provider
+//   (ecode360, American Legal, CodePublishing) has the same SPA problem OR
+//   requires authenticated session cookies.
+// - Claude's web_search tool lets the model autonomously issue search queries,
+//   fetch results, and extract cited answers. Single round-trip replaces a
+//   fragile scraper.
+// - Cost: Anthropic charges per search. Typical zoning lookup needs 1-3
+//   searches = $0.02-0.05 per call. Acceptable for Dan's dealflow weapon.
 //
 // POST /api/zoning-lookup
-//   body: { city: "Temple", state: "TX", county?: "Bell", address?, zoningDistrict? }
-//   returns:
-//     { ok: true, jurisdiction, storageTerm, byRightDistricts[], conditionalDistricts[],
-//       ordinanceSection, source: "municode" | "ecode360" | "manual-required",
-//       sourceUrl, verifiedAt, confidence, notes }
+//   body: { city: "Temple", state: "TX", county?, address?, zoningDistrict? }
+//   returns: { ok, found, jurisdiction, storageTerm, byRightDistricts[],
+//              conditionalDistricts[], ordinanceSection, sourceUrl,
+//              confidence, notes, verifiedAt, elapsedMs, citations[] }
 
 const https = require("https");
 
-// Explicit function config — Pro tier allows up to 300s, default 60s.
-// Worst case for this handler: 6s HTTP + 20s Claude ≈ 26s. 45s is safe.
-module.exports.config = { maxDuration: 45 };
+// Explicit function config — this handler does a multi-turn tool-using
+// conversation with Claude which can take 20-40s for complex jurisdictions.
+module.exports.config = { maxDuration: 60 };
 
-function httpsGet(url, timeoutMs = 6000) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const opts = {
-      hostname: u.hostname,
-      path: u.pathname + u.search,
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; StorvexOracle/1.0)",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-    };
-    const req = https.request(opts, (res) => {
-      // Handle one level of redirect (don't chain further to keep within timeout)
-      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-        const nextUrl = res.headers.location.startsWith("http")
-          ? res.headers.location
-          : `https://${u.hostname}${res.headers.location}`;
-        return httpsGet(nextUrl, timeoutMs).then(resolve).catch(reject);
-      }
-      let data = "";
-      res.on("data", (c) => (data += c));
-      res.on("end", () => resolve({ status: res.statusCode, body: data, url }));
-    });
-    req.on("error", reject);
-    req.setTimeout(timeoutMs, () => req.destroy(new Error(`GET timeout ${timeoutMs}ms: ${url}`)));
-    req.end();
-  });
-}
-
-function httpsPostJSON(hostname, path, headers, payload, timeoutMs = 20000) {
+function httpsPostJSON(hostname, path, headers, payload, timeoutMs = 55000) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
     const opts = {
@@ -76,150 +46,128 @@ function httpsPostJSON(hostname, path, headers, payload, timeoutMs = 20000) {
   });
 }
 
-function slugify(s) {
-  return (s || "")
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
+const ZONING_SYSTEM_PROMPT = `You are a zoning code researcher for a commercial real estate firm (Storvex). You have access to a web_search tool. Your job: find the permitted use table citation for self-storage in a given US jurisdiction, and return structured JSON.
 
-function htmlToText(html) {
-  if (!html) return "";
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/?(p|div|tr|th|td|li|h[1-6])[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n\s*\n\s*\n/g, "\n\n")
-    .trim();
-}
-
-// Municode — searches for "self-storage" directly on the code search URL
-function municodeTry(state, city) {
-  const stateSlug = slugify(state);
-  const citySlug = slugify(city);
-  const landingUrl = `https://library.municode.com/${stateSlug}/${citySlug}`;
-  const searchUrl = `https://library.municode.com/${stateSlug}/${citySlug}/codes/code_of_ordinances?searchRequest=%7B%22searchText%22%3A%22self-storage%22%7D`;
-  return Promise.race([
-    httpsGet(searchUrl).then(r => (r.status === 200 && r.body.length > 500
-      ? { ok: true, source: "municode", sourceUrl: searchUrl, landingUrl, html: r.body }
-      : { ok: false, source: "municode", reason: `search ${r.status}` }
-    )),
-    httpsGet(landingUrl).then(r => (r.status === 200 && r.body.length > 500
-      ? { ok: true, source: "municode", sourceUrl: landingUrl, landingUrl, html: r.body }
-      : { ok: false, source: "municode", reason: `landing ${r.status}` }
-    )),
-  ]).catch(e => ({ ok: false, source: "municode", reason: e.message }));
-}
-
-// ecode360 — alt provider covering TX + Northeast
-function ecode360Try(state, city) {
-  const citySlug = slugify(city).toUpperCase();
-  const stateAbbr = (state || "").toString().toUpperCase().slice(0, 2);
-  const urls = [
-    `https://ecode360.com/${citySlug}`,
-    `https://ecode360.com/${stateAbbr}/${slugify(city)}`,
-  ];
-  return Promise.any(urls.map(u => httpsGet(u).then(r => (r.status === 200 && r.body.length > 500
-    ? { ok: true, source: "ecode360", sourceUrl: u, landingUrl: u, html: r.body }
-    : Promise.reject(new Error(`${u}: ${r.status}`))
-  ))))
-  .catch(e => ({ ok: false, source: "ecode360", reason: e?.errors ? e.errors.map(x => x.message).join(" | ") : e?.message || "no ecode360 match" }));
-}
-
-const ZONING_EXTRACTION_PROMPT = `You are a zoning code researcher for a commercial real estate firm. You've been given HTML extract from a municipal code / zoning ordinance. Your job: find the permitted use table (sometimes called "Table of Permitted Uses", "Land Use Matrix", "Schedule of Permissible Uses", "Use Regulations") and extract the row for self-storage.
-
-Storage goes by MANY names — search ALL of these terms:
+Storage goes by MANY names in municipal codes — search ALL of these terms when researching:
 - "self-storage" / "self storage"
 - "mini-warehouse" / "mini warehouse" / "mini-storage"
 - "storage warehouse"
 - "self-service storage"
-- "personal storage"
-- "indoor storage" / "climate-controlled storage"
 - "warehouse (mini/self-service)"
 - "storage facility"
+- "indoor storage" / "climate-controlled storage"
 
-Zoning districts are typically coded: C-1, C-2, C-3, GC (General Commercial), HC (Highway Commercial), M-1 (Light Industrial), I-1 (Industrial), PUD (Planned Unit Development), B-3, etc.
+RESEARCH STRATEGY:
+1. Start with a specific search: "{city} {state} zoning ordinance self-storage permitted use table"
+2. Prefer primary sources: Municode, ecode360, American Legal, the city's official code website, or the jurisdiction's planning department page
+3. Ignore forum posts, commercial real estate blog posts, or third-party summaries unless they cite the ordinance section
+4. If the first search returns a landing page, do a follow-up search for the specific chapter (e.g., "{city} zoning chapter 14 permitted uses")
+5. Read the actual permitted use table — identify:
+   - The exact storage term as it appears in the table
+   - Which zoning districts (C-1, C-2, GC, M-1, etc.) permit it BY-RIGHT (P / Permitted)
+   - Which permit it CONDITIONALLY (C / CUP / SUP / special permit)
+   - Which do NOT permit it (blank / — / X)
+   - The ordinance section + table reference number
 
-Cell results in permitted use tables use these notations:
-- P / "Permitted" = by-right
-- C / CUP / SUP = Conditional / Special Use Permit required
-- blank / "—" / "X" = NOT permitted
-- A = Accessory only
-
-OUTPUT FORMAT — return ONLY valid JSON:
+OUTPUT FORMAT — after completing research, return ONLY valid JSON:
 {
   "found": true | false,
-  "storageTerm": "exact term as it appears in the ordinance (e.g., 'Storage Warehouse (Includes Mini-Warehouse)')",
+  "storageTerm": "exact term as it appears in the ordinance",
   "byRightDistricts": ["C-2", "C-3", "M-1"],
   "conditionalDistricts": ["C-1"],
-  "rezoneRequired": ["any district where storage is explicitly prohibited"],
-  "ordinanceSection": "Section or Article reference (e.g., 'Article 4, Table 4.2-1')",
+  "rezoneRequired": [],
+  "ordinanceSection": "Section or Table reference",
   "tableName": "name of the permitted use table",
-  "overlayNotes": "any overlay district requirements that affect storage (facade, setback, signage)",
+  "overlayNotes": "any overlay district requirements affecting storage",
   "supStandards": "any supplemental standards for storage (access hours, climate control, RV/boat rules)",
   "confidence": "high" | "medium" | "low",
-  "notes": "1-2 sentence interpretation — is this a clean by-right site or will it need SUP/rezone?"
+  "sourceUrl": "primary URL where the use table was found",
+  "citations": ["list of all URLs you consulted"],
+  "notes": "1-2 sentence plain-English interpretation — is this a clean by-right site or will it need SUP/rezone?"
 }
 
-If you CANNOT find a permitted use table in the HTML (e.g., the HTML is a landing page, search form, or non-zoning chapter), return:
+If you cannot find the permitted use table after 2-3 searches, return:
 {
   "found": false,
   "confidence": "low",
-  "notes": "Reason why not found — e.g., 'HTML appears to be a landing page, not the zoning chapter'"
+  "citations": ["list of URLs you tried"],
+  "notes": "Reason why not found — e.g., 'Municipality does not publish zoning code online' or 'Use table not indexed by search engines'"
 }
 
 STRICT RULES:
-1. Never invent districts or ordinance sections. Only report what appears in the HTML.
-2. If a district appears in multiple rows (e.g., mini-warehouse AND storage warehouse), list all matches in byRightDistricts.
-3. If the HTML is truncated mid-table, flag in notes but report what you can see.
-4. Confidence "high" = full use table visible with clear P/C/blank cells. "medium" = partial or inferred. "low" = best-effort extraction from incomplete content.`;
+1. Never invent districts or ordinance sections. Only report what you actually read.
+2. Cite the specific source URL where you found the use table.
+3. If confidence is "low", say why.
+4. If the jurisdiction is an unincorporated county or ETJ (no zoning), return found: true with notes explaining the site has no use-table restrictions — that is the strongest possible result.`;
 
-async function extractWithClaude(apiKey, jurisdictionLabel, sourceUrl, html) {
-  const text = htmlToText(html).slice(0, 120000);
+// Claude Messages API with web_search tool — multi-turn until model returns final text.
+async function runZoningResearch(apiKey, city, state, county, address, zoningDistrict) {
   const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
+  const jurisdictionLabel = `${city}, ${state}${county ? ` (${county} County)` : ""}`;
 
+  const userPrompt = [
+    `Research the zoning for self-storage in ${jurisdictionLabel}.`,
+    address ? `Subject site address: ${address}` : "",
+    zoningDistrict ? `Subject site's zoning district (if known): ${zoningDistrict}` : "",
+    "",
+    "Use web_search to find the permitted use table. Cite the exact ordinance section and source URL. Return the structured JSON per the output schema.",
+  ].filter(Boolean).join("\n");
+
+  // Start with a single message. The tool loop runs inside Claude's execution
+  // when the web_search tool is configured as a server tool (Anthropic hosts
+  // the search execution, so we don't loop client-side).
   const payload = {
     model,
-    max_tokens: 1800,
-    system: [{ type: "text", text: ZONING_EXTRACTION_PROMPT, cache_control: { type: "ephemeral" } }],
-    messages: [{
-      role: "user",
-      content: `Jurisdiction: ${jurisdictionLabel}\nSource: ${sourceUrl}\n\nExtracted ordinance text:\n\n${text}\n\nReturn the JSON object per the output schema.`,
-    }],
+    max_tokens: 3000,
+    system: [{ type: "text", text: ZONING_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 4,
+      },
+    ],
+    messages: [
+      { role: "user", content: userPrompt },
+    ],
   };
 
   const resp = await httpsPostJSON("api.anthropic.com", "/v1/messages", {
     "x-api-key": apiKey,
     "anthropic-version": "2023-06-01",
+    "anthropic-beta": "web-search-2025-03-05",
     "content-type": "application/json",
   }, payload);
 
   if (resp.status !== 200) {
-    throw new Error(`Claude API ${resp.status}: ${resp.body.slice(0, 300)}`);
+    throw new Error(`Claude API ${resp.status}: ${resp.body.slice(0, 500)}`);
   }
+
   const json = JSON.parse(resp.body);
-  const llmText = json.content?.[0]?.text || "";
-  const match = llmText.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`Claude returned non-JSON: ${llmText.slice(0, 200)}`);
+  // Content array may contain tool_use blocks, tool_result blocks (from web_search
+  // server tool), and text blocks. The final text block holds the JSON answer.
+  const textBlocks = (json.content || []).filter(b => b.type === "text").map(b => b.text);
+  const fullText = textBlocks.join("\n");
+  const match = fullText.match(/\{[\s\S]*\}/);
+  if (!match) {
+    throw new Error(`Claude returned non-JSON after research: ${fullText.slice(0, 300)}`);
+  }
   const parsed = JSON.parse(match[0]);
-  parsed._tokenUsage = {
-    input: json.usage?.input_tokens || 0,
-    output: json.usage?.output_tokens || 0,
+
+  // Harvest all search result URLs from server-tool invocations for audit trail
+  const serverToolUses = (json.content || []).filter(b => b.type === "server_tool_use" && b.name === "web_search");
+  const searchQueries = serverToolUses.map(s => s.input?.query).filter(Boolean);
+
+  return {
+    ...parsed,
+    _tokenUsage: {
+      input: json.usage?.input_tokens || 0,
+      output: json.usage?.output_tokens || 0,
+      cacheRead: json.usage?.cache_read_input_tokens || 0,
+      serverToolUse: json.usage?.server_tool_use || null,
+    },
+    _searchQueries: searchQueries,
   };
-  return parsed;
 }
 
 module.exports = async (req, res) => {
@@ -241,64 +189,35 @@ module.exports = async (req, res) => {
   const jurisdictionLabel = `${city}, ${state}${county ? ` (${county} County)` : ""}`;
 
   try {
-    // Race Municode + ecode360 in parallel — keep only the first source that
-    // returns usable HTML. This caps the fetch phase at ~6s regardless of
-    // which providers respond. Both fail → graceful "not found" response.
-    const [muni, eco] = await Promise.all([municodeTry(state, city), ecode360Try(state, city)]);
-    const sources = [muni, eco].filter(s => s.ok);
-
-    if (sources.length === 0) {
-      return res.status(200).json({
-        ok: false,
-        found: false,
-        jurisdiction: jurisdictionLabel,
-        subjectZoning: zoningDistrict || null,
-        subjectAddress: address || null,
-        notes: `Ordinance not automatically retrievable from Municode or ecode360. Call planning dept or Google: "${city} ${state} zoning ordinance permitted uses"`,
-        searchHints: [
-          `https://www.google.com/search?q=${encodeURIComponent(city + " " + state + " zoning ordinance permitted uses self-storage")}`,
-          `https://library.municode.com/${slugify(state)}/${slugify(city)}`,
-          `https://ecode360.com/${slugify(city).toUpperCase()}`,
-        ],
-        confidence: "low",
-        source: "manual-required",
-        verifiedAt: new Date().toISOString(),
-        elapsedMs: Date.now() - t0,
-        attempts: [muni, eco],
-      });
-    }
-
-    // Prefer Municode if both return. Extract with Claude.
-    const primary = sources[0];
-    try {
-      const extracted = await extractWithClaude(apiKey, jurisdictionLabel, primary.sourceUrl, primary.html);
-      return res.status(200).json({
-        ok: true,
-        jurisdiction: jurisdictionLabel,
-        subjectZoning: zoningDistrict || null,
-        subjectAddress: address || null,
-        ...extracted,
-        source: primary.source,
-        sourceUrl: primary.sourceUrl,
-        landingUrl: primary.landingUrl,
-        verifiedAt: new Date().toISOString(),
-        elapsedMs: Date.now() - t0,
-      });
-    } catch (e) {
-      return res.status(200).json({
-        ok: false,
-        found: false,
-        jurisdiction: jurisdictionLabel,
-        subjectZoning: zoningDistrict || null,
-        notes: `Fetched ordinance from ${primary.source} but Claude extraction failed: ${e.message}`,
-        source: primary.source,
-        sourceUrl: primary.sourceUrl,
-        confidence: "low",
-        verifiedAt: new Date().toISOString(),
-        elapsedMs: Date.now() - t0,
-      });
-    }
+    const result = await runZoningResearch(apiKey, city, state, county, address, zoningDistrict);
+    return res.status(200).json({
+      ok: true,
+      jurisdiction: jurisdictionLabel,
+      subjectZoning: zoningDistrict || null,
+      subjectAddress: address || null,
+      ...result,
+      source: "claude-web-search",
+      verifiedAt: new Date().toISOString(),
+      elapsedMs: Date.now() - t0,
+    });
   } catch (err) {
-    return res.status(500).json({ error: err.message, elapsedMs: Date.now() - t0 });
+    return res.status(200).json({
+      ok: false,
+      found: false,
+      jurisdiction: jurisdictionLabel,
+      subjectZoning: zoningDistrict || null,
+      subjectAddress: address || null,
+      notes: `Automated lookup failed: ${err.message}. Try manual sources below.`,
+      searchHints: [
+        `https://www.google.com/search?q=${encodeURIComponent(city + " " + state + " zoning ordinance permitted uses self-storage")}`,
+        `https://library.municode.com/${(state || "").toLowerCase().replace(/\s+/g, "-")}/${(city || "").toLowerCase().replace(/\s+/g, "-")}`,
+        `https://ecode360.com/${(city || "").toUpperCase().replace(/\s+/g, "")}`,
+      ],
+      confidence: "low",
+      source: "error",
+      verifiedAt: new Date().toISOString(),
+      elapsedMs: Date.now() - t0,
+      error: err.message,
+    });
   }
 };
