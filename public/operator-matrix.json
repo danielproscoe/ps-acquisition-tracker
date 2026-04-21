@@ -1,0 +1,1928 @@
+{
+  "$schema": "https://djr.storvex.com/schemas/operator-matrix-v1.json",
+  "generatedAt": "2026-04-20T00:00:00.000Z",
+  "version": "v6",
+  "versionNote": "DJR Buyer-Routing Matrix v6 — Hot Capital Ranked. Fuses matrix UW profiles (Parts 4/4B/4C/4D/4E) + Part 17 Hot Capital Deployment Ranking + Part 12 Exec Web + Part 13 Pitch Angle Library + Part 15 Fund Mandate Calendar. Designed for Quick Lookup runtime consumption.",
+  "source": "memory/buyer-routing-matrix.md + primary-source research waves 1-6",
+  "operatorCount": 49,
+  "refreshCadence": "Quarterly on SEC 10-K filing calendar (Feb/May/Aug/Nov)",
+  "nextScheduledRefresh": "2026-07-20",
+
+  "tierDefinitions": {
+    "TIER_1_HOT_CAPITAL": "Peak deployment pressure · fresh fund or capital event <12mo · stretch-the-box mode · PITCH FIRST",
+    "TIER_2_ACTIVE": "Active buyer with clear capital · selective but responsive",
+    "TIER_3_MEDIUM": "Growing but disciplined · case-by-case",
+    "TIER_4_SELECTIVE": "Disciplined cherry-picker OR tight geographic/product box",
+    "TIER_5_HYPER_LOCAL": "Family operator OR regional specialist OR single-state",
+    "DO_NOT_ROUTE": "Not an acquirer OR defunct OR out of sector OR unverified"
+  },
+
+  "operators": {
+    "SROA Capital": {
+      "aliases": ["SROA", "Storage Rentals of America"],
+      "tier": "TIER_1_HOT_CAPITAL",
+      "hotCapitalRank": 1,
+      "firmographics": {
+        "type": "Private PE-backed",
+        "hq": "West Palm Beach, FL",
+        "website": "sroacapital.com"
+      },
+      "portfolio": {
+        "facilityCount": "720+",
+        "totalSF": "31M+",
+        "states": 32,
+        "concentrations": ["Midwest", "SE", "NE", "FL", "TX"],
+        "newMarkets2026": ["Dallas TX", "Charlotte NC"],
+        "brand2": "Red Dot Storage (sub-channel, acquired May 2024)"
+      },
+      "uwProfile": {
+        "dealTypes": ["ground-up-entitled", "existing-stabilized", "C-of-O-lease-up", "portfolios"],
+        "geography": ["Midwest", "SE", "NE", "FL", "TX"],
+        "sizeFloor": "3.5 ac / 50K NRSF",
+        "priceLow": 5000000,
+        "priceHigh": 50000000,
+        "productMix": "CC-preferred, multi-story capable, 12%+ DevCon yield hurdle",
+        "deploymentPressure": "HIGH",
+        "decisionSpeedDays": "45-75",
+        "offMarketPreference": "both",
+        "hardNos": [],
+        "uniqueMoats": "Fund IX $1.15B dry powder · Dallas/Charlotte 2026 entry · Red Dot Midwest sub-channel · Rapid Building Solutions GC · rotator-not-hoarder (Mar 2026 $98M divest to Washington Street)"
+      },
+      "economics": {
+        "cap": 0.062,
+        "ccRent": 1.45,
+        "duRent": 0.88,
+        "expRatio": 32,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#0B5394",
+        "rentLabel": "SROA Fund IX institutional benchmark · 12%+ DevCon yield hurdle stated"
+      },
+      "capital": {
+        "activeFund": "Fund IX",
+        "fundSize": 1150000000,
+        "vintageClose": "2025-10",
+        "percentDeployed": 0.25,
+        "remainingRunway": "~$850M / 12-18 months",
+        "deploymentPace": "~$100M/mo through Oct 2026",
+        "signals": [
+          "Fund IX $1.15B closed Oct 2025 at 153% of $750M target",
+          "Ohio BWC committed $50M 2024",
+          "Mar 2026 sold 15-property $98M to Washington Street (rotator pattern, not shrinkage)",
+          "2025 deployment: 55 stores / 2M+ SF + 2 ground-up + 8 expansion initiatives"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Beau Raich", "title": "VP Development", "email": "braich@sroa.com", "emailConfidence": "HIGH", "role": "ground-up" },
+        "secondary": [
+          { "name": "Wallace Cascio", "title": "MD Acquisitions", "email": "wcascio@sroa.com", "emailConfidence": "HIGH", "role": "existing-stabilized funnel" },
+          { "name": "Colt Jenkins", "title": "MD Investments", "email": "cjenkins@sroa.com", "emailConfidence": "HIGH", "role": "underwrites/LOIs" },
+          { "name": "Ben Macfarland III", "title": "CEO", "role": "strategic" }
+        ],
+        "emailPattern": "[finit][last]@sroa.com (77.9%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Fund IX $850M still to deploy through Oct 2026 · Dallas + Charlotte 2026 new-market entries · saw your 5-0 Martin County approval after 4-year entitlement fight — [specific site] is the exact profile that skips that pain.",
+      "execPedigree": [
+        { "name": "Beau Raich", "prior": "ex-SROA General Counsel · Duke BA '03 · FIU Law '07 · Two Roads Miami" },
+        { "name": "Wallace Cascio", "role": "broker relationships + existing-stabilized funnel" }
+      ],
+      "primarySources": [
+        "https://sroacapital.com/",
+        "https://www.insideselfstorage.com/self-storage-investing-real-estate/self-storage-investment-firm-sroa-capital-closes-fund-ix-with-more-than-1-1b-in-commitments",
+        "https://www.bignewsnetwork.com/news/278888244/sroa-capital-announces-2025-a-transformational-year"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Storage Post": {
+      "aliases": ["Storage Post Self Storage"],
+      "tier": "TIER_1_HOT_CAPITAL",
+      "hotCapitalRank": 2,
+      "firmographics": { "type": "Private Institutional", "hq": "Atlanta, GA + NY office", "founded": 1998 },
+      "portfolio": {
+        "facilityCount": "42-45",
+        "states": 4,
+        "concentrations": ["NY/NJ/IL/LA"],
+        "longIslandCluster": 15,
+        "chicagoCluster": 6,
+        "note": "Dec 2024 Midwest entry (5 Chicago locations) · Feb 2026 Newark NJ ex-CubeSmart · Feb 2026 Plainview LI · Mar 2026 Bohemia LI"
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "value-add", "conversions", "portfolios", "selective-ground-up"],
+        "geography": ["NY", "NJ", "IL", "LA", "nationwide expansion"],
+        "sizeFloor": "35K NRSF (HARD FLOOR, stated by CEO)",
+        "priceLow": 10000000,
+        "priceHigh": 100000000,
+        "productMix": "multi-story CC urban · dense submarkets required",
+        "deploymentPressure": "VERY HIGH",
+        "decisionSpeedDays": "30-60",
+        "offMarketPreference": "yes (Giannola ex-PS/EXR network)",
+        "hardNos": ["tertiary rural", "sub-35K SF", "non-dense submarkets", "standalone drive-up in secondary markets"],
+        "uniqueMoats": "Almanac Realty $500M capital line (Neuberger Berman) · NYC Yankees official storage partner · Bruce Roch 30+ yr track record · Jack Giannola ex-PS Division Mgr + ex-EXR Director RE"
+      },
+      "economics": {
+        "cap": 0.058,
+        "ccRent": 1.50,
+        "duRent": 0.90,
+        "expRatio": 26,
+        "stabOcc": 91,
+        "ecriBump": 0.08,
+        "hurdle": 7.2,
+        "color": "#D32F2F",
+        "rentLabel": "NYC-metro institutional premium · Almanac-backed"
+      },
+      "capital": {
+        "activeFund": "Almanac Realty Investors (Neuberger Berman)",
+        "fundSize": 500000000,
+        "vintageClose": "2022-01",
+        "percentDeployed": 0.70,
+        "remainingRunway": "~$100-200M + stated $1B venture goal",
+        "deploymentPace": "10+ deals 2025 · 4+ Q1 2026",
+        "signals": [
+          "Jul 2025 Sofia Storage NYC portfolio (3 properties, $110M)",
+          "Dec 2025 Manhattan East Village $47M Nuveen financing",
+          "Feb 2026 Newark NJ (ex-CubeSmart) · Plainview LI · Nyack NY $12.5M",
+          "Mar 2026 Bohemia LI (15th Long Island location)"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Jack Giannola", "title": "Director of Acquisitions", "email": "jgiannola@storagepost.com", "phone": "201-679-6790", "emailConfidence": "HIGH", "note": "ex-PS Division Mgr Acquisitions + ex-EXR Director RE — knows every seller" },
+        "secondary": [
+          { "name": "Bruce C. Roch Jr.", "title": "CEO", "email": "broch@storagepost.com", "emailConfidence": "HIGH", "prior": "sold Safeguard Self Storage 2009" },
+          { "name": "Dylan Delaune", "title": "COO", "email": "ddelaune@storagepost.com", "emailConfidence": "MEDIUM" }
+        ],
+        "emailPattern": "[finit][last]@storagepost.com (~90%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "$500M Almanac capital still deploying · 10+ deals 2025 + 4+ Q1 2026 · buying directly from CubeSmart (Newark + Plainview Feb 2026) and Extra Space (Cicero Mar 2025) · Giannola ex-PS insider who knows exactly what PS would pay and what they'd pass on.",
+      "execPedigree": [
+        { "name": "Jack Giannola", "prior": "ex-Public Storage Division Mgr Acquisitions · ex-Extra Space Director Real Estate" },
+        { "name": "Bruce C. Roch Jr.", "prior": "sold Safeguard Self Storage in 2009, took over Storage Post same year · 110+ assets developed" }
+      ],
+      "primarySources": [
+        "https://www.almanacrealty.com/press-releases/20220112_Almanac_Realty_Investors_Commits_up_to_$500_Million_to_Storage_Post",
+        "https://www.businesswire.com/news/home/20250716665583/en/Storage-Post-Self-Storage-Expands-In-New-York-City",
+        "https://www.prnewswire.com/news-releases/storage-post-adds-bohemia-ny-self-storage-facility-bringing-long-island-portfolio-to-15-properties-302713481.html"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Merit Hill Capital": {
+      "aliases": ["Merit Hill"],
+      "tier": "TIER_1_HOT_CAPITAL",
+      "hotCapitalRank": 3,
+      "firmographics": { "type": "Private Institutional Fund", "hq": "New York + Dallas offices", "founded": 2017 },
+      "portfolio": {
+        "facilityCount": 535,
+        "totalSF": "34.4M+",
+        "states": 38,
+        "transactions": 339,
+        "centerbridgeJV": "78 properties / 32,000 units / 4.65M NRSF · NOI +18% since 2023",
+        "managedBy": ["CubeSmart", "Extra Space", "Argus"]
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized-ONLY"],
+        "geography": ["Top-50 MSAs only (actual pattern)"],
+        "sizeFloor": "built product only",
+        "priceLow": 5000000,
+        "priceHigh": 20000000,
+        "productMix": "Class A stabilized · CC-preferred",
+        "deploymentPressure": "HIGH",
+        "decisionSpeedDays": "45-60",
+        "offMarketPreference": "both (Colella broker network)",
+        "hardNos": ["ground-up-land-HARD-NO", "sub-500K-pop markets", "rural/tertiary", "non-Top-50-MSA"],
+        "uniqueMoats": "4.5% hit rate (535 closed / 11,800 reviewed) = sharpest discipline in sector · Centerbridge JV $425M refi Sept 2025 · swap-3PM-to-CubeSmart/Extra-Space value-add strategy"
+      },
+      "economics": {
+        "cap": 0.060,
+        "ccRent": 1.42,
+        "duRent": 0.85,
+        "expRatio": 30,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.2,
+        "color": "#1A365D",
+        "rentLabel": "NY institutional fund · Centerbridge JV"
+      },
+      "capital": {
+        "activeFund": "Original $300M equity + Centerbridge JV $425M refi",
+        "fundSize": 725000000,
+        "vintageClose": "2017 + Sept 2025 refi",
+        "percentDeployed": "ongoing rotator",
+        "remainingRunway": "Continuous 2.5 deals/mo = $360-480M/yr run rate",
+        "signals": [
+          "$425M Newmark refi Sept 2025 (Citigroup + Goldman noteholders)",
+          "2025 YTD: 23 facilities / 1.4M+ SF across 19 markets",
+          "Myrtle Beach SC 154K SF · Pembroke NH 72K SF · Baytown TX · Georgetown TX"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "John Colella", "title": "Director, Investments (Dallas)", "email": "john@merithillcapital.com", "emailConfidence": "HIGH" },
+        "secondary": [
+          { "name": "Liz Raun Schlesinger", "title": "Founder/CEO (West Palm Beach)", "prior": "ex-W.P. Carey · built WPC's 8th-largest US storage platform · 76 transactions / $1B+" },
+          { "name": "Colton Hoffman", "title": "Investment Analyst under Colella" }
+        ],
+        "emailPattern": "[first]@merithillcapital.com (89.6%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Your 4.5% hit rate discipline (535 of 11,800 reviewed) is the sharpest in the sector — SiteScore rigor matches · [site] is Top-50-MSA stabilized Class A, exactly the Katy/Richmond/Baytown/Conroe pattern · NOI +18% on your Centerbridge portfolio signals the value-add thesis is working.",
+      "execPedigree": [
+        { "name": "Liz Raun Schlesinger", "prior": "ex-W.P. Carey · built WPC's 8th-largest US storage platform" },
+        { "name": "John Colella", "role": "Dallas-based Director Investments · TX-existing lane" }
+      ],
+      "primarySources": [
+        "https://merithillcapital.com/about/",
+        "https://www.nmrk.com/insights/press-releases/newmark-secures-425-million-refinancing-for-national-self-storage-portfolio",
+        "https://www.multihousingnews.com/merit-hill-centerbridge-lands-425m-for-storage-portfolio/"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Mini Mall Storage": {
+      "aliases": ["Mini Mall Storage Properties", "MMSP", "Avenue Living Storage"],
+      "tier": "TIER_1_HOT_CAPITAL",
+      "hotCapitalRank": 4,
+      "firmographics": { "type": "Private (Avenue Living subsidiary)", "hq": "Calgary, Alberta" },
+      "portfolio": {
+        "facilityCount": "~200+",
+        "totalSF": "12.9M",
+        "aum": 3100000000,
+        "states": 18,
+        "canadianProvinces": 7,
+        "concentrations": ["US Midwest (IL/MN/GA-Metro)", "Sunbelt expansion (TX/KY/FL/AL/SC/NC/TN)"]
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "value-add", "portfolios"],
+        "geography": ["18 US states + 7 Canadian provinces", "Sun Belt expansion mode"],
+        "priceLow": 5000000,
+        "priceHigh": 500000000,
+        "productMix": "all formats · value-add operational arbitrage",
+        "deploymentPressure": "HIGH",
+        "hardNos": ["pure ground-up raw land (value-add focus)"],
+        "uniqueMoats": "$750M CAD inaugural debenture Dec 2025 (largest first-time Canadian RE issuance in history) · Avenue Living institutional trust backing · cross-border ops"
+      },
+      "economics": {
+        "cap": 0.063,
+        "ccRent": 1.40,
+        "duRent": 0.82,
+        "expRatio": 33,
+        "stabOcc": 89,
+        "ecriBump": 0.06,
+        "hurdle": 7.5,
+        "color": "#006847"
+      },
+      "capital": {
+        "activeFund": "$750M CAD unsecured debenture + Avenue Living Trust parent",
+        "fundSize": 750000000,
+        "fundCurrency": "CAD",
+        "vintageClose": "2025-12",
+        "remainingRunway": "~$750M / 24-36 months",
+        "signals": [
+          "Dec 2025 23-property portfolio acquisition (entering KY + FL)",
+          "Oct 2025 11-facility Metro Self Storage acquisition (GA/IL/MN)",
+          "2025: Added 45 new facilities + $1B AUM"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Steven Raposa", "title": "Director / VP Acquisitions", "email": "s.raposa@minimallstorage.com", "emailConfidence": "MEDIUM" },
+        "secondary": [
+          { "name": "Adam Villard", "title": "CEO Mini Mall Storage Properties" },
+          { "name": "Anthony Giuffre", "title": "Founder/CEO Avenue Living" }
+        ],
+        "emailPattern": "[finit].[last]@minimallstorage.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "$750M CAD debenture Dec 2025 is the largest first-time Canadian RE issuance in history · Sun Belt expansion mode (entered KY + FL Dec 2025) · you added 45 facilities + $1B AUM in 2025 alone · [portfolio/multi-facility deal] fits the programmatic pattern.",
+      "primarySources": [
+        "https://minimallstorage.com/acquisitions",
+        "https://www.insideselfstorage.com/acquisitions-buying/canadian-investment-firm-avenue-living-mini-mall-storage-acquires-11-metro-self-storage-properties",
+        "https://renx.ca/mini-mall-closes-record-initial-unsecured-debenture-offering-750m"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "SmartStop Self Storage": {
+      "aliases": ["SmartStop", "SMA", "Strategic Storage Trust II"],
+      "tier": "TIER_1_HOT_CAPITAL",
+      "hotCapitalRank": 5,
+      "firmographics": { "ticker": "NYSE:SMA", "type": "Public REIT (April 2024 IPO)", "hq": "Ladera Ranch, CA" },
+      "portfolio": {
+        "facilityCount": 177,
+        "totalSF": "13.9M",
+        "units": 122000,
+        "totalPlatform": "460+ stores post-Argus platform acquisition",
+        "states": 35,
+        "includesCanada": true,
+        "concentrations": ["NC", "SC", "FL", "GA", "CO", "CA", "Canadian JV"]
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "ground-up-entitled", "C-of-O-lease-up", "platform-acquisitions"],
+        "geography": ["35 US states + DC + Canada (Edmonton Alberta land acq Mar 2026)"],
+        "sizeFloor": "Class A 60K+ SF typical",
+        "priceLow": 15000000,
+        "priceHigh": 100000000,
+        "productMix": "Class A multi-story CC preferred",
+        "deploymentPressure": "HIGH",
+        "decisionSpeedDays": "30-45",
+        "offMarketPreference": "both",
+        "hardNos": ["Class B/C tertiary", "sub-scale single drive-ups", "outside 35-state + Canada footprint"],
+        "uniqueMoats": "Canadian platform (13 JV + Edmonton) = ONLY public REIT with active Canadian pipeline · Argus 3PM acquisition 2025 (221 managed stores) · Newest REIT = highest deployment urgency · MOST FLEXIBLE of Top-3 REITs (does ground-up unlike CUBE/EXR)"
+      },
+      "economics": {
+        "cap": 0.062,
+        "ccRent": 1.38,
+        "duRent": 0.82,
+        "expRatio": 36,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#004B8D",
+        "rentLabel": "SMA post-IPO 2025, maturing portfolio"
+      },
+      "capital": {
+        "activeFund": "2024 IPO + 2025 equity + CAD notes + Argus platform",
+        "fundSize": 2500000000,
+        "vintageClose": "Apr 2024 IPO + ongoing raises",
+        "signals": [
+          "$931.5M IPO April 2024",
+          "$875.6M net equity raised 2025",
+          "$700M CAD notes issued 2025",
+          "$335M on-balance-sheet deployed 2025",
+          "Argus Professional Storage Management acquisition 2025 (221 managed stores)",
+          "Mar 2026 Edmonton Alberta land acquisition for Class A ground-up"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Kevin Friedman", "title": "Director of Acquisitions", "emailConfidence": "LOW-verify-RocketReach", "note": "3 possible domains: @smartstopselfstorage.com / @smartstopassetmgmt.com / @strategicstoragetrust.com" },
+        "secondary": [
+          { "name": "H. Michael Schwartz", "title": "Chairman/CEO/President (triple-hat since Feb 2026)" },
+          { "name": "Wayne Johnson", "title": "Board · former CIO (2015-2026) · former President (2019-2026)" }
+        ],
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Fresh IPO capital + $875.6M 2025 equity + $700M CAD notes + Argus platform = HIGHEST deployment urgency among public REITs · unlike CubeSmart/EXR you DO take ground-up · Kevin Friedman working-level · Edmonton Alberta land acq March 2026 proves Canadian + ground-up appetite.",
+      "primarySources": [
+        "https://investors.smartstopselfstorage.com/news-and-events/press-releases/press-releases-details/2026/SmartStop-Self-Storage-REIT-Inc--Reports-Fourth-Quarter-2025-Results/default.aspx",
+        "https://www.businesswire.com/news/home/20260310628233/en/SmartStop-Self-Storage-REIT-Inc.-Announces-Land-Acquisition-for-New-Class-A-Self-Storage-Development-in-Edmonton-Alberta"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Go Store It": {
+      "aliases": ["Go Store It Management", "Madison Capital Group", "Madison Capital"],
+      "tier": "TIER_1_HOT_CAPITAL",
+      "hotCapitalRank": 6,
+      "firmographics": { "type": "Private PE-backed", "hq": "Charlotte, NC", "parent": "Madison Capital Group" },
+      "portfolio": {
+        "facilityCount": 205,
+        "states": 27,
+        "units": 103683,
+        "totalSF": "10M+",
+        "concentrations": ["FL", "VA", "NC", "SC", "TX", "GA", "Sun Belt"],
+        "note": "Post-Snapbox merger Aug 2024 + Heartland Storage TPM addition mid-2025"
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "value-add", "ground-up", "conversions", "portfolios", "boat-RV"],
+        "geography": ["Sun Belt (FL/NC/GA/TX/VA/SC explicit)"],
+        "priceLow": 10000000,
+        "priceHigh": 50000000,
+        "productMix": "Class A 40-50K+ NRSF · mixed CC + drive-up · boat/RV via GEM JV",
+        "deploymentPressure": "HIGH",
+        "decisionSpeedDays": "30-60",
+        "offMarketPreference": "yes",
+        "hardNos": ["small tertiary mom-and-pop", "non-Class-A", "non-Sun-Belt outside 27-state footprint"],
+        "uniqueMoats": "$250M GSI Opportunity Fund (Nov 2024) · Cerberus JV (2020-established) · GEM Realty $250M boat/RV JV (June 2025) · Madison Marinas launched Feb 2026 · post-Snapbox merger = 145+ stores scaled platform · target 10-15 ground-up/yr per COO Agnello"
+      },
+      "economics": {
+        "cap": 0.062,
+        "ccRent": 1.42,
+        "duRent": 0.85,
+        "expRatio": 32,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#0F4C81"
+      },
+      "capital": {
+        "activeFunds": [
+          { "name": "GSI Opportunity Fund", "size": 250000000, "vintage": "2024-11", "focus": "Sun Belt FL/NC/GA" },
+          { "name": "BlueGate-GEM Realty JV", "size": 250000000, "vintage": "2025-06", "focus": "boat/RV storage" },
+          { "name": "Cerberus JV", "vintage": "2020-legacy", "focus": "diversified FL/VA/NC/SC/TX portfolio" },
+          { "name": "FrontRange Capital co-GP", "size": 100000000, "vintage": "2024-merger close" }
+        ],
+        "signals": [
+          "Aug 2024 Go Store It / Snapbox merger close · 145-146 locations 23 states >10M SF",
+          "Nov 2024 GSI Opportunity Fund $250M launch (FL/NC/GA explicit)",
+          "Jun 2025 BlueGate + GEM Realty $250M JV (14 boat/RV + 2 marinas · 1.9M SF · Bonita Springs FL, Christiana TN)",
+          "Feb 2026 Houston submarket 4 RV/boat sites (705 units, 94% occupied)"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Ryan Hanks", "title": "Co-CEO (founder)", "email": "rhanks@madisoncapgroup.com", "emailConfidence": "MEDIUM-verify" },
+        "secondary": [
+          { "name": "Jake Ramage", "title": "Co-CEO (ex-Snapbox)" },
+          { "name": "Matt Lang", "title": "President" },
+          { "name": "Scott Hastings", "title": "CFO" },
+          { "name": "Evan Stephens", "title": "CIO" },
+          { "name": "Beau Agnello", "title": "COO" },
+          { "name": "Banks Brown", "title": "VP Acquisitions" }
+        ],
+        "emailPattern": "[finit][last]@madisoncapgroup.com OR @gostoreit.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "GSI $250M Sun Belt fund + $250M BlueGate-GEM boat/RV JV = dual-track deployment pressure · 205 facilities / 27 states / 103,683 units post-Heartland · Co-CEOs Hanks+Ramage stated 10-15 ground-up/yr target · [Sun Belt entitled Class A or boat/RV play] fits.",
+      "primarySources": [
+        "https://www.insideselfstorage.com/self-storage-investing-real-estate/madison-capital-group-launches-250m-go-store-it-opportunity-fund-for-self-storage-investments-across-the-sun-belt",
+        "https://www.insideselfstorage.com/vehicle-boat-rv-storage/bluegate-and-gem-realty-capital-form-250m-joint-venture-to-expand-boat-rv-self-storage-platform"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Spartan Investment Group": {
+      "aliases": ["Spartan", "SIG", "FreeUp Storage"],
+      "tier": "TIER_1_HOT_CAPITAL",
+      "hotCapitalRank": 7,
+      "firmographics": { "type": "Private Syndication/GP", "hq": "Golden, CO", "founded": 2014 },
+      "portfolio": {
+        "facilityCount": "60-65",
+        "units": 30000,
+        "aum": 600000000,
+        "brand": "FreeUp Storage"
+      },
+      "uwProfile": {
+        "dealTypes": ["value-add", "opportunistic", "ground-up-development"],
+        "geography": ["FL", "GA", "SC", "TN", "WV", "PNW (OR/WA)", "AR"],
+        "sizeFloor": "$5M single",
+        "priceLow": 3000000,
+        "priceHigh": 20000000,
+        "deploymentPressure": "VERY HIGH",
+        "offMarketPreference": "both",
+        "hardNos": ["Northeast (no footprint)", "unpriced/auction formats"],
+        "uniqueMoats": "3 distinct funds launched 2023 ($180M combined target) · VERTICALLY INTEGRATED with in-house construction arm (only PE op that builds) · 2025 PUBLIC TARGET: 25 acquisitions + 25 ground-up (Gibson stated)"
+      },
+      "economics": {
+        "cap": 0.065,
+        "ccRent": 1.40,
+        "duRent": 0.82,
+        "expRatio": 35,
+        "stabOcc": 88,
+        "ecriBump": 0.06,
+        "hurdle": 8.0,
+        "color": "#8B1E3F"
+      },
+      "capital": {
+        "activeFunds": ["Acquisitions fund", "Development fund", "Debt fund"],
+        "fundSize": 180000000,
+        "vintageClose": "2023",
+        "recentRaise": "$100M 2024 + $175M acquisitions deployed",
+        "signals": ["2025 stated target: 25 acquisitions + 25 ground-up", "March 2025 AR 3-facility (ex-Extra Space on I-49)"]
+      },
+      "contacts": {
+        "primary": { "name": "Ryan Gibson", "title": "President/CIO/Co-Founder", "email": "rgibson@spartan-investors.com", "phone": "202-696-5112", "emailConfidence": "MEDIUM-HIGH", "warning": "DO NOT USE investors@spartan-investors.com - that's retail investor intake" },
+        "secondary": [
+          { "name": "Scott Lewis", "title": "CEO/Co-Founder (US Army Reserves veteran)", "email": "slewis@spartan-investors.com" },
+          { "name": "Derrick Harris", "title": "VP Operations FreeUp Storage" }
+        ],
+        "emailPattern": "[finit][last]@spartan-investors.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Your 2025 public target of 25 acquisitions + 25 ground-up signals real deployment pressure · in-house construction arm lets you execute ground-up that most PE ops can't · [entitled or value-add site in FL/GA/SC/TN/PNW] fits the 25/25 trajectory.",
+      "primarySources": [
+        "https://spartan-investors.com/our-story/",
+        "https://www.insideselfstorage.com/facility-operators/spartan-investment-group-closes-2024-with-100m-fundraise-and-175m-in-self-storage-acquisitions"
+      ],
+      "sig": "SiteScore",
+      "operationalFlag": "CRITICAL: 4/18/26 email went to investors@spartan-investors.com which is retail investor intake. RESEND required direct to rgibson@spartan-investors.com."
+    },
+
+    "StorageBlue": {
+      "aliases": ["StorageBlue Growth Fund", "SBGF"],
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 8,
+      "firmographics": { "type": "Private + Growth Fund", "hq": "Jersey City / North NJ" },
+      "portfolio": { "facilityCount": "3-4 operating", "concentrations": ["NJ/NY primary"], "note": "Fund mandate expanding national to high-barrier urban" },
+      "uwProfile": {
+        "dealTypes": ["existing", "ground-up", "value-add-redevelopment"],
+        "geography": ["NJ/NY primary · national high-barrier expansion"],
+        "productMix": "urban multi-story CC only",
+        "deploymentPressure": "HIGH",
+        "hardNos": ["suburban drive-up", "tertiary"],
+        "uniqueMoats": "$350M StorageBlue Growth Fund / $1B buying power launched 2024 · vertically integrated"
+      },
+      "economics": {
+        "cap": 0.062,
+        "ccRent": 1.55,
+        "duRent": 0.95,
+        "expRatio": 30,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#00337C"
+      },
+      "capital": {
+        "activeFund": "StorageBlue Growth Fund (SBGF)",
+        "fundSize": 350000000,
+        "leveragedBuyingPower": 1000000000,
+        "vintageClose": "2024",
+        "signals": ["2024 fund launch $350M / $1B buying power", "May 2024 sold 5-property NJ portfolio to Prime (recycle)"]
+      },
+      "contacts": {
+        "primary": { "name": "Winston Ma", "title": "CIO StorageBlue Growth Fund" },
+        "secondary": [{ "name": "Alan Mruvka", "title": "Founder/CEO (founded E! Entertainment + FX)" }],
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "$350M fund / $1B buying power launched 2024 with national expansion mandate · Winston Ma institutional CIO · NJ/NY urban multi-story CC is Teaneck $10M template — [similar high-barrier urban site] matches the fund thesis.",
+      "primarySources": [
+        "https://storagebluefund.com/",
+        "https://www.insideselfstorage.com/self-storage-investing-real-estate/founder-of-e-entertainment-television-and-storageblue-launches-350m-self-storage-growth-fund"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "NexPoint Storage Partners": {
+      "aliases": ["NexPoint Storage", "ex-Jernigan Capital", "JCAP"],
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 9,
+      "firmographics": { "type": "Private (NexPoint platform)", "hq": "Dallas, TX", "note": "Formerly Jernigan Capital NYSE:JCAP, rebranded 2020 post-NexPoint acquisition" },
+      "portfolio": {
+        "facilityCount": 61,
+        "states": 21,
+        "totalSF": "4.9M",
+        "occupancy": 0.921,
+        "aum": 1700000000,
+        "targetMSAs": ["Baltimore", "Cleveland", "Detroit", "Houston", "Miami/Ft Lauderdale", "Nashville", "New Orleans", "Philadelphia", "DC"],
+        "operator": "Extra Space Storage (3rd-party management)"
+      },
+      "uwProfile": {
+        "dealTypes": ["Generation-V Class A multi-story CC ONLY"],
+        "geography": ["Top 9 MSAs (SAFStor core footprint)"],
+        "sizeFloor": "80K NRSF multi-story Class A",
+        "priceLow": 20000000,
+        "priceHigh": 60000000,
+        "productMix": "Class A multi-story CC urban ONLY",
+        "deploymentPressure": "MEDIUM-selective",
+        "hardNos": ["single-story", "drive-up", "non-urban", "tertiary", "development without pad-ready entitlements"],
+        "uniqueMoats": "DST program (1031-fueled) = UNIQUE capital source · $825M refi completed 2024 freed balance sheet · John Good: 'easily double in size 2-3 years'"
+      },
+      "economics": {
+        "cap": 0.060,
+        "ccRent": 1.48,
+        "duRent": 0.92,
+        "expRatio": 28,
+        "stabOcc": 92,
+        "ecriBump": 0.08,
+        "hurdle": 7.0,
+        "color": "#8B0000"
+      },
+      "capital": {
+        "activeFund": "DST program Storage I-VI + balance sheet post-$825M refi",
+        "recentVintages": [
+          { "name": "Storage V DST", "size": 46000000, "closed": "2024-12" },
+          { "name": "Storage VI DST", "size": 45000000, "closed": "2025-09" }
+        ],
+        "signals": [
+          "$825M total refinancing 2024 (CMBS $750M + $75M Series F Preferred)",
+          "Storage VI DST $45M fully subscribed Sept 2025",
+          "SAFStor acquisition Dec 2022 = $1.7B portfolio value established"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "John Good", "title": "CEO NexPoint Storage Partners", "emailConfidence": "LOW-verify" },
+        "secondary": [{ "name": "Jackie Graham", "title": "Investor Relations", "email": "jgraham@nexpoint.com", "phone": "972-419-6213", "emailConfidence": "HIGH" }],
+        "emailPattern": "[finit][last]@nexpoint.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "DST 1031-fueled capital = unique positioning no other buyer has · John Good stated 'easily double in size 2-3 years' · Gen V Class A multi-story in your 9 target MSAs (Baltimore/Cleveland/Detroit/Houston/Miami/Nashville/New Orleans/Philly/DC) · [matching site] fits 1031 exchange framing.",
+      "primarySources": [
+        "https://www.nexpoint.com/nexpoint-storage-partners/",
+        "https://www.nexpoint.com/nexpoint-storage-partners-overhauls-balance-sheet-positions-company-for-future-growth-with-825-million-in-total-refinancing-over-the-last-12-months/"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "CubeSmart": {
+      "aliases": ["CUBE"],
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 10,
+      "firmographics": { "ticker": "NYSE:CUBE", "type": "Public REIT", "hq": "Malvern, PA" },
+      "portfolio": {
+        "facilityCount": 662,
+        "totalSF": "48.4M",
+        "occupancy": 0.881,
+        "managed3P": 862,
+        "revConcentration": "NY 18% / FL 14% / CA 11% / TX 9% = 52% of revenue"
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized-ONLY"],
+        "geography": ["Top 40 MSAs ONLY"],
+        "priceLow": 10000000,
+        "priceHigh": 50000000,
+        "productMix": "CC-heavy Class A · multi-story urban/infill preferred",
+        "deploymentPressure": "MEDIUM-ELEVATED",
+        "offMarketPreference": "yes",
+        "hardNos": ["ground-up-development-HARD-NO (stated verbatim Jan 2025)", "Class B/C tertiary", "outside Top-40 MSA", "Gulf Coast (trimming exposure)", "drive-up-only tertiary"],
+        "uniqueMoats": "$250M CBRE IM JV launched Feb 2026 (core/core+/value-add) · 862 3PM stores (legacy, not developer pipeline like EXR) · Marr's founder-level acquisition discipline"
+      },
+      "economics": {
+        "cap": 0.061,
+        "ccRent": 1.42,
+        "duRent": 0.85,
+        "expRatio": 30,
+        "stabOcc": 91,
+        "ecriBump": 0.07,
+        "hurdle": 6.8,
+        "color": "#E30613",
+        "rentLabel": "CUBE 10-K 2024 ($15.80 rev/SF portfolio avg)"
+      },
+      "capital": {
+        "activeFund": "Public equity REIT + CBRE IM $250M JV",
+        "jvSize": 250000000,
+        "vintageClose": "Feb 2026",
+        "signals": [
+          "2025 deployed $501.8M (30 stores avg $16.7M) - ramping from 2024 (18 stores) and 2023 (1 store lull)",
+          "Feb 2026 first CBRE IM JV deal: Phoenix AZ $13.6M (CubeSmart 15% = $2.1M)"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Jessie Rosina Smith", "title": "Director Investments", "email": "jsmith@cubesmart.com", "phone": "610-535-5078", "mobile": "215-704-8219", "emailConfidence": "HIGH-CONFIRMED-Jan-2025-thread" },
+        "secondary": [
+          { "name": "Matthew Lawlor", "title": "Director Investments", "email": "mlawlor@cubesmart.com", "emailConfidence": "HIGH-CONFIRMED" },
+          { "name": "Dave Iemolo", "title": "Senior Director Investments (escalation for $50M+)", "email": "diemolo@cubesmart.com", "emailConfidence": "MEDIUM", "prior": "ex-Datz RE Capital · ex-Gibraltar Capital · ex-Federal Realty Investment Trust" },
+          { "name": "Christopher P. Marr", "title": "President & CEO" },
+          { "name": "Timothy M. Martin", "title": "CFO (since Nov 2008)" }
+        ],
+        "emailPattern": "[finit][last]@cubesmart.com (HIGH)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Per your Jan 27, 2025 email stated verbatim: 'existing high-quality Top-40 MSA, NOT pursuing ground-up' · [matching site] fits exactly · off-market, not broker-shopped · CBRE IM JV $250M launched Feb 2026 = need to deploy · Phoenix first deal closed.",
+      "friction": "HARD RULE: do NOT pitch ground-up development (stated verbatim) · do NOT pitch non-Top-40-MSA · Gulf Coast (trimming) · drive-up-only tertiary",
+      "primarySources": [
+        "https://investors.cubesmart.com/news/news-details/2026/CubeSmart-Reports-Fourth-Quarter-and-Annual-2025-Results/default.aspx",
+        "https://www.sahmcapital.com/news/content/how-a-us250-million-self-storage-venture-at-cubesmart-cube-has-changed-its-investment-story-2026-02-04"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Banner Real Estate Group": {
+      "aliases": ["Banner Storage Group"],
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 11,
+      "firmographics": { "type": "Private (deal-by-deal institutional JV)", "hq": "Chicago, IL (300 S Riverside Plaza #1250)", "founded": 1989 },
+      "portfolio": {
+        "storageUnits": 3596,
+        "firmAUM": 2300000000,
+        "recentDeployment2025": 400000000,
+        "pipelineTarget": 600000000,
+        "note": "2025 = most active year in 35-yr history"
+      },
+      "uwProfile": {
+        "dealTypes": ["ground-up-development-PRIMARY (building spree)", "value-add-conversions", "existing-stab"],
+        "geography": ["Chicago", "NYC MSA", "Boston", "Dallas", "Miami", "Minneapolis", "CEO stated: TX + Southeast expansion for 2026"],
+        "sizeFloor": "80K NRSF (institutional urban scale)",
+        "priceLow": 15000000,
+        "priceHigh": 50000000,
+        "productMix": "Multi-story CC heavy (urban infill)",
+        "deploymentPressure": "HIGH",
+        "hardNos": ["rural/tertiary", "single-story drive-up in non-urban", "sub-60K SF"],
+        "uniqueMoats": "35-yr MF track record · deal-level institutional co-invest (RGA ReCap confirmed) · Chicago HQ regional dominance · signature warehouse-to-storage conversion (Lynn MA, New Rochelle NY)"
+      },
+      "economics": {
+        "cap": 0.060,
+        "ccRent": 1.55,
+        "duRent": 0.92,
+        "expRatio": 28,
+        "stabOcc": 91,
+        "ecriBump": 0.07,
+        "hurdle": 7.2,
+        "color": "#1E3A8A"
+      },
+      "capital": {
+        "activeFund": "Deal-by-deal institutional JV partners",
+        "partners": ["RGA ReCap (Reinsurance Group of America)", "Highland Bank", "Talonvest Capital"],
+        "signals": [
+          "Sep 2025 St. Paul MN 88,514 NRSF (RGA ReCap new partner, Highland Bank debt)",
+          "Chicago Edgewater 6-story 118K SF CC planned",
+          "New Rochelle NY 110K SF warehouse conversion",
+          "Dallas Montfort TX under construction",
+          "Trent Acuff CIO quoted: 'commitment to investing in premier self-storage assets in markets with strong fundamentals'"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Katie Jansen", "title": "SVP Acquisitions (MF+storage)", "emailConfidence": "LOW-verify" },
+        "secondary": [
+          { "name": "Griffin Abel", "title": "Director Self Storage Development" },
+          { "name": "Bob Flannery", "title": "CEO (Banner Real Estate Group)" },
+          { "name": "Trent Acuff", "title": "CIO" }
+        ],
+        "emailPattern": "[finit][last]@bannerreg.com OR @bannerrealestategroup.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "2025 = most active year in 35-yr history · $400M deployed · $600M annual pipeline target · CEO Flannery explicitly named TX + Southeast as 2026 expansion · Trent Acuff CIO runs acquisitions · [urban CC multi-story in TX/SE] matches · warehouse conversion specialist (Lynn MA + New Rochelle precedents)",
+      "primarySources": [
+        "https://www.prnewswire.com/news-releases/banner-real-estate-group-leverages-balance-sheet-strength-partner-relationships-and-disciplined-strategy-to-fuel-growth-302617313.html",
+        "https://www.prnewswire.com/news-releases/banner-real-estate-group-expands-self-storage-portfolio-with-strategic-acquisition-in-st-paul-mn-302566090.html"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Devon Self Storage": {
+      "aliases": ["Devon Self Storage Holdings", "Devon-Inland"],
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 12,
+      "firmographics": { "type": "Private (Inland 80% majority since Jan 2024)", "hq": "Oak Brook IL + Emeryville CA legacy", "founded": 1988 },
+      "portfolio": {
+        "facilityCount": 202,
+        "aum": 2000000000,
+        "growthYoY": 0.68,
+        "employees": 400,
+        "issTop100Rank": 12,
+        "txConcentration": { "total": 29, "houston": 8, "dfw": 7, "sa": 5, "austin": 1, "other": 8 }
+      },
+      "uwProfile": {
+        "dealTypes": ["stabilized-acquisitions", "Class-A-new-builds (Inland IPC JV)", "QOZ-conversions"],
+        "geography": ["29 TX + national"],
+        "priceLow": 3000000,
+        "priceHigh": 30000000,
+        "productMix": "Class-A CC preferred",
+        "deploymentPressure": "MEDIUM",
+        "uniqueMoats": "QOZ conversion moat (EXCLUSIVE — $250M IPC QOZ capital) · Inland Real Estate Group 80% majority Jan 2024 · Matt Tice TX A&M + Southlake Town Square pedigree"
+      },
+      "economics": {
+        "cap": 0.062,
+        "ccRent": 1.40,
+        "duRent": 0.85,
+        "expRatio": 33,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#5E4B8B"
+      },
+      "capital": {
+        "activeFunds": [
+          { "name": "Inland IPC QOZ Fund I + II", "size": 252000000, "pipeline": "12 properties still to acquire" }
+        ],
+        "signals": [
+          "202 facilities mid-2025 · +68% portfolio value growth 2024",
+          "96 facilities added across 31 states 2024-Q1 2025",
+          "32-facility management portfolio addition 2025 (LA-9, MS-8, NC-4, SC-5, TX-6 · ~2M SF)"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Matthew Tice", "title": "Co-CEO", "email": "mtice@devonselfstorage.com", "emailConfidence": "MEDIUM", "alternate": "mtice@inlandgroup.com", "prior": "14 yrs Inland · $300M Southlake Town Square TX · TX A&M" },
+        "emailPattern": "[finit][last]@devonselfstorage.com (65.5%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "QOZ-eligible vacant commercial = Devon's EXCLUSIVE lane · $250M IPC QOZ capital + 12 properties still in pipeline · you added 96 facilities 18mo · Matt Tice TX insider via $300M Southlake Town Square · [QOZ or TX ground-up site] fits.",
+      "primarySources": [
+        "https://inlandgroup.com/press-room/news-release/devon-continues-breakthrough-growth-2025-over-200-self-storage-assets",
+        "https://inlandgroup.com/press-room/news-release/inland-private-capital-corporation-successfully-closes-two-self-storage-qoz"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "CrownPoint Group": {
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 13,
+      "firmographics": { "type": "Private", "hq": "Parsippany, NJ (One Gatehall Drive Suite 103)", "founded": 2013 },
+      "portfolio": {
+        "totalSFDeveloped": "12.5M+",
+        "realizedTransactionalValue": 3400000000,
+        "storageSF": "2.5M+",
+        "storageValue": "$500M+",
+        "flagshipProjects": 8,
+        "brand": "CrownPoint Group (facilities operated by Extra Space)"
+      },
+      "uwProfile": {
+        "dealTypes": ["ground-up-development-PRIMARY (multi-story CC institutional)"],
+        "geography": ["NJ / NY metro ONLY (hard fence)"],
+        "sizeFloor": "1-5 ac entitled",
+        "sizeCeiling": "100K-135K SF / 800-1200 units multi-story",
+        "productMix": "Multi-story CC exclusively · 3-6 stories",
+        "deploymentPressure": "HIGH",
+        "decisionSpeedDays": "30-60",
+        "hardNos": ["outside NJ/NY metro (HARD)", "exurban growth corridor", "auction-format", "no-operator-path-identified"],
+        "uniqueMoats": "NJ/NY metro brownfield/adaptive-reuse specialty (car dealerships, salvage yards → multi-story CC) · Extra Space operator partnership · Lamar Cos JV + BCB Bank + JLL stack"
+      },
+      "economics": {
+        "cap": 0.058,
+        "ccRent": 1.65,
+        "duRent": 1.00,
+        "expRatio": 28,
+        "stabOcc": 92,
+        "ecriBump": 0.07,
+        "hurdle": 7.0,
+        "color": "#B8860B"
+      },
+      "capital": {
+        "partners": ["Lamar Cos. JV (Newark Ironbound)", "BCB Bank (South River)", "JLL Capital Markets", "Extra Space operator/lessee"],
+        "signals": [
+          "Jan 13, 2026 groundbreaking: 696 Old Bridge Turnpike South River NJ (105,500 SF / 854 units / 3-story CC)",
+          "Aug 2025 completion: Newark Ironbound 135K SF / 1,200+ units / 6-story CC"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Michael Legacki", "title": "Vice President", "email": "mlegacki@crownpointgroup.com", "phone": "973-671-5800", "emailConfidence": "HIGH-CONFIRMED" },
+        "secondary": [{ "name": "Donald R. Rasmusson Jr.", "title": "Director of Development", "email": "drasmusson@crownpointgroup.com" }],
+        "emailPattern": "[finit][last]@crownpointgroup.com (HIGH)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "NJ/NY metro brownfield/adaptive-reuse specialty · Jan 2026 South River groundbreaking + Aug 2025 Newark Ironbound 135K SF completion · Extra Space operator continuation · [entitled NJ/NY brownfield or adaptive-reuse parcel] matches the template exactly.",
+      "primarySources": [
+        "https://crownpointgroup.com/portfolio/self-storage/",
+        "https://re-nj.com/crownpoint-breaks-ground-on-106000-sq-ft-self-storage-project-in-central-jersey/"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Public Storage": {
+      "aliases": ["PSA", "PS"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 30,
+      "firmographics": { "ticker": "NYSE:PSA", "type": "Public REIT", "hq": "Glendale, CA" },
+      "portfolio": {
+        "facilityCount": 3171,
+        "totalSF": "229M",
+        "occupancy": 0.853,
+        "sameStoreNOIMargin": 0.784,
+        "revenuePerSF": 18.50,
+        "jvManaged": 48,
+        "thirdPartyManaged": 344
+      },
+      "uwProfile": {
+        "dealTypes": ["ground-up-entitled", "existing-stabilized", "multi-story"],
+        "geography": ["SW (DW)", "NE/MI/NJ (DW)", "East OH/IN/KY/TN/FL (MT)", "DFW (Brock - son of DW, transferred 2026-04-20)"],
+        "sizeFloor": "2.5 ac (3.5-5 ac primary per §6a)",
+        "productMix": "indoor climate-controlled preferred",
+        "deploymentPressure": "MEDIUM",
+        "hardNos": ["SLJ Company / Ty Underwood-listed TX deals (DW friction)", "Ovilla/Princeton/Royse City re-pitches (Brock now)", "dense-saturated submarkets"]
+      },
+      "economics": {
+        "cap": 0.056,
+        "ccRent": 1.55,
+        "duRent": 0.95,
+        "expRatio": 22,
+        "stabOcc": 91,
+        "ecriBump": 0.08,
+        "hurdle": 7.0,
+        "color": "#0052A3",
+        "rentLabel": "PSA 2024 10-K portfolio avg ($18.50 rev/SF, 78.4% same-store NOI margin)"
+      },
+      "capital": {
+        "activeFund": "Public REIT + NSA merger Q3 2026 absorb",
+        "marketCap": 50000000000,
+        "nsaTransaction": { "announced": "2026-03-16", "close": "Q3 2026", "size": 10500000000 },
+        "signals": ["NSA merger $10.5B all-stock announced 3/16/26, closes Q3 2026"]
+      },
+      "contacts": {
+        "eastRouting": {
+          "name": "Matthew Toussaint",
+          "title": "PSA East Acquisitions",
+          "email": "mtoussaint@publicstorage.com",
+          "cc": ["mleonard@publicstorage.com", "jsaucedo@publicstorage.com", "Droscoe@DJRrealestate.com"],
+          "states": ["OH", "IN", "KY", "TN", "FL", "GA", "NC", "SC", "VA", "WV", "PA", "NJ", "NY", "MA", "CT", "DE", "MD", "DC", "ME", "NH", "VT", "RI"]
+        },
+        "swRouting": {
+          "name": "Daniel Wollent",
+          "title": "PSA SW/NE/MI/NJ Acquisitions",
+          "email": "dwollent@publicstorage.com",
+          "cc": ["Droscoe@DJRrealestate.com"]
+        },
+        "dfwGroundUp": {
+          "name": "Brock Wollent",
+          "title": "PSA DFW Ground-Up (DW's son, transferred 2026-04-20)",
+          "note": "Warm intro required from DW"
+        }
+      },
+      "pitchHook": "DW attachments-not-links preference · lead with property data not AI · full DD attached · NOT SLJ-listed · seller carries Planning Board risk.",
+      "friction": "HARD: NO SLJ Company / Ty Underwood listings to DW (personal friction) · NO Ovilla/Princeton/Royse City re-pitches to DW (transferred to Brock) · dense-saturated submarkets get passed on plate-inefficiency critique",
+      "primarySources": [
+        "https://investors.publicstorage.com/news-events/press-releases/news-details/2026/Public-Storage-to-Acquire-National-Storage-Affiliates-Creating-Significant-Value-for-All-Stakeholders/default.aspx"
+      ],
+      "sig": "Storvex",
+      "signatureRule": "PS-only: use Storvex siggy (navy gradient, gold cursive, STORVEX™ tracked caps)"
+    },
+
+    "Extra Space Storage": {
+      "aliases": ["EXR", "Extra Space"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 21,
+      "firmographics": { "ticker": "NYSE:EXR", "type": "Public REIT", "hq": "Cottonwood Heights, UT" },
+      "portfolio": {
+        "facilityCount": 4281,
+        "states": 43,
+        "managementPlusThirdParty": "1,800+ (largest 3PM in sector)",
+        "note": "Post-Life Storage merger July 2023"
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "value-add", "C-of-O-lease-up (via bridge pipeline)", "portfolios", "JV-structures"],
+        "geography": ["nationwide 43 states + DC"],
+        "priceLow": 5000000,
+        "priceHigh": 50000000,
+        "productMix": "CC-preferred · multi-story urban · drive-up OK in cluster",
+        "deploymentPressure": "MEDIUM-LOW (disciplined)",
+        "offMarketPreference": "YES (92% of 2024 deals = JV/3PM/bridge pipeline)",
+        "hardNos": ["broadly-shopped CBRE/JLL deals at peak", "early lease-up without bridge", "pure ground-up on balance sheet"],
+        "uniqueMoats": "Management Plus 3PM (1,800+ stores — largest in sector) = acquisition pipeline · bridge lending platform $980M+ Q4 2024 alone · JV optionality absorbs dev risk"
+      },
+      "economics": {
+        "cap": 0.060,
+        "ccRent": 1.48,
+        "duRent": 0.90,
+        "expRatio": 26,
+        "stabOcc": 93,
+        "ecriBump": 0.08,
+        "hurdle": 6.8,
+        "color": "#5B2C82",
+        "rentLabel": "EXR 10-K 2024 ($17.20 rev/SF, post-LSI merger)"
+      },
+      "capital": {
+        "marketCap": 30000000000,
+        "signals": ["2024: 58 stores acquired · 92% from JV partners / 3PM / bridge loan borrowers", "2025: 27 on-balance-sheet for $304.8M + 7 JV stores", "$100M SSGT III convertible preferred Feb 2025"]
+      },
+      "contacts": {
+        "primary": { "name": "Samantha Battis", "title": "Director of Investments (Salt Lake City)", "emailConfidence": "LOW-verify-RocketReach" },
+        "secondary": [
+          { "name": "Noah Springer", "title": "President (Jan 5, 2026 promoted)", "prior": "built Management Plus 3PM platform" },
+          { "name": "Joseph D. Margolis", "title": "CEO & Director (since Jan 2017, former CIO)" },
+          { "name": "Jeff Norman", "title": "CFO (July 2025)", "prior": "built bridge lending platform" }
+        ],
+        "emailPattern": "[finit][last]@extraspace.com (LOW conf)",
+        "fallback": "InvestorRelations@extraspace.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Per your 2024 Annual Report 92% of acquisitions from JV/3PM/bridge pipeline · not broker-shopped trades · pitch as Management Plus 3PM lease-up → acquisition path · OR bridge-loan-to-takeout · matches your disciplined cherry-pick discipline.",
+      "primarySources": [
+        "https://ir.extraspace.com/governance/executive-management/default.aspx",
+        "https://annualreport.extraspace.com/annualreport/2024/growth.html"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Morningstar Properties": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 13,
+      "firmographics": { "type": "Private Institutional (JV-led)", "hq": "Matthews NC (Charlotte suburb)", "founded": 1981 },
+      "portfolio": {
+        "facilityCount": 117,
+        "totalSF": "12M",
+        "topMSAconcentration": 0.71,
+        "concentrations": ["Houston (deepest cluster)", "Austin", "DFW", "FL", "NC", "SC", "GA", "VA", "AR", "NV", "MD"],
+        "secondBusiness": "Morningstar Marinas (7 marinas)"
+      },
+      "uwProfile": {
+        "dealTypes": ["newly-built-C-of-O-lease-up (signature)", "stabilized", "value-add"],
+        "geography": ["Sun Belt + Mid-Atlantic"],
+        "sizeFloor": "70K NRSF",
+        "sizeCeiling": "150K NRSF typical",
+        "priceLow": 10000000,
+        "priceHigh": 500000000,
+        "productMix": "Climate-only (HARD NO on non-CC drive-up) · multi-story urban preferred",
+        "deploymentPressure": "MEDIUM-HIGH (JV-driven)",
+        "hardNos": ["CA", "PNW", "Upper Midwest", "true NE", "saturated markets", "non-CC drive-up"],
+        "uniqueMoats": "Harrison Street JV since 2007 (41+ investments) · Starwood SREIT JV · Blue Doors Fund IV · PS's historical farm team (sold PS 60 stores 2006 + 43 stores $315M 2013)"
+      },
+      "economics": {
+        "cap": 0.063,
+        "ccRent": 1.42,
+        "duRent": 0.85,
+        "expRatio": 32,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#D32F2F"
+      },
+      "capital": {
+        "activeFund": "Harrison Street JV + Nuveen 90% majority + Blue Doors Fund IV",
+        "signals": [
+          "Oct 2025 Harrison Street + Morningstar 21-property Sunbelt JV (1.3M NRSF, 10,800 units, 90% occ, +21% YoY move-ins)",
+          "Aug 2024 Harrison Street 19-property SE portfolio $200M+",
+          "Nuveen holds 90% stake on 21 Morningstar facilities"
+        ]
+      },
+      "contacts": {
+        "primary": { "name": "Matt Shapiro", "title": "President & CIO", "email": "mshapiro@mstarproperties.com", "emailConfidence": "MEDIUM", "note": "signs ALL acquisitions · 15-yr Morningstar · single decision point" },
+        "secondary": [{ "name": "Dave Benson", "title": "CEO (strategic/external)" }],
+        "emailPattern": "[finit][last]@mstarproperties.com (84.2%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "You've sold to PS before (60 stores 2006 + 43 stores $315M 2013) — you know the PS buy-box cold · [C of O lease-up in Houston/Austin or other Sunbelt MSA] fits your 2024 Henderson NV + Houston template that closed at $65.8M loan · Harrison Street JV capital deploying Sunbelt aggressively.",
+      "primarySources": [
+        "https://harrisonst.com/harrison-street-asset-management-and-morningstar-acquire-21-property-self-storage-portfolio-across-high-growth-us-markets/",
+        "https://www.mstarproperties.com/about-us"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Metro Self Storage": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 18,
+      "firmographics": { "type": "Private", "hq": "Lake Forest, IL" },
+      "portfolio": {
+        "facilityCount": "45-55 directly + 42 IPC JV (post-2025 restructure)",
+        "txConcentration": "TX 2nd-largest footprint (Fort Worth/Houston wholly-owned)"
+      },
+      "uwProfile": {
+        "dealTypes": ["existing-stab Class A/B", "ground-up-dev (2-3/yr)", "rezone-specialty via Bohler"],
+        "geography": ["Top 50 MSAs", "TX 2nd-largest", "NE expansion (Old Bridge NJ, Doylestown PA)"],
+        "sizeFloor": "40K+ RSF (acq) · 90K+ GSF (dev) · 75K+ 3-mi pop",
+        "priceLow": 3000000,
+        "priceHigh": 20000000,
+        "productMix": "multi-story CC preferred (dev) · 3.5-5 ac sweet spot",
+        "deploymentPressure": "MEDIUM (re-shaping)",
+        "hardNos": ["sub-500K pop markets", "non-multi-story for urban dev", "tertiary rural"],
+        "uniqueMoats": "Bohler Engineering on retainer for rezone fights · Inland Private Capital JV · Fremont Realty Capital (Bechtel FO) · Värde Partners refi"
+      },
+      "economics": {
+        "cap": 0.063,
+        "ccRent": 1.40,
+        "duRent": 0.82,
+        "expRatio": 34,
+        "stabOcc": 89,
+        "ecriBump": 0.06,
+        "hurdle": 7.5,
+        "color": "#006341"
+      },
+      "capital": {
+        "signals": ["Värde Partners $185M 2024 refi", "Jul 2025 outsourced 27 facilities to StorageMart 3PM", "Oct 2025 sold 11 facilities to Mini Mall"]
+      },
+      "contacts": {
+        "primary": { "name": "Nicholas Gerou", "title": "Co-President / CIO", "email": "ngerou@metrostorage.com", "phone": "847-235-8944", "emailConfidence": "MEDIUM", "note": "runs BOTH acq AND dev — single contact · reports to CEO Blair Nagel (family owner — don't cold-pitch Nagels)" },
+        "emailPattern": "[finit][last]@metrostorage.com (77.8%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Bohler Engineering retainer = rezone-complex TX/NE sites play to your specialty · 1M+ MSA sweet spot · [TX ground-up or NE dev site] fits the Doylestown/Old Bridge pattern.",
+      "operationalFlag": "2025 restructure: divested 38 facilities · pivoting operator-owner → developer-JV model · confirm Gerou's acquisition appetite before routing vs more-active operators",
+      "primarySources": [
+        "https://varde.com/varde-provides-185-million-refinancing-for-20-property-self-storage-portfolio/",
+        "https://bohlerengineering.com/project/overcoming-zoning-challenges-to-move-metro-storage-forward/"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Liberty Investment Properties": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 14,
+      "firmographics": { "type": "Private", "hq": "Orlando FL (824 Highland Ave)", "founded": 1990 },
+      "portfolio": {
+        "facilityCount": "80+",
+        "lifetimeCapital": 700000000,
+        "storageDevelopments": 65,
+        "brand": "My Neighborhood Storage Center"
+      },
+      "uwProfile": {
+        "dealTypes": ["value-add-existing 50-100K SF", "ground-up-infill-dev (Bollhofer lead)"],
+        "geography": ["SE: FL/GA/NC/TN", "NOT active in TX"],
+        "priceLow": 6000000,
+        "priceHigh": 15000000,
+        "productMix": "CC · FL infill dev specialty (Jax, St. Pete, Delray)",
+        "deploymentPressure": "MEDIUM-UNCERTAIN",
+        "hardNos": ["TX (not active)", "non-SE geography"],
+        "uniqueMoats": "Fund II LP reporting obligations = SiteScore data language fit · StoreEase virtual-mgmt partnership"
+      },
+      "economics": {
+        "cap": 0.063,
+        "ccRent": 1.40,
+        "duRent": 0.83,
+        "expRatio": 33,
+        "stabOcc": 89,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#F26522"
+      },
+      "capital": {
+        "fundII": { "size": 43000000, "vintage": "2022-07-05", "CIK": "1959226", "status": "LIKELY FULLY DEPLOYED" },
+        "fundIII": { "status": "NOT PUBLICLY ANNOUNCED as of 4/2026", "flag": "Direct Khym outreach required before routing" }
+      },
+      "contacts": {
+        "primary": { "name": "Austin Khym", "title": "Director Acquisitions", "email": "akhym@libertyprop.com", "emailConfidence": "MEDIUM-HIGH", "prior": "ex-Highline Storage Partners · ex-Yardi" },
+        "secondary": [
+          { "name": "Jennifer Bollhofer", "title": "Director of Development (ground-up FL infill)", "email": "jbollhofer@libertyprop.com" },
+          { "name": "Adam Mikkelson", "title": "CEO (purchased co. 2021)" }
+        ],
+        "emailPattern": "[finit][last]@libertyprop.com (89.8%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "[SE value-add 50-100K SF OR FL infill dev] matches your Fund II pattern · StoreEase tech partnership = virtual-mgmt angle · LP reporting obligations match SiteScore primary-source discipline.",
+      "operationalFlag": "⚠️ Fund II ($43M) likely fully deployed · Fund III NOT publicly announced · direct Khym outreach required BEFORE routing to confirm active capital",
+      "primarySources": [
+        "https://www.libertyprop.com/company",
+        "https://listselfstorage.com/northamerica/industry-insights/orlando-based-liberty-investment-properties-raises-over-43-million-to-expand-self-storage-portfolio/"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Westport Properties / US Storage Centers": {
+      "aliases": ["USSC", "Westport Properties"],
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 15,
+      "firmographics": { "type": "Private (Hoeven family + Invesco JV)", "hq": "Newport Beach CA" },
+      "portfolio": { "facilityCount": "122+", "totalSFunderMgmt": "15.5M+", "aum": 4000000000, "states": 14, "employees": 600 },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "value-add", "ground-up-development", "3PM"],
+        "geography": ["CA/AZ/NV/TX (Sunbelt/West origin)", "FL heavy (Miami/Lauderdale 6+)", "NE (Boston, Philly)", "Utah new Dec 2025", "PA"],
+        "priceLow": 3000000,
+        "priceHigh": 50000000,
+        "productMix": "Class A multi-story CC + drive-up combo · 50K-165K SF typical",
+        "deploymentPressure": "MEDIUM ($4B AUM growing)",
+        "uniqueMoats": "ONLY operator in matrix that does full-cycle: develop + acquire + operate + 3PM · Class A multi-story CC + drive-up combo expertise (Miami portfolio) · Feldman Cos. JV Miami builds · Kure It philanthropy brand"
+      },
+      "economics": {
+        "cap": 0.060,
+        "ccRent": 1.50,
+        "duRent": 0.90,
+        "expRatio": 28,
+        "stabOcc": 91,
+        "ecriBump": 0.07,
+        "hurdle": 7.2,
+        "color": "#1F4E79"
+      },
+      "capital": {
+        "partners": ["Invesco JV (8-property confirmed)", "Feldman Cos. (Miami FL builds)"],
+        "signals": ["Dec 2025 Utah 3-property acquisition (first UT entry · 200K+ SF / 2,000 units)", "$4B AUM grown from $3.2B in 2 years", "Jan 2025 3-property West Coast Self-Storage acquisition (CA + WA)"]
+      },
+      "contacts": {
+        "primary": { "name": "Ben Hall", "title": "SVP Acquisitions", "emailConfidence": "LOW-verify" },
+        "secondary": [
+          { "name": "Tommy White", "title": "SVP Acquisitions", "email": "tommyw@usstorage.net", "emailConfidence": "HIGH-CONFIRMED" },
+          { "name": "David Kelly", "title": "SVP Development (raw-land ground-up)" },
+          { "name": "Drew Hoeven", "title": "Chairman / CIO (son of late founder Barry Hoeven · Kure It legacy)" },
+          { "name": "Charles Byerly", "title": "CEO" }
+        ],
+        "emailPattern": "[first][last-initial]@usstorage.net OR [finit][last]@usstorage.net",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "$4B AUM grown from $3.2B in 2 years · Utah Dec 2025 first new-state entry signals Mountain West expansion · full-cycle operator (dev + acq + ops + 3PM) means you close deals others can't execute · [Sunbelt entitled 2.5-5 ac OR NE multi-story CC] fits.",
+      "primarySources": [
+        "https://www.westportproperties.net/team/",
+        "https://www.prnewswire.com/news-releases/westport-properties-expands-into-utah-with-acquisition-of-three-self-storage-facilities-302644871.html"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Safeguard Self Storage": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 16,
+      "firmographics": { "type": "Private (Morgan Stanley Prime Property Fund JV)", "hq": "Atlanta GA + Plainview NY dev office" },
+      "portfolio": { "facilityCount": "~90", "states": 7, "concentrations": ["NJ/NY/CT/PA/LA/IL/FL urban"] },
+      "uwProfile": {
+        "dealTypes": ["urban-infill-ground-up", "newly-built-acquisitions"],
+        "geography": ["NE (NJ/NY/CT/PA) · Gulf (LA) · Midwest (IL) · FL urban"],
+        "productMix": "Multi-story CC urban ONLY (no drive-up)",
+        "deploymentPressure": "MEDIUM",
+        "hardNos": ["suburban drive-up", "tertiary", "non-urban", "non-CC product"],
+        "uniqueMoats": "Morgan Stanley Prime Property Fund (open-end institutional core fund) · long-hold no-mandate-expiration · 2024 New Industrial Construction Award (Queens NY first outdoor storage in NYC)"
+      },
+      "economics": {
+        "cap": 0.058,
+        "ccRent": 1.55,
+        "duRent": 0.92,
+        "expRatio": 28,
+        "stabOcc": 92,
+        "ecriBump": 0.07,
+        "hurdle": 7.0,
+        "color": "#2E86AB"
+      },
+      "capital": {
+        "fundSource": "Morgan Stanley Prime Property Fund (open-end core fund, ongoing)",
+        "signals": ["Jan 2026 Brooklyn NY Life Storage-branded facility $40M", "Sep 2025 Oakland Park FL newly-built $19.5M from CubeSmart-managed portfolio"]
+      },
+      "contacts": {
+        "primary": { "name": "Mark Degner", "title": "President & CEO", "emailConfidence": "LOW-verify" },
+        "secondary": [
+          { "name": "James Goonan", "title": "EVP Development", "phone": "631-539-0200" },
+          { "name": "Office", "email": "development@safeguardit.com" }
+        ],
+        "emailPattern": "[first].[last]@safeguardit.com OR [finit][last]@safeguardit.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Morgan Stanley Prime Property Fund long-hold thesis = patient institutional capital · Jan 2026 $40M Brooklyn + Sep 2025 $19.5M Oakland Park FL show NE/FL urban-infill CC focus · [matching NE/FL urban multi-story CC site] fits.",
+      "primarySources": [
+        "https://www.safeguardit.com/about-us/developments-acquisitions/",
+        "https://www.morganstanley.com/press-releases/morgan-stanley-real-estates-prime-property-fund-forms-joint-venture-with-safeguard-storage-properties-llc-for-approximately-400-million_3678"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "StorageMart": {
+      "aliases": ["Storage Mart", "Burnam"],
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 17,
+      "firmographics": { "type": "Private family (Burnam)", "hq": "Columbia MO (2407 Lemone Industrial Blvd) + Manhattan Mini Storage NYC", "founded": 1999 },
+      "portfolio": { "facilityCount": "~354", "totalSF": "22-23M", "geography": "US + Canada + UK", "nycLocations": 51, "brands": ["StorageMart", "Manhattan Mini Storage (MMS)", "truStorage (3PM platform)"] },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "value-add", "3PM-platform-truStorage"],
+        "geography": ["Midwest (MO/IA/IL/KS/MN/IN)", "NYC (MMS brand 51 locations)", "UK", "Canada"],
+        "priceLow": 5000000,
+        "priceHigh": 1000000000,
+        "deploymentPressure": "MEDIUM-HIGH",
+        "hardNos": ["ground-up development (wrong buyer)", "rural/exurban isolated single-assets", "tertiary outside Midwest/NYC/UK/Canada"],
+        "uniqueMoats": "truStorage 3PM platform (took over 27 Metro facilities Jul 2025) · MMS premium urban brand · Multilingual service · Family capital = no quarterly pressure"
+      },
+      "economics": {
+        "cap": 0.063,
+        "ccRent": 1.40,
+        "duRent": 0.82,
+        "expRatio": 34,
+        "stabOcc": 89,
+        "ecriBump": 0.06,
+        "hurdle": 7.5,
+        "color": "#006341"
+      },
+      "capital": {
+        "signals": ["Jan 2026 $1B NYC 15-facility Carlyle Group acquisition (2nd-largest NYC storage deal in history)", "Jul 2025 truStorage 3PM onboard 27 Metro facilities 2M+ SF 18,672 units"]
+      },
+      "contacts": {
+        "primary": { "name": "Alex Burnam", "title": "SVP Real Estate Acquisitions (Cris's son)", "email": "alex.burnam@storage-mart.com", "phone": "+1 877-786-7243", "emailConfidence": "MEDIUM-HIGH" },
+        "secondary": [
+          { "name": "Cris Burnam", "title": "CEO (founder, family principal)", "email": "cris.burnam@storage-mart.com", "emailConfidence": "HIGH-CONFIRMED" },
+          { "name": "Mike Burnam", "title": "President & CIO ($8B+ career transactions)" }
+        ],
+        "emailPattern": "[first].[last]@storage-mart.com (HIGH · NOTE HYPHEN)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "$1B NYC Carlyle deal Jan 2026 = 2nd-largest NYC storage deal in history · family balance sheet + truStorage 3PM platform · [Midwest or NYC dense-urban stabilized deal] fits the cluster-acquisition pattern.",
+      "primarySources": [
+        "https://www.storage-mart.com/about-us",
+        "https://www.globenewswire.com/news-release/2026/01/28/3227815/0/en/StorageMart-Acquires-1-3-Million-Rentable-Square-Feet-in-the-Second-Largest-Self-Storage-Transaction-in-New-York-City-History.html"
+      ],
+      "sig": "SiteScore"
+    },
+
+    "Storage King / Andover": {
+      "aliases": ["SK", "Andover Properties"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 24,
+      "firmographics": { "type": "Private Institutional", "hq": "NYC (780 Third Ave 33rd Floor)" },
+      "portfolio": { "facilityCount": "160+", "totalSF": "14M+", "states": 19 },
+      "uwProfile": {
+        "dealTypes": ["All deal types — core/core+/value-add (multiple capital partners = pricing flex)"],
+        "geography": ["30-min-drive-from-existing-SK-asset rule: Raleigh NC · Charleston SC · Denver CO · Norfolk/Virginia Beach VA"],
+        "sizeFloor": "50K+ NRSF",
+        "priceLow": 3000000,
+        "priceHigh": 15000000,
+        "productMix": "mixed · PAVED SURFACES REQUIRED",
+        "deploymentPressure": "MEDIUM",
+        "hardNos": ["unpaved facilities (Lawton OK pass 4/20/26)", "rough buildings", ">1hr from existing SK asset", "ground-up without entitlements"]
+      },
+      "economics": {
+        "cap": 0.065,
+        "ccRent": 1.40,
+        "duRent": 0.82,
+        "expRatio": 34,
+        "stabOcc": 89,
+        "ecriBump": 0.06,
+        "hurdle": 8.0,
+        "color": "#004990"
+      },
+      "contacts": {
+        "primary": { "name": "Eric Brett", "title": "Director of Acquisitions", "email": "ebrett@andoverprop.com", "phone": "(914) 522-7640", "emailConfidence": "HIGH-CONFIRMED" },
+        "secondary": [
+          { "name": "Karan Gupta", "email": "kgupta@andoverprop.com" },
+          { "name": "Van Manuel", "email": "vmanuel@andoverprop.com", "note": "always CC" }
+        ],
+        "emailPattern": "[finit][last]@andoverprop.com (HIGH)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Within 30-min of your [Raleigh/Charleston/Denver/Norfolk] asset · 50K+ NRSF paved + clean buildings · multiple capital partners = core/core+/value-add pricing flex.",
+      "sig": "DJR swanky"
+    },
+
+    "WWG / StorQuest": {
+      "aliases": ["StorQuest", "William Warren Group", "WWG"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 25,
+      "firmographics": { "type": "Private", "hq": "Santa Monica, CA" },
+      "portfolio": { "facilityCount": "~225", "totalSF": "14M" },
+      "uwProfile": {
+        "dealTypes": ["existing", "ground-up-entitled-preferred (Manalapan NJ 75K SF benchmark)"],
+        "geography": ["Tier 1: LA MSA / OC / SD / DC MSA", "Tier 2: FL urban cores / NJ urban / NY boroughs + LI / Boston MSA"],
+        "sizeFloor": "ground-up 4-6 ac · prefer cash deals · 150-180 mi of existing facilities",
+        "productMix": "CC preferred · consumer-exposure required",
+        "deploymentPressure": "MEDIUM",
+        "hardNos": ["industrial-zoned buried sites (Ontario E Francis killed)", "rate below $1.80/SF floor", "non-Tier-1/Tier-2 markets", "ground-up >180 mi from existing facility"],
+        "uniqueMoats": "SF/cap thresholds: general <8.0 · FL/IE 9-10 · NE 6-7 · Storvex pilot POC running OC/LA/DC"
+      },
+      "economics": {
+        "cap": 0.065,
+        "ccRent": 1.90,
+        "duRent": 1.00,
+        "expRatio": 34,
+        "stabOcc": 89,
+        "ecriBump": 0.06,
+        "hurdle": 8.0,
+        "color": "#00A3E0",
+        "rentLabel": "WWG OC/LA/DC premium markets · $1.80-2.00/SF target floor"
+      },
+      "contacts": {
+        "primary": { "name": "Max Burch", "title": "Acquisitions (deal sourcing lead SE/Florida/SE)", "email": "mburch@williamwarren.com", "emailConfidence": "HIGH-CONFIRMED" },
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Post-4/17/26 hardcode on OC/LA/DC Tier 1 + NE urban Tier 2 · rate floor $1.80-2.00/SF · Storvex pilot running OC/LA/DC delivers the UW data · [site] hits SF/cap + rate floor.",
+      "sig": "DJR swanky"
+    },
+
+    "Prime Storage Group": {
+      "aliases": ["Prime", "Bierbach"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 27,
+      "firmographics": { "type": "Private Institutional", "hq": "Denver, CO" },
+      "portfolio": { "facilityCount": "~300+", "totalSF": "~22M" },
+      "uwProfile": {
+        "dealTypes": ["existing", "ground-up"],
+        "geography": ["National · TX actively hunting per Sept 2025 thread"],
+        "priceLow": 5000000,
+        "deploymentPressure": "LOW-selective",
+        "offMarketPreference": "OFF-MARKET ONLY - HARD RULE - NEVER VIOLATE",
+        "hardNos": ["ANY on-market Crexi/LoopNet/CoStar listing", "sub-$5M tertiary", "promotional framing"]
+      },
+      "economics": {
+        "cap": 0.063,
+        "ccRent": 1.45,
+        "duRent": 0.88,
+        "expRatio": 32,
+        "stabOcc": 90,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#C8102E"
+      },
+      "contacts": {
+        "primary": { "name": "Dan Bierbach", "title": "EVP Acquisitions", "email": "dan.bierbach@goprimegroup.com", "phone": "(303) 915-7345", "emailConfidence": "HIGH-CONFIRMED" },
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Pre-anchored walk pricing $X/SF · no promotional framing · sourced outside CBRE/JLL public channels · off-market per your hard rule · [matching off-market site] fits $5M+ TX/national appetite.",
+      "friction": "ABSOLUTE HARD RULE: NEVER send on-market Crexi/LoopNet/CoStar listings. Dan confirmed 4/18/26 verbatim: 'ive talked with prime he only wants off market deals period.'",
+      "sig": "DJR swanky"
+    },
+
+    "U-Haul / AMERCO": {
+      "aliases": ["U-Haul", "UHAL", "AMERCO"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 26,
+      "firmographics": { "ticker": "NYSE:UHAL", "type": "Public (AMERCO)", "hq": "Phoenix AZ" },
+      "portfolio": { "facilityCount": "~1,500 (mixed storage + truck rental)", "nationalSF": "96.5M" },
+      "uwProfile": {
+        "dealTypes": ["bare-land-4ac+", "conversions-60K+GSF-big-box-or-warehouse", "adjacencies-to-existing-UHaul (any size)"],
+        "geography": ["National"],
+        "sizeFloor": "bare 4+ ac · conversions 60K+ GSF · adjacencies any size · existing 50K+ NRSF",
+        "productMix": "DUAL-USE ZONING REQUIRED (storage + moving van rentals) · 24' ceiling preferred for UBOX",
+        "deploymentPressure": "LOW-MEDIUM",
+        "hardNos": ["Fails 30K VPD", "Fails 60K+ pop 3-mi", "Fails 30% renters 3-mi", "Fails 4+ ac bare OR 60K+ GSF conversion", "No dual-use zoning possible"],
+        "uniqueMoats": "ONLY buyer in matrix that does dual-use storage+moving-van zoning"
+      },
+      "economics": {
+        "cap": 0.068,
+        "ccRent": 1.30,
+        "duRent": 0.75,
+        "expRatio": 40,
+        "stabOcc": 87,
+        "ecriBump": 0.05,
+        "hurdle": 8.5,
+        "color": "#F58220"
+      },
+      "contacts": {
+        "primary": { "name": "Aaron Cook", "title": "Director Acquisitions", "email": "Aaron_Cook@uhaul.com", "phone": "(602) 263-6555 x515201", "emailConfidence": "HIGH", "note": "DECISION MAKER" },
+        "secondary": [{ "name": "Connor Gell", "title": "Acquisitions team (CC on every deal)", "email": "Connor_Gell@uhaul.com", "emailConfidence": "HIGH" }],
+        "emailPattern": "First_Last@uhaul.com (HIGH)",
+        "donotinclude": "Jennifer Sawyer - OUT OF LOOP as of 4/20/26",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Adjacency play — [specific site] sits [X miles] from your [existing U-Haul facility] · 4+ ac bare + 30K+ VPD + 60K+ 3-mi pop + 30%+ renters + dual-use zoning cleared.",
+      "sig": "DJR swanky"
+    },
+
+    "Pogoda / National Storage Management": {
+      "aliases": ["Pogoda", "NSM"],
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 19,
+      "firmographics": { "type": "Private Reg D syndication", "hq": "Farmington Hills MI" },
+      "portfolio": { "facilityCount": 71, "totalSF": "~4.5M", "states": ["MI", "OH", "IN", "KY"] },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "conversions", "bank-owned-distressed"],
+        "geography": ["MI / OH / IN / KY ONLY - 5-hour radius from Farmington Hills HQ"],
+        "sizeFloor": "40K+ SF",
+        "priceLow": 1000000,
+        "priceHigh": 10000000,
+        "deploymentPressure": "MEDIUM",
+        "decisionSpeedDays": "30-45",
+        "offMarketPreference": "YES",
+        "hardNos": ["anything outside MI/OH/IN/KY (strict 4-state fence)"],
+        "uniqueMoats": "All-cash differentiator · K-Mart conversion template (Charlevoix) · bank-owned/distressed specialty"
+      },
+      "economics": {
+        "cap": 0.065,
+        "ccRent": 1.30,
+        "duRent": 0.78,
+        "expRatio": 36,
+        "stabOcc": 88,
+        "ecriBump": 0.06,
+        "hurdle": 8.0,
+        "color": "#003E7E"
+      },
+      "capital": {
+        "lifetime": 250000000,
+        "structure": "Reg D 506(b) syndications · no institutional fund · accelerating 2025-26 post-Collier hire"
+      },
+      "contacts": {
+        "primary": { "name": "Andrew Collier", "title": "VP Acquisitions (Grand Rapids)", "email": "acollier@pogodaco.com", "emailConfidence": "HIGH", "note": "hired April 5, 2025 · warmest entry point" },
+        "secondary": [{ "name": "Adam Pogoda", "title": "President · ex-East End Capital NYC PE ($1.5B/yr)", "email": "apogoda@pogodaco.com" }],
+        "emailPattern": "[finit][last]@pogodaco.com (85.9%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Post-Adam-Pogoda-ex-East-End-Capital rebrand to National Storage Management · MI/OH/IN/KY-only discipline · [bank-owned/distressed or K-Mart conversion in MI-OH-IN-KY] fits the Charlevoix pattern · all-cash close.",
+      "sig": "SiteScore"
+    },
+
+    "10 Federal Storage": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 16,
+      "firmographics": { "type": "Private", "hq": "Raleigh NC (3301 Atlantic Ave)" },
+      "portfolio": { "facilityCount": "130+", "states": 17, "units": "~40K" },
+      "uwProfile": {
+        "dealTypes": ["existing-small-market-tertiary-exurban-mom-and-pop"],
+        "geography": ["17 states Midwest/SE/tertiary · TX (Converse, Seguin) · TN (Greeneville) · NC · FL · MI · Jan 2026 AR 7-pack · WI · IA"],
+        "sizeFloor": "26K NRSF",
+        "sizeCeiling": "80K NRSF",
+        "priceLow": 2000000,
+        "priceHigh": 10000000,
+        "productMix": "drive-up OK · unmanned model",
+        "deploymentPressure": "MEDIUM",
+        "hardNos": ["Top-40 MSAs (they're tertiary specialist)", "institutional modern assets"],
+        "uniqueMoats": "Unmanned/automated model = ONLY buyer in matrix that routinely operates sub-30K-pop towns · $100M credit facility Q1 2025 · 25+ deals/yr pace"
+      },
+      "economics": {
+        "cap": 0.068,
+        "ccRent": 1.20,
+        "duRent": 0.72,
+        "expRatio": 38,
+        "stabOcc": 88,
+        "ecriBump": 0.06,
+        "hurdle": 8.5,
+        "color": "#8B4513"
+      },
+      "capital": { "creditFacility": 100000000, "vintage": "Q1 2025", "fundsLifetime": 266000000 },
+      "contacts": {
+        "primary": { "name": "Ian C. Levin", "title": "VP Acquisitions & Capital Markets", "email": "ilevin@10federal.com", "emailConfidence": "MEDIUM" },
+        "emailPattern": "[finit][last]@10federal.com (61.2%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Your unmanned/automated model in tertiary markets is the ONLY buyer in matrix that operates sub-30K-pop towns · [26-80K NRSF tertiary TX/TN/SE drive-up] matches Converse/Greeneville pattern · $100M credit facility Q1 2025 deployment ready.",
+      "sig": "SiteScore"
+    },
+
+    "Guardian Storage Solutions": {
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 29,
+      "firmographics": { "type": "Private (MW Equity minority recap Jan 2024)", "hq": "Pittsburgh PA" },
+      "portfolio": { "facilityCount": "~38-40", "concentrations": ["Pittsburgh MSA ~15", "Front Range CO", "1 WV Morgantown"] },
+      "uwProfile": {
+        "dealTypes": ["ground-up-development-PRIMARY (1-3/yr at $7-10M each)", "select-stabilized-rare"],
+        "geography": ["PA / CO / WV ONLY (strict fence)"],
+        "sizeFloor": "40K+ SF",
+        "priceLow": 5000000,
+        "priceHigh": 15000000,
+        "deploymentPressure": "LOW-MEDIUM",
+        "decisionSpeedDays": "60-90 (Cohen founder signs every check)",
+        "hardNos": ["outside PA/CO/WV", "pure stabilized plays (they'd rather build)"],
+        "uniqueMoats": "ONLY active operator in matrix with PA/CO/WV footprint · Dave Willis title LITERALLY includes 'Analytics' = one-person analytics function = perfect SiteScore licensing target"
+      },
+      "economics": {
+        "cap": 0.065,
+        "ccRent": 1.35,
+        "duRent": 0.80,
+        "expRatio": 33,
+        "stabOcc": 89,
+        "ecriBump": 0.06,
+        "hurdle": 8.0,
+        "color": "#5D4037"
+      },
+      "capital": { "signals": ["MW Equity minority recap Jan 2024 $39.4M (Cohen still CEO)", "Dec 2024 divested 1 CO site to SmartStop $14.7M"] },
+      "contacts": {
+        "primary": { "name": "Dave Willis", "title": "VP RE Development & Analytics (Pittsburgh)", "email": "dwillis@guardianstorage.com", "emailConfidence": "HIGH", "note": "title LITERALLY includes 'Analytics' = primary SiteScore pitch target" },
+        "secondary": [
+          { "name": "Scot Vayo", "title": "COO", "email": "svayo@guardianstorage.com" },
+          { "name": "Steven Cohen", "title": "CEO (founder 1987, writes the check)", "email": "scohen@guardianstorage.com" }
+        ],
+        "emailPattern": "[finit][last]@guardianstorage.com (87.8%)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Your PA/CO/WV 1-3 ground-up/year pattern = $7-10M decision per site · SiteScore scores each in 3 seconds for less than one bad site costs · Dave Willis Analytics role = perfect platform fit.",
+      "sig": "SiteScore"
+    },
+
+    "InSite Property Group / SecureSpace": {
+      "aliases": ["InSite", "SecureSpace"],
+      "tier": "TIER_2_ACTIVE",
+      "hotCapitalRank": 32,
+      "firmographics": { "type": "Private vertically-integrated", "hq": "Redondo Beach CA (811 N. Catalina Ave)", "founded": 2018 },
+      "portfolio": { "facilityCount": "40+ operating + 20+ dev pipeline", "states": ["CA", "FL", "NJ", "NY", "WA"] },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized", "value-add", "ground-up-development (20+ pipeline)"],
+        "geography": ["CA/FL/NJ/NY/WA · expanding nationally per McElmurry mandate"],
+        "sizeFloor": "50K-100K+ SF institutional",
+        "deploymentPressure": "HIGH",
+        "uniqueMoats": "Tech-forward in-house software · vertically integrated dev + ops + acq · McElmurry's 150-acquisition SmartStop pedigree"
+      },
+      "contacts": {
+        "primary": { "name": "Nathan McElmurry", "title": "SVP Head of Self-Storage Acquisitions (SecureSpace)", "emailConfidence": "LOW-verify-RocketReach", "prior": "ex-SmartStop — led ~150 acquisitions" },
+        "secondary": [
+          { "name": "Chip Brown", "title": "CFO" },
+          { "name": "Chris Runckel", "title": "President of Operations" }
+        ],
+        "emailPattern": "[finit][last]@insitepg.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "McElmurry ex-SmartStop (led ~150 acquisitions there) = knows institutional UW cold · newly hired 2024-2025 growth mandate · [CA/FL/NJ/NY entitled or value-add] fits expansion.",
+      "primarySources": ["https://www.insitepg.com/", "https://www.insideselfstorage.com/acquisitions-buying/insite-property-group-hires-head-of-self-storage-acquisitions"],
+      "sig": "SiteScore"
+    },
+
+    "Compass Self Storage / Amsdell": {
+      "aliases": ["Compass Self Storage", "Amsdell Companies"],
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 31,
+      "firmographics": { "type": "Private family office (Amsdell)", "hq": "Cleveland OH", "founded": "1928 Amsdell origin · 1976 first storage · 2008 Compass relaunch" },
+      "portfolio": { "facilityCount": "100+", "states": 15, "concentrations": ["GA largest (19+)", "Eastern US + SE"] },
+      "uwProfile": {
+        "dealTypes": ["existing-stab", "value-add", "ground-up dev"],
+        "geography": ["Eastern + Southeastern US (CT/FL/GA/KY/MA/MI/NJ/NY/NC/OH/PA/RI/SC/TN/TX) - NO West Coast"],
+        "sizeFloor": "40K NRSF",
+        "priceLow": 5000000,
+        "priceHigh": 20000000,
+        "deploymentPressure": "MEDIUM-HIGH",
+        "decisionSpeedDays": "60-90 (family-office pace)",
+        "offMarketPreference": "YES",
+        "hardNos": ["West Coast", "rural without metro adjacency", "CA"],
+        "uniqueMoats": "3rd-gen family (U-Store-It public 2004 → CubeSmart $560M 2011 = institutional exit playbook insider) · Hryszko ex-CBRE National SSAG = knows every seller broker · family office = no committee friction"
+      },
+      "economics": {
+        "cap": 0.062,
+        "ccRent": 1.40,
+        "duRent": 0.83,
+        "expRatio": 33,
+        "stabOcc": 89,
+        "ecriBump": 0.07,
+        "hurdle": 7.5,
+        "color": "#F26522"
+      },
+      "contacts": {
+        "primary": { "name": "Steve Hryszko", "title": "VP Acquisitions & Development", "prior": "ex-CBRE National Self Storage Advisory Group Director · $1.5B+ career, 450+ closings", "emailConfidence": "LOW-verify" },
+        "secondary": [{ "name": "Todd Amsdell", "title": "President & CEO", "email": "tca@amsdellcompanies.com", "phone": "216-458-0670", "emailConfidence": "HIGH-CONFIRMED" }],
+        "emailPattern": "[finit][last]@amsdellcompanies.com OR @compassselfstorage.com alias",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Your father Ken Amsdell's U-Store-It IPO 2004 + CubeSmart $560M 2011 exit = institutional-exit playbook insider · Hryszko ex-CBRE knows every seller broker · [E/SE US Class-A 40-100K SF site] · family office fast close.",
+      "sig": "SiteScore"
+    },
+
+    "Store Space": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 33,
+      "firmographics": { "type": "Private PE-backed (Real Capital Partners)", "hq": "Winter Garden FL (Orlando MSA)", "founded": 2018 },
+      "portfolio": { "facilityCount": "100+", "states": 21, "aum": "$1B+", "targetFacilities": 500 },
+      "uwProfile": {
+        "dealTypes": ["existing-stab", "value-add-conversions", "selective-ground-up", "3PM"],
+        "geography": ["21 states Eastern Seaboard + Midwest + TX + SE · no West Coast"],
+        "sizeFloor": "30K NRSF institutional minimum",
+        "priceLow": 5000000,
+        "priceHigh": 50000000,
+        "deploymentPressure": "HIGH (500-store target)",
+        "offMarketPreference": "YES (Storage Point JV 2025)",
+        "uniqueMoats": "12%+ same-store revenue growth · PE sponsor (Real Capital Partners) · Storage Point Capital JV 2025 (off-market acceleration) · 500-store goal = YES-bias"
+      },
+      "contacts": {
+        "primary": { "name": "Edward 'Eddie' Moran", "title": "Chief Investment Officer", "emailConfidence": "LOW-verify", "note": "100+ properties / 7.5M SF under him since 2019" },
+        "secondary": [
+          { "name": "Chris Harris", "title": "Co-Founder & CEO" },
+          { "name": "Rob Consalvo", "title": "Co-Founder & President" }
+        ],
+        "emailPattern": "[finit][last]@storespace.com",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "500-store goal (currently 100) + Storage Point JV 2025 for off-market acceleration = VERY HIGH YES-bias · Moran 100+ properties/7.5M SF track record · [value-add OR ground-up with lease-up math] fits trajectory.",
+      "sig": "SiteScore"
+    },
+
+    "KKR Alpha Storage Properties": {
+      "aliases": ["Alpha Storage Properties", "KKR Alpha"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 28,
+      "firmographics": { "type": "PE platform (KKR Real Estate Partners Americas)", "hq": "KKR HQ NY · Alpha operates as separate platform", "founded": "2021-12" },
+      "portfolio": { "facilityCount": 16, "totalSF": "1.2M", "units": 11700, "seed": 300000000 },
+      "uwProfile": {
+        "dealTypes": ["Class A existing", "value-add", "stabilized"],
+        "geography": ["Austin · Atlanta · Charlotte · Denver · LA · Nashville · Orlando · Phoenix · Winter Park FL (top-20 MSAs)"],
+        "priceLow": 10000000,
+        "priceHigh": 100000000,
+        "deploymentPressure": "MEDIUM (quiet 2024-early 2026)",
+        "hardNos": ["secondary/tertiary markets", "ground-up-only"],
+        "uniqueMoats": "Jonathan Perry 24 yrs storage ops · ex-CubeSmart CIO · ex-Jernigan Capital President/CIO = brokers trust as buyer"
+      },
+      "capital": { "signals": ["Jan 2025 $185M bridge refi from Blackstone Real Estate Debt Strategies (portfolio stabilization, not new acq)"] },
+      "contacts": {
+        "primary": { "name": "Jonathan Perry", "title": "CEO Alpha Storage Properties", "emailConfidence": "LOW-LinkedIn-InMail-required", "prior": "ex-CubeSmart CIO · ex-Jernigan Capital President/CIO" },
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Your ex-CubeSmart CIO pedigree = institutional quality UW discipline · [top-20 MSA Class A existing in Austin/Atlanta/Charlotte/Denver/Nashville/Orlando/Phoenix] fits · $185M Jan 2025 refi freed balance sheet.",
+      "sig": "SiteScore"
+    },
+
+    "Absolute Storage Management": {
+      "aliases": ["ASM"],
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 20,
+      "firmographics": { "type": "Private 3PM + JV co-investor", "hq": "Memphis TN (+ Nashville/Atlanta/Jackson MS/Charlotte offices)", "founded": 2002 },
+      "portfolio": { "facilityCount": 151, "states": 17, "concentrations": ["TN/GA/AL/MS/LA/FL core"] },
+      "uwProfile": {
+        "dealTypes": ["acquisitions-with-investor-partners-JV-model", "3PM-engagements"],
+        "geography": ["Southeast-centric 17 states: AL/AR/FL/GA/IL/KS/KY/LA/MS/MO/NC/OH/OK/SC/TN/VA"],
+        "priceLow": 3000000,
+        "priceHigh": 25000000,
+        "deploymentPressure": "MEDIUM (18 stores YTD 2025 to managed portfolio)",
+        "hardNos": ["Non-Southeast primary/secondary (CA, Pacific NW)", "direct fee-simple acquisitions requiring 100% equity"]
+      },
+      "contacts": {
+        "primary": { "name": "Matt Bailey", "title": "Investment Officer / CIO", "email": "matt.bailey@absolutemgmt.com", "phone": "833-463-6276", "emailConfidence": "HIGH-CONFIRMED" },
+        "secondary": [
+          { "name": "Michael Haugh", "title": "Investment Officer / Chairman", "email": "michael.haugh@absolutemgmt.com", "note": "primarily seeking acquisition and development opportunities" },
+          { "name": "Scott Beatty", "title": "CEO", "email": "scott.beatty@absolutemgmt.com" }
+        ],
+        "emailPattern": "[first].[last]@absolutemgmt.com (HIGH)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Southeast JV co-investor + 3PM platform · [TN/GA/AL/MS/LA/KY site] fits · Haugh explicitly seeking acq/dev · $250M 5-yr track · 18 stores YTD 2025 growth mode.",
+      "sig": "SiteScore"
+    },
+
+    "Reliant Real Estate Management": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 34,
+      "firmographics": { "type": "Private founder-operated", "hq": "Roswell GA (north Atlanta suburb)", "founded": 2007 },
+      "portfolio": { "facilityCount": "90+", "totalSF": "7.7M", "states": 9, "issTop100": 17 },
+      "uwProfile": {
+        "dealTypes": ["value-add", "stabilized-acquisitions", "JV-institutional-partners"],
+        "geography": ["SE + Colorado 9 states secondary/tertiary focus"],
+        "priceLow": 5000000,
+        "priceHigh": 20000000,
+        "deploymentPressure": "MEDIUM (Naioti promoted VP A&S April 2024 = growth mode)",
+        "uniqueMoats": "18-yr operator track record (survived 2008 + COVID) · founder-owned = decision speed · Hughes ex-AEW Capital Management pedigree"
+      },
+      "contacts": {
+        "primary": { "name": "Matthew Naioti", "title": "VP Acquisitions & Strategy", "email": "mnaioti@reliant-mgmt.com", "emailConfidence": "HIGH-CONFIRMED" },
+        "secondary": [
+          { "name": "Tom Hughes", "title": "Chief Investment Officer", "email": "thughes@reliant-mgmt.com", "prior": "ex-AEW Capital Management institutional" },
+          { "name": "Todd Allen", "title": "Managing Principal (Co-Founder)", "email": "tallen@reliant-mgmt.com" },
+          { "name": "Lewis Pollack", "title": "Managing Principal (Co-Founder)", "email": "lpollack@reliant-mgmt.com" }
+        ],
+        "emailPattern": "[finit][last]@reliant-mgmt.com (HIGH)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "#17 ISS Top 100 Operators 2023 · 90+ props/7.7M NRSF/18-yr track record · SE + CO value-add = your lane · Hughes ex-AEW institutional pedigree responds to institutional framing.",
+      "inflightThread": "4/18/26 email to mnaioti@reliant-mgmt.com · no response as of 4/20 (normal 2-biz-day pace) · wait til 4/27 then escalate to Tom Hughes",
+      "sig": "SiteScore"
+    },
+
+    "Baranof Holdings": {
+      "tier": "TIER_3_MEDIUM",
+      "hotCapitalRank": 35,
+      "firmographics": { "type": "Private developer-operator", "hq": "Dallas TX (2850 N Harwood St Ste 1000)", "founded": 2015 },
+      "portfolio": { "facilityCount": "90+", "states": 21, "aum": 2000000000, "concentrations": ["NYC", "Miami", "LA", "OC", "SF Bay", "Seattle", "Portland", "Honolulu", "Austin", "Raleigh"] },
+      "uwProfile": {
+        "dealTypes": ["development", "acquisition"],
+        "geography": ["Coastal gateway MSAs: NYC · Miami · LA · Orange Co · SF Bay · Seattle · Portland · Honolulu + Austin + Raleigh"],
+        "productMix": "Class A multi-story urban infill · 'below replacement cost' emphasized",
+        "priceLow": 15000000,
+        "priceHigh": 75000000,
+        "deploymentPressure": "HIGH",
+        "hardNos": ["secondary/tertiary", "drive-up-only/single-story rural"],
+        "uniqueMoats": "Coastal gateway focus (few operators target Honolulu + SF East Bay + Portland simultaneously) · Jim Hendricks sponsor/advisor signals family-office-style long-term capital patience"
+      },
+      "contacts": {
+        "primary": { "name": "Lauren Walker", "title": "VP Acquisitions", "email": "lwalker@baranofholdings.com", "phone": "972-402-5710", "emailConfidence": "HIGH-CONFIRMED" },
+        "secondary": [
+          { "name": "Polk Kellam", "title": "SVP Acquisitions", "email": "pkellam@baranofholdings.com" },
+          { "name": "James Denissen", "title": "Partner, Acquisitions", "email": "jdenissen@baranofholdings.com" },
+          { "name": "Andy Hendricks", "title": "Managing Partner (Co-Founder)", "email": "ahendricks@baranofholdings.com" }
+        ],
+        "emailPattern": "[finit][last]@baranofholdings.com (HIGH)",
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Few operators target Honolulu + SF East Bay + Portland simultaneously — you're the coastal gateway specialist · 'below replacement cost' mandate · [coastal urban gateway site OR **SiteScore analytics pitch for your Honolulu/SF pre-dev UW**].",
+      "inflightThread": "4/18/26 email to lwalker@baranofholdings.com · no response as of 4/20 · escalate 4/25 to Polk Kellam, 4/30 to James Denissen · reframe as analytics product not TX site flow",
+      "sig": "SiteScore"
+    },
+
+    "Safeguard Storage (reserved)": { "tier": "DUPLICATE", "note": "See 'Safeguard Self Storage' entry above" },
+
+    "Pinnacle Storage Properties / StorSuite": {
+      "tier": "TIER_5_HYPER_LOCAL",
+      "hotCapitalRank": 42,
+      "firmographics": { "type": "Private vertically-integrated via StorSuite merger Jan 2024", "hq": "Katy TX (Houston suburb)" },
+      "portfolio": { "facilityCount": "25-32+", "directSF": "800K+" },
+      "uwProfile": {
+        "dealTypes": ["value-add existing (historical)", "pivoted-toward-service-platform-post-StorSuite-Jan-2024"],
+        "geography": ["TX/OK/LA/NM/PNW historical"],
+        "deploymentPressure": "🔻 LOW (revised 4/20/26) — post-StorSuite pivot to service platform"
+      },
+      "contacts": {
+        "primary": { "name": "John Manes", "title": "Partner, CEO & co-owner · StorSuite Chairman", "emailConfidence": "LOW-verify" }
+      },
+      "operationalFlag": "Pinnacle has PIVOTED to service-platform focus post-Jan 2024 StorSuite merger. No public 2024-2026 direct acquisitions. Confirm appetite before routing vs more-active operators.",
+      "sig": "SiteScore"
+    },
+
+    "Stop & Stor": {
+      "tier": "TIER_5_HYPER_LOCAL",
+      "hotCapitalRank": 40,
+      "firmographics": { "type": "Private family (Henick + Simon)", "hq": "Staten Island NY", "founded": 1980 },
+      "portfolio": { "facilityCount": 19, "geography": ["NYC 4 boroughs ONLY — Brooklyn, Queens, Bronx, Staten Island (NO Manhattan)"] },
+      "uwProfile": {
+        "dealTypes": ["NYC borough tuck-ins", "first outdoor storage in NYC (Gulf Ave SI)"],
+        "geography": ["NYC 4 boroughs only"],
+        "deploymentPressure": "LOW (family hold, occasional infill)"
+      },
+      "contacts": {
+        "primary": { "name": "Jeff Henick", "title": "President / COO", "email": "j***@stopandstor.com", "phone": "718-698-8000" }
+      },
+      "pitchHook": "[Brooklyn/Queens/Bronx/Staten Island specific site] · 45-yr 4-borough family operator · Gulf Ave first-outdoor-NYC precedent.",
+      "sig": "SiteScore"
+    },
+
+    "NSA (pre-close)": {
+      "aliases": ["National Storage Affiliates"],
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 99,
+      "firmographics": { "ticker": "NYSE:NSA (pre-close)", "type": "Being acquired by PS (announced 3/16/26, close Q3 2026)", "hq": "Greenwood Village CO" },
+      "portfolio": { "facilityCount": "1,042 (pre-close)", "mergerSize": 10500000000, "stockDeal": "100% stock · 0.14 PSA shares per NSA share · $41.68/share implied" },
+      "uwProfile": {
+        "dealTypes": ["effectively-frozen-pre-close"],
+        "geography": ["Sunbelt tuck-ins historically via PRO network (now internalized)"],
+        "deploymentPressure": "N/A pre-close"
+      },
+      "postCloseRouting": "All NSA + iStorage + SecurCare + internalized-PRO brands roll into PS-family. Route acquisitions through PS DW/MT/Brock post Q3 2026.",
+      "contacts": {
+        "primary": { "name": "David Cramer", "title": "President/CEO (pre-close)" }
+      },
+      "primarySources": ["https://investors.publicstorage.com/news-events/press-releases/news-details/2026/Public-Storage-to-Acquire-National-Storage-Affiliates-Creating-Significant-Value-for-All-Stakeholders/default.aspx"],
+      "sig": "SiteScore pre-close · Storvex post-close"
+    },
+
+    "Storage Mart (ref in QK OPERATOR_KB)": { "tier": "ALIAS-SEE-StorageMart" },
+
+    "Red Dot Storage": {
+      "aliases": ["Red Dot (SROA sub)"],
+      "tier": "TIER_5_HYPER_LOCAL",
+      "hotCapitalRank": 37,
+      "firmographics": { "type": "Private (SROA Capital sub-channel since May 2024)", "hq": "Louisville CO office" },
+      "portfolio": { "facilityCount": "~190", "totalSF": "7.5M", "states": 19, "concentrations": ["IL heavy", "IN", "MO", "WI", "KY", "TN", "MS", "AL", "IA", "KS", "LA"] },
+      "uwProfile": {
+        "dealTypes": ["small-market tertiary tuck-ins 20-80K NRSF"],
+        "priceLow": 3000000,
+        "priceHigh": 20000000,
+        "hardNos": ["ground-up", "urban multi-story", "major MSA trophy"]
+      },
+      "contacts": { "primary": { "name": "Jesse Weaver", "title": "VP Acquisitions", "email": "weaver@reddotstorage.com", "emailConfidence": "LOW" } },
+      "pitchHook": "Post-SROA May 2024 acquisition · Midwest-tertiary tuck-in specialty IL/IN/MO/WI/KY/TN/MS/AL/IA/KS/LA · SROA top-of-house informed for rollup.",
+      "sig": "SiteScore"
+    },
+
+    "Store Here Self Storage": {
+      "tier": "TIER_4_SELECTIVE",
+      "hotCapitalRank": 38,
+      "firmographics": { "type": "Private (Westport Capital Partners fund-backed)", "hq": "Orange CA (1820 W. Orangewood Ave Ste 203)", "founded": 2012 },
+      "portfolio": { "totalSF": "2M+", "states": "13+", "dispositions": "34 with ~35% avg IRR" },
+      "uwProfile": {
+        "dealTypes": ["existing-stabilized-value-add secondary-markets", "3PM"],
+        "geography": ["Nationwide SECONDARY markets - TX/GA/KS/CO/IN/LA/WA (NOT Tier-1)"],
+        "deploymentPressure": "MEDIUM (~1.25 acq/yr)",
+        "hardNos": ["Primary/Tier-1 markets (explicit secondary-markets mandate)"]
+      },
+      "contacts": {
+        "primary": { "name": "James J. Hanrahan", "title": "President/Owner" },
+        "general": { "name": "Armand", "email": "Armand@StoreHere.com", "phone": "657-224-9444" },
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Westport Capital Partners fund-backed · secondary-markets mandate (TX/GA/KS/CO/IN/LA/WA) · where PS/SK/StorQuest/CubeSmart pass · [Sun Belt mid-market value-add 30-60K SF] fits.",
+      "sig": "SiteScore"
+    },
+
+    "21st Century Storage / modSTORAGE": {
+      "tier": "TIER_5_HYPER_LOCAL",
+      "hotCapitalRank": 39,
+      "firmographics": { "type": "Private family", "hq": "Pennsauken NJ" },
+      "portfolio": { "facilityCount": "12+", "states": ["NJ/PA/NY core", "CA/FL/NV opportunistic"] },
+      "uwProfile": {
+        "dealTypes": ["single-asset value-add urban/suburban"],
+        "priceLow": 5000000,
+        "priceHigh": 30000000,
+        "deploymentPressure": "LOW-MEDIUM (1-2 acq/yr)"
+      },
+      "contacts": { "primary": { "name": "Clayton Gentry", "title": "President/Owner (25+ yrs RE)" } },
+      "pitchHook": "NJ/NY/PA core focus · family-run long-hold · 1,100-unit Long Island City benchmark acq April 2021.",
+      "sig": "SiteScore"
+    },
+
+    "Access Self Storage (Cooley family)": {
+      "tier": "TIER_5_HYPER_LOCAL",
+      "hotCapitalRank": 41,
+      "firmographics": { "type": "Private family (40+ yrs)", "hq": "Oakland NJ" },
+      "portfolio": { "facilityCount": 21, "units": 13500, "states": ["Suburban NJ/NY/PA - Bergen/Morris/Somerset counties"] },
+      "uwProfile": {
+        "dealTypes": ["existing acquisitions + development + 3PM dual-channel"],
+        "geography": ["Suburban NJ/NY/PA only"],
+        "priceLow": 3000000,
+        "priceHigh": 15000000
+      },
+      "contacts": {
+        "primary": { "name": "Graham Cooley", "title": "Son · acquisitions AND development", "email": "graham@accessselfstorage.com", "emailConfidence": "LOW-verify" },
+        "secondary": [
+          { "name": "Foy Cooley", "title": "Co-Founder" },
+          { "name": "Ken Cooley", "title": "Co-Founder" }
+        ],
+        "cc": ["Droscoe@DJRrealestate.com"]
+      },
+      "pitchHook": "Graham Cooley runs acquisitions + dev · suburban NJ/NY/PA Bergen/Morris/Somerset focus · family long-hold patience capital · 3PM referral available.",
+      "sig": "SiteScore"
+    },
+
+    "All Aboard Storage": {
+      "tier": "TIER_5_HYPER_LOCAL",
+      "hotCapitalRank": 43,
+      "firmographics": { "type": "Private family (Clark Properties dba, 1952 origin)", "hq": "Daytona Beach FL" },
+      "portfolio": { "facilityCount": "27-30", "annualRevenue2025": 6600000, "geography": ["VOLUSIA COUNTY FL ONLY"] },
+      "contacts": { "primary": { "name": "Andy Clark", "title": "CEO" } },
+      "pitchHook": "Volusia County FL only · 27-30 facilities · $6.6M annual revenue 2025 · voted #1 Daytona storage 20+ years.",
+      "sig": "SiteScore"
+    },
+
+    "Westy Self Storage": {
+      "tier": "DEVELOPER_ONLY",
+      "hotCapitalRank": 44,
+      "firmographics": { "type": "Private developer (builds own, NOT facility acquirer)", "hq": "Stamford CT", "founded": 1990 },
+      "portfolio": { "facilityCount": "14-15 (7 NY / 4 CT / 3 NJ)" },
+      "uwProfile": {
+        "dealTypes": ["Ground-up development BTS for themselves (NOT acquisitions)"],
+        "geography": ["CT/NY/NJ tri-state ONLY"],
+        "note": "Sold partial portfolio to Sovran (now Extra Space) in 2013"
+      },
+      "contacts": { "primary": { "name": "Caesar Arredondo", "title": "President/Owner" } },
+      "routingRule": "DO-NOT-ROUTE existing facilities. Route ONLY land sites in CT/Westchester/Fairfield/Bergen · 1.5-3 ac · multi-story dev suitable.",
+      "sig": "SiteScore"
+    },
+
+    "CONTACT_ROUTING_META": {
+      "description": "Territory-aware routing resolution + CC rules per CLAUDE.md §5",
+      "psEastStates": ["OH", "IN", "KY", "TN", "FL", "GA", "NC", "SC", "VA", "WV", "PA", "NJ", "NY", "MA", "CT", "DE", "MD", "DC", "ME", "NH", "VT", "RI"],
+      "psCCEast": ["mleonard@publicstorage.com", "jsaucedo@publicstorage.com", "Droscoe@DJRrealestate.com"],
+      "psCCSW": ["Droscoe@DJRrealestate.com"],
+      "signatureRouting": {
+        "PS-family (PSA/iStorage/NSA/SecurCare/etc.)": "Storvex siggy (gradient navy, gold cursive, STORVEX™)",
+        "PECO (Tony/Hannah/Vasili)": "SiteScore siggy (gold cursive left-border, SITESCORE™)",
+        "QSR tenants (Scooter's/7 Brew/Black Sheep/Dutch Bros/Valvoline/TLE)": "DJR branded",
+        "All other non-PS buyers (storage operators)": "SiteScore siggy default per feedback_sitescore-siggy.md"
+      }
+    },
+
+    "DO_NOT_ROUTE_META": {
+      "description": "Operators explicitly tagged as not-a-buyer — do NOT include in Quick Lookup Stack-Rank",
+      "entities": {
+        "Blackstone/BREIT": "OUT of US self-storage since Sept 2023 Simply sale to PS · AU/NZ only via Feb 2026 NSR takeover",
+        "Brookfield US Storage": "ZERO direct US self-storage exposure since Dec 2020 Simply sale to Blackstone · AU/NZ only",
+        "World Class Capital / Great Value Storage": "DEFUNCT · Nate Paul pleaded guilty Jan 2025 · Ch 11 portfolio sold to StorQuest 2022 $588M",
+        "Investcorp": "No verifiable US storage platform (98% industrial + residential)",
+        "MW Equity Partners": "One-off Guardian minority recap only · not site-level buyer",
+        "Derrel's Mini Storage": "CA-only family DEVELOPER (not acquirer) · skip unless CA Central Valley 15+ ac land",
+        "Harrison Street": "JV capital ONLY · route via Morningstar operator partner",
+        "Nuveen/TIAA": "JV capital ONLY · route via MyPlace or Morningstar operator partners",
+        "Cerberus Capital Management": "JV capital ONLY · route via Go Store It/Madison Capital Group",
+        "Clarion Partners": "IOS focus not self-storage · route IOS here only",
+        "SmartCap Group": "Office/retail/industrial only · NOT storage (different from SmartStop SMA)",
+        "Shelter Development": "Multifamily/senior living · NOT storage",
+        "Simmons Self Storage": "Fragmented small operators · none institutional",
+        "American Mini Storage": "Fragmented small operators · none institutional",
+        "First Keystone Storage": "Does not exist as storage entity",
+        "Madison Management Group": "Likely name confusion with Madison Capital Group (Go Store It parent)",
+        "Shivo Storage": "Does not exist · zero primary-source matches",
+        "Extra Attic Self Storage": "3 unrelated small family operators · not a chain",
+        "StorCal Self Storage": "Small SoCal 3PM + 4 owned · not institutional flow",
+        "Saf Keep / SKS Management": "CA/NV/HI 3PM operator · not acquirer",
+        "Moishe's Self Storage": "NOT active acquirer · potential sell-side lead only",
+        "Banyan Storage (Devin Moore)": "UNVERIFIED · possibly name confusion with Banyan Development",
+        "Andy Sheldon / SheldonCap": "UNVERIFIED · no storage mandate confirmed",
+        "KeyStoneRE Capital": "UNVERIFIED · First Keystone Corp is a bank"
+      }
+    },
+
+    "TIER_META": {
+      "description": "Priority routing order — when site fits multiple buyers, pitch in tier order",
+      "tier1_peak_urgency": ["SROA Capital", "Storage Post", "Merit Hill Capital", "Mini Mall Storage", "SmartStop Self Storage", "Go Store It", "Spartan Investment Group"],
+      "tier2_active": ["StorageBlue", "NexPoint Storage Partners", "CubeSmart", "Banner Real Estate Group", "Devon Self Storage", "CrownPoint Group", "InSite Property Group / SecureSpace", "StorageMart"],
+      "tier3_medium": ["Morningstar Properties", "Liberty Investment Properties", "Westport Properties / US Storage Centers", "Safeguard Self Storage", "Metro Self Storage", "Pogoda / National Storage Management", "10 Federal Storage", "Absolute Storage Management", "Compass Self Storage / Amsdell", "Store Space", "Reliant Real Estate Management", "Baranof Holdings"],
+      "tier4_selective": ["Public Storage", "Extra Space Storage", "Storage King / Andover", "WWG / StorQuest", "U-Haul / AMERCO", "Prime Storage Group", "KKR Alpha Storage Properties", "Guardian Storage Solutions", "NSA (pre-close)"],
+      "tier5_hyper_local": ["Compass Self Storage / Amsdell", "Store Space", "Reliant Real Estate Management", "Baranof Holdings", "CrownPoint Group", "Red Dot Storage", "Access Self Storage (Cooley family)", "21st Century Storage / modSTORAGE", "Stop & Stor", "All Aboard Storage", "Pinnacle Storage Properties / StorSuite"],
+      "developer_only": ["Westy Self Storage"],
+      "do_not_route": "See DO_NOT_ROUTE_META.entities"
+    }
+  }
+}
