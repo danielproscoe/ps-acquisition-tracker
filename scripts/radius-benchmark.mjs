@@ -104,24 +104,40 @@ async function benchmarkSite(site) {
   if (!geo) { console.log('  ❌ geocode failed'); return { ...site, error: 'geocode_failed' }; }
   console.log(`  ✓ geocoded: ${geo.formatted} (${geo.lat.toFixed(3)}, ${geo.lon.toFixed(3)})`);
 
-  // Fire all 3 Oracles in parallel
-  const [zoningR, utilityR, accessR] = await Promise.all([
-    httpPost(`${BASE_URL}/api/zoning-lookup`, {
-      city: geo.city, state: geo.state, county: geo.county, address: geo.formatted,
-    }),
-    httpPost(`${BASE_URL}/api/utility-lookup`, {
-      city: geo.city, state: geo.state, county: geo.county, address: geo.formatted, zip: geo.zip,
-    }),
-    httpPost(`${BASE_URL}/api/access-lookup`, {
-      city: geo.city, state: geo.state, county: geo.county, address: geo.formatted, zip: geo.zip,
-      coordinates: { lat: geo.lat, lon: geo.lon },
-    }),
-  ]);
-
+  // Fire Oracles SEQUENTIALLY per address (not parallel) — this was the
+  // root cause of the first benchmark's 7/10 rate-limit failures. 3
+  // parallel Oracles × ~15-20K tokens each = 45-60K token burst in
+  // 30s, right at Anthropic's 50K tpm sliding window. Sequential firing
+  // spreads the token burn over ~60s total and stays well under limit.
+  //
+  // Also retries on 429 once after 60s per oracle.
   const parse = (r) => { try { return JSON.parse(r.body); } catch (e) { return { error: r.status, raw: r.body.slice(0, 200) }; } };
-  const zoning = parse(zoningR);
-  const utility = parse(utilityR);
-  const access = parse(accessR);
+
+  const callWithRetry = async (url, body, label) => {
+    const attempt = async (n) => {
+      const r = await httpPost(url, body);
+      const j = parse(r);
+      const bodyStr = JSON.stringify(j).toLowerCase();
+      if ((bodyStr.includes('rate_limit') || bodyStr.includes('429')) && n < 2) {
+        console.log(`    ⏸ ${label} rate-limited, cooling 60s then retrying...`);
+        await new Promise(res => setTimeout(res, 60000));
+        return attempt(n + 1);
+      }
+      return j;
+    };
+    return attempt(1);
+  };
+
+  const zoning = await callWithRetry(`${BASE_URL}/api/zoning-lookup`, {
+    city: geo.city, state: geo.state, county: geo.county, address: geo.formatted,
+  }, 'zoning');
+  const utility = await callWithRetry(`${BASE_URL}/api/utility-lookup`, {
+    city: geo.city, state: geo.state, county: geo.county, address: geo.formatted, zip: geo.zip,
+  }, 'utility');
+  const access = await callWithRetry(`${BASE_URL}/api/access-lookup`, {
+    city: geo.city, state: geo.state, county: geo.county, address: geo.formatted, zip: geo.zip,
+    coordinates: { lat: geo.lat, lon: geo.lon },
+  }, 'access');
 
   console.log(`  ⚖ Zoning:  ${zoning.found ? zoning.confidence : 'not-found'}${zoning.cacheHit ? ' · 🎯 CACHED' : ''}${zoning.storageTerm ? ' · "' + zoning.storageTerm + '"' : ''}`);
   console.log(`  💧 Utility: ${utility.found ? utility.confidence : 'not-found'}${utility.waterProvider ? ' · ' + utility.waterProvider : ''}${utility.waterHookupStatus ? ' · ' + utility.waterHookupStatus : ''}`);
@@ -237,10 +253,11 @@ async function main() {
   console.log(`🎯 Storvex vs Radius Benchmark Run — ${targets.length} site${targets.length === 1 ? '' : 's'}`);
   console.log(`   Base URL: ${BASE_URL}`);
 
-  // Anthropic Haiku rate limit: 50K input tokens/min. Each lookup burns
-  // ~40K across 3 parallel oracles. Pace at 75s/site to stay comfortably
-  // below the limit across a full 10-site run.
-  const PACE_MS = args.includes('--fast') ? 5000 : 75000;
+  // Sequential per-address oracle firing already spreads the ~50K token
+  // burn over ~60s per address, so inter-address pacing only needs to be
+  // ~20-30s. Full run now completes in ~15 min (vs 30+ min with parallel
+  // + 75s pacing).
+  const PACE_MS = args.includes('--fast') ? 5000 : 30000;
   const results = [];
   for (let i = 0; i < targets.length; i++) {
     const site = targets[i];
