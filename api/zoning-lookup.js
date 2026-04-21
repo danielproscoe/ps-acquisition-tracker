@@ -110,7 +110,8 @@ STRICT RULES:
 // Retries without web_fetch if a large PDF triggers the 100-page input limit.
 async function runZoningResearch(apiKey, city, state, county, address, zoningDistrict) {
   const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
-  const jurisdictionLabel = `${city}, ${state}${county ? ` (${county} County)` : ""}`;
+  const countyClean = (county || "").toString().replace(/\s*County$/i, "").trim();
+  const jurisdictionLabel = `${city}, ${state}${countyClean ? ` (${countyClean} County)` : ""}`;
 
   const userPrompt = [
     `Research the zoning for self-storage in ${jurisdictionLabel}.`,
@@ -198,7 +199,8 @@ module.exports = async (req, res) => {
   if (!city || !state) return res.status(400).json({ error: "city and state required" });
 
   const t0 = Date.now();
-  const jurisdictionLabel = `${city}, ${state}${county ? ` (${county} County)` : ""}`;
+  const countyClean = (county || "").toString().replace(/\s*County$/i, "").trim();
+  const jurisdictionLabel = `${city}, ${state}${countyClean ? ` (${countyClean} County)` : ""}`;
 
   try {
     const result = await runZoningResearch(apiKey, city, state, county, address, zoningDistrict);
