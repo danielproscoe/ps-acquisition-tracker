@@ -191,6 +191,36 @@ thead th.gold{background:rgba(201,168,76,.06);color:#C9A84C}
         </div>
       </div>
     </div>` : ""}
+
+    <!-- Growth Trajectory 1/3/5 Mile — surfaces all three ring CAGRs side-by-side -->
+    ${(dr?.popGrowth1mi || dr?.popGrowth3mi || dr?.popGrowth5mi) ? `
+    <div style="border-top:2px solid rgba(201,168,76,.12)">
+      <div style="padding:14px 20px;background:linear-gradient(135deg,#0a1020,#111a36)">
+        <div style="font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:.1em;margin-bottom:4px">GROWTH TRAJECTORY — 1 / 3 / 5 MILE</div>
+        <div style="font-size:9px;color:#94A3B8;margin-bottom:14px">Population CAGR per ring — ESRI 2025→2030. Inner rings capture on-site trade-area demand; outer rings contextualize MSA-level growth.</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          ${[
+            { label: "1-MI GROWTH", cagr: dr.popGrowth1mi, pop: r1.pop, fy: dr.pop1mi_fy },
+            { label: "3-MI GROWTH", cagr: dr.popGrowth3mi, pop: r3.pop, fy: dr.pop3mi_fy, accent: true },
+            { label: "5-MI GROWTH", cagr: dr.popGrowth5mi, pop: r5.pop, fy: dr.pop5mi_fy },
+          ].map(g => {
+            const cagrVal = g.cagr ? parseFloat(String(g.cagr).replace(/[^0-9.\-]/g, "")) : null;
+            const cagrColor = cagrVal == null ? "#94A3B8" : cagrVal >= 2 ? "#16A34A" : cagrVal >= 1 ? "#C9A84C" : cagrVal >= 0 ? "#94A3B8" : "#EF4444";
+            const startPop = g.pop != null ? Number(g.pop) : null;
+            const endPop = g.fy ? (typeof g.fy === "number" ? g.fy : parseInt(String(g.fy).replace(/[^0-9]/g, ""), 10)) : null;
+            const totalPct = (startPop && endPop && startPop > 0) ? ((endPop / startPop - 1) * 100).toFixed(1) : null;
+            return `<div style="padding:12px 14px;background:${g.accent ? 'rgba(201,168,76,0.08)' : 'rgba(255,255,255,0.03)'};border:1px solid ${g.accent ? 'rgba(201,168,76,0.25)' : 'rgba(255,255,255,0.06)'};border-radius:8px">
+              <div style="font-size:8px;font-weight:800;color:#6B7394;letter-spacing:0.12em;margin-bottom:6px">${g.label}</div>
+              <div style="font-size:22px;font-weight:900;color:${cagrColor};font-family:'Space Mono',monospace;line-height:1">${cagrVal != null ? cagrVal.toFixed(2) + "%" : "—"}</div>
+              <div style="font-size:9px;color:#94A3B8;margin-top:2px;font-weight:600">CAGR</div>
+              <div style="font-size:10px;color:#CBD5E1;margin-top:8px;font-family:'Space Mono',monospace">${startPop ? startPop.toLocaleString() : "—"} → ${endPop ? endPop.toLocaleString() : "—"}</div>
+              ${totalPct != null ? `<div style="font-size:9px;color:${cagrColor};margin-top:3px;font-weight:700">${parseFloat(totalPct) >= 0 ? "+" : ""}${totalPct}% (5-yr)</div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
+        <div style="margin-top:10px;font-size:9px;color:#6B7394;font-style:italic">Source: ESRI ArcGIS GeoEnrichment 2025 — geocoded radial rings, CY→FY CAGR</div>
+      </div>
+    </div>` : ""}
   </div>
 
   <!-- Storage Demand Insights -->
@@ -1457,7 +1487,7 @@ tr:hover td{background:rgba(201,168,76,0.04)}
 .toc-sidebar a.active .toc-num{background:#C9A84C;color:#0A0A0C}
 @media (max-width:1000px){.toc-sidebar{display:none}}
 
-@media print{body{background:#fff;color:#1a1a2e}.section{border:1px solid #e5e7eb;box-shadow:none;background:#fff}.gold{color:#92700C}.muted{color:#64748B}th{background:#f8f9fa;color:#1a1a2e}td{color:#1a1a2e}.expand-panel{max-height:none!important;opacity:1!important;padding:20px!important}.mi-panel{max-height:none!important;opacity:1!important;margin-top:12px!important}.mi::after{display:none}.mi-hint{display:none}.toc-sidebar{display:none!important}}
+@media print{body{background:#fff;color:#1a1a2e}.section{border:1px solid #e5e7eb;box-shadow:none;background:#fff}.gold{color:#92700C}.muted{color:#64748B}th{background:#f8f9fa;color:#1a1a2e}td{color:#1a1a2e}.expand-panel{max-height:none!important;opacity:1!important;padding:20px!important}.mi-panel{max-height:0!important;opacity:0!important;margin-top:0!important;overflow:hidden!important;display:none!important}.mi::after{display:none}.mi-hint{display:none}.toc-sidebar{display:none!important}details.method-box>.method-content{display:none!important}details.method-box>summary::before{display:none}.section{page-break-inside:avoid;break-inside:avoid}h2,h3{page-break-after:avoid;break-after:avoid}table{page-break-inside:auto}tr{page-break-inside:avoid;break-inside:avoid}}
 </style>
 <script>
 function toggleExpand(id){
@@ -1608,7 +1638,7 @@ function updateCustomCap(val){
       climateUtilPerSF: 0.85, driveUtilPerSF: 0.20, rmPerSF: 0.25,
       marketingPct: 0.02, gaPct: 0.010, badDebtPct: 0.015, reservePerSF: 0.15,
       capRateConservative: 0.065, capRateMarket: 0.0575, capRateAggressive: 0.05,
-      yocMax: 0.075, yocStrike: 0.09, yocMin: 0.105,
+      yocMax: 0.075, yocStrike: 0.085, yocMin: 0.105,
       loanLTV: 0.65, loanRate: 0.0675, loanAmort: 25, exitCapRate: 0.06, holdPeriod: 10,
     };
     const V = (k) => ov[k] !== undefined ? ov[k] : D[k];
@@ -4457,7 +4487,7 @@ ${(() => {
       <div class="cover-verdict-score" style="color:${iqBadgeColor}">${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}</div>
       <div style="flex:1">
         <div class="cover-verdict-label" style="color:${recColor}">${recAction}</div>
-        <div class="cover-verdict-sub">SiteScore™ ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10 · ${iq.label || ""} · ${verifiedDims} of ${totalDims} dimensions verified (${verifiedPct}%)</div>
+        <div class="cover-verdict-sub">SiteScore™ ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10 · ${iq.label || ""} · ${verifiedDims} of ${totalDims} checkpoints verified (${verifiedPct}%)</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:9px;color:#94A3B8;letter-spacing:0.1em;font-weight:800">STRIKE / ASK</div>
@@ -4479,7 +4509,20 @@ ${(() => {
     <div class="cover-attest">
       <div class="cover-pill"><div class="cover-pill-label">DEMOGRAPHICS</div><div class="cover-pill-val">ESRI 2025 ✓</div></div>
       <div class="cover-pill"><div class="cover-pill-label">ZONING</div><div class="cover-pill-val">${site.zoningOrdinanceSection ? "Ordinance ✓" : "Pending"}</div></div>
-      <div class="cover-pill"><div class="cover-pill-label">RENTS</div><div class="cover-pill-val">${site.ccRentData?.marketRentBand?.sampleSize ? `SpareFoot · ${site.ccRentData.marketRentBand.sampleSize} comps ✓` : "Audit pending"}</div></div>
+      <div class="cover-pill"${(() => {
+        const mr = site.marketRents;
+        const hasAudit = (mr && mr.auditStatus === "verified" && Array.isArray(mr.rates) && mr.rates.length > 0) || !!site.ccRentData?.marketRentBand?.sampleSize;
+        return hasAudit ? "" : ' style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3)"';
+      })()}><div class="cover-pill-label">RENTS</div><div class="cover-pill-val">${(() => {
+        const mr = site.marketRents;
+        if (mr && mr.auditStatus === "verified" && Array.isArray(mr.rates) && mr.rates.length > 0) {
+          return `SpareFoot · ${mr.rates.length} comps ✓`;
+        }
+        if (site.ccRentData?.marketRentBand?.sampleSize) {
+          return `SpareFoot · ${site.ccRentData.marketRentBand.sampleSize} comps ✓`;
+        }
+        return "Audit pending";
+      })()}</div></div>
       <div class="cover-pill"><div class="cover-pill-label">UNDERWRITING</div><div class="cover-pill-val">PSA·EXR·CUBE 10-K ✓</div></div>
       <div class="cover-pill"><div class="cover-pill-label">PROXIMITY</div><div class="cover-pill-val">PS Family DB · 4,238 ✓</div></div>
     </div>
@@ -4579,7 +4622,7 @@ ${(() => {
     <span style="font-size:28px">${recIcon}</span>
     <div>
       <div style="font-size:18px;font-weight:900;color:${recColor};letter-spacing:0.02em">${recLabel}</div>
-      <div style="font-size:12px;color:#64748B;margin-top:4px">Storvex ${(iq.breakdown || []).length}-dimension composite analysis — SiteScore™ ${iq.score?.toFixed(2) || "—"}/10</div>
+      <div style="font-size:12px;color:#64748B;margin-top:4px">Storvex 9-dimension composite + binary PS proximity gate — SiteScore™ ${iq.score?.toFixed(2) || "—"}/10</div>
     </div>
   </div>
   ${landVerdict ? `<div style="display:flex;gap:16px;margin-top:16px">
@@ -4688,11 +4731,11 @@ ${(() => {
     <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:${verdictColor};margin-bottom:14px">RETURN METRICS — STORVEX LAND PRICING MODEL</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
       <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">YOC @ STAB.</div><div style="font-size:22px;font-weight:900;color:${verdictColor};font-family:'Space Mono'">${yocStab && yocStab !== "N/A" ? yocStab + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">NOI ÷ Total Dev Cost</div></div>
-      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STRIKE LAND PRICE</div><div style="font-size:22px;font-weight:900;color:#16A34A;font-family:'Space Mono'">${landPrices && landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ 9% Strike YOC</div></div>
+      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STRIKE LAND PRICE</div><div style="font-size:22px;font-weight:900;color:#16A34A;font-family:'Space Mono'">${landPrices && landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ 8.5% Strike YOC</div></div>
       <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">ASK vs STRIKE</div><div style="font-size:22px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? "#16A34A" : "#EF4444"};font-family:'Space Mono'">${askVsStrike != null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
       <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STAB. VALUE</div><div style="font-size:22px;font-weight:900;color:#C9A84C;font-family:'Space Mono'">${valuations && valuations[1] ? fmtM(valuations[1].value) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ ${mktAcqCap ? (mktAcqCap*100).toFixed(1) + "%" : "5.75%"} market cap</div></div>
     </div>
-    <div style="margin-top:16px;padding:12px;background:${verdictColor};color:#fff;border-radius:8px;text-align:center"><span style="font-size:14px;font-weight:900;letter-spacing:0.06em">${landVerdict || "—"}</span><span style="font-size:11px;margin-left:10px;opacity:0.9">vs PS Walk (7.5%) / Strike (9%) / Home Run (10.5%) YOC</span></div>
+    <div style="margin-top:16px;padding:12px;background:${verdictColor};color:#fff;border-radius:8px;text-align:center"><span style="font-size:14px;font-weight:900;letter-spacing:0.06em">${landVerdict || "—"}</span><span style="font-size:11px;margin-left:10px;opacity:0.9">vs PS Walk (7.0%) / Strike (8.5%) / Home Run (10.5%) YOC</span></div>
   </div>
 </div>
 
@@ -4707,7 +4750,16 @@ ${(() => {
     <table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px;border-bottom:2px solid #C9A84C">Source</th><th style="text-align:right;padding:10px;border-bottom:2px solid #C9A84C">Rate ($/SF/mo)</th><th style="text-align:left;padding:10px;border-bottom:2px solid #C9A84C">Methodology</th></tr></thead>
       <tbody>
-        ${m1Rate ? `<tr><td style="padding:10px;font-weight:700;color:#3B82F6">M1: Local SpareFoot Comps</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m1Rate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">Competitor facility rates within 3 mi — best signal for submarket pricing power</td></tr>` : ""}
+        ${(() => {
+          const mr = site.marketRents;
+          const audited = mr && mr.auditStatus === "verified" && typeof mr.averageCC === "number" && mr.averageCC > 0;
+          const displayRate = audited ? mr.averageCC : m1Rate;
+          const label = audited ? `M1: Local SpareFoot Audit · ${mr.rates.length} comps` : "M1: Local SpareFoot Comps";
+          const methodology = audited
+            ? `Audited ${mr.auditDate || ""} — ${mr.rates.map(r => `${r.operator} $${r.perSF.toFixed(2)}`).slice(0,3).join(" · ")}${mr.rates.length > 3 ? " · …" : ""}`
+            : "Competitor facility rates within 3 mi — best signal for submarket pricing power";
+          return displayRate ? `<tr><td style="padding:10px;font-weight:700;color:#3B82F6">${label}${audited ? ' <span style="display:inline-block;background:#16A34A;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px">VERIFIED</span>' : ""}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${Number(displayRate).toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">${methodology}</td></tr>` : "";
+        })()}
         ${m2ClimRate ? `<tr style="background:#FAFBFC"><td style="padding:10px;font-weight:700;color:#16A34A">M2: MSA REIT Data</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m2ClimRate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">PSA/EXR/CUBE 10-K disclosures for same metro — institutional scale benchmark</td></tr>` : ""}
         ${m3ClimRate ? `<tr><td style="padding:10px;font-weight:700;color:#C9A84C">M3: Income-Tier Proxy</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m3ClimRate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">Fallback based on 3-mi median HHI (${(incTier || "").toUpperCase()} tier — ${incN ? "$" + Math.round(incN/1000) + "K" : "—"})</td></tr>` : ""}
         <tr style="background:#1E2761;color:#fff"><td style="padding:12px;font-weight:900">CONSENSUS (weighted)</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">$${consensusClimRate ? consensusClimRate.toFixed(2) : mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</td><td style="padding:12px;font-size:10px">${rateConfidence || "—"} confidence</td></tr>
@@ -5279,7 +5331,7 @@ ${site.ccRentData.narrative?.valueAddThesis ? `<div class="section" style="backg
 <!-- sec-CAP wrapped in IIFE try/catch — isolates capstone render from rest of REC Package -->
 ${(() => { try { if (sxCapError) throw sxCapError; return `
 <div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.04),rgba(201,168,76,0.06));border-left:4px solid #1E2761">
-  <h2><span class="sec-num" style="background:#1E2761">&Sigma;</span> Institutional Investment Analysis</h2>
+  <h2><span class="sec-num" style="background:#1E2761">4</span> Institutional Investment Analysis</h2>
   <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">PSA / EXR / CUBE / NSA 10-K calibrated, Green Street Self-Storage Sector Report + Cushman &amp; Wakefield verified. Every number traceable to a primary source. Sub-sections below: 10-year pro forma, ECRI build-up, sensitivity analysis, scenarios, land triangulation, comp sales, financing, risk-adjusted IRR, source provenance.</div>
 
   <!-- ── 4j · HOW WE KNOW (the dagger) ── -->
@@ -5626,7 +5678,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 4: SITESCORE BREAKDOWN ═══════════════ -->
 <div id="sec-R2" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">4</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10</h2>
+  <h2><span class="sec-num">5</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10</h2>
   <table>
     <thead><tr><th>Dimension</th><th>Score (0–10)</th><th>Weight</th><th>Weighted</th></tr></thead>
     <tbody>${breakdownRows}</tbody>
@@ -5639,7 +5691,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 3: MARKET DEMOGRAPHICS ═══════════════ -->
 <div id="sec-R3" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">3</span> Market Demographics</h2>
+  <h2><span class="sec-num">6</span> Market Demographics</h2>
   <div class="grid4" style="margin-bottom:16px">
     <div class="metric mi" onclick="toggleMI('dem-pop',event)"><div class="label">3-Mi Population</div><div class="value">${!isNaN(popN) ? fmtN2(popN) : "—"}</div><em class="mi-hint">i</em>
       <div id="mi-dem-pop" class="mi-panel"><div class="mi-panel-inner">
@@ -5743,7 +5795,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 4: COMPETITION LANDSCAPE ═══════════════ -->
 <div id="sec-R4" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">4</span> Competition Landscape</h2>
+  <h2><span class="sec-num">7</span> Competition Landscape</h2>
   ${site.ccRentData ? `<div style="margin-bottom:16px;padding:14px;background:linear-gradient(135deg,rgba(30,39,97,0.06),rgba(201,168,76,0.04));border:1px solid rgba(201,168,76,0.3);border-radius:10px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       <div style="background:#C9A84C;color:#1E2761;padding:4px 10px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:0.12em">SPAREFOOT-VERIFIED</div>
@@ -5830,7 +5882,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 5: ZONING & ENTITLEMENTS ═══════════════ -->
 <div id="sec-R5" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">5</span> Zoning & Entitlements</h2>
+  <h2><span class="sec-num">8</span> Zoning & Entitlements</h2>
   <div style="display:flex;gap:16px;margin-bottom:16px">
     <div style="flex:1" class="metric mi" onclick="toggleMI('zon-district',event)">
       <div class="label">Zoning District</div>
@@ -5885,7 +5937,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 6: UTILITIES & INFRASTRUCTURE ═══════════════ -->
 <div id="sec-R6" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">6</span> Utilities & Infrastructure</h2>
+  <h2><span class="sec-num">9</span> Utilities & Infrastructure</h2>
   <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center">
     <div class="metric mi" style="flex:0 0 120px" onclick="toggleMI('util-grade',event)">
       <div class="label">Utility Grade</div>
@@ -5932,7 +5984,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 7: SITE CHARACTERISTICS ═══════════════ -->
 <div id="sec-R7" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">7</span> Site Characteristics & Access</h2>
+  <h2><span class="sec-num">10</span> Site Characteristics & Access</h2>
   <div class="grid3" style="margin-bottom:16px">
     <div class="metric mi" onclick="toggleMI('site-acreage',event)"><div class="label">Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "—"}</div><div class="sub">${isMultiStory ? "Multi-Story (3-4)" : "Single-Story"}</div><em class="mi-hint">i</em>
       <div id="mi-site-acreage" class="mi-panel"><div class="mi-panel-inner">
@@ -5995,7 +6047,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 8: FINANCIAL ANALYSIS ═══════════════ -->
 <div id="sec-R8" class="section" style="scroll-margin-top:20px;background:#FAFBFC">
-  <h2><span class="sec-num">8</span> Financial Analysis</h2>
+  <h2><span class="sec-num">11</span> Financial Analysis</h2>
 
   <!-- Development Cost -->
   <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Development Cost Estimate</h3>
@@ -6145,7 +6197,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 9: INSTITUTIONAL METRICS & REIT BENCHMARKING ═══════════════ -->
 <div id="sec-R9" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">9</span> Institutional Performance Metrics</h2>
+  <h2><span class="sec-num">12</span> Institutional Performance Metrics</h2>
   <div class="grid4" style="margin-bottom:16px">
     <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('inst-revpaf',event)"><div class="label">RevPAF</div><div class="value" style="font-size:18px;color:#1E2761">$${revPAF}</div><div class="sub">/available SF/yr</div><em class="mi-hint">i</em>
       <div id="mi-inst-revpaf" class="mi-panel"><div class="mi-panel-inner">
@@ -6311,7 +6363,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
     <thead><tr><th>Operator</th><th>RevPAF</th><th>NOI Margin</th><th>Avg Occ</th><th>Implied Cap</th></tr></thead>
     <tbody>
       <tr style="background:rgba(201,168,76,0.06);font-weight:700;border-left:3px solid #C9A84C">
-        <td style="color:#C9A84C">◆ THIS SITE</td><td class="mono">$${revPAF}</td><td class="mono">${noiMarginPct}%</td><td class="mono">${yearData && yearData[4] ? Math.round(((yearData[4].occupancy != null ? yearData[4].occupancy : yearData[4].occRate != null ? yearData[4].occRate : yearData[4].occ != null ? yearData[4].occ : 0)) * 100) + "%" : "—"}</td><td class="mono">${yocStab}% YOC</td>
+        <td style="color:#C9A84C">◆ THIS SITE</td><td class="mono">$${revPAF}</td><td class="mono">${noiMarginPct}%</td><td class="mono">${yearData && yearData[4] ? Math.round(((yearData[4].occupancy != null ? yearData[4].occupancy : yearData[4].occRate != null ? yearData[4].occRate : yearData[4].occ != null ? yearData[4].occ : 0)) * 100) + "%" : "—"}</td><td class="mono" style="font-size:10px;color:#64748B" title="Pre-stabilization — no market cap rate applicable until asset is stabilized and valued">— <span style="font-size:8px;color:#94A3B8">pre-stab</span></td>
       </tr>
       ${reitBench.slice(0, 4).map(r => `<tr>
         <td style="font-weight:600">${r.ticker}</td><td class="mono">$${r.revPAF.toFixed(2)}</td><td class="mono">${r.noiMargin.toFixed(1)}%</td><td class="mono">${r.avgOcc.toFixed(1)}%</td><td class="mono">${r.impliedCap.toFixed(1)}%</td>
@@ -6364,7 +6416,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 9: SENSITIVITY ANALYSIS & SOURCES/USES ═══════════════ -->
 <div class="section">
-  <h2><span class="sec-num">9</span> Sensitivity Analysis & Capital Structure</h2>
+  <h2><span class="sec-num">13</span> Sensitivity Analysis & Capital Structure</h2>
 
   <!-- Sensitivity Matrix -->
   <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Stabilized YOC & IRR Sensitivity — Rent ±10% × Occupancy ±5pts</h3>
@@ -6434,7 +6486,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 10: RISK ASSESSMENT ═══════════════ -->
 <div id="sec-R10" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">10</span> Risk Assessment</h2>
+  <h2><span class="sec-num">14</span> Risk Assessment</h2>
   ${risks.length > 0 ? risks.map(r => `<div class="risk-row" style="background:${r.color}08;border:1px solid ${r.color}20">
     <span class="pill" style="background:${r.color}18;color:${r.color};min-width:60px;text-align:center">${r.level}</span>
     <span style="font-size:11px;font-weight:700;color:#64748B;min-width:90px">${r.cat}</span>
@@ -6444,7 +6496,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 
 <!-- ═══════════════ SECTION 11: BROKER INTEL ═══════════════ -->
 ${site.sellerBroker || site.brokerNotes || site.listingSource ? `<div class="section">
-  <h2><span class="sec-num">11</span> Broker Intelligence</h2>
+  <h2><span class="sec-num">15</span> Broker Intelligence</h2>
   <table>
     <tbody>
       ${site.sellerBroker ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Seller / Broker</td><td>${h(site.sellerBroker)}</td></tr>` : ""}
@@ -6457,7 +6509,7 @@ ${site.sellerBroker || site.brokerNotes || site.listingSource ? `<div class="sec
 
 <!-- ═══════════════ SECTION 12: DEAL SUMMARY ═══════════════ -->
 ${site.summary ? `<div class="section">
-  <h2><span class="sec-num">${site.sellerBroker || site.brokerNotes || site.listingSource ? "12" : "11"}</span> Deal Summary & Notes</h2>
+  <h2><span class="sec-num">16</span> Deal Summary & Notes</h2>
   <div style="padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;color:#1E293B;line-height:1.7;white-space:pre-wrap">${h(site.summary)}</div>
 </div>` : ""}
 

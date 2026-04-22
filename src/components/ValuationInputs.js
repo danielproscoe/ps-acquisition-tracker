@@ -93,9 +93,9 @@ export const STORVEX_DEFAULTS = {
   capRateMarket: 0.0575,
   capRateAggressive: 0.05,
 
-  // ── Land Pricing YOC Targets (REIT-tight, recalibrated 2026-03-22) ──
+  // ── Land Pricing YOC Targets (recalibrated 2026-04-22: Strike 8.5% per DW 4/15 IC direction) ──
   yocMax: 0.075,                // Walk Away — PS minimum for strategic sites
-  yocStrike: 0.09,              // Strike Price — standard REC approval zone
+  yocStrike: 0.085,             // Strike Price — PS IC standard REC approval zone
   yocMin: 0.105,                // Home Run — exceptional deal territory
 
   // ── Capital Stack ──

@@ -1294,11 +1294,12 @@ export const computeOptimalLayout = (site, overrides = {}, siteOverrides = {}) =
   const padTotalDev = padLandCost + fin.buildCosts + fin.carryCosts + fin.workingCapital;
   const padYoc = fin.stabNOI > 0 && padTotalDev > 0 ? ((fin.stabNOI / padTotalDev) * 100).toFixed(1) : "N/A";
 
-  // ── Recommended offer at Strike YOC (9%) ──
+  // ── Recommended offer at Strike YOC (8.5%) ──
   // HARD RULE: Never recommend offering above asking price. If strike math says
   // you can pay more than ask, the offer = asking price (it's already a good deal).
   // Override: site.offerAboveAskReason (string) — if set, allows rec above ask with documented reason.
-  const strikeYOC = siteOverrides.yocStrike || overrides.yocStrike || 0.09;
+  // 8.5% Strike YOC per PS IC direction (DW 4/15/2026) — matches Recommended Offer in landTargets.
+  const strikeYOC = siteOverrides.yocStrike || overrides.yocStrike || 0.085;
   const rawRecOffer = fin.stabNOI > 0 ? Math.max(0, Math.round(fin.stabNOI / strikeYOC - fin.buildCosts - fin.carryCosts - fin.workingCapital)) : 0;
   const canExceedAsk = !!site.offerAboveAskReason;
   const recOffer = (!canExceedAsk && landCost > 0 && rawRecOffer > landCost) ? landCost : rawRecOffer;

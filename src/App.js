@@ -5462,13 +5462,13 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                             lines.push(`This is ${askDisc}% below the $${askRaw.toLocaleString()} ask \u2014 ${parseInt(askDisc) >= 20 ? "aggressive but defensible" : parseInt(askDisc) >= 10 ? "reasonable negotiating position" : "close to ask, strong if justified"}`);
                           }
                         } else if (pitchP > 0) {
-                          lines.push(`9% YOC not achievable at current pricing. Target: $${pitchP >= 1e6 ? (pitchP/1e6).toFixed(2)+"M" : Math.round(pitchP/1e3).toLocaleString()+"K"} for 8.0% YOC \u2014 minimum pitchable return`);
+                          lines.push(`8.5% Strike YOC not achievable at current pricing. Target: $${pitchP >= 1e6 ? (pitchP/1e6).toFixed(2)+"M" : Math.round(pitchP/1e3).toLocaleString()+"K"} for 8.0% YOC \u2014 minimum pitchable return`);
                         } else {
                           lines.push("Valuation below threshold \u2014 economics don't support acquisition at current pricing");
                         }
                         if (!isNaN(askRaw) && askRaw > 0) {
                           const askYOC = (noi / (askRaw + bpc) * 100).toFixed(1);
-                          lines.push(`At the asking price: ${askYOC}% YOC \u2014 ${parseFloat(askYOC) >= 9 ? "already hits strike target" : parseFloat(askYOC) >= 7.5 ? "workable, needs minor negotiation" : parseFloat(askYOC) >= 6 ? "needs 15-25% reduction to hit strike" : "significant gap \u2014 deep discount or pass"}`);
+                          lines.push(`At the asking price: ${askYOC}% YOC \u2014 ${parseFloat(askYOC) >= 8.5 ? "already hits strike target" : parseFloat(askYOC) >= 7.5 ? "workable, needs minor negotiation" : parseFloat(askYOC) >= 6 ? "needs 15-25% reduction to hit strike" : "significant gap \u2014 deep discount or pass"}`);
                         }
                       } else {
                         lines.push("Insufficient data for valuation \u2014 awaiting demographics or comp analysis");
