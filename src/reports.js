@@ -4609,9 +4609,16 @@ ${(() => {
   ${site.listingUrl ? `<a href="${h(site.listingUrl)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#F37C33;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(243,124,51,0.25)">🔗 Property Listing</a>` : ""}
   <a href="https://storvex.vercel.app/?site=${h(site.id || "")}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#1E2761;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(30,39,97,0.25)">💎 Storvex Dashboard</a>
   ${(() => {
+    // Extract ONLY the URL substring from zoning source fields — some records have
+    // the URL concatenated with a long description. Take chars up to the first whitespace
+    // (the URL itself never contains whitespace).
     const candidates = [site.zoningOrdinanceURL, site.zoningSource, site.zoningNotes].filter(Boolean);
-    const url = candidates.find(v => /^https?:\/\//i.test(String(v).trim()));
-    return url ? `<a href="${h(url)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#7C3AED;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(124,58,237,0.25)">📜 Zoning Ordinance</a>` : "";
+    let rawUrl = null;
+    for (const v of candidates) {
+      const m = String(v).match(/https?:\/\/[^\s<>"')]+/i);
+      if (m) { rawUrl = m[0]; break; }
+    }
+    return rawUrl ? `<a href="${h(rawUrl)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#7C3AED;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(124,58,237,0.25)">📜 Zoning Ordinance</a>` : "";
   })()}
 </div>
 
@@ -5790,6 +5797,38 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
       </div></div>
     </div>
   </div>
+
+  <!-- Growth Trajectory — 1/3/5 mile side-by-side — shows CAGR per ring -->
+  ${(site.popGrowth1mi || site.popGrowth3mi || site.popGrowth5mi) ? (() => {
+    const parsePct = (v) => { if (v == null || v === "") return null; const n = parseFloat(String(v).replace(/[^0-9.\-]/g, "")); return isNaN(n) ? null : n; };
+    const parseN = (v) => { if (v == null || v === "") return null; const n = parseInt(String(v).replace(/[^0-9]/g, ""), 10); return isNaN(n) ? null : n; };
+    const rings = [
+      { label: "1-MI GROWTH", cagr: parsePct(site.popGrowth1mi), startPop: parseN(site.pop1mi), endPop: parseN(site.pop1mi_fy) },
+      { label: "3-MI GROWTH", cagr: parsePct(site.popGrowth3mi) || parsePct(site.growthRate), startPop: parseN(site.pop3mi), endPop: parseN(site.pop3mi_fy), accent: true },
+      { label: "5-MI GROWTH", cagr: parsePct(site.popGrowth5mi), startPop: parseN(site.pop5mi), endPop: parseN(site.pop5mi_fy) },
+    ];
+    return `<div style="margin-top:16px;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,#0a1020,#111a36);border:1px solid rgba(201,168,76,0.15)">
+      <div style="padding:14px 20px">
+        <div style="font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;margin-bottom:4px">GROWTH TRAJECTORY — 1 / 3 / 5 MILE</div>
+        <div style="font-size:9px;color:#94A3B8;margin-bottom:14px">Population CAGR per ring — ESRI 2025→2030. Inner rings capture on-site trade-area demand; outer rings contextualize MSA-level growth.</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          ${rings.map(r => {
+            const cagrColor = r.cagr == null ? "#94A3B8" : r.cagr >= 2 ? "#22C55E" : r.cagr >= 1 ? "#C9A84C" : r.cagr >= 0 ? "#94A3B8" : "#EF4444";
+            const totalPct = (r.startPop && r.endPop && r.startPop > 0) ? ((r.endPop / r.startPop - 1) * 100).toFixed(1) : null;
+            return `<div style="padding:14px;background:${r.accent ? 'rgba(201,168,76,0.10)' : 'rgba(255,255,255,0.035)'};border:1px solid ${r.accent ? 'rgba(201,168,76,0.28)' : 'rgba(255,255,255,0.06)'};border-radius:8px">
+              <div style="font-size:8px;font-weight:800;color:#6B7394;letter-spacing:0.12em;margin-bottom:6px">${r.label}</div>
+              <div style="font-size:24px;font-weight:900;color:${cagrColor};font-family:'Space Mono',monospace;line-height:1">${r.cagr != null ? r.cagr.toFixed(2) + "%" : "—"}</div>
+              <div style="font-size:9px;color:#94A3B8;margin-top:2px;font-weight:600">CAGR (2025→2030)</div>
+              <div style="font-size:10px;color:#CBD5E1;margin-top:10px;font-family:'Space Mono',monospace">${r.startPop ? r.startPop.toLocaleString() : "—"} → ${r.endPop ? r.endPop.toLocaleString() : "—"}</div>
+              ${totalPct != null ? `<div style="font-size:9px;color:${cagrColor};margin-top:4px;font-weight:700">${parseFloat(totalPct) >= 0 ? "+" : ""}${totalPct}% total (5-yr)</div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
+        <div style="margin-top:10px;font-size:9px;color:#6B7394;font-style:italic">Source: ESRI ArcGIS GeoEnrichment 2025 — geocoded radial rings, CY→FY CAGR</div>
+      </div>
+    </div>`;
+  })() : ""}
+
   ${site.demandDrivers ? `<div style="margin-top:16px;padding:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#16A34A;letter-spacing:0.08em;margin-bottom:6px">DEMAND DRIVERS</div><div style="font-size:12px;color:#1E293B;line-height:1.6">${h(site.demandDrivers)}</div></div>` : ""}
 </div>
 
