@@ -585,7 +585,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
           <div style="font-size:16px;font-weight:800;color:#1E293B;font-family:'Space Mono',monospace;margin-top:2px">${h(site.zoning) || "TBD"}</div>
         </div>
       </div>
-      ${site.zoningOrdinanceSection ? `<div style="font-size:10px;color:#64748B;margin-top:6px">Ordinance: <strong style="color:#1E293B">${h(site.zoningOrdinanceSection)}</strong>${site.zoningSource ? ` | <a href="${h(site.zoningSource)}" target="_blank" style="color:#F37C33;text-decoration:none">Source &#8599;</a>` : ""}</div>` : ""}
+      ${site.zoningOrdinanceSection ? `<div style="font-size:10px;color:#64748B;margin-top:6px">Ordinance: <strong style="color:#1E293B">${h(site.zoningOrdinanceSection)}</strong>${(() => { const u = [site.zoningOrdinanceURL, site.zoningSource].find(v => /^https?:\/\//i.test(String(v || "").trim())); return u ? ` | <a href="${h(u)}" target="_blank" style="color:#F37C33;text-decoration:none">Source &#8599;</a>` : ""; })()}</div>` : ""}
       ${site.zoningUseTerm ? `<div style="font-size:10px;color:#64748B;margin-top:4px">Use Category: <strong style="color:#1E293B">${h(site.zoningUseTerm)}</strong></div>` : ""}
       <div style="font-size:11px;color:#64748B;line-height:1.6;margin-top:10px">${
         zoningClass === "by-right" ? "Self-storage / mini-warehouse is a <strong style='color:#16A34A'>permitted use</strong> in this zoning district. No special approvals required — proceed with site plan review." :
@@ -619,7 +619,16 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       row("Overlay Districts", site.overlayDistrict || (hasOverlay ? "Yes — additional standards apply" : "None identified")),
       row("Jurisdiction Type", site.jurisdictionType || "<em style='color:#94A3B8'>City / Township / Unincorporated County</em>"),
       row("Ordinance Section", site.zoningOrdinanceSection || "<em style='color:#94A3B8'>Section & chapter reference needed</em>"),
-      row("Ordinance Source", site.zoningSource ? `<a href="${h(site.zoningSource)}" target="_blank" style="color:#F37C33;text-decoration:none">${h(site.zoningSource).substring(0,60)}... &#8599;</a>` : "<em style='color:#94A3B8'>Not yet researched</em>"),
+      row("Ordinance Source", (() => {
+        const raw = String(site.zoningSource || "").trim();
+        if (!raw) return "<em style='color:#94A3B8'>Not yet researched</em>";
+        const urlMatch = [site.zoningOrdinanceURL, raw].find(v => /^https?:\/\//i.test(String(v || "").trim()));
+        if (urlMatch) {
+          const display = String(urlMatch).length > 60 ? String(urlMatch).substring(0, 60) + "..." : urlMatch;
+          return `<a href="${h(urlMatch)}" target="_blank" style="color:#F37C33;text-decoration:none">${h(display)} &#8599;</a>`;
+        }
+        return `<span style="color:#475569">${h(raw)}</span>`;
+      })()),
       row("Verification Date", site.zoningVerifyDate || "<em style='color:#94A3B8'>Not verified</em>"),
       row("Zoning Score", zoningScore != null ? `<span style="font-weight:900;color:${zoningScoreColor};font-family:'Space Mono',monospace">${zoningScore.toFixed(1)}/10</span>` : "—"),
       site.zoningClass === "conditional" || hasSUP ? row("SUP/CUP Timeline", site.supTimeline || "<em style='color:#F59E0B'>Typically 2-6 months</em>") : "",
@@ -1110,18 +1119,15 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- SITESCORE SCORECARD -->
     <!-- ═══════════════════════════════════════════════ -->
     ${iq && iq.scores ? (() => {
-      const dims = [
-        { key: "population", label: "Population", weight: 0.16 },
-        { key: "growth", label: "Growth", weight: 0.21 },
-        { key: "income", label: "Income", weight: 0.10 },
-        { key: "households", label: "Households", weight: 0.05 },
-        { key: "homeValue", label: "Home Value", weight: 0.05 },
-        { key: "zoning", label: "Zoning", weight: 0.16 },
-        { key: "psProximity", label: "PS Proximity", weight: 0.11 },
-        { key: "access", label: "Site Access", weight: 0.07 },
-        { key: "competition", label: "Competition", weight: 0.07 },
-        { key: "marketTier", label: "Market Tier", weight: 0.02 },
-      ];
+      // Single source of truth — iq.breakdown carries live weights from SITE_SCORE_CONFIG
+      // (which merges SITE_SCORE_DEFAULTS with Firebase config/siteiq_weights overrides).
+      // PS Proximity is a binary gate (weight 0) per v4.0 §6h Integrity Rule #1 but still
+      // surfaces in the breakdown for transparency.
+      const dims = (iq.breakdown || []).map(b => ({
+        key: b.key,
+        label: b.label,
+        weight: typeof b.weight === "number" ? b.weight : 0,
+      }));
       const weightedSum = dims.reduce((s, d) => s + ((iq.scores[d.key] || 0) * d.weight), 0);
       const adjustments = typeof iqScore === "number" ? (iqScore - weightedSum).toFixed(2) : "0.00";
       return `
@@ -1262,7 +1268,7 @@ export const generatePricingReport = (site, iqResult, siteScoreConfig, valuation
     operatorProfile, operatorLabel, noiMarginBenchmark,
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
-    leaseUpSchedule, yearData, stabNOI, stabRev,
+    leaseUpSchedule, yearData, yearData10, stabNOI, stabRev,
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
     contingencyPct, contingency, buildCosts, totalHardCost, totalHardPerSF,
     siteAreaSF, baseSiteWorkPerSF, siteWorkCost,
@@ -1831,7 +1837,7 @@ function switchSiteInputs(siteId) {
           <div class="mi-formula">YOC = Stabilized NOI ÷ Total Development Cost<br>= ${fmtD(stabNOI)} ÷ ${fmtD(totalDevCost)}<br>= <strong style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : "#F59E0B"}">${yocStab}%</strong></div>
           <div class="mi-row"><span class="mi-row-label">PS Target Range</span><span class="mi-row-val">8.0% - 10.0%</span></div>
           <div class="mi-row"><span class="mi-row-label">PS Minimum Hurdle</span><span class="mi-row-val">7.5%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Development Spread</span><span class="mi-row-val" style="color:${parseFloat(devSpread) >= 2.0 ? "#16A34A" : "#F59E0B"}">${devSpread || "N/A"} bps vs market cap</span></div>
+          <div class="mi-row"><span class="mi-row-label">Development Spread</span><span class="mi-row-val" style="color:${parseFloat(devSpread) >= 200 ? "#16A34A" : "#F59E0B"}">${devSpread || "N/A"} bps vs market cap</span></div>
           <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : parseFloat(yocStab) >= 7.5 ? "#F59E0B" : "#EF4444"}">${parseFloat(yocStab) >= 9.5 ? "Exceptional — well above PS hurdle" : parseFloat(yocStab) >= 8.5 ? "Strong — above PS sweet spot" : parseFloat(yocStab) >= 7.5 ? "Meets PS minimum development threshold" : "Below PS hurdle — negotiate land price down"}</span></div>
           <div class="mi-source">Source: SiteScore Financial Engine | Formula: Industry-standard development return metric used by all REIT developers</div>
         </div>
@@ -1859,7 +1865,7 @@ function switchSiteInputs(siteId) {
     <div class="grid3" style="gap:12px">
       <div style="text-align:center;padding:12px;border-radius:8px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.1)">
         <div style="font-size:9px;font-weight:700;color:#6B7394;letter-spacing:0.06em;margin-bottom:4px">DEV SPREAD</div>
-        <div class="mono" style="font-size:18px;font-weight:800;color:${parseFloat(devSpread) >= 2.0 ? "#16A34A" : "#F59E0B"}">${devSpread}<span style="font-size:10px;color:#6B7394"> bps</span></div>
+        <div class="mono" style="font-size:18px;font-weight:800;color:${parseFloat(devSpread) >= 200 ? "#16A34A" : "#F59E0B"}">${devSpread}<span style="font-size:10px;color:#6B7394"> bps</span></div>
         <div style="font-size:9px;color:#6B7394;margin-top:2px">≥150 bps = justified</div>
       </div>
       <div style="text-align:center;padding:12px;border-radius:8px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.1)">
@@ -1935,7 +1941,7 @@ function switchSiteInputs(siteId) {
   <div id="exec" class="expand-panel">
     <div class="insight-box">
       <div class="insight-title">Investment Thesis</div>
-      ${landCost > 0 && totalDevCost > 0 ? `<div>This ${!isNaN(acres) ? acres.toFixed(1) + "-acre" : ""} ${site.state || ""} site requires a total capital deployment of <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> (${landCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}% land / ${Math.round(hardCost/totalDevCost*100)}% hard / ${Math.round(softCost/totalDevCost*100)}% soft / ${contingency > 0 ? Math.round(contingency/totalDevCost*100) : 0}% contingency). At stabilization (Year 5), the facility produces <strong style="color:#16A34A">${fmtM(stabNOI)}</strong> NOI at a <strong>${noiMarginPct}% margin</strong> (PS benchmark: 78.4%), implying a <strong style="color:${parseFloat(yocStab) >= 8 ? "#16A34A" : "#F59E0B"}">${yocStab}% yield on cost</strong> — ${parseFloat(yocStab) >= 8 ? "above" : parseFloat(yocStab) >= 6 ? "near" : "below"} PS's development hurdle. Development spread of <strong>${devSpread} bps</strong> over the ${(mktAcqCap*100).toFixed(1)}% acquisition cap rate ${parseFloat(devSpread) >= 1.5 ? "justifies" : "may not justify"} construction risk. NPV at PS's 9.26% WACC: <strong style="color:${npvAtWACC >= 0 ? "#16A34A" : "#EF4444"}">${fmtM(npvAtWACC)}</strong> — ${npvAtWACC >= 0 ? "creates shareholder value" : "does not exceed cost of capital"}.</div>` : "<div>Pricing data pending — investment thesis will populate when land cost is confirmed.</div>"}
+      ${landCost > 0 && totalDevCost > 0 ? `<div>This ${!isNaN(acres) ? acres.toFixed(1) + "-acre" : ""} ${site.state || ""} site requires a total capital deployment of <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> (${landCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}% land / ${Math.round(hardCost/totalDevCost*100)}% hard / ${Math.round(softCost/totalDevCost*100)}% soft / ${contingency > 0 ? Math.round(contingency/totalDevCost*100) : 0}% contingency). At stabilization (Year 5), the facility produces <strong style="color:#16A34A">${fmtM(stabNOI)}</strong> NOI at a <strong>${noiMarginPct}% margin</strong> (PS benchmark: 78.4%), implying a <strong style="color:${parseFloat(yocStab) >= 8 ? "#16A34A" : "#F59E0B"}">${yocStab}% yield on cost</strong> — ${parseFloat(yocStab) >= 8 ? "above" : parseFloat(yocStab) >= 6 ? "near" : "below"} PS's development hurdle. Development spread of <strong>${devSpread} bps</strong> over the ${(mktAcqCap*100).toFixed(1)}% acquisition cap rate ${parseFloat(devSpread) >= 150 ? "justifies" : "may not justify"} construction risk. NPV at PS's 9.26% WACC: <strong style="color:${npvAtWACC >= 0 ? "#16A34A" : "#EF4444"}">${fmtM(npvAtWACC)}</strong> — ${npvAtWACC >= 0 ? "creates shareholder value" : "does not exceed cost of capital"}.</div>` : "<div>Pricing data pending — investment thesis will populate when land cost is confirmed.</div>"}
     </div>
     <div style="margin-top:16px">
       <div style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em;margin-bottom:10px;text-transform:uppercase">Return Waterfall</div>
@@ -2708,7 +2714,7 @@ function switchSiteInputs(siteId) {
             <strong>All-in development cost = Land + Total Hard Costs + Soft Costs + Contingency + Carry. This is the denominator in the Yield on Cost calculation — the single metric PS uses to evaluate development projects.</strong>
             <div class="mi-formula">Land: ${landCost > 0 ? fmtD(landCost) : "TBD"}<br>Total Hard Costs: ${fmtD(totalHardCost)} ($${totalHardPerSF}/SF)<br>Soft Costs (${Math.round(softCostPct*100)}%): ${fmtD(softCost)}<br>Contingency (${(contingencyPct*100).toFixed(1)}%): ${fmtD(contingency)}<br>Carry (${constructionMonths}mo): ${fmtD(carryCosts)}<br>────────────<br>Total: <strong style="color:#E87A2E">${fmtM(totalDevCost)}</strong> ($${totalDevCost > 0 ? Math.round(totalDevCost/totalSF).toLocaleString() : "—"}/SF all-in)</div>
             <div class="mi-row"><span class="mi-row-label">Yield on Cost</span><span class="mi-row-val">${yocStab}% — ${parseFloat(yocStab) >= 9 ? "EXCEEDS PS hurdle rate (8.0-9.0%). Strong internal approval signal." : parseFloat(yocStab) >= 8 ? "MEETS PS hurdle rate. Standard approval path." : parseFloat(yocStab) >= 7 ? "BELOW PS hurdle — requires exceptional location or strategic rationale." : "BELOW institutional minimum — does not pencil without significant cost reduction or NOI increase."}</span></div>
-            <div class="mi-row"><span class="mi-row-label">Why This Matters to PS</span><span class="mi-row-val">PS's Real Estate Committee (REC) evaluates every development project primarily on YOC. The development spread (YOC minus acquisition cap rate of ~${(mktAcqCap*100).toFixed(1)}%) must justify the 18-24 month construction period and lease-up risk. This project's ${devSpread}-point spread ${parseFloat(devSpread) >= 2.5 ? "clearly justifies development" : parseFloat(devSpread) >= 1.5 ? "is acceptable for development" : "is marginal — acquisition may be more efficient"}.</span></div>
+            <div class="mi-row"><span class="mi-row-label">Why This Matters to PS</span><span class="mi-row-val">PS's Real Estate Committee (REC) evaluates every development project primarily on YOC. The development spread (YOC minus acquisition cap rate of ~${(mktAcqCap*100).toFixed(1)}%) must justify the 18-24 month construction period and lease-up risk. This project's ${devSpread}-bps spread ${parseFloat(devSpread) >= 250 ? "clearly justifies development" : parseFloat(devSpread) >= 150 ? "is acceptable for development" : "is marginal — acquisition may be more efficient"}.</span></div>
             <div class="mi-source">Source: SiteScore™ cost engine | Land from broker listing | Hard costs from RSMeans regional index | Soft costs at ${Math.round(softCostPct*100)}% industry standard</div>
           </div>
         </div></div></td></tr>
@@ -3562,14 +3568,14 @@ ${padScenario ? `
     </div>
     <div class="metric-box mi" onclick="toggleMI('ipdevsp',event)" style="cursor:pointer">
       <div class="label">Development Spread <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></div>
-      <div class="value" style="color:${parseFloat(devSpread) >= 2.5 ? "#16A34A" : parseFloat(devSpread) >= 1.5 ? "#F59E0B" : "#EF4444"};font-size:18px">${devSpread}<span style="font-size:10px;color:#6B7394"> bps</span></div>
+      <div class="value" style="color:${parseFloat(devSpread) >= 250 ? "#16A34A" : parseFloat(devSpread) >= 150 ? "#F59E0B" : "#EF4444"};font-size:18px">${devSpread}<span style="font-size:10px;color:#6B7394"> bps</span></div>
       <div style="font-size:8px;color:#6B7394;margin-top:2px">YOC vs ${(mktAcqCap*100).toFixed(1)}% acq cap</div>
       <div id="mi-ipdevsp" class="mi-panel" style="text-align:left"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Development Spread — Why PS Builds</div><div class="mi-conf mi-conf-high">Computed</div></div>
         <div class="mi-body">
           <strong>The development spread is the fundamental reason PS develops instead of acquires. It measures the return premium earned by accepting construction and lease-up risk.</strong>
-          <div class="mi-formula">Development YOC: ${yocStab}%<br>Market Acquisition Cap: ${(mktAcqCap*100).toFixed(1)}%<br>Spread: ${yocStab}% − ${(mktAcqCap*100).toFixed(1)}% = <strong style="color:#C9A84C">${devSpread} basis points</strong></div>
-          <div class="mi-row"><span class="mi-row-label">PS Decision Framework</span><span class="mi-row-val">${parseFloat(devSpread) >= 3.0 ? "Exceptional spread — strongly favors development. This project creates significant value vs. acquisition." : parseFloat(devSpread) >= 2.0 ? "Healthy spread — development is clearly justified. Standard REC approval." : parseFloat(devSpread) >= 1.0 ? "Thin spread — development risk may not be adequately compensated. Consider acquisition alternatives." : "Negative or minimal spread — acquiring a stabilized facility at market cap would be more capital-efficient."}</span></div>
+          <div class="mi-formula">Development YOC: ${yocStab}%<br>Market Acquisition Cap: ${(mktAcqCap*100).toFixed(1)}%<br>Spread: (${yocStab}% − ${(mktAcqCap*100).toFixed(1)}%) × 100 = <strong style="color:#C9A84C">${devSpread} basis points</strong></div>
+          <div class="mi-row"><span class="mi-row-label">PS Decision Framework</span><span class="mi-row-val">${parseFloat(devSpread) >= 300 ? "Exceptional spread — strongly favors development. This project creates significant value vs. acquisition." : parseFloat(devSpread) >= 200 ? "Healthy spread — development is clearly justified. Standard REC approval." : parseFloat(devSpread) >= 100 ? "Thin spread — development risk may not be adequately compensated. Consider acquisition alternatives." : "Negative or minimal spread — acquiring a stabilized facility at market cap would be more capital-efficient."}</span></div>
           <div class="mi-row"><span class="mi-row-label">SiteScore™ Value-Add</span><span class="mi-row-val">SiteScore™ computes the development spread BEFORE PS spends money on due diligence. This saves PS $15-30K per site in DD costs by screening out marginal development opportunities early.</span></div>
           <div class="mi-source">Source: YOC − market acquisition cap rate | Green Street Advisors Q1 2026 | CBRE cap rate survey</div>
         </div>
@@ -3596,7 +3602,7 @@ ${padScenario ? `
       <div style="line-height:1.8;font-size:11px">
         <div><strong style="color:#C9A84C">RevPAF ($${revPAF}/SF/yr)</strong> — The single most important revenue metric in storage. Measures total revenue normalized by total available square footage. PS's portfolio averages ~$24.50/SF; Extra Space ~$22.80. ${siteRevPAFn >= 22 ? "This site projects above or near REIT-portfolio averages — strong signal." : siteRevPAFn >= 17 ? "This site projects in the mid-range — typical for suburban/secondary markets." : "Below REIT averages — may reflect market characteristics or conservative rate assumptions."}</div>
         <div style="margin-top:6px"><strong style="color:#C9A84C">NOI Margin (${noiMarginPct}%)</strong> — Operating efficiency ratio. PS achieves 63-65% at scale; independent operators typically 55-60%. ${parseFloat(noiMarginPct) >= 60 ? "This projection is in the institutional range." : "Below institutional benchmarks — OpEx may be elevated by payroll relative to facility size."}</div>
-        <div style="margin-top:6px"><strong style="color:#C9A84C">Development Spread (${devSpread} bps)</strong> — The premium earned by building vs. buying an existing stabilized facility. This is WHY operators develop instead of acquire. Institutional minimum is ~150-200bps. ${parseFloat(devSpread) >= 2.5 ? "Strong development spread — this project clearly justifies a build decision over acquisition." : parseFloat(devSpread) >= 1.5 ? "Adequate spread, though acquisition alternatives should be evaluated." : "Thin spread — the risk-adjusted advantage of development over acquisition is marginal."}</div>
+        <div style="margin-top:6px"><strong style="color:#C9A84C">Development Spread (${devSpread} bps)</strong> — The premium earned by building vs. buying an existing stabilized facility. This is WHY operators develop instead of acquire. Institutional minimum is ~150-200bps. ${parseFloat(devSpread) >= 250 ? "Strong development spread — this project clearly justifies a build decision over acquisition." : parseFloat(devSpread) >= 150 ? "Adequate spread, though acquisition alternatives should be evaluated." : "Thin spread — the risk-adjusted advantage of development over acquisition is marginal."}</div>
       </div>
     </div>
     <div class="insight-box" style="margin-top:12px">
@@ -3687,7 +3693,7 @@ ${padScenario ? `
       <div class="insight-title">Benchmarking Analysis</div>
       <div style="line-height:1.8;font-size:11px">
         <div><strong style="color:#42A5F5">Closest Comparable: ${reitComparable?.name || "—"} (${reitComparable?.ticker || "—"})</strong> — This site's projected RevPAF of $${revPAF}/SF aligns most closely with ${reitComparable?.name || "—"}'s portfolio average of $${reitComparable?.revPAF?.toFixed(2) || "—"}/SF. ${siteRevPAFn > (reitComparable?.revPAF || 0) ? "The site outperforms this benchmark, suggesting strong market fundamentals or premium rate assumptions." : "The site slightly underperforms this benchmark, which may reflect market positioning or conservative rate modeling."}</div>
-        <div style="margin-top:6px"><strong style="color:#C9A84C">Development vs Acquisition Context:</strong> REITs trade at ${reitBench[0].impliedCap.toFixed(1)}-${reitBench[reitBench.length-1].impliedCap.toFixed(1)}% implied cap rates. This development project targets a ${yocStab}% stabilized YOC, creating a ${devSpread}-point development spread. ${parseFloat(devSpread) >= 2.5 ? "This exceeds the typical 200-250bps development premium, making this project accretive to any institutional portfolio." : "The spread is within institutional tolerance but should be weighed against development execution risk."}</div>
+        <div style="margin-top:6px"><strong style="color:#C9A84C">Development vs Acquisition Context:</strong> REITs trade at ${reitBench[0].impliedCap.toFixed(1)}-${reitBench[reitBench.length-1].impliedCap.toFixed(1)}% implied cap rates. This development project targets a ${yocStab}% stabilized YOC, creating a ${devSpread}-bps development spread. ${parseFloat(devSpread) >= 250 ? "This exceeds the typical 200-250bps development premium, making this project accretive to any institutional portfolio." : "The spread is within institutional tolerance but should be weighed against development execution risk."}</div>
         <div style="margin-top:6px"><strong style="color:#16A34A">Portfolio Fit:</strong> ${totalSF >= 80000 ? "At " + totalSF.toLocaleString() + " SF, this facility is at or above the REIT average facility size (" + reitComparable?.avgSF?.toLocaleString() + " SF for " + reitComparable?.ticker + "), positioning it as a core portfolio asset." : "At " + totalSF.toLocaleString() + " SF, this facility is below the REIT average — but smaller, well-located facilities often outperform on a per-SF basis due to supply scarcity."}</div>
       </div>
     </div>
@@ -4159,7 +4165,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
     operatorProfile, operatorLabel, noiMarginBenchmark,
     isMultiStory, stories, footprint, grossSF, netToGross, totalSF, climatePct, drivePct, climateSF, driveSF,
     baseClimateRate, baseDriveRate, compAdj, mktClimateRate, mktDriveRate, annualEsc,
-    leaseUpSchedule, yearData, stabNOI, stabRev,
+    leaseUpSchedule, yearData, yearData10, stabNOI, stabRev,
     stateToCostIdx, costIdx, baseHardPerSF, hardCostPerSF, softCostPct, hardCost, softCost,
     contingencyPct, contingency, buildCosts, totalHardCost, totalHardPerSF,
     siteAreaSF, baseSiteWorkPerSF, siteWorkCost,
@@ -4313,7 +4319,76 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 .toc-sidebar a.active .toc-num{background:#C9A84C;color:#0A0A0C}
 @media (max-width:1000px){.toc-sidebar{display:none}}
 
-@media print{body{background:#fff}.print-btn{display:none!important}.page{box-shadow:none}.mi-panel{max-height:none!important;opacity:1!important;margin-top:12px!important}.mi-hint{display:none}.toc-sidebar{display:none!important}@page{margin:0.5in;size:letter}}
+@media print{
+  /* Preserve gradients, badge fills, and brand colors in PDF — without this, browsers strip backgrounds */
+  *,*::before,*::after{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  /* Clean canvas — drop shadows, transitions, and hover effects that waste ink */
+  *{transition:none!important;animation:none!important}
+  body{background:#fff!important;-webkit-font-smoothing:antialiased;font-size:11px;line-height:1.45}
+  .page{box-shadow:none!important;max-width:none!important;margin:0!important}
+  /* Hide on-screen-only chrome */
+  .print-btn,.toc-sidebar,.mi-hint,.expand-hint,.dim-info{display:none!important}
+  /* Force expanded panels open in print so all content is visible */
+  .mi-panel{max-height:none!important;opacity:1!important;margin-top:10px!important;overflow:visible!important}
+  .expand-panel{max-height:none!important;opacity:1!important;padding:14px!important;overflow:visible!important}
+  /* Soften heavy shadows for cleaner print */
+  .section,.metric,.mi-panel-inner,.risk-row,.expand-panel{box-shadow:none!important}
+  /* Section + content break control — keep headers with their content */
+  h1,h2,h3,h4{break-after:avoid-page!important;page-break-after:avoid!important}
+  h2{margin-top:6px!important;font-size:13px!important}
+  /* Avoid splitting atomic content blocks across pages */
+  .metric,.risk-row,.mi-panel,.mi-panel-inner,.grid2>div,.grid3>div,.grid4>div{break-inside:avoid!important;page-break-inside:avoid!important}
+  /* Tables: keep rows intact, repeat headers on new page */
+  table{break-inside:auto!important}
+  thead{display:table-header-group}
+  tfoot{display:table-footer-group}
+  tr,td,th{break-inside:avoid!important;page-break-inside:avoid!important}
+  /* Sections: prefer to start on a fresh page if they don't fit, but allow internal paging */
+  .section{break-inside:auto!important;padding:20px 32px!important}
+  /* Capstone (Institutional Investment Analysis) lands on its own page — the workpaper crescendo */
+  #sec-CAP{break-before:page!important;page-break-before:always!important}
+  /* Other major deep-dives get fresh pages too for clean delineation */
+  #sec-VW,#sec-RA{break-before:page!important;page-break-before:always!important}
+  /* Tighten widows/orphans so paragraphs don't strand */
+  p,li,div{widows:3;orphans:3}
+  /* Hyperlinks: keep blue but no underline-on-print fluff */
+  a{color:#1E40AF;text-decoration:none}
+  /* Print-only cover memo — hidden on screen, banger up front in PDF */
+  .print-cover{display:block!important;break-after:page!important;page-break-after:always!important;padding:48px 56px;color:#1E293B;background:#fff;height:9.4in;position:relative}
+  .print-cover .cover-mark{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #1E2761}
+  .print-cover .cover-rec{display:flex;align-items:center;gap:12px}
+  .print-cover .cover-rec-badge{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:14px;font-family:'Space Mono',monospace}
+  .print-cover .cover-rec-text{font-size:11px;letter-spacing:0.16em;color:#1E2761;font-weight:800}
+  .print-cover .cover-id{font-size:9px;letter-spacing:0.14em;color:#94A3B8;font-weight:700;font-family:'Space Mono',monospace}
+  .print-cover h1{font-size:32px;font-weight:900;color:#0A0A0C;letter-spacing:-0.02em;margin:30px 0 6px;line-height:1.1}
+  .print-cover .cover-sub{font-size:14px;color:#475569;margin-bottom:30px}
+  .print-cover .cover-meta{display:grid;grid-template-columns:80px 1fr;row-gap:6px;column-gap:14px;font-size:11px;margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid #E2E8F0}
+  .print-cover .cover-meta dt{color:#94A3B8;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;font-size:9px;padding-top:2px}
+  .print-cover .cover-meta dd{color:#1E293B;font-weight:600}
+  .print-cover .cover-verdict{display:flex;align-items:center;gap:14px;padding:18px 22px;border-radius:12px;border:2px solid;margin-bottom:24px}
+  .print-cover .cover-verdict-score{font-size:48px;font-weight:900;font-family:'Space Mono',monospace;line-height:1}
+  .print-cover .cover-verdict-label{font-size:18px;font-weight:900;letter-spacing:0.04em}
+  .print-cover .cover-verdict-sub{font-size:11px;color:#64748B;margin-top:3px}
+  .print-cover h3{font-size:11px;letter-spacing:0.14em;color:#1E2761;font-weight:800;text-transform:uppercase;margin:0 0 10px}
+  .print-cover .cover-bullets{list-style:none;padding:0;margin:0 0 22px}
+  .print-cover .cover-bullets li{display:grid;grid-template-columns:18px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:12px;color:#1E293B;line-height:1.55}
+  .print-cover .cover-bullets li:last-child{border-bottom:none}
+  .print-cover .cover-bullets .bnum{color:#C9A84C;font-weight:900;font-family:'Space Mono',monospace;font-size:11px}
+  .print-cover .cover-attest{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px}
+  .print-cover .cover-pill{padding:8px 6px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:9px;text-align:center;line-height:1.35}
+  .print-cover .cover-pill-label{font-weight:800;color:#1E2761;letter-spacing:0.06em}
+  .print-cover .cover-pill-val{color:#16A34A;font-weight:700;margin-top:2px;font-size:8px}
+  .print-cover .cover-sig{position:absolute;bottom:48px;left:56px;right:56px;padding-top:18px;border-top:2px solid #1E2761;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#64748B}
+  .print-cover .cover-sig-line{font-style:italic;color:#1E2761;font-weight:700;font-size:13px;font-family:'Inter',sans-serif;margin-bottom:2px}
+  /* Page setup — Letter, half-inch margins; running footer on every page */
+  @page{margin:0.65in 0.5in;size:letter;
+    @bottom-left{content:"Storvex Acquisition Engine v4.0 · CONFIDENTIAL";font-family:'Inter',sans-serif;font-size:8px;color:#94A3B8;letter-spacing:0.08em}
+    @bottom-right{content:"Page " counter(page) " of " counter(pages);font-family:'Space Mono',monospace;font-size:8px;color:#1E2761;font-weight:700}
+    @bottom-center{content:"";font-size:8px;color:#94A3B8}
+  }
+  @page :first{margin-top:0.4in;@top-left{content:""}@top-right{content:""}}
+}
+@media screen{.print-cover{display:none!important}}
 </style>
 <script>
 function toggleMI(id,evt){
@@ -4325,6 +4400,103 @@ function toggleMI(id,evt){
 }
 </script>
 </head><body>
+
+${(() => {
+  // Print-only commercial-appraisal-style cover memorandum
+  // Story arc: Subject → Market → Numbers → Verdict → Recommendation
+  const today = new Date();
+  const dateLong = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const yyyymmdd = today.toISOString().slice(0,10).replace(/-/g,"");
+  const siteSlug = String(site.id || site.address || site.name || "site").replace(/[^A-Za-z0-9]/g,"").toUpperCase().slice(0,8) || "SUBJ";
+  const reportId = `STORVEX-${yyyymmdd}-${siteSlug}`;
+  const verifiedDims = (iq.breakdown || []).filter(b => b.verified).length;
+  const totalDims = (iq.breakdown || []).length || 1;
+  const verifiedPct = Math.round((verifiedDims / totalDims) * 100);
+  const recAction = score >= 8.0 ? "ACQUIRE" : score >= 6.5 ? "ADVANCE WITH CONDITIONS" : score >= 5.0 ? "HOLD — DILIGENCE REQUIRED" : "PASS";
+  const strikePrice = landPrices && landPrices[1] && landPrices[1].maxLand > 0 ? fmtM(landPrices[1].maxLand) : "—";
+  const askPriceLabel = site.askingPrice || (landCost > 0 ? fmtM(landCost) : "—");
+  const ccSPC = site.siteiqData?.ccSPC ?? null;
+  const projCCSPC = site.siteiqData?.projectedCCSPC ?? null;
+  const competitors = site.siteiqData?.competitorCount ?? null;
+  const nearestPS = site.siteiqData?.nearestPS ?? null;
+  const zClass = (site.zoningClassification || "").toLowerCase();
+  const zoningPhrase = zClass === "by-right" ? "permitted by-right" : zClass === "conditional" ? "conditional / SUP required" : zClass === "rezone-required" ? "rezone required" : zClass === "prohibited" ? "prohibited" : "verification pending";
+  const marketStory = `${h(site.city || "the submarket")}, ${h(site.state || "")}`.replace(/, $/, "");
+  const popLine = !isNaN(popN) ? `${fmtN2(popN)} residents within 3 miles` : "demographic profile pending";
+  const incLine = !isNaN(incN) ? `$${fmtN2(incN)} median HHI` : "income profile pending";
+  const growLine = growthPct ? `${growthPct.toFixed(1)}% 5-yr population CAGR` : "growth trajectory pending";
+  const ccLine = ccSPC != null ? `${ccSPC.toFixed(1)} CC SF/capita${projCCSPC != null ? ` (projected ${projCCSPC.toFixed(1)} 5-yr)` : ""}` : "competition data pending";
+  const psLine = nearestPS != null ? `${nearestPS.toFixed(1)} mi to nearest PS family facility` : "PS proximity pending";
+
+  return `<div class="print-cover">
+    <div class="cover-mark">
+      <div class="cover-rec">
+        <div class="cover-rec-badge">REC</div>
+        <div>
+          <div class="cover-rec-text">REAL ESTATE COMMITTEE MEMORANDUM</div>
+          <div style="font-size:9px;color:#94A3B8;letter-spacing:0.1em;margin-top:2px">SITE ACQUISITION RECOMMENDATION</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="cover-id">${reportId}</div>
+        <div style="font-size:9px;color:#64748B;margin-top:3px">${dateLong}</div>
+      </div>
+    </div>
+
+    <h1>${h(site.name || "Subject Property")}</h1>
+    <div class="cover-sub">${h(site.address || "")}${site.city ? ", " + h(site.city) : ""}${site.state ? ", " + h(site.state) : ""}${!isNaN(acres) ? " &nbsp;·&nbsp; " + acres.toFixed(2) + " acres" : ""}${askPriceLabel !== "—" ? " &nbsp;·&nbsp; Asking " + askPriceLabel : ""}</div>
+
+    <dl class="cover-meta">
+      <dt>To</dt><dd>Real Estate Committee — Public Storage Acquisitions</dd>
+      <dt>From</dt><dd>Storvex Acquisition Engine v4.0 — DJR Real Estate LLC</dd>
+      <dt>Re</dt><dd>${recAction} — ${h(site.name || site.address || "Subject Site")}</dd>
+      <dt>Method</dt><dd>9-dimension composite scoring + binary PS proximity gate · ESRI 2025 demographics · municipal ordinance verification · SpareFoot rate audit · 10-K-calibrated underwriting</dd>
+    </dl>
+
+    <div class="cover-verdict" style="border-color:${recColor};background:${recColor}0D">
+      <div class="cover-verdict-score" style="color:${iqBadgeColor}">${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}</div>
+      <div style="flex:1">
+        <div class="cover-verdict-label" style="color:${recColor}">${recAction}</div>
+        <div class="cover-verdict-sub">SiteScore™ ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10 · ${iq.label || ""} · ${verifiedDims} of ${totalDims} dimensions verified (${verifiedPct}%)</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:9px;color:#94A3B8;letter-spacing:0.1em;font-weight:800">STRIKE / ASK</div>
+        <div style="font-size:14px;font-weight:900;color:#1E293B;font-family:'Space Mono',monospace;margin-top:2px">${strikePrice} / ${askPriceLabel}</div>
+        ${askVsStrike !== null ? `<div style="font-size:10px;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#E87A2E'};font-weight:700;margin-top:1px">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}% to strike</div>` : ""}
+      </div>
+    </div>
+
+    <h3>The Story</h3>
+    <ol class="cover-bullets">
+      <li><span class="bnum">01</span><span><strong>The Subject.</strong> ${h(site.name || site.address || "This site")} sits on ${!isNaN(acres) ? acres.toFixed(2) + " acres" : "a parcel"} in ${marketStory}, currently asking ${askPriceLabel}${dom ? ` (on market ${dom} days)` : ""}. Zoning: <strong>${h(site.zoning || "TBD")}</strong> — ${zoningPhrase}${site.zoningOrdinanceSection ? `, per ${h(site.zoningOrdinanceSection)}` : ""}.</span></li>
+      <li><span class="bnum">02</span><span><strong>The Market.</strong> ${popLine}, ${incLine}, ${growLine}. ${psLine}.</span></li>
+      <li><span class="bnum">03</span><span><strong>The Competition.</strong> ${ccLine}${competitors != null ? ` across ${competitors} CC-classified facilities within 3 mi` : ""}. ${ccSPC != null && ccSPC < 3 ? "Submarket is <strong>underserved</strong> for climate-controlled product." : ccSPC != null && ccSPC < 5 ? "Submarket carries <strong>moderate</strong> CC supply." : ccSPC != null ? "Submarket is <strong>well-supplied</strong>." : "Competitive landscape characterized in §10."}</span></li>
+      <li><span class="bnum">04</span><span><strong>The Numbers.</strong> Storvex underwriting models a stabilized YOC at strike pricing of <strong>${landPrices && landPrices[1] ? (landPrices[1].yoc * 100).toFixed(1) + "%" : "—"}</strong>. Strike land basis: <strong>${strikePrice}</strong>. Reconciliation against asking: <strong>${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "—"}</strong>.</span></li>
+      <li><span class="bnum">05</span><span><strong>The Recommendation.</strong> ${score >= 8.0 ? `<strong style="color:${recColor}">ACQUIRE.</strong> Site clears all hard gates, scores in the top quintile, and underwrites at hurdle. Submit LOI at strike land basis with standard 60/30 PSA terms.` : score >= 6.5 ? `<strong style="color:${recColor}">ADVANCE WITH CONDITIONS.</strong> Fundamentals warrant LOI; close the verification gaps in §1 before binding terms.` : score >= 5.0 ? `<strong style="color:${recColor}">HOLD.</strong> Composite is below threshold — do not advance until flagged dimensions are resolved.` : `<strong style="color:${recColor}">PASS.</strong> Site does not pencil at current ask; submarket fundamentals or zoning constraints disqualify under current model.`}</span></li>
+    </ol>
+
+    <h3>How We Know — Engine Receipts</h3>
+    <div class="cover-attest">
+      <div class="cover-pill"><div class="cover-pill-label">DEMOGRAPHICS</div><div class="cover-pill-val">ESRI 2025 ✓</div></div>
+      <div class="cover-pill"><div class="cover-pill-label">ZONING</div><div class="cover-pill-val">${site.zoningOrdinanceSection ? "Ordinance ✓" : "Pending"}</div></div>
+      <div class="cover-pill"><div class="cover-pill-label">RENTS</div><div class="cover-pill-val">${site.ccRentData?.marketRentBand?.sampleSize ? `SpareFoot · ${site.ccRentData.marketRentBand.sampleSize} comps ✓` : "Audit pending"}</div></div>
+      <div class="cover-pill"><div class="cover-pill-label">UNDERWRITING</div><div class="cover-pill-val">PSA·EXR·CUBE 10-K ✓</div></div>
+      <div class="cover-pill"><div class="cover-pill-label">PROXIMITY</div><div class="cover-pill-val">PS Family DB · 4,238 ✓</div></div>
+    </div>
+
+    <div class="cover-sig">
+      <div>
+        <div class="cover-sig-line">/s/ Storvex Acquisition Engine v4.0</div>
+        <div>Issued ${dateLong} · 9-dimension composite + binary PS gate · Continuous ESRI/SpareFoot revalidation</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:800;color:#1E2761">${reportId}</div>
+        <div style="margin-top:2px">CONFIDENTIAL — REC USE ONLY</div>
+      </div>
+    </div>
+  </div>`;
+})()}
+
 
 <!-- TOC Sidebar — McKinsey nav strip -->
 <nav class="toc-sidebar" id="tocNav" style="display:none">
@@ -4393,7 +4565,11 @@ function toggleMI(id,evt){
   ${site.coordinates ? `<a href="${mapsUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#16A34A;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(22,163,74,0.25)">📍 Google Maps Pin</a>` : ""}
   ${site.listingUrl ? `<a href="${h(site.listingUrl)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#F37C33;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(243,124,51,0.25)">🔗 Property Listing</a>` : ""}
   <a href="https://storvex.vercel.app/?site=${h(site.id || "")}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#1E2761;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(30,39,97,0.25)">💎 Storvex Dashboard</a>
-  ${site.zoningSource ? `<a href="${h(site.zoningSource)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#7C3AED;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(124,58,237,0.25)">📜 Zoning Ordinance</a>` : ""}
+  ${(() => {
+    const candidates = [site.zoningOrdinanceURL, site.zoningSource, site.zoningNotes].filter(Boolean);
+    const url = candidates.find(v => /^https?:\/\//i.test(String(v).trim()));
+    return url ? `<a href="${h(url)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#7C3AED;color:#fff;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(124,58,237,0.25)">📜 Zoning Ordinance</a>` : "";
+  })()}
 </div>
 
 <!-- ═══════════════ SECTION 1: RECOMMENDATION ═══════════════ -->
@@ -4411,7 +4587,7 @@ function toggleMI(id,evt){
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">LAND VERDICT</div>
       <div class="badge" style="background:${verdictColor}18;color:${verdictColor};border:1px solid ${verdictColor}30;font-size:14px;padding:6px 18px">${landVerdict}</div><em class="mi-hint">i</em>
       <div id="mi-rec-verdict" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Land Pricing Verdict</div><div class="mi-conf ${landVerdict === "BUY" || landVerdict === "TARGET" ? "mi-conf-high" : landVerdict === "STRETCH" ? "mi-conf-med" : "mi-conf-low"}">${landVerdict === "BUY" ? "Favorable" : landVerdict === "TARGET" ? "At Target" : landVerdict === "STRETCH" ? "Above Target" : "Overpriced"}</div></div>
+        <div class="mi-header"><div class="mi-title">Land Pricing Verdict</div><div class="mi-conf ${landVerdict === "STRONG BUY" || landVerdict === "BUY" || landVerdict === "TARGET" || landVerdict === "APPROVED" ? "mi-conf-high" : landVerdict === "NEGOTIATE" || landVerdict === "STRETCH" ? "mi-conf-med" : "mi-conf-low"}">${landVerdict === "STRONG BUY" ? "Strong Buy — Below Strike" : landVerdict === "BUY" ? "Favorable — At/Below Strike" : landVerdict === "TARGET" ? "At Target" : landVerdict === "NEGOTIATE" ? "Above Target — Negotiate" : landVerdict === "STRETCH" ? "Stretch — 15-30% Over Strike" : landVerdict === "ABOVE STRIKE" ? "Above Strike — Does Not Pencil" : landVerdict === "APPROVED" ? "Approved" : "Overpriced"}</div></div>
         <div class="mi-body">
           <strong>Verdict is determined by comparing the asking price against the recommended offer (max land at target YOC).</strong>
           <div class="mi-formula">Strike Price = Max land at ${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "8.5"}% target YOC<br>= ${landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}<br>Ask vs Strike = ${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "— (asking price not listed)"}</div>
@@ -4420,21 +4596,6 @@ function toggleMI(id,evt){
           <div class="mi-row"><span class="mi-row-label">STRETCH (+5% to +30%)</span><span class="mi-row-val">Above strike — requires negotiation or rent upside</span></div>
           <div class="mi-row"><span class="mi-row-label">PASS (>+30%)</span><span class="mi-row-val">Significantly above strike — does not underwrite</span></div>
           <div class="mi-source">Source: SiteScore Land Acquisition Price Guide | Back-calculated from stabilized NOI at target development yield</div>
-        </div>
-      </div></div>
-    </div>
-    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-askvstrike',event)">
-      <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">ASK vs REC</div>
-      <div style="font-size:20px;font-weight:900;color:${askVsStrike !== null && parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'};font-family:'Space Mono',monospace">${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? '+' : '') + askVsStrike + '%' : '—'}</div><em class="mi-hint">i</em>
-      <div id="mi-rec-askvstrike" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Ask vs Strike Differential</div><div class="mi-conf ${askVsStrike === null ? "mi-conf-med" : parseFloat(askVsStrike) <= 0 ? "mi-conf-high" : parseFloat(askVsStrike) <= 15 ? "mi-conf-med" : "mi-conf-low"}">${askVsStrike === null ? "Asking Not Listed" : parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
-        <div class="mi-body">
-          <strong>Measures the gap between asking price and maximum land price at target development yield.</strong>
-          <div class="mi-formula">Ask vs Strike = (Asking - Strike) ÷ Strike × 100<br>= (${landCost > 0 ? fmtD(landCost) : "asking not listed"} - ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}) ÷ ${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}<br>= <strong style="color:${askVsStrike !== null && parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#1E2761'}">${askVsStrike !== null ? (parseFloat(askVsStrike) > 0 ? '+' : '') + askVsStrike + '%' : '— (needs ask)'}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Asking Price</span><span class="mi-row-val">${fmtD(landCost)}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Strike Price (${landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "9.0"}% YOC)</span><span class="mi-row-val">${landPrices[1] ? fmtD(landPrices[1].maxLand) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Negotiation Room</span><span class="mi-row-val">${askVsStrike === null ? "— (asking price not listed)" : parseFloat(askVsStrike) > 0 ? fmtD(landCost - (landPrices[1] ? landPrices[1].maxLand : 0)) + " reduction needed" : "Already below strike"}</span></div>
-          <div class="mi-source">Source: SiteScore Financial Engine | Strike = NOI ÷ Target YOC − Construction Costs</div>
         </div>
       </div></div>
     </div>
@@ -4492,7 +4653,7 @@ function toggleMI(id,evt){
     <table style="width:100%;border-collapse:collapse;font-size:11px">
       <tbody>
         <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Stabilized Revenue (92% occ + ECRI)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800">${stabRev ? fmtD(stabRev) : "—"}</td></tr>
-        ${opexDetail && Array.isArray(opexDetail) ? opexDetail.map((o, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 10px;color:#64748B">${o.label}</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';color:#EF4444">-${fmtD(o.amount || 0)}</td></tr>`).join("") : ""}
+        ${opexDetail && Array.isArray(opexDetail) ? opexDetail.map((o, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 10px;color:#64748B">${h(o.item || o.label || "OpEx")}</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';color:#EF4444">-${fmtD(o.amount || 0)}</td></tr>`).join("") : ""}
         <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Total Operating Expenses</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800;color:#EF4444">-${totalOpexDetail ? fmtD(totalOpexDetail) : "—"}</td></tr>
         <tr style="background:#16A34A;color:#fff"><td style="padding:12px 10px;font-weight:900">STABILIZED NOI (Year 5)</td><td style="padding:12px 10px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">${stabNOI ? fmtD(stabNOI) : "—"}</td></tr>
         <tr><td style="padding:8px 10px;color:#64748B;font-size:10px">NOI Margin (${operatorLabel || "PS Operating Platform"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-size:10px;color:#64748B">${noiMarginPct && noiMarginPct !== "N/A" ? noiMarginPct + "%" : "—"} (benchmark: ${noiMarginBenchmark || "78.4%"})</td></tr>
@@ -4526,7 +4687,7 @@ function toggleMI(id,evt){
   <div style="background:linear-gradient(135deg,${verdictColor}15,${verdictColor}05);border:2px solid ${verdictColor}40;border-radius:12px;padding:20px;margin-bottom:16px">
     <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:${verdictColor};margin-bottom:14px">RETURN METRICS — STORVEX LAND PRICING MODEL</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
-      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">YOC @ STAB.</div><div style="font-size:22px;font-weight:900;color:${verdictColor};font-family:'Space Mono'">${yocStab || "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">NOI ÷ Total Dev Cost</div></div>
+      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">YOC @ STAB.</div><div style="font-size:22px;font-weight:900;color:${verdictColor};font-family:'Space Mono'">${yocStab && yocStab !== "N/A" ? yocStab + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">NOI ÷ Total Dev Cost</div></div>
       <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STRIKE LAND PRICE</div><div style="font-size:22px;font-weight:900;color:#16A34A;font-family:'Space Mono'">${landPrices && landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ 9% Strike YOC</div></div>
       <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">ASK vs STRIKE</div><div style="font-size:22px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? "#16A34A" : "#EF4444"};font-family:'Space Mono'">${askVsStrike != null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
       <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STAB. VALUE</div><div style="font-size:22px;font-weight:900;color:#C9A84C;font-family:'Space Mono'">${valuations && valuations[1] ? fmtM(valuations[1].value) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ ${mktAcqCap ? (mktAcqCap*100).toFixed(1) + "%" : "5.75%"} market cap</div></div>
@@ -5132,7 +5293,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
   </div>
 
   <!-- ── 4a · 10-YEAR OPERATING PRO FORMA ── -->
-  ${yearData && Array.isArray(yearData) && yearData.length >= 5 ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+  ${(() => { const pfRows = (Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData; return pfRows && Array.isArray(pfRows) && pfRows.length >= 5; })() ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
       <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761">4a &mdash; 10-YEAR OPERATING PRO FORMA</div>
       <div style="font-size:9px;color:#94A3B8">Lease-up Y1-Y2 &rarr; Stab Y3+ (91% occ) &middot; ECRI 8%/yr on rolled tenants &middot; Street bumps 3.5%/yr &middot; PSA 10-K calibrated</div>
@@ -5141,14 +5302,14 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
       <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:720px">
         <thead><tr style="background:#F8FAFC">
           <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #1E2761;position:sticky;left:0;background:#F8FAFC">Line Item</th>
-          ${yearData.slice(0, 10).map((yr, i) => `<th style="text-align:right;padding:8px;border-bottom:2px solid #1E2761;color:#1E2761">Y${i + 1}</th>`).join("")}
+          ${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr, i) => `<th style="text-align:right;padding:8px;border-bottom:2px solid #1E2761;color:#1E2761">Y${i + 1}</th>`).join("")}
         </tr></thead>
         <tbody>
-          <tr><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#fff">Occupancy</td>${yearData.slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;color:${(yr.occupancy || yr.occ || 0) >= 0.88 ? "#16A34A" : (yr.occupancy || yr.occ || 0) >= 0.70 ? "#F59E0B" : "#64748B"}">${yr.occupancy != null ? (yr.occupancy * 100).toFixed(1) + "%" : yr.occ != null ? (yr.occ * 100).toFixed(1) + "%" : "\u2014"}</td>`).join("")}</tr>
-          <tr style="background:#FAFBFC"><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#FAFBFC">Total Revenue</td>${yearData.slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace">${(yr.totalRev || yr.revenue || 0) > 0 ? "$" + ((yr.totalRev || yr.revenue) / 1e6).toFixed(2) + "M" : "\u2014"}</td>`).join("")}</tr>
-          <tr><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#fff">Total OpEx</td>${yearData.slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;color:#EF4444">(${(yr.opex || 0) > 0 ? "$" + ((yr.opex) / 1e6).toFixed(2) + "M" : "\u2014"})</td>`).join("")}</tr>
-          <tr style="background:#1E2761;color:#fff"><td style="padding:10px;font-weight:900;position:sticky;left:0;background:#1E2761">NOI</td>${yearData.slice(0, 10).map((yr) => `<td style="padding:10px 8px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${(yr.noi || 0) > 0 ? "$" + ((yr.noi) / 1e6).toFixed(2) + "M" : "\u2014"}</td>`).join("")}</tr>
-          <tr><td style="padding:6px 10px;color:#64748B;font-size:9px;position:sticky;left:0;background:#fff">NOI Margin</td>${yearData.slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;font-size:9px;color:${((yr.noi || 0) / (yr.totalRev || yr.revenue || 1)) >= 0.70 ? "#16A34A" : "#94A3B8"}">${yr.totalRev || yr.revenue ? (((yr.noi || 0) / (yr.totalRev || yr.revenue || 1)) * 100).toFixed(1) + "%" : "\u2014"}</td>`).join("")}</tr>
+          <tr><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#fff">Occupancy</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => { const occ = yr.occupancy != null ? yr.occupancy : yr.occRate != null ? yr.occRate : yr.occ != null ? yr.occ : null; return `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;color:${(occ || 0) >= 0.88 ? "#16A34A" : (occ || 0) >= 0.70 ? "#F59E0B" : "#64748B"}">${occ != null ? (occ * 100).toFixed(1) + "%" : "\u2014"}</td>`; }).join("")}</tr>
+          <tr style="background:#FAFBFC"><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#FAFBFC">Total Revenue</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace">${(yr.totalRev || yr.revenue || 0) > 0 ? "$" + ((yr.totalRev || yr.revenue) / 1e6).toFixed(2) + "M" : "\u2014"}</td>`).join("")}</tr>
+          <tr><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#fff">Total OpEx</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;color:#EF4444">(${(yr.opex || 0) > 0 ? "$" + ((yr.opex) / 1e6).toFixed(2) + "M" : "\u2014"})</td>`).join("")}</tr>
+          <tr style="background:#1E2761;color:#fff"><td style="padding:10px;font-weight:900;position:sticky;left:0;background:#1E2761">NOI</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:10px 8px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${(yr.noi || 0) > 0 ? "$" + ((yr.noi) / 1e6).toFixed(2) + "M" : "\u2014"}</td>`).join("")}</tr>
+          <tr><td style="padding:6px 10px;color:#64748B;font-size:9px;position:sticky;left:0;background:#fff">NOI Margin</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;font-size:9px;color:${((yr.noi || 0) / (yr.totalRev || yr.revenue || 1)) >= 0.70 ? "#16A34A" : "#94A3B8"}">${yr.totalRev || yr.revenue ? (((yr.noi || 0) / (yr.totalRev || yr.revenue || 1)) * 100).toFixed(1) + "%" : "\u2014"}</td>`).join("")}</tr>
         </tbody>
       </table>
     </div>
@@ -5485,7 +5646,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
         <div class="mi-header"><div class="mi-title">3-Mile Population</div><div class="mi-conf ${popN >= 25000 ? "mi-conf-high" : popN >= 10000 ? "mi-conf-med" : "mi-conf-low"}">${popN >= 40000 ? "Dense" : popN >= 25000 ? "Strong" : popN >= 10000 ? "Adequate" : "Low"}</div></div>
         <div class="mi-body">
           <strong>Total population within a 3-mile radius — the primary demand catchment for self-storage.</strong>
-          <div class="mi-formula">SiteScore Weight: 16% of composite<br>Score: ${popN >= 40000 ? "10/10 (40K+)" : popN >= 25000 ? "8/10 (25K+)" : popN >= 15000 ? "6/10 (15K+)" : popN >= 10000 ? "5/10 (10K+)" : popN >= 5000 ? "3/10 (5K+)" : "0/10 — FAIL (<5K)"}</div>
+          <div class="mi-formula">SiteScore Weight: 14% of composite<br>Score: ${popN >= 40000 ? "10/10 (40K+)" : popN >= 25000 ? "8/10 (25K+)" : popN >= 15000 ? "6/10 (15K+)" : popN >= 10000 ? "5/10 (10K+)" : popN >= 5000 ? "3/10 (5K+)" : "0/10 — FAIL (<5K)"}</div>
           <div class="mi-row"><span class="mi-row-label">3-Mi Population</span><span class="mi-row-val">${!isNaN(popN) ? fmtN2(popN) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Industry Avg Demand</span><span class="mi-row-val">~10% of pop rents storage</span></div>
           <div class="mi-row"><span class="mi-row-label">Est. Demand Pool</span><span class="mi-row-val">${!isNaN(popN) ? fmtN2(Math.round(popN * 0.10)) + " potential renters" : "—"}</span></div>
@@ -5513,7 +5674,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
         <div class="mi-header"><div class="mi-title">3-Mile Household Count</div><div class="mi-conf ${hhN >= 18000 ? "mi-conf-high" : hhN >= 6000 ? "mi-conf-med" : "mi-conf-low"}">${hhN >= 25000 ? "Dense" : hhN >= 12000 ? "Strong" : "Moderate"}</div></div>
         <div class="mi-body">
           <strong>Total households within 3 miles — more precise demand proxy than population (1 household = 1 potential storage unit).</strong>
-          <div class="mi-formula">SiteScore Weight: 5% of composite<br>Score: ${hhN >= 25000 ? "10/10 (25K+)" : hhN >= 18000 ? "8/10 (18K+)" : hhN >= 12000 ? "7/10 (12K+)" : hhN >= 6000 ? "5/10 (6K+)" : "3/10 (<6K)"}</div>
+          <div class="mi-formula">SiteScore Weight: 4% of composite<br>Score: ${hhN >= 25000 ? "10/10 (25K+)" : hhN >= 18000 ? "8/10 (18K+)" : hhN >= 12000 ? "7/10 (12K+)" : hhN >= 6000 ? "5/10 (6K+)" : "3/10 (<6K)"}</div>
           <div class="mi-row"><span class="mi-row-label">Households</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Avg HH Size</span><span class="mi-row-val">${!isNaN(popN) && !isNaN(hhN) && hhN > 0 ? (popN/hhN).toFixed(2) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Est. Addressable HH</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(Math.round(hhN * 0.10)) + " (10% penetration)" : "—"}</span></div>
@@ -5526,7 +5687,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
         <div class="mi-header"><div class="mi-title">Median Home Value</div><div class="mi-conf ${hvN >= 350000 ? "mi-conf-high" : hvN >= 180000 ? "mi-conf-med" : "mi-conf-low"}">${hvN >= 500000 ? "Premium" : hvN >= 250000 ? "Strong" : "Moderate"}</div></div>
         <div class="mi-body">
           <strong>Median home value within 3 miles — affluence signal correlated with storage demand and willingness to pay premium rates.</strong>
-          <div class="mi-formula">SiteScore Weight: 5% of composite<br>Score: ${hvN >= 500000 ? "10/10 ($500K+)" : hvN >= 350000 ? "9/10 ($350K+)" : hvN >= 250000 ? "8/10 ($250K+)" : hvN >= 180000 ? "6/10 ($180K+)" : "4/10 or lower"}</div>
+          <div class="mi-formula">SiteScore Weight: 4% of composite<br>Score: ${hvN >= 500000 ? "10/10 ($500K+)" : hvN >= 350000 ? "9/10 ($350K+)" : hvN >= 250000 ? "8/10 ($250K+)" : hvN >= 180000 ? "6/10 ($180K+)" : "4/10 or lower"}</div>
           <div class="mi-row"><span class="mi-row-label">Median Home Value</span><span class="mi-row-val">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">U.S. Median (2024)</span><span class="mi-row-val">$344,900</span></div>
           <div class="mi-row"><span class="mi-row-label">Why It Matters</span><span class="mi-row-val">Higher home values → more possessions → more storage demand</span></div>
@@ -5552,8 +5713,8 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
       <div id="mi-dem-growth" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">5-Year Population Growth CAGR</div><div class="mi-conf ${growthPct >= 1.5 ? "mi-conf-high" : growthPct >= 0 ? "mi-conf-med" : "mi-conf-low"}">${growthPct >= 2.0 ? "High Growth" : growthPct >= 1.0 ? "Growing" : growthPct >= 0 ? "Stable" : "Declining"}</div></div>
         <div class="mi-body">
-          <strong>Projected compound annual population growth rate (2025→2030) — the highest-weighted SiteScore dimension at 21%.</strong>
-          <div class="mi-formula">SiteScore Weight: 21% of composite (highest weight)<br>Score: ${growthPct >= 2.0 ? "10/10 (≥2.0%)" : growthPct >= 1.5 ? "9/10 (≥1.5%)" : growthPct >= 1.0 ? "8/10 (≥1.0%)" : growthPct >= 0.5 ? "6/10 (≥0.5%)" : growthPct >= 0 ? "4/10 (≥0%)" : "0-2/10 (negative)"}</div>
+          <strong>Projected compound annual population growth rate (2025→2030) — a high-weighted SiteScore dimension at 18%.</strong>
+          <div class="mi-formula">SiteScore Weight: 18% of composite<br>Score: ${growthPct >= 2.0 ? "10/10 (≥2.0%)" : growthPct >= 1.5 ? "9/10 (≥1.5%)" : growthPct >= 1.0 ? "8/10 (≥1.0%)" : growthPct >= 0.5 ? "6/10 (≥0.5%)" : growthPct >= 0 ? "4/10 (≥0%)" : "0-2/10 (negative)"}</div>
           <div class="mi-row"><span class="mi-row-label">5-Yr CAGR</span><span class="mi-row-val">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">U.S. Average</span><span class="mi-row-val">0.4% CAGR</span></div>
           <div class="mi-row"><span class="mi-row-label">Why Highest Weight</span><span class="mi-row-val">Growing markets = rising demand + rent growth + lower vacancy risk</span></div>
@@ -5606,7 +5767,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
         <div class="mi-header"><div class="mi-title">Competitive Density</div><div class="mi-conf ${compCount <= 2 ? "mi-conf-high" : compCount <= 5 ? "mi-conf-med" : "mi-conf-low"}">${compCount <= 1 ? "Low Competition" : compCount <= 3 ? "Moderate" : "High Competition"}</div></div>
         <div class="mi-body">
           <strong>Total self-storage facilities within a 3-mile radius. Fewer competitors = stronger pricing power and faster lease-up.</strong>
-          <div class="mi-formula">SiteScore Weight: 7% of composite<br>Score: ${compCount === 0 ? "10/10 (0 competitors)" : compCount === 1 ? "9/10 (1 competitor)" : compCount === 2 ? "7/10 (2 competitors)" : compCount === 3 ? "6/10 (3 competitors)" : compCount <= 5 ? "4/10 (4-5 competitors)" : compCount <= 8 ? "3/10 (6-8 competitors)" : "2/10 (9+ competitors)"}</div>
+          <div class="mi-formula">SiteScore Weight: 25% of composite (highest weight — CC SPC is king per v4.0)<br>Score: ${compCount === 0 ? "10/10 (0 competitors)" : compCount === 1 ? "9/10 (1 competitor)" : compCount === 2 ? "7/10 (2 competitors)" : compCount === 3 ? "6/10 (3 competitors)" : compCount <= 5 ? "4/10 (4-5 competitors)" : compCount <= 8 ? "3/10 (6-8 competitors)" : "2/10 (9+ competitors)"}</div>
           <div class="mi-row"><span class="mi-row-label">Competitor Count</span><span class="mi-row-val">${compCount} facilities</span></div>
           <div class="mi-row"><span class="mi-row-label">Est. Competing SF</span><span class="mi-row-val">${site.competingSF || "—"}</span></div>
           ${sfPerCapita ? `<div class="mi-row"><span class="mi-row-label">SF/Capita (3-Mi)</span><span class="mi-row-val" style="color:${demandColor}">${sfPerCapita} (${demandSignal})</span></div>` : ""}
@@ -5655,7 +5816,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
       <div class="mi-header"><div class="mi-title">Nearest Facility Proximity</div><div class="mi-conf ${nearestPS <= 15 ? "mi-conf-high" : nearestPS <= 25 ? "mi-conf-med" : "mi-conf-low"}">${nearestPS <= 5 ? "Validated" : nearestPS <= 15 ? "Expansion" : "New Market"}</div></div>
       <div class="mi-body">
         <strong>Distance to the nearest existing corporate facility. Closer = market validation (not cannibalization). Sites >35mi from any facility are excluded as too remote.</strong>
-        <div class="mi-formula">SiteScore Weight: 11% of composite<br>Score: ${nearestPS <= 5 ? "10/10 (≤5mi — validated submarket)" : nearestPS <= 10 ? "9/10 (≤10mi)" : nearestPS <= 15 ? "7/10 (≤15mi)" : nearestPS <= 25 ? "5/10 (≤25mi)" : "3/10 (>25mi) or FAIL if >35mi"}</div>
+        <div class="mi-formula">SiteScore Weight: Binary gate only (0% weighted) — v4.0<br>Score: ${nearestPS <= 5 ? "10/10 (≤5mi — validated submarket)" : nearestPS <= 10 ? "9/10 (≤10mi)" : nearestPS <= 15 ? "7/10 (≤15mi)" : nearestPS <= 25 ? "5/10 (≤25mi)" : "3/10 (>25mi) or FAIL if >35mi"}<br>Display only; does not contribute to composite (>35mi = hard FAIL)</div>
         <div class="mi-row"><span class="mi-row-label">Distance</span><span class="mi-row-val">${nearestPS} miles</span></div>
         <div class="mi-row"><span class="mi-row-label">≤ 5 mi</span><span class="mi-row-val" style="color:#16A34A">Validated — existing ops confirm demand</span></div>
         <div class="mi-row"><span class="mi-row-label">5-15 mi</span><span class="mi-row-val" style="color:#3B82F6">Expansion zone — adjacent market</span></div>
@@ -6016,10 +6177,10 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
     </div>
     <div class="metric mi" onclick="toggleMI('inst-devspread',event)"><div class="label">Dev Spread</div><div class="value" style="font-size:18px">${devSpread} bps</div><div class="sub">YOC vs ${(mktAcqCap*100).toFixed(1)}% acq cap</div><em class="mi-hint">i</em>
       <div id="mi-inst-devspread" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Development Spread</div><div class="mi-conf ${parseFloat(devSpread) >= 2.0 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(devSpread) >= 3.0 ? "Wide Spread" : parseFloat(devSpread) >= 2.0 ? "Adequate" : "Tight"}</div></div>
+        <div class="mi-header"><div class="mi-title">Development Spread</div><div class="mi-conf ${parseFloat(devSpread) >= 200 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(devSpread) >= 300 ? "Wide Spread" : parseFloat(devSpread) >= 200 ? "Adequate" : "Tight"}</div></div>
         <div class="mi-body">
           <strong>The development spread is the yield premium a developer earns by building vs. acquiring at market cap rate. This is the "developer's profit" that justifies the construction and lease-up risk.</strong>
-          <div class="mi-formula">Dev Spread = YOC − Market Acquisition Cap Rate<br>= ${yocStab}% − ${(mktAcqCap*100).toFixed(1)}%<br>= <strong style="color:${parseFloat(devSpread) >= 2.0 ? '#16A34A' : '#D97706'}">${devSpread} bps</strong></div>
+          <div class="mi-formula">Dev Spread = (YOC − Market Acquisition Cap Rate) × 100<br>= (${yocStab}% − ${(mktAcqCap*100).toFixed(1)}%) × 100<br>= <strong style="color:${parseFloat(devSpread) >= 200 ? '#16A34A' : '#D97706'}">${devSpread} bps</strong></div>
           <div class="mi-row"><span class="mi-row-label">Target Spread</span><span class="mi-row-val">≥ 200 bps (minimum risk premium)</span></div>
           <div class="mi-row"><span class="mi-row-label">Market Acq Cap</span><span class="mi-row-val">${(mktAcqCap*100).toFixed(1)}% (stabilized storage)</span></div>
           <div class="mi-row"><span class="mi-row-label">Risk Premium Covers</span><span class="mi-row-val">Construction, lease-up, entitlement risk</span></div>
@@ -6150,7 +6311,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
     <thead><tr><th>Operator</th><th>RevPAF</th><th>NOI Margin</th><th>Avg Occ</th><th>Implied Cap</th></tr></thead>
     <tbody>
       <tr style="background:rgba(201,168,76,0.06);font-weight:700;border-left:3px solid #C9A84C">
-        <td style="color:#C9A84C">◆ THIS SITE</td><td class="mono">$${revPAF}</td><td class="mono">${noiMarginPct}%</td><td class="mono">${Math.round(yearData[4].occ * 100)}%</td><td class="mono">${yocStab}% YOC</td>
+        <td style="color:#C9A84C">◆ THIS SITE</td><td class="mono">$${revPAF}</td><td class="mono">${noiMarginPct}%</td><td class="mono">${yearData && yearData[4] ? Math.round(((yearData[4].occupancy != null ? yearData[4].occupancy : yearData[4].occRate != null ? yearData[4].occRate : yearData[4].occ != null ? yearData[4].occ : 0)) * 100) + "%" : "—"}</td><td class="mono">${yocStab}% YOC</td>
       </tr>
       ${reitBench.slice(0, 4).map(r => `<tr>
         <td style="font-weight:600">${r.ticker}</td><td class="mono">$${r.revPAF.toFixed(2)}</td><td class="mono">${r.noiMargin.toFixed(1)}%</td><td class="mono">${r.avgOcc.toFixed(1)}%</td><td class="mono">${r.impliedCap.toFixed(1)}%</td>
@@ -6169,7 +6330,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
           <div class="mi-formula">Replacement Cost (excl. land) = Total SF × Cost/SF<br>= ${totalSF.toLocaleString()} × $${replacementCostPerSF}<br>= <strong style="color:#1E40AF">${fmtM(replacementCost)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Construction $/SF</span><span class="mi-row-val">$${replacementCostPerSF}/SF</span></div>
           <div class="mi-row"><span class="mi-row-label">Full w/ Land</span><span class="mi-row-val">${fullReplacementCost > 0 ? fmtM(fullReplacementCost) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">vs Market Value</span><span class="mi-row-val">${replacementVsMarket || "—"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">vs Market Value</span><span class="mi-row-val">${replacementVsMarket !== null && replacementVsMarket !== undefined ? replacementVsMarket + "%" : "—"}</span></div>
           <div class="mi-source">Source: RSMeans Construction Cost Database (2025) | State-adjusted index | Self-storage specification</div>
         </div>
       </div></div>

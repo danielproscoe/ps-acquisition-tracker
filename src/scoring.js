@@ -796,12 +796,60 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     const mktClimFull = Math.round(mktClimateRate * escMult * 100) / 100;
     const mktDriveFull = Math.round(mktDriveRate * escMult * 100) / 100;
     return {
-      ...y, climRate, driveRate, climRev, driveRev, totalRev, opex, noi,
+      ...y,
+      // Alias occRate as occupancy for REC Package template compatibility (§6h-2b sec-CAP 4a).
+      occupancy: y.occRate,
+      climRate, driveRate, climRev, driveRev, totalRev, opex, noi,
       mktClimFull, mktDriveFull, escMult, ecriMult,
       fixedOpex, variableOpex, opexRatio,
       opexBreakdown: opexBkdn,
     };
   });
+
+  // ── 10-Year Pro Forma Extension (sec-CAP 4a per CLAUDE.md §6h-2b) ──
+  // yearData covers Y1-Y5 (lease-up → stabilization). yearData10 appends Y6-Y10 at
+  // stabilized occupancy with continued street-rate escalation (annualEsc) and ECRI
+  // compounding (Y5 +8%/yr thereafter, capped at ~60% cumulative). This drives the
+  // 10-Year Operating Pro Forma table in the REC Package.
+  const stabOccY6Plus = O('leaseUpStabOcc', 0.92);
+  const ecriY6Plus = 0.08; // PSA discloses 8% annualized ECRI on rolled tenants
+  const yearData10 = [...yearData];
+  for (let yr = 6; yr <= 10; yr++) {
+    const i = yr - 1; // 0-indexed
+    const escMult = Math.pow(1 + annualEsc, i);
+    // ECRI compounds beyond Y5 — Y5 = 1.32, Y6 = 1.32×1.08, etc. Cap at 1.60 (60% above street).
+    const ecriMult = Math.min(1.60, 1.32 * Math.pow(1 + ecriY6Plus, yr - 5));
+    const climRate = Math.round((mktClimateRate * escMult) * 100) / 100;
+    const driveRate = Math.round((mktDriveRate * escMult) * 100) / 100;
+    const climRev = Math.round(climateSF * stabOccY6Plus * climRate * ecriMult * 12);
+    const driveRev = Math.round(driveSF * stabOccY6Plus * driveRate * ecriMult * 12);
+    const totalRev = climRev + driveRev;
+    const opexResult = calcOpEx(i, totalRev);
+    const opex = opexResult.total;
+    const noi = totalRev - opex;
+    yearData10.push({
+      yr,
+      label: `Year ${yr} — ${yr === 10 ? "Exit Year" : "Stabilized Hold"}`,
+      occRate: stabOccY6Plus,
+      occupancy: stabOccY6Plus,
+      climDisc: 0,
+      driveDisc: 0,
+      climRate,
+      driveRate,
+      climRev,
+      driveRev,
+      totalRev,
+      opex,
+      noi,
+      escMult,
+      ecriMult,
+      fixedOpex: opexResult.fixed,
+      variableOpex: opexResult.variable,
+      opexRatio: totalRev > 0 ? (opex / totalRev * 100).toFixed(1) : "N/A",
+      mktClimFull: Math.round(mktClimateRate * escMult * 100) / 100,
+      mktDriveFull: Math.round(mktDriveRate * escMult * 100) / 100,
+    });
+  }
 
   const stabNOIRaw = yearData[4].noi;
   const stabRevRaw = yearData[4].totalRev;
@@ -1056,7 +1104,9 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
   const noiPerSF = stabNOI > 0 ? (stabNOI / totalSF).toFixed(2) : "N/A";
   const noiMarginPct = stabRev > 0 ? ((stabNOI / stabRev) * 100).toFixed(1) : "N/A";
   const mktAcqCap = O('mktAcqCap', 0.0575); // EY AUDIT FIX 2026-03-28: route through override system
-  const devSpread = parseFloat(yocStab) > 0 ? (parseFloat(yocStab) - mktAcqCap * 100).toFixed(1) : "N/A";
+  // Dev Spread in basis points: (YOC% − MktAcqCap%) × 100. e.g. 10.0% − 5.75% = 4.25% = 425 bps.
+  // Prior bug: omitted ×100 — produced "4.3 bps" instead of the correct "425 bps".
+  const devSpread = parseFloat(yocStab) > 0 ? Math.round((parseFloat(yocStab) - mktAcqCap * 100) * 100).toString() : "N/A";
   const impliedLandCap = landCost > 0 && stabNOI > 0 ? ((stabNOI / landCost) * 100).toFixed(1) : "N/A";
 
   // ── Supply/Demand ──
@@ -1157,7 +1207,7 @@ export const computeSiteFinancials = (site, overrides = {}, siteOverrides = {}) 
     psFamilyCount: site.ccRentData?.psFamilyCount || 0,
     intelNarrative: site.ccRentData?.narrative || null,
     // Year data
-    leaseUpSchedule, yearData,
+    leaseUpSchedule, yearData, yearData10,
     // NOI
     stabNOI, stabRev, valuationError,
     // Construction + Carry
@@ -1339,7 +1389,24 @@ export const computeVettingIntel = (site) => {
   const hasSUP = /(conditional|sup\b|cup\b|special\s*use)/i.test(combined);
   const hasRezone = /rezone/i.test(combined);
   const hasOverlay = /overlay/i.test(combined);
-  const hasFlood = /flood/i.test(combined);
+  // hasFlood = true ONLY when the site is actually IN a flood zone.
+  // Prior bug: bare /flood/i match fired on "no flood" / "outside floodplain" / "Zone X (no flood)"
+  // producing false-positive HIGH environmental risk on clean sites.
+  // Priority 1: structured floodZone field. Priority 2: conservative phrase matching.
+  const floodZoneStr = String(site.floodZone || "").toLowerCase();
+  const cleanFloodZone = /zone\s*x|no\s*flood|outside\s*(?:the\s*)?flood|preferred|minimal\s*flood|clear\s*flood|fema\s*clear/i.test(floodZoneStr);
+  const dirtyFloodZone = /zone\s*(?:a|ae|v|ve|ar|a99)\b|100[-\s]*year|special\s*flood\s*hazard|shaded\s*x|floodway/i.test(floodZoneStr);
+  let hasFlood;
+  if (dirtyFloodZone) hasFlood = true;
+  else if (cleanFloodZone) hasFlood = false;
+  else {
+    // Fallback to summary text — but require explicit "in flood" language, not just the word "flood".
+    // Negate when clearly-clean language surrounds the flood mention.
+    const negatedFlood = /(?:no\s*flood|not\s*in\s*flood|outside\s*(?:the\s*)?flood|zone\s*x|minimal\s*flood|clear\s*flood|fema\s*clear|no\s*special\s*flood)/i.test(combined);
+    const positiveFlood = /(?:in\s*flood|flood\s*zone\s*(?:a|ae|v)|100[-\s]*year\s*flood|special\s*flood\s*hazard|floodway|partially\s*in\s*flood|flood\s*plain\b)/i.test(combined);
+    if (positiveFlood && !negatedFlood) hasFlood = true;
+    else hasFlood = false;
+  }
   const hasUtilities = /(utilit|water|sewer|electric|gas\b)/i.test(combined);
   const hasSeptic = /septic/i.test(combined);
   const hasWell = /\bwell\b/i.test(combined);

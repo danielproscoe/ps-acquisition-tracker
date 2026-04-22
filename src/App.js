@@ -276,40 +276,6 @@ const generateVettingReport = (site, psD, iq) => _generateVettingReport(site, ps
 const generatePricingReport = (site, iq, allSites) => _generatePricingReport(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES, allSites);
 const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES);
 
-// Open REC Package in new tab + auto-trigger print dialog (user selects "Save as PDF")
-const downloadRECPackagePDF = (site, iq, notifyFn) => {
-  try {
-    const rpt = generateRECPackage(site, iq);
-    const fileLabel = `${(site.name || site.address || 'site').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60)}_REC_${new Date().toISOString().slice(0,10)}`;
-    // Inject print-trigger + filename title so browser's "Save as PDF" defaults to a good name
-    const htmlWithPrint = rpt
-      .replace('<title>', `<title>${fileLabel}|SAFE_TITLE_MARKER</title><!--`)
-      .replace('|SAFE_TITLE_MARKER</title><!--', '')
-      + `<script>
-           document.title = ${JSON.stringify(fileLabel)};
-           // Wait for layout + SVGs to paint, then auto-trigger print
-           window.addEventListener('load', () => setTimeout(() => window.print(), 800));
-         </script>
-         <style>
-           @media print {
-             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-             .expand-panel, .expand-hint { display: none !important; }
-             .section { page-break-inside: avoid; }
-             #sec-MI, #sec-VA, #sec-CAP { page-break-before: auto; }
-             button, .btn, .close-btn { display: none !important; }
-           }
-           @page { size: letter; margin: 0.5in; }
-         </style>`;
-    const blob = new Blob([htmlWithPrint], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (!w) { if (notifyFn) notifyFn('Pop-up blocked — allow pop-ups for localhost then retry.'); return; }
-    if (notifyFn) notifyFn(`📄 REC Package PDF — print dialog will auto-open. Select "Save as PDF" and name "${fileLabel}.pdf".`);
-  } catch (err) {
-    console.error('PDF export error:', err);
-    if (notifyFn) notifyFn('PDF export failed — see console.');
-  }
-};
 // SiteScoreBadge wrapper — auto-injects computeSiteScore so call sites stay clean
 const SiteScoreBadge = (props) => <_SiteScoreBadge {...props} computeSiteScore={computeSiteScore} />;
 
@@ -2214,7 +2180,6 @@ function AppInner() {
                           <button onClick={() => {
                             try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📋 REC Package</button>
-                          <button onClick={(e) => { e.stopPropagation(); try { downloadRECPackagePDF(site, computeSiteScore(site), notify); } catch (err) { notify('PDF export failed'); console.error(err); } }} title="Export REC Package as PDF" style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #DC2626, #991B1B)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(220,38,38,0.25)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap" }}>📄 PDF</button>
                         </div>
                         {/* Bottom Row — Small Icon Links */}
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -3894,7 +3859,6 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                   <button onClick={() => {
                     try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
-                  <button onClick={(e) => { e.stopPropagation(); try { downloadRECPackagePDF(site, computeSiteScore(site), notify); } catch (err) { notify('PDF export failed'); console.error(err); } }} title="Export as PDF" style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #DC2626, #991B1B)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(220,38,38,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📄 PDF</button>
                 </div>
               </div>
 
@@ -4443,6 +4407,7 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                     <div style={kpiCell}>
                       <div style={kpiLabel}>3MI POPULATION</div>
                       <div style={{ ...kpiVal, color: "#A78BFA" }}>{site.pop3mi ? fmtN(site.pop3mi) : "—"}</div>
+                      {(site.pop1mi || site.pop5mi) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.pop1mi ? `1mi: ${fmtN(site.pop1mi)}` : ""}{site.pop1mi && site.pop5mi ? " · " : ""}{site.pop5mi ? `5mi: ${fmtN(site.pop5mi)}` : ""}</div>}
                       {site.households3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{fmtN(site.households3mi)} HH</div>}
                     </div>
                     <div style={kpiCell}>
@@ -4453,7 +4418,8 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                     <div style={kpiCell}>
                       <div style={kpiLabel}>MEDIAN HHI</div>
                       <div style={{ ...kpiVal, color: "#E2E8F0" }}>{hhiStr || "—"}</div>
-                      {site.homeValue3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>Home: ${fmtN(site.homeValue3mi)}</div>}
+                      {(site.income1mi || site.income5mi) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.income1mi ? `1mi: ${site.income1mi}` : ""}{site.income1mi && site.income5mi ? " · " : ""}{site.income5mi ? `5mi: ${site.income5mi}` : ""}</div>}
+                      {site.homeValue3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>Home: {site.homeValue3mi.toString().startsWith("$") ? site.homeValue3mi : "$" + fmtN(site.homeValue3mi)}</div>}
                     </div>
                     <div style={kpiCell}>
                       <div style={{ ...kpiLabel, display: "flex", alignItems: "center", gap: 4 }}>
@@ -4615,7 +4581,6 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                   <button onClick={() => {
                     try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
-                  <button onClick={(e) => { e.stopPropagation(); try { downloadRECPackagePDF(site, computeSiteScore(site), notify); } catch (err) { notify('PDF export failed'); console.error(err); } }} title="Export as PDF" style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #DC2626, #991B1B)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(220,38,38,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📄 PDF</button>
                 </div>
               </div>
               {/* ═══ STORVEX LAND PRICE INTELLIGENCE — Blunt Recommendation Banner ═══ */}
