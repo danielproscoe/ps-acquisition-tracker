@@ -3935,10 +3935,13 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                     try { const iqPR = computeSiteScore(site); const rpt = generatePricingReport(site, iqPR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>💰 Pricing</button>
                   <button onClick={() => {
-                    try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP, getPortfolioFit(site)); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                    try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP, getPortfolioFit(site), getBuyerFit(site)); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
                 </div>
               </div>
+
+              {/* ═══ ROUTING ENGINE — Third-lens BuyerFit (DealFlow Oracle™) ═══ */}
+              <RoutingEnginePanel site={site} fit={getBuyerFit(site)} />
 
               {/* SiteScore Scorecard — with source citations */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 20 }}>
@@ -4661,6 +4664,10 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
                 </div>
               </div>
+
+              {/* ═══ ROUTING ENGINE — Third-lens BuyerFit (DealFlow Oracle™) ═══ */}
+              <RoutingEnginePanel site={site} fit={getBuyerFit(site)} />
+
               {/* ═══ STORVEX LAND PRICE INTELLIGENCE — Blunt Recommendation Banner ═══ */}
               {(() => {
                 try {
