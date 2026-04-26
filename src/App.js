@@ -4461,8 +4461,8 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                       <SiteScoreBadge site={site} iq={iqR} />
                     </div>
                   </div>
-                  {/* KPI Grid — 2 rows × 4 columns */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  {/* KPI Grid — 3 rows × 3 columns */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                     {/* Row 1: Deal Metrics */}
                     <div style={kpiCell}>
                       <div style={kpiLabel}>ASKING PRICE</div>
@@ -4479,28 +4479,28 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                       <div style={{ ...kpiVal, color: zColor, fontSize: site.zoning && site.zoning.length > 12 ? 13 : 17 }}>{site.zoning || "—"}</div>
                       {site.zoningClassification && <div style={{ fontSize: 9, color: zColor, marginTop: 2, fontWeight: 700, textTransform: "uppercase" }}>{site.zoningClassification}</div>}
                     </div>
+                    {/* Row 2: Site / Risk Metrics */}
                     <div style={kpiCell}>
                       <div style={kpiLabel}>NEAREST PS</div>
                       <div style={{ ...kpiVal, color: nearPS != null ? (nearPS <= 5 ? "#22C55E" : nearPS <= 15 ? "#42A5F5" : "#F59E0B") : "#3A3F5C" }}>{nearPSStr || "—"}</div>
                       {nearPS != null && nearPS <= 5 && <div style={{ fontSize: 9, color: "#22C55E", marginTop: 2, fontWeight: 600 }}>Validated submarket</div>}
                     </div>
-                    {/* Row 2: Market Metrics */}
-                    <div style={kpiCell}>
-                      <div style={kpiLabel}>3MI POPULATION</div>
-                      <div style={{ ...kpiVal, color: "#A78BFA" }}>{site.pop3mi ? fmtN(site.pop3mi) : "—"}</div>
-                      {(site.pop1mi || site.pop5mi) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.pop1mi ? `1mi: ${fmtN(site.pop1mi)}` : ""}{site.pop1mi && site.pop5mi ? " · " : ""}{site.pop5mi ? `5mi: ${fmtN(site.pop5mi)}` : ""}</div>}
-                      {site.households3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{fmtN(site.households3mi)} HH</div>}
-                    </div>
-                    <div style={kpiCell}>
-                      <div style={kpiLabel}>5YR GROWTH</div>
-                      <div style={{ ...kpiVal, color: !isNaN(grN) ? (grN >= 1.5 ? "#22C55E" : grN >= 0 ? "#FBBF24" : "#EF4444") : "#3A3F5C" }}>{!isNaN(grN) ? `${grN >= 0 ? "+" : ""}${grN.toFixed(1)}%` : "—"}</div>
-                      {!isNaN(grN) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{grN >= 2 ? "High growth" : grN >= 1 ? "Moderate growth" : grN >= 0 ? "Stable" : "Declining"}</div>}
-                    </div>
-                    <div style={kpiCell}>
-                      <div style={kpiLabel}>MEDIAN HHI</div>
-                      <div style={{ ...kpiVal, color: "#E2E8F0" }}>{hhiStr || "—"}</div>
-                      {(site.income1mi || site.income5mi) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.income1mi ? `1mi: ${site.income1mi}` : ""}{site.income1mi && site.income5mi ? " · " : ""}{site.income5mi ? `5mi: ${site.income5mi}` : ""}</div>}
-                      {site.homeValue3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>Home: {site.homeValue3mi.toString().startsWith("$") ? site.homeValue3mi : "$" + fmtN(site.homeValue3mi)}</div>}
+                    <div style={kpiCell} title="§6h Step 2c Survey Scrub Gate — easements + access verdict">
+                      <div style={kpiLabel}>SURVEY</div>
+                      {(() => {
+                        const v = site.surveyVerdict || "NOT_ON_FILE";
+                        const meta = ({
+                          "CLEAN":       { label: "Clean",       color: "#16A34A", sub: "Easements + access OK" },
+                          "FLAGGED":     { label: "Flagged",     color: "#F59E0B", sub: "Capped at YELLOW" },
+                          "KILL":        { label: "Killed",      color: "#991B1B", sub: "Deal-killer" },
+                          "PENDING":     { label: "Pending",     color: "#3B82F6", sub: "Scrub in progress" },
+                          "NOT_ON_FILE": { label: "Not on file", color: "#94A3B8", sub: "Request from broker" },
+                        })[v] || { label: "Not on file", color: "#94A3B8", sub: "Request from broker" };
+                        return <>
+                          <div style={{ ...kpiVal, color: meta.color }}>{meta.label}</div>
+                          <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{meta.sub}</div>
+                        </>;
+                      })()}
                     </div>
                     <div style={kpiCell}>
                       <div style={{ ...kpiLabel, display: "flex", alignItems: "center", gap: 4 }}>
@@ -4522,6 +4522,24 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                           </div>}
                         </>;
                       })()}
+                    </div>
+                    {/* Row 3: Market Metrics */}
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>3MI POPULATION</div>
+                      <div style={{ ...kpiVal, color: "#A78BFA" }}>{site.pop3mi ? fmtN(site.pop3mi) : "—"}</div>
+                      {(site.pop1mi || site.pop5mi) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.pop1mi ? `1mi: ${fmtN(site.pop1mi)}` : ""}{site.pop1mi && site.pop5mi ? " · " : ""}{site.pop5mi ? `5mi: ${fmtN(site.pop5mi)}` : ""}</div>}
+                      {site.households3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{fmtN(site.households3mi)} HH</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>5YR GROWTH</div>
+                      <div style={{ ...kpiVal, color: !isNaN(grN) ? (grN >= 1.5 ? "#22C55E" : grN >= 0 ? "#FBBF24" : "#EF4444") : "#3A3F5C" }}>{!isNaN(grN) ? `${grN >= 0 ? "+" : ""}${grN.toFixed(1)}%` : "—"}</div>
+                      {!isNaN(grN) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{grN >= 2 ? "High growth" : grN >= 1 ? "Moderate growth" : grN >= 0 ? "Stable" : "Declining"}</div>}
+                    </div>
+                    <div style={kpiCell}>
+                      <div style={kpiLabel}>MEDIAN HHI</div>
+                      <div style={{ ...kpiVal, color: "#E2E8F0" }}>{hhiStr || "—"}</div>
+                      {(site.income1mi || site.income5mi) && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>{site.income1mi ? `1mi: ${site.income1mi}` : ""}{site.income1mi && site.income5mi ? " · " : ""}{site.income5mi ? `5mi: ${site.income5mi}` : ""}</div>}
+                      {site.homeValue3mi && <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, fontWeight: 600 }}>Home: {site.homeValue3mi.toString().startsWith("$") ? site.homeValue3mi : "$" + fmtN(site.homeValue3mi)}</div>}
                     </div>
                   </div>
                   {/* Source Attribution — prominent data provenance bar */}
