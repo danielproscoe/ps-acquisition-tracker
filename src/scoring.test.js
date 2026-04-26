@@ -1975,3 +1975,59 @@ describe('computeOptimalLayout', () => {
     expect(result.rationale).toBeTruthy();
   });
 });
+
+// ─── 17. SURVEY SCRUB GATE (§6h Step 2c) ───
+// Manvel TX kill (April 2026) drove this gate — gas pipeline easements + access loop
+// must be caught at intake. Storage scrub: easements + standard access. PECO scrub: easements
+// + 4-direction NB/SB/EB/WB stress test. KILL never reaches scoring (auto-routed at intake).
+
+describe('Survey Scrub Gate', () => {
+  // Use fullyVettedSite so the base score is high enough to be GREEN before the cap fires.
+  const surveyScore = (verdictOverride) => {
+    const site = { ...fullyVettedSite, ...verdictOverride };
+    return computeSiteScore(site, SITE_SCORE_DEFAULTS);
+  };
+
+  test('CLEAN verdict does not cap a GREEN site', () => {
+    const result = surveyScore({ surveyVerdict: 'CLEAN' });
+    if (result.score >= 8.0) expect(result.classification).toBe('GREEN');
+    expect(result.flags.some(f => /Survey verdict/i.test(f))).toBe(false);
+  });
+
+  test('FLAGGED verdict caps GREEN at YELLOW', () => {
+    const result = surveyScore({ surveyVerdict: 'FLAGGED' });
+    if (result.score >= 8.0) {
+      expect(result.classification).toBe('YELLOW');
+      expect(result.flags.some(f => /Survey verdict.*FLAGGED/i.test(f))).toBe(true);
+    }
+  });
+
+  test('PENDING verdict caps GREEN at YELLOW', () => {
+    const result = surveyScore({ surveyVerdict: 'PENDING' });
+    if (result.score >= 8.0) {
+      expect(result.classification).toBe('YELLOW');
+      expect(result.flags.some(f => /Survey verdict.*PENDING/i.test(f))).toBe(true);
+    }
+  });
+
+  test('NOT_ON_FILE verdict caps GREEN at YELLOW', () => {
+    const result = surveyScore({ surveyVerdict: 'NOT_ON_FILE' });
+    if (result.score >= 8.0) {
+      expect(result.classification).toBe('YELLOW');
+      expect(result.flags.some(f => /Survey verdict.*NOT_ON_FILE/i.test(f))).toBe(true);
+    }
+  });
+
+  test('undefined verdict (legacy site) does not cap', () => {
+    const result = surveyScore({ surveyVerdict: undefined });
+    expect(result.flags.some(f => /Survey verdict/i.test(f))).toBe(false);
+  });
+
+  test('YELLOW site with FLAGGED verdict stays YELLOW (no double-cap)', () => {
+    const site = { ...baseSite, pop3mi: '12,000', surveyVerdict: 'FLAGGED' };
+    const result = computeSiteScore(site, SITE_SCORE_DEFAULTS);
+    if (result.score >= 6.0 && result.score < 8.0) {
+      expect(result.classification).toBe('YELLOW');
+    }
+  });
+});

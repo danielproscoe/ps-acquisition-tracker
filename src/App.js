@@ -33,6 +33,13 @@ import {
   generateDemographicsReport,
 } from './reports';
 import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF, CallBriefTooltip } from './components';
+import PortfolioFitBadge from './components/PortfolioFitBadge';
+import BuyerFitBadge from './components/BuyerFitBadge';
+import RoutingEnginePanel from './components/RoutingEnginePanel';
+import { computePortfolioFit } from './portfolioFit';
+import { computeBuyerFit } from './buyerFit';
+import { usePortfolioDNA } from './hooks/usePortfolioDNA';
+import { useOperatorMatrix } from './hooks/useOperatorMatrix';
 import { SortBar, SORT_OPTIONS } from './components/SortBar';
 import { SiteScoreConfigModal } from './components/SiteScoreConfigModal';
 import ValuationInputs from './components/ValuationInputs';
@@ -274,10 +281,38 @@ const getIQWeight = (key) => {
 const computeSiteScore = (site) => _computeSiteScore(site, SITE_SCORE_CONFIG);
 const generateVettingReport = (site, psD, iq) => _generateVettingReport(site, psD, iq, SITE_SCORE_CONFIG);
 const generatePricingReport = (site, iq, allSites) => _generatePricingReport(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES, allSites);
-const generateRECPackage = (site, iq) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES);
+const generateRECPackage = (site, iq, portfolioFit, buyerFit) => _generateRECPackage(site, iq, SITE_SCORE_CONFIG, VALUATION_OVERRIDES, { portfolioFit, buyerFit });
 
 // SiteScoreBadge wrapper — auto-injects computeSiteScore so call sites stay clean
 const SiteScoreBadge = (props) => <_SiteScoreBadge {...props} computeSiteScore={computeSiteScore} />;
+
+// SurveyBadge — §6h Step 2c Survey Scrub Gate visual indicator
+// Reads site.surveyVerdict and renders a color-coded chip on every site card.
+// Verdicts: CLEAN (green), FLAGGED (amber), KILL (red), PENDING (blue), NOT_ON_FILE (gray).
+// eslint-disable-next-line no-unused-vars
+const SurveyBadge = ({ site, size = "normal" }) => {
+  const v = site.surveyVerdict || "NOT_ON_FILE";
+  const meta = ({
+    "CLEAN":       { label: "Survey: Clean",       color: "#16A34A", icon: "✅" },
+    "FLAGGED":     { label: "Survey: Flagged",     color: "#F59E0B", icon: "⚠" },
+    "KILL":        { label: "Survey: Killed",      color: "#991B1B", icon: "⛔" },
+    "PENDING":     { label: "Survey: Pending",     color: "#3B82F6", icon: "⏳" },
+    "NOT_ON_FILE": { label: "Survey: Not on file", color: "#94A3B8", icon: "🚫" },
+  })[v] || { label: "Survey: Not on file", color: "#94A3B8", icon: "🚫" };
+  const padPx = size === "small" ? "3px 8px" : "5px 12px";
+  const fontPx = size === "small" ? 10 : 11;
+  const tooltip = v === "CLEAN" ? "Survey scrubbed — easements + access OK"
+    : v === "FLAGGED" ? "Survey scrubbed — flagged, capped at YELLOW"
+    : v === "KILL" ? "Survey scrubbed — deal-killer (auto-routed to killed_sites)"
+    : v === "PENDING" ? "Survey on file — scrub in progress, capped at YELLOW"
+    : "No survey at intake — request from broker";
+  return (
+    <span title={tooltip} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: padPx, borderRadius: 6, fontSize: fontPx, fontWeight: 700, letterSpacing: "0.02em", background: meta.color + "18", color: meta.color, border: "1px solid " + meta.color + "30" }}>
+      <span style={{ fontSize: fontPx + 1 }}>{meta.icon}</span>
+      <span>{meta.label}</span>
+    </span>
+  );
+};
 
 // ─── Module-scope sort orders (stable, never change) ───
 const PRIORITY_ORDER = { "🔥 Hot": 0, "🟡 Warm": 1, "🔵 Cold": 2, "⚪ None": 3 };
@@ -1738,6 +1773,37 @@ function AppInner() {
   }, [sw, east, configVersion]);
   const getSiteScore = useCallback((site) => siteScoreCache.get(site.id) || computeSiteScore(site), [siteScoreCache]);
 
+  // ─── PORTFOLIO FIT CACHE — second-lens DNA benchmarking ───
+  // Loads PS DNA profile once at mount (public/ps-dna-profile.json), then
+  // memoizes the fit score per site. Hidden gracefully if DNA is unavailable.
+  const { dna: psDNA } = usePortfolioDNA();
+  const portfolioFitCache = useMemo(() => {
+    const cache = new Map();
+    if (!psDNA) return cache;
+    [...sw, ...east, ...subs].forEach((s) => { if (s && s.id) cache.set(s.id, computePortfolioFit(s, psDNA)); });
+    return cache;
+  }, [sw, east, subs, psDNA]);
+  const getPortfolioFit = useCallback(
+    (site) => portfolioFitCache.get(site.id) || (psDNA ? computePortfolioFit(site, psDNA) : null),
+    [portfolioFitCache, psDNA]
+  );
+
+  // ─── BUYER FIT CACHE — third-lens routing engine (PS DNA + Buyer-Routing Fit) ───
+  // Loads operator-matrix.json (49+ buyers) once at mount, scores every site
+  // against every viable buyer, returns top-7 ranked. Powers the Routing
+  // Engine panel and BuyerFit badge. Hidden gracefully if matrix unavailable.
+  const { matrix: operatorMatrix } = useOperatorMatrix();
+  const buyerFitCache = useMemo(() => {
+    const cache = new Map();
+    if (!operatorMatrix) return cache;
+    [...sw, ...east, ...subs].forEach((s) => { if (s && s.id) cache.set(s.id, computeBuyerFit(s, operatorMatrix)); });
+    return cache;
+  }, [sw, east, subs, operatorMatrix]);
+  const getBuyerFit = useCallback(
+    (site) => buyerFitCache.get(site.id) || (operatorMatrix ? computeBuyerFit(site, operatorMatrix) : null),
+    [buyerFitCache, operatorMatrix]
+  );
+
   // ─── MEMOIZED SORT — stabilized to prevent re-sort on every render ───
   const sortData = useCallback((arr) => {
     const sorted = [...arr];
@@ -1829,6 +1895,8 @@ function AppInner() {
                           {site.callBrief ? "BRIEF" : "+BRIEF"}
                         </span>
                         <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
+                        <PortfolioFitBadge fit={getPortfolioFit(site)} size="small" />
+                        <BuyerFitBadge fit={getBuyerFit(site)} size="small" />
                         <PriorityBadge priority={site.priority} />
                         <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
                           {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1907,6 +1975,8 @@ function AppInner() {
                                 <SiteScoreBadge site={site} iq={getSiteScore(site)} />
                                 <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "#6B7394", fontWeight: 600, letterSpacing: "0.06em", whiteSpace: "nowrap", opacity: 0.7 }}>CLICK FOR DETAIL</div>
                               </div>
+                              <PortfolioFitBadge fit={getPortfolioFit(site)} size="normal" />
+                              <BuyerFitBadge fit={getBuyerFit(site)} size="normal" />
                               {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 8, border: "1px solid rgba(201,168,76,.2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{site.market}</span>}
                             </div>
                             {/* Key Metrics Strip — Larger */}
@@ -1914,6 +1984,11 @@ function AppInner() {
                               {[
                                 { label: "ASKING", val: fmtPrice(site.askingPrice), color: "#E2E8F0" },
                                 { label: "ZONING", val: site.zoning || "—", color: site.zoning ? (/by.?right|permitted|allowed/i.test(site.summary || "") ? "#22C55E" : /SUP|conditional|special/i.test(site.zoning || "") ? "#FBBF24" : "rgba(201,168,76,0.1)") : "#94A3B8" },
+                                (() => {
+                                  const sv = site.surveyVerdict || "NOT_ON_FILE";
+                                  const meta = ({"CLEAN":{c:"#22C55E",t:"CLEAN"},"FLAGGED":{c:"#FBBF24",t:"FLAGGED"},"KILL":{c:"#EF4444",t:"KILLED"},"PENDING":{c:"#60A5FA",t:"PENDING"},"NOT_ON_FILE":{c:"#94A3B8",t:"NOT ON FILE"}})[sv];
+                                  return { label: "SURVEY", val: meta.t, color: meta.c, badge: sv === "CLEAN" ? null : sv === "KILL" ? "DEAD" : sv === "FLAGGED" || sv === "PENDING" || sv === "NOT_ON_FILE" ? "≤ YELLOW" : null };
+                                })(),
                                 { label: "ACREAGE", val: site.acreage ? `${site.acreage} ac` : "—", color: "#E2E8F0", badge: parseFloat(String(site.acreage || "0").replace(/[^0-9.]/g, "")) >= 2.5 ? "2 LAYOUTS" : null },
                                 { label: "3MI POP", val: site.pop3mi ? fmtN(site.pop3mi) : "—", color: "#E2E8F0" },
                                 { label: "3MI MED INC", val: site.income3mi ? (String(site.income3mi).startsWith("$") ? site.income3mi : "$" + fmtN(site.income3mi)) : "—", color: "#E2E8F0" },
@@ -2178,7 +2253,7 @@ function AppInner() {
                             try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(46,125,50,0.4), 0 0 0 1px rgba(46,125,50,0.2)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>💰 Pricing</button>
                           <button onClick={() => {
-                            try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                            try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR, getPortfolioFit(site), getBuyerFit(site)); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                           }} style={{ padding: "10px 12px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 11, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(30,39,97,0.4), 0 0 0 1px rgba(201,168,76,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s", whiteSpace: "nowrap" }}>📋 REC Package</button>
                         </div>
                         {/* Bottom Row — Small Icon Links */}
@@ -2191,6 +2266,9 @@ function AppInner() {
                           {(() => { const fd = docs.find(([, d]) => d.type === "Flyer"); return fd ? <a href={fd[1].url} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(201,168,76,0.06)", color: "#94A3B8", fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(201,168,76,0.12)", display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>Flyer</a> : null; })()}
                         </div>
                       </div>
+
+                      {/* Routing Engine — third-lens BuyerFit (PS DNA + Buyer-Routing) */}
+                      <RoutingEnginePanel site={site} fit={getBuyerFit(site)} />
 
                       {/* Summary */}
                       <div style={{ background: "rgba(15,21,56,0.5)", borderRadius: 10, padding: 14, margin: "10px 0", border: "1px solid rgba(201,168,76,0.08)" }}>
@@ -3857,7 +3935,7 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                     try { const iqPR = computeSiteScore(site); const rpt = generatePricingReport(site, iqPR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>💰 Pricing</button>
                   <button onClick={() => {
-                    try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                    try { const iqRP = computeSiteScore(site); const rpt = generateRECPackage(site, iqRP, getPortfolioFit(site)); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>📋 REC Package</button>
                 </div>
               </div>
@@ -4579,7 +4657,7 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                     try { const iqR = computeSiteScore(site); const rpt = generatePricingReport(site, iqR, [...sw, ...east]); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("Pricing report failed — some site data may be missing."); console.error("Pricing report error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #2E7D32, #43A047)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(46,125,50,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>💰 Pricing</button>
                   <button onClick={() => {
-                    try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
+                    try { const iqR = computeSiteScore(site); const rpt = generateRECPackage(site, iqR, getPortfolioFit(site), getBuyerFit(site)); const blob = new Blob([rpt], { type: "text/html;charset=utf-8" }); window.open(URL.createObjectURL(blob), "_blank"); } catch (err) { notify("REC Package failed — some site data may be missing."); console.error("REC package error:", err); }
                   }} style={{ padding: "10px 14px", borderRadius: 10, background: "linear-gradient(135deg, #1E2761, #C9A84C)", color: "#fff", fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }}>📋 REC Package</button>
                 </div>
               </div>

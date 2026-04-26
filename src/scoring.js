@@ -366,6 +366,16 @@ export const computeSiteScore = (site, siteScoreConfig) => {
   else if (final >= 4.0) { classification = "ORANGE"; classColor = "#EA580C"; }
   else { classification = "RED"; classColor = "#DC2626"; }
 
+  // ─── SURVEY SCRUB GATE (§6h Step 2c, added 2026-04-26) ───
+  // Caps classification at YELLOW for sites whose survey is FLAGGED, PENDING, or NOT_ON_FILE.
+  // CLEAN survey or undefined verdict (legacy/unscrubbed) does not cap.
+  // KILL verdicts never reach this function — those are auto-routed to config/killed_sites at intake.
+  const sv = site.surveyVerdict;
+  if (sv && sv !== "CLEAN" && classification === "GREEN") {
+    classification = "YELLOW"; classColor = "#D97706";
+    flags.push("Survey verdict: " + sv + " — capped at YELLOW until CLEAN");
+  }
+
   // Build scoring explanations for each dimension
   const popExplain = popRaw > 0 ? `3-mi pop: ${popRaw.toLocaleString()} → ${popRaw >= 40000 ? "40K+ = 10" : popRaw >= 25000 ? "25K+ = 8" : popRaw >= 15000 ? "15K+ = 6" : popRaw >= 10000 ? "10K+ = 5" : popRaw >= 5000 ? "5K+ = 3" : "<5K = FAIL"}` : "No data — default 5";
   const growthFieldName = site.popGrowth3mi ? "popGrowth3mi" : site.growthRate ? "growthRate" : site.siteiqData?.growthRate != null ? "siteiqData.growthRate" : null;
@@ -1542,6 +1552,23 @@ export const computeVettingIntel = (site) => {
     totalAdder: overlayCostAdder + facadePremium + utilCostAdder,
   };
 
+  // ── Survey Scrub Verdict (§6h Step 2c, added 2026-04-26) ──
+  // Shared verdict UI logic — read by reports.js (chip strip) and App.js (badge).
+  // KILL never reaches this function — auto-routed to config/killed_sites at intake.
+  const surveyVerdictRaw = site.surveyVerdict || (site.surveyScrubbed ? null : "NOT_ON_FILE");
+  const surveyVerdict = surveyVerdictRaw || "NOT_ON_FILE";
+  const surveyVerdictLabel = {
+    "CLEAN": "CLEAN", "FLAGGED": "FLAGGED", "KILL": "KILLED",
+    "PENDING": "PENDING", "NOT_ON_FILE": "NOT ON FILE"
+  }[surveyVerdict] || "NOT ON FILE";
+  const surveyVerdictColor = {
+    "CLEAN": "#16A34A", "FLAGGED": "#F59E0B", "KILL": "#991B1B",
+    "PENDING": "#3B82F6", "NOT_ON_FILE": "#94A3B8"
+  }[surveyVerdict] || "#94A3B8";
+  const surveyVerdictIcon = {
+    "CLEAN": "✅", "FLAGGED": "⚠", "KILL": "⛔", "PENDING": "⏳", "NOT_ON_FILE": "🚫"
+  }[surveyVerdict] || "🚫";
+
   return {
     // Parsed demographics
     acres, popN, incN, hhN, hvN, pop1, growthPct,
@@ -1561,6 +1588,8 @@ export const computeVettingIntel = (site) => {
     psDistance, psColor,
     // Competition
     cc, compColor, compLabel, satLevel, sfCapita, sfCapitaColor, sfCapitaLabel,
+    // Survey Scrub Verdict (§6h Step 2c)
+    surveyVerdict, surveyVerdictLabel, surveyVerdictColor, surveyVerdictIcon,
     // Flags & risks (shared across all reports)
     flags, risks, keyStrength, keyRisk,
     // Cost adjustments (flows into pricing)

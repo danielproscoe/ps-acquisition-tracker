@@ -17,7 +17,7 @@ export const generateDemographicsReport = (site) => {
   const fV = (v, pre) => { const n = pN(v); return n != null ? (pre || "") + n.toLocaleString() : "—"; };
   const fPct = (v) => v != null && v !== "" ? String(v) : "—";
   const fGrowth = (v) => { if (v == null || v === "") return "—"; const n = typeof v === "number" ? v : parseFloat(String(v)); if (isNaN(n)) return String(v); return (n >= 0 ? "+" : "") + n.toFixed(2) + "%"; };
-  const gColor = (v) => { if (v == null) return "#64748B"; const n = typeof v === "number" ? v : parseFloat(String(v)); return !isNaN(n) && n > 0 ? "#16A34A" : !isNaN(n) && n < 0 ? "#F59E0B" : "#64748B"; };
+  const gColor = (v) => { if (v == null) return "#64748B"; const n = typeof v === "number" ? v : parseFloat(String(v)); return !isNaN(n) && n > 0 ? "#C9A84C" : !isNaN(n) && n < 0 ? "#EF4444" : "#64748B"; };
   const r = dr?.rings || {};
   const r1 = r[1] || {}; const r3 = r[3] || {}; const r5 = r[5] || {};
   const siteName = site.name || site.address || "Unknown Site";
@@ -271,6 +271,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
     distFt, waterTapN, sewerTapN, impactN, extensionLow, extensionHigh, totalUtilLow, totalUtilHigh,
     flags, keyStrength, keyRisk, growthPct, growthColor, hhN: hhNVet, hvN: hvNVet, pop1: pop1Vet,
     cc, compColor, compLabel, satLevel, sfCapita, sfCapitaColor, sfCapitaLabel,
+    surveyVerdict, surveyVerdictLabel, surveyVerdictColor, surveyVerdictIcon,
   } = v;
   const psDistance = v.psDistance || (nearestPSDistance ? nearestPSDistance : "Not checked — enter Nearest Facility in site detail");
   const psColor = v.psColor;
@@ -291,7 +292,7 @@ export const generateVettingReport = (site, nearestPSDistance, iqResult, siteSco
   const pop1 = v.pop1 || parseInt(String(site.pop1mi || "").replace(/[^0-9]/g, ""), 10);
   // Recommendation for exec summary
   const recommendation = iqScore >= 8.0 ? "AUTO-ADVANCE — Site meets all thresholds for review queue." : iqScore >= 6.0 ? "PRESENT FOR REVIEW — Strong candidate with noted concerns." : iqScore >= 4.0 ? "FLAGGED — Below target thresholds. Recommend pass unless override." : typeof iqScore === "number" ? "AUTO-PASS — Below minimum thresholds." : "INSUFFICIENT DATA — Complete research before scoring.";
-  const recColor = iqScore >= 8.0 ? "#16A34A" : iqScore >= 6.0 ? "#F59E0B" : typeof iqScore === "number" ? "#92400E" : "#94A3B8";
+  const recColor = iqScore >= 8.0 ? "#C9A84C" : iqScore >= 6.0 ? "#F59E0B" : typeof iqScore === "number" ? "#92400E" : "#94A3B8";
 
   const row = (label, value, opts = {}) => `<tr><td style="padding:10px 16px;font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #F1F5F9;width:180px;vertical-align:top">${label}</td><td style="padding:10px 16px;font-size:13px;color:#1E293B;font-weight:${opts.bold ? 700 : 500};border-bottom:1px solid #F1F5F9">${opts.badge ? `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${opts.badgeBg || '#F1F5F9'};color:${opts.badgeColor || '#64748B'}">${value}</span>` : value}</td></tr>`;
   const mapsUrl = site.coordinates ? `https://www.google.com/maps?q=${site.coordinates}` : "#";
@@ -455,7 +456,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
           <div style="font-size:42px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono',monospace;line-height:1">${typeof iqScore === "number" ? iqScore.toFixed(1) : iqScore}</div>
           <div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-top:4px">${iqLabel}</div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
           <div style="padding:10px 14px;border-radius:10px;background:${zoningColor}12;border:1px solid ${zoningColor}30">
             <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">ZONING</div>
             <div style="font-size:12px;font-weight:800;color:${zoningColor}">${zoningClass === "by-right" ? "Permitted" : zoningClass === "conditional" ? "SUP/CUP" : zoningClass === "rezone-required" ? "Rezone" : zoningClass === "prohibited" ? "Prohibited" : "Unknown"}</div>
@@ -471,6 +472,11 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
             <div style="font-size:12px;font-weight:800;color:${compColor}">${compLabel}</div>
             <div style="font-size:9px;color:#CBD5E1;margin-top:2px">${satLevel}</div>
           </div>
+          <div style="padding:10px 14px;border-radius:10px;background:${surveyVerdictColor}12;border:1px solid ${surveyVerdictColor}30" title="§6h Step 2c — Survey Scrub Gate">
+            <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">SURVEY VERDICT</div>
+            <div style="font-size:12px;font-weight:800;color:${surveyVerdictColor}">${surveyVerdictIcon} ${surveyVerdictLabel}</div>
+            <div style="font-size:9px;color:#CBD5E1;margin-top:2px">${surveyVerdict === "CLEAN" ? "Easements + access OK" : surveyVerdict === "FLAGGED" ? "Cap at YELLOW" : surveyVerdict === "PENDING" ? "Scrub in progress" : surveyVerdict === "NOT_ON_FILE" ? "Request from broker" : "Auto-killed"}</div>
+          </div>
         </div>
         <div style="text-align:center;padding:8px 16px;border-radius:10px;background:${recColor}12;border:1px solid ${recColor}30">
           <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.06em;margin-bottom:4px">VERDICT</div>
@@ -481,8 +487,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       <!-- Demographics snapshot + PS Proximity -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:18px">
         ${[
-          { l: "3-MI POPULATION", v: popN > 0 ? fmtN(popN) : "—", c: popN >= 25000 ? "#16A34A" : popN >= 10000 ? "#3B82F6" : "#F59E0B" },
-          { l: "MEDIAN HHI", v: incN > 0 ? "$" + fmtN(incN) : "—", c: incN >= 75000 ? "#16A34A" : incN >= 55000 ? "#3B82F6" : "#F59E0B" },
+          { l: "3-MI POPULATION", v: popN > 0 ? fmtN(popN) : "—", c: popN >= 25000 ? "#C9A84C" : popN >= 10000 ? "#1E2761" : "#F59E0B" },
+          { l: "MEDIAN HHI", v: incN > 0 ? "$" + fmtN(incN) : "—", c: incN >= 75000 ? "#C9A84C" : incN >= 55000 ? "#1E2761" : "#F59E0B" },
           { l: "5-YR GROWTH", v: growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(1) + "%" : "—", c: growthColor },
           { l: "PS PROXIMITY", v: site.siteiqData?.nearestPS ? site.siteiqData.nearestPS + " mi" : "—", c: psColor },
         ].map(k => `<div style="text-align:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06)">
@@ -494,7 +500,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       <!-- Key strength / key risk -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
         <div style="padding:10px 14px;border-radius:8px;background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.15)">
-          <div style="font-size:8px;font-weight:700;color:#16A34A;letter-spacing:0.06em;margin-bottom:4px">KEY STRENGTH</div>
+          <div style="font-size:8px;font-weight:700;color:#C9A84C;letter-spacing:0.06em;margin-bottom:4px">KEY STRENGTH</div>
           <div style="font-size:11px;color:#D1FAE5;line-height:1.4">${keyStrength}</div>
         </div>
         <div style="padding:10px 14px;border-radius:8px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2)">
@@ -542,7 +548,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       const total = checks.length;
       const pct = Math.round((done / total) * 100);
       const grade = pct === 100 ? "COMPLETE" : pct >= 80 ? "NEAR COMPLETE" : pct >= 50 ? "IN PROGRESS" : "INCOMPLETE";
-      const gradeColor = pct === 100 ? "#16A34A" : pct >= 80 ? "#16A34A" : pct >= 50 ? "#3B82F6" : "#64748B";
+      const gradeColor = pct === 100 ? "#C9A84C" : pct >= 80 ? "#C9A84C" : pct >= 50 ? "#1E2761" : "#64748B";
       const catSummary = (cat) => { const items = checks.filter(c => c.category === cat); const d = items.filter(c => c.done).length; return { done: d, total: items.length, pct: Math.round((d / items.length) * 100) }; };
       const z = catSummary("ZONING"); const u = catSummary("UTILITY"); const t = catSummary("TOPO");
       return `
@@ -566,8 +572,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
           { label: "Topography & Flood", ...t, color: "#1E2761" },
         ].map(c => `<div class="hover-card" style="text-align:center;padding:14px;border-radius:10px;background:#fff;border:1px solid #E2E8F0">
           <div style="font-size:9px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">${c.label}</div>
-          <div style="width:100%;height:8px;border-radius:4px;background:#E2E8F0;overflow:hidden;margin-bottom:6px"><div style="width:${c.pct}%;height:100%;border-radius:4px;background:${c.pct === 100 ? "#16A34A" : "#16A34A"};transition:width 0.5s"></div></div>
-          <div style="font-size:12px;font-weight:800;color:${c.pct === 100 ? "#16A34A" : "#64748B"}">${c.done}/${c.total}</div>
+          <div style="width:100%;height:8px;border-radius:4px;background:#E2E8F0;overflow:hidden;margin-bottom:6px"><div style="width:${c.pct}%;height:100%;border-radius:4px;background:${c.pct === 100 ? "#C9A84C" : "#1E2761"};transition:width 0.5s"></div></div>
+          <div style="font-size:12px;font-weight:800;color:${c.pct === 100 ? "#C9A84C" : "#1E2761"}">${c.done}/${c.total}</div>
         </div>`).join("")}
       </div>
       ${pct < 100 ? `<div style="background:#F1F5F9;padding:12px 22px;border-top:1px solid #CBD5E1">
@@ -911,10 +917,10 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- KPI Cards — larger and more impactful -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
       ${[
-        { label: "Population (3-mi)", val: popN > 0 ? fmtN(popN) : "—", color: popN >= 25000 ? "#16A34A" : popN >= 10000 ? "#3B82F6" : popN > 0 ? "#F59E0B" : "#94A3B8", sub: pop1 > 0 ? "1-mi: " + fmtN(pop1) : null },
-        { label: "Median HHI", val: incN > 0 ? "$" + fmtN(incN) : "—", color: incN >= 75000 ? "#16A34A" : incN >= 55000 ? "#3B82F6" : incN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
-        { label: "Households", val: hhN > 0 ? fmtN(hhN) : "—", color: hhN >= 18000 ? "#16A34A" : hhN >= 6000 ? "#3B82F6" : hhN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
-        { label: "Home Value", val: hvN > 0 ? "$" + fmtN(hvN) : "—", color: hvN >= 250000 ? "#16A34A" : hvN >= 120000 ? "#3B82F6" : hvN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
+        { label: "Population (3-mi)", val: popN > 0 ? fmtN(popN) : "—", color: popN >= 25000 ? "#C9A84C" : popN >= 10000 ? "#1E2761" : popN > 0 ? "#F59E0B" : "#94A3B8", sub: pop1 > 0 ? "1-mi: " + fmtN(pop1) : null },
+        { label: "Median HHI", val: incN > 0 ? "$" + fmtN(incN) : "—", color: incN >= 75000 ? "#C9A84C" : incN >= 55000 ? "#1E2761" : incN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
+        { label: "Households", val: hhN > 0 ? fmtN(hhN) : "—", color: hhN >= 18000 ? "#C9A84C" : hhN >= 6000 ? "#1E2761" : hhN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
+        { label: "Home Value", val: hvN > 0 ? "$" + fmtN(hvN) : "—", color: hvN >= 250000 ? "#C9A84C" : hvN >= 120000 ? "#1E2761" : hvN > 0 ? "#F59E0B" : "#94A3B8", sub: null },
       ].map(k => `<div class="hover-card" style="padding:16px;border-radius:12px;background:${k.color}06;border:2px solid ${k.color}20;text-align:center">
         <div style="font-size:8px;font-weight:800;color:${k.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${k.label}</div>
         <div style="font-size:22px;font-weight:900;color:${k.color};font-family:'Space Mono',monospace;line-height:1.1">${k.val}</div>
@@ -943,12 +949,12 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     </div>` : ""}
 
     <table style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">${[
-      row("Population (3-mi)", popN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(popN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Population (3-mi)", popN > 0 ? '<span style="color:#1E2761;font-weight:700">' + fmtN(popN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Population (1-mi)", pop1 > 0 ? fmtN(pop1) : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
-      row("Median HHI", incN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(incN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
-      row("Households (3-mi)", hhN > 0 ? '<span style="color:#16A34A;font-weight:700">' + fmtN(hhN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
-      row("Median Home Value", hvN > 0 ? '<span style="color:#16A34A;font-weight:700">$' + fmtN(hvN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
-      row("5-Yr Pop Growth", growthPct !== null ? '<span style="color:#16A34A;font-weight:700">' + (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR</span>" : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Median HHI", incN > 0 ? '<span style="color:#1E2761;font-weight:700">$' + fmtN(incN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Households (3-mi)", hhN > 0 ? '<span style="color:#1E2761;font-weight:700">' + fmtN(hhN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("Median Home Value", hvN > 0 ? '<span style="color:#1E2761;font-weight:700">$' + fmtN(hvN) + '</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
+      row("5-Yr Pop Growth", growthPct !== null ? '<span style="color:#C9A84C;font-weight:700">' + (growthPct >= 0 ? "+" : "") + growthPct.toFixed(2) + "% CAGR</span>" : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Renter %", site.renterPct3mi ? String(site.renterPct3mi).replace(/%/g, "") + "%" : '<span style="color:#94A3B8;font-weight:600;font-size:10px">Not required</span>'),
       row("Demand Drivers", site.demandDrivers || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
     ].join("")}</table>
@@ -958,27 +964,41 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
     <!-- ═══════════════════════════════════════════════ -->
     ${section("7", "Competition Landscape (3-Mile Radius)")}
 
-    <!-- Competition Density Visual Card -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px">
-      <div class="hover-card" style="padding:18px;border-radius:14px;background:${compColor}06;border:2px solid ${compColor}25;text-align:center">
-        <div style="font-size:8px;font-weight:800;color:${compColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Competitors (3-mi)</div>
-        <div style="font-size:40px;font-weight:900;color:${compColor};font-family:'Space Mono',monospace;line-height:1">${cc !== undefined && cc !== null ? cc : "?"}</div>
-        <!-- Dot indicators -->
-        ${cc !== undefined && cc !== null && cc > 0 && cc <= 10 ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:4px">${Array.from({length: cc}).map(() => `<div style="width:8px;height:8px;border-radius:50%;background:${compColor}"></div>`).join("")}</div>` : ""}
-        <div style="font-size:10px;color:#64748B;margin-top:8px;font-weight:600">${satLevel}</div>
+    <!-- Competition Intelligence Strip — institutional horizontal layout -->
+    <div style="border:1px solid #1E276120;border-radius:12px;overflow:hidden;margin-bottom:18px">
+      <div style="background:linear-gradient(135deg,#0F172A,#1E2761);padding:10px 20px;display:flex;align-items:center;justify-content:space-between">
+        <span style="color:#C9A84C;font-size:9px;font-weight:800;letter-spacing:0.12em">COMPETITION INTELLIGENCE — 3-MILE PRIMARY TRADE AREA</span>
+        <span style="color:#6B7394;font-size:9px;font-weight:600">STORVEX ENGINE v2.0</span>
       </div>
-      <div class="hover-card" style="padding:18px;border-radius:14px;background:#1E276108;border:2px solid #1E276120;text-align:center">
-        <div style="font-size:8px;font-weight:800;color:#1E2761;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Nearest PS</div>
-        <div style="font-size:28px;font-weight:900;color:#1E2761;font-family:'Space Mono',monospace;line-height:1">${site.siteiqData?.nearestPS ? site.siteiqData.nearestPS : "—"}<span style="font-size:14px;color:#64748B"> mi</span></div>
-        <div style="font-size:10px;color:#64748B;margin-top:8px;font-weight:600">${site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 5 ? "Validated submarket" : site.siteiqData.nearestPS <= 15 ? "Expansion zone" : site.siteiqData.nearestPS <= 35 ? "Frontier market" : "Too remote") : "Run proximity check"}</div>
-      </div>
-      <!-- SF/capita gauge -->
-      <div class="hover-card" style="padding:18px;border-radius:14px;background:${sfCapitaColor}06;border:2px solid ${sfCapitaColor}25;text-align:center">
-        <div style="font-size:8px;font-weight:800;color:${sfCapitaColor};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">SF / Capita (3-MI)</div>
-        <div style="font-size:28px;font-weight:900;color:${sfCapitaColor};font-family:'Space Mono',monospace;line-height:1">${sfCapita !== null ? sfCapita.toFixed(1) : "—"}</div>
-        ${sfCapita !== null ? `<div class="sf-gauge"><div class="sf-gauge-marker" style="left:${Math.min(100, Math.max(0, (sfCapita / 15) * 100))}%"></div></div>
-        <div style="display:flex;justify-content:space-between;font-size:7px;color:#94A3B8;font-weight:600"><span>Under</span><span>Equilib.</span><span>Over</span></div>` : ""}
-        <div style="font-size:10px;color:#64748B;margin-top:6px;font-weight:600">${sfCapitaLabel}</div>
+      <div style="display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr 1px 1fr;background:#fff">
+        <!-- Metric 1: CC Competitors -->
+        <div style="padding:16px 20px;text-align:center">
+          <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:6px;text-transform:uppercase">CC Competitors</div>
+          <div style="font-size:32px;font-weight:900;color:${compColor};font-family:'Space Mono',monospace;line-height:1">${cc !== undefined && cc !== null ? cc : "—"}</div>
+          <div style="font-size:9px;color:#64748B;margin-top:6px;font-weight:600">${satLevel}</div>
+        </div>
+        <div style="background:#E2E8F0"></div>
+        <!-- Metric 2: SF/Capita -->
+        <div style="padding:16px 20px;text-align:center">
+          <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:6px;text-transform:uppercase">SF / Capita (3-Mi)</div>
+          <div style="font-size:32px;font-weight:900;color:${sfCapitaColor};font-family:'Space Mono',monospace;line-height:1">${sfCapita !== null ? sfCapita.toFixed(1) : "—"}</div>
+          <div style="font-size:9px;color:#64748B;margin-top:4px;font-weight:600">${sfCapitaLabel}</div>
+          ${sfCapita !== null ? `<div style="height:4px;border-radius:2px;background:#E2E8F0;margin-top:8px;overflow:hidden"><div style="height:100%;border-radius:2px;background:${sfCapitaColor};width:${Math.min(100, Math.max(2, (sfCapita / 15) * 100))}%"></div></div>` : ""}
+        </div>
+        <div style="background:#E2E8F0"></div>
+        <!-- Metric 3: CC SF Supply -->
+        <div style="padding:16px 20px;text-align:center">
+          <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:6px;text-transform:uppercase">CC Supply (3-Mi)</div>
+          <div style="font-size:20px;font-weight:900;color:#1E2761;font-family:'Space Mono',monospace;line-height:1.2">${site.competingCCSF || site.competingSF || "—"}</div>
+          <div style="font-size:9px;color:#64748B;margin-top:6px;font-weight:600">Climate-controlled SF</div>
+        </div>
+        <div style="background:#E2E8F0"></div>
+        <!-- Metric 4: Nearest PS -->
+        <div style="padding:16px 20px;text-align:center">
+          <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:6px;text-transform:uppercase">Nearest PS</div>
+          <div style="font-size:32px;font-weight:900;color:#1E2761;font-family:'Space Mono',monospace;line-height:1">${site.siteiqData?.nearestPS ? site.siteiqData.nearestPS : "—"}<span style="font-size:12px;font-weight:600;color:#64748B"> mi</span></div>
+          <div style="font-size:9px;color:#64748B;margin-top:6px;font-weight:600">${site.siteiqData?.nearestPS ? (site.siteiqData.nearestPS <= 5 ? "Validated submarket" : site.siteiqData.nearestPS <= 15 ? "Expansion zone" : "Frontier") : "Proximity check needed"}</div>
+        </div>
       </div>
     </div>
 
@@ -995,7 +1015,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       const sfc1_now = sfc(sf1mi, pop1v); const sfc3_now = sfc(sf3mi, pop3v) || (sfCapita ? sfCapita.toFixed(1) : null); const sfc5_now = sfc(sf5mi, pop5v);
       // 5-year projected SF/capita (constant supply, growing population)
       const sfc1_y5 = sfc(sf1mi, projPop(pop1v, 5)); const sfc3_y5 = sfc(sf3mi, projPop(pop3v, 5)); const sfc5_y5 = sfc(sf5mi, projPop(pop5v, 5));
-      const sfColor = (v) => { if (!v) return "#94A3B8"; const n = parseFloat(v); return n < 5 ? "#16A34A" : n <= 9 ? "#3B82F6" : "#F59E0B"; };
+      const sfColor = (v) => { if (!v) return "#94A3B8"; const n = parseFloat(v); return n < 5 ? "#C9A84C" : n <= 9 ? "#1E2761" : "#F59E0B"; };
       const sfLabel2 = (v) => { if (!v) return "—"; const n = parseFloat(v); return n < 5 ? "Underserved" : n <= 7 ? "Moderate" : n <= 9 ? "Equilibrium" : n <= 12 ? "Well-supplied" : "Oversupplied"; };
       const barPct = (v) => v ? Math.min(100, Math.max(0, (parseFloat(v) / 15) * 100)) : 0;
       const yr = new Date().getFullYear();
@@ -1034,7 +1054,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
               const fw = r.primary ? 800 : 600;
               const fs = r.primary ? "15px" : "13px";
               const delta = (r.sfNow && r.sf5yr) ? (parseFloat(r.sf5yr) - parseFloat(r.sfNow)).toFixed(1) : null;
-              const deltaColor = delta ? (parseFloat(delta) < 0 ? "#16A34A" : "#F59E0B") : "#94A3B8";
+              const deltaColor = delta ? (parseFloat(delta) < 0 ? "#C9A84C" : "#F59E0B") : "#94A3B8";
               return `<tr style="background:${bg}${r.primary ? ";border-top:2px solid #1E276115;border-bottom:2px solid #1E276115" : ""}">
                 <td style="padding:${r.primary ? "14px" : "10px"} 14px;font-size:${r.primary ? "12px" : "11px"};font-weight:${r.primary ? 800 : 700};color:#1E2761;border-bottom:1px solid #F1F5F9">${r.label}${r.est ? ' <span style="font-size:8px;color:#94A3B8;font-weight:500">(est.)</span>' : ""}</td>
                 <td style="padding:10px 14px;font-size:${r.primary ? "13px" : "12px"};font-weight:${fw};color:#1E293B;text-align:center;border-bottom:1px solid #F1F5F9;font-family:'Space Mono',monospace">${r.pop ? r.pop.toLocaleString() : "—"}</td>
@@ -1054,8 +1074,8 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
         <div style="font-size:10px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px">Equilibrium Framework — Industry Benchmarks</div>
         <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:0;border-radius:10px;overflow:hidden;border:1px solid #E2E8F0;margin-bottom:16px">
           ${[
-            { label: "Underserved", range: "< 5.0", color: "#16A34A", bg: "#F0FDF4", desc: "Strong buy signal" },
-            { label: "Moderate", range: "5.0 – 7.0", color: "#22C55E", bg: "#F0FDF4", desc: "Favorable demand" },
+            { label: "Underserved", range: "< 5.0", color: "#C9A84C", bg: "rgba(201,168,76,0.06)", desc: "Strong buy signal" },
+            { label: "Moderate", range: "5.0 – 7.0", color: "#1E2761", bg: "#F0F4FF", desc: "Favorable demand" },
             { label: "Equilibrium", range: "7.0 – 9.0", color: "#F59E0B", bg: "#FFFBEB", desc: "Balanced market" },
             { label: "Well-Supplied", range: "9.0 – 12.0", color: "#92400E", bg: "#FFFBEB", desc: "Competitive" },
             { label: "Oversupplied", range: "> 12.0", color: "#78350F", bg: "#FEF3C7", desc: "Saturation risk" },
@@ -1068,7 +1088,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
         </div>
         <div style="font-size:10px;color:#64748B;line-height:1.7;background:#F8FAFC;padding:14px 18px;border-radius:10px;border:1px solid #E2E8F0">
           <div style="font-weight:800;color:#1E2761;margin-bottom:6px">Sources & Methodology</div>
-          <strong>National benchmark:</strong> 7.3 SF/capita (SSA Self Storage Almanac 2024, REIT 10-K filings). <strong>Calculation:</strong> Total estimated competing storage SF within radius ÷ Census population within same radius. <strong>Data inputs:</strong> Population from ESRI 2025 Demographics (ACS 5-Year ring study). Competing SF from Google Maps facility scan, SpareFoot, operator websites, and aerial footprint estimation. <strong>Growth projections:</strong> ESRI 2025→2030 population forecast (${growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(1) + "% CAGR" : "N/A"}) applied to constant supply assumption — new competitor openings would shift ratios upward. <strong>Limitation:</strong> Supply held constant; actual supply may increase with new construction in pipeline.
+          <strong>National benchmark:</strong> 7.3 SF/capita (SSA Self Storage Almanac 2024, REIT 10-K filings). <strong>Calculation:</strong> Total estimated competing storage SF within radius ÷ Census population within same radius. <strong>Data inputs:</strong> Population from ESRI ArcGIS GeoEnrichment 2025 (licensed ring study). Competing SF from Google Maps facility scan, SpareFoot, operator websites, and aerial footprint estimation. <strong>Growth projections:</strong> ESRI 2025→2030 population forecast (${growthPct !== null ? (growthPct >= 0 ? "+" : "") + growthPct.toFixed(1) + "% CAGR" : "N/A"}) applied to constant supply assumption — new competitor openings would shift ratios upward. <strong>Limitation:</strong> Supply held constant; actual supply may increase with new construction in pipeline.
         </div>
       </div>
     </div>`;
@@ -1099,7 +1119,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       row("Known Operators", site.competitorNames || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Nearest Competitor", site.nearestCompetitor || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
       row("Est. Competing SF", site.competingSF || '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>'),
-      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#16A34A;font-weight:700">Unserved — high demand signal</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#F59E0B;font-weight:700">Saturated — verify occupancy</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>')),
+      row("Demand/Supply Signal", site.demandSupplySignal || (cc !== undefined && cc !== null && cc === 0 ? '<span style="color:#C9A84C;font-weight:700">Unserved — high demand signal</span>' : cc !== undefined && cc !== null && cc >= 4 ? '<span style="color:#F59E0B;font-weight:700">Saturated — verify occupancy</span>' : '<span style="color:#475569;font-weight:600;font-size:10px;background:#F1F5F9;padding:2px 8px;border-radius:4px;border:1px solid #CBD5E1">Needs Research</span>')),
     ].join("")}</table>
 
     <!-- ═══════════════════════════════════════════════ -->
@@ -1172,13 +1192,13 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       <div style="width:1px;height:50px;background:rgba(201,168,76,0.2)"></div>
       <div style="flex:1;display:flex;gap:8px;flex-wrap:wrap">
         ${(() => {
-          const cls = typeof iqScore === "number" ? (iqScore >= 8 ? { label: "PRIME", color: "#16A34A", bg: "rgba(22,163,74,0.12)" } : iqScore >= 6 ? { label: "VIABLE", color: "#F59E0B", bg: "rgba(245,158,11,0.12)" } : iqScore >= 4 ? { label: "MARGINAL", color: "#E87A2E", bg: "rgba(232,122,46,0.12)" } : { label: "WEAK", color: "#EF4444", bg: "rgba(239,68,68,0.12)" }) : { label: "—", color: "#6B7394", bg: "rgba(107,115,148,0.12)" };
+          const cls = typeof iqScore === "number" ? (iqScore >= 8 ? { label: "PRIME", color: "#C9A84C", bg: "rgba(201,168,76,0.12)" } : iqScore >= 6 ? { label: "VIABLE", color: "#F59E0B", bg: "rgba(245,158,11,0.12)" } : iqScore >= 4 ? { label: "MARGINAL", color: "#E87A2E", bg: "rgba(232,122,46,0.12)" } : { label: "WEAK", color: "#EF4444", bg: "rgba(239,68,68,0.12)" }) : { label: "—", color: "#6B7394", bg: "rgba(107,115,148,0.12)" };
           const strong = dims.filter(d => (iq.scores[d.key] || 0) >= 8).map(d => d.label);
           const weak = dims.filter(d => (iq.scores[d.key] || 0) < 5 && (iq.scores[d.key] || 0) > 0).map(d => d.label);
           return `<div style="padding:6px 14px;border-radius:6px;background:${cls.bg};border:1px solid ${cls.color}40">
             <span style="font-size:12px;font-weight:800;color:${cls.color};letter-spacing:0.06em">${cls.label}</span>
           </div>
-          ${strong.length ? `<div style="padding:6px 12px;border-radius:6px;background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.15)"><span style="font-size:9px;font-weight:600;color:#16A34A">STRENGTHS:</span> <span style="font-size:9px;color:#94A3B8">${strong.join(", ")}</span></div>` : ""}
+          ${strong.length ? `<div style="padding:6px 12px;border-radius:6px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.15)"><span style="font-size:9px;font-weight:600;color:#C9A84C">STRENGTHS:</span> <span style="font-size:9px;color:#94A3B8">${strong.join(", ")}</span></div>` : ""}
           ${weak.length ? `<div style="padding:6px 12px;border-radius:6px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15)"><span style="font-size:9px;font-weight:600;color:#EF4444">CONCERNS:</span> <span style="font-size:9px;color:#94A3B8">${weak.join(", ")}</span></div>` : ""}`;
         })()}
       </div>
@@ -1189,7 +1209,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
       ${dims.map((d, i) => {
         const v = iq.scores[d.key] || 0;
         const pct = Math.max(3, (v / 10) * 100);
-        const c = v >= 8 ? "#16A34A" : v >= 6 ? "#3B82F6" : v >= 4 ? "#F59E0B" : "#EF4444";
+        const c = v >= 8 ? "#C9A84C" : v >= 6 ? "#1E2761" : v >= 4 ? "#F59E0B" : "#EF4444";
         const wc = (v * d.weight).toFixed(2);
         return `<div style="display:grid;grid-template-columns:130px 1fr 50px 55px;align-items:center;gap:12px;padding:7px 0;${i < dims.length - 1 ? "border-bottom:1px solid #E2E8F015" : ""}">
           <div style="display:flex;align-items:center;gap:8px">
@@ -1239,7 +1259,7 @@ details.method-box .method-content{padding:10px 16px;font-size:9px;color:#475569
         { title: "Topography", color: "#E87A2E", items: ["FEMA Flood Map Service Center", "Google Earth + USGS TopoView", "National Wetlands Inventory (NWI)", "USDA Web Soil Survey"] },
         { title: "Competition", color: "#DC2626", items: ["Google Maps, SpareFoot, SelfStorage.com", "Public REIT filings (PSA, EXR, CUBE)", "Population-to-SF benchmarking", "Operator identification"] },
         { title: "Site Access", color: "#7C3AED", items: ["Aerial imagery (Google Earth, county GIS)", "State DOT traffic count maps", "Speed limits, median type, signals", "Driveway grade, decel lane assessment"] },
-        { title: "Demographics", color: "#2C3E6B", items: ["Licensed ESRI 2025 + 2030 projections", "Census Bureau ACS 5-Year", "SiteScore(TM) composite scoring", "PS proximity: Haversine vs 3,400+ locations"] },
+        { title: "Demographics", color: "#2C3E6B", items: ["Licensed ESRI ArcGIS GeoEnrichment 2025", "CY2025 estimates + 2030 projections", "SiteScore™ composite scoring", "PS proximity: Haversine vs 3,400+ locations"] },
       ].map(s => `<div style="padding:14px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0">
         <div style="font-size:9px;font-weight:800;color:${s.color};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">${s.title}</div>
         <div style="font-size:8px;color:#64748B;line-height:1.6">${s.items.map(i => `&#8226; ${i}`).join("<br/>")}</div>
@@ -1420,13 +1440,13 @@ tr:hover td{background:rgba(201,168,76,0.04)}
 .mi-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(201,168,76,0.12)}
 .mi-title{font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.1em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
 .mi-title::before{content:"◆";font-size:6px}
-.mi-conf{font-size:9px;font-weight:700;letter-spacing:0.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase}
-.mi-conf-high{background:rgba(22,163,74,0.15);color:#16A34A;border:1px solid rgba(22,163,74,0.2)}
-.mi-conf-med{background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.2)}
-.mi-conf-low{background:rgba(239,68,68,0.15);color:#EF4444;border:1px solid rgba(239,68,68,0.2)}
+.mi-conf{font-size:9px;font-weight:700;letter-spacing:0.05em;padding:3px 10px;border-radius:3px;text-transform:uppercase}
+.mi-conf-high{background:rgba(201,168,76,0.12);color:#7A5F1A;border:1px solid rgba(201,168,76,0.32)}
+.mi-conf-med{background:rgba(30,39,97,0.08);color:#1E2761;border:1px solid rgba(30,39,97,0.18)}
+.mi-conf-low{background:rgba(239,68,68,0.1);color:#991B1B;border:1px solid rgba(239,68,68,0.2)}
 .mi-body{font-size:11px;color:#94A3B8;line-height:1.65}
 .mi-body strong{color:#E2E8F0}
-.mi-formula{background:rgba(15,21,56,0.6);border:1px solid rgba(66,165,245,0.15);border-radius:8px;padding:10px 14px;margin:10px 0;font-family:'Space Mono',monospace;font-size:10px;color:#42A5F5;line-height:1.8}
+.mi-formula{background:#F8FAFC;border-left:3px solid #C9A84C;border:1px solid #E8EEF4;border-left:3px solid #C9A84C;border-radius:0 4px 4px 0;padding:10px 14px;margin:10px 0;font-family:Calibri,sans-serif;font-size:10px;color:#1E2761;line-height:1.7}
 .mi-source{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,168,76,0.08);font-size:9px;color:#6B7394;font-weight:600;letter-spacing:0.04em}
 .mi-source::before{content:"📊";font-size:10px}
 .mi-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(201,168,76,0.04);font-size:11px}
@@ -1663,7 +1683,7 @@ function updateCustomCap(val){
     return `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
       <span style="font-size:10px;font-weight:800;color:#6B7394;letter-spacing:0.1em">STORVEX ENGINE</span>
-      ${ovCount > 0 ? '<span style="margin-left:auto;font-size:10px;font-weight:700;color:#C9A84C;background:rgba(201,168,76,0.1);padding:3px 10px;border-radius:5px;border:1px solid rgba(201,168,76,0.15)"><span style="font-size:8px">*</span> = site override (' + ovCount + ')</span>' : '<span style="margin-left:auto;font-size:10px;font-weight:600;color:#16A34A;background:rgba(22,163,74,0.08);padding:3px 10px;border-radius:5px;border:1px solid rgba(22,163,74,0.15)">Using Defaults</span>'}
+      ${ovCount > 0 ? '<span style="margin-left:auto;font-size:10px;font-weight:700;color:#C9A84C;background:rgba(201,168,76,0.1);padding:3px 10px;border-radius:5px;border:1px solid rgba(201,168,76,0.15)"><span style="font-size:8px">*</span> = site override (' + ovCount + ')</span>' : '<span style="margin-left:auto;font-size:10px;font-weight:600;color:#C9A84C;background:rgba(201,168,76,0.08);padding:3px 10px;border-radius:5px;border:1px solid rgba(201,168,76,0.15)">Using Defaults</span>'}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div>
@@ -1771,7 +1791,7 @@ function switchSiteInputs(siteId) {
   var keys = Object.keys(ov);
   var panel = document.getElementById('site-overrides-panel');
   if (keys.length === 0) {
-    panel.innerHTML = '<div style="text-align:center;padding:20px"><span style="display:inline-block;padding:8px 20px;border-radius:6px;background:rgba(22,163,74,0.12);color:#16A34A;border:1px solid rgba(22,163,74,0.2);font-size:11px;font-weight:700;letter-spacing:0.06em">Using Storvex Engine Defaults \\u2014 No Site-Specific Overrides</span></div>';
+    panel.innerHTML = '<div style="text-align:center;padding:20px"><span style="display:inline-block;padding:8px 20px;border-radius:6px;background:rgba(201,168,76,0.12);color:#C9A84C;border:1px solid rgba(201,168,76,0.2);font-size:11px;font-weight:700;letter-spacing:0.06em">Using Storvex Engine Defaults &#x2014; No Site-Specific Overrides</span></div>';
     return;
   }
   var fmtK = function(k) { return k.replace(/([A-Z])/g, ' $1').replace(/^./, function(s) { return s.toUpperCase(); }); };
@@ -1846,7 +1866,7 @@ function switchSiteInputs(siteId) {
         <div class="mi-header"><div class="mi-title">Stabilized NOI Derivation</div><div class="mi-conf mi-conf-med">Projected</div></div>
         <div class="mi-body">
           <strong>Year 5 stabilized Net Operating Income — the critical metric for valuation.</strong>
-          <div class="mi-formula">Stabilized NOI = Stabilized Revenue × (1 - OpEx Ratio)<br>= ${fmtD(stabRev)} × (1 - ${opexRatioDetail || "38"}%)<br>= <strong style="color:#16A34A">${fmtD(stabNOI)}</strong></div>
+          <div class="mi-formula">Stabilized NOI = Stabilized Revenue × (1 - OpEx Ratio)<br>= ${fmtD(stabRev)} × (1 - ${opexRatioDetail || "38"}%)<br>= <strong style="color:#C9A84C">${fmtD(stabNOI)}</strong></div>
           <div class="mi-row"><span class="mi-row-label">Stabilized Revenue (Y5)</span><span class="mi-row-val">${fmtD(stabRev)}</span></div>
           <div class="mi-row"><span class="mi-row-label">Stabilized Occupancy</span><span class="mi-row-val">92% (industry standard)</span></div>
           <div class="mi-row"><span class="mi-row-label">Total OpEx</span><span class="mi-row-val">${fmtD(stabRev - stabNOI)}</span></div>
@@ -1859,12 +1879,12 @@ function switchSiteInputs(siteId) {
         </div>
       </div></div>
     </div>
-    <div class="metric-box mi-active mi" onclick="toggleMI('yoc',event)"><div class="label">Yield on Cost</div><div class="value" style="color:${parseFloat(yocStab) >= 8 ? "#16A34A" : parseFloat(yocStab) >= 6 ? "#F59E0B" : "#EF4444"}">${yocStab}%</div><em class="mi-hint">i</em>
+    <div class="metric-box mi-active mi" onclick="toggleMI('yoc',event)"><div class="label">Yield on Cost</div><div class="value" style="color:${parseFloat(yocStab) >= 8 ? "#C9A84C" : parseFloat(yocStab) >= 6 ? "#F59E0B" : "#EF4444"}">${yocStab}%</div><em class="mi-hint">i</em>
       <div id="mi-yoc" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Yield on Cost Analysis</div><div class="mi-conf ${parseFloat(yocStab) >= 8 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(yocStab) >= 9 ? "Strong" : parseFloat(yocStab) >= 7.5 ? "Acceptable" : "Below Target"}</div></div>
         <div class="mi-body">
           <strong>YOC is the single most important development return metric — it measures the unlevered return on total capital deployed.</strong>
-          <div class="mi-formula">YOC = Stabilized NOI ÷ Total Development Cost<br>= ${fmtD(stabNOI)} ÷ ${fmtD(totalDevCost)}<br>= <strong style="color:${parseFloat(yocStab) >= 9 ? "#16A34A" : "#F59E0B"}">${yocStab}%</strong></div>
+          <div class="mi-formula">YOC = Stabilized NOI ÷ Total Development Cost<br>= ${fmtD(stabNOI)} ÷ ${fmtD(totalDevCost)}<br>= <strong style="color:${parseFloat(yocStab) >= 9 ? "#C9A84C" : "#F59E0B"}">${yocStab}%</strong></div>
           <div class="mi-row"><span class="mi-row-label">PS Target Range</span><span class="mi-row-val">8.0% - 10.0%</span></div>
           <div class="mi-row"><span class="mi-row-label">PS Minimum Hurdle</span><span class="mi-row-val">7.5%</span></div>
           <div class="mi-row"><span class="mi-row-label">Development Spread</span><span class="mi-row-val" style="color:${parseFloat(devSpread) >= 200 ? "#16A34A" : "#F59E0B"}">${devSpread || "N/A"} bps vs market cap</span></div>
@@ -2466,7 +2486,7 @@ function switchSiteInputs(siteId) {
       <table style="font-size:12px">
         <tr class="mi" onclick="toggleMI('rdinctier',event)" style="cursor:pointer"><td style="color:#6B7394;width:130px;white-space:nowrap">Income Tier <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td style="font-weight:700;text-transform:capitalize;font-size:11px">${incTier} ${incN ? "($" + incN.toLocaleString() + " HHI)" : ""}</td></tr>
         <tr><td colspan="2" style="padding:0;border:none"><div id="mi-rdinctier" class="mi-panel"><div class="mi-panel-inner">
-          <div class="mi-header"><div class="mi-title">Income Tier Classification</div><div class="mi-conf mi-conf-high">Census ACS</div></div>
+          <div class="mi-header"><div class="mi-title">Income Tier Classification</div><div class="mi-conf mi-conf-high">ESRI 2025</div></div>
           <div class="mi-body">
             <strong>3-mile median household income determines the base rental rate tier.</strong> Higher income = higher willingness to pay for climate-controlled storage.
             <div class="mi-formula">3-mi Median HHI = $${incN ? incN.toLocaleString() : "N/A"}<br>→ Tier: <strong style="color:#C9A84C;text-transform:capitalize">${incTier}</strong><br>→ Base Climate Rate: $${baseClimateRate.toFixed(2)}/SF/mo</div>
@@ -2474,7 +2494,7 @@ function switchSiteInputs(siteId) {
             <div class="mi-row"><span class="mi-row-label">Upper ($75K-$90K)</span><span class="mi-row-val">$1.25/SF base</span></div>
             <div class="mi-row"><span class="mi-row-label">Mid ($60K-$75K)</span><span class="mi-row-val">$1.10/SF base</span></div>
             <div class="mi-row"><span class="mi-row-label">Value (&lt;$60K)</span><span class="mi-row-val">$0.95/SF base</span></div>
-            <div class="mi-source">Source: US Census ACS 5-Year | Table B19013 | 3-mile radius from site coordinates</div>
+            <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Median Household Income | Licensed ring study (3-mi)</div>
           </div>
         </div></div></td></tr>
         <tr class="mi" onclick="toggleMI('rdcomp',event)" style="cursor:pointer"><td style="color:#6B7394">Competition (3-mi) <em class="mi-hint" style="position:static;display:inline;opacity:0.5;font-size:8px">i</em></td><td style="font-weight:700">${compCount} facilities ${compCount <= 2 ? '<span class="tag" style="background:#16A34A20;color:#16A34A">LOW — Rate Premium</span>' : compCount <= 5 ? '<span class="tag" style="background:#F59E0B20;color:#F59E0B">MODERATE</span>' : '<span class="tag" style="background:#EF444420;color:#EF4444">HIGH — Rate Pressure</span>'}</td></tr>
@@ -3420,13 +3440,13 @@ ${padScenario ? `
       <div class="value" style="font-size:18px;color:#42A5F5">$${m1Rate.toFixed(2)}<span style="font-size:10px;color:#6B7394">/SF/mo</span></div>
       <div style="font-size:9px;color:#6B7394;margin-top:4px">${incTier} market × ${compAdj >= 1 ? "+" : ""}${((compAdj-1)*100).toFixed(0)}% comp adj</div>
       <div id="mi-rvm1" class="mi-panel" style="text-align:left"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Method 1 — Income-Tier Rate Model (Primary)</div><div class="mi-conf mi-conf-high">Census ACS + Competition</div></div>
+        <div class="mi-header"><div class="mi-title">Method 1 — Income-Tier Rate Model (Primary)</div><div class="mi-conf mi-conf-high">ESRI 2025 + Competition</div></div>
         <div class="mi-body">
           <strong>The primary rate derivation. Maps 3-mile median HHI to a base rate tier, then adjusts for local competition density.</strong>
           <div class="mi-formula">Step 1: 3-mi HHI = $${incN ? incN.toLocaleString() : "N/A"} → Tier: ${incTier}<br>Step 2: Base rate = $${baseClimateRate.toFixed(2)}/SF/mo (from tier matrix)<br>Step 3: Competition adj = ${compAdj.toFixed(2)}x (${compCount} competitors → ${compAdj >= 1.05 ? "low supply premium" : compAdj >= 1.0 ? "equilibrium" : "rate pressure"})<br>Step 4: M1 Rate = $${baseClimateRate.toFixed(2)} × ${compAdj.toFixed(2)} = <strong style="color:#42A5F5">$${m1Rate.toFixed(2)}/SF/mo</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Data Sources</span><span class="mi-row-val">Census ACS 5-Year Table B19013 (HHI) | Google Maps/SpareFoot (competitor count) | SiteScore™ tier matrix (calibrated against PS portfolio RevPAF by income bracket)</span></div>
+          <div class="mi-row"><span class="mi-row-label">Data Sources</span><span class="mi-row-val">ESRI ArcGIS GeoEnrichment 2025 (HHI) | Google Maps/SpareFoot (competitor count) | SiteScore™ tier matrix (calibrated against PS portfolio RevPAF by income bracket)</span></div>
           <div class="mi-row"><span class="mi-row-label">Why This Method Works</span><span class="mi-row-val">Income is the strongest predictor of storage pricing. Higher-income households have more possessions, larger homes (generating more storage demand during transitions), and higher willingness-to-pay for climate-controlled premium units. PS's own portfolio data confirms: premium markets ($90K+ HHI) achieve 25-35% higher RevPAF than value markets.</span></div>
-          <div class="mi-source">Source: US Census ACS 5-Year | SiteScore™ income-tier matrix | Competition adjustment from 3-mi radius scan</div>
+          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | SiteScore™ income-tier matrix | Competition adjustment from 3-mi radius scan</div>
         </div>
       </div></div>
     </div>
@@ -3455,7 +3475,7 @@ ${padScenario ? `
           <strong>Higher population density within 3 miles correlates with stronger storage demand and rate support. Urban/suburban density drives walk-in traffic and reduces marketing cost per lease.</strong>
           <div class="mi-formula">3-mi Population: ${popN ? fmtN(popN) : "—"}<br>Density Factor: ${popDensityFactor.toFixed(2)}x<br>Base Rate: $1.15/SF × ${popDensityFactor.toFixed(2)} = <strong style="color:#16A34A">$${m3ClimRate.toFixed(2)}/SF/mo</strong></div>
           <div class="mi-row"><span class="mi-row-label">PS Relevance</span><span class="mi-row-val">Population density is a leading indicator for lease-up velocity. Dense markets (40K+ within 3mi) typically stabilize 6-12 months faster than sparse markets. PS's best-performing facilities are in suburban corridors with 30-50K 3-mi population.</span></div>
-          <div class="mi-source">Source: Census ACS 3-mile population | Density-to-rate correlation model calibrated against 47-site SiteScore™ pipeline</div>
+          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Density-to-rate model calibrated against 47-site SiteScore™ pipeline</div>
         </div>
       </div></div>
     </div>
@@ -3777,7 +3797,7 @@ ${padScenario ? `
           <div class="mi-formula">Existing Supply: ${estCompSF > 0 ? estCompSF.toLocaleString() : "—"} SF (${compCount} facilities × ~55K avg)<br>+ Proposed: ${totalSF.toLocaleString()} SF<br>= Total Market: ${totalMktSF > 0 ? totalMktSF.toLocaleString() : "—"} SF<br>÷ 3-Mi Pop: ${popN ? fmtN(popN) : "—"}<br>= <strong style="color:${demandColor}">${sfPerCapita || "—"} SF/capita</strong></div>
           <div class="mi-row"><span class="mi-row-label">Industry Benchmarks</span><span class="mi-row-val">&lt;5.0 = Underserved (strong buy) | 5-7 = Moderate demand | 7-9 = Equilibrium | 9-12 = Well-supplied | &gt;12 = Oversupplied. National avg: 7.3 SF/capita.</span></div>
           <div class="mi-row"><span class="mi-row-label">Why PS Uses This</span><span class="mi-row-val">PS's development team screens every market by SF/capita. Markets below 5.0 are automatic "green lights" — they indicate structural undersupply that supports above-average lease-up velocity and rate premium pricing. SiteScore™ computes this in real-time instead of relying on quarterly Radius+ reports.</span></div>
-          <div class="mi-source">Source: Competitor count × 55K avg SF (Radius+/Yardi Matrix national benchmark) ÷ Census ACS 3-mile population</div>
+          <div class="mi-source">Source: Competitor count × 55K avg SF (Radius+/Yardi Matrix national benchmark) ÷ ESRI ArcGIS GeoEnrichment 2025 (3-mi population)</div>
         </div>
       </div></div>
     </div>
@@ -4079,7 +4099,7 @@ ${padScenario ? `
     <div class="grid2" style="margin-top:12px">
       <div class="insight-box">
         <div class="insight-title">Data Sources</div>
-        <div class="drill-row"><span class="drill-label">Demographics</span><span class="drill-value" style="font-size:10px">US Census ACS 5-Year</span></div>
+        <div class="drill-row"><span class="drill-label">Demographics</span><span class="drill-value" style="font-size:10px">ESRI GeoEnrichment 2025</span></div>
         <div class="drill-row"><span class="drill-label">Growth Projections</span><span class="drill-value" style="font-size:10px">ESRI 2025→2030</span></div>
         <div class="drill-row"><span class="drill-label">Construction Costs</span><span class="drill-value" style="font-size:10px">RSMeans 2025 + PS benchmarks</span></div>
         <div class="drill-row"><span class="drill-label">Market Rates</span><span class="drill-value" style="font-size:10px">SiteScore™ 3-method cross-validated</span></div>
@@ -4170,7 +4190,9 @@ ${padScenario ? `
 
 // ─── REC Package — Real Estate Committee Investment Package ───
 // Comprehensive boardroom-ready document combining SiteScore, Pricing, Competition, Zoning, Market Data
-export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOverrides) => {
+export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOverrides, extras = {}) => {
+  const portfolioFit = extras.portfolioFit || null;
+  const buyerFit = extras.buyerFit || null;
   try {
   const h = escapeHtml;
   const iq = iqResult || computeSiteScore(site, siteScoreConfig);
@@ -4180,6 +4202,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   const { zoningClass, zoningColor, zoningLabel, hasFlood, hasOverlay,
     utilChecks, utilScore, utilGrade, flags: vetFlags, risks: vetRisks,
     waterHookup, waterHookupLabel, waterHookupColor,
+    surveyVerdict, surveyVerdictLabel, surveyVerdictColor, surveyVerdictIcon,
     keyStrength, keyRisk, vettingCostAdders,
   } = v;
   const utilColor = v.utilGradeColor;
@@ -4255,7 +4278,7 @@ export const generateRECPackage = (site, iqResult, siteScoreConfig, valuationOve
   // ── Overall Recommendation ──
   const score = iq.score || 0;
   const recLabel = score >= 8.0 ? "STORVEX RECOMMENDATION: APPROVED" : score >= 6.5 ? "STORVEX RECOMMENDATION: CONDITIONAL" : score >= 5.0 ? "STORVEX RECOMMENDATION: HOLD — DILIGENCE REQUIRED" : "STORVEX RECOMMENDATION: PASS";
-  const recColor = score >= 8.0 ? "#16A34A" : score >= 6.5 ? "#3B82F6" : score >= 5.0 ? "#F59E0B" : "#EF4444";
+  const recColor = score >= 8.0 ? "#C9A84C" : score >= 6.5 ? "#1E2761" : score >= 5.0 ? "#F59E0B" : "#EF4444";
   const recIcon = score >= 8.0 ? "✅" : score >= 6.5 ? "🔵" : score >= 5.0 ? "⚠️" : "❌";
 
   const fmtD = (n) => "$" + Math.round(n).toLocaleString();
@@ -4319,12 +4342,12 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
 .mi-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #E2E8F0}
 .mi-title{font-size:12px;font-weight:800;color:#1E2761;letter-spacing:0.04em}
 .mi-conf{font-size:9px;font-weight:700;letter-spacing:0.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase}
-.mi-conf-high{background:rgba(22,163,74,0.1);color:#16A34A;border:1px solid rgba(22,163,74,0.2)}
-.mi-conf-med{background:rgba(245,158,11,0.1);color:#D97706;border:1px solid rgba(245,158,11,0.2)}
+.mi-conf-high{background:rgba(201,168,76,0.12);color:#7A5F1A;border:1px solid rgba(201,168,76,0.32)}
+.mi-conf-med{background:rgba(30,39,97,0.08);color:#1E2761;border:1px solid rgba(30,39,97,0.18)}
 .mi-conf-low{background:rgba(239,68,68,0.1);color:#EF4444;border:1px solid rgba(239,68,68,0.2)}
 .mi-body{font-size:11px;color:#475569;line-height:1.65}
 .mi-body strong{color:#1E293B}
-.mi-formula{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;margin:10px 0;font-family:'Space Mono',monospace;font-size:10px;color:#1E40AF;line-height:1.8}
+.mi-formula{background:#F8FAFC;border-left:3px solid #C9A84C;border:1px solid #E8EEF4;border-left:3px solid #C9A84C;border-radius:0 4px 4px 0;padding:10px 14px;margin:10px 0;font-family:Calibri,sans-serif;font-size:10px;color:#1E2761;line-height:1.7}
 .mi-source{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #E2E8F0;font-size:9px;color:#64748B;font-weight:600;letter-spacing:0.04em}
 .mi-source::before{content:"📊";font-size:10px}
 .mi-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #F1F5F9;font-size:11px}
@@ -4358,33 +4381,39 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
   .page{box-shadow:none!important;max-width:none!important;margin:0!important}
   /* Hide on-screen-only chrome */
   .print-btn,.toc-sidebar,.mi-hint,.expand-hint,.dim-info{display:none!important}
-  /* Force expanded panels open in print so all content is visible */
-  .mi-panel{max-height:none!important;opacity:1!important;margin-top:10px!important;overflow:visible!important}
-  .expand-panel{max-height:none!important;opacity:1!important;padding:14px!important;overflow:visible!important}
+  /* DETAIL PANELS — hidden in print. The expandable "i" drilldowns are web-only.
+     Primary card content (metric values, tables, key findings) stays visible.
+     This is the single biggest reduction in page count. */
+  .mi-panel,.expand-panel,.mi-hint,.expand-hint{display:none!important}
   /* Soften heavy shadows for cleaner print */
-  .section,.metric,.mi-panel-inner,.risk-row,.expand-panel{box-shadow:none!important}
+  .section,.metric,.risk-row{box-shadow:none!important}
   /* Section + content break control — keep headers with their content */
   h1,h2,h3,h4{break-after:avoid-page!important;page-break-after:avoid!important}
   h2{margin-top:6px!important;font-size:13px!important}
   /* Avoid splitting atomic content blocks across pages */
-  .metric,.risk-row,.mi-panel,.mi-panel-inner,.grid2>div,.grid3>div,.grid4>div{break-inside:avoid!important;page-break-inside:avoid!important}
+  .metric,.risk-row,.grid2>div,.grid3>div,.grid4>div,
+  .hover-card,[style*="border-radius:10px"],[style*="border-radius:12px"]{break-inside:avoid!important;page-break-inside:avoid!important}
   /* Tables: keep rows intact, repeat headers on new page */
   table{break-inside:auto!important}
   thead{display:table-header-group}
   tfoot{display:table-footer-group}
   tr,td,th{break-inside:avoid!important;page-break-inside:avoid!important}
-  /* Sections: prefer to start on a fresh page if they don't fit, but allow internal paging */
-  .section{break-inside:auto!important;padding:20px 32px!important}
-  /* Capstone (Institutional Investment Analysis) lands on its own page — the workpaper crescendo */
+  /* Sections: allow internal paging, tight padding in print */
+  .section{break-inside:auto!important;padding:18px 28px!important}
+  /* Capstone lands on its own page — workpaper crescendo */
   #sec-CAP{break-before:page!important;page-break-before:always!important}
-  /* Other major deep-dives get fresh pages too for clean delineation */
+  /* Major deep-dives get fresh pages */
   #sec-VW,#sec-RA{break-before:page!important;page-break-before:always!important}
-  /* Tighten widows/orphans so paragraphs don't strand */
-  p,li,div{widows:3;orphans:3}
+  /* SiteScore, Demographics, Competition, Zoning each get fresh pages */
+  #sec-R4,#sec-R5,#sec-R6,#sec-R7{break-before:page!important;page-break-before:always!important}
+  /* Recommendation + Research gate on page 2 */
+  #sec-R1{break-before:page!important;page-break-before:always!important}
+  /* Tighten widows/orphans */
+  p,li{widows:3;orphans:3}
   /* Hyperlinks: keep blue but no underline-on-print fluff */
   a{color:#1E40AF;text-decoration:none}
   /* Print-only cover memo — hidden on screen, banger up front in PDF */
-  .print-cover{display:block!important;break-after:page!important;page-break-after:always!important;padding:48px 56px;color:#1E293B;background:#fff;height:9.4in;position:relative}
+  .print-cover{display:flex!important;flex-direction:column!important;break-after:page!important;page-break-after:always!important;padding:48px 56px;color:#1E293B;background:#fff;min-height:9.4in;height:9.4in;position:relative}
   .print-cover .cover-mark{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #1E2761}
   .print-cover .cover-rec{display:flex;align-items:center;gap:12px}
   .print-cover .cover-rec-badge{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#E87A2E);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:14px;font-family:'Space Mono',monospace}
@@ -4407,8 +4436,8 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
   .print-cover .cover-attest{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px}
   .print-cover .cover-pill{padding:8px 6px;border-radius:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:9px;text-align:center;line-height:1.35}
   .print-cover .cover-pill-label{font-weight:800;color:#1E2761;letter-spacing:0.06em}
-  .print-cover .cover-pill-val{color:#16A34A;font-weight:700;margin-top:2px;font-size:8px}
-  .print-cover .cover-sig{position:absolute;bottom:48px;left:56px;right:56px;padding-top:18px;border-top:2px solid #1E2761;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#64748B}
+  .print-cover .cover-pill-val{color:#C9A84C;font-weight:700;margin-top:2px;font-size:8px}
+  .print-cover .cover-sig{padding-top:16px;border-top:2px solid #1E2761;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#64748B;margin-top:auto}
   .print-cover .cover-sig-line{font-style:italic;color:#1E2761;font-weight:700;font-size:13px;font-family:'Inter',sans-serif;margin-bottom:2px}
   /* Page setup — Letter, half-inch margins; running footer on every page */
   @page{margin:0.65in 0.5in;size:letter;
@@ -4623,7 +4652,7 @@ ${(() => {
 </div>
 
 <!-- ═══════════════ SECTION 1: RECOMMENDATION ═══════════════ -->
-<div id="sec-R1" class="section" style="scroll-margin-top:20px;background:${recColor}08;border-left:4px solid ${recColor}">
+<div id="sec-R1" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #1E2761">
   <h2><span class="sec-num">1</span> Storvex Recommendation</h2>
   <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
     <span style="font-size:28px">${recIcon}</span>
@@ -4651,17 +4680,36 @@ ${(() => {
     </div>
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-yoc',event)">
       <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">STABILIZED YOC</div>
-      <div style="font-size:20px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : parseFloat(yocStab) >= 7.0 ? '#F59E0B' : '#1E2761'};font-family:'Space Mono',monospace">${yocStab}%</div><em class="mi-hint">i</em>
+      <div style="font-size:20px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? '#C9A84C' : parseFloat(yocStab) >= 7.0 ? '#F59E0B' : '#1E2761'};font-family:'Space Mono',monospace">${yocStab}%</div><em class="mi-hint">i</em>
       <div id="mi-rec-yoc" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">Stabilized Yield on Cost</div><div class="mi-conf ${parseFloat(yocStab) >= 8.5 ? "mi-conf-high" : parseFloat(yocStab) >= 7.0 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(yocStab) >= 9 ? "Exceeds Target" : parseFloat(yocStab) >= 8.0 ? "Meets Target" : "Below Target"}</div></div>
         <div class="mi-body">
           <strong>The primary return metric for ground-up development — stabilized NOI as a percentage of total development cost.</strong>
-          <div class="mi-formula">YOC = Stabilized NOI (Y5) ÷ Total Dev Cost<br>= ${fmtD(stabNOI)} ÷ ${fmtD(totalDevCost)}<br>= <strong style="color:${parseFloat(yocStab) >= 8.5 ? '#16A34A' : '#F59E0B'}">${yocStab}%</strong></div>
+          <div class="mi-formula">YOC = Stabilized NOI (Y5) ÷ Total Dev Cost<br>= ${fmtD(stabNOI)} ÷ ${fmtD(totalDevCost)}<br>= <strong style="color:${parseFloat(yocStab) >= 8.5 ? '#C9A84C' : '#F59E0B'}">${yocStab}%</strong></div>
           <div class="mi-row"><span class="mi-row-label">REIT Target Range</span><span class="mi-row-val">8.0% – 10.0%</span></div>
           <div class="mi-row"><span class="mi-row-label">Minimum Hurdle</span><span class="mi-row-val">7.5%</span></div>
           <div class="mi-row"><span class="mi-row-label">Dev Spread vs Mkt Cap</span><span class="mi-row-val">${devSpread || "N/A"} bps</span></div>
-          <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${parseFloat(yocStab) >= 9 ? '#16A34A' : parseFloat(yocStab) >= 7.5 ? '#D97706' : '#EF4444'}">${parseFloat(yocStab) >= 9.5 ? "Exceptional — well above hurdle" : parseFloat(yocStab) >= 8.5 ? "Strong — above sweet spot" : parseFloat(yocStab) >= 7.5 ? "Meets minimum threshold" : "Below hurdle — negotiate land price"}</span></div>
+          <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${parseFloat(yocStab) >= 9 ? '#C9A84C' : parseFloat(yocStab) >= 7.5 ? '#D97706' : '#EF4444'}">${parseFloat(yocStab) >= 9.5 ? "Exceptional — well above hurdle" : parseFloat(yocStab) >= 8.5 ? "Strong — above sweet spot" : parseFloat(yocStab) >= 7.5 ? "Meets minimum threshold" : "Below hurdle — negotiate land price"}</span></div>
           <div class="mi-source">Source: SiteScore 5-Year Lease-Up Model | Industry-standard development return metric (PSA 10-K, EXR 10-K)</div>
+        </div>
+      </div></div>
+    </div>
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;text-align:center" class="mi" onclick="toggleMI('rec-survey',event)">
+      <div style="font-size:8px;font-weight:700;color:#94A3B8;letter-spacing:0.1em;margin-bottom:4px">SURVEY VERDICT</div>
+      <div class="badge" style="background:${surveyVerdictColor}18;color:${surveyVerdictColor};border:1px solid ${surveyVerdictColor}30;font-size:14px;padding:6px 14px">${surveyVerdictIcon} ${surveyVerdictLabel}</div><em class="mi-hint">i</em>
+      <div id="mi-rec-survey" class="mi-panel"><div class="mi-panel-inner">
+        <div class="mi-header"><div class="mi-title">Survey Scrub Verdict</div><div class="mi-conf ${surveyVerdict === "CLEAN" ? "mi-conf-high" : surveyVerdict === "FLAGGED" || surveyVerdict === "PENDING" ? "mi-conf-med" : "mi-conf-low"}">${surveyVerdictLabel}</div></div>
+        <div class="mi-body">
+          <strong>§6h Step 2c gate — caught Manvel-style deal-killers at intake instead of after pursuit.</strong>
+          <div class="mi-formula">Storage scrub: easements (gas/petroleum/transmission/drainage) + standard access (frontage, curb cuts, landlocked).<br>NO 4-direction test for storage — destination use is survivable off the beaten path.</div>
+          <div class="mi-row"><span class="mi-row-label">CLEAN</span><span class="mi-row-val">No KILLs, no flags — eligible for GREEN</span></div>
+          <div class="mi-row"><span class="mi-row-label">FLAGGED</span><span class="mi-row-val">Reviewed, no KILL but issues — capped at YELLOW</span></div>
+          <div class="mi-row"><span class="mi-row-label">PENDING</span><span class="mi-row-val">Survey on file, scrub in progress — capped at YELLOW</span></div>
+          <div class="mi-row"><span class="mi-row-label">NOT_ON_FILE</span><span class="mi-row-val">No survey at intake — request from broker</span></div>
+          <div class="mi-row"><span class="mi-row-label">KILL</span><span class="mi-row-val">Auto-routed to config/killed_sites — never reaches queue</span></div>
+          ${site.surveyEasementSummary ? `<div class="mi-row"><span class="mi-row-label">Easements</span><span class="mi-row-val">${h(site.surveyEasementSummary).slice(0,200)}</span></div>` : ""}
+          ${site.surveyAccessSummary ? `<div class="mi-row"><span class="mi-row-label">Access</span><span class="mi-row-val">${h(site.surveyAccessSummary).slice(0,200)}</span></div>` : ""}
+          ${site.surveyScrubDate ? `<div class="mi-source">Scrubbed ${h(site.surveyScrubDate)} — CLAUDE.md §6h Step 2c</div>` : `<div class="mi-source">CLAUDE.md §6h Step 2c — Survey Scrub Gate</div>`}
         </div>
       </div></div>
     </div>
@@ -4669,15 +4717,15 @@ ${(() => {
 </div>
 
 <!-- ═══════════════ VALUATION WORKUP — FULL STORAGE PRO FORMA ═══════════════ -->
-<div id="sec-VW" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(22,163,74,0.03),rgba(201,168,76,0.04));border-left:4px solid #16A34A">
-  <h2><span class="sec-num" style="background:#16A34A">2</span> Valuation Workup — Full Development Pro Forma</h2>
+<div id="sec-VW" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #1E2761">
+  <h2><span class="sec-num">2</span> Valuation Workup — Full Development Pro Forma</h2>
   <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">PS 10-K calibrated Storvex Engine v2.0: 78.4% NOI margin (Q4 2025), 92% stabilized occupancy, 32% cumulative ECRI by Y5, 6.0% exit cap, 8-10.5% Walk/Strike/Home Run YOC. All construction costs state-indexed; operating expenses per PS 10-K.</div>
 
   <!-- FACILITY PROGRAM -->
   <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">FACILITY PROGRAM — SIZING MODEL</div>
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:10px">FACILITY PROGRAM — SIZING MODEL</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">BUILD TYPE</div><div style="font-size:14px;font-weight:900;color:#16A34A;margin-top:4px">${isMultiStory ? stories + "-Story" : "1-Story"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${isMultiStory ? "Tighter site — vertical" : "Suburban format"}</div></div>
+      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">BUILD TYPE</div><div style="font-size:14px;font-weight:900;color:#C9A84C;margin-top:4px">${isMultiStory ? stories + "-Story" : "1-Story"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${isMultiStory ? "Tighter site — vertical" : "Suburban format"}</div></div>
       <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">TOTAL GROSS SF</div><div style="font-size:14px;font-weight:900;color:#1E2761;margin-top:4px">${grossSF ? (grossSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${footprint ? Math.round(footprint).toLocaleString() + " SF × " + stories + " stories" : "—"}</div></div>
       <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">NET RENTABLE SF</div><div style="font-size:14px;font-weight:900;color:#3B82F6;margin-top:4px">${totalSF ? (totalSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${netToGross ? (netToGross*100).toFixed(0) + "% efficiency" : "—"}</div></div>
       <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">INCOME TIER</div><div style="font-size:14px;font-weight:900;color:#C9A84C;margin-top:4px">${(incTier || "").toUpperCase()}</div><div style="font-size:9px;color:#64748B;margin-top:2px">HHI ${incN ? "$" + Math.round(incN/1000) + "K" : "—"}</div></div>
@@ -4686,7 +4734,7 @@ ${(() => {
 
   <!-- UNIT MIX -->
   <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">UNIT MIX — CLIMATE vs DRIVE-UP</div>
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:10px">UNIT MIX — CLIMATE vs DRIVE-UP</div>
     <table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px;border-bottom:2px solid #1E2761">Product Type</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Net Rentable SF</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">% of Total</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Stabilized Rate ($/SF/mo)</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Annual Revenue (Y5)</th></tr></thead>
       <tbody>
@@ -5683,6 +5731,162 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
 </div>
 `; } catch (e) { console.error("sec-CAP (Storvex) render error:", e); return `<div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;padding:24px;margin:10px 0"><h2 style="color:#92400E;margin:0 0 8px">&Sigma; Institutional Investment Analysis</h2><p style="color:#78350F;font-size:13px;margin:0 0 6px"><b>Capstone section temporarily unavailable.</b> The rest of this REC Package (exec summary, demographics, valuation, rent analysis, competition, utilities, etc.) continues to render below.</p><p style="color:#92400E;font-size:11px;font-family:'Space Mono',monospace;margin:0;background:#FDE68A;padding:8px 12px;border-radius:6px">Error: ${e.message}</p></div>`; } })()}
 
+<!-- ═══════════════ SECTION PF: PORTFOLIO FIT ANALYSIS (PS DNA) ═══════════════ -->
+${(() => {
+  if (!portfolioFit || portfolioFit.classification === 'NO DATA' || portfolioFit.classification === 'NO DNA') {
+    return `<div id="sec-PF" class="section" style="scroll-margin-top:20px;background:#FEF3C7;border-left:4px solid #F59E0B;padding:14px 18px;border-radius:8px;margin:12px 0">
+      <h2 style="color:#92400E;margin:0 0 6px;font-size:15px"><span class="sec-num">PF</span> Portfolio Fit Analysis (PS DNA)</h2>
+      <p style="color:#78350F;font-size:12px;margin:0;line-height:1.5">PortfolioFit unavailable for this site. The PS DNA profile (4,639 PS family locations) requires the site's 3-mi ESRI demographics to compute fit. Verify <code>pop3mi</code>, <code>income3mi</code>, and related fields are populated.</p>
+    </div>`;
+  }
+  const c = portfolioFit.classColor || '#3B82F6';
+  const labels = {
+    population: '3-mile population',
+    income:     'Median household income',
+    growth:     'Population growth (5-yr CAGR)',
+    households: 'Total households',
+    homeValue:  'Median home value',
+    renterPct:  'Renter percentage',
+    nearestPS:  'PS family clustering (nearest sibling)',
+  };
+  const rows = Object.entries(portfolioFit.percentiles || {})
+    .filter(([, p]) => p != null)
+    .map(([k, p]) => {
+      const score = portfolioFit.attributes[k] ?? 0;
+      const barColor = score >= 8 ? '#22C55E' : score >= 6 ? '#3B82F6' : score >= 4 ? '#F59E0B' : '#EF4444';
+      return `<tr>
+        <td style="padding:8px 10px;font-size:11px;font-weight:700;color:#1E2761">${labels[k] || k}</td>
+        <td style="padding:8px 10px;width:55%">
+          <div style="position:relative;height:14px;background:#E5E7EB;border-radius:4px;overflow:hidden">
+            <div style="position:absolute;top:0;bottom:0;left:25%;width:50%;background:rgba(34,197,94,0.15);border-left:1px solid rgba(34,197,94,0.4);border-right:1px solid rgba(34,197,94,0.4)"></div>
+            <div style="position:absolute;top:-2px;bottom:-2px;left:calc(${p}% - 3px);width:6px;background:${barColor};border-radius:2px;box-shadow:0 0 6px ${barColor}80"></div>
+          </div>
+        </td>
+        <td style="padding:8px 10px;font-size:11px;font-family:'Space Mono',monospace;font-weight:700;color:${barColor};text-align:right">P${p}</td>
+        <td style="padding:8px 10px;font-size:11px;font-family:'Space Mono',monospace;font-weight:700;color:${barColor};text-align:right">${score}/10</td>
+      </tr>`;
+    }).join('');
+  return `<div id="sec-PF" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.03),${c}10);border-left:4px solid ${c};border-radius:10px;padding:18px 22px;margin:12px 0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 style="margin:0 0 4px;font-size:16px;color:#1E2761"><span class="sec-num">PF</span> Portfolio Fit Analysis &mdash; PS DNA Benchmark</h2>
+        <div style="font-size:11px;color:#64748B;line-height:1.5;max-width:560px">Second-lens scoring: how closely does this candidate match the actual demographic DNA of PS's 4,639 family locations (PS-owned + iStorage + NSA)?</div>
+      </div>
+      <div style="text-align:right;background:${c}12;border:1px solid ${c}40;border-radius:10px;padding:8px 14px;min-width:160px">
+        <div style="font-size:9px;font-weight:800;color:#64748B;letter-spacing:0.10em">PORTFOLIO FIT</div>
+        <div style="font-size:24px;font-weight:900;color:${c};font-family:'Space Mono',monospace;line-height:1">${portfolioFit.score.toFixed(2)}/10</div>
+        <div style="font-size:10px;font-weight:800;color:${c};letter-spacing:0.04em">${portfolioFit.classification}</div>
+      </div>
+    </div>
+    <div style="background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;padding:8px 12px;margin:8px 0 12px;font-size:11px;color:#475569;line-height:1.5">
+      Benchmarked against <b>${portfolioFit.dnaSubProfileSize}</b> PS family sites in the
+      <b style="color:${c}">${(portfolioFit.density || '').toUpperCase()}</b> DNA bucket.
+      ${portfolioFit.notes ? `<div style="margin-top:4px;color:#64748B;font-size:10px">${portfolioFit.notes}</div>` : ''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;overflow:hidden">
+      <thead><tr style="background:#F1F5F9">
+        <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B;letter-spacing:0.06em">ATTRIBUTE</th>
+        <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B;letter-spacing:0.06em">PERCENTILE WITHIN ${portfolioFit.density.toUpperCase()} PS DNA</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#64748B;letter-spacing:0.06em;width:60px">RANK</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#64748B;letter-spacing:0.06em;width:60px">FIT</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:8px;font-size:9px;color:#94A3B8;line-height:1.5">
+      Green band = P25-P75 sweet spot (most typical PS purchase). Marker shows where this site falls in the DNA distribution. Bell-curve scoring: P25-P75 = 10/10, edges fall off symmetrically.
+    </div>
+  </div>`;
+})()}
+
+<!-- ═══════════════ SECTION BR: BUYER-ROUTING ENGINE (DealFlow Oracle™) ═══════════════ -->
+${(() => {
+  if (!buyerFit || !buyerFit.topBuyer || buyerFit.classification === 'NO MATRIX') {
+    return `<div id="sec-BR" class="section" style="scroll-margin-top:20px;background:#FEF3C7;border-left:4px solid #F59E0B;padding:14px 18px;border-radius:8px;margin:12px 0">
+      <h2 style="color:#92400E;margin:0 0 6px;font-size:15px"><span class="sec-num">BR</span> Buyer-Routing Engine</h2>
+      <p style="color:#78350F;font-size:12px;margin:0;line-height:1.5">BuyerFit unavailable for this site. The DJR DealFlow Oracle\u2122 routing matrix (49+ operators) requires the site's <code>state</code>, <code>acreage</code>, and demographic fields to filter and rank candidate buyers.</p>
+    </div>`;
+  }
+  const c = buyerFit.classColor || '#3B82F6';
+  const top = buyerFit.ranked || [];
+  const tierLabelOf = (t) => ({
+    'TIER_1_HOT_CAPITAL': 'HOT CAPITAL',
+    'TIER_2_ACTIVE': 'ACTIVE',
+    'TIER_3_MEDIUM': 'MEDIUM',
+    'TIER_4_SELECTIVE': 'SELECTIVE',
+    'TIER_5_HYPER_LOCAL': 'HYPER-LOCAL',
+  })[t] || t;
+  const tierColorOf = (t) => ({
+    'TIER_1_HOT_CAPITAL': '#22C55E',
+    'TIER_2_ACTIVE': '#3B82F6',
+    'TIER_3_MEDIUM': '#F59E0B',
+    'TIER_4_SELECTIVE': '#8B5CF6',
+    'TIER_5_HYPER_LOCAL': '#94A3B8',
+  })[t] || '#94A3B8';
+  const rows = top.map((cand, i) => {
+    const tc = tierColorOf(cand.tier);
+    const lbl = tierLabelOf(cand.tier);
+    const hookHtml = cand.pitchHook
+      ? `<div style="font-size:10px;color:#475569;line-height:1.5;margin-top:6px;padding:6px 10px;background:rgba(201,168,76,0.06);border-left:2px solid #C9A84C;border-radius:0 4px 4px 0;font-style:italic">${h(String(cand.pitchHook).slice(0, 280))}</div>`
+      : '';
+    const flagHtml = cand.operationalFlag
+      ? `<div style="font-size:9px;color:#B91C1C;line-height:1.4;margin-top:4px"><b>\u26A0 OPERATIONAL FLAG:</b> ${h(String(cand.operationalFlag).slice(0, 200))}</div>`
+      : '';
+    const hcr = cand.hotCapitalRank && cand.hotCapitalRank <= 50 ? ` &middot; #${cand.hotCapitalRank} hot capital` : '';
+    const speed = cand.decisionSpeedDays ? ` &middot; ${cand.decisionSpeedDays}d decision` : '';
+    return `<tr style="background:${i === 0 ? 'rgba(34,197,94,0.05)' : (i % 2 ? '#FFFFFF' : '#F8FAFC')}">
+      <td style="padding:10px 12px;width:32px;text-align:center;background:${tc};color:#0A0A14;font-weight:900;font-family:'Space Mono',monospace;font-size:13px">${i + 1}</td>
+      <td style="padding:10px 12px">
+        <div style="font-size:13px;font-weight:800;color:#1E2761">${h(cand.operator)}</div>
+        <div style="font-size:9px;color:#64748B;letter-spacing:0.04em;margin-top:2px"><span style="color:${tc};font-weight:700">${lbl}</span>${hcr}${speed}</div>
+        ${hookHtml}
+        ${flagHtml}
+      </td>
+      <td style="padding:10px 12px;text-align:right;font-size:18px;font-weight:900;color:${tc};font-family:'Space Mono',monospace">${cand.score.toFixed(1)}</td>
+    </tr>`;
+  }).join('');
+
+  // Hard-gate fail summary (top reasons)
+  const failsByReason = {};
+  (buyerFit.hardGateFails || []).forEach(f => {
+    const key = (f.reason || 'unknown').split(':')[0].trim();
+    failsByReason[key] = (failsByReason[key] || 0) + 1;
+  });
+  const failChips = Object.entries(failsByReason).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([reason, n]) =>
+    `<span style="display:inline-block;font-size:9px;color:#64748B;padding:3px 9px;border-radius:10px;background:#F1F5F9;border:1px solid #E2E8F0;margin:2px 4px 2px 0">${h(reason)} <b style="color:#475569">&times;${n}</b></span>`
+  ).join('');
+
+  return `<div id="sec-BR" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.03),${c}10);border-left:4px solid ${c};border-radius:10px;padding:18px 22px;margin:12px 0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 style="margin:0 0 4px;font-size:16px;color:#1E2761"><span class="sec-num">BR</span> Buyer-Routing Engine &mdash; DJR DealFlow Oracle&trade;</h2>
+        <div style="font-size:11px;color:#64748B;line-height:1.5;max-width:620px">Third-lens scoring: if PS passes, who else? Site is filtered against the 49-operator buyer matrix (hard-gate intersection on geography, deal type, size, price, hard-no rules) then ranked by hot-capital tier, deployment pressure, product fit, and capital recency. Memory-driven adjustments: DW pass &rarr; SK boost; DFW ground-up &rarr; PS de-prioritize (Brock displacement).</div>
+      </div>
+      <div style="text-align:right;background:${c}12;border:1px solid ${c}40;border-radius:10px;padding:8px 14px;min-width:180px">
+        <div style="font-size:9px;font-weight:800;color:#64748B;letter-spacing:0.10em">TOP BUYER</div>
+        <div style="font-size:14px;font-weight:900;color:${c};line-height:1.1;margin:2px 0">${h(buyerFit.topBuyer || '')}</div>
+        <div style="font-size:24px;font-weight:900;color:${c};font-family:'Space Mono',monospace;line-height:1">${buyerFit.topBuyerScore.toFixed(2)}/10</div>
+        <div style="font-size:10px;font-weight:800;color:${c};letter-spacing:0.04em">${buyerFit.classification}</div>
+      </div>
+    </div>
+    <div style="background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;padding:8px 12px;margin:8px 0 12px;font-size:11px;color:#475569;line-height:1.5">
+      Site classified as <b style="color:#1E2761">${h(buyerFit.dealType || '?')}</b> (deal type).
+      <b>${buyerFit.survivors}</b> of <b>${buyerFit.matrixSize}</b> operators survived hard-gates.
+      ${(buyerFit.hardGateFails || []).length} filtered &mdash; top reasons: ${failChips || '<i>none</i>'}.
+    </div>
+    <table style="width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;overflow:hidden">
+      <thead><tr style="background:#F1F5F9">
+        <th style="padding:8px 10px;text-align:center;font-size:10px;color:#64748B;letter-spacing:0.06em;width:36px">#</th>
+        <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B;letter-spacing:0.06em">OPERATOR &middot; TIER &middot; PITCH HOOK</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#64748B;letter-spacing:0.06em;width:80px">SCORE</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:10px;font-size:9px;color:#94A3B8;line-height:1.5">
+      Sourced from <code>operator-matrix.json</code> v6 (49 operators, hot-capital ranked) and DJR's primary-source institutional research waves 1-6. Memory-driven exclusions: 16 DO_NOT_ROUTE entities (Blackstone/BREIT, Brookfield, World Class, Investcorp, etc.) plus Brock Wollent (competitor, not a routing destination per <i>feedback_brock-is-competitor.md</i>). Pitch hooks pre-loaded for one-click outreach via Routing Engine panel.
+    </div>
+  </div>`;
+})()}
+
 <!-- ═══════════════ SECTION 4: SITESCORE BREAKDOWN ═══════════════ -->
 <div id="sec-R2" class="section" style="scroll-margin-top:20px">
   <h2><span class="sec-num">5</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10</h2>
@@ -5710,7 +5914,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
           <div class="mi-row"><span class="mi-row-label">Industry Avg Demand</span><span class="mi-row-val">~10% of pop rents storage</span></div>
           <div class="mi-row"><span class="mi-row-label">Est. Demand Pool</span><span class="mi-row-val">${!isNaN(popN) ? fmtN2(Math.round(popN * 0.10)) + " potential renters" : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Hard FAIL Threshold</span><span class="mi-row-val" style="color:#EF4444">Below 5,000</span></div>
-          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | 3-mile radius centroid calculation</div>
+          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Licensed demographic ring study (1-3-5 mi) | CY2025 estimates + 2030 projections</div>
         </div>
       </div></div>
     </div>
@@ -5724,7 +5928,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
           <div class="mi-row"><span class="mi-row-label">U.S. Median (2024)</span><span class="mi-row-val">$80,610</span></div>
           <div class="mi-row"><span class="mi-row-label">vs National</span><span class="mi-row-val" style="color:${incN >= 80610 ? '#16A34A' : '#D97706'}">${incN >= 80610 ? "+" : ""}${!isNaN(incN) ? Math.round((incN/80610-1)*100) : "—"}%</span></div>
           <div class="mi-row"><span class="mi-row-label">Hard FAIL Threshold</span><span class="mi-row-val" style="color:#EF4444">Below $55,000</span></div>
-          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | Table B19013</div>
+          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Median Household Income | Licensed ring study (3-mi)</div>
         </div>
       </div></div>
     </div>
@@ -5737,7 +5941,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
           <div class="mi-row"><span class="mi-row-label">Households</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Avg HH Size</span><span class="mi-row-val">${!isNaN(popN) && !isNaN(hhN) && hhN > 0 ? (popN/hhN).toFixed(2) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Est. Addressable HH</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(Math.round(hhN * 0.10)) + " (10% penetration)" : "—"}</span></div>
-          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | Table B11001</div>
+          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Total Households | Licensed ring study (3-mi)</div>
         </div>
       </div></div>
     </div>
@@ -5750,7 +5954,7 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
           <div class="mi-row"><span class="mi-row-label">Median Home Value</span><span class="mi-row-val">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">U.S. Median (2024)</span><span class="mi-row-val">$344,900</span></div>
           <div class="mi-row"><span class="mi-row-label">Why It Matters</span><span class="mi-row-val">Higher home values → more possessions → more storage demand</span></div>
-          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | Table B25077 | Zillow ZHVI cross-reference</div>
+          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Median Home Value | Licensed ring study (3-mi)</div>
         </div>
       </div></div>
     </div>
@@ -5764,11 +5968,11 @@ ${(() => { try { if (sxCapError) throw sxCapError; return `
           <div class="mi-row"><span class="mi-row-label">1-Mi Population</span><span class="mi-row-val">${!isNaN(pop1) ? fmtN2(pop1) : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">Pop Density</span><span class="mi-row-val">${!isNaN(pop1) ? fmtN2(Math.round(pop1 / 3.14)) + "/sq mi" : "—"}</span></div>
           <div class="mi-row"><span class="mi-row-label">1-Mi vs 3-Mi Ratio</span><span class="mi-row-val">${!isNaN(pop1) && !isNaN(popN) && popN > 0 ? Math.round(pop1/popN*100) + "% concentration" : "—"}</span></div>
-          <div class="mi-source">Source: U.S. Census Bureau ACS 5-Year Estimates (2020-2024) | 1-mile radius centroid</div>
+          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Licensed ring study (1-mi)</div>
         </div>
       </div></div>
     </div>
-    <div class="metric mi" onclick="toggleMI('dem-growth',event)"><div class="label">5-Yr Growth CAGR</div><div class="value" style="color:${growthPct >= 1.5 ? '#16A34A' : growthPct >= 0 ? '#F59E0B' : '#EF4444'}">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</div><em class="mi-hint">i</em>
+    <div class="metric mi" onclick="toggleMI('dem-growth',event)"><div class="label">5-Yr Growth CAGR</div><div class="value" style="color:${growthPct >= 1.5 ? '#C9A84C' : growthPct >= 0 ? '#F59E0B' : '#EF4444'}">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</div><em class="mi-hint">i</em>
       <div id="mi-dem-growth" class="mi-panel"><div class="mi-panel-inner">
         <div class="mi-header"><div class="mi-title">5-Year Population Growth CAGR</div><div class="mi-conf ${growthPct >= 1.5 ? "mi-conf-high" : growthPct >= 0 ? "mi-conf-med" : "mi-conf-low"}">${growthPct >= 2.0 ? "High Growth" : growthPct >= 1.0 ? "Growing" : growthPct >= 0 ? "Stable" : "Declining"}</div></div>
         <div class="mi-body">
