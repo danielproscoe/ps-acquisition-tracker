@@ -256,28 +256,34 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
       if (notify) notify("Drop a PDF file (.pdf only)", "error");
       return;
     }
-    if (file.size > 30 * 1024 * 1024) {
-      if (notify) notify(`PDF too large (${(file.size / 1024 / 1024).toFixed(1)} MB) — Anthropic limit is 32 MB`, "error");
-      return;
-    }
+    // Vercel serverless functions cap request body at ~4.5 MB. For large OMs
+    // (typical 5-10 MB), we extract text client-side via pdfjs and send only
+    // the text to the API (~50 KB). Smaller PDFs can still send base64 for
+    // full PDF input (richer extraction with charts/images), but text is
+    // 100% adequate for the structured-table data we need.
     setExtracting(true);
     setExtractionMeta(null);
     try {
-      // FileReader → base64 (strips data: prefix on the server side)
-      const base64 = await new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => {
-          const s = String(r.result || "");
-          resolve(s.replace(/^data:application\/pdf;base64,/, ""));
-        };
-        r.onerror = () => reject(new Error("Failed to read PDF"));
-        r.readAsDataURL(file);
-      });
+      const buffer = await file.arrayBuffer();
+
+      // Lazy-load pdfjs only on first use (keeps initial bundle lean)
+      const pdfjs = await import("pdfjs-dist");
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+      const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+      const pageCount = pdf.numPages;
+      let pdfText = "";
+      for (let i = 1; i <= pageCount; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map((it) => ("str" in it ? it.str : "")).join(" ");
+        pdfText += `\n\n=== Page ${i} ===\n\n${pageText}`;
+      }
 
       const resp = await fetch("/api/analyze-om", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pdfBase64: base64, filename: file.name }),
+        body: JSON.stringify({ pdfText, filename: file.name, pageCount }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.ok) {

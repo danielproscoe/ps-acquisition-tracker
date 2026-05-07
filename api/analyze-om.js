@@ -5,7 +5,9 @@
 // Zoning / Utility / Access oracles for ground-up SiteScore.
 //
 // POST /api/analyze-om
-//   body: { pdfBase64: "<base64-encoded PDF, no data:URI prefix>", filename?: "..." }
+//   body: ONE OF:
+//     { pdfText: "<plaintext extracted client-side via pdfjs>", filename?: "...", pageCount?: number }
+//     { pdfBase64: "<base64-encoded PDF, no data:URI prefix>", filename?: "..." }
 //   returns: {
 //     ok, fields: { name, state, ask, nrsf, unitCount, yearBuilt,
 //                   physicalOcc, economicOcc, t12NOI, t12EGI,
@@ -14,6 +16,12 @@
 //                   address, city, msaTier },
 //     confidence: 0..1, model, elapsedMs, tokenUsage
 //   }
+//
+// pdfText is the preferred path — Vercel serverless functions cap request
+// body at ~4.5 MB, so large OMs (5-10 MB PDFs) cannot send raw base64.
+// Client extracts text via pdfjs-dist and sends ~50 KB instead.
+// pdfBase64 is supported for small OMs (<3 MB) where richer document
+// parsing (with charts/images) is preferred.
 //
 // Calibrated against Texas Store & Go OM (M&M Greenville TX, 2026-05).
 
@@ -102,46 +110,58 @@ module.exports = async (req, res) => {
     });
   }
 
-  // Parse body
+  // Parse body — accept either pdfText (preferred, client-extracted) or pdfBase64.
   const body = req.body || {};
-  const pdfBase64 = body.pdfBase64;
+  const pdfText = typeof body.pdfText === "string" ? body.pdfText : null;
+  const pdfBase64 = typeof body.pdfBase64 === "string" ? body.pdfBase64 : null;
   const filename = body.filename || "om.pdf";
-  if (!pdfBase64 || typeof pdfBase64 !== "string") {
-    return res.status(400).json({ error: "pdfBase64 (base64-encoded PDF, no data:URI prefix) required in body" });
+  const pageCount = body.pageCount || null;
+
+  if (!pdfText && !pdfBase64) {
+    return res.status(400).json({ error: "pdfText (client-extracted) or pdfBase64 required in body" });
   }
 
-  // Strip data: prefix if accidentally included
-  const cleanBase64 = pdfBase64.replace(/^data:application\/pdf;base64,/, "").trim();
-  const pdfBytes = Buffer.byteLength(cleanBase64, "base64");
-  if (pdfBytes > 30 * 1024 * 1024) {
-    return res.status(400).json({ error: `PDF too large (${(pdfBytes / 1024 / 1024).toFixed(1)} MB). Anthropic limit is 32 MB.` });
-  }
-
-  // Sonnet 4.6 = best price/accuracy for structured PDF extraction.
+  // Sonnet 4.6 = best price/accuracy for structured extraction.
   const model = process.env.CLAUDE_OM_MODEL || "claude-sonnet-4-6";
   const t0 = Date.now();
+
+  // Build user content: either text (preferred) or document (base64).
+  let userContent;
+  if (pdfText) {
+    if (pdfText.length > 1_500_000) {
+      return res.status(400).json({ error: `pdfText too large (${(pdfText.length / 1024).toFixed(0)} KB). Likely a parsing issue — split or simplify.` });
+    }
+    userContent = [
+      {
+        type: "text",
+        text: `Offering Memorandum extracted text (filename: ${filename}${pageCount ? `, ${pageCount} pages` : ""}). Page boundaries marked with "=== Page N ===" headers.\n\nEXTRACT the underwriting data per the JSON schema in your system prompt. Return only the JSON object, no surrounding prose.\n\n────────── BEGIN OM TEXT ──────────\n\n${pdfText}\n\n────────── END OM TEXT ──────────`,
+      },
+    ];
+  } else {
+    const cleanBase64 = pdfBase64.replace(/^data:application\/pdf;base64,/, "").trim();
+    const pdfBytes = Buffer.byteLength(cleanBase64, "base64");
+    if (pdfBytes > 30 * 1024 * 1024) {
+      return res.status(400).json({ error: `PDF too large (${(pdfBytes / 1024 / 1024).toFixed(1)} MB). Anthropic limit is 32 MB.` });
+    }
+    userContent = [
+      {
+        type: "document",
+        source: { type: "base64", media_type: "application/pdf", data: cleanBase64 },
+        cache_control: { type: "ephemeral" },
+      },
+      {
+        type: "text",
+        text: `Extract the underwriting data from this Offering Memorandum (filename: ${filename}). Return only the JSON object per the schema in your system prompt. No surrounding prose.`,
+      },
+    ];
+  }
 
   try {
     const payload = {
       model,
       max_tokens: 3000,
       system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "document",
-              source: { type: "base64", media_type: "application/pdf", data: cleanBase64 },
-              cache_control: { type: "ephemeral" },
-            },
-            {
-              type: "text",
-              text: `Extract the underwriting data from this Offering Memorandum (filename: ${filename}). Return only the JSON object per the schema in your system prompt. No surrounding prose.`,
-            },
-          ],
-        },
-      ],
+      messages: [{ role: "user", content: userContent }],
     };
 
     const resp = await httpsPostJSON("api.anthropic.com", "/v1/messages", {

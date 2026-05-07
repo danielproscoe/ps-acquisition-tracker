@@ -7,6 +7,7 @@
         "firebase": "^10.14.1",
         "googleapis": "^144.0.0",
         "leaflet": "^1.9.4",
+        "pdfjs-dist": "^5.4.624",
         "puppeteer": "^24.41.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
