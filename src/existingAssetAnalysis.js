@@ -80,6 +80,30 @@ const Y3_TO_Y5_REV_GROWTH = 0.0609;  // (1.03)^2 - 1
 const Y3_TO_Y5_EXP_GROWTH = 0.0506;  // (1.025)^2 - 1
 
 // ══════════════════════════════════════════════════════════════════════════
+// DEAL TYPE TAXONOMY (Step 8 — buyer matrix routing)
+// Drives the math path for projection + tier pricing.
+//
+//   STABILIZED  — Class A/B 85%+ occupied, run-rate T-12 reflects steady state
+//   CO_LU       — Newly built (C-of-O lease-up), <70% occupied, transitional T-12
+//   VALUE_ADD   — Under-managed (<85% occ AND/OR rate compression vs market)
+// ══════════════════════════════════════════════════════════════════════════
+
+export const DEAL_TYPES = {
+  STABILIZED: "stabilized",
+  CO_LU: "co-lu",
+  VALUE_ADD: "value-add",
+};
+
+// Tier cap rate ranges per deal type, from valuation-framework.md Step 6:
+//   "Newly-built C-of-O lease-up: 7.0-7.5% on stabilized NOI projection"
+//   Value-add typically 50bps wider than stabilized of same MSA tier
+export const DEAL_TYPE_CAP_BANDS = {
+  [DEAL_TYPES.STABILIZED]: { homeRunDelta: +0.0050, strikeDelta: 0, walkDelta: -0.0025 }, // off market cap
+  [DEAL_TYPES.CO_LU]:      { walkCap: 0.0700, strikeCap: 0.0725, homeRunCap: 0.0750 },     // absolute caps
+  [DEAL_TYPES.VALUE_ADD]:  { homeRunDelta: +0.0100, strikeDelta: +0.0050, walkDelta: 0 },  // off market cap (wider band)
+};
+
+// ══════════════════════════════════════════════════════════════════════════
 // MSA TIER → MARKET CAP RATE (Step 6)
 // Adjusts STORAGE.ACQ_CAP (5.6%) per Green Street Q1 2026 Sector Report.
 // ══════════════════════════════════════════════════════════════════════════
@@ -141,40 +165,42 @@ export function reconstructRETax(state, ask, currentTaxAnnual = 0) {
  * @param {number} [input.currentTaxAnnual]  Current annual property tax ($)
  *                                           — used for no-reassess states (NV)
  */
-export function reconstructBuyerNOI(input) {
+export function reconstructBuyerNOI(input, opts = {}) {
   const ask = Number(input.ask) || 0;
   const nrsf = Number(input.nrsf) || 0;
-  const t12EGI = Number(input.t12EGI) || 0;
-  const t12NOI = Number(input.t12NOI) || 0;
   const ccPct = input.ccPct != null ? Number(input.ccPct) : 0.70;
   const isManned = input.isManned !== false; // default true
   const currentTax = Number(input.currentTaxAnnual) || 0;
 
+  // Buyer lens overrides — merge profile constants over institutional defaults.
+  // Used by buyerLensProfiles.js to re-run the reconstruction with PS / AMERCO /
+  // EXR / NSA underwriting constants. Empty by default = generic buyer-lens.
+  const bm = { ...EXPENSE_BENCHMARKS, ...(opts.expenseOverrides || {}) };
+  // Revenue adjustment — applied to t12EGI to capture brand-specific street rate
+  // premium (PSA discloses +5-15% rate premium over comp set, per FY2025 10-K).
+  const revAdjust = Number(opts.revenueAdjustment) || 1.0;
+  const t12EGI = (Number(input.t12EGI) || 0) * revAdjust;
+  const t12NOI = Number(input.t12NOI) || 0;
+
   const tax = reconstructRETax(input.state, ask, currentTax);
-  // Tax fallback — if no-reassess state with no current tax, use 0.6% of ask as
-  // generic NV-style estimate (NV depreciated assessed × ~6% effective)
   const reTaxAnnual = tax.annual != null && tax.annual > 0
     ? tax.annual
     : ask * 0.006;
 
-  const utilitiesPerSF = ccPct >= 0.5
-    ? EXPENSE_BENCHMARKS.utilitiesPerSF_ccHeavy
-    : EXPENSE_BENCHMARKS.utilitiesPerSF_driveup;
-  const payrollPerSF = isManned
-    ? EXPENSE_BENCHMARKS.payrollPerSF_manned
-    : EXPENSE_BENCHMARKS.payrollPerSF_unmanned;
+  const utilitiesPerSF = ccPct >= 0.5 ? bm.utilitiesPerSF_ccHeavy : bm.utilitiesPerSF_driveup;
+  const payrollPerSF = isManned ? bm.payrollPerSF_manned : bm.payrollPerSF_unmanned;
 
   const lines = [
-    { line: "Real Estate Taxes",  buyer: reTaxAnnual,                                          basis: tax.method,           note: tax.note },
-    { line: "Insurance",          buyer: nrsf * EXPENSE_BENCHMARKS.insurancePerSF,             basis: `$${EXPENSE_BENCHMARKS.insurancePerSF.toFixed(3)}/SF`, note: "Higher in CA wildfire / FL wind / TX hail corridors — adjust if applicable" },
-    { line: "Utilities",          buyer: nrsf * utilitiesPerSF,                                basis: `$${utilitiesPerSF.toFixed(2)}/SF (${ccPct >= 0.5 ? "CC-weighted" : "drive-up"})`, note: "" },
-    { line: "Payroll",            buyer: nrsf * payrollPerSF,                                  basis: isManned ? `$${payrollPerSF.toFixed(2)}/SF (manned)` : "$0/SF (unmanned)", note: "" },
-    { line: "Repairs & Maint",    buyer: nrsf * EXPENSE_BENCHMARKS.rmPerSF,                    basis: `$${EXPENSE_BENCHMARKS.rmPerSF.toFixed(2)}/SF`, note: "" },
-    { line: "Marketing",          buyer: nrsf * EXPENSE_BENCHMARKS.marketingPerSF,             basis: `$${EXPENSE_BENCHMARKS.marketingPerSF.toFixed(3)}/SF`, note: "Revenue-managed book requires aggressive spend" },
-    { line: "G&A",                buyer: nrsf * EXPENSE_BENCHMARKS.gaPerSF,                    basis: `$${EXPENSE_BENCHMARKS.gaPerSF.toFixed(3)}/SF`, note: "" },
-    { line: "CC / Bank Charges",  buyer: t12EGI * EXPENSE_BENCHMARKS.ccChargesPctEGI,          basis: `${(EXPENSE_BENCHMARKS.ccChargesPctEGI*100).toFixed(2)}% of EGI`, note: "" },
-    { line: "Property Mgmt",      buyer: t12EGI * EXPENSE_BENCHMARKS.mgmtFeePctEGI,            basis: `${(EXPENSE_BENCHMARKS.mgmtFeePctEGI*100).toFixed(1)}% of EGI`, note: "Third-party standard; self-managed REITs run lower" },
-    { line: "Reserves",           buyer: nrsf * EXPENSE_BENCHMARKS.reservesPerSF,              basis: `$${EXPENSE_BENCHMARKS.reservesPerSF.toFixed(3)}/SF`, note: "" },
+    { line: "Real Estate Taxes",  buyer: reTaxAnnual,                       basis: tax.method,                                                                        note: tax.note },
+    { line: "Insurance",          buyer: nrsf * bm.insurancePerSF,          basis: `$${bm.insurancePerSF.toFixed(3)}/SF`,                                             note: "Higher in CA wildfire / FL wind / TX hail corridors — adjust if applicable" },
+    { line: "Utilities",          buyer: nrsf * utilitiesPerSF,             basis: `$${utilitiesPerSF.toFixed(2)}/SF (${ccPct >= 0.5 ? "CC-weighted" : "drive-up"})`, note: "" },
+    { line: "Payroll",            buyer: nrsf * payrollPerSF,               basis: isManned ? `$${payrollPerSF.toFixed(2)}/SF (manned)` : "$0/SF (unmanned)",         note: "" },
+    { line: "Repairs & Maint",    buyer: nrsf * bm.rmPerSF,                 basis: `$${bm.rmPerSF.toFixed(2)}/SF`,                                                    note: "" },
+    { line: "Marketing",          buyer: nrsf * bm.marketingPerSF,          basis: `$${bm.marketingPerSF.toFixed(3)}/SF`,                                             note: "Revenue-managed book requires aggressive spend" },
+    { line: "G&A",                buyer: nrsf * bm.gaPerSF,                 basis: `$${bm.gaPerSF.toFixed(3)}/SF`,                                                    note: "" },
+    { line: "CC / Bank Charges",  buyer: t12EGI * bm.ccChargesPctEGI,       basis: `${(bm.ccChargesPctEGI*100).toFixed(2)}% of EGI`,                                  note: "" },
+    { line: "Property Mgmt",      buyer: t12EGI * bm.mgmtFeePctEGI,         basis: `${(bm.mgmtFeePctEGI*100).toFixed(1)}% of EGI`,                                    note: "Third-party standard; self-managed REITs run lower" },
+    { line: "Reserves",           buyer: nrsf * bm.reservesPerSF,           basis: `$${bm.reservesPerSF.toFixed(3)}/SF`,                                              note: "" },
   ];
 
   const totalOpEx = lines.reduce((s, l) => s + l.buyer, 0);
@@ -212,16 +238,59 @@ export function reconstructBuyerNOI(input) {
 
 // ══════════════════════════════════════════════════════════════════════════
 // STEP 5 — STABILIZED NOI PROJECTION (Y1 → Y3 → Y5)
+//
+// Math path branches by dealType:
+//
+//   STABILIZED — Y1 = reconstructed T-12; Y3 = Y1 × (1 + 11% ECRI lift),
+//                opex × 1.05; Y5 = Y3 + 3% rev / 2.5% exp growth.
+//
+//   CO_LU      — Y1 = transitional (informational only, low occ).
+//                Y3 = stabilized projection from proFormaReconstructed
+//                (buyer-lens reconstruction run against seller's pro forma EGI).
+//                Y5 = Y3 + 3% rev / 2.5% exp growth.
+//                Pricing happens at lease-up cap (7.0-7.5%) per framework Step 6.
+//
+//   VALUE_ADD  — Y1 = under-managed T-12. Y3 = stabilized after value-add
+//                execution (uses proFormaReconstructed if provided, else
+//                applies 15% revenue lift + market opex). Y5 = Y3 + growth.
+//                Pricing wider band (market cap + 50-100 bps).
 // ══════════════════════════════════════════════════════════════════════════
 
-export function projectStabilizedNOI(reconstructed) {
+export function projectStabilizedNOI(reconstructed, opts = {}) {
+  const dealType = opts.dealType || DEAL_TYPES.STABILIZED;
+  const proFormaReconstructed = opts.proFormaReconstructed || null;
+
   const y1Rev = reconstructed.egi || 0;
   const y1Exp = reconstructed.totalOpEx || 0;
   const y1NOI = reconstructed.buyerNOI || 0;
 
-  const y3Rev = y1Rev * (1 + Y1_TO_Y3_REV_LIFT);
-  const y3Exp = y1Exp * (1 + Y1_TO_Y3_EXP_INFLATION);
-  const y3NOI = y3Rev - y3Exp;
+  let y3Rev, y3Exp, y3NOI, basis;
+
+  if (dealType === DEAL_TYPES.CO_LU || dealType === DEAL_TYPES.VALUE_ADD) {
+    if (proFormaReconstructed) {
+      // Y3 = stabilized from buyer-lens reconstruction of pro forma EGI
+      y3Rev = proFormaReconstructed.egi;
+      y3Exp = proFormaReconstructed.totalOpEx;
+      y3NOI = proFormaReconstructed.buyerNOI;
+      basis = dealType === DEAL_TYPES.CO_LU
+        ? "CO-LU: Y1 transitional (lease-up). Y3 = stabilized projection — buyer-lens reconstruction of seller pro forma EGI at institutional opex benchmarks. Y5 = 3% rev / 2.5% exp growth."
+        : "VALUE-ADD: Y1 under-managed T-12. Y3 = stabilized projection after value-add execution — buyer-lens reconstruction of pro forma EGI. Y5 = 3% rev / 2.5% exp growth.";
+    } else {
+      // Fallback: no pro forma EGI provided — use 15% lift on T-12 for value-add,
+      // 25% for CO-LU (more aggressive ramp from transitional state)
+      const lift = dealType === DEAL_TYPES.CO_LU ? 0.25 : 0.15;
+      y3Rev = y1Rev * (1 + lift);
+      y3Exp = y1Exp * (1 + Y1_TO_Y3_EXP_INFLATION);
+      y3NOI = y3Rev - y3Exp;
+      basis = `${dealType.toUpperCase()}: No pro forma EGI provided — applied ${(lift*100).toFixed(0)}% Y1→Y3 revenue lift fallback. Pass proFormaEGI for tighter projection.`;
+    }
+  } else {
+    // STABILIZED — current behavior
+    y3Rev = y1Rev * (1 + Y1_TO_Y3_REV_LIFT);
+    y3Exp = y1Exp * (1 + Y1_TO_Y3_EXP_INFLATION);
+    y3NOI = y3Rev - y3Exp;
+    basis = "Y1→Y3: ECRI 8%/yr on rolled share + concession recovery (Class A freezer-book yields 10-12% over 24 mo per framework). Y3→Y5: 3% rev / 2.5% exp growth.";
+  }
 
   const y5Rev = y3Rev * (1 + Y3_TO_Y5_REV_GROWTH);
   const y5Exp = y3Exp * (1 + Y3_TO_Y5_EXP_GROWTH);
@@ -231,12 +300,13 @@ export function projectStabilizedNOI(reconstructed) {
     y1: { rev: y1Rev, exp: y1Exp, noi: y1NOI },
     y3: { rev: y3Rev, exp: y3Exp, noi: y3NOI },
     y5: { rev: y5Rev, exp: y5Exp, noi: y5NOI },
+    dealType,
     assumptions: {
       y1ToY3RevLift: Y1_TO_Y3_REV_LIFT,
       y1ToY3ExpInflation: Y1_TO_Y3_EXP_INFLATION,
       y3ToY5RevGrowth: Y3_TO_Y5_REV_GROWTH,
       y3ToY5ExpGrowth: Y3_TO_Y5_EXP_GROWTH,
-      basis: "Y1→Y3: ECRI 8%/yr on rolled share + concession recovery (Class A freezer-book yields 10-12% over 24 mo per framework). Y3→Y5: 3% rev / 2.5% exp growth.",
+      basis,
     },
   };
 }
@@ -256,26 +326,74 @@ export function computeValuationMatrix(projection, capRates = [0.055, 0.060, 0.0
 
 // ══════════════════════════════════════════════════════════════════════════
 // STEP 6 — DJR PRICE TIERS (Home Run / Strike / Walk)
-// Home Run = T3 NOI @ (market cap + 50 bps) — aggressive bid
-// Strike   = T5 NOI @ market cap            — most likely clear price
-// Walk     = T5 NOI @ (market cap - 25 bps) — above this, yield story breaks
+//
+// Tier formulas branch by dealType per valuation-framework.md Step 6:
+//
+//   STABILIZED — Home Run = Y3 NOI @ (mkt + 50 bps)
+//                Strike   = Y5 NOI @ mkt cap
+//                Walk     = Y5 NOI @ (mkt - 25 bps)
+//
+//   CO_LU      — All tiers use Y3 stabilized NOI (Y1 transitional, no signal):
+//                Home Run @ 7.50%, Strike @ 7.25%, Walk @ 7.00%
+//                ("Newly-built C-of-O lease-up: 7.0-7.5% on stabilized NOI projection")
+//
+//   VALUE_ADD  — Wider band reflecting execution risk:
+//                Home Run = Y3 NOI @ (mkt + 100 bps)
+//                Strike   = Y5 NOI @ (mkt + 50 bps)
+//                Walk     = Y5 NOI @ mkt cap
 // ══════════════════════════════════════════════════════════════════════════
 
-export function computePriceTiers(projection, marketCap) {
+export function computePriceTiers(projection, marketCap, dealType = DEAL_TYPES.STABILIZED) {
   const cap = Number(marketCap) || STORAGE.ACQ_CAP;
-  const homeRunCap = cap + 0.0050;
-  const strikeCap = cap;
-  const walkCap = cap - 0.0025;
 
-  const homeRun = homeRunCap > 0 ? (projection.y3.noi / homeRunCap) : 0;
-  const strike = strikeCap > 0 ? (projection.y5.noi / strikeCap) : 0;
-  const walk = walkCap > 0 ? (projection.y5.noi / walkCap) : 0;
+  let homeRunCap, strikeCap, walkCap;
+  let homeRunNumerator, strikeNumerator, walkNumerator;
+  let homeRunBasis, strikeBasis, walkBasis;
+
+  if (dealType === DEAL_TYPES.CO_LU) {
+    const band = DEAL_TYPE_CAP_BANDS[DEAL_TYPES.CO_LU];
+    homeRunCap = band.homeRunCap;
+    strikeCap = band.strikeCap;
+    walkCap = band.walkCap;
+    homeRunNumerator = projection.y3.noi;
+    strikeNumerator = projection.y3.noi;
+    walkNumerator = projection.y3.noi;
+    homeRunBasis = "Y3 stabilized NOI @ 7.50% (CO-LU lease-up cap ceiling)";
+    strikeBasis = "Y3 stabilized NOI @ 7.25% (CO-LU lease-up cap midpoint)";
+    walkBasis = "Y3 stabilized NOI @ 7.00% (CO-LU lease-up cap floor)";
+  } else if (dealType === DEAL_TYPES.VALUE_ADD) {
+    homeRunCap = cap + 0.0100;
+    strikeCap = cap + 0.0050;
+    walkCap = cap;
+    homeRunNumerator = projection.y3.noi;
+    strikeNumerator = projection.y5.noi;
+    walkNumerator = projection.y5.noi;
+    homeRunBasis = "Y3 NOI @ market cap + 100 bps (value-add execution risk premium)";
+    strikeBasis = "Y5 NOI @ market cap + 50 bps";
+    walkBasis = "Y5 NOI @ market cap (no execution-risk premium — ceiling)";
+  } else {
+    // STABILIZED (default)
+    homeRunCap = cap + 0.0050;
+    strikeCap = cap;
+    walkCap = cap - 0.0025;
+    homeRunNumerator = projection.y3.noi;
+    strikeNumerator = projection.y5.noi;
+    walkNumerator = projection.y5.noi;
+    homeRunBasis = "Y3 NOI @ market cap + 50 bps";
+    strikeBasis = "Y5 NOI @ market cap";
+    walkBasis = "Y5 NOI @ market cap − 25 bps";
+  }
+
+  const homeRun = homeRunCap > 0 ? (homeRunNumerator / homeRunCap) : 0;
+  const strike = strikeCap > 0 ? (strikeNumerator / strikeCap) : 0;
+  const walk = walkCap > 0 ? (walkNumerator / walkCap) : 0;
 
   return {
-    homeRun: { price: homeRun, cap: homeRunCap, basis: "Y3 NOI @ market cap + 50 bps" },
-    strike:  { price: strike,  cap: strikeCap,  basis: "Y5 NOI @ market cap" },
-    walk:    { price: walk,    cap: walkCap,    basis: "Y5 NOI @ market cap − 25 bps" },
+    homeRun: { price: homeRun, cap: homeRunCap, basis: homeRunBasis },
+    strike:  { price: strike,  cap: strikeCap,  basis: strikeBasis },
+    walk:    { price: walk,    cap: walkCap,    basis: walkBasis },
     marketCap: cap,
+    dealType,
   };
 }
 
@@ -340,7 +458,18 @@ export function buildCompGrid(state, ask, nrsf) {
 // TOP-LEVEL ORCHESTRATOR
 // ══════════════════════════════════════════════════════════════════════════
 
-export function analyzeExistingAsset(input) {
+export function analyzeExistingAsset(input, opts = {}) {
+  // opts:
+  //   expenseOverrides   — partial EXPENSE_BENCHMARKS override (per buyer lens)
+  //   revenueAdjustment  — multiplier on EGI for street rate premium (default 1.0)
+  //   customMarketCap    — overrides MSA-tier-derived market cap (per buyer lens)
+  const expenseOverrides = opts.expenseOverrides || null;
+  const revenueAdjustment = Number(opts.revenueAdjustment) || 1.0;
+  const customMarketCap = opts.customMarketCap;
+  const reconOpts = (expenseOverrides || revenueAdjustment !== 1.0)
+    ? { expenseOverrides, revenueAdjustment }
+    : {};
+
   const ask = Number(input.ask) || 0;
   const nrsf = Number(input.nrsf) || 0;
   const t12NOI = Number(input.t12NOI) || 0;
@@ -348,9 +477,14 @@ export function analyzeExistingAsset(input) {
   const physOcc = Number(input.physicalOcc) || 0;
   const econOcc = Number(input.economicOcc) || physOcc;
   const msaTier = input.msaTier || "secondary";
+  const dealType = input.dealType || DEAL_TYPES.STABILIZED;
+  const proFormaEGI = Number(input.proFormaEGI) || 0;
+  const proFormaNOI = Number(input.proFormaNOI) || 0;
 
   const capOnAsk = ask > 0 ? t12NOI / ask : 0;
-  const doaFlag = capOnAsk > 0 && capOnAsk < 0.05;
+  // DOA flag only meaningful for stabilized — CO-LU/value-add seller cap is
+  // expected to be low because T-12 is transitional, not a steady-state read.
+  const doaFlag = dealType === DEAL_TYPES.STABILIZED && capOnAsk > 0 && capOnAsk < 0.05;
 
   const snapshot = {
     name: input.name || "",
@@ -371,23 +505,40 @@ export function analyzeExistingAsset(input) {
     doaReason: doaFlag
       ? "Cap on ask <5.0% on seller pro forma — DOA on current-rate-environment underwriting unless 1031 / strategic / foreign buyer in play."
       : null,
+    dealType,
+    proFormaEGI,
+    proFormaNOI,
   };
 
-  const reconstructed = reconstructBuyerNOI(input);
-  const projection = projectStabilizedNOI(reconstructed);
+  const reconstructed = reconstructBuyerNOI(input, reconOpts);
+
+  // For CO-LU / Value-Add: run a second buyer-lens reconstruction against
+  // the pro forma EGI to derive the stabilized Y3 NOI baseline.
+  let proFormaReconstructed = null;
+  if ((dealType === DEAL_TYPES.CO_LU || dealType === DEAL_TYPES.VALUE_ADD) && proFormaEGI > 0) {
+    proFormaReconstructed = reconstructBuyerNOI({
+      ...input,
+      t12EGI: proFormaEGI,
+      t12NOI: proFormaNOI || (proFormaEGI * 0.65), // rough fallback if NOI not provided
+    }, reconOpts);
+  }
+
+  const projection = projectStabilizedNOI(reconstructed, { dealType, proFormaReconstructed });
   const matrix = computeValuationMatrix(projection);
-  const marketCap = computeMarketCap(msaTier);
-  const tiers = computePriceTiers(projection, marketCap);
+  const marketCap = customMarketCap != null ? Number(customMarketCap) : computeMarketCap(msaTier);
+  const tiers = computePriceTiers(projection, marketCap, dealType);
   const verdict = computeVerdict(ask, tiers);
   const comps = buildCompGrid(input.state, ask, nrsf);
 
   return {
     snapshot,
     reconstructed,
+    proFormaReconstructed,
     projection,
     matrix,
     marketCap,
     msaTier,
+    dealType,
     tiers,
     verdict,
     comps,

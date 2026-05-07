@@ -7,7 +7,8 @@
 // (memory/project_ps-vp-reit-platform-elevation.md).
 
 import React, { useState, useMemo, useCallback } from "react";
-import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST } from "../existingAssetAnalysis";
+import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
+import { computeBuyerLens, PS_LENS } from "../buyerLensProfiles";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
 
 // ─── Brand tokens — match QuickLookupPanel + CLAUDE.md §3 ─────────────────
@@ -67,6 +68,7 @@ const RED_ROCK_DEFAULTS = {
   name: "Red Rock Mega Storage",
   state: "NV",
   msaTier: "tertiary",
+  dealType: "stabilized",
   ask: "16500000",
   nrsf: "100000",
   unitCount: "600",
@@ -75,9 +77,12 @@ const RED_ROCK_DEFAULTS = {
   economicOcc: "88",
   t12NOI: "633000",
   t12EGI: "1055000",
+  proFormaEGI: "",
+  proFormaNOI: "",
   ccPct: "20",
   isManned: "no",
   currentTaxAnnual: "",
+  nearestPortfolioMi: "",
   listingBroker: "Marcus & Millichap",
   listingSource: "M&M",
 };
@@ -99,6 +104,12 @@ const MSA_TIER_OPTIONS = [
   { key: "tertiary", label: "Tertiary MSA (+75 bps)" },
 ];
 
+const DEAL_TYPE_OPTIONS = [
+  { key: "stabilized", label: "Stabilized — 85%+ occ, run-rate T-12" },
+  { key: "co-lu", label: "CO-LU lease-up — newly built, <70% occ" },
+  { key: "value-add", label: "Value-Add — under-managed / rate-compressed" },
+];
+
 const LISTING_SOURCE_OPTIONS = [
   "Crexi", "LoopNet", "M&M", "CBRE", "JLL", "Colliers", "Off-market", "Other",
 ];
@@ -111,6 +122,7 @@ const FIELD_GROUPS = [
       { key: "name", label: "Property name / address", type: "text", placeholder: "e.g. Red Rock Mega Storage" },
       { key: "state", label: "State", type: "select", options: STATE_OPTIONS, required: true },
       { key: "msaTier", label: "MSA tier", type: "select", options: MSA_TIER_OPTIONS },
+      { key: "dealType", label: "Deal type", type: "select", options: DEAL_TYPE_OPTIONS, required: true },
     ],
   },
   {
@@ -136,7 +148,15 @@ const FIELD_GROUPS = [
     fields: [
       { key: "t12NOI", label: "Seller T-12 NOI ($)", type: "number", placeholder: "633000", required: true },
       { key: "t12EGI", label: "Seller T-12 EGI ($)", type: "number", placeholder: "1055000", required: true },
+      { key: "proFormaEGI", label: "Pro Forma EGI ($) — CO-LU / Value-Add stabilized projection", type: "number", placeholder: "Required for non-stabilized" },
+      { key: "proFormaNOI", label: "Pro Forma NOI ($) — optional, used for sanity check", type: "number", placeholder: "" },
       { key: "currentTaxAnnual", label: "Current annual property tax ($) — optional", type: "number", placeholder: "Used for NV / no-reassess states" },
+    ],
+  },
+  {
+    title: "PS Lens Inputs",
+    fields: [
+      { key: "nearestPortfolioMi", label: "Distance to nearest PS family facility (mi) — for portfolio-fit bonus", type: "number", placeholder: "e.g. 3 for −25 bps cap" },
     ],
   },
   {
@@ -154,6 +174,7 @@ function parseInputs(inputs) {
     name: (inputs.name || "").trim(),
     state: (inputs.state || "").toUpperCase().trim(),
     msaTier: inputs.msaTier || "secondary",
+    dealType: inputs.dealType || "stabilized",
     ask: safeNum(inputs.ask),
     nrsf: safeNum(inputs.nrsf),
     unitCount: safeNum(inputs.unitCount),
@@ -165,7 +186,10 @@ function parseInputs(inputs) {
     isManned: inputs.isManned !== "no",
     t12NOI: safeNum(inputs.t12NOI),
     t12EGI: safeNum(inputs.t12EGI),
+    proFormaEGI: safeNum(inputs.proFormaEGI),
+    proFormaNOI: safeNum(inputs.proFormaNOI),
     currentTaxAnnual: safeNum(inputs.currentTaxAnnual),
+    nearestPortfolioMi: inputs.nearestPortfolioMi ? safeNum(inputs.nearestPortfolioMi) : null,
     listingBroker: (inputs.listingBroker || "").trim(),
     listingSource: inputs.listingSource || "",
   };
@@ -216,6 +240,10 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     () => (ready ? analyzeExistingAsset(parsed) : null),
     [parsed, ready]
   );
+  const psLens = useMemo(
+    () => (ready ? computeBuyerLens(parsed, PS_LENS, { nearestPortfolioMi: parsed.nearestPortfolioMi }) : null),
+    [parsed, ready]
+  );
 
   const handleSave = useCallback(async () => {
     if (!analysis || !fbSet) return;
@@ -245,7 +273,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 20, alignItems: "flex-start" }}>
         <FormPanel inputs={inputs} setField={setField} />
-        <OutputsPanel analysis={analysis} ready={ready} />
+        <OutputsPanel analysis={analysis} psLens={psLens} ready={ready} />
       </div>
     </div>
   );
@@ -349,7 +377,7 @@ function FormPanel({ inputs, setField }) {
 }
 
 // ─── Outputs Panel ────────────────────────────────────────────────────────
-function OutputsPanel({ analysis, ready }) {
+function OutputsPanel({ analysis, psLens, ready }) {
   if (!ready || !analysis) {
     return (
       <div style={{ ...card, minHeight: 480, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#64748B" }}>
@@ -365,12 +393,124 @@ function OutputsPanel({ analysis, ready }) {
   return (
     <div>
       <VerdictHero analysis={analysis} />
+      <DealTypeBadge dealType={analysis.dealType} />
       <SnapshotCard snapshot={analysis.snapshot} />
       <ReconstructedNOICard reconstructed={analysis.reconstructed} sellerNOI={analysis.snapshot.sellerNOI} />
       <ProjectionCard projection={analysis.projection} />
       <ValuationMatrixCard matrix={analysis.matrix} ask={analysis.snapshot.ask} />
       <PriceTiersCard tiers={analysis.tiers} ask={analysis.snapshot.ask} marketCap={analysis.marketCap} msaTier={analysis.msaTier} />
+      {psLens && <PSLensCard psLens={psLens} generic={analysis} />}
       <CompGridCard comps={analysis.comps} subjectAsk={analysis.snapshot.ask} />
+    </div>
+  );
+}
+
+// ─── Deal Type Badge — small chip that explains the math path ────────────
+function DealTypeBadge({ dealType }) {
+  if (!dealType) return null;
+  const labels = {
+    stabilized: { text: "STABILIZED — run-rate T-12 underwrite", color: "#22C55E" },
+    "co-lu": { text: "CO-LU LEASE-UP — Y3 stabilized projection drives valuation", color: "#F59E0B" },
+    "value-add": { text: "VALUE-ADD — execution-risk premium applied", color: "#A855F7" },
+  };
+  const l = labels[dealType] || labels.stabilized;
+  return (
+    <div style={{ marginBottom: 14, padding: "8px 14px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: `1px solid ${l.color}40`, fontSize: 11, fontWeight: 600, color: l.color, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+      Deal type · {l.text}
+    </div>
+  );
+}
+
+// ─── PS Lens Card — buyer-specific underwrite delta ──────────────────────
+function PSLensCard({ psLens, generic }) {
+  const PS_BLUE = "#3B82F6";
+  const v = psLens.verdict;
+  const ask = psLens.snapshot.ask;
+  const verdictBg = v.label === "PURSUE" ? "rgba(34,197,94,0.10)" : v.label === "NEGOTIATE" ? "rgba(245,158,11,0.10)" : "rgba(239,68,68,0.10)";
+
+  // Side-by-side delta tables
+  const tierDeltas = [
+    { label: "Home Run", ps: psLens.tiers.homeRun.price, gen: generic.tiers.homeRun.price },
+    { label: "Strike",   ps: psLens.tiers.strike.price,  gen: generic.tiers.strike.price },
+    { label: "Walk",     ps: psLens.tiers.walk.price,    gen: generic.tiers.walk.price },
+  ];
+
+  return (
+    <div style={{ ...card, border: `2px solid ${PS_BLUE}66`, background: `linear-gradient(135deg, rgba(59,130,246,0.06), rgba(15,21,56,0.6))` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: PS_BLUE, textTransform: "uppercase", letterSpacing: "0.08em" }}>PS Lens · Public Storage Underwrite</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 }}>{psLens.lens.description}</div>
+        </div>
+        <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: PS_BLUE, padding: "5px 10px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{psLens.lens.badgeText}</span>
+      </div>
+
+      {/* Lens-driven verdict */}
+      <div style={{ marginBottom: 14, padding: 14, borderRadius: 10, background: verdictBg, border: `1px solid ${v.color}80` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>PS Lens Verdict</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: v.color, marginTop: 4 }}>{v.label}</div>
+          </div>
+          <div style={{ fontSize: 11, color: "#E2E8F0", maxWidth: 380, textAlign: "right", lineHeight: 1.4 }}>{v.rationale}</div>
+        </div>
+      </div>
+
+      {/* Levers applied */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 14 }}>
+        <div style={{ ...metricBox, borderLeft: `3px solid ${PS_BLUE}` }}>
+          <div style={{ fontSize: 9, color: PS_BLUE, fontWeight: 700, textTransform: "uppercase" }}>Street Premium</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>+{(psLens.lens.revenuePremium * 100).toFixed(0)}%</div>
+          <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>vs comp set (10-K)</div>
+        </div>
+        <div style={{ ...metricBox, borderLeft: `3px solid ${PS_BLUE}` }}>
+          <div style={{ fontSize: 9, color: PS_BLUE, fontWeight: 700, textTransform: "uppercase" }}>Buyer NOI</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{fmt$(Math.round(psLens.reconstructed.buyerNOI))}</div>
+          <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>opex {fmtPct(psLens.reconstructed.opexRatio, 1)}</div>
+        </div>
+        <div style={{ ...metricBox, borderLeft: `3px solid ${PS_BLUE}` }}>
+          <div style={{ fontSize: 9, color: PS_BLUE, fontWeight: 700, textTransform: "uppercase" }}>PS Cap Rate</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{fmtPct(psLens.marketCap, 2)}</div>
+          <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>{psLens.lens.portfolioFit ? "−25 bps fit" : "no fit bonus"}</div>
+        </div>
+        <div style={{ ...metricBox, borderLeft: `3px solid ${PS_BLUE}` }}>
+          <div style={{ fontSize: 9, color: PS_BLUE, fontWeight: 700, textTransform: "uppercase" }}>Mgmt Fee</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#22C55E", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>$0</div>
+          <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>self-managed</div>
+        </div>
+      </div>
+
+      {/* PS vs Generic side-by-side */}
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${PS_BLUE}40` }}>
+            <th style={thStyle}>Tier</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>Generic Buyer</th>
+            <th style={{ ...thStyle, textAlign: "right", color: PS_BLUE }}>PS</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>Δ (PS Premium)</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>vs Ask</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tierDeltas.map((t) => {
+            const delta = t.ps - t.gen;
+            const askGap = t.ps - ask;
+            const askGapPct = ask > 0 ? (askGap / ask) : 0;
+            return (
+              <tr key={t.label} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <td style={{ ...tdStyle, fontWeight: 700 }}>{t.label}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'Space Mono', monospace", color: "#94A3B8" }}>{fmt$(Math.round(t.gen))}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'Space Mono', monospace", color: PS_BLUE, fontWeight: 700 }}>{fmt$(Math.round(t.ps))}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'Space Mono', monospace", color: delta > 0 ? "#22C55E" : "#EF4444" }}>{delta >= 0 ? "+" : ""}{fmt$(Math.round(delta))}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'Space Mono', monospace", color: askGap >= 0 ? "#22C55E" : "#F59E0B" }}>{askGap >= 0 ? "+" : ""}{fmtPct(askGapPct, 1)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div style={{ fontSize: 10, color: "#64748B", marginTop: 10, lineHeight: 1.5 }}>
+        Cap basis: {psLens.lens.capBasis}. PS premium = (PS price − Generic price). The Δ column quantifies the platform-fit value PS would pay above a generic institutional buyer.
+      </div>
     </div>
   );
 }
