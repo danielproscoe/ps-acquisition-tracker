@@ -631,7 +631,8 @@ function OutputsPanel({ analysis, psLens, ready, enrichment, enriching, memo, me
 
   return (
     <div>
-      <VerdictHero analysis={analysis} />
+      {/* PSA Lens drives the headline — generic buyer's verdict shows in the PS Lens card body as a context point only */}
+      <PSAVerdictHero psLens={psLens} analysis={analysis} />
       <DealTypeBadge dealType={analysis.dealType} />
       {(enriching || enrichment) && <EnrichmentCard enrichment={enrichment} loading={enriching} />}
       <ICMemoCard memo={memo} loading={memoLoading} error={memoError} onGenerate={onGenerateMemo} />
@@ -639,6 +640,7 @@ function OutputsPanel({ analysis, psLens, ready, enrichment, enriching, memo, me
       {psLens && <PSLensCard psLens={psLens} generic={analysis} />}
       <ProjectionCard projection={analysis.projection} />
       <ValuationMatrixCard matrix={analysis.matrix} ask={analysis.snapshot.ask} />
+      {/* Market-context cards demoted below the fold — these are the GENERIC buyer view, here for triangulation, not headline */}
       <ReconstructedNOICard reconstructed={analysis.reconstructed} sellerNOI={analysis.snapshot.sellerNOI} />
       <PriceTiersCard tiers={analysis.tiers} ask={analysis.snapshot.ask} marketCap={analysis.marketCap} msaTier={analysis.msaTier} />
       <CompGridCard comps={analysis.comps} subjectAsk={analysis.snapshot.ask} />
@@ -958,23 +960,47 @@ function PSLensCard({ psLens, generic }) {
   );
 }
 
-// ─── Verdict Hero ─────────────────────────────────────────────────────────
-function VerdictHero({ analysis }) {
-  const v = analysis.verdict;
+// ─── PSA Verdict Hero ─────────────────────────────────────────────────────
+// PSA Lens drives the headline. The model encodes PSA's own underwriting
+// (24.86% opex, 6.0-7.0% stabilized caps, 12% brand premium) so the verdict
+// is what PSA's IC would conclude — not what a generic institutional buyer
+// would. Generic buyer's verdict is shown as a secondary context line.
+function PSAVerdictHero({ psLens, analysis }) {
+  const PS_BLUE = "#3B82F6";
+  // Headline = PSA Lens verdict. Falls back to generic if psLens not yet computed.
+  const v = (psLens && psLens.verdict) ? psLens.verdict : analysis.verdict;
+  const isPSA = !!(psLens && psLens.verdict);
   const bg = v.label === "PURSUE" ? "rgba(34,197,94,0.12)" : v.label === "NEGOTIATE" ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)";
   const border = v.label === "PURSUE" ? "#22C55E" : v.label === "NEGOTIATE" ? "#F59E0B" : "#EF4444";
+  // Generic comparison verdict — show only when PSA verdict differs (the platform-fit story)
+  const generic = analysis?.verdict;
+  const verdictsDiffer = isPSA && generic && generic.label !== v.label;
+
   return (
     <div style={{ ...card, background: `linear-gradient(135deg, ${bg}, rgba(15,21,56,0.6))`, border: `2px solid ${border}80`, marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Verdict</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: PS_BLUE, padding: "3px 8px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase" }}>{isPSA ? "PSA Underwrite" : "Generic Buyer"}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Verdict</span>
+          </div>
           <div style={{ fontSize: 36, fontWeight: 900, color: v.color, letterSpacing: "-0.02em", lineHeight: 1, marginBottom: 8 }}>{v.label}</div>
           <div style={{ fontSize: 13, color: "#E2E8F0", lineHeight: 1.5, maxWidth: 600 }}>{v.rationale}</div>
+          {verdictsDiffer && (
+            <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 6, fontSize: 11, color: "#94A3B8", borderLeft: `2px solid ${generic.color}80` }}>
+              <strong style={{ color: generic.color }}>Generic buyer would {generic.label}</strong> at this ask — the platform-fit Δ is the story below.
+            </div>
+          )}
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Cap on Ask</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace", marginTop: 4 }}>{fmtPct(analysis.snapshot.capOnAsk, 2)}</div>
-          {analysis.snapshot.doaFlag && <div style={{ fontSize: 10, color: "#EF4444", fontWeight: 700, marginTop: 4 }}>⚠ DOA cap rate</div>}
+          <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>{isPSA ? "PSA Stabilized Cap" : "Cap on Ask"}</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace", marginTop: 4 }}>
+            {isPSA ? fmtPct(psLens.marketCap, 2) : fmtPct(analysis.snapshot.capOnAsk, 2)}
+          </div>
+          {isPSA && psLens.lens?.portfolioFit && (
+            <div style={{ fontSize: 10, color: "#22C55E", fontWeight: 700, marginTop: 4 }}>✓ Portfolio fit (−25 bps)</div>
+          )}
+          {!isPSA && analysis.snapshot.doaFlag && <div style={{ fontSize: 10, color: "#EF4444", fontWeight: 700, marginTop: 4 }}>⚠ DOA cap rate</div>}
         </div>
       </div>
     </div>
