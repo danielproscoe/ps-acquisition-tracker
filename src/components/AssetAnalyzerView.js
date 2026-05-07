@@ -220,6 +220,9 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extractionMeta, setExtractionMeta] = useState(null); // { confidence, notes, model, elapsedMs }
+  const [memo, setMemo] = useState(null);                       // generated IC memo
+  const [memoLoading, setMemoLoading] = useState(false);
+  const [memoError, setMemoError] = useState(null);
 
   const setField = useCallback((key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -323,6 +326,36 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     }
   }, [notify]);
 
+  // ── Generate IC Memo from deterministic outputs ─────────────────────────
+  const handleGenerateMemo = useCallback(async () => {
+    if (!analysis || !psLens) return;
+    setMemoLoading(true);
+    setMemoError(null);
+    setMemo(null);
+    try {
+      const resp = await fetch("/api/analyzer-memo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generic: analysis, psLens }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) throw new Error(data.error || `API ${resp.status}`);
+      setMemo({ ...data.memo, _meta: { model: data.model, elapsedMs: data.elapsedMs, tokenUsage: data.tokenUsage } });
+      if (notify) notify(`IC memo generated · ${(data.elapsedMs / 1000).toFixed(1)}s`, "success");
+    } catch (err) {
+      setMemoError(err.message || String(err));
+      if (notify) notify(`Memo generation failed: ${err.message || err}`, "error");
+    } finally {
+      setMemoLoading(false);
+    }
+  }, [analysis, psLens, notify]);
+
+  // Reset memo when inputs change so it doesn't go stale silently
+  React.useEffect(() => {
+    setMemo(null);
+    setMemoError(null);
+  }, [inputs]);
+
   const handleSave = useCallback(async () => {
     if (!analysis || !fbSet) return;
     setSaving(true);
@@ -352,7 +385,15 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 20, alignItems: "flex-start" }}>
         <FormPanel inputs={inputs} setField={setField} />
-        <OutputsPanel analysis={analysis} psLens={psLens} ready={ready} />
+        <OutputsPanel
+          analysis={analysis}
+          psLens={psLens}
+          ready={ready}
+          memo={memo}
+          memoLoading={memoLoading}
+          memoError={memoError}
+          onGenerateMemo={handleGenerateMemo}
+        />
       </div>
     </div>
   );
@@ -535,7 +576,7 @@ function FormPanel({ inputs, setField }) {
 }
 
 // ─── Outputs Panel ────────────────────────────────────────────────────────
-function OutputsPanel({ analysis, psLens, ready }) {
+function OutputsPanel({ analysis, psLens, ready, memo, memoLoading, memoError, onGenerateMemo }) {
   if (!ready || !analysis) {
     return (
       <div style={{ ...card, minHeight: 480, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#64748B" }}>
@@ -552,6 +593,7 @@ function OutputsPanel({ analysis, psLens, ready }) {
     <div>
       <VerdictHero analysis={analysis} />
       <DealTypeBadge dealType={analysis.dealType} />
+      <ICMemoCard memo={memo} loading={memoLoading} error={memoError} onGenerate={onGenerateMemo} />
       <SnapshotCard snapshot={analysis.snapshot} />
       <ReconstructedNOICard reconstructed={analysis.reconstructed} sellerNOI={analysis.snapshot.sellerNOI} />
       <ProjectionCard projection={analysis.projection} />
@@ -561,6 +603,113 @@ function OutputsPanel({ analysis, psLens, ready }) {
       <CompGridCard comps={analysis.comps} subjectAsk={analysis.snapshot.ask} />
     </div>
   );
+}
+
+// ─── IC Memo Card — Claude-generated narrative on top of deterministic math ──
+function ICMemoCard({ memo, loading, error, onGenerate }) {
+  if (!memo && !loading && !error) {
+    return (
+      <div style={{ ...card, textAlign: "center", padding: "20px 24px" }}>
+        <div style={{ fontSize: 11, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>📝 Investment Committee Memo</div>
+        <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 14, maxWidth: 640, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
+          Generate the IC-style narrative on top of the deterministic math: 2-paragraph executive summary, recommended bid posture, top 3 risks, buyer routing. Claude reads the analysis, doesn't make up numbers.
+        </div>
+        <button onClick={onGenerate} style={{ ...btnPrimary, padding: "10px 22px" }}>Generate IC Memo · ~10s</button>
+      </div>
+    );
+  }
+  if (loading) {
+    return (
+      <div style={{ ...card, textAlign: "center", padding: "20px 24px" }}>
+        <div style={{ fontSize: 22, marginBottom: 6 }}>⏳</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>Drafting IC memo…</div>
+        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Claude is narrating the analysis. ~10s for a typical memo.</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div style={{ ...card, textAlign: "center", padding: "20px 24px", border: `1px solid #EF444466` }}>
+        <div style={{ fontSize: 22, marginBottom: 4 }}>⚠</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#EF4444" }}>Memo generation failed</div>
+        <div style={{ fontSize: 11, color: "#FCA5A5", marginTop: 4, maxWidth: 640, marginLeft: "auto", marginRight: "auto" }}>{error}</div>
+        <button onClick={onGenerate} style={{ ...btnGhost, marginTop: 10 }}>Retry</button>
+      </div>
+    );
+  }
+
+  // Memo rendered
+  const recColor = memo.recommendation === "PURSUE" ? "#22C55E" : memo.recommendation === "NEGOTIATE" ? "#F59E0B" : "#EF4444";
+  return (
+    <div style={{ ...card, border: `2px solid ${GOLD}66`, background: `linear-gradient(135deg, rgba(201,168,76,0.05), rgba(15,21,56,0.6))` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>📝 Investment Committee Memo</div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {memo._meta && (
+            <span style={{ fontSize: 10, color: "#64748B" }}>
+              {memo._meta.model} · {(memo._meta.elapsedMs / 1000).toFixed(1)}s
+            </span>
+          )}
+          <button onClick={onGenerate} style={{ ...btnGhost, padding: "5px 10px", fontSize: 10 }}>↻ Regenerate</button>
+        </div>
+      </div>
+
+      {memo.recommendation && (
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${GOLD}30` }}>
+          <span style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>IC Recommendation</span>
+          <span style={{ fontSize: 18, fontWeight: 900, color: recColor, letterSpacing: "0.02em" }}>{memo.recommendation}</span>
+        </div>
+      )}
+
+      {memo.execSummary && (
+        <div style={{ fontSize: 13, color: "#E2E8F0", lineHeight: 1.65, marginBottom: 16 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(memo.execSummary) }} />
+      )}
+
+      {memo.bidPosture && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+          <div style={{ ...metricBox, borderLeft: "3px solid #22C55E" }}>
+            <div style={{ fontSize: 10, color: "#22C55E", fontWeight: 700, textTransform: "uppercase" }}>Opening Bid</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{fmt$(Math.round(memo.bidPosture.openingBid || 0))}</div>
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.4 }}>{memo.bidPosture.openingBidRationale}</div>
+          </div>
+          <div style={{ ...metricBox, borderLeft: "3px solid #F59E0B" }}>
+            <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700, textTransform: "uppercase" }}>Walk-Away</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{fmt$(Math.round(memo.bidPosture.walkAway || 0))}</div>
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.4 }}>{memo.bidPosture.walkAwayRationale}</div>
+          </div>
+        </div>
+      )}
+
+      {Array.isArray(memo.topRisks) && memo.topRisks.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Top Risks</div>
+          <ol style={{ margin: 0, paddingLeft: 22, color: "#E2E8F0", fontSize: 12, lineHeight: 1.6 }}>
+            {memo.topRisks.map((r, i) => <li key={i} style={{ marginBottom: 4 }}>{r}</li>)}
+          </ol>
+        </div>
+      )}
+
+      {memo.buyerRouting && (
+        <div style={{ padding: "10px 12px", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 8, fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>
+          <span style={{ fontSize: 10, color: "#3B82F6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 8 }}>Buyer Routing</span>
+          {memo.buyerRouting}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Small markdown helper — we only want **bold** + paragraph breaks. Keep it tight.
+function renderMarkdown(s) {
+  if (typeof s !== "string") return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#C9A84C">$1</strong>')
+    .replace(/\n\n+/g, '</p><p style="margin:0 0 10px;">')
+    .replace(/^/, '<p style="margin:0 0 10px;">')
+    .replace(/$/, "</p>");
 }
 
 // ─── Deal Type Badge — small chip that explains the math path ────────────
