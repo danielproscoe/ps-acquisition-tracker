@@ -450,7 +450,7 @@ function OMDropZone({ onFile, extracting, meta }) {
         <div>
           <div style={{ fontSize: 24, marginBottom: 6 }}>⏳</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>Reading the OM…</div>
-          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Claude is extracting underwriting fields. ~15-45s for a 70-page PDF.</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Storvex is extracting underwriting fields. ~15-45s for a 70-page PDF.</div>
         </div>
       ) : meta?.error ? (
         <div>
@@ -464,7 +464,7 @@ function OMDropZone({ onFile, extracting, meta }) {
           <div style={{ fontSize: 22, marginBottom: 4 }}>✓</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#22C55E" }}>Extracted · {meta.filename}</div>
           <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>
-            Confidence {((meta.confidence || 0) * 100).toFixed(0)}% · {(meta.elapsedMs / 1000).toFixed(1)}s · {meta.model}
+            Confidence {((meta.confidence || 0) * 100).toFixed(0)}% · {(meta.elapsedMs / 1000).toFixed(1)}s · Storvex OM Engine
             {meta.tokenUsage ? ` · ${(meta.tokenUsage.input / 1000).toFixed(1)}K tokens in` : ""}
           </div>
           {meta.notes && <div style={{ fontSize: 11, color: ICE, marginTop: 6, fontStyle: "italic", maxWidth: 700, marginLeft: "auto", marginRight: "auto", lineHeight: 1.4 }}>"{meta.notes}"</div>}
@@ -611,14 +611,14 @@ function OutputsPanel({ analysis, psLens, ready, memo, memoLoading, memoError, o
   );
 }
 
-// ─── IC Memo Card — Claude-generated narrative on top of deterministic math ──
+// ─── IC Memo Card — Storvex-generated narrative on top of deterministic math ──
 function ICMemoCard({ memo, loading, error, onGenerate }) {
   if (!memo && !loading && !error) {
     return (
       <div style={{ ...card, textAlign: "center", padding: "20px 24px" }}>
         <div style={{ fontSize: 11, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>📝 Investment Committee Memo</div>
         <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 14, maxWidth: 640, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
-          Generate the IC-style narrative on top of the deterministic math: 2-paragraph executive summary, recommended bid posture, top 3 risks, buyer routing. Claude reads the analysis, doesn't make up numbers.
+          Generate the IC-style narrative on top of the deterministic math: 2-paragraph executive summary, recommended bid posture, top 3 risks, buyer routing. Storvex reads the analysis, doesn't make up numbers.
         </div>
         <button onClick={onGenerate} style={{ ...btnPrimary, padding: "10px 22px" }}>Generate IC Memo · ~10s</button>
       </div>
@@ -629,7 +629,7 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
       <div style={{ ...card, textAlign: "center", padding: "20px 24px" }}>
         <div style={{ fontSize: 22, marginBottom: 6 }}>⏳</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>Drafting IC memo…</div>
-        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Claude is narrating the analysis. ~10s for a typical memo.</div>
+        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Storvex is narrating the analysis. ~10s for a typical memo.</div>
       </div>
     );
   }
@@ -653,7 +653,7 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {memo._meta && (
             <span style={{ fontSize: 10, color: "#64748B" }}>
-              {memo._meta.model} · {(memo._meta.elapsedMs / 1000).toFixed(1)}s
+              Storvex IC Engine · {(memo._meta.elapsedMs / 1000).toFixed(1)}s
             </span>
           )}
           <button onClick={onGenerate} style={{ ...btnGhost, padding: "5px 10px", fontSize: 10 }}>↻ Regenerate</button>
