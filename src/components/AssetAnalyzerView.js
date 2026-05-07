@@ -6,7 +6,7 @@
 // Demos Storvex's dual-acquisition coverage to PS VP Reza Mahdavian
 // (memory/project_ps-vp-reit-platform-elevation.md).
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
 import { computeBuyerLens, PS_LENS } from "../buyerLensProfiles";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
@@ -218,6 +218,8 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   const [inputs, setInputs] = useState(EMPTY_INPUTS);
   const [savedId, setSavedId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [extractionMeta, setExtractionMeta] = useState(null); // { confidence, notes, model, elapsedMs }
 
   const setField = useCallback((key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -245,6 +247,82 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     [parsed, ready]
   );
 
+  // ── OM upload + auto-extract ────────────────────────────────────────────
+  const handleOMFile = useCallback(async (file) => {
+    if (!file || file.type !== "application/pdf") {
+      if (notify) notify("Drop a PDF file (.pdf only)", "error");
+      return;
+    }
+    if (file.size > 30 * 1024 * 1024) {
+      if (notify) notify(`PDF too large (${(file.size / 1024 / 1024).toFixed(1)} MB) — Anthropic limit is 32 MB`, "error");
+      return;
+    }
+    setExtracting(true);
+    setExtractionMeta(null);
+    try {
+      // FileReader → base64 (strips data: prefix on the server side)
+      const base64 = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => {
+          const s = String(r.result || "");
+          resolve(s.replace(/^data:application\/pdf;base64,/, ""));
+        };
+        r.onerror = () => reject(new Error("Failed to read PDF"));
+        r.readAsDataURL(file);
+      });
+
+      const resp = await fetch("/api/analyze-om", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfBase64: base64, filename: file.name }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        throw new Error(data.error || `API ${resp.status}`);
+      }
+
+      // Map extracted fields → form state
+      const f = data.fields || {};
+      const next = { ...EMPTY_INPUTS };
+      if (f.name) next.name = String(f.name);
+      if (f.state) next.state = String(f.state).toUpperCase();
+      if (f.msaTier) next.msaTier = String(f.msaTier);
+      if (f.dealType) next.dealType = String(f.dealType);
+      if (f.ask != null) next.ask = String(f.ask);
+      if (f.nrsf != null) next.nrsf = String(f.nrsf);
+      if (f.unitCount != null) next.unitCount = String(f.unitCount);
+      if (f.yearBuilt != null) next.yearBuilt = String(f.yearBuilt);
+      if (f.physicalOcc != null) next.physicalOcc = String(Math.round(f.physicalOcc * 100));
+      if (f.economicOcc != null) next.economicOcc = String(Math.round(f.economicOcc * 100));
+      if (f.t12NOI != null) next.t12NOI = String(f.t12NOI);
+      if (f.t12EGI != null) next.t12EGI = String(f.t12EGI);
+      if (f.proFormaEGI != null) next.proFormaEGI = String(f.proFormaEGI);
+      if (f.proFormaNOI != null) next.proFormaNOI = String(f.proFormaNOI);
+      if (f.ccPct != null) next.ccPct = String(Math.round(f.ccPct * 100));
+      if (f.isManned != null) next.isManned = f.isManned ? "yes" : "no";
+      if (f.listingBroker) next.listingBroker = String(f.listingBroker);
+      if (f.listingSource) next.listingSource = String(f.listingSource);
+      if (f.currentTaxAnnual != null) next.currentTaxAnnual = String(f.currentTaxAnnual);
+
+      setInputs(next);
+      setExtractionMeta({
+        confidence: data.confidence,
+        notes: data.extractionNotes || "",
+        model: data.model,
+        elapsedMs: data.elapsedMs,
+        filename: file.name,
+        tokenUsage: data.tokenUsage,
+      });
+      setSavedId(null);
+      if (notify) notify(`OM extracted · ${file.name} · ${(data.elapsedMs / 1000).toFixed(1)}s · confidence ${((data.confidence || 0) * 100).toFixed(0)}%`, "success");
+    } catch (err) {
+      if (notify) notify(`Extraction failed: ${err.message || err}`, "error");
+      setExtractionMeta({ error: err.message || String(err) });
+    } finally {
+      setExtracting(false);
+    }
+  }, [notify]);
+
   const handleSave = useCallback(async () => {
     if (!analysis || !fbSet) return;
     setSaving(true);
@@ -270,11 +348,91 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   return (
     <div style={{ animation: "fadeIn 0.3s ease-out", color: "#E2E8F0", fontFamily: "'Inter', sans-serif" }}>
       <Header onLoadDemo={loadDemo} onClear={clearAll} onSave={handleSave} canSave={!!analysis} saving={saving} savedId={savedId} />
+      <OMDropZone onFile={handleOMFile} extracting={extracting} meta={extractionMeta} />
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 20, alignItems: "flex-start" }}>
         <FormPanel inputs={inputs} setField={setField} />
         <OutputsPanel analysis={analysis} psLens={psLens} ready={ready} />
       </div>
+    </div>
+  );
+}
+
+// ─── OM Drop Zone — drag/drop PDF or click to browse ─────────────────────
+function OMDropZone({ onFile, extracting, meta }) {
+  const [dragActive, setDragActive] = useState(false);
+  const inputRef = useRef(null);
+
+  const onDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); };
+  const onDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); };
+  const onDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) onFile(file);
+  };
+  const onClick = () => inputRef.current?.click();
+  const onChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) onFile(file);
+    e.target.value = ""; // allow re-upload of same file
+  };
+
+  return (
+    <div
+      onDragOver={onDragOver}
+      onDragEnter={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onClick={onClick}
+      style={{
+        marginBottom: 16,
+        padding: "20px 24px",
+        borderRadius: 14,
+        border: `2px dashed ${dragActive ? GOLD : "rgba(201,168,76,0.3)"}`,
+        background: dragActive ? "rgba(201,168,76,0.08)" : "rgba(15,21,56,0.5)",
+        cursor: extracting ? "wait" : "pointer",
+        transition: "all 0.2s ease",
+        textAlign: "center",
+        position: "relative",
+      }}
+    >
+      <input ref={inputRef} type="file" accept="application/pdf" onChange={onChange} style={{ display: "none" }} />
+      {extracting ? (
+        <div>
+          <div style={{ fontSize: 24, marginBottom: 6 }}>⏳</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>Reading the OM…</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Claude is extracting underwriting fields. ~15-45s for a 70-page PDF.</div>
+        </div>
+      ) : meta?.error ? (
+        <div>
+          <div style={{ fontSize: 22, marginBottom: 4 }}>⚠</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#EF4444" }}>Extraction failed</div>
+          <div style={{ fontSize: 11, color: "#FCA5A5", marginTop: 4, maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>{meta.error}</div>
+          <div style={{ fontSize: 11, color: GOLD, marginTop: 8 }}>Click or drop another PDF to retry</div>
+        </div>
+      ) : meta ? (
+        <div>
+          <div style={{ fontSize: 22, marginBottom: 4 }}>✓</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#22C55E" }}>Extracted · {meta.filename}</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>
+            Confidence {((meta.confidence || 0) * 100).toFixed(0)}% · {(meta.elapsedMs / 1000).toFixed(1)}s · {meta.model}
+            {meta.tokenUsage ? ` · ${(meta.tokenUsage.input / 1000).toFixed(1)}K tokens in` : ""}
+          </div>
+          {meta.notes && <div style={{ fontSize: 11, color: ICE, marginTop: 6, fontStyle: "italic", maxWidth: 700, marginLeft: "auto", marginRight: "auto", lineHeight: 1.4 }}>"{meta.notes}"</div>}
+          <div style={{ fontSize: 11, color: GOLD, marginTop: 8 }}>Drop another OM to re-extract · review fields below before running</div>
+        </div>
+      ) : (
+        <div>
+          <div style={{ fontSize: 24, marginBottom: 6, opacity: 0.6 }}>📄</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0" }}>Drop an Offering Memorandum (PDF) here</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 }}>
+            Or click to browse. Auto-extracts ask, NRSF, units, occupancy, T-12 + pro forma NOI, broker, deal type. ~30s round trip.
+          </div>
+          <div style={{ fontSize: 10, color: "#64748B", marginTop: 6 }}>Max 32 MB · PDFs only</div>
+        </div>
+      )}
     </div>
   );
 }
