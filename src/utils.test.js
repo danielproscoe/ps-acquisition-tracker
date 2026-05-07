@@ -1,7 +1,7 @@
 // ─── Unit Tests for Utility Functions & Validators ───
 // McKinsey Audit: TEST-01 — baseline test coverage for business-critical functions
 import {
-  sanitizeString, isValidCoordinates, isValidState, isValidPrice, isValidAcreage,
+  sanitizeString, cleanText, isValidCoordinates, isValidState, isValidPrice, isValidAcreage,
   uid, fmt$, fmtN, safeNum, escapeHtml, stripEmoji, cleanPriority,
   normalizeSiteScoreWeights, SITE_SCORE_DEFAULTS, PHASES,
 } from './utils';
@@ -15,6 +15,50 @@ describe('sanitizeString', () => {
   test('handles non-string input', () => expect(sanitizeString(123)).toBe(''));
   test('handles null', () => expect(sanitizeString(null)).toBe(''));
   test('truncates at 5000 chars', () => expect(sanitizeString('a'.repeat(6000)).length).toBe(5000));
+});
+
+// ─── Deep Text Normalization ───
+// Catches the bugs caught in the 5/7/26 dashboard QC: U+FFFD replacement chars
+// from broken Firebase writes, and "[ST] -- " / "[ST] - " separators that bypass
+// the em-dash convention.
+describe('cleanText', () => {
+  // U+FFFD heuristic (was almost always an em-dash in the DJR data)
+  test('replaces U+FFFD with em-dash (broker line)', () =>
+    expect(cleanText('Zachary Schunn � Edge Real Estate Group'))
+      .toBe('Zachary Schunn — Edge Real Estate Group'));
+  test('replaces multiple U+FFFD instances', () =>
+    expect(cleanText('Lancaster TX � Tater Brown (ORPHAN � needs cleanup)'))
+      .toBe('Lancaster TX — Tater Brown (ORPHAN — needs cleanup)'));
+
+  // Dash typography normalization — anchored on US state abbrev
+  test('normalizes "[ST] -- " to "[ST] — "', () =>
+    expect(cleanText('Westampton NJ -- 598 Rancocas Rd'))
+      .toBe('Westampton NJ — 598 Rancocas Rd'));
+  test('normalizes "[ST] - " to "[ST] — "', () =>
+    expect(cleanText('Halfmoon NY - 1879 Route 9'))
+      .toBe('Halfmoon NY — 1879 Route 9'));
+  test('normalizes within longer titles', () =>
+    expect(cleanText('South Lebanon OH -- I-71 & SR 48'))
+      .toBe('South Lebanon OH — I-71 & SR 48'));
+
+  // Negative cases — must NOT touch
+  test('does not touch I-71 highway designation', () =>
+    expect(cleanText('Sites along I-71 corridor')).toBe('Sites along I-71 corridor'));
+  test('does not touch hyphenated words like drive-thru', () =>
+    expect(cleanText('Coffee drive-thru pad on US-31')).toBe('Coffee drive-thru pad on US-31'));
+  test('does not touch dates like 2026-05-07', () =>
+    expect(cleanText('Filed 2026-05-07')).toBe('Filed 2026-05-07'));
+
+  // Delegates UTF-8/CP1252 mojibake to fixEncoding
+  test('still fixes em-dash mojibake via fixEncoding delegation', () =>
+    expect(cleanText('Mike Cassidy â€” Carolina One'))
+      .toBe('Mike Cassidy — Carolina One'));
+
+  // Type safety
+  test('handles non-string input', () => expect(cleanText(123)).toBe(123));
+  test('handles null', () => expect(cleanText(null)).toBe(null));
+  test('handles undefined', () => expect(cleanText(undefined)).toBe(undefined));
+  test('handles empty string', () => expect(cleanText('')).toBe(''));
 });
 
 // ─── Coordinate Validation ───

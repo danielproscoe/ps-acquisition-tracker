@@ -330,3 +330,19 @@ export const isValidAcreage = (a) => {
   const n = parseFloat(String(a).replace(/[,]/g, ""));
   return !isNaN(n) && n > 0 && n < 100000;
 };
+
+// ─── Deep text normalization ───
+// Wraps fixEncoding and adds two patterns we caught in the wild that fixEncoding misses:
+//   1. U+FFFD replacement char (rendered as � on cards) — heuristically was an em-dash
+//   2. "[ST] -- " / "[ST] - " separators in card titles → normalize to "[ST] — "
+// Anchored on US state abbrev so it never touches "I-71" or hyphenated words.
+// Use this for any user-visible field that may have been written before fixEncoding existed
+// or that contains data from a path that didn't sanitize on write.
+export const cleanText = (str) => {
+  if (typeof str !== "string") return str;
+  // U+FFFD = � replacement character
+  // [STATE-ABBREV] [-/--] [content] pattern: \b([A-Z]{2})\s+-{1,2}\s+
+  return fixEncoding(str)
+    .replace(/�/g, "—")
+    .replace(/(\b[A-Z]{2})\s+-{1,2}\s+/g, "$1 — ");
+};
