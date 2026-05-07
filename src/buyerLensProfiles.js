@@ -47,11 +47,16 @@ import { analyzeExistingAsset } from "./existingAssetAnalysis";
 //      cap for cross-marketing + customer overflow value.
 
 export const PS_LENS = {
+  // INTERNAL identifiers — used in code lookup, not shown to end users.
+  // Display fields below are deliberately neutral institutional language so
+  // the user-visible surface doesn't reference any specific REIT by name
+  // (REIT-level disclosure discipline). Underlying constants stay pinned to
+  // FY2025 10-K data — full citations in docs/PS_UNDERWRITING_MODEL.md.
   key: "PS",
-  name: "Public Storage",
-  ticker: "PSA",
+  name: "Institutional Self-Managed REIT",
+  ticker: "INST",
   description:
-    "Self-managed national REIT. FY2025: 3,171 facilities / 229M NRSF / 40 states. NSA acquisition pending Q3 2026 close ($10.5B / 1,000+ properties). Acquires Class A stabilized at market cap, drives 50-100 bps yield uplift via PSNext platform integration. 75% off-market sourcing.",
+    "Self-managed national operator profile. Calibrated to FY2025 institutional REIT same-store opex (24.86% of revenue / 75.14% NOI margin) and disclosed acquisition activity. Buys at market cap, drives 50-100 bps yield uplift via platform integration (revenue management + cost rationalization on rolled tenants). Self-managed — no third-party mgmt fee.",
 
   // ── Opex overrides — PSA FY2025 10-K same-store ratios ──────────────────
   // Source: PSA Q4/FY2025 Press Release (BusinessWire 2/12/2026)
@@ -151,9 +156,12 @@ export const PS_LENS = {
   },
 
   // ── Display ───────────────────────────────────────────────────────────
-  brandColor: "#1E40AF", // PS blue
-  badgeText: "PSA UNDERWRITE",
-  citationFootnote: "Sources: PSA FY2025 10-K (filed Feb 2026), PSA Q4 2025 + Q1 2026 earnings transcripts, NSA acquisition press release (Mar 2026), Newmark 2025 Self-Storage Almanac, Cushman & Wakefield H1 2025 Trends. Full pack: docs/PS_UNDERWRITING_MODEL.md.",
+  // NOTE: badge + display fields are deliberately neutral. Internal
+  // constants are pinned to FY2025 institutional REIT 10-K disclosures;
+  // citations in docs/UNDERWRITING_MODEL.md.
+  brandColor: "#3B82F6",
+  badgeText: "STORVEX UNDERWRITE",
+  citationFootnote: "Constants calibrated to FY2025 institutional REIT 10-K disclosures (same-store opex ratios, acquisition cap rates, brand-premium street rate dynamics) plus Newmark 2025 Self-Storage Almanac, Cushman & Wakefield H1 2025 Trends, Green Street Q1 2026 Sector. Internal source pack: docs/PS_UNDERWRITING_MODEL.md (dev only).",
 };
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -192,9 +200,10 @@ export function computeLensMarketCap(lens, msaTier, nearestMi = null) {
   const portfolioFit =
     fitTrigger != null && nearestMi != null && nearestMi <= fitTrigger;
   const cap = portfolioFit ? baseCap - fitBps / 10000 : baseCap;
+  // capBasis is rendered to the user — neutral institutional language.
   const basis = portfolioFit
-    ? `${lens.key} ${msaTier} cap (${(baseCap * 100).toFixed(2)}%) − ${fitBps} bps portfolio-fit (within ${fitTrigger} mi of ${lens.key} family facility)`
-    : `${lens.key} ${msaTier} cap (${(baseCap * 100).toFixed(2)}%)`;
+    ? `Institutional ${msaTier} cap (${(baseCap * 100).toFixed(2)}%) − ${fitBps} bps portfolio-fit (within ${fitTrigger} mi of operator-family facility)`
+    : `Institutional ${msaTier} cap (${(baseCap * 100).toFixed(2)}%)`;
   return { cap, portfolioFit, basis, baseCap, fitBps };
 }
 

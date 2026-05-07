@@ -24,7 +24,9 @@ describe("PS_LENS profile constants", () => {
   test("registered in BUYER_LENSES table", () => {
     expect(BUYER_LENSES.PS).toBe(PS_LENS);
     expect(PS_LENS.key).toBe("PS");
-    expect(PS_LENS.ticker).toBe("PSA");
+    // Display ticker is neutralized for REIT-level disclosure discipline.
+    // Internal key stays "PS" so code paths still resolve.
+    expect(PS_LENS.ticker).toBe("INST");
   });
 
   test("self-managed = $0 mgmt fee override", () => {
@@ -98,7 +100,7 @@ describe("computeBuyerLens — PS vs Generic", () => {
     expect(psLens.tiers).toBeDefined();
     expect(psLens.verdict).toBeDefined();
     expect(psLens.lens.key).toBe("PS");
-    expect(psLens.lens.ticker).toBe("PSA");
+    expect(psLens.lens.ticker).toBe("INST");
   });
 
   test("PS opex ratio is LOWER than generic (self-managed + central)", () => {
@@ -140,7 +142,8 @@ describe("computeBuyerLens — PS vs Generic", () => {
   });
 
   test("PS lens metadata exposes capBasis describing how cap was derived", () => {
-    expect(psLens.lens.capBasis).toContain("PS");
+    // capBasis is rendered to user — neutralized to "Institutional" language
+    expect(psLens.lens.capBasis).toContain("Institutional");
     expect(psLens.lens.capBasis).toContain("secondary");
   });
 });

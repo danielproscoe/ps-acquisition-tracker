@@ -156,9 +156,9 @@ const FIELD_GROUPS = [
     ],
   },
   {
-    title: "PS Lens Inputs",
+    title: "Portfolio Fit",
     fields: [
-      { key: "nearestPortfolioMi", label: "Distance to nearest PS family facility (mi) — for portfolio-fit bonus", type: "number", placeholder: "e.g. 3 for −25 bps cap" },
+      { key: "nearestPortfolioMi", label: "Distance to nearest operator-family facility (mi) — for portfolio-fit bonus", type: "number", placeholder: "e.g. 3 for −25 bps cap" },
     ],
   },
   {
@@ -600,7 +600,7 @@ function Header({ onLoadDemo, onClear, onSave, onExport, canSave, canExport, sav
           onClick={onExport}
           disabled={!canExport}
           style={{ ...btnGhost, opacity: !canExport ? 0.5 : 1, cursor: !canExport ? "not-allowed" : "pointer", color: "#3B82F6", borderColor: "rgba(59,130,246,0.4)", background: "rgba(59,130,246,0.08)" }}
-          title="Export structured JSON for PSA data warehouse / Welltower model layer ingestion"
+          title="Export structured JSON for institutional data warehouse / downstream scoring layer ingestion"
         >
           ⤓ Push to Warehouse
         </button>
@@ -724,7 +724,7 @@ function EnrichmentCard({ enrichment, loading }) {
       <div style={{ ...card, padding: "18px 22px", textAlign: "center" }}>
         <div style={{ fontSize: 22, marginBottom: 6 }}>🌐</div>
         <div style={{ fontSize: 12, fontWeight: 700, color: GOLD }}>Storvex is auto-pulling underwriter data…</div>
-        <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>Geocoding · ESRI 1-3-5 mile demographics · PS family proximity · market rents</div>
+        <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>Geocoding · ESRI 1-3-5 mile demographics · operator-family proximity · market rents</div>
       </div>
     );
   }
@@ -739,7 +739,7 @@ function EnrichmentCard({ enrichment, loading }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div>
           <div style={{ fontSize: 11, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>🌐 Auto-Enriched · Storvex Data Layer</div>
-          <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>Pulled in parallel during OM extraction — same data a PSA underwriter pulls manually</div>
+          <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>Pulled in parallel during OM extraction — same data an institutional underwriter pulls manually</div>
         </div>
         <span style={{ fontSize: 9, color: "#64748B", fontWeight: 700 }}>ESRI · CSV · SpareFoot</span>
       </div>
@@ -904,7 +904,7 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
       )}
       {memo.ps4Alignment && (
         <div style={{ padding: "10px 12px", background: "rgba(201,168,76,0.08)", border: `1px solid ${GOLD}50`, borderRadius: 8, fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>
-          <span style={{ fontSize: 10, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 8 }}>PS 4.0 Alignment</span>
+          <span style={{ fontSize: 10, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 8 }}>Strategic Alignment</span>
           {memo.ps4Alignment}
         </div>
       )}
@@ -959,7 +959,7 @@ function PSLensCard({ psLens, generic }) {
     <div style={{ ...card, border: `2px solid ${PS_BLUE}66`, background: `linear-gradient(135deg, rgba(59,130,246,0.06), rgba(15,21,56,0.6))` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: PS_BLUE, textTransform: "uppercase", letterSpacing: "0.08em" }}>PS Lens · Public Storage Underwrite</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: PS_BLUE, textTransform: "uppercase", letterSpacing: "0.08em" }}>Storvex Underwrite · Institutional Self-Managed REIT Lens</div>
           <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 }}>{psLens.lens.description}</div>
         </div>
         <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: PS_BLUE, padding: "5px 10px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{psLens.lens.badgeText}</span>
@@ -969,7 +969,7 @@ function PSLensCard({ psLens, generic }) {
       <div style={{ marginBottom: 14, padding: 14, borderRadius: 10, background: verdictBg, border: `1px solid ${v.color}80` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>PS Lens Verdict</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Storvex Verdict</div>
             <div style={{ fontSize: 22, fontWeight: 900, color: v.color, marginTop: 4 }}>{v.label}</div>
           </div>
           <div style={{ fontSize: 11, color: "#E2E8F0", maxWidth: 380, textAlign: "right", lineHeight: 1.4 }}>{v.rationale}</div>
@@ -989,7 +989,7 @@ function PSLensCard({ psLens, generic }) {
           <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>opex {fmtPct(psLens.reconstructed.opexRatio, 1)}</div>
         </div>
         <div style={{ ...metricBox, borderLeft: `3px solid ${PS_BLUE}` }}>
-          <div style={{ fontSize: 9, color: PS_BLUE, fontWeight: 700, textTransform: "uppercase" }}>PS Cap Rate</div>
+          <div style={{ fontSize: 9, color: PS_BLUE, fontWeight: 700, textTransform: "uppercase" }}>Stabilized Cap</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{fmtPct(psLens.marketCap, 2)}</div>
           <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>{psLens.lens.portfolioFit ? "−25 bps fit" : "no fit bonus"}</div>
         </div>
@@ -1006,8 +1006,8 @@ function PSLensCard({ psLens, generic }) {
           <tr style={{ borderBottom: `1px solid ${PS_BLUE}40` }}>
             <th style={thStyle}>Tier</th>
             <th style={{ ...thStyle, textAlign: "right" }}>Generic Buyer</th>
-            <th style={{ ...thStyle, textAlign: "right", color: PS_BLUE }}>PS</th>
-            <th style={{ ...thStyle, textAlign: "right" }}>Δ (PS Premium)</th>
+            <th style={{ ...thStyle, textAlign: "right", color: PS_BLUE }}>Storvex</th>
+            <th style={{ ...thStyle, textAlign: "right" }}>Δ (Platform Premium)</th>
             <th style={{ ...thStyle, textAlign: "right" }}>vs Ask</th>
           </tr>
         </thead>
@@ -1029,7 +1029,7 @@ function PSLensCard({ psLens, generic }) {
         </tbody>
       </table>
       <div style={{ fontSize: 10, color: "#64748B", marginTop: 10, lineHeight: 1.5 }}>
-        Cap basis: {psLens.lens.capBasis}. PS premium = (PS price − Generic price). The Δ column quantifies the platform-fit value PS would pay above a generic institutional buyer.
+        Cap basis: {psLens.lens.capBasis}. Platform premium = (Storvex price − Generic price). The Δ column quantifies the platform-fit value an institutional self-managed REIT would pay above a generic third-party-managed buyer.
       </div>
     </div>
   );
@@ -1056,7 +1056,7 @@ function PSAVerdictHero({ psLens, analysis }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: PS_BLUE, padding: "3px 8px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase" }}>{isPSA ? "PSA Underwrite" : "Generic Buyer"}</span>
+            <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: PS_BLUE, padding: "3px 8px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase" }}>{isPSA ? "Storvex Underwrite" : "Generic Buyer"}</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Verdict</span>
           </div>
           <div style={{ fontSize: 36, fontWeight: 900, color: v.color, letterSpacing: "-0.02em", lineHeight: 1, marginBottom: 8 }}>{v.label}</div>
@@ -1068,7 +1068,7 @@ function PSAVerdictHero({ psLens, analysis }) {
           )}
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>{isPSA ? "PSA Stabilized Cap" : "Cap on Ask"}</div>
+          <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>{isPSA ? "Stabilized Cap" : "Cap on Ask"}</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace", marginTop: 4 }}>
             {isPSA ? fmtPct(psLens.marketCap, 2) : fmtPct(analysis.snapshot.capOnAsk, 2)}
           </div>

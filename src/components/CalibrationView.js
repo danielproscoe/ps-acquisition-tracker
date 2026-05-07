@@ -30,12 +30,12 @@ const card = {
 
 const ACTUAL_OUTCOME_OPTIONS = [
   { key: "", label: "— pending —" },
-  { key: "PURSUED", label: "PSA Pursued" },
-  { key: "LOI_SIGNED", label: "PSA Signed LOI" },
-  { key: "PSA_SENT", label: "PSA Sent (PSA actively chasing)" },
+  { key: "PURSUED", label: "Buyer Pursued" },
+  { key: "LOI_SIGNED", label: "Buyer Signed LOI" },
+  { key: "PSA_SENT", label: "Buyer Active (PSA / counter)" },
   { key: "UNDER_CONTRACT", label: "Under Contract" },
   { key: "CLOSED", label: "Closed" },
-  { key: "PASSED", label: "PSA Passed" },
+  { key: "PASSED", label: "Buyer Passed" },
   { key: "KILLED", label: "Killed (any party)" },
 ];
 
@@ -147,10 +147,10 @@ function Header() {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <span style={{ fontSize: 26, lineHeight: 1 }}>🎯</span>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em" }}>Calibration</h1>
-        <span style={{ fontSize: 10, fontWeight: 700, color: PS_BLUE, background: "rgba(59,130,246,0.12)", border: `1px solid ${PS_BLUE}40`, padding: "3px 9px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase" }}>Storvex vs PSA Reality</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: PS_BLUE, background: "rgba(59,130,246,0.12)", border: `1px solid ${PS_BLUE}40`, padding: "3px 9px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase" }}>Storvex vs Buyer Decisions</span>
       </div>
       <p style={{ margin: 0, fontSize: 12, color: "#94A3B8", maxWidth: 720, lineHeight: 1.5 }}>
-        Track every Storvex PSA Lens verdict against PSA's actual decision when it lands. Hit rate = credibility. After 20-50 deals, this is what proves the model to PSA's IC chair: <em>"Storvex independently agreed with our team on N of M — disagreements were always more conservative on Storvex's side."</em>
+        Track every Storvex institutional verdict against the actual buyer decision when it lands. Hit rate = credibility. After 20-50 deals, this is what proves the model to a buyer's IC: <em>"Storvex independently agreed with our team on N of M — disagreements were always more conservative on Storvex's side."</em>
       </p>
     </div>
   );
@@ -163,13 +163,13 @@ function CalibrationStats({ stats }) {
     { label: "Confirmed", value: stats.confirmed, color: "#22C55E", sub: `${stats.pending} pending` },
     { label: "Agree", value: stats.agree, color: "#22C55E", sub: stats.confirmed > 0 ? `${(stats.hitRate * 100).toFixed(0)}% hit rate` : "—" },
     { label: "Partial", value: stats.partial, color: "#F59E0B", sub: "Storvex flagged risk" },
-    { label: "Too Conservative", value: stats.storvexConservative, color: ICE, sub: "Storvex PASS, PSA Pursued" },
-    { label: "Too Aggressive", value: stats.storvexAggressive, color: "#EF4444", sub: "Storvex PURSUE, PSA Passed" },
+    { label: "Too Conservative", value: stats.storvexConservative, color: ICE, sub: "Storvex PASS, Buyer Pursued" },
+    { label: "Too Aggressive", value: stats.storvexAggressive, color: "#EF4444", sub: "Storvex PURSUE, Buyer Passed" },
   ];
 
   return (
     <div style={card}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 }}>Aggregate · Storvex vs PSA Decisions</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 }}>Aggregate · Storvex vs Buyer Decisions</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
         {tiles.map((t) => (
           <div key={t.label} style={{ background: "rgba(0,0,0,0.25)", padding: "14px 16px", borderRadius: 10, borderLeft: `3px solid ${t.color}` }}>
@@ -181,7 +181,7 @@ function CalibrationStats({ stats }) {
       </div>
       {stats.confirmed === 0 && (
         <div style={{ marginTop: 14, padding: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 8, fontSize: 11, color: "#FCD34D" }}>
-          No confirmed outcomes yet. As PSA actually decides on the deals you've underwritten via Storvex, log the outcome below to start building the calibration curve.
+          No confirmed outcomes yet. As the buyer actually decides on the deals you've underwritten via Storvex, log the outcome below to start building the calibration curve.
         </div>
       )}
     </div>
@@ -212,8 +212,8 @@ function RecordsTable({ records, savingId, onUpdateOutcome, onUpdateNote }) {
               <th style={th}>State</th>
               <th style={th}>Ask</th>
               <th style={th}>Storvex Verdict</th>
-              <th style={th}>PSA Walk</th>
-              <th style={th}>PSA Actual Decision</th>
+              <th style={th}>Storvex Walk</th>
+              <th style={th}>Buyer Actual Decision</th>
               <th style={th}>Note</th>
               <th style={th}>Match</th>
             </tr>
