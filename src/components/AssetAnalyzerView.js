@@ -588,7 +588,7 @@ function PriceTiersCard({ tiers, ask, marketCap, msaTier }) {
       </div>
       <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.5 }}>
         Market cap <strong style={{ color: ICE }}>{fmtPct(marketCap, 2)}</strong> ({MSA_TIER_OPTIONS.find((m) => m.key === msaTier)?.label || "—"}) — base STORAGE.ACQ_CAP 5.60% adjusted for MSA tier.<br/>
-        Ask vs. Strike: <strong style={{ color: ask <= tiers.strike.price ? "#22C55E" : "#F59E0B" }}>{ask <= tiers.strike.price ? `${fmt$(tiers.strike.price - ask)} below Strike` : `${fmt$(ask - tiers.strike.price)} above Strike`}</strong>
+        Ask vs. Strike: <strong style={{ color: ask <= tiers.strike.price ? "#22C55E" : "#F59E0B" }}>{ask <= tiers.strike.price ? `${fmt$(Math.round(tiers.strike.price - ask))} below Strike` : `${fmt$(Math.round(ask - tiers.strike.price))} above Strike`}</strong>
       </div>
     </div>
   );
