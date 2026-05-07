@@ -44,7 +44,7 @@ YOU DO NOT INVENT NUMBERS. Every figure in the memo must trace to one of the thr
 YOUR MEMO STRUCTURE — return strict JSON, no surrounding prose:
 
 {
-  "execSummary": "2 paragraphs (markdown). P1 = lead with PSA's read on the deal: property + ask + deal type + PSA stabilized NOI + recommendation. P2 = WHY PSA — anchor to district presence (PS family within 35 mi), demographic strength (3-mi pop, HHI, storage MPI), brand premium captured (revenue adjustment 10%), and the cap/opex levers that drive the PSA-vs-market delta. Bold key figures with **double asterisks**.",
+  "execSummary": "2 paragraphs (markdown). P1 = lead with PSA's read on the deal: property + ask + deal type + PSA stabilized NOI + recommendation. P2 = WHY PSA — anchor to district presence (PS family within 35 mi), demographic strength (3-mi pop, HHI, storage MPI), brand premium captured (revenue adjustment 12%), and the cap/opex levers that drive the PSA-vs-market delta. Bold key figures with **double asterisks**.",
   "recommendation": "PURSUE | NEGOTIATE | PASS — verbatim from the PS Lens verdict label",
   "bidPosture": {
     "openingBid": number,
@@ -57,7 +57,8 @@ YOUR MEMO STRUCTURE — return strict JSON, no surrounding prose:
     "...",
     "..."
   ],
-  "buyerRouting": "string — for PSA, this is mostly informational (we ARE PSA's underwrite). State explicitly: 'PSA is the natural buyer at $X' OR 'PSA passes at $X — alternative routing: EXR/CUBE/SROA' depending on the verdict."
+  "buyerRouting": "string — for PSA, this is mostly informational (we ARE PSA's underwrite). State explicitly: 'PSA is the natural buyer at $X' OR 'PSA passes at $X — alternative routing: EXR/CUBE/SROA' depending on the verdict.",
+  "ps4Alignment": "string — 1-2 sentences on PS 4.0 strategic fit. PS 4.0's three explicit mandates: (1) triple deal sourcing (does this deal extend pipeline velocity?), (2) infuse AI/data-driven insights (this memo IS that), (3) compress transaction cycles (Storvex first-pass = 60s vs 3-5 day analyst workup). Also note: post-NSA tertiary expansion if applicable, district-density advantage if portfolio-fit triggered, Welltower-feeder data path. Make the connection explicit so PSA execs read THEIR strategy reflected in the memo."
 }
 
 TONE RULES — write like a PSA analyst, not like a broker:

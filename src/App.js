@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import QuickLookupPanel from './QuickLookupPanel';
 import AssetAnalyzerView from './components/AssetAnalyzerView';
+import CalibrationView from './components/CalibrationView';
 import { db, storage } from "./firebase";
 import { ref, update } from "firebase/database";
 import {
@@ -2753,6 +2754,7 @@ function AppInner() {
             { key: "dashboard", label: "Dashboard" },
             { key: "lookup", label: "⚡ Quick Lookup" },
             { key: "asset-analyzer", label: "📊 Asset Analyzer" },
+            { key: "calibration", label: "🎯 Calibration" },
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
@@ -2779,6 +2781,8 @@ function AppInner() {
         {tab === "lookup" && <QuickLookupPanel autoEnrichESRI={autoEnrichESRI} fbSet={fbSet} fbPush={fbPush} notify={notify} navigateTo={navigateTo} setTab={setTab} />}
 
         {tab === "asset-analyzer" && <AssetAnalyzerView fbSet={fbSet} fbPush={fbPush} notify={notify} />}
+
+        {tab === "calibration" && <CalibrationView notify={notify} />}
 
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>

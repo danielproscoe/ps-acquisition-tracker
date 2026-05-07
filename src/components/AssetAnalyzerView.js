@@ -10,6 +10,7 @@ import React, { useState, useMemo, useCallback, useRef } from "react";
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
 import { computeBuyerLens, PS_LENS } from "../buyerLensProfiles";
 import { enrichAssetAnalysis } from "../analyzerEnrich";
+import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
 
 // ─── Brand tokens — match QuickLookupPanel + CLAUDE.md §3 ─────────────────
@@ -394,31 +395,91 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     setMemoError(null);
   }, [inputs]);
 
+  // ── Push to PSA Data Warehouse — JSON export in storvex.asset-analyzer.v1 schema
+  const handleExportToWarehouse = useCallback(() => {
+    if (!analysis) return;
+    try {
+      const payload = buildWarehousePayload({
+        analysis,
+        psLens,
+        enrichment,
+        extractionMeta,
+        memo,
+        dealId: savedId || null,
+      });
+      downloadWarehousePayload(payload, payload.subject?.name || analysis.snapshot?.name);
+      if (notify) notify("Exported · structured JSON ready for data warehouse ingestion", "success");
+    } catch (e) {
+      if (notify) notify(`Export failed: ${e.message || e}`, "error");
+    }
+  }, [analysis, psLens, enrichment, extractionMeta, memo, savedId, notify]);
+
   const handleSave = useCallback(async () => {
     if (!analysis || !fbSet) return;
     setSaving(true);
     try {
       const id = uid();
+      // Save the full underwriting context — analysis, PSA Lens, enrichment,
+      // and memo (if generated) — so Calibration view can compare Storvex's
+      // PSA Lens verdict against PSA's actual outcome later. Trim heavy
+      // fields (Reconstruction line tables, full extraction transcripts) to
+      // keep Firebase records under reasonable size.
+      const trimAnalysis = (a) => a ? {
+        snapshot: a.snapshot,
+        verdict: a.verdict,
+        marketCap: a.marketCap,
+        msaTier: a.msaTier,
+        dealType: a.dealType,
+        tiers: a.tiers,
+        reconstructed: a.reconstructed ? {
+          buyerNOI: a.reconstructed.buyerNOI,
+          opexRatio: a.reconstructed.opexRatio,
+          buyerCap: a.reconstructed.buyerCap,
+        } : null,
+        projection: a.projection,
+      } : null;
       const record = {
         id,
         inputs,
-        analysis,
+        analysis: trimAnalysis(analysis),
+        psLens: psLens ? {
+          ...trimAnalysis(psLens),
+          lens: psLens.lens,
+        } : null,
+        enrichment: enrichment ? {
+          coords: enrichment.coords,
+          demographics: enrichment.demographics,
+          psFamily: enrichment.psFamily,
+          marketRents: enrichment.marketRents,
+        } : null,
+        memo: memo || null,
+        actualOutcome: "",     // Calibration tab will populate when PSA decides
+        calibrationNote: "",
         createdAt: new Date().toISOString(),
-        version: "v1",
+        version: "v2",
       };
       await fbSet(`existingAssets/${id}`, record);
       setSavedId(id);
-      if (notify) notify(`Analysis saved · ${id.slice(0, 8)}`, "success");
+      if (notify) notify(`Analysis saved · ${id.slice(0, 8)} · trackable in Calibration tab`, "success");
     } catch (e) {
       if (notify) notify(`Save failed: ${e.message || e}`, "error");
     } finally {
       setSaving(false);
     }
-  }, [analysis, inputs, fbSet, notify]);
+  }, [analysis, psLens, enrichment, memo, inputs, fbSet, notify]);
 
   return (
     <div style={{ animation: "fadeIn 0.3s ease-out", color: "#E2E8F0", fontFamily: "'Inter', sans-serif" }}>
-      <Header onLoadDemo={loadDemo} onClear={clearAll} onSave={handleSave} canSave={!!analysis} saving={saving} savedId={savedId} />
+      <Header
+        onLoadDemo={loadDemo}
+        onClear={clearAll}
+        onSave={handleSave}
+        onExport={handleExportToWarehouse}
+        canSave={!!analysis}
+        canExport={!!analysis}
+        saving={saving}
+        savedId={savedId}
+      />
       <OMDropZone onFile={handleOMFile} extracting={extracting} meta={extractionMeta} />
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 20, alignItems: "flex-start" }}>
@@ -519,7 +580,7 @@ function OMDropZone({ onFile, extracting, meta }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────────────────
-function Header({ onLoadDemo, onClear, onSave, canSave, saving, savedId }) {
+function Header({ onLoadDemo, onClear, onSave, onExport, canSave, canExport, saving, savedId }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
       <div>
@@ -535,6 +596,14 @@ function Header({ onLoadDemo, onClear, onSave, canSave, saving, savedId }) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button onClick={onLoadDemo} style={btnGhost} title="Pre-load Red Rock Mega Storage Reno NV (4/21/26 PASS calibration deal)">⤓ Load demo</button>
         <button onClick={onClear} style={btnGhost}>Clear</button>
+        <button
+          onClick={onExport}
+          disabled={!canExport}
+          style={{ ...btnGhost, opacity: !canExport ? 0.5 : 1, cursor: !canExport ? "not-allowed" : "pointer", color: "#3B82F6", borderColor: "rgba(59,130,246,0.4)", background: "rgba(59,130,246,0.08)" }}
+          title="Export structured JSON for PSA data warehouse / Welltower model layer ingestion"
+        >
+          ⤓ Push to Warehouse
+        </button>
         <button
           onClick={onSave}
           disabled={!canSave || saving}
@@ -828,9 +897,15 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
       )}
 
       {memo.buyerRouting && (
-        <div style={{ padding: "10px 12px", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 8, fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>
+        <div style={{ padding: "10px 12px", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 8, fontSize: 12, color: "#E2E8F0", lineHeight: 1.5, marginBottom: 10 }}>
           <span style={{ fontSize: 10, color: "#3B82F6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 8 }}>Buyer Routing</span>
           {memo.buyerRouting}
+        </div>
+      )}
+      {memo.ps4Alignment && (
+        <div style={{ padding: "10px 12px", background: "rgba(201,168,76,0.08)", border: `1px solid ${GOLD}50`, borderRadius: 8, fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>
+          <span style={{ fontSize: 10, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 8 }}>PS 4.0 Alignment</span>
+          {memo.ps4Alignment}
         </div>
       )}
     </div>
