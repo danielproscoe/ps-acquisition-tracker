@@ -9,6 +9,7 @@
 import React, { useState, useMemo, useCallback, useRef } from "react";
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
 import { computeBuyerLens, PS_LENS } from "../buyerLensProfiles";
+import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
 
 // ─── Brand tokens — match QuickLookupPanel + CLAUDE.md §3 ─────────────────
@@ -220,6 +221,8 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extractionMeta, setExtractionMeta] = useState(null); // { confidence, notes, model, elapsedMs }
+  const [enrichment, setEnrichment] = useState(null);          // { coords, demographics, psFamily, marketRents }
+  const [enriching, setEnriching] = useState(false);
   const [memo, setMemo] = useState(null);                       // generated IC memo
   const [memoLoading, setMemoLoading] = useState(false);
   const [memoError, setMemoError] = useState(null);
@@ -324,6 +327,35 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
       });
       setSavedId(null);
       if (notify) notify(`OM extracted · ${file.name} · ${(data.elapsedMs / 1000).toFixed(1)}s · confidence ${((data.confidence || 0) * 100).toFixed(0)}%`, "success");
+
+      // ── PSA-grade auto-enrichment (parallel to user reviewing extracted fields)
+      // Pulls what a PSA underwriter pulls manually: ESRI 1-3-5 demographics,
+      // PS family proximity (Haversine vs ps-locations.csv), SpareFoot market rents.
+      setEnriching(true);
+      setEnrichment(null);
+      try {
+        const enrich = await enrichAssetAnalysis({
+          address: f.address,
+          city: f.city,
+          state: f.state,
+        });
+        setEnrichment(enrich);
+        // Auto-fill the PS Lens portfolio-fit input
+        if (enrich.psFamily?.distanceMi != null && isFinite(enrich.psFamily.distanceMi)) {
+          setInputs((prev) => ({ ...prev, nearestPortfolioMi: String(Math.round(enrich.psFamily.distanceMi * 10) / 10) }));
+        }
+        if (notify) {
+          const parts = [];
+          if (enrich.coords) parts.push(`coords ${enrich.coords.lat.toFixed(4)}, ${enrich.coords.lng.toFixed(4)}`);
+          if (enrich.demographics?.pop3mi) parts.push(`3-mi pop ${Math.round(enrich.demographics.pop3mi).toLocaleString()}`);
+          if (enrich.psFamily?.distanceMi != null) parts.push(`nearest PS ${enrich.psFamily.distanceMi.toFixed(1)} mi`);
+          notify(`Auto-enriched · ${parts.join(" · ")}`, "success");
+        }
+      } catch (e) {
+        if (notify) notify(`Auto-enrichment partial: ${e.message || e}`, "info");
+      } finally {
+        setEnriching(false);
+      }
     } catch (err) {
       if (notify) notify(`Extraction failed: ${err.message || err}`, "error");
       setExtractionMeta({ error: err.message || String(err) });
@@ -342,7 +374,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
       const resp = await fetch("/api/analyzer-memo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generic: analysis, psLens }),
+        body: JSON.stringify({ generic: analysis, psLens, enrichment }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.ok) throw new Error(data.error || `API ${resp.status}`);
@@ -354,7 +386,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     } finally {
       setMemoLoading(false);
     }
-  }, [analysis, psLens, notify]);
+  }, [analysis, psLens, enrichment, notify]);
 
   // Reset memo when inputs change so it doesn't go stale silently
   React.useEffect(() => {
@@ -395,6 +427,8 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
           analysis={analysis}
           psLens={psLens}
           ready={ready}
+          enrichment={enrichment}
+          enriching={enriching}
           memo={memo}
           memoLoading={memoLoading}
           memoError={memoError}
@@ -582,7 +616,7 @@ function FormPanel({ inputs, setField }) {
 }
 
 // ─── Outputs Panel ────────────────────────────────────────────────────────
-function OutputsPanel({ analysis, psLens, ready, memo, memoLoading, memoError, onGenerateMemo }) {
+function OutputsPanel({ analysis, psLens, ready, enrichment, enriching, memo, memoLoading, memoError, onGenerateMemo }) {
   if (!ready || !analysis) {
     return (
       <div style={{ ...card, minHeight: 480, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#64748B" }}>
@@ -599,14 +633,110 @@ function OutputsPanel({ analysis, psLens, ready, memo, memoLoading, memoError, o
     <div>
       <VerdictHero analysis={analysis} />
       <DealTypeBadge dealType={analysis.dealType} />
+      {(enriching || enrichment) && <EnrichmentCard enrichment={enrichment} loading={enriching} />}
       <ICMemoCard memo={memo} loading={memoLoading} error={memoError} onGenerate={onGenerateMemo} />
       <SnapshotCard snapshot={analysis.snapshot} />
-      <ReconstructedNOICard reconstructed={analysis.reconstructed} sellerNOI={analysis.snapshot.sellerNOI} />
+      {psLens && <PSLensCard psLens={psLens} generic={analysis} />}
       <ProjectionCard projection={analysis.projection} />
       <ValuationMatrixCard matrix={analysis.matrix} ask={analysis.snapshot.ask} />
+      <ReconstructedNOICard reconstructed={analysis.reconstructed} sellerNOI={analysis.snapshot.sellerNOI} />
       <PriceTiersCard tiers={analysis.tiers} ask={analysis.snapshot.ask} marketCap={analysis.marketCap} msaTier={analysis.msaTier} />
-      {psLens && <PSLensCard psLens={psLens} generic={analysis} />}
       <CompGridCard comps={analysis.comps} subjectAsk={analysis.snapshot.ask} />
+    </div>
+  );
+}
+
+// ─── Enrichment Card — auto-pulled data (PSA underwriter equivalent) ─────
+function EnrichmentCard({ enrichment, loading }) {
+  if (loading && !enrichment) {
+    return (
+      <div style={{ ...card, padding: "18px 22px", textAlign: "center" }}>
+        <div style={{ fontSize: 22, marginBottom: 6 }}>🌐</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: GOLD }}>Storvex is auto-pulling underwriter data…</div>
+        <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>Geocoding · ESRI 1-3-5 mile demographics · PS family proximity · market rents</div>
+      </div>
+    );
+  }
+  if (!enrichment) return null;
+
+  const { coords, demographics, psFamily, marketRents } = enrichment;
+  const hasData = coords || demographics || psFamily || marketRents;
+  if (!hasData) return null;
+
+  return (
+    <div style={{ ...card, border: `1px solid ${GOLD}33`, background: "rgba(15,21,56,0.7)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>🌐 Auto-Enriched · Storvex Data Layer</div>
+          <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>Pulled in parallel during OM extraction — same data a PSA underwriter pulls manually</div>
+        </div>
+        <span style={{ fontSize: 9, color: "#64748B", fontWeight: 700 }}>ESRI · CSV · SpareFoot</span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+        {coords && (
+          <div style={metricBox}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Coordinates</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>ESRI geocoder · score {coords.score}</div>
+          </div>
+        )}
+        {demographics?.pop3mi != null && (
+          <div style={metricBox}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>3-mi Population</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{Math.round(demographics.pop3mi).toLocaleString()}</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>5-yr CAGR {demographics.popGrowth3mi != null ? (demographics.popGrowth3mi * 100).toFixed(2) + "%" : "—"}</div>
+          </div>
+        )}
+        {demographics?.income3mi != null && (
+          <div style={metricBox}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>3-mi Median HHI</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>${Math.round(demographics.income3mi).toLocaleString()}</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>{demographics.households3mi != null ? `${Math.round(demographics.households3mi).toLocaleString()} HH` : ""}</div>
+          </div>
+        )}
+        {demographics?.homeValue3mi != null && (
+          <div style={metricBox}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>3-mi Home Value</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>${Math.round(demographics.homeValue3mi).toLocaleString()}</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>renter {demographics.renterPct3mi != null ? Math.round(demographics.renterPct3mi * 100) + "%" : "—"}</div>
+          </div>
+        )}
+        {demographics?.storageMPI3mi != null && (
+          <div style={metricBox}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Storage MPI</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: demographics.storageMPI3mi >= 110 ? "#22C55E" : demographics.storageMPI3mi >= 90 ? "#fff" : "#F59E0B", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{Math.round(demographics.storageMPI3mi)}</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>{demographics.storageMPI3mi >= 110 ? "strong" : demographics.storageMPI3mi >= 90 ? "average" : "weak"} · 100=US avg</div>
+          </div>
+        )}
+        {psFamily && psFamily.distanceMi != null && (
+          <div style={{ ...metricBox, borderLeft: "3px solid #3B82F6" }}>
+            <div style={{ fontSize: 9, color: "#3B82F6", textTransform: "uppercase", fontWeight: 700 }}>Nearest PS Family</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{psFamily.distanceMi.toFixed(2)} mi</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>{psFamily.brand}{psFamily.city ? ` · ${psFamily.city}` : ""}{psFamily.state ? `, ${psFamily.state}` : ""}</div>
+          </div>
+        )}
+        {psFamily?.count35mi != null && (
+          <div style={metricBox}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>PS within 35 mi</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{psFamily.count35mi}</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>district presence</div>
+          </div>
+        )}
+        {marketRents?.ccRentPerSF != null && (
+          <div style={metricBox}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Market CC Rent</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>${marketRents.ccRentPerSF.toFixed(2)}/SF</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>SpareFoot · n={marketRents.sampleSize || "?"}</div>
+          </div>
+        )}
+      </div>
+
+      {enrichment.errors?.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 10, color: "#F59E0B" }}>
+          ⚠ Partial: {enrichment.errors.map((e) => e.step).join(", ")} unavailable
+        </div>
+      )}
     </div>
   );
 }

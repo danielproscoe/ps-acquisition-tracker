@@ -190,17 +190,81 @@ export function reconstructBuyerNOI(input, opts = {}) {
   const utilitiesPerSF = ccPct >= 0.5 ? bm.utilitiesPerSF_ccHeavy : bm.utilitiesPerSF_driveup;
   const payrollPerSF = isManned ? bm.payrollPerSF_manned : bm.payrollPerSF_unmanned;
 
+  // Per-line opex computation. Each line accepts EITHER a $/SF benchmark
+  // (institutional generic mode) OR a %-of-revenue override (REIT-specific
+  // mode, e.g. PSA's 10-K-disclosed ratios). The %-of-rev mode is required
+  // for low-rent assets (RV mega, drive-up heavy) where $/SF benchmarks
+  // calibrated to typical Class A revenue overstate opex. Override fields:
+  //   - insurancePctRev, utilitiesPctRev, payrollPctRev, rmPctRev,
+  //     marketingPctRev, gaPctRev, reservesPctRev, otherDirectPctRev
+  //   - propertyTaxPctRev — applies as fallback when state-tax-matrix
+  //     can't determine a state-specific reassessment number
+  const lineByPct = (pct, perSF, useSF) => useSF ? nrsf * perSF : t12EGI * pct;
+  const fmtBasis = (pct, perSF, useSF) => useSF
+    ? `$${perSF.toFixed(3)}/SF`
+    : `${(pct * 100).toFixed(2)}% of EGI`;
+
   const lines = [
-    { line: "Real Estate Taxes",  buyer: reTaxAnnual,                       basis: tax.method,                                                                        note: tax.note },
-    { line: "Insurance",          buyer: nrsf * bm.insurancePerSF,          basis: `$${bm.insurancePerSF.toFixed(3)}/SF`,                                             note: "Higher in CA wildfire / FL wind / TX hail corridors — adjust if applicable" },
-    { line: "Utilities",          buyer: nrsf * utilitiesPerSF,             basis: `$${utilitiesPerSF.toFixed(2)}/SF (${ccPct >= 0.5 ? "CC-weighted" : "drive-up"})`, note: "" },
-    { line: "Payroll",            buyer: nrsf * payrollPerSF,               basis: isManned ? `$${payrollPerSF.toFixed(2)}/SF (manned)` : "$0/SF (unmanned)",         note: "" },
-    { line: "Repairs & Maint",    buyer: nrsf * bm.rmPerSF,                 basis: `$${bm.rmPerSF.toFixed(2)}/SF`,                                                    note: "" },
-    { line: "Marketing",          buyer: nrsf * bm.marketingPerSF,          basis: `$${bm.marketingPerSF.toFixed(3)}/SF`,                                             note: "Revenue-managed book requires aggressive spend" },
-    { line: "G&A",                buyer: nrsf * bm.gaPerSF,                 basis: `$${bm.gaPerSF.toFixed(3)}/SF`,                                                    note: "" },
-    { line: "CC / Bank Charges",  buyer: t12EGI * bm.ccChargesPctEGI,       basis: `${(bm.ccChargesPctEGI*100).toFixed(2)}% of EGI`,                                  note: "" },
-    { line: "Property Mgmt",      buyer: t12EGI * bm.mgmtFeePctEGI,         basis: `${(bm.mgmtFeePctEGI*100).toFixed(1)}% of EGI`,                                    note: "Third-party standard; self-managed REITs run lower" },
-    { line: "Reserves",           buyer: nrsf * bm.reservesPerSF,           basis: `$${bm.reservesPerSF.toFixed(3)}/SF`,                                              note: "" },
+    {
+      line: "Real Estate Taxes",
+      buyer: reTaxAnnual,
+      basis: tax.method,
+      note: tax.note,
+    },
+    {
+      line: "Insurance",
+      buyer: bm.insurancePctRev != null ? t12EGI * bm.insurancePctRev : nrsf * bm.insurancePerSF,
+      basis: bm.insurancePctRev != null ? `${(bm.insurancePctRev * 100).toFixed(2)}% of EGI` : `$${bm.insurancePerSF.toFixed(3)}/SF`,
+      note: "Higher in CA wildfire / FL wind / TX hail corridors — adjust if applicable",
+    },
+    {
+      line: "Utilities",
+      buyer: bm.utilitiesPctRev != null ? t12EGI * bm.utilitiesPctRev : nrsf * utilitiesPerSF,
+      basis: bm.utilitiesPctRev != null ? `${(bm.utilitiesPctRev * 100).toFixed(2)}% of EGI` : `$${utilitiesPerSF.toFixed(2)}/SF (${ccPct >= 0.5 ? "CC-weighted" : "drive-up"})`,
+      note: "",
+    },
+    {
+      line: "Payroll",
+      buyer: bm.payrollPctRev != null ? t12EGI * bm.payrollPctRev : nrsf * payrollPerSF,
+      basis: bm.payrollPctRev != null ? `${(bm.payrollPctRev * 100).toFixed(2)}% of EGI (central staffing)` : (isManned ? `$${payrollPerSF.toFixed(2)}/SF (manned)` : "$0/SF (unmanned)"),
+      note: "",
+    },
+    {
+      line: "Repairs & Maint",
+      buyer: bm.rmPctRev != null ? t12EGI * bm.rmPctRev : nrsf * bm.rmPerSF,
+      basis: bm.rmPctRev != null ? `${(bm.rmPctRev * 100).toFixed(2)}% of EGI` : `$${bm.rmPerSF.toFixed(2)}/SF`,
+      note: "",
+    },
+    {
+      line: "Marketing",
+      buyer: bm.marketingPctRev != null ? t12EGI * bm.marketingPctRev : nrsf * bm.marketingPerSF,
+      basis: bm.marketingPctRev != null ? `${(bm.marketingPctRev * 100).toFixed(2)}% of EGI` : `$${bm.marketingPerSF.toFixed(3)}/SF`,
+      note: "Revenue-managed book requires aggressive spend",
+    },
+    {
+      line: "G&A",
+      buyer: bm.gaPctRev != null ? t12EGI * bm.gaPctRev : nrsf * bm.gaPerSF,
+      basis: bm.gaPctRev != null ? `${(bm.gaPctRev * 100).toFixed(2)}% of EGI (central)` : `$${bm.gaPerSF.toFixed(3)}/SF`,
+      note: "",
+    },
+    {
+      line: "CC / Bank Charges",
+      buyer: t12EGI * bm.ccChargesPctEGI,
+      basis: `${(bm.ccChargesPctEGI * 100).toFixed(2)}% of EGI`,
+      note: "",
+    },
+    {
+      line: "Property Mgmt",
+      buyer: t12EGI * bm.mgmtFeePctEGI,
+      basis: `${(bm.mgmtFeePctEGI * 100).toFixed(1)}% of EGI`,
+      note: bm.mgmtFeePctEGI === 0 ? "Self-managed (PSA / EXR / CUBE) — no third-party fee" : "Third-party standard; self-managed REITs run lower",
+    },
+    {
+      line: "Reserves",
+      buyer: bm.reservesPctRev != null ? t12EGI * bm.reservesPctRev : nrsf * bm.reservesPerSF,
+      basis: bm.reservesPctRev != null ? `${(bm.reservesPctRev * 100).toFixed(2)}% of EGI` : `$${bm.reservesPerSF.toFixed(3)}/SF`,
+      note: "",
+    },
   ];
 
   const totalOpEx = lines.reduce((s, l) => s + l.buyer, 0);
