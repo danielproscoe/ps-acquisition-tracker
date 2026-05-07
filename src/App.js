@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import QuickLookupPanel from './QuickLookupPanel';
+import AssetAnalyzerView from './components/AssetAnalyzerView';
 import { db, storage } from "./firebase";
 import { ref, update } from "firebase/database";
 import {
@@ -20,7 +21,7 @@ import {
   parseCSV, uid, fmt$, fmtN, fmtPrice, mapsLink, earthLink,
   debounce, safeNum, escapeHtml, buildDemoReport, fetchDemographics,
   stripEmoji, cleanPriority,
-  sanitizeString, fixEncoding, isValidCoordinates, isValidState, isValidPrice, isValidAcreage,
+  sanitizeString, fixEncoding, cleanText, isValidCoordinates, isValidState, isValidPrice, isValidAcreage,
   REGIONS, STATUS_COLORS, PHASES, PHASE_MIGRATION, PRIORITIES, PRIORITY_COLORS,
   MSG_COLORS, DOC_TYPES, SITE_SCORE_DEFAULTS, STYLES,
   normalizeSiteScoreWeights,
@@ -52,7 +53,7 @@ import './App.css';
 
 // ─── Display name fallback: derive from Firebase key when name/address missing ───
 const siteDisplayName = (site) => {
-  if (site.name) return fixEncoding(site.name);
+  if (site.name) return cleanText(site.name);
   if (site.address) return fixEncoding(`${site.city || ""} ${site.state || ""} — ${site.address}`.trim().replace(/^[\s—]+/, ""));
   // Derive from Firebase key: "mckinney-tx-n-mcdonald-st" → "Mckinney TX — N Mcdonald St"
   const key = site.id || "";
@@ -1913,7 +1914,7 @@ function AppInner() {
                       <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#6B7394", flexWrap: "wrap" }}>
                         {site.askingPrice && <span>Ask: <strong style={{ color: "#E2E8F0" }}>{site.askingPrice}</strong></span>}
                         {site.internalPrice && <span>Int: <strong style={{ color: "#E87A2E" }}>{site.internalPrice}</strong></span>}
-                        {site.sellerBroker && <span>Broker: <strong style={{ color: "#C9A84C" }}>{site.sellerBroker}</strong></span>}
+                        {site.sellerBroker && <span>Broker: <strong style={{ color: "#C9A84C" }}>{cleanText(site.sellerBroker)}</strong></span>}
                         {docs.length > 0 && <span style={{ color: "#6B7394" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
                         {msgs.length > 0 && <span style={{ color: "#E87A2E" }}>💬 {msgs.length}</span>}
                         {site.coordinates && <span>📍</span>}
@@ -2208,7 +2209,7 @@ function AppInner() {
                         </div>
                         {/* Broker + Seller Row */}
                         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          {site.sellerBroker && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Broker: <span style={{ color: "#E2E8F0", fontWeight: 700 }}>{site.sellerBroker}</span></span>}
+                          {site.sellerBroker && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Broker: <span style={{ color: "#E2E8F0", fontWeight: 700 }}>{cleanText(site.sellerBroker)}</span></span>}
                           {site.internalPrice && <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>Internal Price: <span style={{ color: "#F37C33", fontWeight: 700 }}>{site.internalPrice}</span></span>}
                           {dom !== null && <span style={{ fontSize: 12, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>{dom}d on market</span>}
                         </div>
@@ -2751,6 +2752,7 @@ function AppInner() {
           {[
             { key: "dashboard", label: "Dashboard" },
             { key: "lookup", label: "⚡ Quick Lookup" },
+            { key: "asset-analyzer", label: "📊 Asset Analyzer" },
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
@@ -2775,6 +2777,8 @@ function AppInner() {
 
         {/* ═══ DASHBOARD ═══ */}
         {tab === "lookup" && <QuickLookupPanel autoEnrichESRI={autoEnrichESRI} fbSet={fbSet} fbPush={fbPush} notify={notify} navigateTo={navigateTo} setTab={setTab} />}
+
+        {tab === "asset-analyzer" && <AssetAnalyzerView fbSet={fbSet} fbPush={fbPush} notify={notify} />}
 
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
@@ -3274,7 +3278,7 @@ function AppInner() {
                             <td style={{ ...td, fontWeight: 600 }} title={s.askingPrice || ""}>{fmtPrice(s.askingPrice)}</td>
                             <td style={td}>{s.acreage || "—"}</td>
                             <td style={td}>{s.pop3mi ? fmtN(s.pop3mi) : "—"}</td>
-                            <td style={td}>{s.sellerBroker || "—"}</td>
+                            <td style={td}>{cleanText(s.sellerBroker) || "—"}</td>
                             <td style={{ ...td, textAlign: "center", fontSize: 12, color: s.dateOnMarket && s.dateOnMarket !== "N/A" ? (Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 365 ? "#EF4444" : Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000) > 180 ? "#F59E0B" : "#22C55E") : "#94A3B8" }}>{s.dateOnMarket && s.dateOnMarket !== "N/A" ? Math.max(0, Math.floor((Date.now() - new Date(s.dateOnMarket).getTime()) / 86400000)) + "d" : "—"}</td>
                             <td style={td}>{s.approvedAt ? new Date(s.approvedAt).toLocaleDateString() : "—"}</td>
                           </tr>
@@ -4454,7 +4458,7 @@ if(total===0){document.querySelector(".info-badges").innerHTML+='<span class="in
                         {site.market && <span style={{ background: "rgba(201,168,76,.12)", color: "#C9A84C", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,.2)" }}>{site.market}</span>}
                         <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{site.phase || "Prospect"}</span>
                         {dom !== null && <span style={{ fontSize: 11, color: dom > 365 ? "#EF4444" : dom > 180 ? "#F59E0B" : "#6B7394", fontWeight: 600 }}>{dom}d on market</span>}
-                        {site.sellerBroker && <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600 }}>Broker: <strong style={{ color: "#C9A84C" }}>{site.sellerBroker}</strong></span>}
+                        {site.sellerBroker && <span style={{ fontSize: 11, color: "#6B7394", fontWeight: 600 }}>Broker: <strong style={{ color: "#C9A84C" }}>{cleanText(site.sellerBroker)}</strong></span>}
                       </div>
                     </div>
                     <div onClick={() => setScoreExpanded(!scoreExpanded)} style={{ cursor: "pointer", flexShrink: 0, transition: "transform 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"} onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"} title="Click for full SiteScore breakdown">
