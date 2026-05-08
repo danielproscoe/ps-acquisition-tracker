@@ -35,7 +35,7 @@ import {
   generateRECPackage as _generateRECPackage,
   generateDemographicsReport,
 } from './reports';
-import { SiteScoreBadge as _SiteScoreBadge, Badge, normalizePriority, EF, CallBriefTooltip } from './components';
+import { SiteScoreBadge as _SiteScoreBadge, Badge, normalizePriority, EF, CallBriefTooltip, InlineNoteRow } from './components';
 import PortfolioFitBadge from './components/PortfolioFitBadge';
 import BuyerFitBadge from './components/BuyerFitBadge';
 import RoutingEnginePanel from './components/RoutingEnginePanel';
@@ -1885,9 +1885,9 @@ function AppInner() {
               return (
                 <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `3px solid ${reitAccent(site, isOpen)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(201,168,76,0.08), 0 0 0 1px rgba(201,168,76,0.15), 0 0 60px rgba(201,168,76,0.04)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
                   {/* ═══ REIT-READY TRIAGE HEADER ═══ */}
-                  <IntelCardHeader site={site} onClick={() => { if (hoveredBrief === site.id) return; goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                  <IntelCardHeader site={site} onClick={() => { goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
                     <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-                      {/* ── Title strip + score column ── */}
+                      {/* ── Title strip + score ── */}
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
                         <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
                           <span
@@ -1899,53 +1899,43 @@ function AppInner() {
                             {siteDisplayName(site)}
                           </span>
                           {/hot/i.test(normalizePriority(site.priority) || "") && <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.18em" }}>HOT</span>}
-                          <span
-                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); setHoveredBrief(hoveredBrief === site.id ? null : site.id); }}
-                            style={{ fontSize: 9, fontWeight: 700, color: site.callBrief || hoveredBrief === site.id ? "#C9A84C" : "#4A5080", letterSpacing: "0.16em", cursor: "pointer", userSelect: "none", transition: "color 0.15s" }}
-                            title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}
-                            data-brief-badge="true"
-                          >
-                            {site.callBrief ? "BRIEF" : "+BRIEF"}
-                          </span>
                           {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.16em" }}>NEEDS REVIEW</span>}
                         </div>
-                        {/* Score column — right-aligned */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        {/* Single SiteScore badge — right-aligned */}
+                        <div style={{ flexShrink: 0 }}>
                           <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
-                          <PortfolioFitBadge fit={getPortfolioFit(site)} size="small" />
-                          <BuyerFitBadge fit={getBuyerFit(site)} size="small" />
                         </div>
                       </div>
                       {/* ── Address line ── */}
                       <div style={{ fontSize: 11, color: "#6B7394", letterSpacing: "0.02em", paddingBottom: 8, borderBottom: "1px solid rgba(201,168,76,0.06)" }}>
                         {site.address || site.city || site.state ? `${site.address || ""}${site.city ? `, ${site.city}` : ""}${site.state ? `, ${site.state}` : ""}` : <span style={{ color: "#475569", fontStyle: "italic" }}>No address on file</span>}
                       </div>
-                      {/* ── Tabular metrics row ── */}
+                      {/* ── Tabular metrics row ── (system font, tabular-nums) */}
                       <div style={{ display: "grid", gridTemplateColumns: "minmax(80px, 1fr) minmax(80px, 1fr) minmax(70px, 0.75fr) minmax(140px, 1.6fr)", gap: 18 }}>
                         {[
-                          { label: "ASK", val: site.askingPrice || "—", color: site.askingPrice ? "#E2E8F0" : "#475569", mono: true },
-                          { label: "REC OFFER", val: site.internalPrice || "—", color: site.internalPrice ? "#E87A2E" : "#475569", mono: true },
-                          { label: "SIZE", val: site.acreage ? `${site.acreage} AC` : "—", color: site.acreage ? "#E2E8F0" : "#475569", mono: true },
-                          { label: "BROKER", val: cleanText(site.sellerBroker) || "—", color: site.sellerBroker ? "#C9A84C" : "#475569", mono: false },
+                          { label: "ASK", val: site.askingPrice || "—", color: site.askingPrice ? "#E2E8F0" : "#475569" },
+                          { label: "REC OFFER", val: site.internalPrice || "—", color: site.internalPrice ? "#E87A2E" : "#475569" },
+                          { label: "SIZE", val: site.acreage ? `${site.acreage} AC` : "—", color: site.acreage ? "#E2E8F0" : "#475569" },
+                          { label: "BROKER", val: cleanText(site.sellerBroker) || "—", color: site.sellerBroker ? "#C9A84C" : "#475569" },
                         ].map((m) => (
                           <div key={m.label} style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.18em", marginBottom: 3 }}>{m.label}</div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: m.color, fontFamily: m.mono ? "'Space Mono', monospace" : "inherit", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                            <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em", marginBottom: 4 }}>{m.label}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: m.color, fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
                           </div>
                         ))}
                       </div>
                       {/* ── Hairline operations footer ── */}
                       <div style={{ display: "flex", alignItems: "center", gap: 14, paddingTop: 8, borderTop: "1px solid rgba(201,168,76,0.06)", flexWrap: "wrap" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em" }}>PHASE</span>
-                          <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 700, padding: "2px 4px", borderRadius: 4, border: "none", background: "transparent", color: "#C9A84C", cursor: "pointer", letterSpacing: "0.04em" }}>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em" }}>PHASE</span>
+                          <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 700, padding: "2px 4px", borderRadius: 4, border: "none", background: "transparent", color: "#C9A84C", cursor: "pointer", letterSpacing: "0.04em", fontFamily: "inherit" }}>
                             {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
                           </select>
                         </div>
                         <div style={{ width: 1, height: 12, background: "rgba(201,168,76,0.10)" }} />
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em" }}>ASSIGN</span>
-                          <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; if (val) { const now = new Date().toISOString(); const sub = { ...site, status: "pending", region: regionKey, submittedAt: now, assignedTo: val, needsReview: true, sentBackToReview: true }; delete sub.messages; delete sub.docs; delete sub.activityLog; fbSet(`submissions/${site.id}`, sub); fbRemove(`${regionKey}/${site.id}`); setExpandedSite(null); notify(`${site.name} → Review Queue (assigned to ${val})`); } else { updateSiteField(regionKey, site.id, "assignedTo", ""); updateSiteField(regionKey, site.id, "needsReview", false); } }} style={{ fontSize: 10, fontWeight: 700, padding: "2px 4px", borderRadius: 4, border: "none", background: "transparent", color: site.assignedTo ? "#E87A2E" : "#6B7394", cursor: "pointer", letterSpacing: "0.04em" }}>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em" }}>ASSIGN</span>
+                          <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; if (val) { const now = new Date().toISOString(); const sub = { ...site, status: "pending", region: regionKey, submittedAt: now, assignedTo: val, needsReview: true, sentBackToReview: true }; delete sub.messages; delete sub.docs; delete sub.activityLog; fbSet(`submissions/${site.id}`, sub); fbRemove(`${regionKey}/${site.id}`); setExpandedSite(null); notify(`${site.name} → Review Queue (assigned to ${val})`); } else { updateSiteField(regionKey, site.id, "assignedTo", ""); updateSiteField(regionKey, site.id, "needsReview", false); } }} style={{ fontSize: 10, fontWeight: 700, padding: "2px 4px", borderRadius: 4, border: "none", background: "transparent", color: site.assignedTo ? "#E87A2E" : "#6B7394", cursor: "pointer", letterSpacing: "0.04em", fontFamily: "inherit" }}>
                             <option value="">—</option>
                             <option value="Dan R">Dan R</option>
                             <option value="Daniel Wollent">DW</option>
@@ -1957,29 +1947,33 @@ function AppInner() {
                         {msgs.length > 0 && <span style={{ color: "#E87A2E", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em" }}>{msgs.length} MSG</span>}
                         {site.coordinates && <span style={{ color: "#6B7394", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em" }} title="Coordinates on file">GEO</span>}
                         {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#C9A84C", textDecoration: "none", fontWeight: 700, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase" }}>Listing ↗</a>}
-                        {(site.latestNote || generateAutoBlurb(site)) && <span style={{ color: site.latestNote ? "#94A3B8" : "#4A5080", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em" }} title="Hover card for latest intel">{site.latestNote ? "◆" : "◇"} INTEL</span>}
                       </div>
                     </div>
                     {/* ── DETAIL chip — quiet, right-aligned ── */}
-                    <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 6, background: "transparent", color: "#C9A84C", fontSize: 10, fontWeight: 800, border: "1px solid rgba(201,168,76,0.25)", cursor: "pointer", letterSpacing: "0.18em", textTransform: "uppercase", transition: "all 0.15s", whiteSpace: "nowrap", alignSelf: "flex-start" }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.08)"; e.currentTarget.style.borderColor = "#C9A84C"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.25)"; }}>Detail ›</button>
+                    <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 6, background: "transparent", color: "#C9A84C", fontSize: 10, fontWeight: 800, border: "1px solid rgba(201,168,76,0.25)", cursor: "pointer", letterSpacing: "0.18em", textTransform: "uppercase", transition: "all 0.15s", whiteSpace: "nowrap", alignSelf: "flex-start", fontFamily: "inherit" }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.08)"; e.currentTarget.style.borderColor = "#C9A84C"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.25)"; }}>Detail ›</button>
                     <div style={{ fontSize: 12, color: "#4A5080", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)", alignSelf: "flex-start", marginTop: 8 }}>▼</div>
                   </IntelCardHeader>
-                  {/* Call Briefing Tooltip */}
-                  {hoveredBrief === site.id && (
-                    <CallBriefTooltip
+                  {/* ── Inline Notes Row — always-visible, replaces BRIEF ── */}
+                  {!isOpen && (
+                    <InlineNoteRow
                       site={site}
-                      anchorId={`site-${site.id}`}
-                      initialDraft={site.callBrief || ""}
-                      getSiteScore={getSiteScore}
                       onSave={(val) => {
-                        if (val !== (site.callBrief || "")) saveField(regionKey, site.id, "callBrief", val);
-                      }}
-                      onClose={() => {
-                        setHoveredBrief(null);
+                        const now = new Date();
+                        const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                        updateSiteField(regionKey, site.id, "latestNote", val);
+                        updateSiteField(regionKey, site.id, "latestNoteDate", dateStr);
+                        if (val && val.trim()) {
+                          const logId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                          fbSet(`${regionKey}/${site.id}/activityLog/${logId}`, {
+                            date: now.toISOString(),
+                            action: "Note updated",
+                            details: val,
+                            by: "Dan R",
+                          });
+                        }
                       }}
                     />
                   )}
-
                   {/* Expanded */}
                   {isOpen && (
                     <div className="card-expand" style={{ padding: "0 18px 18px", borderTop: "2px solid transparent", borderImage: "linear-gradient(90deg, transparent, #1E2761, #C9A84C, #FFD700, #C9A84C, #1E2761, transparent) 1" }}>
@@ -2847,7 +2841,7 @@ function AppInner() {
                       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                     >
                       <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.18em", marginBottom: 8 }}>{kpi.label}</div>
-                      <div style={{ fontSize: 30, fontWeight: 800, color: "#F4F6FA", fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em", lineHeight: 1 }}>{kpi.value}</div>
+                      <div style={{ fontSize: 30, fontWeight: 800, color: "#F4F6FA", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em", lineHeight: 1 }}>{kpi.value}</div>
                       <div style={{ fontSize: 10, color: "#6B7394", marginTop: 8, letterSpacing: "0.04em" }}>{kpi.sub}</div>
                       {kpi.pulse && <div style={{ position: "absolute", top: 14, right: 14, width: 6, height: 6, borderRadius: "50%", background: "#C9A84C", boxShadow: "0 0 8px rgba(201,168,76,0.5)" }} />}
                     </div>
@@ -2939,7 +2933,7 @@ function AppInner() {
                         <div key={g.label} onClick={g.action} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontSize: 10 }}>
                           <div style={{ width: 6, height: 6, borderRadius: 1, background: g.color, opacity: 0.85 }} />
                           <span style={{ color: "#94A3B8", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{g.label}</span>
-                          <span style={{ color: "#F4F6FA", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>{g.count}</span>
+                          <span style={{ color: "#F4F6FA", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{g.count}</span>
                         </div>
                       ))}
                     </div>
@@ -2957,7 +2951,7 @@ function AppInner() {
                         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                       >
                         <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em", marginBottom: 8 }}>{m.label}</div>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", lineHeight: 1, letterSpacing: "-0.02em" }}>{m.value}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: m.color, fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif", fontVariantNumeric: "tabular-nums", lineHeight: 1, letterSpacing: "-0.02em" }}>{m.value}</div>
                         <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4, letterSpacing: "0.04em" }}>{m.count} SITE{m.count !== 1 ? "S" : ""}</div>
                       </div>
                     ))}

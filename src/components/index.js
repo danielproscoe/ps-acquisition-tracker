@@ -5,3 +5,4 @@ export { default as EF } from "./EditField";
 export { SortBar, SORT_OPTIONS } from "./SortBar";
 export { SiteScoreConfigModal } from "./SiteScoreConfigModal";
 export { default as CallBriefTooltip } from "./CallBriefTooltip";
+export { default as InlineNoteRow } from "./InlineNoteRow";

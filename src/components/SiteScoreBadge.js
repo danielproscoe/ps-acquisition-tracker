@@ -115,8 +115,9 @@ export default function SiteScoreBadge({ site, size = "normal", iq: iqProp, comp
         padding: "3px 10px", borderRadius: 8,
         background: tc.labelBg,
         border: `1px solid ${tc.ring}28`,
-        fontSize: 11, fontWeight: 700, color: iq.tier === "gold" ? "#D45500" : iq.tier === "steel" ? "#1E2761" : "#64748B",
-        fontFamily: "'Space Mono', monospace",
+        fontSize: 11.5, fontWeight: 700, color: iq.tier === "gold" ? "#D45500" : iq.tier === "steel" ? "#1E2761" : "#64748B",
+        fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif",
+        fontVariantNumeric: "tabular-nums",
         transition: "all 0.3s ease",
         boxShadow: iq.tier === "gold" ? "0 0 8px rgba(243,124,51,0.15)" : "none",
       }}>
