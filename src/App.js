@@ -2790,13 +2790,13 @@ function AppInner() {
         <div style={{ display: "flex", gap: 4, overflowX: "auto", padding: "6px 0 4px", scrollbarWidth: "none" }}>
           {[
             { key: "dashboard", label: "Dashboard" },
+            { key: "southwest", label: "Daniel Wollent" },
+            { key: "east", label: "Matthew Toussaint" },
+            { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
             { key: "lookup", label: "⚡ Quick Lookup" },
             { key: "asset-analyzer", label: "📊 Asset Analyzer" },
             { key: "methodology", label: "📋 Methodology" },
             { key: "calibration", label: "🎯 Calibration" },
-            { key: "southwest", label: "Daniel Wollent" },
-            { key: "east", label: "Matthew Toussaint" },
-            { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
             // Hidden for now — re-enable when core is nailed down:
             // { key: "quickscore", label: "Quick Score" },
             // { key: "executive", label: "Executive" },
@@ -2827,62 +2827,36 @@ function AppInner() {
 
         {tab === "dashboard" && (
           <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 32 }}>
-              {[
-                { label: "Pipeline", value: sw.length + east.length, action: () => navigateTo("summary"), sub: "View summary" },
-                { label: "Pending Review", value: pendingN, action: () => navigateTo("review"), sub: "Review queue" },
-                { label: "Daniel Wollent", value: sw.length, action: () => navigateTo("southwest"), sub: "Southwest tracker" },
-                { label: "Matthew Toussaint", value: east.length, action: () => navigateTo("east"), sub: "East tracker" },
-              ].map((kpi, kpiIdx) => (
-                <div key={kpi.label} onClick={kpi.action} className="card-reveal" style={{ cursor: "pointer", background: "rgba(15,21,56,0.75)", borderRadius: 14, padding: "28px 24px", minWidth: 140, boxShadow: "0 2px 16px rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.06)", transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)", position: "relative", overflow: "hidden", animationDelay: `${kpiIdx * 0.08}s` }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.2)"; }}>
-                  {/* Top accent line */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #1E2761, #C9A84C)" }} />
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{kpi.label}</div>
-                  <div className="kpi-number" style={{ fontSize: 44, fontWeight: 900, color: "#fff", marginTop: 12, fontFamily: "'Space Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1 }}>{kpi.value}</div>
-                  <div style={{ fontSize: 11, color: "#C9A84C", marginTop: 10, fontWeight: 600, letterSpacing: "0.02em" }}>{kpi.sub} →</div>
-                </div>
-              ))}
-            </div>
-
-
-            {/* Velocity Stats + Last Updated */}
+            {/* ═══ HERO STRIP — Institutional 4-metric horizontal ═══ */}
             {(() => {
               const all = [...sw, ...east];
-              const now = Date.now();
-              const week = 7 * 86400000;
-              const addedThisWeek = all.filter(s => s.approvedAt && (now - new Date(s.approvedAt).getTime()) < week).length;
-              const ucCount = all.filter(s => s.phase === "Under Contract").length;
-              const loiCount = all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length;
-              const greenCount = all.filter(s => getSiteScore(s).score >= 8.0).length;
+              const _parsePH = (p) => { const v = parsePrice(p); return isNaN(v) ? 0 : v; };
+              const totalValue = all.reduce((sum, s) => sum + _parsePH(s.askingPrice), 0);
+              const fmtMHero = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`;
+              const heroKpis = [
+                { label: "ACTIVE PIPELINE", value: all.length, sub: `${sw.length} DW · ${east.length} MT`, action: () => navigateTo("summary") },
+                { label: "PIPELINE VALUE", value: fmtMHero(totalValue), sub: "Asking · all phases", action: () => navigateTo("summary") },
+                { label: "REVIEW QUEUE", value: pendingN, sub: pendingN > 0 ? "Awaiting routing" : "All clear", action: () => navigateTo("review"), pulse: pendingN > 0 },
+                { label: "GREEN SITES", value: all.filter(s => getSiteScore(s).score >= 8.0).length, sub: "SiteScore ≥ 8.0", action: () => navigateTo("summary") },
+              ];
               return (
-                <div style={{ display: "flex", gap: 12, marginBottom: 28, flexWrap: "wrap", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: 12, flex: 1, flexWrap: "wrap" }}>
-                    {[
-                      { label: "Added this week", value: addedThisWeek, action: () => navigateTo("summary") },
-                      { label: "Under Contract", value: ucCount, action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "LOI Active", value: loiCount, action: () => navigateTo("summary", { phase: "LOI" }) },
-                      { label: "GREEN Sites", value: greenCount, action: () => navigateTo("summary") },
-                    ].map((v, vi) => (
-                      <div key={v.label} onClick={v.action} className="card-reveal" style={{ flex: "1 1 100px", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center", animationDelay: `${0.3 + vi * 0.06}s`, transition: "all 0.2s ease", cursor: "pointer" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
-                      >
-                        <div style={{ fontSize: 18, fontWeight: 800, color: "#C9A84C", fontFamily: "'Space Mono', monospace" }}>{v.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>{v.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#64748B", textAlign: "right", whiteSpace: "nowrap" }}>
-                    Data as of {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}<br />
-                    <span style={{ fontWeight: 600, color: "#94A3B8" }}>{all.length} active sites</span>
-                  </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 0, marginBottom: 24, background: "rgba(15,21,56,0.4)", borderRadius: 14, border: "1px solid rgba(201,168,76,0.06)", overflow: "hidden" }}>
+                  {heroKpis.map((kpi, i) => (
+                    <div key={kpi.label} onClick={kpi.action} style={{ padding: "20px 22px", cursor: "pointer", borderRight: i < heroKpis.length - 1 ? "1px solid rgba(201,168,76,0.06)" : "none", transition: "background 0.15s", position: "relative" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.04)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.18em", marginBottom: 8 }}>{kpi.label}</div>
+                      <div style={{ fontSize: 30, fontWeight: 800, color: "#F4F6FA", fontFamily: "'Space Mono', monospace", letterSpacing: "-0.02em", lineHeight: 1 }}>{kpi.value}</div>
+                      <div style={{ fontSize: 10, color: "#6B7394", marginTop: 8, letterSpacing: "0.04em" }}>{kpi.sub}</div>
+                      {kpi.pulse && <div style={{ position: "absolute", top: 14, right: 14, width: 6, height: 6, borderRadius: "50%", background: "#C9A84C", boxShadow: "0 0 8px rgba(201,168,76,0.5)" }} />}
+                    </div>
+                  ))}
                 </div>
               );
             })()}
 
-            {/* ═══ DEAL MOMENTUM — Executive Pulse ═══ */}
+            {/* ═══ PIPELINE BREAKDOWN — Consolidated Panel ═══ */}
             {(() => {
               const all = [...sw, ...east];
               const now = Date.now();
@@ -2933,81 +2907,84 @@ function AppInner() {
               if (!hasData) return null;
 
               return (
-                <div className="card-reveal" style={{ background: "rgba(15,21,56,0.6)", borderRadius: 14, padding: 0, marginBottom: 24, boxShadow: "0 2px 16px rgba(0,0,0,0.2)", border: "1px solid rgba(201,168,76,0.06)", animationDelay: "0.5s", position: "relative", overflow: "hidden" }}>
+                <div style={{ background: "rgba(15,21,56,0.4)", borderRadius: 14, padding: "24px 28px", marginBottom: 24, border: "1px solid rgba(201,168,76,0.06)" }}>
 
-                  {/* Header */}
-                  <div style={{ padding: "20px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  {/* Panel Header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 22, paddingBottom: 14, borderBottom: "1px solid rgba(201,168,76,0.06)" }}>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#E2E8F0", letterSpacing: "-0.01em" }}>Deal Momentum</h3>
-                      <div style={{ fontSize: 11, color: "#64748B", fontWeight: 500, marginTop: 2 }}>Pipeline value & recent activity</div>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.18em" }}>PIPELINE BREAKDOWN</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#E2E8F0", marginTop: 4, letterSpacing: "0.02em" }}>{all.length} ACTIVE · {fmtVal(loiValue + ucValue + prospectValue)} VALUE</div>
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8" }}>{all.length} active</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                      As of {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </div>
                   </div>
 
-                  {/* Pipeline Value Metrics */}
-                  <div style={{ padding: "20px 24px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, overflow: "hidden" }}>
-                    {[
-                      { label: "LOI / PSA Pipeline", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, action: () => navigateTo("summary", { phase: "LOI" }) },
-                      { label: "Under Contract", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, action: () => navigateTo("summary", { phase: "Under Contract" }) },
-                      { label: "Prospect Pool", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, action: () => navigateTo("summary", { phase: "Prospect" }) },
-                    ].map(m => (
-                      <div key={m.label} onClick={m.action} style={{ textAlign: "center", padding: "14px 8px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.2s ease" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; }}
-                      >
-                        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono', monospace", color: "#E2E8F0", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.value}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 6 }}>{m.label}</div>
-                        <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>{m.count} site{m.count !== 1 ? "s" : ""}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Phase Distribution — Horizontal Stacked Bar */}
-                  <div style={{ padding: "18px 24px 0" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Phase Distribution</div>
-                    <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: "rgba(255,255,255,0.04)" }}>
+                  {/* Phase Funnel — full-width stacked bar */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em", marginBottom: 10 }}>PHASE FUNNEL</div>
+                    <div style={{ display: "flex", height: 10, borderRadius: 3, overflow: "hidden", background: "rgba(255,255,255,0.04)" }}>
                       {phaseGroups.filter(g => g.count > 0).map(g => {
                         const totalCount = phaseGroups.reduce((s, x) => s + x.count, 0) || 1;
                         return (
-                          <div key={g.label} onClick={g.action} title={`${g.label}: ${g.count}`} style={{ width: `${(g.count / totalCount) * 100}%`, background: g.color, cursor: "pointer", transition: "all 0.3s ease", opacity: 0.8, minWidth: g.count > 0 ? 4 : 0 }}
+                          <div key={g.label} onClick={g.action} title={`${g.label}: ${g.count}`} style={{ width: `${(g.count / totalCount) * 100}%`, background: g.color, cursor: "pointer", transition: "opacity 0.2s", opacity: 0.85, minWidth: g.count > 0 ? 4 : 0 }}
                             onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.8"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.85"; }}
                           />
                         );
                       })}
                     </div>
-                    <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 18, marginTop: 12, flexWrap: "wrap" }}>
                       {phaseGroups.filter(g => g.count > 0).map(g => (
-                        <div key={g.label} onClick={g.action} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
-                          <div style={{ width: 8, height: 8, borderRadius: 2, background: g.color, opacity: 0.8 }} />
-                          <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500 }}>{g.label} <strong style={{ color: "#E2E8F0", fontFamily: "'Space Mono', monospace" }}>{g.count}</strong></span>
+                        <div key={g.label} onClick={g.action} style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontSize: 10 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: 1, background: g.color, opacity: 0.85 }} />
+                          <span style={{ color: "#94A3B8", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{g.label}</span>
+                          <span style={{ color: "#F4F6FA", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>{g.count}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Recent Activity Feed — collapsible */}
+                  {/* Pipeline Value — 3-column hairline-divided */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", paddingTop: 18, borderTop: "1px solid rgba(201,168,76,0.06)" }}>
+                    {[
+                      { label: "PROSPECT POOL", value: fmtVal(prospectValue), count: all.filter(s => s.phase === "Prospect").length, color: "#94A3B8", action: () => navigateTo("summary", { phase: "Prospect" }) },
+                      { label: "LOI / PSA PIPELINE", value: fmtVal(loiValue), count: all.filter(s => ["LOI", "LOI Sent", "LOI Signed", "PSA Sent"].includes(s.phase)).length, color: "#E87A2E", action: () => navigateTo("summary", { phase: "LOI" }) },
+                      { label: "UNDER CONTRACT", value: fmtVal(ucValue), count: all.filter(s => s.phase === "Under Contract").length, color: "#22C55E", action: () => navigateTo("summary", { phase: "Under Contract" }) },
+                    ].map((m, i) => (
+                      <div key={m.label} onClick={m.action} style={{ padding: "0 18px", borderRight: i < 2 ? "1px solid rgba(201,168,76,0.06)" : "none", cursor: "pointer", transition: "background 0.15s" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.03)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em", marginBottom: 8 }}>{m.label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: m.color, fontFamily: "'Space Mono', monospace", lineHeight: 1, letterSpacing: "-0.02em" }}>{m.value}</div>
+                        <div style={{ fontSize: 10, color: "#6B7394", marginTop: 4, letterSpacing: "0.04em" }}>{m.count} SITE{m.count !== 1 ? "S" : ""}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Recent Activity — collapsible, quieter */}
                   {recentMoves.length > 0 && (
-                    <div style={{ padding: "18px 24px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 16 }}>
+                    <div style={{ paddingTop: 18, marginTop: 22, borderTop: "1px solid rgba(201,168,76,0.06)" }}>
                       <details>
                         <summary style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", listStyle: "none", userSelect: "none" }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em" }}>Recent Activity ({recentMoves.length})</div>
-                          <div style={{ fontSize: 10, color: "#64748B" }}>Last 30 days</div>
+                          <div style={{ fontSize: 9, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em" }}>RECENT ACTIVITY · {recentMoves.length} EVENTS</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7394", letterSpacing: "0.10em", textTransform: "uppercase" }}>Last 30 days  ▾</div>
                         </summary>
-                        <div style={{ maxHeight: 180, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(201,168,76,0.3) transparent", marginTop: 10 }}>
+                        <div style={{ maxHeight: 200, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "rgba(201,168,76,0.3) transparent", marginTop: 14 }}>
                           {recentMoves.slice(0, 10).map((m, idx) => (
-                            <div key={m.name + idx + m.date} onClick={() => { goToDetail({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", transition: "all 0.15s ease" }}
+                            <div key={m.name + idx + m.date} onClick={() => { goToDetail({ regionKey: m.regionKey, siteId: m.siteId }); setTab(m.regionKey); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: idx < Math.min(9, recentMoves.length - 1) ? "1px solid rgba(255,255,255,0.03)" : "none", cursor: "pointer", transition: "all 0.15s ease" }}
                               onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.04)"; e.currentTarget.style.paddingLeft = "8px"; }}
                               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "0"; }}
                             >
-                              <span style={{ fontSize: 11 }}>{moveIcon(m.to)}</span>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0" }}>{m.name} <span style={{ fontSize: 9, color: "#64748B" }}>({m.region})</span></div>
-                                <div style={{ fontSize: 10, color: "#94A3B8" }}>{m.from} → {m.to}</div>
+                              <div style={{ width: 4, height: 4, borderRadius: "50%", background: advancePhases.includes(m.to) ? "#22C55E" : (m.to === "Dead" || m.to === "Declined") ? "#EF4444" : "#94A3B8", flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#E2E8F0", letterSpacing: "0.04em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name} <span style={{ fontSize: 9, color: "#4A5080", letterSpacing: "0.10em" }}>· {m.region}</span></div>
+                                <div style={{ fontSize: 10, color: "#94A3B8", letterSpacing: "0.02em", marginTop: 2 }}>{m.from} → {m.to}</div>
                               </div>
-                              <div style={{ textAlign: "right" }}>
-                                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: advancePhases.includes(m.to) ? "rgba(34,197,94,0.08)" : m.to === "Dead" ? "rgba(220,38,38,0.08)" : "rgba(201,168,76,0.08)", color: advancePhases.includes(m.to) ? "#86EFAC" : m.to === "Dead" ? "#FCA5A5" : "#C9A84C", letterSpacing: "0.05em" }}>{moveLabel(m.to)}</span>
-                                <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>{m.daysAgo === 0 ? "Today" : m.daysAgo === 1 ? "Yesterday" : `${m.daysAgo}d ago`}</div>
+                              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                <div style={{ fontSize: 8, fontWeight: 800, color: advancePhases.includes(m.to) ? "#22C55E" : (m.to === "Dead" || m.to === "Declined") ? "#EF4444" : "#94A3B8", letterSpacing: "0.14em" }}>{moveLabel(m.to)}</div>
+                                <div style={{ fontSize: 9, color: "#6B7394", marginTop: 2, letterSpacing: "0.04em" }}>{m.daysAgo === 0 ? "TODAY" : m.daysAgo === 1 ? "YESTERDAY" : `${m.daysAgo}D AGO`}</div>
                               </div>
                             </div>
                           ))}
@@ -3023,18 +3000,17 @@ function AppInner() {
 
             {/* Pipeline comparison cards removed — side-by-side phase counts created competitive optics between DW and MT trackers */}
 
-            {/* ── Tools Strip — compact access to admin views ── */}
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16, padding: "14px 0", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            {/* ── Hairline Action Strip — quiet text links ── */}
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 8, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.04)", alignItems: "center" }}>
               {[
-                { key: "submit", label: "Submit Site", icon: "+" },
-                { key: "summary", label: "Pipeline Summary", icon: "S" },
-                { key: "validation", label: "Validation", icon: "V" },
-                { key: "inputs", label: "Valuation Engine", icon: "E" },
+                { key: "submit", label: "Submit Site" },
+                { key: "summary", label: "Pipeline Summary" },
+                { key: "validation", label: "Validation" },
+                { key: "inputs", label: "Valuation Engine" },
               ].map(t => (
-                <button key={t.key} onClick={() => navigateTo(t.key)} style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6 }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#C9A84C"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)"; e.currentTarget.style.background = "rgba(201,168,76,0.04)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#94A3B8"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: "#64748B", background: "rgba(255,255,255,0.05)", borderRadius: 3, padding: "2px 5px" }}>{t.icon}</span>
+                <button key={t.key} onClick={() => navigateTo(t.key)} style={{ padding: 0, border: "none", background: "transparent", color: "#94A3B8", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", cursor: "pointer", transition: "color 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#C9A84C"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#94A3B8"; }}>
                   {t.label}
                 </button>
               ))}
