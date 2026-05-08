@@ -35,7 +35,7 @@ import {
   generateRECPackage as _generateRECPackage,
   generateDemographicsReport,
 } from './reports';
-import { SiteScoreBadge as _SiteScoreBadge, Badge, PriorityBadge, normalizePriority, EF, CallBriefTooltip } from './components';
+import { SiteScoreBadge as _SiteScoreBadge, Badge, normalizePriority, EF, CallBriefTooltip } from './components';
 import PortfolioFitBadge from './components/PortfolioFitBadge';
 import BuyerFitBadge from './components/BuyerFitBadge';
 import RoutingEnginePanel from './components/RoutingEnginePanel';
@@ -52,6 +52,21 @@ import { useNavigation } from './hooks/useNavigation';
 // AcquisitionsView lives in a separate deployment — see storvex-acquisitions repo
 import 'leaflet/dist/leaflet.css';
 import './App.css';
+
+// ─── REIT-ready left-edge accent ───
+// Status semantics for the 3px card border: gold = hot/active, blue = under contract,
+// red = dead/declined, steel = standard. Replaces inline pill chrome.
+const reitAccent = (site, isOpen) => {
+  if (isOpen) return "#C9A84C";
+  const phase = site.phase || "";
+  if (phase === "Dead" || phase === "Declined") return "rgba(220,38,38,0.55)";
+  if (phase === "Closed") return "rgba(34,197,94,0.55)";
+  if (phase === "Under Contract" || phase === "PSA Sent" || phase === "LOI") return "rgba(59,130,246,0.6)";
+  const pri = (site.priority || "").toLowerCase();
+  if (/hot/i.test(pri)) return "#C9A84C";
+  if (/warm/i.test(pri)) return "rgba(201,168,76,0.5)";
+  return "rgba(44,62,107,0.45)";
+};
 
 // ─── Display name fallback: derive from Firebase key when name/address missing ───
 const siteDisplayName = (site) => {
@@ -1868,64 +1883,86 @@ function AppInner() {
               const dom = (domRaw !== null && !isNaN(domRaw) && domRaw >= 0) ? domRaw : null;
 
               return (
-                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `2px solid ${isOpen ? "#C9A84C" : "rgba(201,168,76,0.25)"}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(201,168,76,0.08), 0 0 0 1px rgba(201,168,76,0.15), 0 0 60px rgba(201,168,76,0.04)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
-                  {/* Collapsed header */}
+                <div key={site.id} id={`site-${site.id}`} className={`site-card${isOpen ? " site-card-open" : ""}`} style={{ ...STYLES.cardBase, position: "relative", borderLeft: `3px solid ${reitAccent(site, isOpen)}`, ...(isOpen ? { boxShadow: "0 12px 48px rgba(201,168,76,0.08), 0 0 0 1px rgba(201,168,76,0.15), 0 0 60px rgba(201,168,76,0.04)", transform: "scale(1.003)", background: "rgba(15,21,56,0.75)" } : {}) }}>
+                  {/* ═══ REIT-READY TRIAGE HEADER ═══ */}
                   <IntelCardHeader site={site} onClick={() => { if (hoveredBrief === site.id) return; goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontSize: 15, fontWeight: 700, color: "#F4F6FA", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.color = "#E87A2E"} onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}>{siteDisplayName(site)}</span>
-                        {/* Call Briefing toggle — click only, no hover-to-open */}
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            if (hoveredBrief === site.id) {
-                              setHoveredBrief(null);
-                            } else {
-                              setHoveredBrief(site.id);
-                            }
-                          }}
-                          style={{
-                            fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
-                            border: hoveredBrief === site.id ? "1px solid rgba(201,168,76,0.35)" : site.callBrief ? "1px solid rgba(201,168,76,0.2)" : "1px solid rgba(107,115,148,0.15)",
-                            background: hoveredBrief === site.id ? "rgba(201,168,76,0.12)" : "transparent",
-                            color: site.callBrief || hoveredBrief === site.id ? "#C9A84C" : "#4A5080",
-                            transition: "all 0.15s", letterSpacing: "0.04em", userSelect: "none",
-                          }}
-                          title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}
-                          data-brief-badge="true"
-                        >
-                          {site.callBrief ? "BRIEF" : "+BRIEF"}
-                        </span>
-                        <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
-                        <PortfolioFitBadge fit={getPortfolioFit(site)} size="small" />
-                        <BuyerFitBadge fit={getBuyerFit(site)} size="small" />
-                        <PriorityBadge priority={site.priority} />
-                        <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.15)", background: "rgba(15,21,56,0.6)", color: "#C9A84C", cursor: "pointer" }}>
-                          {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                        <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; if (val) { const now = new Date().toISOString(); const sub = { ...site, status: "pending", region: regionKey, submittedAt: now, assignedTo: val, needsReview: true, sentBackToReview: true }; delete sub.messages; delete sub.docs; delete sub.activityLog; fbSet(`submissions/${site.id}`, sub); fbRemove(`${regionKey}/${site.id}`); setExpandedSite(null); notify(`${site.name} → Review Queue (assigned to ${val})`); } else { updateSiteField(regionKey, site.id, "assignedTo", ""); updateSiteField(regionKey, site.id, "needsReview", false); } }} style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: site.assignedTo ? "1px solid #E87A2E" : "1px solid rgba(201,168,76,0.15)", background: site.assignedTo ? "rgba(232,122,46,0.12)" : "rgba(15,21,56,0.6)", color: site.assignedTo ? "#E87A2E" : "#6B7394", cursor: "pointer" }}>
-                          <option value="">Assign to...</option>
-                          <option value="Dan R">Dan R</option>
-                          <option value="Daniel Wollent">Daniel Wollent</option>
-                          <option value="Matthew Toussaint">Matthew Toussaint</option>
-                        </select>
-                        {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "1px 6px", borderRadius: 4, border: "1px solid #C9A84C", letterSpacing: "0.04em" }}>NEEDS REVIEW</span>}
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {/* ── Title strip + score column ── */}
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+                          <span
+                            onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                            style={{ fontSize: 14, fontWeight: 800, color: "#F4F6FA", letterSpacing: "0.10em", textTransform: "uppercase", cursor: "pointer", transition: "color 0.15s" }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = "#C9A84C"}
+                            onMouseLeave={(e) => e.currentTarget.style.color = "#F4F6FA"}
+                          >
+                            {siteDisplayName(site)}
+                          </span>
+                          {/hot/i.test(normalizePriority(site.priority) || "") && <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.18em" }}>HOT</span>}
+                          <span
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); setHoveredBrief(hoveredBrief === site.id ? null : site.id); }}
+                            style={{ fontSize: 9, fontWeight: 700, color: site.callBrief || hoveredBrief === site.id ? "#C9A84C" : "#4A5080", letterSpacing: "0.16em", cursor: "pointer", userSelect: "none", transition: "color 0.15s" }}
+                            title={site.callBrief ? "Click to view/edit call briefing" : "Click to add call briefing"}
+                            data-brief-badge="true"
+                          >
+                            {site.callBrief ? "BRIEF" : "+BRIEF"}
+                          </span>
+                          {site.assignedTo && site.needsReview && <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.16em" }}>NEEDS REVIEW</span>}
+                        </div>
+                        {/* Score column — right-aligned */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
+                          <PortfolioFitBadge fit={getPortfolioFit(site)} size="small" />
+                          <BuyerFitBadge fit={getBuyerFit(site)} size="small" />
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: "#6B7394" }}>{site.address || site.city || site.state ? `${site.address || ""}${site.city ? `, ${site.city}` : ""}${site.state ? `, ${site.state}` : ""}` : <span style={{ color: "#475569", fontStyle: "italic" }}>No address on file</span>}</div>
-                      <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "#6B7394", flexWrap: "wrap" }}>
-                        {site.askingPrice && <span>Ask: <strong style={{ color: "#E2E8F0" }}>{site.askingPrice}</strong></span>}
-                        {site.internalPrice && <span>Int: <strong style={{ color: "#E87A2E" }}>{site.internalPrice}</strong></span>}
-                        {site.sellerBroker && <span>Broker: <strong style={{ color: "#C9A84C" }}>{cleanText(site.sellerBroker)}</strong></span>}
-                        {docs.length > 0 && <span style={{ color: "#6B7394" }}>📁 {docs.length} doc{docs.length !== 1 ? "s" : ""}</span>}
-                        {msgs.length > 0 && <span style={{ color: "#E87A2E" }}>💬 {msgs.length}</span>}
-                        {site.coordinates && <span>📍</span>}
-                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#C9A84C", textDecoration: "none", fontWeight: 600, fontSize: 11 }}>Listing</a>}
-                        {(site.latestNote || generateAutoBlurb(site)) && <span style={{ color: site.latestNote ? "#94A3B8" : "#4A5080", fontSize: 10, fontWeight: 600, display: "flex", alignItems: "center", gap: 3, background: "transparent", padding: "1px 6px", borderRadius: 5, border: site.latestNote ? "1px solid rgba(201,168,76,0.15)" : "1px solid rgba(107,115,148,0.1)" }} title="Hover card for latest intel">{site.latestNote ? "◆" : "◇"} Intel</span>}
+                      {/* ── Address line ── */}
+                      <div style={{ fontSize: 11, color: "#6B7394", letterSpacing: "0.02em", paddingBottom: 8, borderBottom: "1px solid rgba(201,168,76,0.06)" }}>
+                        {site.address || site.city || site.state ? `${site.address || ""}${site.city ? `, ${site.city}` : ""}${site.state ? `, ${site.state}` : ""}` : <span style={{ color: "#475569", fontStyle: "italic" }}>No address on file</span>}
+                      </div>
+                      {/* ── Tabular metrics row ── */}
+                      <div style={{ display: "grid", gridTemplateColumns: "minmax(80px, 1fr) minmax(80px, 1fr) minmax(70px, 0.75fr) minmax(140px, 1.6fr)", gap: 18 }}>
+                        {[
+                          { label: "ASK", val: site.askingPrice || "—", color: site.askingPrice ? "#E2E8F0" : "#475569", mono: true },
+                          { label: "REC OFFER", val: site.internalPrice || "—", color: site.internalPrice ? "#E87A2E" : "#475569", mono: true },
+                          { label: "SIZE", val: site.acreage ? `${site.acreage} AC` : "—", color: site.acreage ? "#E2E8F0" : "#475569", mono: true },
+                          { label: "BROKER", val: cleanText(site.sellerBroker) || "—", color: site.sellerBroker ? "#C9A84C" : "#475569", mono: false },
+                        ].map((m) => (
+                          <div key={m.label} style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.18em", marginBottom: 3 }}>{m.label}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: m.color, fontFamily: m.mono ? "'Space Mono', monospace" : "inherit", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* ── Hairline operations footer ── */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, paddingTop: 8, borderTop: "1px solid rgba(201,168,76,0.06)", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em" }}>PHASE</span>
+                          <select value={site.phase || "Prospect"} onClick={(e) => e.stopPropagation()} onChange={(e) => updateSiteField(regionKey, site.id, "phase", e.target.value)} style={{ fontSize: 10, fontWeight: 700, padding: "2px 4px", borderRadius: 4, border: "none", background: "transparent", color: "#C9A84C", cursor: "pointer", letterSpacing: "0.04em" }}>
+                            {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ width: 1, height: 12, background: "rgba(201,168,76,0.10)" }} />
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.16em" }}>ASSIGN</span>
+                          <select value={site.assignedTo || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => { const val = e.target.value; if (val) { const now = new Date().toISOString(); const sub = { ...site, status: "pending", region: regionKey, submittedAt: now, assignedTo: val, needsReview: true, sentBackToReview: true }; delete sub.messages; delete sub.docs; delete sub.activityLog; fbSet(`submissions/${site.id}`, sub); fbRemove(`${regionKey}/${site.id}`); setExpandedSite(null); notify(`${site.name} → Review Queue (assigned to ${val})`); } else { updateSiteField(regionKey, site.id, "assignedTo", ""); updateSiteField(regionKey, site.id, "needsReview", false); } }} style={{ fontSize: 10, fontWeight: 700, padding: "2px 4px", borderRadius: 4, border: "none", background: "transparent", color: site.assignedTo ? "#E87A2E" : "#6B7394", cursor: "pointer", letterSpacing: "0.04em" }}>
+                            <option value="">—</option>
+                            <option value="Dan R">Dan R</option>
+                            <option value="Daniel Wollent">DW</option>
+                            <option value="Matthew Toussaint">MT</option>
+                          </select>
+                        </div>
+                        <div style={{ flex: 1 }} />
+                        {docs.length > 0 && <span style={{ color: "#94A3B8", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em" }}>{docs.length} DOC{docs.length !== 1 ? "S" : ""}</span>}
+                        {msgs.length > 0 && <span style={{ color: "#E87A2E", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em" }}>{msgs.length} MSG</span>}
+                        {site.coordinates && <span style={{ color: "#6B7394", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em" }} title="Coordinates on file">GEO</span>}
+                        {site.listingUrl && <a href={site.listingUrl.startsWith("http") ? site.listingUrl : `https://${site.listingUrl}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#C9A84C", textDecoration: "none", fontWeight: 700, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase" }}>Listing ↗</a>}
+                        {(site.latestNote || generateAutoBlurb(site)) && <span style={{ color: site.latestNote ? "#94A3B8" : "#4A5080", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em" }} title="Hover card for latest intel">{site.latestNote ? "◆" : "◇"} INTEL</span>}
                       </div>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 8, background: "linear-gradient(135deg, #1E2761, #2C3E6B)", color: "#C9A84C", fontSize: 11, fontWeight: 700, border: "1px solid rgba(201,168,76,0.2)", cursor: "pointer", boxShadow: "0 2px 12px rgba(30,39,97,0.3)", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,168,76,0.2)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(30,39,97,0.3)"; }}>Detail</button>
-                    <div style={{ fontSize: 16, color: "#CBD5E1", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</div>
+                    {/* ── DETAIL chip — quiet, right-aligned ── */}
+                    <button onClick={(e) => { e.stopPropagation(); goToDetail({ regionKey, siteId: site.id }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "6px 14px", borderRadius: 6, background: "transparent", color: "#C9A84C", fontSize: 10, fontWeight: 800, border: "1px solid rgba(201,168,76,0.25)", cursor: "pointer", letterSpacing: "0.18em", textTransform: "uppercase", transition: "all 0.15s", whiteSpace: "nowrap", alignSelf: "flex-start" }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.08)"; e.currentTarget.style.borderColor = "#C9A84C"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.25)"; }}>Detail ›</button>
+                    <div style={{ fontSize: 12, color: "#4A5080", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)", alignSelf: "flex-start", marginTop: 8 }}>▼</div>
                   </IntelCardHeader>
                   {/* Call Briefing Tooltip */}
                   {hoveredBrief === site.id && (
@@ -3634,15 +3671,15 @@ function AppInner() {
                       <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 6, padding: "4px 10px", background: "rgba(15,21,56,0.4)", borderRadius: 8, display: "inline-block", border: "1px solid rgba(201,168,76,0.1)" }}>{person} ({sites.length})</div>
                       <div style={{ display: "grid", gap: 10 }}>
                         {sites.map(site => (
-                          <div key={site.id} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,.1)", borderLeft: "4px solid #C9A84C", transition: "all 0.3s" }}>
+                          <div key={site.id} style={{ background: "rgba(15,21,56,0.5)", borderRadius: 14, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,.1)", borderLeft: "3px solid #C9A84C", transition: "all 0.3s" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
                               <div style={{ flex: 1, minWidth: 250 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                                  <span style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0" }}>{siteDisplayName(site)}</span>
+                                <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 13, fontWeight: 800, color: "#F4F6FA", letterSpacing: "0.10em", textTransform: "uppercase" }}>{siteDisplayName(site)}</span>
                                   <SiteScoreBadge site={site} size="small" iq={getSiteScore(site)} />
-                                  <span style={{ fontSize: 9, fontWeight: 700, color: "#92700C", background: "#FFFBEB", padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(201,168,76,0.3)" }}>NEEDS REVIEW</span>
+                                  <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.16em" }}>NEEDS REVIEW</span>
                                 </div>
-                                <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 4 }}>{site.address}, {site.city}, {site.state}</div>
+                                <div style={{ fontSize: 11, color: "#6B7394", marginBottom: 6, letterSpacing: "0.02em" }}>{site.address}, {site.city}, {site.state}</div>
                                 <div style={{ display: "flex", gap: 14, fontSize: 11, color: "#6B7394", marginBottom: 8, flexWrap: "wrap" }}>
                                   {site.acreage && <span><strong style={{ color: "#E2E8F0" }}>{site.acreage} ac</strong></span>}
                                   {site.askingPrice && <span><strong style={{ color: "#C9A84C" }}>{site.askingPrice}</strong></span>}
@@ -3720,20 +3757,34 @@ function AppInner() {
                   const isHL = highlightedSite === site.id;
                   const isExpanded = false; // legacy — full-page detail replaced inline expand
                   return (
-                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "#FFF3E0" : site.status === "ps-rejected" ? "rgba(220,38,38,0.06)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: 16, boxShadow: isHL ? "0 0 0 2px #F37C33" : site.status === "ps-rejected" ? "0 0 0 1px rgba(220,38,38,0.3)" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `4px solid ${site.status === "ps-rejected" ? "#EF4444" : REGIONS[site.routedTo || site.region]?.accent || "#94A3B8"}`, transition: "all 0.3s", cursor: "pointer" }}
+                    <div key={site.id} id={`review-${site.id}`} style={{ background: isHL ? "rgba(243,124,51,0.08)" : site.status === "ps-rejected" ? "rgba(220,38,38,0.06)" : "rgba(15,21,56,0.5)", borderRadius: 12, padding: "16px 20px", boxShadow: isHL ? "0 0 0 2px #F37C33" : site.status === "ps-rejected" ? "0 0 0 1px rgba(220,38,38,0.3)" : "0 1px 3px rgba(0,0,0,.06)", opacity: site.status === "declined" ? 0.5 : 1, borderLeft: `3px solid ${site.status === "ps-rejected" ? "#EF4444" : site.status === "declined" ? "rgba(220,38,38,0.4)" : site.status === "recommended" ? "rgba(34,197,94,0.6)" : REGIONS[site.routedTo || site.region]?.accent || "rgba(44,62,107,0.5)"}`, transition: "all 0.3s", cursor: "pointer" }}
                       onClick={(e) => { e.stopPropagation(); navigateTo("review", { reviewSiteId: site.id }); }}
                       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,168,76,0.15), 0 0 0 1px rgba(201,168,76,0.2)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = isHL ? "0 0 0 2px #F37C33" : "0 1px 3px rgba(0,0,0,.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}
-                      >
-                        <span style={{ fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{siteDisplayName(site)}</span>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "#F4F6FA", letterSpacing: "0.10em", textTransform: "uppercase", transition: "color 0.2s" }}>{siteDisplayName(site)}</span>
                         <SiteScoreBadge site={site} size="small" />
-                        <Badge status={site.status} />
-                        {site.status === "ps-rejected" && <span style={{ fontSize: 10, fontWeight: 800, color: "#DC2626", background: "rgba(220,38,38,0.12)", padding: "2px 10px", borderRadius: 5, border: "1px solid rgba(220,38,38,0.25)", textTransform: "uppercase", letterSpacing: "0.06em" }}>PS Rejected — {site.psRejectedBy || "PS"}</span>}
-                        {site.status === "pending" && <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.1)", background: "rgba(15,21,56,0.4)", color: "#6B7394", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>🔗 Copy Link</button>}
+                        {!site.recommendedAt && !site.approvedAt && site.status === "pending" && <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.18em" }}>NEW</span>}
+                        {site.status === "recommended" && <span style={{ fontSize: 9, fontWeight: 800, color: "#22C55E", letterSpacing: "0.16em" }}>{"✓"} APPROVED → {(REGIONS[site.routedTo || site.region]?.label || "—").toUpperCase()}</span>}
+                        {site.status === "ps-rejected" && <span style={{ fontSize: 9, fontWeight: 800, color: "#EF4444", letterSpacing: "0.16em" }}>PS REJECTED — {(site.psRejectedBy || "PS").toUpperCase()}</span>}
+                        {site.status === "declined" && <span style={{ fontSize: 9, fontWeight: 800, color: "#D97706", letterSpacing: "0.16em" }}>DECLINED</span>}
+                        {site.status === "pending" && <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}${window.location.pathname}?review=${site.id}`; navigator.clipboard.writeText(url); notify("Link copied!"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid rgba(201,168,76,0.15)", background: "transparent", color: "#6B7394", fontSize: 9, fontWeight: 700, cursor: "pointer", letterSpacing: "0.10em", textTransform: "uppercase" }}>Copy Link</button>}
                       </div>
-                      <div style={{ fontSize: 12, color: "#6B7394", marginBottom: 2 }}>{site.address}, {site.city}, {site.state} {site.acreage ? `• ${site.acreage} ac` : ""} {site.askingPrice ? `• ${site.askingPrice}` : ""}</div>
+                      {/* Tabular metrics strip — institutional 4-col */}
+                      <div style={{ display: "grid", gridTemplateColumns: "minmax(80px, 1fr) minmax(70px, 0.75fr) minmax(80px, 1fr) minmax(140px, 1.6fr)", gap: 14, paddingBottom: 6 }}>
+                        {[
+                          { label: "ASK", val: site.askingPrice || "—", color: site.askingPrice ? "#E2E8F0" : "#475569", mono: true },
+                          { label: "SIZE", val: site.acreage ? `${site.acreage} AC` : "—", color: site.acreage ? "#E2E8F0" : "#475569", mono: true },
+                          { label: "MARKET", val: (site.market || site.city || "—").toString().toUpperCase(), color: "#94A3B8", mono: false },
+                          { label: "ADDRESS", val: site.address || "—", color: "#94A3B8", mono: false },
+                        ].map((m) => (
+                          <div key={m.label} style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 8, fontWeight: 800, color: "#4A5080", letterSpacing: "0.18em", marginBottom: 2 }}>{m.label}</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: m.color, fontFamily: m.mono ? "'Space Mono', monospace" : "inherit", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.val}</div>
+                          </div>
+                        ))}
+                      </div>
                       {/* PS Rejection Feedback Banner */}
                       {site.status === "ps-rejected" && (site.psFeedback || site.psRejectReason) && (
                         <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: 8, padding: "8px 12px", marginTop: 6, marginBottom: 4 }}>
@@ -6633,7 +6684,7 @@ function IntelCardHeader({ site, onClick, children }) {
   useEffect(() => () => clearTimeout(timerRef.current), []);
   const lines = show && blurb ? blurb.split("\n").filter(l => l.trim()) : [];
   return (
-    <div onMouseEnter={enter} onMouseLeave={leave} onClick={onClick} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, position: "relative", zIndex: show ? 100 : 1 }}>
+    <div onMouseEnter={enter} onMouseLeave={leave} onClick={onClick} style={{ padding: "16px 22px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10, position: "relative", zIndex: show ? 100 : 1 }}>
       {show && lines.length > 0 && (
         <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, pointerEvents: "none", animation: "tooltipSlideIn 0.15s ease-out", padding: "8px 18px 0" }}>
           <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.7), 0 0 0 2px rgba(201,168,76,0.2), 0 0 80px rgba(232,122,46,0.1)", border: "2px solid rgba(201,168,76,0.25)" }}>
