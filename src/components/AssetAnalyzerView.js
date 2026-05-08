@@ -6,7 +6,7 @@
 // Demos Storvex's dual-acquisition coverage to PS VP Reza Mahdavian
 // (memory/project_ps-vp-reit-platform-elevation.md).
 
-import React, { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
 import { computeBuyerLens, PS_LENS } from "../buyerLensProfiles";
 import { enrichAssetAnalysis } from "../analyzerEnrich";
@@ -216,17 +216,44 @@ function readyToAnalyze(parsed) {
 // Component
 // ═══════════════════════════════════════════════════════════════════════════
 
+// sessionStorage key for hydrating analyzer state across tab switches.
+// Cleared by Clear button. Bumped when the persisted shape changes.
+const STORAGE_KEY = "storvex.asset-analyzer.v1";
+
+function readPersisted() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+function writePersisted(state) {
+  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* quota or disabled — silent */ }
+}
+function clearPersisted() {
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* silent */ }
+}
+
 export default function AssetAnalyzerView({ fbSet, notify }) {
-  const [inputs, setInputs] = useState(EMPTY_INPUTS);
-  const [savedId, setSavedId] = useState(null);
+  // Hydrate from sessionStorage on first mount so tab switches don't wipe the analysis.
+  const persisted = useMemo(() => readPersisted(), []);
+  const [inputs, setInputs] = useState(persisted?.inputs || EMPTY_INPUTS);
+  const [savedId, setSavedId] = useState(persisted?.savedId || null);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
-  const [extractionMeta, setExtractionMeta] = useState(null); // { confidence, notes, model, elapsedMs }
-  const [enrichment, setEnrichment] = useState(null);          // { coords, demographics, psFamily, marketRents }
+  const [extractionMeta, setExtractionMeta] = useState(persisted?.extractionMeta || null);
+  const [enrichment, setEnrichment] = useState(persisted?.enrichment || null);
   const [enriching, setEnriching] = useState(false);
-  const [memo, setMemo] = useState(null);                       // generated IC memo
+  const [memo, setMemo] = useState(persisted?.memo || null);
   const [memoLoading, setMemoLoading] = useState(false);
   const [memoError, setMemoError] = useState(null);
+
+  // Persist on every analyzer-state change so navigating away and back (Methodology
+  // → Asset Analyzer, etc.) restores the loaded deal. Transient flags (saving,
+  // extracting, enriching, memoLoading) are NOT persisted — they're in-flight.
+  useEffect(() => {
+    writePersisted({ inputs, savedId, extractionMeta, enrichment, memo });
+  }, [inputs, savedId, extractionMeta, enrichment, memo]);
 
   const setField = useCallback((key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -236,22 +263,32 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   const loadDemo = useCallback(() => {
     setInputs(RED_ROCK_DEFAULTS);
     setSavedId(null);
+    setMemo(null);
+    setMemoError(null);
   }, []);
 
   const clearAll = useCallback(() => {
     setInputs(EMPTY_INPUTS);
     setSavedId(null);
+    setExtractionMeta(null);
+    setEnrichment(null);
+    setMemo(null);
+    setMemoError(null);
+    clearPersisted();
   }, []);
 
   const parsed = useMemo(() => parseInputs(inputs), [inputs]);
   const ready = useMemo(() => readyToAnalyze(parsed), [parsed]);
+  // Both analyses receive marketRents from enrichment when available, enabling
+  // the rent sanity cross-check inside analyzeExistingAsset. Sanity gracefully
+  // degrades to null when enrichment hasn't completed yet (first render path).
   const analysis = useMemo(
-    () => (ready ? analyzeExistingAsset(parsed) : null),
-    [parsed, ready]
+    () => (ready ? analyzeExistingAsset(parsed, { marketRents: enrichment?.marketRents || null }) : null),
+    [parsed, ready, enrichment]
   );
   const psLens = useMemo(
-    () => (ready ? computeBuyerLens(parsed, PS_LENS, { nearestPortfolioMi: parsed.nearestPortfolioMi }) : null),
-    [parsed, ready]
+    () => (ready ? computeBuyerLens(parsed, PS_LENS, { nearestPortfolioMi: parsed.nearestPortfolioMi, marketRents: enrichment?.marketRents || null }) : null),
+    [parsed, ready, enrichment]
   );
 
   // ── OM upload + auto-extract ────────────────────────────────────────────
@@ -703,6 +740,9 @@ function OutputsPanel({ analysis, psLens, ready, enrichment, enriching, memo, me
       {/* PSA Lens drives the headline — generic buyer's verdict shows in the PS Lens card body as a context point only */}
       <PSAVerdictHero psLens={psLens} analysis={analysis} />
       <DealTypeBadge dealType={analysis.dealType} />
+      {/* Rent sanity — independent SpareFoot cross-check on seller's implied EGI rate.
+          Renders only when marketRents enrichment has completed. */}
+      <RentSanityBanner rentSanity={analysis.rentSanity} />
       {(enriching || enrichment) && <EnrichmentCard enrichment={enrichment} loading={enriching} />}
       <ICMemoCard memo={memo} loading={memoLoading} error={memoError} onGenerate={onGenerateMemo} />
       <SnapshotCard snapshot={analysis.snapshot} />
@@ -821,7 +861,7 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
         <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 14, maxWidth: 640, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
           Generate the IC-style narrative on top of the deterministic math: 2-paragraph executive summary, recommended bid posture, top 3 risks, buyer routing. Storvex reads the analysis, doesn't make up numbers.
         </div>
-        <button onClick={onGenerate} style={{ ...btnPrimary, padding: "10px 22px" }}>Generate IC Memo · ~10s</button>
+        <button onClick={onGenerate} style={{ ...btnPrimary, padding: "10px 22px" }}>Generate IC Memo · ~30-60s</button>
       </div>
     );
   }
@@ -830,7 +870,7 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
       <div style={{ ...card, textAlign: "center", padding: "20px 24px" }}>
         <div style={{ fontSize: 22, marginBottom: 6 }}>⏳</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>Drafting IC memo…</div>
-        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Storvex is narrating the analysis. ~10s for a typical memo.</div>
+        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Storvex is narrating the analysis. Typical run: 30-60s.</div>
       </div>
     );
   }
@@ -876,13 +916,13 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
           <div style={{ ...metricBox, borderLeft: "3px solid #22C55E" }}>
             <div style={{ fontSize: 10, color: "#22C55E", fontWeight: 700, textTransform: "uppercase" }}>Opening Bid</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{fmt$(Math.round(memo.bidPosture.openingBid || 0))}</div>
-            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.4 }}>{memo.bidPosture.openingBidRationale}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{fmt$(Math.round(memo.bidPosture.openingBid || 0))}</div>
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(memo.bidPosture.openingBidRationale || "") }} />
           </div>
           <div style={{ ...metricBox, borderLeft: "3px solid #F59E0B" }}>
             <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700, textTransform: "uppercase" }}>Walk-Away</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>{fmt$(Math.round(memo.bidPosture.walkAway || 0))}</div>
-            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.4 }}>{memo.bidPosture.walkAwayRationale}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Inter', sans-serif", fontVariantNumeric: "tabular-nums" }}>{fmt$(Math.round(memo.bidPosture.walkAway || 0))}</div>
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(memo.bidPosture.walkAwayRationale || "") }} />
           </div>
         </div>
       )}
@@ -891,7 +931,7 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Top Risks</div>
           <ol style={{ margin: 0, paddingLeft: 22, color: "#E2E8F0", fontSize: 12, lineHeight: 1.6 }}>
-            {memo.topRisks.map((r, i) => <li key={i} style={{ marginBottom: 4 }}>{r}</li>)}
+            {memo.topRisks.map((r, i) => <li key={i} style={{ marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(r) }} />)}
           </ol>
         </div>
       )}
@@ -899,13 +939,13 @@ function ICMemoCard({ memo, loading, error, onGenerate }) {
       {memo.buyerRouting && (
         <div style={{ padding: "10px 12px", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 8, fontSize: 12, color: "#E2E8F0", lineHeight: 1.5, marginBottom: 10 }}>
           <span style={{ fontSize: 10, color: "#3B82F6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 8 }}>Buyer Routing</span>
-          {memo.buyerRouting}
+          <span dangerouslySetInnerHTML={{ __html: renderMarkdown(memo.buyerRouting) }} />
         </div>
       )}
       {memo.ps4Alignment && (
         <div style={{ padding: "10px 12px", background: "rgba(201,168,76,0.08)", border: `1px solid ${GOLD}50`, borderRadius: 8, fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>
           <span style={{ fontSize: 10, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 8 }}>Strategic Alignment</span>
-          {memo.ps4Alignment}
+          <span dangerouslySetInnerHTML={{ __html: renderMarkdown(memo.ps4Alignment) }} />
         </div>
       )}
     </div>
@@ -1030,6 +1070,45 @@ function PSLensCard({ psLens, generic }) {
       </table>
       <div style={{ fontSize: 10, color: "#64748B", marginTop: 10, lineHeight: 1.5 }}>
         Cap basis: {psLens.lens.capBasis}. Platform premium = (Storvex price − Generic price). The Δ column quantifies the platform-fit value an institutional self-managed REIT would pay above a generic third-party-managed buyer.
+      </div>
+    </div>
+  );
+}
+
+// ─── Rent Sanity Banner ───────────────────────────────────────────────────
+// Independent SpareFoot cross-check on seller's implied effective rent.
+// Computed inside analyzeExistingAsset() when marketRents enrichment is
+// available. Renders nothing when null (graceful first-render path before
+// the enrichment promise resolves).
+//
+// Three states: "warn" (rent >15% above market — pro forma may be aggressive),
+// "info" (rent >15% below market — value-add lever or distressed signal),
+// "ok" (within ±15% — pro forma defensible).
+function RentSanityBanner({ rentSanity }) {
+  if (!rentSanity) return null;
+
+  const colorMap = {
+    warn: { color: "#F59E0B", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.4)", label: "Rent Above Market", icon: "⚠" },
+    info: { color: "#3B82F6", bg: "rgba(59,130,246,0.10)", border: "rgba(59,130,246,0.4)", label: "Rent Below Market", icon: "ⓘ" },
+    ok:   { color: "#22C55E", bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.3)", label: "Rent Aligned", icon: "✓" },
+  };
+  const c = colorMap[rentSanity.severity] || colorMap.ok;
+
+  return (
+    <div style={{ ...card, background: c.bg, border: `1px solid ${c.border}`, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ fontSize: 18, color: c.color, flex: "0 0 auto", lineHeight: 1.2 }}>{c.icon}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", background: c.color, padding: "3px 8px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase" }}>RENT SANITY</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: c.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>{c.label}</span>
+          </div>
+          <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>{rentSanity.message}</div>
+          <div style={{ marginTop: 8, fontSize: 10, color: "#64748B", fontFamily: "'Space Mono', monospace" }}>
+            Implied: ${rentSanity.impliedRatePerSF.toFixed(2)}/SF/mo · Blended market: ${rentSanity.blendedMarketRate.toFixed(2)}/SF/mo · {rentSanity.source}
+            {rentSanity.sampleSize ? ` · n=${rentSanity.sampleSize}` : ""}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1264,7 +1343,7 @@ function PriceTiersCard({ tiers, ask, marketCap, msaTier }) {
   );
   return (
     <div style={card}>
-      <div style={sectionHeader}>DJR Price Tiers · Step 6</div>
+      <div style={sectionHeader}>Storvex Price Tiers · Step 6</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 12 }}>
         {tierBox("Home Run", tiers.homeRun, "#22C55E", "Y3 NOI · aggressive")}
         {tierBox("Strike", tiers.strike, GOLD, "Y5 NOI · likely clear")}
