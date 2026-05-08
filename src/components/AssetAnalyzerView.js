@@ -426,8 +426,15 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     }
   }, [analysis, psLens, enrichment, notify]);
 
-  // Reset memo when inputs change so it doesn't go stale silently
+  // Reset memo when inputs change so it doesn't go stale silently.
+  // Skip the very first run — on remount the hydrated `inputs` arrives as a
+  // "new" reference and would otherwise wipe the just-restored memo.
+  const skipMemoResetRef = useRef(true);
   React.useEffect(() => {
+    if (skipMemoResetRef.current) {
+      skipMemoResetRef.current = false;
+      return;
+    }
     setMemo(null);
     setMemoError(null);
   }, [inputs]);
