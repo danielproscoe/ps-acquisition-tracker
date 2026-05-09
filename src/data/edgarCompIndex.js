@@ -12,6 +12,7 @@
 //   - api/analyzer-memo.js → IC memo prompt cites institutional cost basis
 
 import edgarIndex from "./edgar-comp-index.json";
+import sameStoreGrowth from "./edgar-same-store-growth.json";
 
 /**
  * Look up the cross-REIT institutional cost basis for a US state.
@@ -69,6 +70,49 @@ export function formatEDGARCitation(stateCode) {
 }
 
 /**
+ * Calibrated same-store revenue growth derived from the cross-REIT
+ * average of latest-fiscal-year 10-K disclosures. Replaces the generic
+ * 11% Y1→Y3 ECRI lift with primary-source REIT-disclosed numbers.
+ *
+ * Returns:
+ *   {
+ *     annualGrowthRate: 0.0005,   // cross-REIT avg same-store revenue growth Y/Y
+ *     y1ToY3Compounded: 0.001,    // (1 + rate)^2 - 1
+ *     contributingIssuers: ["PSA","EXR"],
+ *     basisText: "Calibrated to FY2025 cross-REIT same-store disclosures...",
+ *     citations: [{issuer, accession, filingURL, growthYoY}]
+ *   }
+ *
+ * Returns null if no calibrated data is available.
+ */
+export function getCalibratedSameStoreGrowth() {
+  const ss = sameStoreGrowth;
+  if (!ss?.crossREITAvg?.avgSameStoreRevenueGrowthYoY == null) return null;
+  const annual = ss.crossREITAvg.avgSameStoreRevenueGrowthYoY;
+  if (annual == null) return null;
+  const y1ToY3 = Math.pow(1 + annual, 2) - 1;
+  const citations = (ss.issuers || [])
+    .filter((i) => i.metrics?.sameStoreRevenueGrowthYoY != null)
+    .map((i) => ({
+      issuer: i.issuer,
+      issuerName: i.issuerName,
+      accessionNumber: i.accessionNumber,
+      filingURL: i.filingURL,
+      reportDate: i.reportDate,
+      growthYoY: i.metrics.sameStoreRevenueGrowthYoY,
+      growthBasis: i.metrics.revenueGrowthBasis,
+    }));
+  return {
+    annualGrowthRate: annual,
+    y1ToY3Compounded: y1ToY3,
+    contributingIssuers: ss.crossREITAvg.contributingIssuers || [],
+    sampleSize: citations.length,
+    basisText: `Calibrated to FY${citations[0]?.reportDate?.slice(0, 4) || ""} cross-REIT same-store revenue growth disclosures from ${citations.map((c) => c.issuer).join(" + ")}. Cross-REIT average ${(annual * 100).toFixed(2)}%/yr · compounded over Y1→Y3 = ${(y1ToY3 * 100).toFixed(2)}% lift. Replaces the generic 11% ECRI lift assumption with primary-source REIT-disclosed numbers.`,
+    citations,
+  };
+}
+
+/**
  * Top-level metadata for audit blocks: how the index was built, when, what
  * issuers were ingested.
  */
@@ -90,5 +134,6 @@ export const EDGAR_INDEX_METADATA = {
 export default {
   getEDGARStateData,
   formatEDGARCitation,
+  getCalibratedSameStoreGrowth,
   EDGAR_INDEX_METADATA,
 };

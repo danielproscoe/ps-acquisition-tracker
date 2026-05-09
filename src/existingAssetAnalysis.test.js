@@ -186,9 +186,21 @@ describe("projectStabilizedNOI", () => {
     expect(p.y1.noi).toBe(600_000);
   });
 
-  test("Y3 lifts revenue by ~11% (ECRI burn-in)", () => {
-    const p = projectStabilizedNOI(baseRecon);
+  test("Y3 lifts revenue by ~11% with generic ECRI (useCalibration:false)", () => {
+    // Force the generic 11% ECRI lift fallback (pre-calibration behavior).
+    const p = projectStabilizedNOI(baseRecon, { useCalibration: false });
     expect(p.y3.rev).toBeCloseTo(1_110_000, 0);
+  });
+
+  test("Y3 lifts revenue by calibrated cross-REIT same-store growth (default)", () => {
+    // Default behavior uses primary-source REIT same-store calibration.
+    // FY2025 cross-REIT avg ≈ +0.05%/yr → Y1→Y3 compounded ≈ +0.10%.
+    const p = projectStabilizedNOI(baseRecon);
+    // Permissive check — calibration value depends on edgar-same-store-growth.json.
+    // Verify the lift is significantly LESS than the old generic 11% (i.e. calibrated).
+    expect(p.y3.rev).toBeLessThan(1_050_000);
+    expect(p.y3.rev).toBeGreaterThanOrEqual(995_000);
+    expect(p.assumptions.basis).toMatch(/Calibrated to FY/);
   });
 
   test("Y3 inflates expenses by ~5% (2.5%/yr × 2)", () => {
@@ -196,12 +208,22 @@ describe("projectStabilizedNOI", () => {
     expect(p.y3.exp).toBeCloseTo(420_000, 0);
   });
 
-  test("Y3 NOI > Y1 NOI on stabilizing book", () => {
-    const p = projectStabilizedNOI(baseRecon);
+  test("Y3 NOI > Y1 NOI under generic ECRI (useCalibration:false)", () => {
+    // The 11% ECRI generic lift produces NOI growth Y1→Y3.
+    const p = projectStabilizedNOI(baseRecon, { useCalibration: false });
     expect(p.y3.noi).toBeGreaterThan(p.y1.noi);
   });
 
-  test("Y5 NOI > Y3 NOI under 3%/2.5% growth", () => {
+  test("Y3 NOI may decline vs Y1 NOI under calibrated flat-growth scenario", () => {
+    // FY2025 cross-REIT same-store growth is essentially flat (+0.05%/yr).
+    // With expense inflation (2.5%/yr) outpacing revenue, Y3 NOI compresses.
+    // This is the institutional reality the calibration captures — and the
+    // delta vs the generic 11% lift is ~$80K on a $600K NOI baseline.
+    const p = projectStabilizedNOI(baseRecon);
+    expect(p.y3.noi).toBeLessThan(p.y1.noi);
+  });
+
+  test("Y5 NOI > Y3 NOI under 3%/2.5% growth (regardless of Y1→Y3 calibration)", () => {
     const p = projectStabilizedNOI(baseRecon);
     expect(p.y5.noi).toBeGreaterThan(p.y3.noi);
   });

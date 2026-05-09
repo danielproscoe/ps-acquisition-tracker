@@ -349,11 +349,36 @@ export function projectStabilizedNOI(reconstructed, opts = {}) {
       basis = `${dealType.toUpperCase()}: No pro forma EGI provided — applied ${(lift*100).toFixed(0)}% Y1→Y3 revenue lift fallback. Pass proFormaEGI for tighter projection.`;
     }
   } else {
-    // STABILIZED — current behavior
-    y3Rev = y1Rev * (1 + Y1_TO_Y3_REV_LIFT);
-    y3Exp = y1Exp * (1 + Y1_TO_Y3_EXP_INFLATION);
-    y3NOI = y3Rev - y3Exp;
-    basis = "Y1→Y3: ECRI 8%/yr on rolled share + concession recovery (Class A freezer-book yields 10-12% over 24 mo per framework). Y3→Y5: 3% rev / 2.5% exp growth.";
+    // STABILIZED — calibrated to cross-REIT same-store growth from latest
+    // 10-K disclosures (replaces generic 11% Y1→Y3 ECRI lift). Falls back
+    // to generic if calibration data unavailable OR opts.useCalibration === false.
+    const useCalibration = opts.useCalibration !== false; // default true
+    let calibratedLift = null;
+    let calibratedBasis = null;
+    if (useCalibration) {
+      try {
+        // eslint-disable-next-line global-require
+        const { getCalibratedSameStoreGrowth } = require("./data/edgarCompIndex");
+        const cal = getCalibratedSameStoreGrowth();
+        if (cal && cal.y1ToY3Compounded != null) {
+          calibratedLift = cal.y1ToY3Compounded;
+          calibratedBasis = cal.basisText;
+        }
+      } catch (e) { /* graceful fallback */ }
+    }
+
+    if (calibratedLift != null) {
+      y3Rev = y1Rev * (1 + calibratedLift);
+      y3Exp = y1Exp * (1 + Y1_TO_Y3_EXP_INFLATION);
+      y3NOI = y3Rev - y3Exp;
+      basis = `Y1→Y3: ${calibratedBasis} Y3→Y5: 3% rev / 2.5% exp growth.`;
+    } else {
+      // Fallback: generic 11% ECRI lift
+      y3Rev = y1Rev * (1 + Y1_TO_Y3_REV_LIFT);
+      y3Exp = y1Exp * (1 + Y1_TO_Y3_EXP_INFLATION);
+      y3NOI = y3Rev - y3Exp;
+      basis = "Y1→Y3: ECRI 8%/yr on rolled share + concession recovery (Class A freezer-book yields 10-12% over 24 mo per framework — generic fallback when REIT calibration data is unavailable). Y3→Y5: 3% rev / 2.5% exp growth.";
+    }
   }
 
   const y5Rev = y3Rev * (1 + Y3_TO_Y5_REV_GROWTH);
