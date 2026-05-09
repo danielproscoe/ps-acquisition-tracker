@@ -1,0 +1,219 @@
+{
+  "schema": "storvex.edgar-8k-transactions.v1",
+  "generatedAt": "2026-05-09T21:09:36.809Z",
+  "totalTransactions": 14,
+  "transactionsWithPrice": 2,
+  "aggregatePriceTotalM": 1765,
+  "transactions": [
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2026-03-17",
+      "accessionNumber": "0001193125-26-109593",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312526109593/d110292d8k.htm",
+      "itemCodes": [
+        "1.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:33.405Z",
+      "acquisitionDate": "March 16, 2026"
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2026-03-16",
+      "accessionNumber": "0001193125-26-107159",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312526107159/d121595d8k.htm",
+      "itemCodes": [
+        "7.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:33.672Z",
+      "acquisitionDate": "March 16, 2026"
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2026-02-12",
+      "accessionNumber": "0001193125-26-048660",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312526048660/d793613d8k.htm",
+      "itemCodes": [
+        "5.02"
+      ],
+      "extractedAt": "2026-05-09T21:09:33.913Z",
+      "aggregatePriceMillion": 25,
+      "priceSourceText": "common units of the Company's operating partnership for an aggregate purchase price of $25 million and $5 million, respectively. The purchase price was based on the Company's determination of the fair value of the OP Options using a Monte Carlo Valuation simu",
+      "acquisitionDate": "February 10, 2026"
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2026-01-07",
+      "accessionNumber": "0001628280-26-001156",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026001156/psa-20260107.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:34.155Z",
+      "numFacilities": 87,
+      "nrsfMillion": 6.1,
+      "acquisitionDate": "January 7, 2026"
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2023-08-02",
+      "accessionNumber": "0001193125-23-201692",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312523201692/d499749d8k.htm",
+      "itemCodes": [
+        "5.03",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:34.394Z",
+      "acquisitionDate": "August 2, 2023"
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2023-07-24",
+      "accessionNumber": "0001193125-23-191829",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312523191829/d539766d8k.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:34.624Z",
+      "numFacilities": 127,
+      "nrsfMillion": 9.4
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-07-20",
+      "accessionNumber": "0001193125-23-190116",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523190116/d395569d8k.htm",
+      "itemCodes": [
+        "2.01",
+        "3.02",
+        "5.02",
+        "7.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:35.370Z",
+      "acquisitionDate": "July 20, 2023"
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-07-11",
+      "accessionNumber": "0001193125-23-185348",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523185348/d495385d8k.htm",
+      "itemCodes": [
+        "8.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:35.610Z",
+      "seller": "Joint Ventures",
+      "acquisitionDate": "June 6, 2023"
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-06-12",
+      "accessionNumber": "0001193125-23-164949",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523164949/d498994d8k.htm",
+      "itemCodes": [
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:35.843Z"
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-05-19",
+      "accessionNumber": "0001193125-23-149320",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523149320/d486997d8k.htm",
+      "itemCodes": [
+        "1.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:36.086Z",
+      "acquisitionDate": "May 18, 2023"
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-04-03",
+      "accessionNumber": "0001193125-23-089776",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523089776/d487333d8k.htm",
+      "itemCodes": [
+        "1.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:36.327Z",
+      "acquisitionDate": "April 2, 2023"
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2023-01-03",
+      "accessionNumber": "0001393311-23-000004",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000139331123000004/psa-20230103.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:35.123Z",
+      "numFacilities": 32,
+      "nrsfMillion": 1.6,
+      "acquisitionDate": "January 3, 2023"
+    },
+    {
+      "issuer": "CUBE",
+      "cik": 1298675,
+      "issuerName": "CubeSmart",
+      "filingDate": "2021-12-09",
+      "accessionNumber": "0001298675-21-000050",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867521000050/cube-20211209x8k.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:36.554Z",
+      "aggregatePriceMillion": 1740,
+      "priceSourceText": "Company. Pursuant to the Merger Agreement, the Company paid aggregate consideration of approximately $1.74 billion in cash, which included approximately $40.9 million used to repay LAACO debt at or prior to the Closing. Forward-Looking Statements This Current",
+      "acquisitionDate": "December 9, 2021"
+    },
+    {
+      "issuer": "CUBE",
+      "cik": 1298675,
+      "issuerName": "CubeSmart",
+      "filingDate": "2021-11-15",
+      "accessionNumber": "0001104659-21-139328",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000110465921139328/tm2132921d1_8k.htm",
+      "itemCodes": [
+        "1.01",
+        "7.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:09:36.799Z",
+      "acquisitionDate": "November 15, 2021"
+    }
+  ]
+}
