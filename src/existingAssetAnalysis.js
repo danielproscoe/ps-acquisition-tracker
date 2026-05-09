@@ -670,6 +670,20 @@ export function analyzeExistingAsset(input, opts = {}) {
     marketRents,
   });
 
+  // EDGAR cross-REIT institutional cost-basis index for the subject's state.
+  // Pulled from src/data/edgar-comp-index.json (derived from PSA + EXR + CUBE
+  // 10-K Schedule III filings). Returns null if no REIT data for the state.
+  // Accessor is dynamically required to avoid pulling the JSON when the
+  // module is imported in environments without it (e.g. some test paths).
+  let edgarComp = null;
+  try {
+    // eslint-disable-next-line global-require
+    const { formatEDGARCitation } = require("./data/edgarCompIndex");
+    edgarComp = formatEDGARCitation(snapshot.state);
+  } catch (e) {
+    edgarComp = null;
+  }
+
   return {
     snapshot,
     reconstructed,
@@ -683,6 +697,7 @@ export function analyzeExistingAsset(input, opts = {}) {
     verdict,
     comps,
     rentSanity,
+    edgarComp,
     generatedAt: new Date().toISOString(),
   };
 }

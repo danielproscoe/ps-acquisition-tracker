@@ -195,6 +195,35 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       source: analysis.rentSanity.source || "SpareFoot",
     } : null,
 
+    // Cross-REIT institutional cost-basis index for the subject's state.
+    // Pulled from the SEC EDGAR Schedule III ingestion pipeline. Every
+    // contributing REIT cites a specific SEC accession number + filing URL.
+    edgar_cross_reit: analysis.edgarComp ? {
+      state_code: analysis.edgarComp.stateCode,
+      state_name: analysis.edgarComp.stateName,
+      total_facilities: numOrNull(analysis.edgarComp.totalFacilities),
+      total_nrsf_thousands: numOrNull(analysis.edgarComp.totalNRSFThousands),
+      total_gross_carrying_thou: numOrNull(analysis.edgarComp.totalGrossCarryingThou),
+      weighted_psf: numOrNull(analysis.edgarComp.weightedPSF),
+      avg_per_facility_m: numOrNull(analysis.edgarComp.avgPerFacilityM),
+      depreciation_ratio: numOrNull(analysis.edgarComp.depreciationRatio),
+      num_issuers_contributing: numOrNull(analysis.edgarComp.numIssuersContributing),
+      issuers: Array.isArray(analysis.edgarComp.issuers) ? analysis.edgarComp.issuers.map((i) => ({
+        issuer: i.issuer,
+        issuer_name: i.issuerName,
+        source_label: i.sourceLabel,
+        facilities: numOrNull(i.facilities),
+        nrsf_thousands: numOrNull(i.nrsfThousands),
+        total_gross_thou: numOrNull(i.totalGrossThou),
+        implied_psf: numOrNull(i.impliedPSF),
+        depreciation_ratio: numOrNull(i.depreciationRatio),
+        filing_date: i.filingDate || null,
+        report_date: i.reportDate || null,
+        accession_number: i.accessionNumber || null,
+        filing_url: i.filingURL || null,
+      })) : [],
+    } : null,
+
     extraction: extractionMeta ? {
       om_filename: extractionMeta.filename || null,
       confidence: numOrNull(extractionMeta.confidence),

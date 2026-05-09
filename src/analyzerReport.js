@@ -378,7 +378,54 @@ function renderICMemo({ memo }) {
 </section>`;
 }
 
-function renderAudit({ snapshot, ps }) {
+function renderEDGARCrossREIT({ snapshot, analysis }) {
+  const e = analysis.edgarComp;
+  if (!e) return "";
+  return `
+<section class="page section">
+  <h2 class="section-h">INSTITUTIONAL CROSS-REIT COST BASIS · ${safe(e.stateName)} · SEC EDGAR PRIMARY-SOURCE</h2>
+  <div class="edgar-headline">
+    <div class="edgar-tile"><div class="ek-l">Total Facilities</div><div class="ek-v">${fmtN(e.totalFacilities)}</div></div>
+    <div class="edgar-tile"><div class="ek-l">NRSF (disclosed)</div><div class="ek-v">${e.totalNRSFThousands ? (e.totalNRSFThousands / 1000).toFixed(1) + "M SF" : "—"}</div></div>
+    <div class="edgar-tile edgar-accent"><div class="ek-l">Weighted $/SF</div><div class="ek-v">${e.weightedPSF != null ? "$" + e.weightedPSF : "—"}</div></div>
+    <div class="edgar-tile"><div class="ek-l">$ / Facility (avg)</div><div class="ek-v">${e.avgPerFacilityM != null ? "$" + e.avgPerFacilityM + "M" : "—"}</div></div>
+    <div class="edgar-tile"><div class="ek-l">Portfolio Depreciation</div><div class="ek-v">${e.depreciationRatio != null ? (e.depreciationRatio * 100).toFixed(1) + "%" : "—"}</div></div>
+    <div class="edgar-tile"><div class="ek-l">Cross-validated by</div><div class="ek-v">${e.numIssuersContributing} of 3 REITs</div></div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="th-name">REIT</th>
+        <th class="th-name">Source Label</th>
+        <th class="th-num">Facilities</th>
+        <th class="th-num">NRSF (K)</th>
+        <th class="th-num">Gross Carrying ($K)</th>
+        <th class="th-num">Implied $/SF</th>
+        <th class="th-num">Dep%</th>
+        <th class="th-name">SEC EDGAR Citation</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${e.issuers.map((i) => `<tr>
+        <td class="td-name"><b>${safe(i.issuer)}</b></td>
+        <td class="td-name">${safe(i.sourceLabel)}</td>
+        <td class="td-num">${fmtN(i.facilities)}</td>
+        <td class="td-num">${i.nrsfThousands != null ? fmtN(i.nrsfThousands) : "—"}</td>
+        <td class="td-num">${fmt$Full(i.totalGrossThou)}</td>
+        <td class="td-num td-accent">${i.impliedPSF != null ? "$" + i.impliedPSF : "—"}</td>
+        <td class="td-num">${i.depreciationRatio != null ? (i.depreciationRatio * 100).toFixed(1) + "%" : "—"}</td>
+        <td class="td-basis"><a href="${i.filingURL}" style="color:#1E2761;text-decoration:underline">${i.accessionNumber}</a> · ${safe(i.filingDate)}</td>
+      </tr>`).join("")}
+    </tbody>
+  </table>
+  <div class="footnote">
+    Cross-REIT institutional cost basis derived from SEC EDGAR 10-K Schedule III filings (Real Estate and Accumulated Depreciation). Every row links back to the issuer's filing on sec.gov. ${e.numIssuersContributing >= 3 ? "<b>Triple-validated</b> — three independent REIT lenses corroborate this market." : e.numIssuersContributing >= 2 ? "<b>Cross-validated</b> — two independent REIT lenses corroborate this market." : "Single-issuer data point — additional validation desirable."}
+  </div>
+</section>`;
+}
+
+function renderAudit({ snapshot, ps, analysis }) {
+  const e = analysis?.edgarComp;
   return `
 <section class="page section section-last">
   <h2 class="section-h">AUDIT &amp; PROVENANCE</h2>
@@ -390,7 +437,8 @@ function renderAudit({ snapshot, ps }) {
     <tr><td class="ka">Demographics</td><td class="va">ESRI ArcGIS GeoEnrichment 2025 · CY 2025 estimates + FY 2030 projections · 1-3-5 mi geocoded radial rings</td></tr>
     <tr><td class="ka">Operator-Family Index</td><td class="va">3,473 facilities indexed · combined PS + iStorage + NSA family registry, 2026-Q2 vintage</td></tr>
     <tr><td class="ka">Market Rents</td><td class="va">SpareFoot live submarket scan · CC + drive-up rates blended at subject CC mix</td></tr>
-    <tr><td class="ka">Sale Comps</td><td class="va">REIT 10-K transactions · Cushman &amp; Wakefield · SSA Global · MMX (Marcus &amp; Millichap)</td></tr>
+    ${e ? `<tr><td class="ka">Cross-REIT Cost Basis</td><td class="va"><b>SEC EDGAR primary-source</b> · ${e.numIssuersContributing} institutional REIT(s) cross-validating ${safe(e.stateName)} · ${fmtN(e.totalFacilities)} facilities · ${e.weightedPSF != null ? "$" + e.weightedPSF + "/SF weighted basis" : "no weighted basis (NRSF not disclosed)"} · accession #s in cross-REIT block above</td></tr>` : ""}
+    <tr><td class="ka">Sale Comps</td><td class="va">REIT 10-K transactions · Cushman &amp; Wakefield · SSA Global · MMX (Marcus &amp; Millichap)${e ? " · supplemented by SEC EDGAR Schedule III ingestion (5,818 facilities indexed across 3 institutional REITs)" : ""}</td></tr>
     <tr><td class="ka">Framework</td><td class="va">Storvex Valuation Framework v2 · 8-step institutional methodology · calibrated on Red Rock Mega Storage Reno NV (April 2026 PASS log)</td></tr>
     <tr><td class="ka">Schema · Document ID</td><td class="va">storvex.asset-analyzer.v1 · ${docIdFrom(snapshot)}</td></tr>
   </table>
@@ -571,6 +619,14 @@ function reportCSS() {
   .ms-list { list-style: disc; padding-left: 20px; font-size: 12px; line-height: 1.6; color: #334155; }
   .ms-list li { margin-bottom: 4px; }
 
+  /* ── EDGAR cross-REIT block — primary-source citation showcase ────────── */
+  .edgar-headline { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+  .edgar-tile { background: #F0F4FA; padding: 12px 14px; border-radius: 8px; border-left: 3px solid #1E2761; }
+  .edgar-tile.edgar-accent { background: #FFF8E7; border-left: 3px solid #C9A84C; }
+  .ek-l { font-size: 9px; letter-spacing: 0.08em; color: #64748B; text-transform: uppercase; font-weight: 700; }
+  .ek-v { font-size: 16px; font-weight: 800; color: #1E2761; font-family: 'Space Mono', monospace; margin-top: 4px; }
+  .edgar-tile.edgar-accent .ek-v { color: #A08530; }
+
   /* ── Audit / provenance table ─────────────────────────────────────────── */
   .audit-table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
   .audit-table td { padding: 8px 12px; vertical-align: top; border-bottom: 1px solid #E2E8F0; }
@@ -632,8 +688,9 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo }) {
   ${renderValuationMatrix({ analysis, snapshot })}
   ${renderRentSanity({ rentSanity })}
   ${renderComps({ analysis })}
+  ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderICMemo({ memo })}
-  ${renderAudit({ snapshot, ps })}
+  ${renderAudit({ snapshot, ps, analysis })}
   ${renderFooter({ docId })}
 </body>
 </html>`;

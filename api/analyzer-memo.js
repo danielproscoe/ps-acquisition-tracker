@@ -41,6 +41,7 @@ YOU RECEIVE structured underwriting outputs:
   • GENERIC BUYER-LENS — same OM through third-party-managed institutional benchmarks. Reference ONLY when explaining why a self-managed REIT wins the deal vs the field; do not co-equal it with the institutional lens.
   • ENRICHMENT — auto-pulled data layer: ESRI 1-3-5 mile demographics (pop, HHI, growth, renter mix, storage MPI), operator-family proximity (distance to nearest comparable facility, count within 35 mi = district presence), market rents. This is the data an institutional underwriter would pull manually before underwriting — Storvex pulled it in parallel during OM extraction.
   • RENT SANITY (when present) — independent SpareFoot cross-check on seller's implied effective rent vs blended submarket rate. Three severities: "warn" (>15% above market — pro forma may be aggressive), "info" (>15% below — value-add lever or distressed signal), "ok" (within ±15% — pro forma defensible). When this field is present, you MUST cite it explicitly in the memo — it's the independent-underwriter signal that distinguishes Storvex from a buyer-lens reconstruction of seller's narrative.
+  • EDGAR CROSS-REIT (when present) — institutional cost-basis index for the subject's state, derived from SEC EDGAR 10-K Schedule III filings of the largest storage REITs (PSA, EXR, CUBE — total 5,818 facilities and $65B in gross carrying value indexed). Includes weighted $/SF cost basis, average $/facility, portfolio depreciation ratio, and per-REIT breakdown. When this field is present and weightedPSF is non-null, you MUST cite it. Compare the subject's $/SF cost basis (from snapshot.pricePerSF or derived) to the institutional weighted $/SF for the state — this is the most defensible market-cost comparison available. State whether the subject is "in line with", "below", or "above" institutional cost basis. When numIssuersContributing >= 3, call the data point "triple-validated by all three major institutional REITs" — that's the credibility moment.
 
 YOU DO NOT INVENT NUMBERS. Every figure in the memo must trace to one of the three input sources above. If a number isn't present, do not write it. If demographics or operator-family data are missing, say so and recommend the deal team pull them before IC.
 
@@ -128,6 +129,24 @@ module.exports = async (req, res) => {
     // effective rent. Null when marketRents enrichment hadn't completed at
     // analysis time. Memo prompt has explicit instructions on how to surface.
     rentSanity: a.rentSanity || null,
+    // EDGAR cross-REIT institutional cost-basis index for the subject's
+    // state. Pulled from SEC EDGAR Schedule III ingestion. Trim to keep
+    // the prompt context budget reasonable — keep weightedPSF, sample
+    // size, and per-issuer accession numbers (the citation moment).
+    edgarComp: a.edgarComp ? {
+      stateCode: a.edgarComp.stateCode,
+      stateName: a.edgarComp.stateName,
+      totalFacilities: a.edgarComp.totalFacilities,
+      totalNRSFThousands: a.edgarComp.totalNRSFThousands,
+      weightedPSF: a.edgarComp.weightedPSF,
+      avgPerFacilityM: a.edgarComp.avgPerFacilityM,
+      depreciationRatio: a.edgarComp.depreciationRatio,
+      numIssuersContributing: a.edgarComp.numIssuersContributing,
+      issuers: Array.isArray(a.edgarComp.issuers) ? a.edgarComp.issuers.map((i) => ({
+        issuer: i.issuer, facilities: i.facilities, impliedPSF: i.impliedPSF,
+        accessionNumber: i.accessionNumber, filingDate: i.filingDate,
+      })) : [],
+    } : null,
   });
 
   // Trim enrichment payload — keep only fields the IC memo cites.
