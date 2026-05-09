@@ -11,6 +11,7 @@ import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existi
 import { computeBuyerLens, PS_LENS } from "../buyerLensProfiles";
 import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
+import { openAnalyzerReport } from "../analyzerReport";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
 
 // ─── Brand tokens — match QuickLookupPanel + CLAUDE.md §3 ─────────────────
@@ -458,6 +459,17 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     }
   }, [analysis, psLens, enrichment, extractionMeta, memo, savedId, notify]);
 
+  // ── Export Report — Goldman-exec PDF deliverable (opens in new tab, browser prints)
+  const handleExportReport = useCallback(() => {
+    if (!analysis) return;
+    try {
+      openAnalyzerReport({ analysis, psLens, enrichment, memo });
+      if (notify) notify("Report opened in new tab · click 'Save as PDF' to print", "success");
+    } catch (e) {
+      if (notify) notify(`Report failed: ${e.message || e}`, "error");
+    }
+  }, [analysis, psLens, enrichment, memo, notify]);
+
   const handleSave = useCallback(async () => {
     if (!analysis || !fbSet) return;
     setSaving(true);
@@ -519,6 +531,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
         onClear={clearAll}
         onSave={handleSave}
         onExport={handleExportToWarehouse}
+        onExportReport={handleExportReport}
         canSave={!!analysis}
         canExport={!!analysis}
         saving={saving}
@@ -624,7 +637,7 @@ function OMDropZone({ onFile, extracting, meta }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────────────────
-function Header({ onLoadDemo, onClear, onSave, onExport, canSave, canExport, saving, savedId }) {
+function Header({ onLoadDemo, onClear, onSave, onExport, onExportReport, canSave, canExport, saving, savedId }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
       <div>
@@ -647,6 +660,14 @@ function Header({ onLoadDemo, onClear, onSave, onExport, canSave, canExport, sav
           title="Export structured JSON for institutional data warehouse / downstream scoring layer ingestion"
         >
           ⤓ Push to Warehouse
+        </button>
+        <button
+          onClick={onExportReport}
+          disabled={!canExport}
+          style={{ ...btnGhost, opacity: !canExport ? 0.5 : 1, cursor: !canExport ? "not-allowed" : "pointer", color: GOLD, borderColor: `${GOLD}66`, background: "rgba(201,168,76,0.10)", fontWeight: 700 }}
+          title="Open Goldman-exec institutional report in a new tab · browser handles Save-as-PDF"
+        >
+          📄 Export Report
         </button>
         <button
           onClick={onSave}
