@@ -20,7 +20,7 @@ export const STORAGE_REITS = {
     notes: "#2 US storage REIT. Acquired Life Storage (LSI) in July 2023. Largest pure-storage portfolio post-PSA-NSA merger.",
   },
   CUBE: {
-    cik: 1298946,
+    cik: 1298675,  // verified via SEC company_tickers.json 2026-05-09 — prior 1298946 was DiamondRock Hospitality
     name: "CubeSmart",
     ticker: "CUBE",
     notes: "#3 US storage REIT. Significant 3rd-party management business (CubeSmart-managed) that scales beyond owned facilities.",
@@ -52,6 +52,21 @@ export const STORAGE_REITS = {
     name: "SmartStop Self Storage REIT, Inc.",
     ticker: "SMA",
     notes: "Non-traded REIT. Smaller portfolio but files quarterly. Useful for tertiary-market comps.",
+  },
+  // Global Self Storage — small public storage REIT, ~13 facilities. Niche but
+  // captures small-MSA / suburban storage comp data the larger REITs miss.
+  SELF: {
+    cik: 1031235,
+    name: "Global Self Storage, Inc.",
+    ticker: "SELF",
+    notes: "Small-cap storage REIT (~13 facilities). Useful for small-MSA / suburban comp coverage where larger REITs don't operate.",
+  },
+  // Strategic Storage Trust VI — non-traded REIT, smaller portfolio.
+  SGST: {
+    cik: 1852575,
+    name: "Strategic Storage Trust VI, Inc.",
+    ticker: "SGST",
+    notes: "Non-traded REIT (Strategic Storage Trust series). Adds breadth to comp database.",
   },
 };
 

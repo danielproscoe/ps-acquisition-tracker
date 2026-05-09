@@ -1,0 +1,19 @@
+{
+  "issuer": "SMA",
+  "cik": 1585389,
+  "issuerName": "SmartStop Self Storage REIT, Inc.",
+  "form": "10-K",
+  "filingDate": "2026-02-27",
+  "reportDate": "2025-12-31",
+  "accessionNumber": "0001193125-26-082573",
+  "filingURL": "https://www.sec.gov/Archives/edgar/data/1585389/000119312526082573/ck0001585389-20251231.htm",
+  "extractedAt": "2026-05-09T20:31:15.187Z",
+  "extractionMethod": "Schedule III regex parser v2 (issuer-agnostic)",
+  "msaCount": 0,
+  "totals": {
+    "facilities": 0,
+    "nrsfThousands": 0,
+    "totalGrossThou": 0
+  },
+  "rows": []
+}
