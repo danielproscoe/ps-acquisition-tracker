@@ -1,0 +1,448 @@
+{
+  "schema": "storvex.edgar-8k-transactions-claude.v1",
+  "generatedAt": "2026-05-09T21:16:25.843Z",
+  "totalCandidates": 14,
+  "successfulExtractions": 12,
+  "transactions": [
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2026-03-16",
+      "accessionNumber": "0001193125-26-107159",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312526107159/d121595d8k.htm",
+      "itemCodes": [
+        "7.01"
+      ],
+      "extractedAt": "2026-05-09T21:15:40.310Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 5343,
+      "tokenUsage": {
+        "input": 1737,
+        "output": 402,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": "2026-03-16",
+        "is_closed": false,
+        "buyer": "Public Storage",
+        "seller": null,
+        "target_entity": "National Storage Affiliates Trust",
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": null,
+        "cap_rate_pct": null,
+        "consideration_type": null,
+        "key_quote": "On March 16, 2026, Public Storage, a Maryland real estate investment trust (the \"Company\"), and National Storage Affiliates Trust, a Maryland real estate investment trust (\"NSA\"), issued a joint press release announcing the execution of an Agreement and Plan of Merger (the \"Merger Agreement\"), dated as of March 16, 2026, by and among NSA, NSA OP, LP, a Delaware limited partnership (\"NSA OP\"), the Company, Public Storage OP, L.P., a Delaware limited partnership, Pelican Merger Sub I, LLC, a Maryland limited liability company (\"Merger Sub I\"), and Pelican Merger Sub II, LLC, a Delaware limited liability company (\"Merger Sub II\"), pursuant to which, upon the terms and subject to the conditions set forth therein, (i) NSA will merge with and into Merger Sub I, with Merger Sub I continuing as the surviving entity, and (ii) Merger Sub II will merge with and into NSA OP, with NSA OP continuing as the surviving entity and a subsidiary of Public Storage Operating Company, a Maryland real estate investment trust."
+      }
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2026-02-12",
+      "accessionNumber": "0001193125-26-048660",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312526048660/d793613d8k.htm",
+      "itemCodes": [
+        "5.02"
+      ],
+      "extractedAt": "2026-05-09T21:15:43.763Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 2435,
+      "tokenUsage": {
+        "input": 1089,
+        "output": 207,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "other",
+        "is_storage_related": false,
+        "acquisition_date": null,
+        "is_closed": null,
+        "buyer": null,
+        "seller": null,
+        "target_entity": null,
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": null,
+        "cap_rate_pct": null,
+        "consideration_type": null,
+        "key_quote": "On February 10, 2026, the Company entered into agreements to sell to Mr. Mitra and Mr. Havner out-of-the-money non-qualified options (\"OP Options\") to purchase common units of the Company's operating partnership for an aggregate purchase price of $25 million and $5 million, respectively."
+      }
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2026-01-07",
+      "accessionNumber": "0001628280-26-001156",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026001156/psa-20260107.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01"
+      ],
+      "extractedAt": "2026-05-09T21:15:46.598Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 2577,
+      "tokenUsage": {
+        "input": 1145,
+        "output": 188,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "acquisition",
+        "is_storage_related": true,
+        "acquisition_date": "2025-12-31",
+        "is_closed": true,
+        "buyer": "Public Storage",
+        "seller": null,
+        "target_entity": null,
+        "num_facilities": 87,
+        "nrsf_million": 6.1,
+        "aggregate_price_million": 942.2,
+        "cap_rate_pct": null,
+        "consideration_type": null,
+        "key_quote": "We acquired 87 self-storage facilities with 6.1 million net rentable square feet for $942.2 million for the year ended December 31, 2025."
+      }
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2023-08-02",
+      "accessionNumber": "0001193125-23-201692",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312523201692/d499749d8k.htm",
+      "itemCodes": [
+        "5.03",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:15:50.809Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 3964,
+      "tokenUsage": {
+        "input": 1956,
+        "output": 191,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": "2023-08-14",
+        "is_closed": false,
+        "buyer": "Public Storage OP, L.P. (PSA OP) / New PSA",
+        "seller": null,
+        "target_entity": "Public Storage (PSA)",
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": null,
+        "cap_rate_pct": null,
+        "consideration_type": "stock",
+        "key_quote": "The Merger is expected to be effective as of August 14, 2023 (the \"Effective Time\")."
+      }
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2023-07-24",
+      "accessionNumber": "0001193125-23-191829",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000119312523191829/d539766d8k.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:15:54.497Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 3369,
+      "tokenUsage": {
+        "input": 1327,
+        "output": 255,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "acquisition",
+        "is_storage_related": true,
+        "acquisition_date": "2023-07-24",
+        "is_closed": false,
+        "buyer": "Public Storage (PSA)",
+        "seller": null,
+        "target_entity": "BREIT Simply Storage LLC",
+        "num_facilities": 127,
+        "nrsf_million": 9.4,
+        "aggregate_price_million": 2200,
+        "cap_rate_pct": null,
+        "consideration_type": "cash",
+        "key_quote": "On Monday, July 24, 2023, the Company announced that it entered into a definitive agreement to acquire BREIT Simply Storage LLC, a self-storage company that owns and operates 127 self-storage facilities (9.4 million square feet) and manages 25 self-storage facilities (1.8 million square feet) for third parties, for a cash acquisition price of $2.2 billion (the \"Acquisition\")."
+      }
+    },
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "filingDate": "2023-01-03",
+      "accessionNumber": "0001393311-23-000004",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000139331123000004/psa-20230103.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:15:58.873Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 4109,
+      "tokenUsage": {
+        "input": 1852,
+        "output": 221,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "acquisition",
+        "is_storage_related": true,
+        "acquisition_date": "2022-12-31",
+        "is_closed": true,
+        "buyer": "Public Storage",
+        "seller": null,
+        "target_entity": "Neighborhood Storage",
+        "num_facilities": 28,
+        "nrsf_million": 1.2,
+        "aggregate_price_million": 192.4,
+        "cap_rate_pct": null,
+        "consideration_type": null,
+        "key_quote": "The activity includes the acquisition of Neighborhood Storage, a high-quality portfolio comprising 28 properties with 1.2 million net rentable square feet for $192.4 million, which includes 26 properties closed in December 2022 and two properties that are under construction and expected to close in early 2023."
+      }
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-07-11",
+      "accessionNumber": "0001193125-23-185348",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523185348/d495385d8k.htm",
+      "itemCodes": [
+        "8.01"
+      ],
+      "extractedAt": "2026-05-09T21:16:05.473Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 2922,
+      "tokenUsage": {
+        "input": 1921,
+        "output": 282,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": null,
+        "is_closed": false,
+        "buyer": "Extra Space Storage Inc.",
+        "seller": null,
+        "target_entity": "Life Storage, Inc.",
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": null,
+        "cap_rate_pct": null,
+        "consideration_type": null,
+        "key_quote": "The Merger Agreement provides for, subject to the terms and conditions thereof, the combination of Life Storage and Extra Space through a series of transactions including, among others, (i) a merger of Extra Space Merger Sub with and into Life Storage, with Life Storage continuing as the surviving entity and a wholly owned subsidiary of Extra Space (the \"Company Merger\") and (ii) a merger of Extra Space OP Merger Sub with and into Life Storage OP, with Life Storage OP continuing as the surviving entity and a wholly owned indirect subsidiary of Extra Space OP (the \"Partnership Merger\" and, together with the Company Merger, the \"Mergers\")."
+      }
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-06-12",
+      "accessionNumber": "0001193125-23-164949",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523164949/d498994d8k.htm",
+      "itemCodes": [
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:16:09.861Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 4040,
+      "tokenUsage": {
+        "input": 1688,
+        "output": 288,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": "2023-04-02",
+        "is_closed": false,
+        "buyer": "Extra Space Storage Inc.",
+        "seller": null,
+        "target_entity": "Life Storage, Inc.",
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": null,
+        "cap_rate_pct": null,
+        "consideration_type": null,
+        "key_quote": "The Merger Agreement provides for, subject to the terms and conditions thereof, the combination of Extra Space and Life Storage through a series of transactions including, among others, (i) a merger of Extra Space Merger Sub with and into Life Storage, with Life Storage continuing as the surviving entity and a wholly owned subsidiary of Extra Space (the \"Company Merger\") and (ii) a merger of Extra Space OP Merger Sub with and into Life Storage OP, with Life Storage OP continuing as the surviving entity and a wholly owned indirect subsidiary of Extra Space OP (the \"Partnership Merger\" and, together with the Company Merger, the \"Mergers\")."
+      }
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-05-19",
+      "accessionNumber": "0001193125-23-149320",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523149320/d486997d8k.htm",
+      "itemCodes": [
+        "1.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:16:14.064Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 3922,
+      "tokenUsage": {
+        "input": 1742,
+        "output": 288,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": "2023-05-18",
+        "is_closed": false,
+        "buyer": "Extra Space Storage Inc.",
+        "seller": null,
+        "target_entity": "Life Storage, Inc.",
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": null,
+        "cap_rate_pct": null,
+        "consideration_type": null,
+        "key_quote": "The Merger Agreement provides for, subject to the terms and conditions thereof, the combination of Extra Space and Life Storage through a series of transactions including, among others, (i) a merger of Extra Space Merger Sub with and into Life Storage, with Life Storage continuing as the surviving entity and a wholly owned subsidiary of Extra Space (the \"Company Merger\") and (ii) a merger of Extra Space OP Merger Sub with and into Life Storage OP, with Life Storage OP continuing as the surviving entity and a wholly owned indirect subsidiary of Extra Space OP (the \"Partnership Merger\" and, together with the Company Merger, the \"Mergers\")."
+      }
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "filingDate": "2023-04-03",
+      "accessionNumber": "0001193125-23-089776",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000119312523089776/d487333d8k.htm",
+      "itemCodes": [
+        "1.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:16:18.441Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 4052,
+      "tokenUsage": {
+        "input": 1750,
+        "output": 259,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": "2023-04-02",
+        "is_closed": false,
+        "buyer": "Extra Space Storage Inc.",
+        "seller": null,
+        "target_entity": "Life Storage, Inc.",
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": null,
+        "cap_rate_pct": null,
+        "consideration_type": "stock",
+        "key_quote": "At the Company Merger Effective Time, each share of common stock, par value $0.01 per share, of Life Storage (\"Life Storage Common Stock\") issued and outstanding immediately prior to the Company Merger Effective Time...will be automatically converted into the right to receive 0.895 (the \"Exchange Ratio\") validly issued, fully paid and non-assessable shares of Extra Space Common Stock (the \"Merger Consideration\"), together with cash in lieu of fractional shares, without interest."
+      }
+    },
+    {
+      "issuer": "CUBE",
+      "cik": 1298675,
+      "issuerName": "CubeSmart",
+      "filingDate": "2021-12-09",
+      "accessionNumber": "0001298675-21-000050",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867521000050/cube-20211209x8k.htm",
+      "itemCodes": [
+        "7.01",
+        "8.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:16:21.503Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 2794,
+      "tokenUsage": {
+        "input": 1344,
+        "output": 198,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": "2021-12-09",
+        "is_closed": true,
+        "buyer": "CubeSmart",
+        "seller": null,
+        "target_entity": "LAACO",
+        "num_facilities": null,
+        "nrsf_million": null,
+        "aggregate_price_million": 1740,
+        "cap_rate_pct": null,
+        "consideration_type": "cash",
+        "key_quote": "Pursuant to the Merger Agreement, the Company paid aggregate consideration of approximately $1.74 billion in cash, which included approximately $40.9 million used to repay LAACO debt at or prior to the Closing."
+      }
+    },
+    {
+      "issuer": "CUBE",
+      "cik": 1298675,
+      "issuerName": "CubeSmart",
+      "filingDate": "2021-11-15",
+      "accessionNumber": "0001104659-21-139328",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000110465921139328/tm2132921d1_8k.htm",
+      "itemCodes": [
+        "1.01",
+        "7.01",
+        "9.01"
+      ],
+      "extractedAt": "2026-05-09T21:16:25.842Z",
+      "extractionMethod": "Claude Sonnet 4.6 + structured-output prompt",
+      "elapsedMs": 4086,
+      "tokenUsage": {
+        "input": 1759,
+        "output": 292,
+        "cacheRead": 0
+      },
+      "extracted": {
+        "deal_type": "merger",
+        "is_storage_related": true,
+        "acquisition_date": "2021-11-15",
+        "is_closed": false,
+        "buyer": "CubeSmart, L.P.",
+        "seller": "Stability LLC",
+        "target_entity": "LAACO, Ltd.",
+        "num_facilities": 59,
+        "nrsf_million": 4.4,
+        "aggregate_price_million": 1690,
+        "cap_rate_pct": null,
+        "consideration_type": "cash",
+        "key_quote": "Through its acquisition of LAACO, the Company will acquire, for an aggregate gross purchase price, payable in cash, of approximately $1.69 billion, which includes approximately $40.9 million of LAACO debt that will be repaid at or shortly after the closing (the \"Purchase Price\"), exclusive of acquisition-related and financing-related transaction costs, a portfolio of 59 open and operating self-storage properties that contain an aggregate of approximately 4.4 million rentable square feet and LAACO's fifty percent ownership interest in two joint ventures that own and operate two self-storage properties."
+      }
+    }
+  ],
+  "errors": [
+    {
+      "issuer": "PSA",
+      "accessionNumber": "0001193125-26-109593",
+      "error": "Malformed JSON: Expected ',' or '}' after property value in JSON at position 454"
+    },
+    {
+      "issuer": "EXR",
+      "accessionNumber": "0001193125-23-190116",
+      "error": "Malformed JSON: Expected ',' or '}' after property value in JSON at position 443"
+    }
+  ],
+  "tokenUsage": {
+    "input": 19310,
+    "output": 3071,
+    "costApproxUSD": 0.103995
+  }
+}
