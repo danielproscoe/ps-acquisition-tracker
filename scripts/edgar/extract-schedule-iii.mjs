@@ -179,7 +179,10 @@ async function extractIssuer(ticker, options = {}) {
   // looks like the actual schedule, not a TOC / auditor-letter reference.
   // Heuristic: "REAL ESTATE" follows within 200 chars AND a row-data anchor
   // ("Initial Cost" / "Gross carrying" / "Land") within 1500 chars after.
-  const allHits = [...text.matchAll(/SCHEDULE III/gi)];
+  //
+  // Tolerant pattern: SMA's filings sometimes render as "SCHEDUL E III" due
+  // to typography artifacts. Allow optional whitespace inside the word.
+  const allHits = [...text.matchAll(/SCHEDUL\s*E\s*III/gi)];
   if (allHits.length === 0) {
     console.log(`  ✗ "Schedule III" not found anywhere in filing`);
     return null;
@@ -263,7 +266,10 @@ const ISSUER_PARSER_HINTS = {
   PSA:  { aggLevel: "MSA",          columnCount: 11, hasNRSF: true,  nrsfUnit: "thousands", terminators: [/Total\s+\(a\)/i] },
   EXR:  { aggLevel: "STATE_2LETTER", columnCount: 10, hasNRSF: false, terminators: [/Totals?\s+\([\da-z]\)/i] },
   CUBE: { aggLevel: "STATE_NAME",    columnCount: 11, hasNRSF: true,  nrsfUnit: "raw",       terminators: [/Totals?\s+\([\da-z]\)/i] },
-  SMA:  { aggLevel: "PROPERTY",      columnCount: 10, hasNRSF: false, terminators: [/Totals?\s+\([\da-z]\)/i] },
+  // SMA's per-page column-header repeats "Total (1)" so a generic terminator
+  // fires early. Use only the "Notes to Schedule III" terminator OR end of
+  // doc — property-level schedule runs continuously across many page breaks.
+  SMA:  { aggLevel: "PROPERTY",      columnCount: 10, hasNRSF: false, terminators: [/Notes to Schedule III/i, /\(\d+\)\s+Reconciliation/i] },
   SELF: { aggLevel: "PROPERTY",      columnCount: 10, hasNRSF: false, terminators: [/Totals?\s+\([\da-z]\)/i] },
   SGST: { aggLevel: "PROPERTY",      columnCount: 10, hasNRSF: false, terminators: [/Totals?\s+\([\da-z]\)/i] },
 };
@@ -301,8 +307,64 @@ function extractScheduleIIIRowsFromIndex(text, scheduleStart, ticker) {
   if (hints.aggLevel === "STATE_NAME") {
     return parseStateNameFormat(section, scheduleStart, scheduleEnd);
   }
-  // PROPERTY-level: try state format first, fall back to property-name pattern
+  if (hints.aggLevel === "PROPERTY") {
+    return parsePropertyFormat(section, scheduleStart, scheduleEnd);
+  }
   return parseStateFormat(section, scheduleStart, scheduleEnd);
+}
+
+// SMA property-level format — each row is a single facility:
+//   {Property Name} {ST} ${Encumbrance} ${Land Init} ${Bldg Init} ${Total Init}
+//   ${Adjustments} ${Land Gross} ${Bldg Gross} ${Total Gross} ({Accum Dep})
+//   {Date of Construction} {Date Acquired}
+function parsePropertyFormat(section, scheduleStart, scheduleEnd) {
+  // Anchor on a 2-letter state code preceded by a property name and
+  // followed by 9 numeric columns and date columns. Property name can
+  // contain Roman numerals (II, III), spaces, slashes, etc.
+  // (1) name (greedy back-tracking minimal) (2) state (3) encumb
+  // (4) land_init (5) bldg_init (6) total_init (7) adjustments
+  // (8) land_gross (9) bldg_gross (10) total_gross (11) accum_dep_paren
+  // (12) construction_date (13) acquired_date
+  const VALID_STATES = new Set([
+    "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN",
+    "IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH",
+    "NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT",
+    "VT","VA","WA","WV","WI","WY","PR","ONT", // ONT for Canadian provinces SMA holds
+  ]);
+  // Property name: 1-50 chars, then 2-letter state (or 3-letter for ONT)
+  const rowRe = /([A-Z][A-Za-z][A-Za-z\s\d\-/]{0,50}?)\s+([A-Z]{2,3})\s+\$?\s*([\d,—-]+)\s+([\d,—-]+)\s+([\d,—-]+)\s+([\d,—-]+)\s+([\d,—-]+)(?:\s+\(\d+\))?\s+([\d,—-]+)\s+([\d,—-]+)\s+([\d,—-]+)\s+\(\s*([\d,—-]+)\s*\)\s+([\d/\-]+)\s+(\d{1,2}\/\d{1,2}\/\d{4})/g;
+  const rows = [];
+  let m;
+  while ((m = rowRe.exec(section)) !== null) {
+    const [, rawName, stateCode, encumb, landInit, bldgInit, totalInit, adjustments, landGross, bldgGross, totalGross, accumDep, builtDate, acquiredDate] = m;
+    if (!VALID_STATES.has(stateCode)) continue;
+    const totalGrossThou = parseDollar(totalGross);
+    if (!totalGrossThou || totalGrossThou < 100) continue;
+    const name = rawName.trim();
+    if (name.length < 3 || /^(Description|Initial|Gross|Land|Building|Total|Subtotal|Page|Other)$/i.test(name)) continue;
+
+    rows.push({
+      msa: name + " (" + stateCode + ")",  // store property name + state in same field for downstream consistency
+      stateCode,
+      aggregationLevel: "PROPERTY",
+      numFacilities: 1,
+      nrsfThousands: null,                  // SMA Schedule III doesn't disclose per-property NRSF
+      encumbrancesThou: parseDollar(encumb),
+      landInitialThou: parseDollar(landInit),
+      bldgInitialThou: parseDollar(bldgInit),
+      costsSubsequentThou: parseDollar(adjustments),
+      landGrossThou: parseDollar(landGross),
+      bldgGrossThou: parseDollar(bldgGross),
+      totalGrossThou,
+      accumDepThou: parseDollar(accumDep),
+      impliedPSF: null,                     // requires NRSF
+      impliedPerFacilityM: Math.round((totalGrossThou * 1000) / 100000) / 10,  // single facility
+      depreciationRatio: totalGrossThou > 0 ? Math.round((parseDollar(accumDep) / totalGrossThou) * 1000) / 1000 : null,
+      yearBuilt: builtDate,
+      dateAcquired: acquiredDate,
+    });
+  }
+  return { rows, scheduleStart, scheduleEnd, sectionLength: section.length };
 }
 
 // CUBE state-name-aggregated format — 11 columns, NRSF as raw SF (not thousands).

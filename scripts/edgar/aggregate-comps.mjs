@@ -49,8 +49,12 @@ function normalizeToStateRecord(issuer, row) {
     if (/^[A-Z]{2}$/.test(row.msa)) stateCode = row.msa;
   } else if (issuer === "CUBE") {
     stateCode = STATE_NAME_TO_CODE[row.msa] || null;
-    // Special case: CUBE reports "Washington D.C." with periods
     if (!stateCode && /Washington D\.?C\.?/i.test(row.msa)) stateCode = "DC";
+  } else if (issuer === "SMA") {
+    // SMA is property-level — stateCode already populated on each row
+    stateCode = row.stateCode || null;
+    // Skip Canadian properties (ONT — Ontario) for US-only state aggregation
+    if (stateCode === "ONT") return null;
   }
 
   return stateCode ? {
@@ -78,6 +82,7 @@ function main() {
     { ticker: "PSA", date: "2025-12-31" },
     { ticker: "EXR", date: "2025-12-31" },
     { ticker: "CUBE", date: "2025-12-31" },
+    { ticker: "SMA", date: "2025-12-31" },
   ];
 
   const datasets = {};
@@ -108,24 +113,83 @@ function main() {
   const stateIndex = {};
   let unmappedRows = [];
 
-  for (const ticker of Object.keys(datasets)) {
-    const data = datasets[ticker];
-    for (const row of data.rows) {
+  // First pass: roll up PROPERTY-level rows (SMA) into per-state-per-issuer
+  // aggregates so each issuer contributes ONE record per state, not N
+  // (where N = number of properties in that state).
+  function rollupPropertyRows(ticker, rows) {
+    const byState = {};
+    for (const row of rows) {
       const norm = normalizeToStateRecord(ticker, row);
-      if (!norm) {
-        unmappedRows.push({ issuer: ticker, label: row.msa, facilities: row.numFacilities });
-        continue;
-      }
+      if (!norm) continue;
       const sc = norm.stateCode;
-      if (!stateIndex[sc]) {
-        stateIndex[sc] = {
+      if (!byState[sc]) {
+        byState[sc] = {
           stateCode: sc,
-          stateName: STATE_CODE_TO_NAME[sc] || sc,
-          issuerContributions: [],
-          // Aggregate metrics — computed below
+          issuer: ticker,
+          originalLabel: `${ticker} portfolio in ${sc}`,
+          aggregationLevel: "STATE_FROM_PROPERTY_ROLLUP",
+          numFacilities: 0,
+          nrsfThousands: null,  // SMA doesn't disclose
+          encumbrancesThou: 0,
+          landInitialThou: 0,
+          bldgInitialThou: 0,
+          costsSubsequentThou: 0,
+          landGrossThou: 0,
+          bldgGrossThou: 0,
+          totalGrossThou: 0,
+          accumDepThou: 0,
+          impliedPSF: null,
+          impliedPerFacilityM: null,
+          depreciationRatio: null,
         };
       }
-      stateIndex[sc].issuerContributions.push(norm);
+      const agg = byState[sc];
+      agg.numFacilities += norm.numFacilities;
+      agg.encumbrancesThou += (norm.encumbrancesThou || 0);
+      agg.landInitialThou += (norm.landInitialThou || 0);
+      agg.bldgInitialThou += (norm.bldgInitialThou || 0);
+      agg.costsSubsequentThou += (norm.costsSubsequentThou || 0);
+      agg.landGrossThou += (norm.landGrossThou || 0);
+      agg.bldgGrossThou += (norm.bldgGrossThou || 0);
+      agg.totalGrossThou += (norm.totalGrossThou || 0);
+      agg.accumDepThou += (norm.accumDepThou || 0);
+    }
+    // Compute derived metrics on rolled-up record
+    return Object.values(byState).map((agg) => ({
+      ...agg,
+      impliedPerFacilityM: agg.numFacilities > 0 ? Math.round((agg.totalGrossThou * 1000) / agg.numFacilities / 100000) / 10 : null,
+      depreciationRatio: agg.totalGrossThou > 0 ? Math.round((agg.accumDepThou / agg.totalGrossThou) * 1000) / 1000 : null,
+    }));
+  }
+
+  for (const ticker of Object.keys(datasets)) {
+    const data = datasets[ticker];
+    const isPropertyLevel = data.rows[0]?.aggregationLevel === "PROPERTY";
+
+    if (isPropertyLevel) {
+      // SMA — roll up properties to state then add as one contribution per state
+      const rolled = rollupPropertyRows(ticker, data.rows);
+      for (const norm of rolled) {
+        const sc = norm.stateCode;
+        if (!stateIndex[sc]) {
+          stateIndex[sc] = { stateCode: sc, stateName: STATE_CODE_TO_NAME[sc] || sc, issuerContributions: [] };
+        }
+        stateIndex[sc].issuerContributions.push(norm);
+      }
+    } else {
+      // PSA / EXR / CUBE — already MSA- or state-aggregated
+      for (const row of data.rows) {
+        const norm = normalizeToStateRecord(ticker, row);
+        if (!norm) {
+          unmappedRows.push({ issuer: ticker, label: row.msa, facilities: row.numFacilities });
+          continue;
+        }
+        const sc = norm.stateCode;
+        if (!stateIndex[sc]) {
+          stateIndex[sc] = { stateCode: sc, stateName: STATE_CODE_TO_NAME[sc] || sc, issuerContributions: [] };
+        }
+        stateIndex[sc].issuerContributions.push(norm);
+      }
     }
   }
 
