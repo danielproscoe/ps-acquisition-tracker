@@ -13,6 +13,7 @@
 
 import edgarIndex from "./edgar-comp-index.json";
 import sameStoreGrowth from "./edgar-same-store-growth.json";
+import transactions8K from "./edgar-8k-transactions-claude.json";
 
 /**
  * Look up the cross-REIT institutional cost basis for a US state.
@@ -113,6 +114,55 @@ export function getCalibratedSameStoreGrowth() {
 }
 
 /**
+ * Returns the storage-related per-deal transactions from SEC 8-K filings,
+ * sorted newest-first. Each record has buyer / seller / price / facilities /
+ * NRSF / consideration type / cap rate (when disclosed) / source quote +
+ * accession number.
+ *
+ * Transactions with aggregate_price_million populated are the most useful
+ * for comp purposes. Storage-related is filtered via the is_storage_related
+ * flag set by Claude during extraction.
+ */
+export function getEDGAR8KTransactions(opts = {}) {
+  const minPriceM = opts.minPriceM != null ? opts.minPriceM : 0;
+  const requirePrice = !!opts.requirePrice;
+  const all = (transactions8K?.transactions || []).map((tx) => ({
+    issuer: tx.issuer,
+    issuerName: tx.issuerName,
+    filingDate: tx.filingDate,
+    accessionNumber: tx.accessionNumber,
+    filingURL: tx.filingURL,
+    ...(tx.extracted || {}),
+    keyQuote: tx.extracted?.key_quote || null,
+  }));
+  const filtered = all.filter((tx) => {
+    if (tx.is_storage_related === false) return false;
+    if (requirePrice && (tx.aggregate_price_million == null)) return false;
+    if (minPriceM > 0 && (tx.aggregate_price_million || 0) < minPriceM) return false;
+    return true;
+  });
+  // Sort by filing date descending
+  filtered.sort((a, b) => (b.filingDate || "").localeCompare(a.filingDate || ""));
+  return filtered;
+}
+
+/**
+ * Returns 8-K transactions involving a specific state (when disclosed in
+ * the target/portfolio description). Used to surface deal comps relevant
+ * to a subject asset's market in the IC memo + Goldman report.
+ *
+ * Note: 8-K disclosures rarely include state breakdown — this returns
+ * top-N most relevant transactions ordered by recency + dollar size.
+ */
+export function getRelevant8KTransactions(stateCode, limit = 5) {
+  const all = getEDGAR8KTransactions({ requirePrice: true });
+  // For now, return the top N storage transactions by (recency + size)
+  // since most 8-Ks don't break out state-level detail. State-specific
+  // filtering would require additional extraction.
+  return all.slice(0, limit);
+}
+
+/**
  * Top-level metadata for audit blocks: how the index was built, when, what
  * issuers were ingested.
  */
@@ -135,5 +185,7 @@ export default {
   getEDGARStateData,
   formatEDGARCitation,
   getCalibratedSameStoreGrowth,
+  getEDGAR8KTransactions,
+  getRelevant8KTransactions,
   EDGAR_INDEX_METADATA,
 };

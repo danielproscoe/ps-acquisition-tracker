@@ -378,6 +378,54 @@ function renderICMemo({ memo }) {
 </section>`;
 }
 
+function renderEDGAR8KTransactions({ snapshot, analysis }) {
+  const txs = analysis?.edgar8KTransactions;
+  if (!Array.isArray(txs) || txs.length === 0) return "";
+  const withPrice = txs.filter((t) => t.aggregate_price_million);
+  if (withPrice.length === 0) return "";
+  return `
+<section class="page section">
+  <h2 class="section-h">PER-DEAL TRANSACTION COMPS · SEC EDGAR 8-K FILINGS</h2>
+  <div class="footnote" style="margin-bottom:14px;font-style:normal">
+    Individual M&amp;A transactions disclosed by institutional storage REITs in their SEC 8-K material event filings. Each row links to the full disclosure on sec.gov. Use these as direct deal benchmarks alongside the cross-REIT cost-basis index above.
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="th-name">Date</th>
+        <th class="th-name">Buyer</th>
+        <th class="th-name">Target / Seller</th>
+        <th class="th-num">Facilities</th>
+        <th class="th-num">NRSF (M)</th>
+        <th class="th-num">Price ($M)</th>
+        <th class="th-num">$/SF</th>
+        <th class="th-name">Type</th>
+        <th class="th-name">SEC EDGAR</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${withPrice.slice(0, 6).map((t) => {
+        const psf = (t.aggregate_price_million && t.nrsf_million) ? Math.round(t.aggregate_price_million / t.nrsf_million) : null;
+        return `<tr>
+          <td class="td-name">${safe(t.filingDate)}</td>
+          <td class="td-name"><b>${safe(t.issuer)}</b></td>
+          <td class="td-name">${safe(t.target_entity || t.seller || "—")}</td>
+          <td class="td-num">${t.num_facilities != null ? fmtN(t.num_facilities) : "—"}</td>
+          <td class="td-num">${t.nrsf_million != null ? Number(t.nrsf_million).toFixed(1) : "—"}</td>
+          <td class="td-num td-accent">${t.aggregate_price_million != null ? "$" + Math.round(t.aggregate_price_million).toLocaleString() : "—"}</td>
+          <td class="td-num">${psf != null ? "$" + psf : "—"}</td>
+          <td class="td-name">${safe(t.deal_type || "—")}${t.consideration_type ? ` · ${t.consideration_type}` : ""}</td>
+          <td class="td-basis"><a href="${t.filingURL}" style="color:#1E2761;text-decoration:underline">${t.accessionNumber}</a></td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+  <div class="footnote">
+    Each transaction extracted from the issuer's 8-K filing using a structured-output extraction pipeline (Claude Sonnet 4.6) with a "no fabrication" mandate — all fields trace to verbatim source text. Top of comp set: PSA-BREIT Simply Storage ($2.2B/127 fac/9.4M SF · $234/SF) and CUBE-LAACO ($1.74B/59 fac · $381/SF including non-storage assets). Both align directly with the cross-REIT cost-basis index above.
+  </div>
+</section>`;
+}
+
 function renderEDGARCrossREIT({ snapshot, analysis }) {
   const e = analysis.edgarComp;
   if (!e) return "";
@@ -689,6 +737,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo }) {
   ${renderRentSanity({ rentSanity })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
+  ${renderEDGAR8KTransactions({ snapshot, analysis })}
   ${renderICMemo({ memo })}
   ${renderAudit({ snapshot, ps, analysis })}
   ${renderFooter({ docId })}

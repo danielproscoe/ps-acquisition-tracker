@@ -42,6 +42,7 @@ YOU RECEIVE structured underwriting outputs:
   • ENRICHMENT — auto-pulled data layer: ESRI 1-3-5 mile demographics (pop, HHI, growth, renter mix, storage MPI), operator-family proximity (distance to nearest comparable facility, count within 35 mi = district presence), market rents. This is the data an institutional underwriter would pull manually before underwriting — Storvex pulled it in parallel during OM extraction.
   • RENT SANITY (when present) — independent SpareFoot cross-check on seller's implied effective rent vs blended submarket rate. Three severities: "warn" (>15% above market — pro forma may be aggressive), "info" (>15% below — value-add lever or distressed signal), "ok" (within ±15% — pro forma defensible). When this field is present, you MUST cite it explicitly in the memo — it's the independent-underwriter signal that distinguishes Storvex from a buyer-lens reconstruction of seller's narrative.
   • EDGAR CROSS-REIT (when present) — institutional cost-basis index for the subject's state, derived from SEC EDGAR 10-K Schedule III filings of the largest storage REITs (PSA, EXR, CUBE — total 5,818 facilities and $65B in gross carrying value indexed). Includes weighted $/SF cost basis, average $/facility, portfolio depreciation ratio, and per-REIT breakdown. When this field is present and weightedPSF is non-null, you MUST cite it. Compare the subject's $/SF cost basis (from snapshot.pricePerSF or derived) to the institutional weighted $/SF for the state — this is the most defensible market-cost comparison available. State whether the subject is "in line with", "below", or "above" institutional cost basis. When numIssuersContributing >= 3, call the data point "triple-validated by all three major institutional REITs" — that's the credibility moment.
+  • EDGAR 8-K TRANSACTIONS (when present) — individual M&A deal comps from SEC 8-K material event filings. Each transaction has buyer/target/price/facilities/NRSF/consideration_type with verbatim source quotes from the issuer's 8-K. Top recent comps you'll see: PSA→BREIT Simply Storage ($2.2B/127 fac/9.4M SF/cash), CUBE→LAACO ($1.74B), PSA→Neighborhood Storage ($192.4M/28 fac), PSA→NSA merger (announced March 2026). When the subject deal is comparable in scale (within 0.3-3x of any 8-K transaction's price), reference the most-relevant 8-K transaction by buyer + target + price + accession number as a direct comp. This is the per-deal validation that distinguishes Storvex from any aggregator — primary-source disclosed transactions, not someone else's database.
 
 YOU DO NOT INVENT NUMBERS. Every figure in the memo must trace to one of the three input sources above. If a number isn't present, do not write it. If demographics or operator-family data are missing, say so and recommend the deal team pull them before IC.
 
@@ -147,6 +148,22 @@ module.exports = async (req, res) => {
         accessionNumber: i.accessionNumber, filingDate: i.filingDate,
       })) : [],
     } : null,
+    // EDGAR 8-K transactions — individual M&A comps with verbatim source.
+    // Trimmed to top 4 with full pricing for token efficiency.
+    edgar8KTransactions: Array.isArray(a.edgar8KTransactions) ? a.edgar8KTransactions
+      .filter((t) => t.aggregate_price_million != null)
+      .slice(0, 4)
+      .map((t) => ({
+        issuer: t.issuer,
+        filingDate: t.filingDate,
+        accessionNumber: t.accessionNumber,
+        target: t.target_entity,
+        price_million: t.aggregate_price_million,
+        facilities: t.num_facilities,
+        nrsf_million: t.nrsf_million,
+        consideration: t.consideration_type,
+        deal_type: t.deal_type,
+      })) : null,
   });
 
   // Trim enrichment payload — keep only fields the IC memo cites.

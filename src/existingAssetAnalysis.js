@@ -701,12 +701,15 @@ export function analyzeExistingAsset(input, opts = {}) {
   // Accessor is dynamically required to avoid pulling the JSON when the
   // module is imported in environments without it (e.g. some test paths).
   let edgarComp = null;
+  let edgar8KTransactions = null;
   try {
     // eslint-disable-next-line global-require
-    const { formatEDGARCitation } = require("./data/edgarCompIndex");
+    const { formatEDGARCitation, getRelevant8KTransactions } = require("./data/edgarCompIndex");
     edgarComp = formatEDGARCitation(snapshot.state);
+    edgar8KTransactions = getRelevant8KTransactions(snapshot.state, 6);
   } catch (e) {
     edgarComp = null;
+    edgar8KTransactions = null;
   }
 
   return {
@@ -723,6 +726,7 @@ export function analyzeExistingAsset(input, opts = {}) {
     comps,
     rentSanity,
     edgarComp,
+    edgar8KTransactions,
     generatedAt: new Date().toISOString(),
   };
 }

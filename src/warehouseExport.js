@@ -195,6 +195,27 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       source: analysis.rentSanity.source || "SpareFoot",
     } : null,
 
+    // EDGAR 8-K per-deal transactions — individual M&A comps with full
+    // SEC source citations. Empty array when no transactions on file.
+    edgar_8k_transactions: Array.isArray(analysis.edgar8KTransactions) ? analysis.edgar8KTransactions
+      .filter((t) => t.aggregate_price_million != null)
+      .map((t) => ({
+        issuer: t.issuer,
+        filing_date: t.filingDate,
+        accession_number: t.accessionNumber,
+        filing_url: t.filingURL,
+        deal_type: t.deal_type,
+        target_entity: t.target_entity,
+        seller: t.seller,
+        num_facilities: numOrNull(t.num_facilities),
+        nrsf_million: numOrNull(t.nrsf_million),
+        aggregate_price_million: numOrNull(t.aggregate_price_million),
+        cap_rate_pct: numOrNull(t.cap_rate_pct),
+        consideration_type: t.consideration_type,
+        is_closed: t.is_closed,
+        key_quote: t.keyQuote,
+      })) : [],
+
     // Cross-REIT institutional cost-basis index for the subject's state.
     // Pulled from the SEC EDGAR Schedule III ingestion pipeline. Every
     // contributing REIT cites a specific SEC accession number + filing URL.
