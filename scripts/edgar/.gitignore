@@ -1,0 +1,5 @@
+# Raw SEC EDGAR filing HTML — regeneratable from the SEC API. Don't bloat the repo.
+_output/*.html
+# Per-filing meta JSON is small but transient. Keep extractor outputs in src/data/.
+_output/*-meta.json
+_output/*.txt
