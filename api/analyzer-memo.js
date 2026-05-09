@@ -40,13 +40,14 @@ YOU RECEIVE structured underwriting outputs:
   • INSTITUTIONAL LENS — the deal underwritten through self-managed REIT math (lower opex via central staffing, brand premium on rents, REIT-stabilized cap by MSA tier, portfolio-fit bonus). This is YOUR underwrite. Lead with these numbers.
   • GENERIC BUYER-LENS — same OM through third-party-managed institutional benchmarks. Reference ONLY when explaining why a self-managed REIT wins the deal vs the field; do not co-equal it with the institutional lens.
   • ENRICHMENT — auto-pulled data layer: ESRI 1-3-5 mile demographics (pop, HHI, growth, renter mix, storage MPI), operator-family proximity (distance to nearest comparable facility, count within 35 mi = district presence), market rents. This is the data an institutional underwriter would pull manually before underwriting — Storvex pulled it in parallel during OM extraction.
+  • RENT SANITY (when present) — independent SpareFoot cross-check on seller's implied effective rent vs blended submarket rate. Three severities: "warn" (>15% above market — pro forma may be aggressive), "info" (>15% below — value-add lever or distressed signal), "ok" (within ±15% — pro forma defensible). When this field is present, you MUST cite it explicitly in the memo — it's the independent-underwriter signal that distinguishes Storvex from a buyer-lens reconstruction of seller's narrative.
 
 YOU DO NOT INVENT NUMBERS. Every figure in the memo must trace to one of the three input sources above. If a number isn't present, do not write it. If demographics or operator-family data are missing, say so and recommend the deal team pull them before IC.
 
 YOUR MEMO STRUCTURE — return strict JSON, no surrounding prose:
 
 {
-  "execSummary": "2 paragraphs (markdown). P1 = lead with the institutional read on the deal: property + ask + deal type + stabilized NOI + recommendation. P2 = WHY a self-managed REIT — anchor to district presence (operator-family count within 35 mi), demographic strength (3-mi pop, HHI, storage MPI), brand premium captured (12% revenue adjustment), and the cap/opex levers that drive the institutional-vs-market delta. Bold key figures with **double asterisks**.",
+  "execSummary": "2 paragraphs (markdown). P1 = lead with the institutional read on the deal: property + ask + deal type + stabilized NOI + recommendation, AND the platform-fit Δ in dollars (institutional Walk minus generic Walk) when the verdicts diverge — that delta IS the headline. P2 = WHY a self-managed REIT — anchor to district presence (operator-family count within 35 mi), demographic strength (3-mi pop, HHI, storage MPI), brand premium captured (12% revenue adjustment), and the cap/opex levers that drive the institutional-vs-market delta. When rentSanity is present and severity is 'warn' or 'info', call it out in P2 as an independent submarket cross-check (e.g. 'Independent SpareFoot cross-check flags the seller's implied rent at **$X.XX/SF/mo vs blended submarket $Y.YY** — pro forma carries Z% downside risk' OR '...sits Z% below blended submarket — value-add rent lever supports the institutional case'). Bold key figures with **double asterisks**.",
   "recommendation": "PURSUE | NEGOTIATE | PASS — verbatim from the institutional lens verdict label",
   "bidPosture": {
     "openingBid": number,
@@ -55,7 +56,7 @@ YOUR MEMO STRUCTURE — return strict JSON, no surrounding prose:
     "walkAwayRationale": "string — anchor to Walk price. Explain why above this, the yield story breaks."
   },
   "topRisks": [
-    "string — top 3 risks in priority order, each ~25 words. Anchored to a specific number from inputs. Examples: 3-mi population trajectory, district saturation, lease-up timing for CO-LU, market rent gap vs seller.",
+    "string — top 3 risks in priority order, each ~25 words. Anchored to a specific number from inputs. Examples: 3-mi population trajectory, district saturation, lease-up timing for CO-LU, market rent gap vs seller. When rentSanity.severity === 'warn' (rent above market), this MUST be a top-3 risk citing the implied vs market delta — 'Pro forma rent X% above SpareFoot blended submarket — pursue contingent on diligence-stage rent verification.' When rentSanity.severity === 'info' (rent below market), surface as an OPPORTUNITY, not a risk — note in execSummary instead.",
     "...",
     "..."
   ],
@@ -74,6 +75,8 @@ TONE RULES — write like a sector analyst, not like a broker:
 8. If demographics show storage MPI ≥ 110 (above US average), call it out as demand support.
 9. If demographics show 3-mi pop growth ≥ 1.5% CAGR, that's a tailwind — flag.
 10. NEVER name a specific REIT operator by company name in the output. Use "self-managed REIT", "institutional buyer", "institutional acquirer", "REIT comparable". This is mandatory disclosure discipline.
+11. The platform-fit Δ (institutional Walk minus generic Walk in dollars) is the single most important number when verdicts diverge. Surface it explicitly in execSummary P1 and again in buyerRouting. It quantifies the dollar value a self-managed REIT defensibly pays above a generic third-party-managed buyer on the same asset — "**$4.4M platform-fit Δ** drives the divergence: self-managed opex floor + 12% brand-premium revenue lift + zero third-party management fee + platform-integration yield uplift on rolled tenants."
+12. When rentSanity is present, you MUST cite it. The flag is a deliberate independent-underwriter signal — Storvex didn't just amplify seller's pro forma; it cross-checked against live submarket data. Skipping the flag is a credibility-loss event for an institutional reader.
 
 If verdict is PASS, recommend a specific counter price (institutional Strike or Walk) that would flip the verdict. If verdict is PURSUE at the ask, advocate for an opening bid below ask anchored to Home Run.`;
 
@@ -121,6 +124,10 @@ module.exports = async (req, res) => {
       compsCount: a.comps?.comps?.length || 0,
     },
     lens: a.lens || null,
+    // Rent sanity — independent SpareFoot cross-check on seller's implied
+    // effective rent. Null when marketRents enrichment hadn't completed at
+    // analysis time. Memo prompt has explicit instructions on how to surface.
+    rentSanity: a.rentSanity || null,
   });
 
   // Trim enrichment payload — keep only fields the IC memo cites.
