@@ -1,6 +1,6 @@
 {
   "schema": "storvex.edgar-comp-index.v1",
-  "generatedAt": "2026-05-09T20:42:57.996Z",
+  "generatedAt": "2026-05-09T20:43:58.765Z",
   "issuersIngested": [
     "PSA",
     "EXR",
@@ -42,12 +42,12 @@
     }
   },
   "totals": {
-    "facilities": 5787,
-    "nrsfThousandsDisclosed": 272898,
-    "grossCarryingThou": 65141907,
+    "facilities": 5818,
+    "nrsfThousandsDisclosed": 274858,
+    "grossCarryingThou": 65317663,
     "states": 41,
     "crossValidatedStates": 37,
-    "tripleValidatedStates": 12
+    "tripleValidatedStates": 11
   },
   "states": [
     {
@@ -138,6 +138,93 @@
       ]
     },
     {
+      "stateCode": "CA",
+      "stateName": "California",
+      "totalFacilities": 715,
+      "totalNRSFThousands": 35178,
+      "facilityCountForNRSF": 488,
+      "totalGrossCarryingThou": 8574298,
+      "totalAccumDepThou": 2684344,
+      "numIssuersContributing": 8,
+      "weightedPSF": 140,
+      "avgPerFacilityM": 12,
+      "depreciationRatio": 0.313,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Los Angeles",
+          "facilities": 233,
+          "nrsfThousands": 17941,
+          "totalGrossThou": 2408466,
+          "impliedPSF": 134,
+          "depreciationRatio": 0.47
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "San Francisco",
+          "facilities": 142,
+          "nrsfThousands": 9496,
+          "totalGrossThou": 1202913,
+          "impliedPSF": 127,
+          "depreciationRatio": 0.549
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Sacramento",
+          "facilities": 38,
+          "nrsfThousands": 2291,
+          "totalGrossThou": 198397,
+          "impliedPSF": 87,
+          "depreciationRatio": 0.546
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Monterey/Salinas",
+          "facilities": 7,
+          "nrsfThousands": 324,
+          "totalGrossThou": 40800,
+          "impliedPSF": 126,
+          "depreciationRatio": 0.718
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Palm Springs",
+          "facilities": 3,
+          "nrsfThousands": 241,
+          "totalGrossThou": 30031,
+          "impliedPSF": 125,
+          "depreciationRatio": 0.549
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Santa Barbara",
+          "facilities": 2,
+          "nrsfThousands": 98,
+          "totalGrossThou": 16135,
+          "impliedPSF": 165,
+          "depreciationRatio": 0.51
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "CA",
+          "facilities": 227,
+          "nrsfThousands": null,
+          "totalGrossThou": 3635522,
+          "impliedPSF": null,
+          "depreciationRatio": 0.159
+        },
+        {
+          "issuer": "CUBE",
+          "sourceLabel": "California",
+          "facilities": 63,
+          "nrsfThousands": 4787,
+          "totalGrossThou": 1042034,
+          "impliedPSF": 218,
+          "depreciationRatio": 0.147
+        }
+      ]
+    },
+    {
       "stateCode": "TX",
       "stateName": "Texas",
       "totalFacilities": 842,
@@ -203,75 +290,6 @@
           "totalGrossThou": 891236,
           "impliedPSF": 120,
           "depreciationRatio": 0.174
-        }
-      ]
-    },
-    {
-      "stateCode": "CA",
-      "stateName": "California",
-      "totalFacilities": 710,
-      "totalNRSFThousands": 34839,
-      "facilityCountForNRSF": 483,
-      "totalGrossCarryingThou": 8528132,
-      "totalAccumDepThou": 2659608,
-      "numIssuersContributing": 6,
-      "weightedPSF": 140,
-      "avgPerFacilityM": 12,
-      "depreciationRatio": 0.312,
-      "perIssuer": [
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Los Angeles",
-          "facilities": 233,
-          "nrsfThousands": 17941,
-          "totalGrossThou": 2408466,
-          "impliedPSF": 134,
-          "depreciationRatio": 0.47
-        },
-        {
-          "issuer": "PSA",
-          "sourceLabel": "San Francisco",
-          "facilities": 142,
-          "nrsfThousands": 9496,
-          "totalGrossThou": 1202913,
-          "impliedPSF": 127,
-          "depreciationRatio": 0.549
-        },
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Sacramento",
-          "facilities": 38,
-          "nrsfThousands": 2291,
-          "totalGrossThou": 198397,
-          "impliedPSF": 87,
-          "depreciationRatio": 0.546
-        },
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Monterey/Salinas",
-          "facilities": 7,
-          "nrsfThousands": 324,
-          "totalGrossThou": 40800,
-          "impliedPSF": 126,
-          "depreciationRatio": 0.718
-        },
-        {
-          "issuer": "EXR",
-          "sourceLabel": "CA",
-          "facilities": 227,
-          "nrsfThousands": null,
-          "totalGrossThou": 3635522,
-          "impliedPSF": null,
-          "depreciationRatio": 0.159
-        },
-        {
-          "issuer": "CUBE",
-          "sourceLabel": "California",
-          "facilities": 63,
-          "nrsfThousands": 4787,
-          "totalGrossThou": 1042034,
-          "impliedPSF": 218,
-          "depreciationRatio": 0.147
         }
       ]
     },
@@ -594,6 +612,66 @@
       ]
     },
     {
+      "stateCode": "IN",
+      "stateName": "Indiana",
+      "totalFacilities": 141,
+      "totalNRSFThousands": 3106,
+      "facilityCountForNRSF": 47,
+      "totalGrossCarryingThou": 906994,
+      "totalAccumDepThou": 165419,
+      "numIssuersContributing": 5,
+      "weightedPSF": 96,
+      "avgPerFacilityM": 6.4,
+      "depreciationRatio": 0.182,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Indianapolis",
+          "facilities": 37,
+          "nrsfThousands": 2440,
+          "totalGrossThou": 250921,
+          "impliedPSF": 103,
+          "depreciationRatio": 0.338
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Evansville",
+          "facilities": 5,
+          "nrsfThousands": 325,
+          "totalGrossThou": 19487,
+          "impliedPSF": 60,
+          "depreciationRatio": 0.391
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Fort Wayne",
+          "facilities": 4,
+          "nrsfThousands": 271,
+          "totalGrossThou": 19538,
+          "impliedPSF": 72,
+          "depreciationRatio": 0.42
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "IN",
+          "facilities": 94,
+          "nrsfThousands": null,
+          "totalGrossThou": 610063,
+          "impliedPSF": null,
+          "depreciationRatio": 0.103
+        },
+        {
+          "issuer": "CUBE",
+          "sourceLabel": "Indiana",
+          "facilities": 1,
+          "nrsfThousands": 70,
+          "totalGrossThou": 6985,
+          "impliedPSF": 100,
+          "depreciationRatio": 0.308
+        }
+      ]
+    },
+    {
       "stateCode": "SC",
       "stateName": "South Carolina",
       "totalFacilities": 128,
@@ -816,6 +894,57 @@
       ]
     },
     {
+      "stateCode": "MA",
+      "stateName": "Massachusetts",
+      "totalFacilities": 119,
+      "totalNRSFThousands": 3476,
+      "facilityCountForNRSF": 52,
+      "totalGrossCarryingThou": 1339764,
+      "totalAccumDepThou": 373881,
+      "numIssuersContributing": 4,
+      "weightedPSF": 165,
+      "avgPerFacilityM": 11.3,
+      "depreciationRatio": 0.279,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Boston",
+          "facilities": 30,
+          "nrsfThousands": 2079,
+          "totalGrossThou": 364758,
+          "impliedPSF": 175,
+          "depreciationRatio": 0.442
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Springfield/Holyoke",
+          "facilities": 2,
+          "nrsfThousands": 144,
+          "totalGrossThou": 7621,
+          "impliedPSF": 53,
+          "depreciationRatio": 0.747
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "MA",
+          "facilities": 67,
+          "nrsfThousands": null,
+          "totalGrossThou": 764693,
+          "impliedPSF": null,
+          "depreciationRatio": 0.207
+        },
+        {
+          "issuer": "CUBE",
+          "sourceLabel": "Massachusetts",
+          "facilities": 20,
+          "nrsfThousands": 1253,
+          "totalGrossThou": 202692,
+          "impliedPSF": 162,
+          "depreciationRatio": 0.24
+        }
+      ]
+    },
+    {
       "stateCode": "NV",
       "stateName": "Nevada",
       "totalFacilities": 97,
@@ -867,6 +996,108 @@
       ]
     },
     {
+      "stateCode": "MO",
+      "stateName": "Missouri",
+      "totalFacilities": 88,
+      "totalNRSFThousands": 3910,
+      "facilityCountForNRSF": 59,
+      "totalGrossCarryingThou": 771757,
+      "totalAccumDepThou": 210489,
+      "numIssuersContributing": 4,
+      "weightedPSF": 92,
+      "avgPerFacilityM": 8.8,
+      "depreciationRatio": 0.273,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Kansas City",
+          "facilities": 31,
+          "nrsfThousands": 2116,
+          "totalGrossThou": 198403,
+          "impliedPSF": 94,
+          "depreciationRatio": 0.439
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "St. Louis",
+          "facilities": 27,
+          "nrsfThousands": 1738,
+          "totalGrossThou": 159015,
+          "impliedPSF": 91,
+          "depreciationRatio": 0.546
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Joplin",
+          "facilities": 1,
+          "nrsfThousands": 56,
+          "totalGrossThou": 2643,
+          "impliedPSF": 47,
+          "depreciationRatio": 0.721
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "MO",
+          "facilities": 29,
+          "nrsfThousands": null,
+          "totalGrossThou": 411696,
+          "impliedPSF": null,
+          "depreciationRatio": 0.084
+        }
+      ]
+    },
+    {
+      "stateCode": "AL",
+      "stateName": "Alabama",
+      "totalFacilities": 80,
+      "totalNRSFThousands": 2396,
+      "facilityCountForNRSF": 45,
+      "totalGrossCarryingThou": 707825,
+      "totalAccumDepThou": 115706,
+      "numIssuersContributing": 4,
+      "weightedPSF": 114,
+      "avgPerFacilityM": 8.8,
+      "depreciationRatio": 0.163,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Mobile",
+          "facilities": 25,
+          "nrsfThousands": 1491,
+          "totalGrossThou": 190152,
+          "impliedPSF": 128,
+          "depreciationRatio": 0.169
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Birmingham",
+          "facilities": 15,
+          "nrsfThousands": 607,
+          "totalGrossThou": 54098,
+          "impliedPSF": 89,
+          "depreciationRatio": 0.663
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Huntsville/Decatur",
+          "facilities": 5,
+          "nrsfThousands": 298,
+          "totalGrossThou": 27846,
+          "impliedPSF": 93,
+          "depreciationRatio": 0.335
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "AL",
+          "facilities": 35,
+          "nrsfThousands": null,
+          "totalGrossThou": 435729,
+          "impliedPSF": null,
+          "depreciationRatio": 0.088
+        }
+      ]
+    },
+    {
       "stateCode": "IL",
       "stateName": "Illinois",
       "totalFacilities": 299,
@@ -905,48 +1136,6 @@
           "totalGrossThou": 395234,
           "impliedPSF": 125,
           "depreciationRatio": 0.236
-        }
-      ]
-    },
-    {
-      "stateCode": "IN",
-      "stateName": "Indiana",
-      "totalFacilities": 132,
-      "totalNRSFThousands": 2510,
-      "facilityCountForNRSF": 38,
-      "totalGrossCarryingThou": 867969,
-      "totalAccumDepThou": 149599,
-      "numIssuersContributing": 3,
-      "weightedPSF": 103,
-      "avgPerFacilityM": 6.6,
-      "depreciationRatio": 0.172,
-      "perIssuer": [
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Indianapolis",
-          "facilities": 37,
-          "nrsfThousands": 2440,
-          "totalGrossThou": 250921,
-          "impliedPSF": 103,
-          "depreciationRatio": 0.338
-        },
-        {
-          "issuer": "EXR",
-          "sourceLabel": "IN",
-          "facilities": 94,
-          "nrsfThousands": null,
-          "totalGrossThou": 610063,
-          "impliedPSF": null,
-          "depreciationRatio": 0.103
-        },
-        {
-          "issuer": "CUBE",
-          "sourceLabel": "Indiana",
-          "facilities": 1,
-          "nrsfThousands": 70,
-          "totalGrossThou": 6985,
-          "impliedPSF": 100,
-          "depreciationRatio": 0.308
         }
       ]
     },
@@ -1035,90 +1224,6 @@
       ]
     },
     {
-      "stateCode": "MA",
-      "stateName": "Massachusetts",
-      "totalFacilities": 117,
-      "totalNRSFThousands": 3332,
-      "facilityCountForNRSF": 50,
-      "totalGrossCarryingThou": 1332143,
-      "totalAccumDepThou": 368191,
-      "numIssuersContributing": 3,
-      "weightedPSF": 170,
-      "avgPerFacilityM": 11.4,
-      "depreciationRatio": 0.276,
-      "perIssuer": [
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Boston",
-          "facilities": 30,
-          "nrsfThousands": 2079,
-          "totalGrossThou": 364758,
-          "impliedPSF": 175,
-          "depreciationRatio": 0.442
-        },
-        {
-          "issuer": "EXR",
-          "sourceLabel": "MA",
-          "facilities": 67,
-          "nrsfThousands": null,
-          "totalGrossThou": 764693,
-          "impliedPSF": null,
-          "depreciationRatio": 0.207
-        },
-        {
-          "issuer": "CUBE",
-          "sourceLabel": "Massachusetts",
-          "facilities": 20,
-          "nrsfThousands": 1253,
-          "totalGrossThou": 202692,
-          "impliedPSF": 162,
-          "depreciationRatio": 0.24
-        }
-      ]
-    },
-    {
-      "stateCode": "MO",
-      "stateName": "Missouri",
-      "totalFacilities": 87,
-      "totalNRSFThousands": 3854,
-      "facilityCountForNRSF": 58,
-      "totalGrossCarryingThou": 769114,
-      "totalAccumDepThou": 208583,
-      "numIssuersContributing": 3,
-      "weightedPSF": 93,
-      "avgPerFacilityM": 8.8,
-      "depreciationRatio": 0.271,
-      "perIssuer": [
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Kansas City",
-          "facilities": 31,
-          "nrsfThousands": 2116,
-          "totalGrossThou": 198403,
-          "impliedPSF": 94,
-          "depreciationRatio": 0.439
-        },
-        {
-          "issuer": "PSA",
-          "sourceLabel": "St. Louis",
-          "facilities": 27,
-          "nrsfThousands": 1738,
-          "totalGrossThou": 159015,
-          "impliedPSF": 91,
-          "depreciationRatio": 0.546
-        },
-        {
-          "issuer": "EXR",
-          "sourceLabel": "MO",
-          "facilities": 29,
-          "nrsfThousands": null,
-          "totalGrossThou": 411696,
-          "impliedPSF": null,
-          "depreciationRatio": 0.084
-        }
-      ]
-    },
-    {
       "stateCode": "MN",
       "stateName": "Minnesota",
       "totalFacilities": 78,
@@ -1157,48 +1262,6 @@
           "totalGrossThou": 37545,
           "impliedPSF": 153,
           "depreciationRatio": 0.132
-        }
-      ]
-    },
-    {
-      "stateCode": "AL",
-      "stateName": "Alabama",
-      "totalFacilities": 75,
-      "totalNRSFThousands": 2098,
-      "facilityCountForNRSF": 40,
-      "totalGrossCarryingThou": 679979,
-      "totalAccumDepThou": 106376,
-      "numIssuersContributing": 3,
-      "weightedPSF": 116,
-      "avgPerFacilityM": 9.1,
-      "depreciationRatio": 0.156,
-      "perIssuer": [
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Mobile",
-          "facilities": 25,
-          "nrsfThousands": 1491,
-          "totalGrossThou": 190152,
-          "impliedPSF": 128,
-          "depreciationRatio": 0.169
-        },
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Birmingham",
-          "facilities": 15,
-          "nrsfThousands": 607,
-          "totalGrossThou": 54098,
-          "impliedPSF": 89,
-          "depreciationRatio": 0.663
-        },
-        {
-          "issuer": "EXR",
-          "sourceLabel": "AL",
-          "facilities": 35,
-          "nrsfThousands": null,
-          "totalGrossThou": 435729,
-          "impliedPSF": null,
-          "depreciationRatio": 0.088
         }
       ]
     },
@@ -1367,6 +1430,132 @@
           "totalGrossThou": 17726,
           "impliedPSF": 75,
           "depreciationRatio": 0.144
+        }
+      ]
+    },
+    {
+      "stateCode": "LA",
+      "stateName": "Louisiana",
+      "totalFacilities": 25,
+      "totalNRSFThousands": 1071,
+      "facilityCountForNRSF": 15,
+      "totalGrossCarryingThou": 267758,
+      "totalAccumDepThou": 64683,
+      "numIssuersContributing": 3,
+      "weightedPSF": 108,
+      "avgPerFacilityM": 10.7,
+      "depreciationRatio": 0.242,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "New Orleans",
+          "facilities": 13,
+          "nrsfThousands": 921,
+          "totalGrossThou": 108647,
+          "impliedPSF": 118,
+          "depreciationRatio": 0.394
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Shreveport",
+          "facilities": 2,
+          "nrsfThousands": 150,
+          "totalGrossThou": 7447,
+          "impliedPSF": 50,
+          "depreciationRatio": 0.782
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "LA",
+          "facilities": 10,
+          "nrsfThousands": null,
+          "totalGrossThou": 151664,
+          "impliedPSF": null,
+          "depreciationRatio": 0.106
+        }
+      ]
+    },
+    {
+      "stateCode": "RI",
+      "stateName": "Rhode Island",
+      "totalFacilities": 15,
+      "totalNRSFThousands": 531,
+      "facilityCountForNRSF": 9,
+      "totalGrossCarryingThou": 126792,
+      "totalAccumDepThou": 25619,
+      "numIssuersContributing": 3,
+      "weightedPSF": 118,
+      "avgPerFacilityM": 8.5,
+      "depreciationRatio": 0.202,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Providence",
+          "facilities": 5,
+          "nrsfThousands": 284,
+          "totalGrossThou": 40223,
+          "impliedPSF": 142,
+          "depreciationRatio": 0.278
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "RI",
+          "facilities": 6,
+          "nrsfThousands": null,
+          "totalGrossThou": 64113,
+          "impliedPSF": null,
+          "depreciationRatio": 0.119
+        },
+        {
+          "issuer": "CUBE",
+          "sourceLabel": "Rhode Island",
+          "facilities": 4,
+          "nrsfThousands": 247,
+          "totalGrossThou": 22456,
+          "impliedPSF": 91,
+          "depreciationRatio": 0.303
+        }
+      ]
+    },
+    {
+      "stateCode": "KS",
+      "stateName": "Kansas",
+      "totalFacilities": 10,
+      "totalNRSFThousands": 525,
+      "facilityCountForNRSF": 9,
+      "totalGrossCarryingThou": 29491,
+      "totalAccumDepThou": 19760,
+      "numIssuersContributing": 3,
+      "weightedPSF": 49,
+      "avgPerFacilityM": 2.9,
+      "depreciationRatio": 0.67,
+      "perIssuer": [
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Wichita",
+          "facilities": 7,
+          "nrsfThousands": 432,
+          "totalGrossThou": 21046,
+          "impliedPSF": 49,
+          "depreciationRatio": 0.684
+        },
+        {
+          "issuer": "PSA",
+          "sourceLabel": "Topeka",
+          "facilities": 2,
+          "nrsfThousands": 93,
+          "totalGrossThou": 4785,
+          "impliedPSF": 51,
+          "depreciationRatio": 0.75
+        },
+        {
+          "issuer": "EXR",
+          "sourceLabel": "KS",
+          "facilities": 1,
+          "nrsfThousands": null,
+          "totalGrossThou": 3660,
+          "impliedPSF": null,
+          "depreciationRatio": 0.486
         }
       ]
     },
@@ -1569,39 +1758,6 @@
       ]
     },
     {
-      "stateCode": "LA",
-      "stateName": "Louisiana",
-      "totalFacilities": 23,
-      "totalNRSFThousands": 921,
-      "facilityCountForNRSF": 13,
-      "totalGrossCarryingThou": 260311,
-      "totalAccumDepThou": 58858,
-      "numIssuersContributing": 2,
-      "weightedPSF": 118,
-      "avgPerFacilityM": 11.3,
-      "depreciationRatio": 0.226,
-      "perIssuer": [
-        {
-          "issuer": "PSA",
-          "sourceLabel": "New Orleans",
-          "facilities": 13,
-          "nrsfThousands": 921,
-          "totalGrossThou": 108647,
-          "impliedPSF": 118,
-          "depreciationRatio": 0.394
-        },
-        {
-          "issuer": "EXR",
-          "sourceLabel": "LA",
-          "facilities": 10,
-          "nrsfThousands": null,
-          "totalGrossThou": 151664,
-          "impliedPSF": null,
-          "depreciationRatio": 0.106
-        }
-      ]
-    },
-    {
       "stateCode": "WI",
       "stateName": "Wisconsin",
       "totalFacilities": 18,
@@ -1697,72 +1853,6 @@
           "totalGrossThou": 11065,
           "impliedPSF": 61,
           "depreciationRatio": 0.371
-        }
-      ]
-    },
-    {
-      "stateCode": "RI",
-      "stateName": "Rhode Island",
-      "totalFacilities": 10,
-      "totalNRSFThousands": 247,
-      "facilityCountForNRSF": 4,
-      "totalGrossCarryingThou": 86569,
-      "totalAccumDepThou": 14417,
-      "numIssuersContributing": 2,
-      "weightedPSF": 91,
-      "avgPerFacilityM": 8.7,
-      "depreciationRatio": 0.167,
-      "perIssuer": [
-        {
-          "issuer": "EXR",
-          "sourceLabel": "RI",
-          "facilities": 6,
-          "nrsfThousands": null,
-          "totalGrossThou": 64113,
-          "impliedPSF": null,
-          "depreciationRatio": 0.119
-        },
-        {
-          "issuer": "CUBE",
-          "sourceLabel": "Rhode Island",
-          "facilities": 4,
-          "nrsfThousands": 247,
-          "totalGrossThou": 22456,
-          "impliedPSF": 91,
-          "depreciationRatio": 0.303
-        }
-      ]
-    },
-    {
-      "stateCode": "KS",
-      "stateName": "Kansas",
-      "totalFacilities": 8,
-      "totalNRSFThousands": 432,
-      "facilityCountForNRSF": 7,
-      "totalGrossCarryingThou": 24706,
-      "totalAccumDepThou": 16172,
-      "numIssuersContributing": 2,
-      "weightedPSF": 49,
-      "avgPerFacilityM": 3.1,
-      "depreciationRatio": 0.655,
-      "perIssuer": [
-        {
-          "issuer": "PSA",
-          "sourceLabel": "Wichita",
-          "facilities": 7,
-          "nrsfThousands": 432,
-          "totalGrossThou": 21046,
-          "impliedPSF": 49,
-          "depreciationRatio": 0.684
-        },
-        {
-          "issuer": "EXR",
-          "sourceLabel": "KS",
-          "facilities": 1,
-          "nrsfThousands": null,
-          "totalGrossThou": 3660,
-          "impliedPSF": null,
-          "depreciationRatio": 0.486
         }
       ]
     },
@@ -1863,57 +1953,6 @@
       ]
     }
   ],
-  "unmappedRows": [
-    {
-      "issuer": "PSA",
-      "label": "Evansville",
-      "facilities": 5
-    },
-    {
-      "issuer": "PSA",
-      "label": "Huntsville/Decatur",
-      "facilities": 5
-    },
-    {
-      "issuer": "PSA",
-      "label": "Providence",
-      "facilities": 5
-    },
-    {
-      "issuer": "PSA",
-      "label": "Fort Wayne",
-      "facilities": 4
-    },
-    {
-      "issuer": "PSA",
-      "label": "Palm Springs",
-      "facilities": 3
-    },
-    {
-      "issuer": "PSA",
-      "label": "Shreveport",
-      "facilities": 2
-    },
-    {
-      "issuer": "PSA",
-      "label": "Springfield/Holyoke",
-      "facilities": 2
-    },
-    {
-      "issuer": "PSA",
-      "label": "Santa Barbara",
-      "facilities": 2
-    },
-    {
-      "issuer": "PSA",
-      "label": "Topeka",
-      "facilities": 2
-    },
-    {
-      "issuer": "PSA",
-      "label": "Joplin",
-      "facilities": 1
-    }
-  ],
+  "unmappedRows": [],
   "citationRule": "Every per-issuer record cites a SEC EDGAR filing accession number + URL. To verify any number in this index, follow the issuer's accession number to the source filing on sec.gov."
 }

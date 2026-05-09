@@ -122,6 +122,18 @@ export const MSA_TO_STATE = {
   "York": "PA",
   "Youngstown": "OH",  // MSA spans OH/PA — primary state OH
 
+  // Patch — small-MSA mappings caught in Day 4 unmapped list
+  "Evansville": "IN",  // MSA spans IN/KY — primary state IN
+  "Huntsville/Decatur": "AL",
+  "Providence": "RI",  // MSA spans RI/MA — primary state RI
+  "Fort Wayne": "IN",
+  "Palm Springs": "CA",
+  "Shreveport": "LA",  // MSA spans LA/TX — primary state LA
+  "Springfield/Holyoke": "MA",  // PSA's compound name disambiguates from Springfield MO
+  "Santa Barbara": "CA",
+  "Topeka": "KS",
+  "Joplin": "MO",  // MSA spans MO/KS — primary state MO
+
   // Multi-state aggregates that PSA explicitly groups
   // "Other states (14 states)" — PSA's catch-all. Cannot allocate to single state.
 };
