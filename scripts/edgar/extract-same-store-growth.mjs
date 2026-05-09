@@ -119,6 +119,59 @@ function extractSameStoreMetrics(text, ticker) {
     }
   }
 
+  // ── Tabular format (EXR) ──
+  // EXR (and others) publish same-store metrics in tables:
+  //   "Total same-store rental revenues 2,648,814 2,645,534 0.1%"
+  //   "Same-store net operating income $1,884,797 $1,917,206 (1.7)%"
+  // Capture: label, current_period, prior_period, pct_change. Parens = negative.
+  if (metrics.sameStoreRevenueGrowthYoY == null) {
+    const tableRevRe = /Total\s+same[ -]store\s+(?:rental\s+)?revenues?\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)\s+(\(?-?[\d.]+\)?)\s*%/i;
+    const tm = tableRevRe.exec(text);
+    if (tm) {
+      let pctStr = tm[3].replace(/[()]/g, "");
+      const isNeg = /\(/.test(tm[3]);
+      let pct = parseFloat(pctStr) / 100;
+      if (isNeg && pct > 0) pct = -pct;
+      metrics.sameStoreRevenueGrowthYoY = pct;
+      metrics.revenueGrowthBasis = `tabular — extracted from same-store revenue table (current period $${tm[1]}K vs prior period $${tm[2]}K)`;
+      const start = Math.max(0, tm.index - 80);
+      const end = Math.min(text.length, tm.index + 250);
+      metrics.sourceExcerpt = text.slice(start, end).replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // ── Tabular NOI ──
+  if (metrics.sameStoreNOIGrowthYoY == null) {
+    const tableNOIRe = /Same[ -]store\s+(?:net operating income|NOI)\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)\s+(\(?-?[\d.]+\)?)\s*%/i;
+    const tn = tableNOIRe.exec(text);
+    if (tn) {
+      let pctStr = tn[3].replace(/[()]/g, "");
+      const isNeg = /\(/.test(tn[3]);
+      let pct = parseFloat(pctStr) / 100;
+      if (isNeg && pct > 0) pct = -pct;
+      metrics.sameStoreNOIGrowthYoY = pct;
+      metrics.noiGrowthBasis = `tabular — extracted from same-store NOI table (current period $${tn[1]}K vs prior period $${tn[2]}K)`;
+    }
+  }
+
+  // ── Tabular occupancy (EOP) ──
+  if (metrics.sameStoreOccupancyEOP == null) {
+    const occRe = /Same[ -]store\s+square\s+foot\s+occupancy[^.]+?(\d{2}\.\d)\s*%/i;
+    const oc = occRe.exec(text);
+    if (oc) {
+      metrics.sameStoreOccupancyEOP = parseFloat(oc[1]) / 100;
+    }
+  }
+
+  // ── Average rent per occupied SF (tabular form) ──
+  if (metrics.sameStoreRentPerSF == null) {
+    const rentTabRe = /Average\s+annual\s+rent\s+per\s+occupied\s+square\s+foot[^$]*?\$\s*(\d+\.\d{2})/i;
+    const rt = rentTabRe.exec(text);
+    if (rt) {
+      metrics.sameStoreRentPerSF = parseFloat(rt[1]);
+    }
+  }
+
   // ── NOI growth Y/Y patterns ──
   const noiPatterns = [
     /same[ -]store(?:\s+pool)?\s+(?:net operating income|NOI)\s+(?:for\s+\d{4}\s+)?(?:increased|grew|rose)(?:\s+\$[\d.]+\s+million,?)?\s+(?:by\s+)?(-?[\d.]+)\s*%/i,

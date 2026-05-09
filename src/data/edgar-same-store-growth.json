@@ -1,6 +1,6 @@
 {
   "schema": "storvex.edgar-same-store-growth.v1",
-  "generatedAt": "2026-05-09T20:54:09.857Z",
+  "generatedAt": "2026-05-09T20:56:42.038Z",
   "issuers": [
     {
       "issuer": "PSA",
@@ -11,7 +11,7 @@
       "reportDate": "2025-12-31",
       "accessionNumber": "0001628280-26-007696",
       "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
-      "extractedAt": "2026-05-09T20:54:08.655Z",
+      "extractedAt": "2026-05-09T20:56:40.827Z",
       "metrics": {
         "sameStoreRevenueGrowthYoY": 0,
         "sameStoreNOIGrowthYoY": null,
@@ -31,14 +31,16 @@
       "reportDate": "2025-12-31",
       "accessionNumber": "0001289490-26-000011",
       "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
-      "extractedAt": "2026-05-09T20:54:09.247Z",
+      "extractedAt": "2026-05-09T20:56:41.422Z",
       "metrics": {
-        "sameStoreRevenueGrowthYoY": null,
-        "sameStoreNOIGrowthYoY": null,
-        "sameStoreOccupancyEOP": null,
+        "sameStoreRevenueGrowthYoY": 0.001,
+        "sameStoreNOIGrowthYoY": -0.017,
+        "sameStoreOccupancyEOP": 0.9259999999999999,
         "sameStoreOccupancyAvg": 0.9259999999999999,
-        "sameStoreRentPerSF": null,
-        "sourceExcerpt": null
+        "sameStoreRentPerSF": 19.91,
+        "sourceExcerpt": "ncome $ 2,549,537 $ 2,540,782 0.3% Other operating income 99,277 104,752 (5.2)% Total same-store rental revenues 2,648,814 2,645,534 0.1% Same-store operating expenses Payroll and benefits 164,241 158,699 3.5% Marketing 63,166 60,059 5.2% Office expense 80,381 80,565 (0.2)% Property operating expense 69,649 69,108 0.8% Repairs a",
+        "revenueGrowthBasis": "tabular — extracted from same-store revenue table (current period $2,648,814K vs prior period $2,645,534K)",
+        "noiGrowthBasis": "tabular — extracted from same-store NOI table (current period $1,884,797K vs prior period $1,917,206K)"
       }
     },
     {
@@ -50,7 +52,7 @@
       "reportDate": "2025-12-31",
       "accessionNumber": "0001298675-26-000010",
       "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
-      "extractedAt": "2026-05-09T20:54:09.857Z",
+      "extractedAt": "2026-05-09T20:56:42.038Z",
       "metrics": {
         "sameStoreRevenueGrowthYoY": null,
         "sameStoreNOIGrowthYoY": null,
@@ -62,11 +64,12 @@
     }
   ],
   "crossREITAvg": {
-    "avgSameStoreRevenueGrowthYoY": 0,
-    "avgSameStoreNOIGrowthYoY": null,
+    "avgSameStoreRevenueGrowthYoY": 0.0005,
+    "avgSameStoreNOIGrowthYoY": -0.017,
     "avgSameStoreOccupancy": 0.9259999999999999,
     "contributingIssuers": [
-      "PSA"
+      "PSA",
+      "EXR"
     ]
   },
   "citationRule": "Each per-issuer record cites the SEC EDGAR accession number + URL of the 10-K from which the metrics were extracted. Cross-REIT averages reflect the average of contributing issuers' disclosed values."
