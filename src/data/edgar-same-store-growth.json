@@ -1,0 +1,73 @@
+{
+  "schema": "storvex.edgar-same-store-growth.v1",
+  "generatedAt": "2026-05-09T20:54:09.857Z",
+  "issuers": [
+    {
+      "issuer": "PSA",
+      "cik": 1393311,
+      "issuerName": "Public Storage",
+      "form": "10-K",
+      "filingDate": "2026-02-12",
+      "reportDate": "2025-12-31",
+      "accessionNumber": "0001628280-26-007696",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+      "extractedAt": "2026-05-09T20:54:08.655Z",
+      "metrics": {
+        "sameStoreRevenueGrowthYoY": 0,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": null,
+        "sourceExcerpt": "crease attributable to our Same Store Facilities. Revenues for the Same Store Facilities remained relatively unchanged in 2025 as compared to 2024, due primarily to higher realized annual rent per occupied square foot partially offset by a decline in average occupancy. Cost of operations for the Sam",
+        "revenueGrowthBasis": "qualitative — disclosure states revenues 'remained relatively unchanged'"
+      }
+    },
+    {
+      "issuer": "EXR",
+      "cik": 1289490,
+      "issuerName": "Extra Space Storage Inc",
+      "form": "10-K",
+      "filingDate": "2026-02-20",
+      "reportDate": "2025-12-31",
+      "accessionNumber": "0001289490-26-000011",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+      "extractedAt": "2026-05-09T20:54:09.247Z",
+      "metrics": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.9259999999999999,
+        "sameStoreRentPerSF": null,
+        "sourceExcerpt": null
+      }
+    },
+    {
+      "issuer": "CUBE",
+      "cik": 1298675,
+      "issuerName": "CubeSmart",
+      "form": "10-K",
+      "filingDate": "2026-02-27",
+      "reportDate": "2025-12-31",
+      "accessionNumber": "0001298675-26-000010",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+      "extractedAt": "2026-05-09T20:54:09.857Z",
+      "metrics": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": null,
+        "sourceExcerpt": null
+      }
+    }
+  ],
+  "crossREITAvg": {
+    "avgSameStoreRevenueGrowthYoY": 0,
+    "avgSameStoreNOIGrowthYoY": null,
+    "avgSameStoreOccupancy": 0.9259999999999999,
+    "contributingIssuers": [
+      "PSA"
+    ]
+  },
+  "citationRule": "Each per-issuer record cites the SEC EDGAR accession number + URL of the 10-K from which the metrics were extracted. Cross-REIT averages reflect the average of contributing issuers' disclosed values."
+}
