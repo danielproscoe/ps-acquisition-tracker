@@ -18,6 +18,7 @@ import {
   computeVerdict,
   buildCompGrid,
   analyzeExistingAsset,
+  computeRentSanity,
 } from "./existingAssetAnalysis";
 import { STORAGE } from "./valuationAnalysis";
 
@@ -289,7 +290,7 @@ describe("computeVerdict", () => {
   test("ask above Walk → PASS with gap", () => {
     const v = computeVerdict(16_500_000, tiers);
     expect(v.label).toBe("PASS");
-    expect(v.gap$).toBeCloseTo(2_500_000, 0);
+    expect(v.gapDollars).toBeCloseTo(2_500_000, 0);
     expect(v.gapPct).toBeCloseTo(0.1786, 2); // 2.5M / 14M
   });
 });
@@ -390,5 +391,101 @@ describe("INTEGRATION — Red Rock Mega Storage Reno NV", () => {
     const premium = gap / r.tiers.walk.price;
     expect(gap).toBeGreaterThan(0);
     expect(premium).toBeGreaterThan(0.05);
+  });
+});
+
+// ─── Rent Sanity Cross-Check ───
+describe("computeRentSanity", () => {
+  // Baseline subject — 60K NRSF, 70% CC, 90% economic occupancy.
+  // Implied $/SF/mo at full occ = (egi / occ) / nrsf / 12.
+  const baseInput = (egi) => ({
+    t12EGI: egi,
+    nrsf: 60000,
+    economicOcc: 0.90,
+    ccPct: 0.70,
+    marketRents: { ccRentPerSF: 1.40, driveupRentPerSF: 0.80, sampleSize: 12, source: "SpareFoot" },
+  });
+  // blended market = 0.70 × 1.40 + 0.30 × 0.80 = 0.98 + 0.24 = $1.22/SF/mo
+
+  test("returns null when marketRents missing", () => {
+    expect(computeRentSanity({ t12EGI: 100000, nrsf: 60000, economicOcc: 0.90, ccPct: 0.70, marketRents: null })).toBeNull();
+  });
+
+  test("returns null when t12EGI missing", () => {
+    expect(computeRentSanity({ ...baseInput(0) })).toBeNull();
+  });
+
+  test("returns null when economicOcc <= 0.10 (avoids divide-by-tiny)", () => {
+    expect(computeRentSanity({ ...baseInput(100000), economicOcc: 0.08 })).toBeNull();
+  });
+
+  test("returns null when blended market rate is zero", () => {
+    expect(computeRentSanity({ t12EGI: 100000, nrsf: 60000, economicOcc: 0.90, ccPct: 0.70, marketRents: { ccRentPerSF: 0, driveupRentPerSF: 0 } })).toBeNull();
+  });
+
+  test("ok severity when implied rent within ±15% of blended market", () => {
+    // Target implied rate ≈ $1.22/SF/mo → assumedFullOccEGI = 1.22 × 60000 × 12 = $878,400
+    // → t12EGI at 90% occ = $878,400 × 0.90 = $790,560
+    const r = computeRentSanity(baseInput(790560));
+    expect(r).not.toBeNull();
+    expect(r.severity).toBe("ok");
+    expect(Math.abs(r.premiumPct)).toBeLessThan(0.15);
+    expect(r.message).toContain("within ±15%");
+  });
+
+  test("warn severity when implied rent >15% above blended market", () => {
+    // 25% above market → t12EGI ≈ 790560 × 1.25 = $988,200
+    const r = computeRentSanity(baseInput(988200));
+    expect(r.severity).toBe("warn");
+    expect(r.premiumPct).toBeGreaterThan(0.15);
+    expect(r.message).toContain("above blended submarket rate");
+  });
+
+  test("info severity when implied rent >15% below blended market", () => {
+    // 25% below market → t12EGI ≈ 790560 × 0.75 = $592,920
+    const r = computeRentSanity(baseInput(592920));
+    expect(r.severity).toBe("info");
+    expect(r.premiumPct).toBeLessThan(-0.15);
+    expect(r.message).toContain("below blended submarket rate");
+  });
+
+  test("falls back to 0.55× CC rate when drive-up rate not provided", () => {
+    // Drive-up fallback = 0.55 × 1.40 = $0.77 → blended = 0.70 × 1.40 + 0.30 × 0.77 = $1.211
+    const r = computeRentSanity({
+      t12EGI: 790000,
+      nrsf: 60000,
+      economicOcc: 0.90,
+      ccPct: 0.70,
+      marketRents: { ccRentPerSF: 1.40, sampleSize: 8, source: "SpareFoot" },
+    });
+    expect(r).not.toBeNull();
+    expect(r.driveUpMarketRate).toBeCloseTo(0.77, 2);
+    expect(r.blendedMarketRate).toBeCloseTo(1.211, 2);
+  });
+
+  test("preserves source and sampleSize from marketRents input", () => {
+    const r = computeRentSanity(baseInput(790560));
+    expect(r.source).toBe("SpareFoot");
+    expect(r.sampleSize).toBe(12);
+  });
+
+  test("integrates into analyzeExistingAsset return shape when marketRents provided", () => {
+    const r = analyzeExistingAsset(
+      {
+        ask: 5000000, nrsf: 60000, unitCount: 500, t12EGI: 790560, t12NOI: 350000,
+        state: "TX", physicalOcc: 0.90, economicOcc: 0.90, ccPct: 0.70, isManned: false,
+      },
+      { marketRents: { ccRentPerSF: 1.40, driveupRentPerSF: 0.80, sampleSize: 10, source: "SpareFoot" } }
+    );
+    expect(r.rentSanity).not.toBeNull();
+    expect(r.rentSanity.severity).toBe("ok");
+  });
+
+  test("integrates as null in analyzeExistingAsset when marketRents absent", () => {
+    const r = analyzeExistingAsset({
+      ask: 5000000, nrsf: 60000, unitCount: 500, t12EGI: 790560, t12NOI: 350000,
+      state: "TX", physicalOcc: 0.90, economicOcc: 0.90, ccPct: 0.70, isManned: false,
+    });
+    expect(r.rentSanity).toBeNull();
   });
 });

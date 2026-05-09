@@ -474,7 +474,7 @@ export function computeVerdict(ask, tiers) {
     return {
       label: "PURSUE",
       rationale: "Ask at or below Strike — yield story holds at market cap.",
-      gap$: strike - a,
+      gapDollars: strike - a,
       gapPct: strike > 0 ? (strike - a) / strike : 0,
       color: "#22C55E",
     };
@@ -483,7 +483,7 @@ export function computeVerdict(ask, tiers) {
     return {
       label: "NEGOTIATE",
       rationale: `Ask between Strike and Walk — push back $${Math.round(a - strike).toLocaleString()} to land at Strike.`,
-      gap$: a - strike,
+      gapDollars: a - strike,
       gapPct: strike > 0 ? (a - strike) / strike : 0,
       color: "#F59E0B",
     };
@@ -492,7 +492,7 @@ export function computeVerdict(ask, tiers) {
   return {
     label: "PASS",
     rationale: `Ask exceeds Walk by $${Math.round(overWalk).toLocaleString()} (${walk > 0 ? ((overWalk/walk)*100).toFixed(1) : "—"}% premium). Yield story breaks.`,
-    gap$: overWalk,
+    gapDollars: overWalk,
     gapPct: walk > 0 ? overWalk / walk : 0,
     color: "#EF4444",
   };
@@ -519,6 +519,68 @@ export function buildCompGrid(state, ask, nrsf) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// RENT SANITY CHECK — implied effective rent vs SpareFoot submarket
+//
+// Independent cross-check on the seller's reported EGI. Computes the implied
+// effective rent per SF/mo at full occupancy from seller's T-12 EGI, then
+// compares to the SpareFoot blended market rate (CC% weighted). Flags if
+// seller's implied rent sits >15% above market — meaning the pro forma may
+// be aggressive — or >15% below, meaning a rent-lever value-add signal.
+//
+// This is the v0 sanity floor. The v1 triangulation tier will add an
+// explicit market-rate revenue path so users can see Walk/Strike/Home Run
+// computed against market rents alongside seller's pro forma.
+//
+// Pure function — no API calls, no external state. Returns null if any
+// required input is missing (graceful degrade for partial enrichment).
+// ══════════════════════════════════════════════════════════════════════════
+
+export function computeRentSanity({ t12EGI, nrsf, economicOcc, ccPct, marketRents }) {
+  if (!marketRents || marketRents.ccRentPerSF == null) return null;
+  if (!t12EGI || !nrsf || !economicOcc || economicOcc <= 0.10) return null;
+
+  const ccRate = Number(marketRents.ccRentPerSF) || 0;
+  // Drive-up typically prices at 50-60% of CC rate; use 0.55 fallback when
+  // SpareFoot doesn't return an explicit drive-up rate for the submarket.
+  const driveUpRate = Number(marketRents.driveupRentPerSF) || ccRate * 0.55;
+  const cc = ccPct != null ? Number(ccPct) : 0.70;
+  const blendedMarketRate = cc * ccRate + (1 - cc) * driveUpRate;
+
+  if (blendedMarketRate <= 0) return null;
+
+  // Project seller's T-12 EGI to full-occupancy equivalent so it's
+  // comparable to SpareFoot's market rate (which is per occupied SF).
+  const assumedFullOccEGI = t12EGI / economicOcc;
+  const impliedRatePerSF = assumedFullOccEGI / nrsf / 12;
+
+  const premiumPct = (impliedRatePerSF - blendedMarketRate) / blendedMarketRate;
+
+  let severity, message;
+  if (premiumPct > 0.15) {
+    severity = "warn";
+    message = `Seller's implied effective rent of $${impliedRatePerSF.toFixed(2)}/SF/mo sits ${(premiumPct * 100).toFixed(1)}% above blended submarket rate of $${blendedMarketRate.toFixed(2)}/SF/mo — pro forma may be aggressive. Verify achievability before underwriting.`;
+  } else if (premiumPct < -0.15) {
+    severity = "info";
+    message = `Seller's implied effective rent of $${impliedRatePerSF.toFixed(2)}/SF/mo sits ${(Math.abs(premiumPct) * 100).toFixed(1)}% below blended submarket rate of $${blendedMarketRate.toFixed(2)}/SF/mo — value-add rent lever or distressed pricing signal.`;
+  } else {
+    severity = "ok";
+    message = `Seller's implied effective rent of $${impliedRatePerSF.toFixed(2)}/SF/mo within ±15% of blended submarket rate of $${blendedMarketRate.toFixed(2)}/SF/mo — pro forma defensible against market.`;
+  }
+
+  return {
+    impliedRatePerSF,
+    blendedMarketRate,
+    ccMarketRate: ccRate,
+    driveUpMarketRate: driveUpRate,
+    premiumPct,
+    severity,
+    message,
+    sampleSize: marketRents.sampleSize || null,
+    source: marketRents.source || "SpareFoot",
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // TOP-LEVEL ORCHESTRATOR
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -527,9 +589,12 @@ export function analyzeExistingAsset(input, opts = {}) {
   //   expenseOverrides   — partial EXPENSE_BENCHMARKS override (per buyer lens)
   //   revenueAdjustment  — multiplier on EGI for street rate premium (default 1.0)
   //   customMarketCap    — overrides MSA-tier-derived market cap (per buyer lens)
+  //   marketRents        — { ccRentPerSF, driveupRentPerSF, sampleSize, source }
+  //                        from SpareFoot enrichment; enables rent sanity check
   const expenseOverrides = opts.expenseOverrides || null;
   const revenueAdjustment = Number(opts.revenueAdjustment) || 1.0;
   const customMarketCap = opts.customMarketCap;
+  const marketRents = opts.marketRents || null;
   const reconOpts = (expenseOverrides || revenueAdjustment !== 1.0)
     ? { expenseOverrides, revenueAdjustment }
     : {};
@@ -594,6 +659,17 @@ export function analyzeExistingAsset(input, opts = {}) {
   const verdict = computeVerdict(ask, tiers);
   const comps = buildCompGrid(input.state, ask, nrsf);
 
+  // Rent sanity — independent cross-check of seller's implied effective
+  // rent vs SpareFoot blended submarket rate. Returns null if marketRents
+  // not provided (e.g., enrichment hasn't completed yet on first render).
+  const rentSanity = computeRentSanity({
+    t12EGI: Number(input.t12EGI) || 0,
+    nrsf,
+    economicOcc: econOcc,
+    ccPct: input.ccPct != null ? Number(input.ccPct) : 0.70,
+    marketRents,
+  });
+
   return {
     snapshot,
     reconstructed,
@@ -606,6 +682,7 @@ export function analyzeExistingAsset(input, opts = {}) {
     tiers,
     verdict,
     comps,
+    rentSanity,
     generatedAt: new Date().toISOString(),
   };
 }

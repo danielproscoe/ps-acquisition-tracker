@@ -214,6 +214,8 @@ export function computeLensMarketCap(lens, msaTier, nearestMi = null) {
  * @param {Object} lens               — a profile from BUYER_LENSES (default PS_LENS)
  * @param {Object} [extra]
  * @param {number} [extra.nearestPortfolioMi]  — distance to nearest buyer family facility
+ * @param {Object} [extra.marketRents]         — SpareFoot { ccRentPerSF, driveupRentPerSF, sampleSize, source }
+ *                                               for the rent sanity cross-check
  * @returns {Object} analysis result — same shape as analyzeExistingAsset() plus lens metadata
  */
 export function computeBuyerLens(input, lens = PS_LENS, extra = {}) {
@@ -224,6 +226,7 @@ export function computeBuyerLens(input, lens = PS_LENS, extra = {}) {
     expenseOverrides: lens.expenseOverrides || null,
     revenueAdjustment: lens.revenueAdjustment || 1.0,
     customMarketCap: fit.cap,
+    marketRents: extra.marketRents || null,
   });
 
   return {

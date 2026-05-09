@@ -90,7 +90,7 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
     psa_underwrite: ps ? {
       verdict: ps.verdict?.label || null,
       verdict_rationale: ps.verdict?.rationale || null,
-      gap_dollars: numOrNull(ps.verdict?.gap$),
+      gap_dollars: numOrNull(ps.verdict?.gapDollars),
       gap_pct: numOrNull(ps.verdict?.gapPct),
 
       psa_market_cap: numOrNull(ps.marketCap),
@@ -180,6 +180,20 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       comp_count: analysis.comps?.comps?.length || 0,
       fell_back_to_peer_state: !!analysis.comps?.fellbackToPeer,
     },
+
+    // Independent SpareFoot cross-check on seller's implied effective rent.
+    // Null when enrichment hasn't completed at write time.
+    rent_sanity: analysis.rentSanity ? {
+      implied_rate_psf_mo: numOrNull(analysis.rentSanity.impliedRatePerSF),
+      blended_market_rate_psf_mo: numOrNull(analysis.rentSanity.blendedMarketRate),
+      cc_market_rate_psf_mo: numOrNull(analysis.rentSanity.ccMarketRate),
+      drive_up_market_rate_psf_mo: numOrNull(analysis.rentSanity.driveUpMarketRate),
+      premium_pct: numOrNull(analysis.rentSanity.premiumPct),
+      severity: analysis.rentSanity.severity || null,
+      message: analysis.rentSanity.message || null,
+      sample_size: numOrNull(analysis.rentSanity.sampleSize),
+      source: analysis.rentSanity.source || "SpareFoot",
+    } : null,
 
     extraction: extractionMeta ? {
       om_filename: extractionMeta.filename || null,
