@@ -119,38 +119,75 @@ function extractSameStoreMetrics(text, ticker) {
     }
   }
 
-  // ── Tabular format (EXR) ──
-  // EXR (and others) publish same-store metrics in tables:
+  // ── Tabular format (EXR — 3-column: current / prior / pct) ──
   //   "Total same-store rental revenues 2,648,814 2,645,534 0.1%"
   //   "Same-store net operating income $1,884,797 $1,917,206 (1.7)%"
-  // Capture: label, current_period, prior_period, pct_change. Parens = negative.
+  // ── Tabular format (CUBE — 4-column: current / prior / $change / pct) ──
+  //   "Total revenues 938,048 942,457 (4,409) (0.5) %"
+  // Both variants captured below.
   if (metrics.sameStoreRevenueGrowthYoY == null) {
-    const tableRevRe = /Total\s+same[ -]store\s+(?:rental\s+)?revenues?\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)\s+(\(?-?[\d.]+\)?)\s*%/i;
-    const tm = tableRevRe.exec(text);
+    // EXR-style (3-col): label + 2 amounts + pct
+    const exrRevRe = /Total\s+same[ -]store\s+(?:rental\s+)?revenues?\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)\s+(\(?-?[\d.]+\)?)\s*%/i;
+    const tm = exrRevRe.exec(text);
     if (tm) {
       let pctStr = tm[3].replace(/[()]/g, "");
       const isNeg = /\(/.test(tm[3]);
       let pct = parseFloat(pctStr) / 100;
       if (isNeg && pct > 0) pct = -pct;
       metrics.sameStoreRevenueGrowthYoY = pct;
-      metrics.revenueGrowthBasis = `tabular — extracted from same-store revenue table (current period $${tm[1]}K vs prior period $${tm[2]}K)`;
+      metrics.revenueGrowthBasis = `tabular (3-col) — same-store revenue table (current period $${tm[1]}K vs prior period $${tm[2]}K)`;
       const start = Math.max(0, tm.index - 80);
       const end = Math.min(text.length, tm.index + 250);
       metrics.sourceExcerpt = text.slice(start, end).replace(/\s+/g, " ").trim();
+    } else {
+      // CUBE-style (4-col): "Same-Store ... Total revenues C P (D) (P)%"
+      // Anchor on a "Same-Store" header followed by "Total revenues" with 4 numeric columns
+      const cubeRevRe = /(?:Same.Store(?:\s+Property\s+Portfolio)?[\s\S]{0,800})Total\s+revenues\s+([\d,]+)\s+([\d,]+)\s+\(?(-?[\d,]+)\)?\s+\(?(-?[\d.]+)\)?\s*%/i;
+      const cm = cubeRevRe.exec(text);
+      if (cm) {
+        let pctStr = cm[4];
+        // For CUBE we look at the 4th capture (pct change). Negatives wrapped in parens
+        // Detect negative by seeing if the original pct was wrapped in parens
+        const fullMatch = cm[0];
+        const pctIdx = fullMatch.lastIndexOf(pctStr);
+        const wasWrapped = pctIdx > 0 && fullMatch[pctIdx - 1] === "(";
+        let pct = parseFloat(pctStr.replace(/-/g, "")) / 100;
+        if (wasWrapped) pct = -pct;
+        metrics.sameStoreRevenueGrowthYoY = pct;
+        metrics.revenueGrowthBasis = `tabular (4-col) — Same-Store Property Portfolio total revenues table (current $${cm[1]}K vs prior $${cm[2]}K, change $${cm[3]}K)`;
+        const start = Math.max(0, cm.index - 80);
+        const end = Math.min(text.length, cm.index + 350);
+        metrics.sourceExcerpt = text.slice(start, end).replace(/\s+/g, " ").trim();
+      }
     }
   }
 
   // ── Tabular NOI ──
   if (metrics.sameStoreNOIGrowthYoY == null) {
-    const tableNOIRe = /Same[ -]store\s+(?:net operating income|NOI)\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)\s+(\(?-?[\d.]+\)?)\s*%/i;
-    const tn = tableNOIRe.exec(text);
+    // EXR (3-col)
+    const exrNOIRe = /Same[ -]store\s+(?:net operating income|NOI)\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)\s+(\(?-?[\d.]+\)?)\s*%/i;
+    const tn = exrNOIRe.exec(text);
     if (tn) {
       let pctStr = tn[3].replace(/[()]/g, "");
       const isNeg = /\(/.test(tn[3]);
       let pct = parseFloat(pctStr) / 100;
       if (isNeg && pct > 0) pct = -pct;
       metrics.sameStoreNOIGrowthYoY = pct;
-      metrics.noiGrowthBasis = `tabular — extracted from same-store NOI table (current period $${tn[1]}K vs prior period $${tn[2]}K)`;
+      metrics.noiGrowthBasis = `tabular (3-col) — same-store NOI table (current $${tn[1]}K vs prior $${tn[2]}K)`;
+    } else {
+      // CUBE (4-col): "NET OPERATING INCOME: ... C P ($change) (Pct)%"
+      const cubeNOIRe = /NET\s+OPERATING\s+INCOME:?\s+([\d,]+)\s+([\d,]+)\s+\(?(-?[\d,]+)\)?\s+\(?(-?[\d.]+)\)?\s*%/i;
+      const cn = cubeNOIRe.exec(text);
+      if (cn) {
+        let pctStr = cn[4];
+        const fullMatch = cn[0];
+        const pctIdx = fullMatch.lastIndexOf(pctStr);
+        const wasWrapped = pctIdx > 0 && fullMatch[pctIdx - 1] === "(";
+        let pct = parseFloat(pctStr.replace(/-/g, "")) / 100;
+        if (wasWrapped) pct = -pct;
+        metrics.sameStoreNOIGrowthYoY = pct;
+        metrics.noiGrowthBasis = `tabular (4-col) — Same-Store Property Portfolio NOI line (current $${cn[1]}K vs prior $${cn[2]}K)`;
+      }
     }
   }
 
@@ -160,6 +197,11 @@ function extractSameStoreMetrics(text, ticker) {
     const oc = occRe.exec(text);
     if (oc) {
       metrics.sameStoreOccupancyEOP = parseFloat(oc[1]) / 100;
+    } else {
+      // CUBE format: "Period end occupancy 88.6% 89.3% ... " (after Same-Store anchor)
+      const cubeOccRe = /(?:Same.Store[\s\S]{0,1500})Period\s+end\s+occupancy\s+(\d{2}\.\d)\s*%/i;
+      const co = cubeOccRe.exec(text);
+      if (co) metrics.sameStoreOccupancyEOP = parseFloat(co[1]) / 100;
     }
   }
 
@@ -169,6 +211,11 @@ function extractSameStoreMetrics(text, ticker) {
     const rt = rentTabRe.exec(text);
     if (rt) {
       metrics.sameStoreRentPerSF = parseFloat(rt[1]);
+    } else {
+      // CUBE format: "Realized annual rent per occupied sq. ft. (1) $ 22.73 $ 22.71"
+      const cubeRentRe = /Realized\s+annual\s+rent\s+per\s+occupied\s+sq\.?\s*ft\.?[^$]*?\$\s*(\d+\.\d{2})/i;
+      const cr = cubeRentRe.exec(text);
+      if (cr) metrics.sameStoreRentPerSF = parseFloat(cr[1]);
     }
   }
 
