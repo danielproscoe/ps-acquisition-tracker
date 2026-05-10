@@ -38,14 +38,40 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 const REQ_DELAY_MS = 1100; // ~1 req/sec to stay polite + avoid Cloudflare WAF
 
-// Cities to scrape this sprint. Each is one PSA city listing page that
-// enumerates that city's facilities. Future sprints expand this list.
+// All 24 PSA-disclosed MSAs from the FY2025 10-K MD&A "Same Store Facilities
+// Operating Trends by Market" table. Each citySlug maps to PSA's URL pattern
+// `https://www.publicstorage.com/{citySlug}` for that city's listing page.
+//
+// Coverage: ~10 facilities returned per city (PSA city listings show top-N
+// closest). Full per-MSA enumeration via state-level sitemap is a future
+// expansion (gets remaining facilities beyond the top-10 per metro).
 const CITIES = [
+  { msa: "Los Angeles", citySlug: "self-storage-ca-los-angeles" },
+  { msa: "San Francisco", citySlug: "self-storage-ca-san-francisco" },
+  { msa: "New York", citySlug: "self-storage-ny-new-york" },
+  { msa: "Washington DC", citySlug: "self-storage-dc-washington" },
+  { msa: "Miami", citySlug: "self-storage-fl-miami" },
+  { msa: "Seattle-Tacoma", citySlug: "self-storage-wa-seattle" },
+  { msa: "Dallas-Ft. Worth", citySlug: "self-storage-tx-dallas" },
+  { msa: "Houston", citySlug: "self-storage-tx-houston" },
+  { msa: "Chicago", citySlug: "self-storage-il-chicago" },
+  { msa: "Atlanta", citySlug: "self-storage-ga-atlanta" },
+  { msa: "West Palm Beach", citySlug: "self-storage-fl-west-palm-beach" },
+  { msa: "Orlando-Daytona", citySlug: "self-storage-fl-orlando" },
+  { msa: "Philadelphia", citySlug: "self-storage-pa-philadelphia" },
+  { msa: "Baltimore", citySlug: "self-storage-md-baltimore" },
+  { msa: "San Diego", citySlug: "self-storage-ca-san-diego" },
+  { msa: "Charlotte", citySlug: "self-storage-nc-charlotte" },
+  { msa: "Denver", citySlug: "self-storage-co-denver" },
+  { msa: "Tampa", citySlug: "self-storage-fl-tampa" },
+  { msa: "Phoenix", citySlug: "self-storage-az-phoenix" },
+  { msa: "Detroit", citySlug: "self-storage-mi-detroit" },
+  { msa: "Boston", citySlug: "self-storage-ma-boston" },
+  { msa: "Honolulu", citySlug: "self-storage-hi-honolulu" },
+  { msa: "Portland", citySlug: "self-storage-or-portland" },
+  { msa: "Minneapolis/St. Paul", citySlug: "self-storage-mn-minneapolis" },
+  { msa: "Sacramento", citySlug: "self-storage-ca-sacramento" },
   { msa: "Austin TX", citySlug: "self-storage-tx-austin" },
-  // { msa: "Dallas-Ft. Worth", citySlug: "self-storage-tx-dallas" },
-  // { msa: "Houston", citySlug: "self-storage-tx-houston" },
-  // { msa: "Los Angeles", citySlug: "self-storage-ca-los-angeles" },
-  // { msa: "Atlanta", citySlug: "self-storage-ga-atlanta" },
 ];
 
 // ─── HTTP client ────────────────────────────────────────────────────────────
