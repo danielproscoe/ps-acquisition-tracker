@@ -1,3 +1,5 @@
+import { resolveCityToMSA, getHistoricalMSARentSeries } from "./data/edgarCompIndex";
+
 // warehouseExport.js — Push Storvex Asset Analyzer outputs to PSA's data warehouse.
 //
 // Outputs a structured JSON payload in a PSA-likely warehouse schema. Every
@@ -255,6 +257,55 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
     // Cross-REIT institutional cost-basis index for the subject's state.
     // Pulled from the SEC EDGAR Schedule III ingestion pipeline. Every
     // contributing REIT cites a specific SEC accession number + filing URL.
+    // PSA per-MSA same-store rent time series (FY2021-FY2025+). Ingested
+    // directly from PSA's 10-K MD&A "Same Store Facilities Operating Trends
+    // by Market" disclosure. Distinct from edgar_cross_reit (which is the
+    // state-level Schedule III cost-basis index) and cross_reit_move_in_rates
+    // (which is the live per-facility scrape). This is the multi-year
+    // PSA-only same-store rent disclosure — uniquely granular at the MSA
+    // level among institutional storage REITs.
+    //
+    // Surfaces only when subject city resolves to a PSA-disclosed MSA (17
+    // MSAs with multi-year continuity as of 5/10/26). Null otherwise.
+    historical_msa_rent: (() => {
+      const city = s.city || s.location?.city;
+      const state = s.state || s.location?.state;
+      const msa = city ? resolveCityToMSA(city, state) : null;
+      if (!msa) return null;
+      const series = getHistoricalMSARentSeries(msa, "PSA");
+      if (!series || !series.series || series.series.length < 2) return null;
+      const last = series.series[series.series.length - 1];
+      const prior = series.series.length >= 2 ? series.series[series.series.length - 2] : null;
+      const yoy = prior && last && prior.rentPerOccSF > 0
+        ? ((last.rentPerOccSF / prior.rentPerOccSF) - 1) * 100
+        : null;
+      return {
+        issuer: series.issuer,
+        msa: series.msa,
+        first_year: series.firstYear,
+        last_year: series.lastYear,
+        first_rent_per_occ_sf: numOrNull(series.firstRent),
+        last_rent_per_occ_sf: numOrNull(series.lastRent),
+        total_change_pct: numOrNull(series.totalChangePct),
+        cagr_pct: numOrNull(series.cagrPct),
+        years_covered: series.series.length,
+        most_recent_year_rent: last?.rentPerOccSF != null ? numOrNull(last.rentPerOccSF) : null,
+        prior_year_rent: prior?.rentPerOccSF != null ? numOrNull(prior.rentPerOccSF) : null,
+        most_recent_yoy_change_pct: numOrNull(yoy),
+        series: series.series.map((p) => ({
+          fiscal_year: p.year,
+          rent_per_occ_sf: numOrNull(p.rentPerOccSF),
+          occupancy: numOrNull(p.occupancy),
+          facilities: numOrNull(p.facilities),
+          sqft_millions: numOrNull(p.sqftMillions),
+        })),
+        source: `PSA FY${series.firstYear}-FY${series.lastYear} 10-K MD&A · Same Store Facilities Operating Trends by Market`,
+        source_provider: "SEC EDGAR",
+        ingestion_pipeline: "scripts/edgar/backfill-historical-msa-rents.mjs",
+        schema_version: "storvex.edgar-historical-msa-rents.v1",
+      };
+    })(),
+
     edgar_cross_reit: analysis.edgarComp ? {
       state_code: analysis.edgarComp.stateCode,
       state_name: analysis.edgarComp.stateName,
