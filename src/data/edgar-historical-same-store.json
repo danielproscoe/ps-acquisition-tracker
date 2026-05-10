@@ -1,6 +1,6 @@
 {
   "schema": "storvex.edgar-historical-same-store.v1",
-  "generated_at": "2026-05-10T20:13:17.086Z",
+  "generated_at": "2026-05-10T20:21:45.625Z",
   "issuers": [
     "EXR",
     "CUBE",
@@ -23,38 +23,38 @@
     {
       "ticker": "EXR",
       "fyTag": "2020",
-      "metricsExtracted": 3,
+      "metricsExtracted": 7,
       "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $769,936K vs prior $775,273K)"
     },
     {
       "ticker": "EXR",
       "fyTag": "2021",
-      "metricsExtracted": 3,
+      "metricsExtracted": 7,
       "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $898,815K vs prior $750,838K)"
     },
     {
       "ticker": "EXR",
       "fyTag": "2022",
-      "metricsExtracted": 3,
+      "metricsExtracted": 7,
       "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,104,132K vs prior $917,970K)"
     },
     {
       "ticker": "EXR",
       "fyTag": "2023",
-      "metricsExtracted": 3,
+      "metricsExtracted": 7,
       "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,186,120K vs prior $1,153,795K)"
     },
     {
       "ticker": "EXR",
       "fyTag": "2024",
-      "metricsExtracted": 8,
+      "metricsExtracted": 9,
       "revenueGrowthBasis": "tabular (3-col) — same-store revenue table (current period $1,665,755K vs prior period $1,661,704K)",
       "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,233,706K vs prior $1,252,777K)"
     },
     {
       "ticker": "EXR",
       "fyTag": "2025",
-      "metricsExtracted": 8,
+      "metricsExtracted": 9,
       "revenueGrowthBasis": "tabular (3-col) — same-store revenue table (current period $2,648,814K vs prior period $2,645,534K)",
       "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,884,797K vs prior $1,917,206K)"
     },
@@ -180,10 +180,10 @@
         "sameStoreNOIGrowthYoY": -0.006999999999999999,
         "sameStoreOccupancyEOP": 0.948,
         "sameStoreOccupancyAvg": 0.948,
-        "sameStoreRentPerSF": null,
-        "sameStoreRentPerSF_PriorYear": null,
-        "newLeaseRentPerSF": null,
-        "newLeaseRentPerSF_PriorYear": null,
+        "sameStoreRentPerSF": 16.33,
+        "sameStoreRentPerSF_PriorYear": 16.39,
+        "newLeaseRentPerSF": 14.81,
+        "newLeaseRentPerSF_PriorYear": 14.88,
         "discountPctOfRevenue": null
       },
       "2021": {
@@ -191,10 +191,10 @@
         "sameStoreNOIGrowthYoY": 0.19699999999999998,
         "sameStoreOccupancyEOP": 0.953,
         "sameStoreOccupancyAvg": 0.953,
-        "sameStoreRentPerSF": null,
-        "sameStoreRentPerSF_PriorYear": null,
-        "newLeaseRentPerSF": null,
-        "newLeaseRentPerSF_PriorYear": null,
+        "sameStoreRentPerSF": 18.03,
+        "sameStoreRentPerSF_PriorYear": 16.21,
+        "newLeaseRentPerSF": 19.53,
+        "newLeaseRentPerSF_PriorYear": 14.64,
         "discountPctOfRevenue": null
       },
       "2022": {
@@ -202,10 +202,10 @@
         "sameStoreNOIGrowthYoY": 0.203,
         "sameStoreOccupancyEOP": 0.9420000000000001,
         "sameStoreOccupancyAvg": 0.9420000000000001,
-        "sameStoreRentPerSF": null,
-        "sameStoreRentPerSF_PriorYear": null,
-        "newLeaseRentPerSF": null,
-        "newLeaseRentPerSF_PriorYear": null,
+        "sameStoreRentPerSF": 21.09,
+        "sameStoreRentPerSF_PriorYear": 17.68,
+        "newLeaseRentPerSF": 18.55,
+        "newLeaseRentPerSF_PriorYear": 19.3,
         "discountPctOfRevenue": null
       },
       "2023": {
@@ -213,10 +213,10 @@
         "sameStoreNOIGrowthYoY": 0.027999999999999997,
         "sameStoreOccupancyEOP": 0.93,
         "sameStoreOccupancyAvg": 0.93,
-        "sameStoreRentPerSF": null,
-        "sameStoreRentPerSF_PriorYear": null,
-        "newLeaseRentPerSF": null,
-        "newLeaseRentPerSF_PriorYear": null,
+        "sameStoreRentPerSF": 21.25,
+        "sameStoreRentPerSF_PriorYear": 20.5,
+        "newLeaseRentPerSF": 16.19,
+        "newLeaseRentPerSF_PriorYear": 18.32,
         "discountPctOfRevenue": null
       },
       "2024": {
@@ -225,7 +225,7 @@
         "sameStoreOccupancyEOP": 0.937,
         "sameStoreOccupancyAvg": 0.937,
         "sameStoreRentPerSF": 21.68,
-        "sameStoreRentPerSF_PriorYear": null,
+        "sameStoreRentPerSF_PriorYear": 21.83,
         "newLeaseRentPerSF": 14.49,
         "newLeaseRentPerSF_PriorYear": 16.18,
         "discountPctOfRevenue": 0.021
@@ -236,7 +236,7 @@
         "sameStoreOccupancyEOP": 0.9259999999999999,
         "sameStoreOccupancyAvg": 0.9259999999999999,
         "sameStoreRentPerSF": 19.91,
-        "sameStoreRentPerSF_PriorYear": null,
+        "sameStoreRentPerSF_PriorYear": 19.99,
         "newLeaseRentPerSF": 13.16,
         "newLeaseRentPerSF_PriorYear": 12.6,
         "discountPctOfRevenue": 0.021
@@ -579,13 +579,29 @@
     {
       "issuer": "EXR",
       "metric": "sameStoreRentPerSF",
-      "firstYear": "2024",
+      "firstYear": "2020",
       "lastYear": "2025",
-      "firstValue": 21.68,
+      "firstValue": 16.33,
       "lastValue": 19.91,
-      "cagrPct": -8.164206642066418,
-      "dataPoints": 2,
+      "cagrPct": 4.043993925307454,
+      "dataPoints": 6,
       "series": [
+        {
+          "year": "2020",
+          "value": 16.33
+        },
+        {
+          "year": "2021",
+          "value": 18.03
+        },
+        {
+          "year": "2022",
+          "value": 21.09
+        },
+        {
+          "year": "2023",
+          "value": 21.25
+        },
         {
           "year": "2024",
           "value": 21.68
@@ -599,13 +615,29 @@
     {
       "issuer": "EXR",
       "metric": "newLeaseRentPerSF",
-      "firstYear": "2024",
+      "firstYear": "2020",
       "lastYear": "2025",
-      "firstValue": 14.49,
+      "firstValue": 14.81,
       "lastValue": 13.16,
-      "cagrPct": -9.178743961352653,
-      "dataPoints": 2,
+      "cagrPct": -2.334727499166045,
+      "dataPoints": 6,
       "series": [
+        {
+          "year": "2020",
+          "value": 14.81
+        },
+        {
+          "year": "2021",
+          "value": 19.53
+        },
+        {
+          "year": "2022",
+          "value": 18.55
+        },
+        {
+          "year": "2023",
+          "value": 16.19
+        },
         {
           "year": "2024",
           "value": 14.49

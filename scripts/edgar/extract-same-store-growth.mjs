@@ -295,6 +295,16 @@ export function extractSameStoreMetrics(text, ticker) {
     /[Aa]nnualized\s+rent\s+per\s+occupied\s+square\s+foot\s*(?:\(\d+\))?\s*\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/,
     // PSA "Annual contract" form
     /Annual\s+contract\s+rent\s+per\s+occupied\s+square\s+foot\s*(?:\([a-z]\))?\s*\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/i,
+    // EXR narrative form (FY2020-FY2023): "annual rent per square foot for
+    // our existing customers at stabilized stores, net of discounts and bad
+    // debt, was $XX.XX for the year ended December 31, YYYY, compared to
+    // $XX.XX for the year ended December 31, YYYY-1". Captures current +
+    // prior period from the "compared to" phrase. Use [\s\S] to allow
+    // multi-line matches.
+    /annual\s+rent\s+per\s+square\s+foot\s+for\s+our\s+existing\s+customers[\s\S]{0,150}?was\s+\$(\d+\.\d{2})[\s\S]{0,150}?compared\s+to\s+\$(\d+\.\d{2})/i,
+    // EXR FY2024+ tabular form: "annual rent per occupied square foot, net
+    // of discounts and bad debt $ 21.68 $ 21.49"
+    /annual\s+rent\s+per\s+occupied\s+square\s+foot,?\s+net\s+of\s+discounts\s+and\s+bad\s+debt[\s\S]{0,50}?\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/i,
     // Narrative form (legacy)
     /(?:average\s+)?(?:annualized\s+)?(?:realized\s+)?rent\s+per\s+occupied\s+square\s+foot\s+(?:of\s+)?\$(\d+\.\d{2})/i,
     /rent\s+per\s+occupied\s+square\s+foot\s+(?:was\s+)?\$(\d+\.\d{2})/i,
@@ -317,6 +327,10 @@ export function extractSameStoreMetrics(text, ticker) {
   const newLeasePatterns = [
     /[Nn]ew\s+leases?\s+(?:average\s+)?annual\s+rent\s+per\s+square\s+foot\s*\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/,
     /[Nn]ew\s+leases?\s+(?:average\s+)?annual\s+rent\s+per\s+square\s+foot\s*\$\s*(\d+\.\d{2})/,
+    // EXR narrative form (FY2020-FY2023): "annual rent per square foot for
+    // new leases was $XX.XX for the year ended December 31, YYYY, compared
+    // to $XX.XX for the year ended December 31, YYYY-1"
+    /annual\s+rent\s+per\s+square\s+foot\s+for\s+new\s+leases\s+was\s+\$(\d+\.\d{2})[\s\S]{0,150}?compared\s+to\s+\$(\d+\.\d{2})/i,
   ];
   for (const re of newLeasePatterns) {
     const m = re.exec(text);
