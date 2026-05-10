@@ -14,6 +14,7 @@ import { RECIPIENTS, RECIPIENT_OPTIONS, getRecipient, resolveRecipientLens } fro
 import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
 import { openAnalyzerReport } from "../analyzerReport";
+import { resolveCityToMSA, getHistoricalMSARentSeries } from "../data/edgarCompIndex";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
 
 // ─── Brand tokens — match QuickLookupPanel + CLAUDE.md §3 ─────────────────
@@ -596,10 +597,17 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     setMemoError(null);
     setMemo(null);
     try {
+      // Resolve subject MSA + lookup historical PSA same-store rent series.
+      // Lets the IC memo cite the multi-year primary-source CAGR — closes the
+      // historical-rent moat vs Radius+ in the LLM-generated narrative.
+      const subjectCity = analysis?.snapshot?.city || null;
+      const subjectState = analysis?.snapshot?.state || null;
+      const subjectMSA = subjectCity ? resolveCityToMSA(subjectCity, subjectState) : null;
+      const historicalMSARent = subjectMSA ? getHistoricalMSARentSeries(subjectMSA, "PSA") : null;
       const resp = await fetch("/api/analyzer-memo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generic: analysis, psLens, enrichment }),
+        body: JSON.stringify({ generic: analysis, psLens, enrichment, historicalMSARent }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.ok) throw new Error(data.error || `API ${resp.status}`);

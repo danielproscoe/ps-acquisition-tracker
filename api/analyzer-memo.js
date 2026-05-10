@@ -43,6 +43,7 @@ YOU RECEIVE structured underwriting outputs:
   • RENT SANITY (when present) — independent SpareFoot cross-check on seller's implied effective rent vs blended submarket rate. Three severities: "warn" (>15% above market — pro forma may be aggressive), "info" (>15% below — value-add lever or distressed signal), "ok" (within ±15% — pro forma defensible). When this field is present, you MUST cite it explicitly in the memo — it's the independent-underwriter signal that distinguishes Storvex from a buyer-lens reconstruction of seller's narrative.
   • EDGAR CROSS-REIT (when present) — institutional cost-basis index for the subject's state, derived from SEC EDGAR 10-K Schedule III filings of the largest storage REITs (PSA, EXR, CUBE — total 5,818 facilities and $65B in gross carrying value indexed). Includes weighted $/SF cost basis, average $/facility, portfolio depreciation ratio, and per-REIT breakdown. When this field is present and weightedPSF is non-null, you MUST cite it. Compare the subject's $/SF cost basis (from snapshot.pricePerSF or derived) to the institutional weighted $/SF for the state — this is the most defensible market-cost comparison available. State whether the subject is "in line with", "below", or "above" institutional cost basis. When numIssuersContributing >= 3, call the data point "triple-validated by all three major institutional REITs" — that's the credibility moment.
   • EDGAR 8-K TRANSACTIONS (when present) — individual M&A deal comps from SEC 8-K material event filings. Each transaction has buyer/target/price/facilities/NRSF/consideration_type with verbatim source quotes from the issuer's 8-K. Top recent comps you'll see: PSA→BREIT Simply Storage ($2.2B/127 fac/9.4M SF/cash), CUBE→LAACO ($1.74B), PSA→Neighborhood Storage ($192.4M/28 fac), PSA→NSA merger (announced March 2026). When the subject deal is comparable in scale (within 0.3-3x of any 8-K transaction's price), reference the most-relevant 8-K transaction by buyer + target + price + accession number as a direct comp. This is the per-deal validation that distinguishes Storvex from any aggregator — primary-source disclosed transactions, not someone else's database.
+  • HISTORICAL MSA RENT (when present) — multi-year PSA per-MSA same-store rent series from FY2021-FY2025 10-K MD&A "Same Store Facilities Operating Trends by Market" disclosures, ingested directly from SEC EDGAR. Carries the MSA's firstYear/lastYear rent per occupied SF and computed CAGR over the disclosed window. PSA's MD&A is uniquely granular at MSA level — EXR, CUBE, and NSA disclose only portfolio-aggregate same-store rent. When this field is present, you MUST cite the multi-year CAGR explicitly in topRisks OR execSummary P2. Frame: "PSA-disclosed [MSA] same-store rent compounded at **X.XX%/yr** over FY[first]-FY[last] (FY[first] $A.AA → FY[last] $B.BB)". When CAGR is >5%/yr, that's institutional-grade tailwind support for the acquisition. When CAGR is <2%/yr or showing deceleration in the most-recent year, flag the deceleration as a downside diligence item ("FY[last-1] $X.XX → FY[last] $Y.YY = first-year decline; investigate submarket supply pipeline"). This is the primary-source historical data Radius+ historically owned — Storvex now ships the same series with citations to each year's 10-K accession number.
 
 YOU DO NOT INVENT NUMBERS. Every figure in the memo must trace to one of the three input sources above. If a number isn't present, do not write it. If demographics or operator-family data are missing, say so and recommend the deal team pull them before IC.
 
@@ -94,7 +95,7 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured on Vercel" });
   }
 
-  const { generic, psLens, enrichment } = req.body || {};
+  const { generic, psLens, enrichment, historicalMSARent } = req.body || {};
   if (!generic || !psLens) {
     return res.status(400).json({ error: "generic and psLens required in body" });
   }
@@ -188,10 +189,37 @@ module.exports = async (req, res) => {
     };
   };
 
+  // Trim historical MSA rent series — keep the headline anchors + 1-2 most
+  // recent datapoints for narrative reference. Skip the full year-by-year
+  // payload to conserve tokens (CAGR + endpoints are what the memo cites).
+  const trimHistoricalMSA = (h) => {
+    if (!h || !h.series || h.series.length < 2) return null;
+    const last = h.series[h.series.length - 1];
+    const priorYear = h.series.length >= 2 ? h.series[h.series.length - 2] : null;
+    return {
+      issuer: h.issuer,
+      msa: h.msa,
+      firstYear: h.firstYear,
+      lastYear: h.lastYear,
+      firstRentPerOccSF: h.firstRent,
+      lastRentPerOccSF: h.lastRent,
+      totalChangePct: h.totalChangePct,
+      cagrPct: h.cagrPct,
+      yearsCovered: h.series.length,
+      mostRecentYearRent: last?.rentPerOccSF ?? null,
+      priorYearRent: priorYear?.rentPerOccSF ?? null,
+      mostRecentYoYChangePct: priorYear && last && priorYear.rentPerOccSF > 0
+        ? ((last.rentPerOccSF / priorYear.rentPerOccSF) - 1) * 100
+        : null,
+      source: 'PSA FY' + h.firstYear + '-FY' + h.lastYear + ' 10-K MD&A · Same Store Facilities Operating Trends by Market',
+    };
+  };
+
   const userPayload = {
     generic: trim(generic),
     psLens: trim(psLens),
     enrichment: trimEnrichment(enrichment),
+    historicalMSARent: trimHistoricalMSA(historicalMSARent),
   };
 
   const model = process.env.CLAUDE_MEMO_MODEL || "claude-sonnet-4-6";
