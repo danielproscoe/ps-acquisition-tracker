@@ -798,7 +798,7 @@ function EnrichmentCard({ enrichment, loading }) {
   }
   if (!enrichment) return null;
 
-  const { coords, demographics, psFamily, marketRents, competitors, subjectMSA, msaRentBand, bestRentBand, ecriIndex } = enrichment;
+  const { coords, demographics, psFamily, marketRents, competitors, subjectMSA, msaRentBand, bestRentBand, ecriIndex, rentForecast } = enrichment;
   const hasData = coords || demographics || psFamily || marketRents || (competitors && competitors.length);
   if (!hasData) return null;
 
@@ -870,6 +870,77 @@ function EnrichmentCard({ enrichment, loading }) {
           </div>
         )}
       </div>
+
+      {/* Rent Forecast — Y0/Y1/Y3/Y5 trajectory under base/upside/downside scenarios per buyer lens */}
+      {rentForecast && rentForecast.trajectories && (
+        <div style={{ marginTop: 14, padding: 12, background: "rgba(34,197,94,0.06)", border: `1px solid #22C55E55`, borderRadius: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: "#22C55E", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              🔮 RENT FORECAST · {rentForecast.buyerLens} Lens · 5-Year Trajectory
+            </div>
+            <span style={{ fontSize: 8, color: "#64748B" }}>
+              {rentForecast.msa ? `${rentForecast.msa}, ${rentForecast.state}` : `${rentForecast.state} state-weighted`} · {rentForecast.rentBandConfidence}
+            </span>
+          </div>
+
+          {/* Y0 anchor */}
+          <div style={{ marginBottom: 8, padding: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Y0 Anchor (FY2025 disclosed)</div>
+            <div style={{ display: "flex", gap: 16, fontSize: 11, fontFamily: "'Space Mono', monospace" }}>
+              <span><span style={{ color: "#94A3B8" }}>In-place:</span> <b style={{ color: "#fff" }}>${rentForecast.y0.inPlaceRentPerSF_yr.toFixed(2)}/SF/yr</b></span>
+              <span><span style={{ color: "#94A3B8" }}>Move-in:</span> <b style={{ color: "#fff" }}>${rentForecast.y0.moveInRatePerSF_yr.toFixed(2)}/SF/yr</b></span>
+              <span><span style={{ color: "#94A3B8" }}>Occ:</span> <b style={{ color: "#fff" }}>{(rentForecast.y0.occupancy * 100).toFixed(1)}%</b></span>
+            </div>
+          </div>
+
+          {/* Trajectory tables — base / upside / downside */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8 }}>
+            {[
+              { key: "base", label: "BASE", color: "#94A3B8", desc: "REIT-disclosed growth applied" },
+              { key: "upside", label: "UPSIDE", color: "#22C55E", desc: rentForecast.buyerSpecificDynamics.psnextStabilizedUpliftBps > 0 ? `+ ${rentForecast.buyerLens} platform uplift` : "+ retention upside" },
+              { key: "downside", label: "DOWNSIDE", color: "#EF4444", desc: "Cohort churn rebases to move-in" },
+            ].map(({ key, label, color, desc }) => (
+              <div key={key} style={{ padding: 8, background: "rgba(0,0,0,0.15)", borderRadius: 4, borderLeft: `3px solid ${color}` }}>
+                <div style={{ fontSize: 10, color, fontWeight: 800, marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 8, color: "#64748B", marginBottom: 6 }}>{desc}</div>
+                <table style={{ width: "100%", fontSize: 10, fontFamily: "'Space Mono', monospace", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ color: "#64748B" }}>
+                      <th style={{ textAlign: "left", padding: "2px 4px", fontWeight: 700, fontSize: 8 }}>Yr</th>
+                      <th style={{ textAlign: "right", padding: "2px 4px", fontWeight: 700, fontSize: 8 }}>In-Place</th>
+                      <th style={{ textAlign: "right", padding: "2px 4px", fontWeight: 700, fontSize: 8 }}>Move-In</th>
+                      <th style={{ textAlign: "right", padding: "2px 4px", fontWeight: 700, fontSize: 8 }}>ECRI%</th>
+                      <th style={{ textAlign: "right", padding: "2px 4px", fontWeight: 700, fontSize: 8 }}>Occ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rentForecast.horizons.map((yr) => {
+                      const t = rentForecast.trajectories[key][`Y${yr}`];
+                      if (!t) return null;
+                      return (
+                        <tr key={yr} style={{ color: "#CBD5E1" }}>
+                          <td style={{ padding: "2px 4px" }}>Y{yr}</td>
+                          <td style={{ padding: "2px 4px", textAlign: "right", color: "#fff" }}>${t.inPlaceRentPerSF_yr.toFixed(2)}</td>
+                          <td style={{ padding: "2px 4px", textAlign: "right" }}>${t.moveInRatePerSF_yr.toFixed(2)}</td>
+                          <td style={{ padding: "2px 4px", textAlign: "right" }}>+{t.ecriPremiumPct?.toFixed(0) || 0}%</td>
+                          <td style={{ padding: "2px 4px", textAlign: "right" }}>{(t.occupancy * 100).toFixed(1)}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 8, fontSize: 9, color: "#64748B", lineHeight: 1.4 }}>
+            {rentForecast.marketSignal}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 8, color: "#64748B" }}>
+            Citations: {rentForecast.citations.map((c) => c.accessionNumber).filter(Boolean).join(" · ")}
+          </div>
+        </div>
+      )}
 
       {/* Cross-REIT ECRI Premium signal — rent-raising headroom from disclosed in-place vs move-in rates */}
       {ecriIndex && ecriIndex.crossREITAvgECRIPremium != null && (
