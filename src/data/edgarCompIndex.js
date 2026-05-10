@@ -444,6 +444,12 @@ export function getBuyerSpecificRentAnchor({ buyerKey, msa, state } = {}) {
   const k = String(buyerKey).toUpperCase();
 
   // ── PSA — per-MSA from FY2025 10-K MD&A (24 markets) ──
+  // PS lens encompasses the FULL "PS Family" per CLAUDE.md §6b: PSA + iStorage
+  // + NSA (the latter two were merged into PSA in 2023). All three brands
+  // operate as one institutional portfolio post-merger; same-store ratios in
+  // the FY2025 10-K reflect the integrated portfolio. iStorage/NSA proximity
+  // index lives in NSA_Locations.csv (1,134+ facilities) — refreshed from
+  // nsastorage.com sitemap via scripts/edgar/scrape-nsa-locations.mjs.
   if (k === "PS" || k === "PSA") {
     if (msa) {
       const msaBand = getMSARentBand(msa);
@@ -456,9 +462,9 @@ export function getBuyerSpecificRentAnchor({ buyerKey, msa, state } = {}) {
         return {
           annualPerSF: annual,
           monthlyPerSF: annual / 12,
-          source: "PSA FY2025 10-K MD&A · Same Store Facilities Operating Trends by Market",
+          source: "PSA FY2025 10-K MD&A · Same Store Facilities Operating Trends by Market (PS Family — PSA + iStorage + NSA post-2023 merger)",
           citation: msaBand.accessionNumber || "Accession 0001628280-26-007696",
-          basis: "PSA MSA-disclosed",
+          basis: "PSA MSA-disclosed (PS Family)",
           sampleN: msaBand.facilities || null,
           buyerKey: "PS",
           buyerTicker: "INST",
@@ -468,9 +474,9 @@ export function getBuyerSpecificRentAnchor({ buyerKey, msa, state } = {}) {
     return {
       annualPerSF: 22.54,
       monthlyPerSF: 22.54 / 12,
-      source: "PSA FY2025 10-K MD&A · realized annual rent per occupied SF (national same-store)",
+      source: "PSA FY2025 10-K MD&A · realized annual rent per occupied SF (national same-store; PS Family = PSA + iStorage + NSA)",
       citation: "Accession 0001628280-26-007696",
-      basis: "PSA national",
+      basis: "PSA national (PS Family)",
       sampleN: 2565,
       buyerKey: "PS",
       buyerTicker: "INST",

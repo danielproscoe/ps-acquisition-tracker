@@ -48,6 +48,14 @@ const BRAND_PATTERNS = [
       /\bps\s+nnn\b/i,
       /\bpsa\b/i,
       /\bps[-_\s]+storage\b/i,
+      // iStorage + NSA — PSA-acquired (Sept 2023 NSA merger; iStorage merged
+      // into NSA pre-acquisition). Both rebrand to iStorage post-acquisition
+      // and route to PS lens because PSA-family economics now apply.
+      /\bistorage\b/i,
+      /\bi[-_\s]+storage\b/i,
+      /\bnsa\s+storage\b/i,
+      /\bnsa\b(?!\s+(?:lens|underwrite))/i, // avoid matching "NSA lens" / "NSA underwrite"
+      /\bnational\s+storage\s+affiliates\b/i,
     ],
   },
   {

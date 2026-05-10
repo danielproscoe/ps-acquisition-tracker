@@ -35,6 +35,37 @@ describe("detectBuyer — brand-name match in property name (decisive)", () => {
     expect(r.scores.PS).toBeGreaterThanOrEqual(100);
   });
 
+  test("iStorage @ Birmingham AL → PS (PSA-acquired, routes to PS lens)", () => {
+    const r = detectBuyer({
+      name: "iStorage | Citation Ct · 103 Citation Ct Birmingham AL",
+      state: "AL",
+      city: "birmingham",
+    });
+    expect(r.buyerKey).toBe("PS");
+    expect(r.confidence).toBe("HIGH");
+    expect(r.scores.PS).toBeGreaterThanOrEqual(100);
+  });
+
+  test("NSA Storage @ Pharr TX → PS (PSA-acquired Sept 2023)", () => {
+    const r = detectBuyer({
+      name: "NSA Storage · 2300 N Cypress St Pharr TX",
+      state: "TX",
+      city: "pharr",
+    });
+    expect(r.buyerKey).toBe("PS");
+    expect(r.confidence).toBe("HIGH");
+    expect(r.scores.PS).toBeGreaterThanOrEqual(100);
+  });
+
+  test("National Storage Affiliates pre-acquisition naming → PS", () => {
+    const r = detectBuyer({
+      name: "National Storage Affiliates Holdings · Atlanta GA",
+      state: "GA",
+      city: "atlanta",
+    });
+    expect(r.buyerKey).toBe("PS");
+  });
+
   test("Extra Space Storage @ Long Beach CA → EXR (HIGH confidence)", () => {
     const r = detectBuyer({
       name: "Extra Space Storage · 1234 Pacific Long Beach CA",

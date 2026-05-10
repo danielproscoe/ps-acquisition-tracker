@@ -906,14 +906,16 @@ describe("getBuyerSpecificRentAnchor — per-buyer rent routing", () => {
     const a = getBuyerSpecificRentAnchor({ buyerKey: "PS", msa: "Houston", state: "TX" });
     expect(a).toBeTruthy();
     expect(a.buyerKey).toBe("PS");
-    expect(a.basis).toBe("PSA MSA-disclosed");
+    expect(a.basis).toMatch(/^PSA MSA-disclosed/);
+    expect(a.basis).toMatch(/PS Family/); // PS lens encompasses PSA + iStorage + NSA
     expect(a.citation).toMatch(/0001628280-26-007696/);
     expect(a.annualPerSF).toBeGreaterThan(0);
   });
 
   test("PS + unmatched MSA → PSA national fallback ($22.54/SF/yr)", () => {
     const a = getBuyerSpecificRentAnchor({ buyerKey: "PS", msa: "Boise" });
-    expect(a.basis).toBe("PSA national");
+    expect(a.basis).toMatch(/^PSA national/);
+    expect(a.basis).toMatch(/PS Family/);
     expect(a.annualPerSF).toBe(22.54);
   });
 

@@ -57,6 +57,43 @@ const STATES_FILTER = STATES_ARG
   : null;
 const HEADFUL = process.argv.includes("--headful");
 
+// ─── Residential proxy config (env-var driven) ──────────────────────────────
+//
+// PerimeterX flags datacenter IPs at the network level after small bursts.
+// Residential proxy infrastructure (Bright Data / Smartproxy / Oxylabs) is
+// the standard solution — each request can rotate through a different
+// residential IP, defeating IP-level reputation cooldown.
+//
+// Setup (one of):
+//   1. Bright Data — sign up at brightdata.com, choose Residential or
+//      ISP plan. Get the proxy endpoint, port, username (incl. zone +
+//      session), password from the dashboard. Set:
+//          EXR_PROXY_HOST=brd.superproxy.io
+//          EXR_PROXY_PORT=22225
+//          EXR_PROXY_USERNAME=brd-customer-{customer_id}-zone-residential
+//          EXR_PROXY_PASSWORD={your_password}
+//   2. Smartproxy — sign up at smartproxy.com, residential plan. Set:
+//          EXR_PROXY_HOST=gate.smartproxy.com
+//          EXR_PROXY_PORT=10000
+//          EXR_PROXY_USERNAME=user-{username}
+//          EXR_PROXY_PASSWORD={your_password}
+//   3. Oxylabs — same pattern, see oxylabs.io residential plan.
+//
+// All three providers accept HTTP CONNECT + Basic Auth; puppeteer just needs
+// `--proxy-server=http://host:port` + `page.authenticate(...)`.
+//
+// Ballpark cost: $50-100/mo for ~1-2GB residential traffic ($8-12 per GB);
+// EXR's ~4,400 facility crawl uses ~150-200 MB total → comfortably <$2.
+//
+// When EXR_PROXY_HOST is unset, the scraper falls back to direct (no proxy)
+// — useful for the smoke test that proves the scraper code works on a single
+// facility before paying for proxy infrastructure.
+const PROXY_HOST = process.env.EXR_PROXY_HOST || null;
+const PROXY_PORT = process.env.EXR_PROXY_PORT || null;
+const PROXY_USERNAME = process.env.EXR_PROXY_USERNAME || null;
+const PROXY_PASSWORD = process.env.EXR_PROXY_PASSWORD || null;
+const PROXY_ENABLED = !!(PROXY_HOST && PROXY_PORT);
+
 // Browser path discovery (mirror of _tools/pdf-gen/render.js)
 const CHROME_PATHS = [
   "C:/Program Files/Google/Chrome/Application/chrome.exe",
@@ -318,20 +355,31 @@ async function main() {
   console.log(`  Stealth plugin: ${stealthLoaded ? "ON" : "OFF"}`);
   console.log(`  Estimated crawl time: ~${Math.round((urls.length * (5000 + REQ_DELAY_MS)) / 60000)} min\n`);
 
+  // Build args list — append --proxy-server when residential proxy is configured.
+  // PerimeterX flags datacenter IPs after small bursts; residential rotation
+  // (via Bright Data / Smartproxy / Oxylabs) bypasses the network-level cooldown.
+  const baseArgs = [
+    "--no-sandbox",
+    "--disable-blink-features=AutomationControlled",
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    "--no-default-browser-check",
+    "--no-first-run",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--lang=en-US,en",
+  ];
+  if (PROXY_ENABLED) {
+    baseArgs.push(`--proxy-server=http://${PROXY_HOST}:${PROXY_PORT}`);
+    console.log(`  Proxy: ${PROXY_HOST}:${PROXY_PORT}${PROXY_USERNAME ? ` (auth: ${PROXY_USERNAME.slice(0, 12)}…)` : ""}`);
+  } else {
+    console.log("  Proxy: DIRECT (no proxy configured — set EXR_PROXY_HOST/PORT/USERNAME/PASSWORD env vars to enable residential rotation)");
+  }
+
   const launchOptions = {
     executablePath,
     headless: HEADFUL ? false : "new",
-    args: [
-      "--no-sandbox",
-      "--disable-blink-features=AutomationControlled",
-      "--disable-gpu",
-      "--disable-dev-shm-usage",
-      "--no-default-browser-check",
-      "--no-first-run",
-      "--disable-backgrounding-occluded-windows",
-      "--disable-renderer-backgrounding",
-      "--lang=en-US,en",
-    ],
+    args: baseArgs,
     ignoreDefaultArgs: ["--enable-automation"],
   };
 
@@ -340,6 +388,11 @@ async function main() {
   async function freshBrowser() {
     const b = await puppeteer.launch(launchOptions);
     const p = await b.newPage();
+    // Authenticate against residential proxy via Basic Auth (HTTP 407 path).
+    // Bright Data / Smartproxy / Oxylabs all use this same protocol.
+    if (PROXY_ENABLED && PROXY_USERNAME && PROXY_PASSWORD) {
+      await p.authenticate({ username: PROXY_USERNAME, password: PROXY_PASSWORD });
+    }
     await p.setUserAgent(UA);
     await p.setViewport({ width: 1366, height: 900, deviceScaleFactor: 1 });
     await p.setExtraHTTPHeaders({
