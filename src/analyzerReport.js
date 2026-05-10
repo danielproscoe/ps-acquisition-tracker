@@ -1,4 +1,9 @@
 import { getRecipient } from "./recipientProfiles";
+import {
+  resolveCityToMSA,
+  getHistoricalMSARentSeries,
+  getHistoricalRentMetadata,
+} from "./data/edgarCompIndex";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
@@ -337,6 +342,54 @@ function renderRentSanity({ rentSanity }) {
       <div><div class="sg-l">Drive-Up Market</div><div class="sg-v">${fmtRate(rentSanity.driveUpMarketRate)}</div></div>
       <div><div class="sg-l">Premium / Discount</div><div class="sg-v" style="color:${sevColor}">${rentSanity.premiumPct >= 0 ? "+" : ""}${fmtPct(rentSanity.premiumPct, 1)}</div></div>
       <div><div class="sg-l">Source · Sample</div><div class="sg-v">${safe(rentSanity.source)} · n=${safe(rentSanity.sampleSize)}</div></div>
+    </div>
+  </div>
+</section>`;
+}
+
+function renderHistoricalMSARents({ snapshot }) {
+  if (!snapshot) return "";
+  const city = snapshot.city || snapshot.location?.city;
+  const state = snapshot.state || snapshot.location?.state;
+  const msa = resolveCityToMSA(city, state);
+  if (!msa) return "";
+  const series = getHistoricalMSARentSeries(msa, "PSA");
+  if (!series || !series.series || series.series.length < 2) return "";
+  const meta = getHistoricalRentMetadata();
+
+  const tooltipLine = `PSA Same Store Facilities Operating Trends by Market · FY${series.firstYear}-FY${series.lastYear} 10-K MD&A`;
+  const cagrColor = series.cagrPct >= 5 ? "#16A34A" : series.cagrPct >= 3 ? "#2C3E6B" : "#D97706";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">PSA HISTORICAL RENT — ${(msa || "").toUpperCase()} (${series.firstYear}–${series.lastYear})</h2>
+  <div class="sanity-card" style="border-color:#1E276140;background:rgba(214,228,247,0.18)">
+    <div class="sanity-tag" style="background:#1E2761;color:#C9A84C">PRIMARY-SOURCE SEC EDGAR</div>
+    <div class="sanity-message">
+      PSA's per-MSA same-store rent disclosure for ${safe(msa)} over ${series.lastYear - series.firstYear + 1} fiscal years. Computed CAGR <b style="color:${cagrColor}">${series.cagrPct.toFixed(2)}%/yr</b> ($${series.firstRent.toFixed(2)} → $${series.lastRent.toFixed(2)}/SF/yr · ${series.totalChangePct.toFixed(1)}% total). EXR / CUBE / NSA do not disclose at MSA granularity in their MD&A — this series is unique to PSA's filings, ingested directly via Storvex's EDGAR backfill pipeline.
+    </div>
+    <table class="data-table" style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th class="th-name">FY</th>
+          <th class="th-num">Rent / Occ SF</th>
+          <th class="th-num">Occupancy</th>
+          <th class="th-num">Facilities</th>
+          <th class="th-num">SqFt (M)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${series.series.map(p => `<tr>
+          <td class="td-name">FY${p.year}</td>
+          <td class="td-num">$${p.rentPerOccSF.toFixed(2)}</td>
+          <td class="td-num">${p.occupancy != null ? (p.occupancy * 100).toFixed(1) + "%" : "—"}</td>
+          <td class="td-num">${p.facilities != null ? p.facilities.toLocaleString() : "—"}</td>
+          <td class="td-num">${p.sqftMillions != null ? p.sqftMillions.toFixed(1) : "—"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:9pt;color:#475569;">
+      <b>Source:</b> ${safe(tooltipLine)}${meta ? ` · ${meta.timeSeriesRows} MSA series ingested · last refresh ${meta.generatedAt?.slice(0, 10)}` : ""}
     </div>
   </div>
 </section>`;
@@ -1085,6 +1138,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderProjection({ ps, analysis })}
   ${renderValuationMatrix({ analysis, snapshot })}
   ${renderRentSanity({ rentSanity })}
+  ${renderHistoricalMSARents({ snapshot })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}

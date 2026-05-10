@@ -1,0 +1,1956 @@
+{
+  "schema": "storvex.edgar-historical-msa-rents.v1",
+  "generated_at": "2026-05-10T16:22:25.647Z",
+  "issuers": [
+    "PSA"
+  ],
+  "yearsCovered": [
+    "2021",
+    "2022",
+    "2023",
+    "2024",
+    "2025"
+  ],
+  "extractionLog": [
+    {
+      "ticker": "PSA",
+      "fyTag": "2025",
+      "yearDetected": "2025",
+      "sectionFound": true,
+      "msaCount": 26,
+      "filingDate": "2026-02-12",
+      "accessionNumber": "0001628280-26-007696"
+    },
+    {
+      "ticker": "PSA",
+      "fyTag": "2024",
+      "yearDetected": "2024",
+      "sectionFound": true,
+      "msaCount": 15,
+      "filingDate": "2025-02-24",
+      "accessionNumber": "0001393311-25-000036"
+    },
+    {
+      "ticker": "PSA",
+      "fyTag": "2023",
+      "yearDetected": "2023",
+      "sectionFound": true,
+      "msaCount": 16,
+      "filingDate": "2024-02-20",
+      "accessionNumber": "0001393311-24-000043"
+    },
+    {
+      "ticker": "PSA",
+      "fyTag": "2022",
+      "yearDetected": "2022",
+      "sectionFound": true,
+      "msaCount": 16,
+      "filingDate": "2023-02-21",
+      "accessionNumber": "0001393311-23-000012"
+    },
+    {
+      "ticker": "PSA",
+      "fyTag": "2021",
+      "yearDetected": "2021",
+      "sectionFound": true,
+      "msaCount": 16,
+      "filingDate": "2022-02-22",
+      "accessionNumber": "0001393311-22-000010"
+    },
+    {
+      "ticker": "PSA",
+      "fyTag": "2020",
+      "yearDetected": "2020",
+      "sectionFound": true,
+      "msaCount": 0,
+      "filingDate": "2021-02-24",
+      "accessionNumber": "0001562762-21-000058"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2025",
+      "yearDetected": "2025",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2026-02-20",
+      "accessionNumber": "0001289490-26-000011"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2024",
+      "yearDetected": "2024",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2025-02-28",
+      "accessionNumber": "0001628280-25-009060"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2023",
+      "yearDetected": "2023",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2024-02-29",
+      "accessionNumber": "0001628280-24-008044"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2022",
+      "yearDetected": "2022",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2023-02-28",
+      "accessionNumber": "0001628280-23-005628"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2021",
+      "yearDetected": "2021",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2022-02-28",
+      "accessionNumber": "0001628280-22-004274"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2020",
+      "yearDetected": "2020",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2021-02-26",
+      "accessionNumber": "0001628280-21-003458"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2025",
+      "yearDetected": "2025",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2026-02-27",
+      "accessionNumber": "0001298675-26-000010"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2024",
+      "yearDetected": "2024",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2025-02-28",
+      "accessionNumber": "0001298675-25-000011"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2023",
+      "yearDetected": "2023",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2024-02-29",
+      "accessionNumber": "0001298675-24-000011"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2022",
+      "yearDetected": "2022",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2023-02-24",
+      "accessionNumber": "0001298675-23-000009"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2021",
+      "yearDetected": "2021",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2022-02-25",
+      "accessionNumber": "0001298675-22-000008"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2020",
+      "yearDetected": "2020",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2021-02-26",
+      "accessionNumber": "0001298675-21-000006"
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2025",
+      "yearDetected": "2025",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2026-02-26",
+      "accessionNumber": "0001628280-26-012248"
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2024",
+      "yearDetected": "2024",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2025-02-27",
+      "accessionNumber": "0001628280-25-008656"
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2023",
+      "yearDetected": "2023",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2024-02-28",
+      "accessionNumber": "0001628280-24-007624"
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2022",
+      "yearDetected": "2022",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2023-02-27",
+      "accessionNumber": "0001628280-23-005252"
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2021",
+      "yearDetected": "2021",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2022-02-25",
+      "accessionNumber": "0001628280-22-004019"
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2020",
+      "yearDetected": "2020",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2021-02-26",
+      "accessionNumber": "0001618563-21-000018"
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2021",
+      "yearDetected": "2021",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2022-02-28",
+      "accessionNumber": "0001283630-22-000031"
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2020",
+      "yearDetected": "2020",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2021-02-26",
+      "accessionNumber": "0001283630-21-000048"
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2019",
+      "yearDetected": "2019",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2020-02-27",
+      "accessionNumber": "0001283630-20-000029"
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2018",
+      "yearDetected": "2018",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2019-02-28",
+      "accessionNumber": "0001283630-19-000033"
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2017",
+      "yearDetected": "2017",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2018-03-01",
+      "accessionNumber": "0001283630-18-000024"
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2016",
+      "yearDetected": "2016",
+      "sectionFound": false,
+      "msaCount": 0,
+      "filingDate": "2017-03-01",
+      "accessionNumber": "0001283630-17-000029"
+    }
+  ],
+  "byIssuerYearMSA": {
+    "PSA": {
+      "2021": {
+        "Los Angeles": {
+          "msa": "Los Angeles",
+          "facilities": 213,
+          "sqftMillions": 15.2,
+          "rentPerOccSF": 27.48,
+          "rentPerOccSF_PriorYear": 25.98,
+          "rentChangeYoY": 5.8,
+          "occupancy": 0.982,
+          "occupancy_PriorYear": 0.966
+        },
+        "San Francisco": {
+          "msa": "San Francisco",
+          "facilities": 130,
+          "sqftMillions": 8.1,
+          "rentPerOccSF": 27.96,
+          "rentPerOccSF_PriorYear": 26.46,
+          "rentChangeYoY": 5.7,
+          "occupancy": 0.972,
+          "occupancy_PriorYear": 0.96
+        },
+        "New York": {
+          "msa": "New York",
+          "facilities": 90,
+          "sqftMillions": 6.4,
+          "rentPerOccSF": 27.44,
+          "rentPerOccSF_PriorYear": 25.86,
+          "rentChangeYoY": 6.1,
+          "occupancy": 0.963,
+          "occupancy_PriorYear": 0.951
+        },
+        "Miami": {
+          "msa": "Miami",
+          "facilities": 83,
+          "sqftMillions": 5.8,
+          "rentPerOccSF": 22.41,
+          "rentPerOccSF_PriorYear": 19.75,
+          "rentChangeYoY": 13.5,
+          "occupancy": 0.971,
+          "occupancy_PriorYear": 0.9440000000000001
+        },
+        "Seattle-Tacoma": {
+          "msa": "Seattle-Tacoma",
+          "facilities": 87,
+          "sqftMillions": 5.9,
+          "rentPerOccSF": 22.02,
+          "rentPerOccSF_PriorYear": 20.31,
+          "rentChangeYoY": 8.4,
+          "occupancy": 0.9540000000000001,
+          "occupancy_PriorYear": 0.941
+        },
+        "Washington DC": {
+          "msa": "Washington DC",
+          "facilities": 89,
+          "sqftMillions": 5.5,
+          "rentPerOccSF": 22.7,
+          "rentPerOccSF_PriorYear": 21.11,
+          "rentChangeYoY": 7.5,
+          "occupancy": 0.953,
+          "occupancy_PriorYear": 0.9440000000000001
+        },
+        "Chicago": {
+          "msa": "Chicago",
+          "facilities": 129,
+          "sqftMillions": 8.1,
+          "rentPerOccSF": 16.63,
+          "rentPerOccSF_PriorYear": 14.96,
+          "rentChangeYoY": 11.2,
+          "occupancy": 0.9570000000000001,
+          "occupancy_PriorYear": 0.938
+        },
+        "Atlanta": {
+          "msa": "Atlanta",
+          "facilities": 98,
+          "sqftMillions": 6.4,
+          "rentPerOccSF": 14.53,
+          "rentPerOccSF_PriorYear": 13.18,
+          "rentChangeYoY": 10.2,
+          "occupancy": 0.96,
+          "occupancy_PriorYear": 0.929
+        },
+        "Dallas-Ft. Worth": {
+          "msa": "Dallas-Ft. Worth",
+          "facilities": 102,
+          "sqftMillions": 6.6,
+          "rentPerOccSF": 14.72,
+          "rentPerOccSF_PriorYear": 13.4,
+          "rentChangeYoY": 9.9,
+          "occupancy": 0.9590000000000001,
+          "occupancy_PriorYear": 0.93
+        },
+        "Houston": {
+          "msa": "Houston",
+          "facilities": 92,
+          "sqftMillions": 6.4,
+          "rentPerOccSF": 13.69,
+          "rentPerOccSF_PriorYear": 12.64,
+          "rentChangeYoY": 8.3,
+          "occupancy": 0.943,
+          "occupancy_PriorYear": 0.9209999999999999
+        },
+        "Orlando-Daytona": {
+          "msa": "Orlando-Daytona",
+          "facilities": 70,
+          "sqftMillions": 4.5,
+          "rentPerOccSF": 14.86,
+          "rentPerOccSF_PriorYear": 13.55,
+          "rentChangeYoY": 9.7,
+          "occupancy": 0.9570000000000001,
+          "occupancy_PriorYear": 0.943
+        },
+        "Philadelphia": {
+          "msa": "Philadelphia",
+          "facilities": 56,
+          "sqftMillions": 3.5,
+          "rentPerOccSF": 18.55,
+          "rentPerOccSF_PriorYear": 16.86,
+          "rentChangeYoY": 10,
+          "occupancy": 0.971,
+          "occupancy_PriorYear": 0.961
+        },
+        "West Palm Beach": {
+          "msa": "West Palm Beach",
+          "facilities": 40,
+          "sqftMillions": 2.9,
+          "rentPerOccSF": 20.87,
+          "rentPerOccSF_PriorYear": 18.09,
+          "rentChangeYoY": 15.4,
+          "occupancy": 0.968,
+          "occupancy_PriorYear": 0.9470000000000001
+        },
+        "Tampa": {
+          "msa": "Tampa",
+          "facilities": 52,
+          "sqftMillions": 3.5,
+          "rentPerOccSF": 15.51,
+          "rentPerOccSF_PriorYear": 13.7,
+          "rentChangeYoY": 13.2,
+          "occupancy": 0.9620000000000001,
+          "occupancy_PriorYear": 0.934
+        },
+        "Charlotte": {
+          "msa": "Charlotte",
+          "facilities": 50,
+          "sqftMillions": 3.8,
+          "rentPerOccSF": 12.46,
+          "rentPerOccSF_PriorYear": 11.1,
+          "rentChangeYoY": 12.3,
+          "occupancy": 0.9590000000000001,
+          "occupancy_PriorYear": 0.929
+        },
+        "All other markets": {
+          "msa": "All other markets",
+          "facilities": 893,
+          "sqftMillions": 56.1,
+          "rentPerOccSF": 15.55,
+          "rentPerOccSF_PriorYear": 14.14,
+          "rentChangeYoY": 10,
+          "occupancy": 0.9620000000000001,
+          "occupancy_PriorYear": 0.945
+        }
+      },
+      "2022": {
+        "Los Angeles": {
+          "msa": "Los Angeles",
+          "facilities": 212,
+          "sqftMillions": 15.3,
+          "rentPerOccSF": 32.55,
+          "rentPerOccSF_PriorYear": 27.32,
+          "rentChangeYoY": 19.1,
+          "occupancy": 0.9690000000000001,
+          "occupancy_PriorYear": 0.982
+        },
+        "San Francisco": {
+          "msa": "San Francisco",
+          "facilities": 128,
+          "sqftMillions": 7.8,
+          "rentPerOccSF": 31.43,
+          "rentPerOccSF_PriorYear": 28.08,
+          "rentChangeYoY": 11.9,
+          "occupancy": 0.953,
+          "occupancy_PriorYear": 0.972
+        },
+        "New York": {
+          "msa": "New York",
+          "facilities": 90,
+          "sqftMillions": 6.4,
+          "rentPerOccSF": 30.6,
+          "rentPerOccSF_PriorYear": 27.44,
+          "rentChangeYoY": 11.5,
+          "occupancy": 0.945,
+          "occupancy_PriorYear": 0.963
+        },
+        "Miami": {
+          "msa": "Miami",
+          "facilities": 83,
+          "sqftMillions": 5.8,
+          "rentPerOccSF": 27.92,
+          "rentPerOccSF_PriorYear": 22.42,
+          "rentChangeYoY": 24.5,
+          "occupancy": 0.956,
+          "occupancy_PriorYear": 0.971
+        },
+        "Seattle-Tacoma": {
+          "msa": "Seattle-Tacoma",
+          "facilities": 86,
+          "sqftMillions": 5.7,
+          "rentPerOccSF": 25.11,
+          "rentPerOccSF_PriorYear": 21.95,
+          "rentChangeYoY": 14.4,
+          "occupancy": 0.9420000000000001,
+          "occupancy_PriorYear": 0.953
+        },
+        "Washington DC": {
+          "msa": "Washington DC",
+          "facilities": 90,
+          "sqftMillions": 5.5,
+          "rentPerOccSF": 25.42,
+          "rentPerOccSF_PriorYear": 22.65,
+          "rentChangeYoY": 12.2,
+          "occupancy": 0.934,
+          "occupancy_PriorYear": 0.953
+        },
+        "Chicago": {
+          "msa": "Chicago",
+          "facilities": 129,
+          "sqftMillions": 8.1,
+          "rentPerOccSF": 19.28,
+          "rentPerOccSF_PriorYear": 16.63,
+          "rentChangeYoY": 15.9,
+          "occupancy": 0.9359999999999999,
+          "occupancy_PriorYear": 0.9570000000000001
+        },
+        "Dallas-Ft. Worth": {
+          "msa": "Dallas-Ft. Worth",
+          "facilities": 106,
+          "sqftMillions": 7,
+          "rentPerOccSF": 17.28,
+          "rentPerOccSF_PriorYear": 14.72,
+          "rentChangeYoY": 17.4,
+          "occupancy": 0.946,
+          "occupancy_PriorYear": 0.958
+        },
+        "Atlanta": {
+          "msa": "Atlanta",
+          "facilities": 101,
+          "sqftMillions": 6.6,
+          "rentPerOccSF": 17.39,
+          "rentPerOccSF_PriorYear": 14.49,
+          "rentChangeYoY": 20,
+          "occupancy": 0.937,
+          "occupancy_PriorYear": 0.96
+        },
+        "Houston": {
+          "msa": "Houston",
+          "facilities": 95,
+          "sqftMillions": 6.8,
+          "rentPerOccSF": 15.88,
+          "rentPerOccSF_PriorYear": 13.58,
+          "rentChangeYoY": 16.9,
+          "occupancy": 0.9359999999999999,
+          "occupancy_PriorYear": 0.943
+        },
+        "Orlando-Daytona": {
+          "msa": "Orlando-Daytona",
+          "facilities": 69,
+          "sqftMillions": 4.4,
+          "rentPerOccSF": 17.96,
+          "rentPerOccSF_PriorYear": 14.87,
+          "rentChangeYoY": 20.8,
+          "occupancy": 0.9590000000000001,
+          "occupancy_PriorYear": 0.9570000000000001
+        },
+        "Philadelphia": {
+          "msa": "Philadelphia",
+          "facilities": 56,
+          "sqftMillions": 3.5,
+          "rentPerOccSF": 20.92,
+          "rentPerOccSF_PriorYear": 18.55,
+          "rentChangeYoY": 12.8,
+          "occupancy": 0.9440000000000001,
+          "occupancy_PriorYear": 0.971
+        },
+        "West Palm Beach": {
+          "msa": "West Palm Beach",
+          "facilities": 37,
+          "sqftMillions": 2.6,
+          "rentPerOccSF": 25.4,
+          "rentPerOccSF_PriorYear": 21.15,
+          "rentChangeYoY": 20.1,
+          "occupancy": 0.9590000000000001,
+          "occupancy_PriorYear": 0.968
+        },
+        "Tampa": {
+          "msa": "Tampa",
+          "facilities": 51,
+          "sqftMillions": 3.4,
+          "rentPerOccSF": 18.87,
+          "rentPerOccSF_PriorYear": 15.51,
+          "rentChangeYoY": 21.7,
+          "occupancy": 0.95,
+          "occupancy_PriorYear": 0.9620000000000001
+        },
+        "Charlotte": {
+          "msa": "Charlotte",
+          "facilities": 50,
+          "sqftMillions": 3.8,
+          "rentPerOccSF": 15.01,
+          "rentPerOccSF_PriorYear": 12.46,
+          "rentChangeYoY": 20.5,
+          "occupancy": 0.95,
+          "occupancy_PriorYear": 0.9590000000000001
+        },
+        "All other markets": {
+          "msa": "All other markets",
+          "facilities": 893,
+          "sqftMillions": 56.4,
+          "rentPerOccSF": 17.91,
+          "rentPerOccSF_PriorYear": 15.51,
+          "rentChangeYoY": 15.5,
+          "occupancy": 0.948,
+          "occupancy_PriorYear": 0.9620000000000001
+        }
+      },
+      "2023": {
+        "Los Angeles": {
+          "msa": "Los Angeles",
+          "facilities": 214,
+          "sqftMillions": 15.5,
+          "rentPerOccSF": 35.92,
+          "rentPerOccSF_PriorYear": 32.4,
+          "rentChangeYoY": 10.9,
+          "occupancy": 0.9540000000000001,
+          "occupancy_PriorYear": 0.9690000000000001
+        },
+        "San Francisco": {
+          "msa": "San Francisco",
+          "facilities": 129,
+          "sqftMillions": 7.9,
+          "rentPerOccSF": 32.41,
+          "rentPerOccSF_PriorYear": 31.28,
+          "rentChangeYoY": 3.6,
+          "occupancy": 0.9440000000000001,
+          "occupancy_PriorYear": 0.9520000000000001
+        },
+        "New York": {
+          "msa": "New York",
+          "facilities": 92,
+          "sqftMillions": 6.8,
+          "rentPerOccSF": 32.13,
+          "rentPerOccSF_PriorYear": 30.51,
+          "rentChangeYoY": 5.3,
+          "occupancy": 0.9329999999999999,
+          "occupancy_PriorYear": 0.943
+        },
+        "Miami": {
+          "msa": "Miami",
+          "facilities": 86,
+          "sqftMillions": 6.2,
+          "rentPerOccSF": 30.1,
+          "rentPerOccSF_PriorYear": 28.09,
+          "rentChangeYoY": 7.2,
+          "occupancy": 0.9359999999999999,
+          "occupancy_PriorYear": 0.956
+        },
+        "Seattle-Tacoma": {
+          "msa": "Seattle-Tacoma",
+          "facilities": 89,
+          "sqftMillions": 6,
+          "rentPerOccSF": 26.05,
+          "rentPerOccSF_PriorYear": 25.06,
+          "rentChangeYoY": 4,
+          "occupancy": 0.9259999999999999,
+          "occupancy_PriorYear": 0.941
+        },
+        "Washington DC": {
+          "msa": "Washington DC",
+          "facilities": 90,
+          "sqftMillions": 5.5,
+          "rentPerOccSF": 26.55,
+          "rentPerOccSF_PriorYear": 25.42,
+          "rentChangeYoY": 4.4,
+          "occupancy": 0.927,
+          "occupancy_PriorYear": 0.934
+        },
+        "Dallas-Ft. Worth": {
+          "msa": "Dallas-Ft. Worth",
+          "facilities": 111,
+          "sqftMillions": 7.6,
+          "rentPerOccSF": 18.49,
+          "rentPerOccSF_PriorYear": 17.16,
+          "rentChangeYoY": 7.8,
+          "occupancy": 0.922,
+          "occupancy_PriorYear": 0.9440000000000001
+        },
+        "Chicago": {
+          "msa": "Chicago",
+          "facilities": 130,
+          "sqftMillions": 8.2,
+          "rentPerOccSF": 20.24,
+          "rentPerOccSF_PriorYear": 19.27,
+          "rentChangeYoY": 5,
+          "occupancy": 0.93,
+          "occupancy_PriorYear": 0.9359999999999999
+        },
+        "Atlanta": {
+          "msa": "Atlanta",
+          "facilities": 102,
+          "sqftMillions": 6.7,
+          "rentPerOccSF": 18.01,
+          "rentPerOccSF_PriorYear": 17.26,
+          "rentChangeYoY": 4.3,
+          "occupancy": 0.909,
+          "occupancy_PriorYear": 0.937
+        },
+        "Houston": {
+          "msa": "Houston",
+          "facilities": 101,
+          "sqftMillions": 7.5,
+          "rentPerOccSF": 16.99,
+          "rentPerOccSF_PriorYear": 15.79,
+          "rentChangeYoY": 7.6,
+          "occupancy": 0.92,
+          "occupancy_PriorYear": 0.935
+        },
+        "Orlando-Daytona": {
+          "msa": "Orlando-Daytona",
+          "facilities": 69,
+          "sqftMillions": 4.4,
+          "rentPerOccSF": 19.65,
+          "rentPerOccSF_PriorYear": 17.96,
+          "rentChangeYoY": 9.4,
+          "occupancy": 0.9329999999999999,
+          "occupancy_PriorYear": 0.9590000000000001
+        },
+        "Philadelphia": {
+          "msa": "Philadelphia",
+          "facilities": 56,
+          "sqftMillions": 3.5,
+          "rentPerOccSF": 21.48,
+          "rentPerOccSF_PriorYear": 20.92,
+          "rentChangeYoY": 2.7,
+          "occupancy": 0.93,
+          "occupancy_PriorYear": 0.9440000000000001
+        },
+        "West Palm Beach": {
+          "msa": "West Palm Beach",
+          "facilities": 39,
+          "sqftMillions": 2.8,
+          "rentPerOccSF": 26.45,
+          "rentPerOccSF_PriorYear": 25.01,
+          "rentChangeYoY": 5.8,
+          "occupancy": 0.9359999999999999,
+          "occupancy_PriorYear": 0.958
+        },
+        "Tampa": {
+          "msa": "Tampa",
+          "facilities": 53,
+          "sqftMillions": 3.5,
+          "rentPerOccSF": 19.97,
+          "rentPerOccSF_PriorYear": 18.87,
+          "rentChangeYoY": 5.8,
+          "occupancy": 0.919,
+          "occupancy_PriorYear": 0.951
+        },
+        "Charlotte": {
+          "msa": "Charlotte",
+          "facilities": 52,
+          "sqftMillions": 3.9,
+          "rentPerOccSF": 16.13,
+          "rentPerOccSF_PriorYear": 14.99,
+          "rentChangeYoY": 7.6,
+          "occupancy": 0.93,
+          "occupancy_PriorYear": 0.95
+        },
+        "All other markets": {
+          "msa": "All other markets",
+          "facilities": 926,
+          "sqftMillions": 58.9,
+          "rentPerOccSF": 18.68,
+          "rentPerOccSF_PriorYear": 17.77,
+          "rentChangeYoY": 5.1,
+          "occupancy": 0.9329999999999999,
+          "occupancy_PriorYear": 0.9470000000000001
+        }
+      },
+      "2024": {
+        "Los Angeles": {
+          "msa": "Los Angeles",
+          "facilities": 218,
+          "sqftMillions": 15.9,
+          "rentPerOccSF": 36.09,
+          "rentPerOccSF_PriorYear": 35.83,
+          "rentChangeYoY": 0.7,
+          "occupancy": 0.946,
+          "occupancy_PriorYear": 0.9540000000000001
+        },
+        "San Francisco": {
+          "msa": "San Francisco",
+          "facilities": 130,
+          "sqftMillions": 8.1,
+          "rentPerOccSF": 32.69,
+          "rentPerOccSF_PriorYear": 32.22,
+          "rentChangeYoY": 1.5,
+          "occupancy": 0.943,
+          "occupancy_PriorYear": 0.943
+        },
+        "New York": {
+          "msa": "New York",
+          "facilities": 91,
+          "sqftMillions": 6.7,
+          "rentPerOccSF": 32.26,
+          "rentPerOccSF_PriorYear": 32.07,
+          "rentChangeYoY": 0.6,
+          "occupancy": 0.9359999999999999,
+          "occupancy_PriorYear": 0.9329999999999999
+        },
+        "Washington DC": {
+          "msa": "Washington DC",
+          "facilities": 109,
+          "sqftMillions": 7.3,
+          "rentPerOccSF": 26.92,
+          "rentPerOccSF_PriorYear": 26.62,
+          "rentChangeYoY": 1.1,
+          "occupancy": 0.9279999999999999,
+          "occupancy_PriorYear": 0.917
+        },
+        "Miami": {
+          "msa": "Miami",
+          "facilities": 87,
+          "sqftMillions": 6.3,
+          "rentPerOccSF": 29.93,
+          "rentPerOccSF_PriorYear": 30.01,
+          "rentChangeYoY": 0.3,
+          "occupancy": 0.9309999999999999,
+          "occupancy_PriorYear": 0.9359999999999999
+        },
+        "Dallas-Ft. Worth": {
+          "msa": "Dallas-Ft. Worth",
+          "facilities": 130,
+          "sqftMillions": 9.7,
+          "rentPerOccSF": 18.26,
+          "rentPerOccSF_PriorYear": 18.18,
+          "rentChangeYoY": 0.4,
+          "occupancy": 0.892,
+          "occupancy_PriorYear": 0.9159999999999999
+        },
+        "Seattle-Tacoma": {
+          "msa": "Seattle-Tacoma",
+          "facilities": 92,
+          "sqftMillions": 6.3,
+          "rentPerOccSF": 25.61,
+          "rentPerOccSF_PriorYear": 25.78,
+          "rentChangeYoY": 0.7,
+          "occupancy": 0.929,
+          "occupancy_PriorYear": 0.925
+        },
+        "Houston": {
+          "msa": "Houston",
+          "facilities": 117,
+          "sqftMillions": 9.2,
+          "rentPerOccSF": 16.96,
+          "rentPerOccSF_PriorYear": 16.74,
+          "rentChangeYoY": 1.3,
+          "occupancy": 0.917,
+          "occupancy_PriorYear": 0.9179999999999999
+        },
+        "Chicago": {
+          "msa": "Chicago",
+          "facilities": 131,
+          "sqftMillions": 8.3,
+          "rentPerOccSF": 20.53,
+          "rentPerOccSF_PriorYear": 20.21,
+          "rentChangeYoY": 1.6,
+          "occupancy": 0.929,
+          "occupancy_PriorYear": 0.93
+        },
+        "Atlanta": {
+          "msa": "Atlanta",
+          "facilities": 107,
+          "sqftMillions": 7.1,
+          "rentPerOccSF": 17.3,
+          "rentPerOccSF_PriorYear": 17.93,
+          "rentChangeYoY": 3.5,
+          "occupancy": 0.882,
+          "occupancy_PriorYear": 0.9079999999999999
+        },
+        "Orlando-Daytona": {
+          "msa": "Orlando-Daytona",
+          "facilities": 69,
+          "sqftMillions": 4.4,
+          "rentPerOccSF": 18.85,
+          "rentPerOccSF_PriorYear": 19.65,
+          "rentChangeYoY": 4.1,
+          "occupancy": 0.917,
+          "occupancy_PriorYear": 0.9329999999999999
+        },
+        "West Palm Beach": {
+          "msa": "West Palm Beach",
+          "facilities": 41,
+          "sqftMillions": 3.1,
+          "rentPerOccSF": 26.11,
+          "rentPerOccSF_PriorYear": 26.59,
+          "rentChangeYoY": 1.8,
+          "occupancy": 0.9229999999999999,
+          "occupancy_PriorYear": 0.934
+        },
+        "Philadelphia": {
+          "msa": "Philadelphia",
+          "facilities": 57,
+          "sqftMillions": 3.6,
+          "rentPerOccSF": 20.95,
+          "rentPerOccSF_PriorYear": 21.42,
+          "rentChangeYoY": 2.2,
+          "occupancy": 0.929,
+          "occupancy_PriorYear": 0.929
+        },
+        "Baltimore": {
+          "msa": "Baltimore",
+          "facilities": 38,
+          "sqftMillions": 2.8,
+          "rentPerOccSF": 23.33,
+          "rentPerOccSF_PriorYear": 23.75,
+          "rentChangeYoY": 1.8,
+          "occupancy": 0.924,
+          "occupancy_PriorYear": 0.9109999999999999
+        },
+        "Charlotte": {
+          "msa": "Charlotte",
+          "facilities": 55,
+          "sqftMillions": 4.2,
+          "rentPerOccSF": 16,
+          "rentPerOccSF_PriorYear": 16.18,
+          "rentChangeYoY": 1.1,
+          "occupancy": 0.9129999999999999,
+          "occupancy_PriorYear": 0.929
+        }
+      },
+      "2025": {
+        "Los Angeles": {
+          "msa": "Los Angeles",
+          "facilities": 217,
+          "sqftMillions": 15.8,
+          "rentPerOccSF": 35.76,
+          "rentPerOccSF_PriorYear": 36.17,
+          "rentChangeYoY": 1.1,
+          "occupancy": 0.948,
+          "occupancy_PriorYear": 0.946
+        },
+        "San Francisco": {
+          "msa": "San Francisco",
+          "facilities": 130,
+          "sqftMillions": 8,
+          "rentPerOccSF": 33.66,
+          "rentPerOccSF_PriorYear": 32.69,
+          "rentChangeYoY": 3,
+          "occupancy": 0.94,
+          "occupancy_PriorYear": 0.943
+        },
+        "New York": {
+          "msa": "New York",
+          "facilities": 90,
+          "sqftMillions": 6.6,
+          "rentPerOccSF": 32.97,
+          "rentPerOccSF_PriorYear": 32.33,
+          "rentChangeYoY": 2,
+          "occupancy": 0.932,
+          "occupancy_PriorYear": 0.9359999999999999
+        },
+        "Washington DC": {
+          "msa": "Washington DC",
+          "facilities": 109,
+          "sqftMillions": 7.3,
+          "rentPerOccSF": 27.48,
+          "rentPerOccSF_PriorYear": 26.92,
+          "rentChangeYoY": 2.1,
+          "occupancy": 0.932,
+          "occupancy_PriorYear": 0.9279999999999999
+        },
+        "Miami": {
+          "msa": "Miami",
+          "facilities": 85,
+          "sqftMillions": 6.3,
+          "rentPerOccSF": 30.07,
+          "rentPerOccSF_PriorYear": 29.86,
+          "rentChangeYoY": 0.7,
+          "occupancy": 0.9259999999999999,
+          "occupancy_PriorYear": 0.9329999999999999
+        },
+        "Seattle-Tacoma": {
+          "msa": "Seattle-Tacoma",
+          "facilities": 95,
+          "sqftMillions": 6.7,
+          "rentPerOccSF": 26.66,
+          "rentPerOccSF_PriorYear": 25.76,
+          "rentChangeYoY": 3.5,
+          "occupancy": 0.922,
+          "occupancy_PriorYear": 0.9279999999999999
+        },
+        "Dallas-Ft. Worth": {
+          "msa": "Dallas-Ft. Worth",
+          "facilities": 136,
+          "sqftMillions": 10.2,
+          "rentPerOccSF": 17.41,
+          "rentPerOccSF_PriorYear": 18.23,
+          "rentChangeYoY": 4.5,
+          "occupancy": 0.895,
+          "occupancy_PriorYear": 0.892
+        },
+        "Houston": {
+          "msa": "Houston",
+          "facilities": 128,
+          "sqftMillions": 10.4,
+          "rentPerOccSF": 16.97,
+          "rentPerOccSF_PriorYear": 16.76,
+          "rentChangeYoY": 1.3,
+          "occupancy": 0.902,
+          "occupancy_PriorYear": 0.917
+        },
+        "Chicago": {
+          "msa": "Chicago",
+          "facilities": 132,
+          "sqftMillions": 8.4,
+          "rentPerOccSF": 21.13,
+          "rentPerOccSF_PriorYear": 20.49,
+          "rentChangeYoY": 3.1,
+          "occupancy": 0.927,
+          "occupancy_PriorYear": 0.929
+        },
+        "Atlanta": {
+          "msa": "Atlanta",
+          "facilities": 107,
+          "sqftMillions": 7.1,
+          "rentPerOccSF": 16.1,
+          "rentPerOccSF_PriorYear": 17.3,
+          "rentChangeYoY": 6.9,
+          "occupancy": 0.885,
+          "occupancy_PriorYear": 0.882
+        },
+        "West Palm Beach": {
+          "msa": "West Palm Beach",
+          "facilities": 42,
+          "sqftMillions": 3.3,
+          "rentPerOccSF": 25.8,
+          "rentPerOccSF_PriorYear": 25.78,
+          "rentChangeYoY": 0.1,
+          "occupancy": 0.915,
+          "occupancy_PriorYear": 0.925
+        },
+        "Orlando-Daytona": {
+          "msa": "Orlando-Daytona",
+          "facilities": 72,
+          "sqftMillions": 4.6,
+          "rentPerOccSF": 18.66,
+          "rentPerOccSF_PriorYear": 18.73,
+          "rentChangeYoY": 0.4,
+          "occupancy": 0.899,
+          "occupancy_PriorYear": 0.9159999999999999
+        },
+        "Philadelphia": {
+          "msa": "Philadelphia",
+          "facilities": 60,
+          "sqftMillions": 3.9,
+          "rentPerOccSF": 20.52,
+          "rentPerOccSF_PriorYear": 20.62,
+          "rentChangeYoY": 0.5,
+          "occupancy": 0.927,
+          "occupancy_PriorYear": 0.927
+        },
+        "Baltimore": {
+          "msa": "Baltimore",
+          "facilities": 40,
+          "sqftMillions": 2.9,
+          "rentPerOccSF": 23.4,
+          "rentPerOccSF_PriorYear": 23.55,
+          "rentChangeYoY": 0.6,
+          "occupancy": 0.93,
+          "occupancy_PriorYear": 0.924
+        },
+        "San Diego": {
+          "msa": "San Diego",
+          "facilities": 22,
+          "sqftMillions": 2.1,
+          "rentPerOccSF": 30.51,
+          "rentPerOccSF_PriorYear": 29.79,
+          "rentChangeYoY": 2.4,
+          "occupancy": 0.9390000000000001,
+          "occupancy_PriorYear": 0.943
+        },
+        "Charlotte": {
+          "msa": "Charlotte",
+          "facilities": 57,
+          "sqftMillions": 4.4,
+          "rentPerOccSF": 15.79,
+          "rentPerOccSF_PriorYear": 15.99,
+          "rentChangeYoY": 1.3,
+          "occupancy": 0.898,
+          "occupancy_PriorYear": 0.9129999999999999
+        },
+        "Denver": {
+          "msa": "Denver",
+          "facilities": 60,
+          "sqftMillions": 4.1,
+          "rentPerOccSF": 19.27,
+          "rentPerOccSF_PriorYear": 19.3,
+          "rentChangeYoY": 0.2,
+          "occupancy": 0.9159999999999999,
+          "occupancy_PriorYear": 0.9179999999999999
+        },
+        "Tampa": {
+          "msa": "Tampa",
+          "facilities": 56,
+          "sqftMillions": 3.7,
+          "rentPerOccSF": 19.32,
+          "rentPerOccSF_PriorYear": 18.78,
+          "rentChangeYoY": 2.9,
+          "occupancy": 0.912,
+          "occupancy_PriorYear": 0.917
+        },
+        "Phoenix": {
+          "msa": "Phoenix",
+          "facilities": 45,
+          "sqftMillions": 3.1,
+          "rentPerOccSF": 19.34,
+          "rentPerOccSF_PriorYear": 19.76,
+          "rentChangeYoY": 2.1,
+          "occupancy": 0.9179999999999999,
+          "occupancy_PriorYear": 0.922
+        },
+        "Detroit": {
+          "msa": "Detroit",
+          "facilities": 43,
+          "sqftMillions": 3.1,
+          "rentPerOccSF": 18.21,
+          "rentPerOccSF_PriorYear": 17.96,
+          "rentChangeYoY": 1.4,
+          "occupancy": 0.927,
+          "occupancy_PriorYear": 0.9279999999999999
+        },
+        "Boston": {
+          "msa": "Boston",
+          "facilities": 27,
+          "sqftMillions": 1.9,
+          "rentPerOccSF": 28.94,
+          "rentPerOccSF_PriorYear": 28.46,
+          "rentChangeYoY": 1.7,
+          "occupancy": 0.937,
+          "occupancy_PriorYear": 0.938
+        },
+        "Honolulu": {
+          "msa": "Honolulu",
+          "facilities": 11,
+          "sqftMillions": 0.8,
+          "rentPerOccSF": 55.26,
+          "rentPerOccSF_PriorYear": 53.21,
+          "rentChangeYoY": 3.9,
+          "occupancy": 0.956,
+          "occupancy_PriorYear": 0.961
+        },
+        "Portland": {
+          "msa": "Portland",
+          "facilities": 44,
+          "sqftMillions": 2.3,
+          "rentPerOccSF": 21.74,
+          "rentPerOccSF_PriorYear": 21.28,
+          "rentChangeYoY": 2.2,
+          "occupancy": 0.9229999999999999,
+          "occupancy_PriorYear": 0.93
+        },
+        "Minneapolis/St. Paul": {
+          "msa": "Minneapolis/St. Paul",
+          "facilities": 50,
+          "sqftMillions": 3.5,
+          "rentPerOccSF": 16.84,
+          "rentPerOccSF_PriorYear": 16.46,
+          "rentChangeYoY": 2.3,
+          "occupancy": 0.9309999999999999,
+          "occupancy_PriorYear": 0.922
+        },
+        "Sacramento": {
+          "msa": "Sacramento",
+          "facilities": 34,
+          "sqftMillions": 2,
+          "rentPerOccSF": 21.7,
+          "rentPerOccSF_PriorYear": 21.65,
+          "rentChangeYoY": 0.2,
+          "occupancy": 0.9279999999999999,
+          "occupancy_PriorYear": 0.9359999999999999
+        },
+        "All other markets": {
+          "msa": "All other markets",
+          "facilities": 673,
+          "sqftMillions": 42.8,
+          "rentPerOccSF": 16.28,
+          "rentPerOccSF_PriorYear": 16.22,
+          "rentChangeYoY": 0.4,
+          "occupancy": 0.915,
+          "occupancy_PriorYear": 0.922
+        }
+      }
+    }
+  },
+  "timeSeries": [
+    {
+      "issuer": "PSA",
+      "msa": "Los Angeles",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 27.48,
+          "occupancy": 0.982,
+          "facilities": 213,
+          "sqftMillions": 15.2
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 32.55,
+          "occupancy": 0.9690000000000001,
+          "facilities": 212,
+          "sqftMillions": 15.3
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 35.92,
+          "occupancy": 0.9540000000000001,
+          "facilities": 214,
+          "sqftMillions": 15.5
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 36.09,
+          "occupancy": 0.946,
+          "facilities": 218,
+          "sqftMillions": 15.9
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 35.76,
+          "occupancy": 0.948,
+          "facilities": 217,
+          "sqftMillions": 15.8
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 27.48,
+      "lastRent": 35.76,
+      "totalChangePct": 30.13100436681222,
+      "cagrPct": 6.805888067641042
+    },
+    {
+      "issuer": "PSA",
+      "msa": "San Francisco",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 27.96,
+          "occupancy": 0.972,
+          "facilities": 130,
+          "sqftMillions": 8.1
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 31.43,
+          "occupancy": 0.953,
+          "facilities": 128,
+          "sqftMillions": 7.8
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 32.41,
+          "occupancy": 0.9440000000000001,
+          "facilities": 129,
+          "sqftMillions": 7.9
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 32.69,
+          "occupancy": 0.943,
+          "facilities": 130,
+          "sqftMillions": 8.1
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 33.66,
+          "occupancy": 0.94,
+          "facilities": 130,
+          "sqftMillions": 8
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 27.96,
+      "lastRent": 33.66,
+      "totalChangePct": 20.38626609442058,
+      "cagrPct": 4.74763739407178
+    },
+    {
+      "issuer": "PSA",
+      "msa": "New York",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 27.44,
+          "occupancy": 0.963,
+          "facilities": 90,
+          "sqftMillions": 6.4
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 30.6,
+          "occupancy": 0.945,
+          "facilities": 90,
+          "sqftMillions": 6.4
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 32.13,
+          "occupancy": 0.9329999999999999,
+          "facilities": 92,
+          "sqftMillions": 6.8
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 32.26,
+          "occupancy": 0.9359999999999999,
+          "facilities": 91,
+          "sqftMillions": 6.7
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 32.97,
+          "occupancy": 0.932,
+          "facilities": 90,
+          "sqftMillions": 6.6
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 27.44,
+      "lastRent": 32.97,
+      "totalChangePct": 20.15306122448979,
+      "cagrPct": 4.696872832350785
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Miami",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 22.41,
+          "occupancy": 0.971,
+          "facilities": 83,
+          "sqftMillions": 5.8
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 27.92,
+          "occupancy": 0.956,
+          "facilities": 83,
+          "sqftMillions": 5.8
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 30.1,
+          "occupancy": 0.9359999999999999,
+          "facilities": 86,
+          "sqftMillions": 6.2
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 29.93,
+          "occupancy": 0.9309999999999999,
+          "facilities": 87,
+          "sqftMillions": 6.3
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 30.07,
+          "occupancy": 0.9259999999999999,
+          "facilities": 85,
+          "sqftMillions": 6.3
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 22.41,
+      "lastRent": 30.07,
+      "totalChangePct": 34.18116912092817,
+      "cagrPct": 7.627410884807517
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Seattle-Tacoma",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 22.02,
+          "occupancy": 0.9540000000000001,
+          "facilities": 87,
+          "sqftMillions": 5.9
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 25.11,
+          "occupancy": 0.9420000000000001,
+          "facilities": 86,
+          "sqftMillions": 5.7
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 26.05,
+          "occupancy": 0.9259999999999999,
+          "facilities": 89,
+          "sqftMillions": 6
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 25.61,
+          "occupancy": 0.929,
+          "facilities": 92,
+          "sqftMillions": 6.3
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 26.66,
+          "occupancy": 0.922,
+          "facilities": 95,
+          "sqftMillions": 6.7
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 22.02,
+      "lastRent": 26.66,
+      "totalChangePct": 21.071752951861946,
+      "cagrPct": 4.896429941340186
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Washington DC",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 22.7,
+          "occupancy": 0.953,
+          "facilities": 89,
+          "sqftMillions": 5.5
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 25.42,
+          "occupancy": 0.934,
+          "facilities": 90,
+          "sqftMillions": 5.5
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 26.55,
+          "occupancy": 0.927,
+          "facilities": 90,
+          "sqftMillions": 5.5
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 26.92,
+          "occupancy": 0.9279999999999999,
+          "facilities": 109,
+          "sqftMillions": 7.3
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 27.48,
+          "occupancy": 0.932,
+          "facilities": 109,
+          "sqftMillions": 7.3
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 22.7,
+      "lastRent": 27.48,
+      "totalChangePct": 21.057268722466958,
+      "cagrPct": 4.89329252058901
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Chicago",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 16.63,
+          "occupancy": 0.9570000000000001,
+          "facilities": 129,
+          "sqftMillions": 8.1
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 19.28,
+          "occupancy": 0.9359999999999999,
+          "facilities": 129,
+          "sqftMillions": 8.1
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 20.24,
+          "occupancy": 0.93,
+          "facilities": 130,
+          "sqftMillions": 8.2
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 20.53,
+          "occupancy": 0.929,
+          "facilities": 131,
+          "sqftMillions": 8.3
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 21.13,
+          "occupancy": 0.927,
+          "facilities": 132,
+          "sqftMillions": 8.4
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 16.63,
+      "lastRent": 21.13,
+      "totalChangePct": 27.0595309681299,
+      "cagrPct": 6.169998680136191
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Atlanta",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 14.53,
+          "occupancy": 0.96,
+          "facilities": 98,
+          "sqftMillions": 6.4
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 17.39,
+          "occupancy": 0.937,
+          "facilities": 101,
+          "sqftMillions": 6.6
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 18.01,
+          "occupancy": 0.909,
+          "facilities": 102,
+          "sqftMillions": 6.7
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 17.3,
+          "occupancy": 0.882,
+          "facilities": 107,
+          "sqftMillions": 7.1
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 16.1,
+          "occupancy": 0.885,
+          "facilities": 107,
+          "sqftMillions": 7.1
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 14.53,
+      "lastRent": 16.1,
+      "totalChangePct": 10.805230557467315,
+      "cagrPct": 2.598276524642551
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Dallas-Ft. Worth",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 14.72,
+          "occupancy": 0.9590000000000001,
+          "facilities": 102,
+          "sqftMillions": 6.6
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 17.28,
+          "occupancy": 0.946,
+          "facilities": 106,
+          "sqftMillions": 7
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 18.49,
+          "occupancy": 0.922,
+          "facilities": 111,
+          "sqftMillions": 7.6
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 18.26,
+          "occupancy": 0.892,
+          "facilities": 130,
+          "sqftMillions": 9.7
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 17.41,
+          "occupancy": 0.895,
+          "facilities": 136,
+          "sqftMillions": 10.2
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 14.72,
+      "lastRent": 17.41,
+      "totalChangePct": 18.274456521739136,
+      "cagrPct": 4.285214864794584
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Houston",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 13.69,
+          "occupancy": 0.943,
+          "facilities": 92,
+          "sqftMillions": 6.4
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 15.88,
+          "occupancy": 0.9359999999999999,
+          "facilities": 95,
+          "sqftMillions": 6.8
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 16.99,
+          "occupancy": 0.92,
+          "facilities": 101,
+          "sqftMillions": 7.5
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 16.96,
+          "occupancy": 0.917,
+          "facilities": 117,
+          "sqftMillions": 9.2
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 16.97,
+          "occupancy": 0.902,
+          "facilities": 128,
+          "sqftMillions": 10.4
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 13.69,
+      "lastRent": 16.97,
+      "totalChangePct": 23.959094229364485,
+      "cagrPct": 5.516310828400672
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Orlando-Daytona",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 14.86,
+          "occupancy": 0.9570000000000001,
+          "facilities": 70,
+          "sqftMillions": 4.5
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 17.96,
+          "occupancy": 0.9590000000000001,
+          "facilities": 69,
+          "sqftMillions": 4.4
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 19.65,
+          "occupancy": 0.9329999999999999,
+          "facilities": 69,
+          "sqftMillions": 4.4
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 18.85,
+          "occupancy": 0.917,
+          "facilities": 69,
+          "sqftMillions": 4.4
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 18.66,
+          "occupancy": 0.899,
+          "facilities": 72,
+          "sqftMillions": 4.6
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 14.86,
+      "lastRent": 18.66,
+      "totalChangePct": 25.572005383580088,
+      "cagrPct": 5.8578837305594655
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Philadelphia",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 18.55,
+          "occupancy": 0.971,
+          "facilities": 56,
+          "sqftMillions": 3.5
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 20.92,
+          "occupancy": 0.9440000000000001,
+          "facilities": 56,
+          "sqftMillions": 3.5
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 21.48,
+          "occupancy": 0.93,
+          "facilities": 56,
+          "sqftMillions": 3.5
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 20.95,
+          "occupancy": 0.929,
+          "facilities": 57,
+          "sqftMillions": 3.6
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 20.52,
+          "occupancy": 0.927,
+          "facilities": 60,
+          "sqftMillions": 3.9
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 18.55,
+      "lastRent": 20.52,
+      "totalChangePct": 10.619946091644206,
+      "cagrPct": 2.5553593294034727
+    },
+    {
+      "issuer": "PSA",
+      "msa": "West Palm Beach",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 20.87,
+          "occupancy": 0.968,
+          "facilities": 40,
+          "sqftMillions": 2.9
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 25.4,
+          "occupancy": 0.9590000000000001,
+          "facilities": 37,
+          "sqftMillions": 2.6
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 26.45,
+          "occupancy": 0.9359999999999999,
+          "facilities": 39,
+          "sqftMillions": 2.8
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 26.11,
+          "occupancy": 0.9229999999999999,
+          "facilities": 41,
+          "sqftMillions": 3.1
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 25.8,
+          "occupancy": 0.915,
+          "facilities": 42,
+          "sqftMillions": 3.3
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 20.87,
+      "lastRent": 25.8,
+      "totalChangePct": 23.62242453282224,
+      "cagrPct": 5.4445928495904905
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Tampa",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 15.51,
+          "occupancy": 0.9620000000000001,
+          "facilities": 52,
+          "sqftMillions": 3.5
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 18.87,
+          "occupancy": 0.95,
+          "facilities": 51,
+          "sqftMillions": 3.4
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 19.97,
+          "occupancy": 0.919,
+          "facilities": 53,
+          "sqftMillions": 3.5
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 19.32,
+          "occupancy": 0.912,
+          "facilities": 56,
+          "sqftMillions": 3.7
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 15.51,
+      "lastRent": 19.32,
+      "totalChangePct": 24.56479690522244,
+      "cagrPct": 5.644971689424572
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Charlotte",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 12.46,
+          "occupancy": 0.9590000000000001,
+          "facilities": 50,
+          "sqftMillions": 3.8
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 15.01,
+          "occupancy": 0.95,
+          "facilities": 50,
+          "sqftMillions": 3.8
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 16.13,
+          "occupancy": 0.93,
+          "facilities": 52,
+          "sqftMillions": 3.9
+        },
+        {
+          "year": "2024",
+          "rentPerOccSF": 16,
+          "occupancy": 0.9129999999999999,
+          "facilities": 55,
+          "sqftMillions": 4.2
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 15.79,
+          "occupancy": 0.898,
+          "facilities": 57,
+          "sqftMillions": 4.4
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 12.46,
+      "lastRent": 15.79,
+      "totalChangePct": 26.72552166934188,
+      "cagrPct": 6.100155871116786
+    },
+    {
+      "issuer": "PSA",
+      "msa": "All other markets",
+      "series": [
+        {
+          "year": "2021",
+          "rentPerOccSF": 15.55,
+          "occupancy": 0.9620000000000001,
+          "facilities": 893,
+          "sqftMillions": 56.1
+        },
+        {
+          "year": "2022",
+          "rentPerOccSF": 17.91,
+          "occupancy": 0.948,
+          "facilities": 893,
+          "sqftMillions": 56.4
+        },
+        {
+          "year": "2023",
+          "rentPerOccSF": 18.68,
+          "occupancy": 0.9329999999999999,
+          "facilities": 926,
+          "sqftMillions": 58.9
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 16.28,
+          "occupancy": 0.915,
+          "facilities": 673,
+          "sqftMillions": 42.8
+        }
+      ],
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstRent": 15.55,
+      "lastRent": 16.28,
+      "totalChangePct": 4.694533762057884,
+      "cagrPct": 1.1535203707124797
+    },
+    {
+      "issuer": "PSA",
+      "msa": "Baltimore",
+      "series": [
+        {
+          "year": "2024",
+          "rentPerOccSF": 23.33,
+          "occupancy": 0.924,
+          "facilities": 38,
+          "sqftMillions": 2.8
+        },
+        {
+          "year": "2025",
+          "rentPerOccSF": 23.4,
+          "occupancy": 0.93,
+          "facilities": 40,
+          "sqftMillions": 2.9
+        }
+      ],
+      "firstYear": "2024",
+      "lastYear": "2025",
+      "firstRent": 23.33,
+      "lastRent": 23.4,
+      "totalChangePct": 0.30004286326619223,
+      "cagrPct": 0.30004286326619223
+    }
+  ]
+}

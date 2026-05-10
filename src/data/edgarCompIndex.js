@@ -17,6 +17,18 @@ import transactions8K from "./edgar-8k-transactions-claude.json";
 import rentCalibration from "./edgar-rent-calibration.json";
 import developmentPipeline from "./development-pipeline.json";
 
+// Historical MSA-level same-store rent disclosures, FY2021-FY2025 PSA primary-
+// source from SEC EDGAR. Closes the historical-rent-comp gap vs Radius+. Loaded
+// optionally — absent on fresh checkouts where backfill-historical-msa-rents.mjs
+// hasn't run.
+let historicalMSARents = null;
+try {
+  // eslint-disable-next-line global-require
+  historicalMSARents = require("./edgar-historical-msa-rents.json");
+} catch {
+  // Optional asset; run scripts/edgar/backfill-historical-msa-rents.mjs to generate.
+}
+
 // Scraped per-facility rents — primary-source unit pricing pulled from each
 // REIT's facility detail pages. Optional — availability depends on whether
 // the scraper has run for the subject MSA.
@@ -1393,11 +1405,86 @@ export const EDGAR_INDEX_METADATA = {
   sources: edgarIndex.sources,
 };
 
+/**
+ * Historical per-MSA same-store rent time series for an issuer × MSA pair.
+ * Sourced from PSA's "Same Store Facilities Operating Trends by Market" MD&A
+ * disclosure across FY2021-FY2025 (and continuing as new 10-Ks file). Returns
+ * the year-by-year series, plus first/last rent and computed CAGR.
+ *
+ * EXR + CUBE + NSA do not disclose per-MSA same-store rent in their MD&A
+ * (they disclose portfolio-aggregate metrics only) — this accessor returns
+ * null for those issuers. Use the per-facility scraped rent indices for
+ * EXR/CUBE/NSA MSA-level rent.
+ *
+ * @param {string} msa — exact MSA label (e.g. "Los Angeles", "Houston")
+ * @param {string} issuer — issuer ticker, default "PSA"
+ * @returns {Object|null} { issuer, msa, series:[{year,rentPerOccSF,occupancy,facilities,sqftMillions}],
+ *                          firstYear, lastYear, firstRent, lastRent, totalChangePct, cagrPct }
+ */
+export function getHistoricalMSARentSeries(msa, issuer = "PSA") {
+  if (!historicalMSARents || !msa) return null;
+  const upperIssuer = String(issuer).toUpperCase();
+  const match = (historicalMSARents.timeSeries || []).find(
+    (t) => t.issuer === upperIssuer && t.msa === msa
+  );
+  return match || null;
+}
+
+/**
+ * Convenience: just the multi-year CAGR for a given issuer × MSA pair.
+ * Returns null if no time series available or fewer than 2 datapoints.
+ *
+ * @param {string} msa
+ * @param {string} issuer — default "PSA"
+ * @returns {number|null} CAGR as decimal (e.g. 0.0681 for 6.81%/yr)
+ */
+export function getHistoricalMSACAGR(msa, issuer = "PSA") {
+  const series = getHistoricalMSARentSeries(msa, issuer);
+  if (!series || series.cagrPct == null) return null;
+  return series.cagrPct / 100;
+}
+
+/**
+ * List all MSAs covered by the historical rent backfill for a given issuer.
+ * Used by the rent-anchor pipeline to detect when an MSA-keyed historical
+ * series is available vs. when only state/portfolio fallbacks apply.
+ *
+ * @param {string} issuer — default "PSA"
+ * @returns {Array<string>} list of MSA labels
+ */
+export function listHistoricalMSACoverage(issuer = "PSA") {
+  if (!historicalMSARents) return [];
+  const upperIssuer = String(issuer).toUpperCase();
+  return (historicalMSARents.timeSeries || [])
+    .filter((t) => t.issuer === upperIssuer)
+    .map((t) => t.msa);
+}
+
+/**
+ * Metadata about the historical-rent backfill (schema version, generation
+ * timestamp, issuers + years covered). Used for audit/provenance display.
+ */
+export function getHistoricalRentMetadata() {
+  if (!historicalMSARents) return null;
+  return {
+    schema: historicalMSARents.schema,
+    generatedAt: historicalMSARents.generated_at,
+    issuers: historicalMSARents.issuers,
+    yearsCovered: historicalMSARents.yearsCovered,
+    timeSeriesRows: (historicalMSARents.timeSeries || []).length,
+    extractionLog: historicalMSARents.extractionLog,
+  };
+}
+
 export default {
   getEDGARStateData,
   formatEDGARCitation,
   getCalibratedSameStoreGrowth,
   getECRIPremiumIndex,
+  getHistoricalMSARentSeries,
+  getHistoricalMSACAGR,
+  listHistoricalMSACoverage,
+  getHistoricalRentMetadata,
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
   getStateRentBand,

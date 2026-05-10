@@ -707,6 +707,7 @@ export function analyzeExistingAsset(input, opts = {}) {
 
   const snapshot = {
     name: input.name || "",
+    city: input.city || "",
     state: (input.state || "").toUpperCase().trim(),
     ask,
     nrsf,

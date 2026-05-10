@@ -159,4 +159,43 @@ describe("generateAnalyzerReport", () => {
     const html = generateAnalyzerReport({ analysis, psLens });
     expect(html).toMatch(/STX-TEST-STORAGE-FACILITY-\d{8}/);
   });
+
+  // Historical MSA rent series — closes the Radius+ moat. Renders the PSA
+  // primary-source per-MSA same-store rent time series (FY2021-FY2025) when
+  // the subject city resolves to a PSA-disclosed MSA.
+  describe("historical MSA rent section (Crush Radius Plus)", () => {
+    test("renders PSA HISTORICAL RENT section when subject city maps to a PSA-disclosed MSA", () => {
+      // Houston is in PSA's MSA disclosure list — should surface 5-yr series.
+      const houstonInput = { ...baseInput, name: "Houston Smoke Test", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("PSA HISTORICAL RENT");
+      expect(html).toContain("HOUSTON");
+      expect(html).toContain("PRIMARY-SOURCE SEC EDGAR");
+      expect(html).toContain("FY2021");
+      expect(html).toContain("FY2025");
+    });
+
+    test("omits PSA HISTORICAL RENT section when no city present (subject MSA cannot be resolved)", () => {
+      // baseInput has no city — section should be skipped.
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).not.toContain("PSA HISTORICAL RENT");
+    });
+
+    test("rendered series cites computed CAGR for the MSA", () => {
+      const dallasInput = { ...baseInput, name: "Dallas Smoke Test", city: "Dallas", state: "TX" };
+      const analysis = analyzeExistingAsset(dallasInput);
+      const psLens = computeBuyerLens(dallasInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Dallas-Ft. Worth is a known PSA MSA. CAGR should render as %/yr.
+      expect(html).toContain("PSA HISTORICAL RENT");
+      expect(html).toMatch(/\d+\.\d{2}%\/yr/);
+    });
+  });
 });
