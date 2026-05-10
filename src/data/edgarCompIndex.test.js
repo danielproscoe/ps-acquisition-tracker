@@ -17,6 +17,7 @@ import {
   estimateFacilityCostBasis,
   enrichCompetitor,
   enrichNearbyCompetitors,
+  getECRIPremiumIndex,
   EDGAR_RENT_CALIBRATION_METADATA,
   getEDGARStateData,
   formatEDGARCitation,
@@ -467,6 +468,69 @@ describe("enrichNearbyCompetitors", () => {
     expect(enrichNearbyCompetitors([], 0, 0, { haversineFn: testHaversine })).toEqual([]);
     expect(enrichNearbyCompetitors(facilities, "bad", 0, { haversineFn: testHaversine })).toEqual([]);
     expect(enrichNearbyCompetitors(facilities, 0, 0, {})).toEqual([]); // missing haversineFn
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// getECRIPremiumIndex — cross-REIT in-place vs move-in rent spread
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("getECRIPremiumIndex — rent-raising-headroom signal", () => {
+  test("returns the ECRI premium when at least one issuer discloses both rates", () => {
+    const idx = getECRIPremiumIndex();
+    expect(idx).not.toBeNull();
+    expect(idx.issuersDisclosed.length).toBeGreaterThan(0);
+    expect(idx.issuersDisclosed).toContain("EXR"); // EXR uniquely discloses move-in
+  });
+
+  test("EXR's disclosed in-place + move-in rates produce ~51% ECRI premium", () => {
+    const idx = getECRIPremiumIndex();
+    const exr = idx.issuerDetails.find((d) => d.issuer === "EXR");
+    expect(exr).toBeTruthy();
+    expect(exr.inPlaceRentPerSF).toBe(19.91);
+    expect(exr.moveInRentPerSF).toBe(13.16);
+    // ECRI premium = (19.91 - 13.16) / 13.16 = 0.5129...
+    expect(exr.ecriPremium).toBeCloseTo(0.513, 2);
+    expect(exr.ecriPremiumPct).toBeCloseTo(51.3, 1);
+  });
+
+  test("issuer details include accession number citations", () => {
+    const idx = getECRIPremiumIndex();
+    for (const d of idx.issuerDetails) {
+      expect(d.accessionNumber).toBeTruthy();
+      expect(d.filingURL).toMatch(/sec\.gov/);
+    }
+  });
+
+  test("cross-REIT averages computed when 2+ issuers disclose", () => {
+    const idx = getECRIPremiumIndex();
+    expect(idx.crossREITAvgInPlaceRent).toBeGreaterThan(0);
+    expect(idx.crossREITAvgMoveInRate).toBeGreaterThan(0);
+    expect(idx.crossREITAvgInPlaceRent).toBeGreaterThan(idx.crossREITAvgMoveInRate);
+  });
+
+  test("institutional implication string is informative", () => {
+    const idx = getECRIPremiumIndex();
+    expect(idx.institutionalImplication).toMatch(/above current move-in|premium|rent-raising/i);
+  });
+
+  test("citation rule names EXR as the unique discloser", () => {
+    const idx = getECRIPremiumIndex();
+    expect(idx.citationRule).toMatch(/EXR/);
+  });
+
+  test("move-in rate change YoY computed when prior year present", () => {
+    const idx = getECRIPremiumIndex();
+    const exr = idx.issuerDetails.find((d) => d.issuer === "EXR");
+    expect(exr.moveInRentPerSF_PriorYear).toBe(12.6);
+    // (13.16 - 12.6) / 12.6 = 0.0444...
+    expect(exr.moveInRentChangeYoY).toBeCloseTo(0.044, 2);
+  });
+
+  test("EXR discount % of revenue is captured (2.1%)", () => {
+    const idx = getECRIPremiumIndex();
+    const exr = idx.issuerDetails.find((d) => d.issuer === "EXR");
+    expect(exr.discountPctOfRevenue).toBeCloseTo(0.021, 3);
   });
 });
 

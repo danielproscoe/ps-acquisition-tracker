@@ -12,7 +12,7 @@
 // no Firebase writes, no DOM, no React.
 
 import { haversine } from "./haversine";
-import { enrichNearbyCompetitors, getMSARentBand, getBestRentBand, resolveCityToMSA } from "./data/edgarCompIndex";
+import { enrichNearbyCompetitors, getMSARentBand, getBestRentBand, resolveCityToMSA, getECRIPremiumIndex } from "./data/edgarCompIndex";
 
 const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
 
@@ -332,10 +332,13 @@ export async function enrichAssetAnalysis(input) {
   const msaRentBand = subjectMSA ? getMSARentBand(subjectMSA) : null;
   // Best-available rent: MSA > state > national
   const bestRentBand = getBestRentBand({ msa: subjectMSA, state: input.state });
+  // Cross-REIT ECRI premium signal — rent-raising headroom from disclosed
+  // in-place vs move-in rates. EXR is currently the only direct discloser.
+  const ecriIndex = getECRIPremiumIndex();
 
   return {
     coords, demographics, psFamily, marketRents, competitors,
-    subjectMSA, msaRentBand, bestRentBand,
+    subjectMSA, msaRentBand, bestRentBand, ecriIndex,
     errors, generatedAt: new Date().toISOString(),
   };
 }

@@ -115,6 +115,87 @@ export function getCalibratedSameStoreGrowth() {
 }
 
 /**
+ * Cross-REIT ECRI premium index — quantifies the gap between in-place
+ * same-store rents and current move-in (new-lease) rates. This is the rent-
+ * raising-headroom signal that drives stabilized acquisition projections.
+ *
+ * EXR's FY2025 10-K MD&A uniquely discloses both metrics directly:
+ *   - In-place same-store rent: $19.91/SF/yr
+ *   - New-lease (move-in) rent:  $13.16/SF/yr
+ *   - ECRI Premium = (in-place - new) / new = 51.3% above move-in
+ *
+ * Interpretation:
+ *   - The ECRI premium represents the cumulative effect of years of annual
+ *     existing-customer rate increases (ECRIs) on the tenant book
+ *   - Higher premium = stronger pricing power AND larger downside if churn
+ *     accelerates (tenants leave at $19.91, get replaced at $13.16)
+ *   - For a stabilized acquisition, retention quality + ECRI program
+ *     execution determine whether the in-place rent persists
+ *
+ * Returns null if no issuer in the calibration database discloses the
+ * new-lease rate (currently EXR is the only one).
+ *
+ * @returns {Object|null} {
+ *   issuersDisclosed: ["EXR"],
+ *   crossREITAvgInPlaceRent: 19.91,
+ *   crossREITAvgMoveInRate: 13.16,
+ *   crossREITAvgECRIPremium: 0.513,  // 51.3% above move-in
+ *   issuerDetails: [{ issuer, inPlace, moveIn, ecriPremium, citation }],
+ *   institutionalImplication: string,
+ *   citationRule: string,
+ * }
+ */
+export function getECRIPremiumIndex() {
+  const ss = sameStoreGrowth;
+  if (!ss?.issuers) return null;
+  const disclosing = ss.issuers.filter(
+    (i) => i.metrics?.sameStoreRentPerSF != null && i.metrics?.newLeaseRentPerSF != null
+  );
+  if (disclosing.length === 0) return null;
+
+  const issuerDetails = disclosing.map((i) => {
+    const inPlace = i.metrics.sameStoreRentPerSF;
+    const moveIn = i.metrics.newLeaseRentPerSF;
+    const ecriPremium = inPlace > 0 && moveIn > 0 ? (inPlace - moveIn) / moveIn : null;
+    return {
+      issuer: i.issuer,
+      issuerName: i.issuerName,
+      inPlaceRentPerSF: inPlace,
+      moveInRentPerSF: moveIn,
+      moveInRentPerSF_PriorYear: i.metrics.newLeaseRentPerSF_PriorYear,
+      moveInRentChangeYoY: i.metrics.newLeaseRentPerSF_PriorYear
+        ? (moveIn - i.metrics.newLeaseRentPerSF_PriorYear) / i.metrics.newLeaseRentPerSF_PriorYear
+        : null,
+      ecriPremium,
+      ecriPremiumPct: ecriPremium != null ? Math.round(ecriPremium * 1000) / 10 : null,
+      discountPctOfRevenue: i.metrics.discountPctOfRevenue,
+      accessionNumber: i.accessionNumber,
+      filingURL: i.filingURL,
+      reportDate: i.reportDate,
+    };
+  });
+
+  const totalInPlace = issuerDetails.reduce((s, d) => s + d.inPlaceRentPerSF, 0);
+  const totalMoveIn = issuerDetails.reduce((s, d) => s + d.moveInRentPerSF, 0);
+  const avgInPlace = totalInPlace / issuerDetails.length;
+  const avgMoveIn = totalMoveIn / issuerDetails.length;
+  const avgECRIPremium = avgMoveIn > 0 ? (avgInPlace - avgMoveIn) / avgMoveIn : null;
+
+  return {
+    issuersDisclosed: disclosing.map((i) => i.issuer),
+    crossREITAvgInPlaceRent: Math.round(avgInPlace * 100) / 100,
+    crossREITAvgMoveInRate: Math.round(avgMoveIn * 100) / 100,
+    crossREITAvgECRIPremium: avgECRIPremium != null ? Math.round(avgECRIPremium * 1000) / 1000 : null,
+    crossREITAvgECRIPremiumPct: avgECRIPremium != null ? Math.round(avgECRIPremium * 1000) / 10 : null,
+    issuerDetails,
+    institutionalImplication: avgECRIPremium != null
+      ? `Existing-customer book sits ${(avgECRIPremium * 100).toFixed(1)}% above current move-in rate. For a stabilized acquisition: rent-raising headroom on retained tenants is the cumulative ECRI execution; downside on churn is the gap (tenant leaves at in-place rate, replaced at move-in rate).`
+      : "ECRI premium not computable — only one disclosing issuer.",
+    citationRule: "Each issuer's in-place + move-in rates trace to the SEC EDGAR 10-K MD&A disclosure. EXR uniquely discloses 'New leases average annual rent per square foot' alongside same-store in-place rent. PSA + CUBE + SMA do not directly disclose move-in rate (their MD&A discusses ECRI dynamics qualitatively).",
+  };
+}
+
+/**
  * Returns the storage-related per-deal transactions from SEC 8-K filings,
  * sorted newest-first. Each record has buyer / seller / price / facilities /
  * NRSF / consideration type / cap rate (when disclosed) / source quote +
@@ -618,6 +699,7 @@ export default {
   getEDGARStateData,
   formatEDGARCitation,
   getCalibratedSameStoreGrowth,
+  getECRIPremiumIndex,
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
   getStateRentBand,

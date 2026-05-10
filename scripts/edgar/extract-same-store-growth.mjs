@@ -67,6 +67,17 @@ function extractSameStoreMetrics(text, ticker) {
     sameStoreOccupancyAvg: null,
     sameStoreRentPerSF: null,
     sameStoreRentPerSF_PriorYear: null,
+    // NEW EXR-disclosed metric: avg new-lease rent per SF.
+    // EXR's 10-K MD&A explicitly discloses this alongside in-place rent.
+    // The gap between new-lease and in-place rent = ECRI lift opportunity:
+    // existing customers pay above-market because of cumulative annual rate
+    // increases, while new tenants get the current move-in rate. The
+    // spread is the rent-raising headroom for a stabilized acquisition.
+    newLeaseRentPerSF: null,
+    newLeaseRentPerSF_PriorYear: null,
+    // SMA-disclosed: avg discount as % of rental revenue.
+    // Industry-wide promotional discount level — directly disclosed by EXR.
+    discountPctOfRevenue: null,
     sourceExcerpt: null,
   };
 
@@ -291,6 +302,38 @@ function extractSameStoreMetrics(text, ticker) {
       // the first ($XX.XX). Pattern (1)/(5) capture only one value.
       metrics.sameStoreRentPerSF = parseFloat(m[1]);
       if (m[2]) metrics.sameStoreRentPerSF_PriorYear = parseFloat(m[2]);
+      break;
+    }
+  }
+
+  // ── New-lease rent per SF (EXR MD&A) ──
+  // EXR uniquely discloses: "New leases average annual rent per square
+  // foot $ 13.16 $ 12.60". The gap between this (move-in rate) and the
+  // same-store rent ($19.91) is the ECRI lift opportunity.
+  const newLeasePatterns = [
+    /[Nn]ew\s+leases?\s+(?:average\s+)?annual\s+rent\s+per\s+square\s+foot\s*\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/,
+    /[Nn]ew\s+leases?\s+(?:average\s+)?annual\s+rent\s+per\s+square\s+foot\s*\$\s*(\d+\.\d{2})/,
+  ];
+  for (const re of newLeasePatterns) {
+    const m = re.exec(text);
+    if (m) {
+      metrics.newLeaseRentPerSF = parseFloat(m[1]);
+      if (m[2]) metrics.newLeaseRentPerSF_PriorYear = parseFloat(m[2]);
+      break;
+    }
+  }
+
+  // ── Promotional discount as % of revenue (EXR + others) ──
+  // EXR discloses: "Average discounts as a percentage of rental revenues 2.1%"
+  // This is the level of promotional discounting in the same-store pool —
+  // an institutional lever for new-lease pricing.
+  const discountPatterns = [
+    /(?:Average\s+)?[Dd]iscounts?\s+as\s+a\s+percentage\s+of\s+rental\s+revenues?\s+(\d+\.?\d*)\s*%/,
+  ];
+  for (const re of discountPatterns) {
+    const m = re.exec(text);
+    if (m) {
+      metrics.discountPctOfRevenue = parseFloat(m[1]) / 100;
       break;
     }
   }

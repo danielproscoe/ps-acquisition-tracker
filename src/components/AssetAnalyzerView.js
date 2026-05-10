@@ -798,7 +798,7 @@ function EnrichmentCard({ enrichment, loading }) {
   }
   if (!enrichment) return null;
 
-  const { coords, demographics, psFamily, marketRents, competitors, subjectMSA, msaRentBand, bestRentBand } = enrichment;
+  const { coords, demographics, psFamily, marketRents, competitors, subjectMSA, msaRentBand, bestRentBand, ecriIndex } = enrichment;
   const hasData = coords || demographics || psFamily || marketRents || (competitors && competitors.length);
   if (!hasData) return null;
 
@@ -870,6 +870,49 @@ function EnrichmentCard({ enrichment, loading }) {
           </div>
         )}
       </div>
+
+      {/* Cross-REIT ECRI Premium signal — rent-raising headroom from disclosed in-place vs move-in rates */}
+      {ecriIndex && ecriIndex.crossREITAvgECRIPremium != null && (
+        <div style={{ marginTop: 14, padding: 12, background: "rgba(59,130,246,0.08)", border: `1px solid #3B82F655`, borderRadius: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: "#3B82F6", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              📈 ECRI PREMIUM · Rent-Raising Headroom (Cross-REIT 10-K Disclosed)
+            </div>
+            <span style={{ fontSize: 8, color: "#64748B" }}>
+              {ecriIndex.issuersDisclosed.join(", ")} · {ecriIndex.issuerDetails[0]?.accessionNumber || ""}
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>In-Place Rent / Yr</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>${ecriIndex.crossREITAvgInPlaceRent.toFixed(2)}/SF</div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>same-store cohort</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>Move-In Rate / Yr</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>${ecriIndex.crossREITAvgMoveInRate.toFixed(2)}/SF</div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>new-lease pricing</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>ECRI Premium</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#3B82F6", fontFamily: "'Space Mono', monospace" }}>+{ecriIndex.crossREITAvgECRIPremiumPct.toFixed(1)}%</div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>cumulative book lift</div>
+            </div>
+            {ecriIndex.issuerDetails[0]?.moveInRentChangeYoY != null && (
+              <div>
+                <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>Move-In YoY</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>
+                  {ecriIndex.issuerDetails[0].moveInRentChangeYoY > 0 ? "+" : ""}{(ecriIndex.issuerDetails[0].moveInRentChangeYoY * 100).toFixed(1)}%
+                </div>
+                <div style={{ fontSize: 8, color: "#64748B" }}>YoY new-lease change</div>
+              </div>
+            )}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 9, color: "#64748B", lineHeight: 1.4 }}>
+            {ecriIndex.institutionalImplication}
+          </div>
+        </div>
+      )}
 
       {/* MSA-disclosed rent band — highest fidelity when subject city maps to a PSA-disclosed MSA */}
       {msaRentBand && (
