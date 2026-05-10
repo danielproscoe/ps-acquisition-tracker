@@ -68,6 +68,16 @@ const BRAND_PATTERNS = [
       /\bstrategic\s+storage\b/i, // SMA's prior brand
     ],
   },
+  {
+    buyer: "AMERCO",
+    patterns: [
+      /\bu[-_\s]?haul\b/i,           // U-Haul / UHaul / U Haul
+      /\buhaul\b/i,
+      /\bamerco\b/i,
+      /\bu[-_\s]?haul\s+center\b/i,  // U-Haul Center (their flagship format)
+      /\bu[-_\s]?haul\s+self\s+storage\b/i,
+    ],
+  },
 ];
 
 // ─── Listing-broker fingerprints ────────────────────────────────────────────

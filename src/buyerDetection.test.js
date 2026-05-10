@@ -57,6 +57,35 @@ describe("detectBuyer — brand-name match in property name (decisive)", () => {
     expect(r.scores.SMA).toBeGreaterThanOrEqual(100);
   });
 
+  test("U-Haul Center @ Reno NV → AMERCO (HIGH confidence)", () => {
+    const r = detectBuyer({
+      name: "U-Haul Center · 1234 Virginia St Reno NV",
+      state: "NV",
+      city: "reno",
+    });
+    expect(r.buyerKey).toBe("AMERCO");
+    expect(r.confidence).toBe("HIGH");
+    expect(r.scores.AMERCO).toBeGreaterThanOrEqual(100);
+  });
+
+  test("UHaul Self Storage (no hyphen) → AMERCO", () => {
+    const r = detectBuyer({
+      name: "UHaul Self Storage Phoenix AZ",
+      state: "AZ",
+      city: "phoenix",
+    });
+    expect(r.buyerKey).toBe("AMERCO");
+  });
+
+  test("AMERCO-branded asset → AMERCO", () => {
+    const r = detectBuyer({
+      name: "AMERCO Storage Holdings · Dallas TX",
+      state: "TX",
+      city: "dallas",
+    });
+    expect(r.buyerKey).toBe("AMERCO");
+  });
+
   test("NNN deal reinforces brand match (CUBE NNN → +25 on top of brand)", () => {
     const r = detectBuyer({
       name: "CubeSmart NNN Tallahassee FL",

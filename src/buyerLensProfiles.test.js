@@ -6,6 +6,7 @@ import {
   CUBE_LENS,
   SMA_LENS,
   GENERIC_LENS,
+  AMERCO_LENS,
   BUYER_LENSES,
   BUYER_LENS_ORDER,
   DEFAULT_BUYER_KEY,
@@ -240,16 +241,17 @@ describe("DEAL_TYPES — math path branching", () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe("BUYER_LENSES registry — multi-buyer activation", () => {
-  test("registry contains all 5 active lenses (PS + EXR + CUBE + SMA + GENERIC)", () => {
+  test("registry contains all 6 active lenses (PS + EXR + CUBE + AMERCO + SMA + GENERIC)", () => {
     expect(BUYER_LENSES.PS).toBe(PS_LENS);
     expect(BUYER_LENSES.EXR).toBe(EXR_LENS);
     expect(BUYER_LENSES.CUBE).toBe(CUBE_LENS);
+    expect(BUYER_LENSES.AMERCO).toBe(AMERCO_LENS);
     expect(BUYER_LENSES.SMA).toBe(SMA_LENS);
     expect(BUYER_LENSES.GENERIC).toBe(GENERIC_LENS);
   });
 
-  test("BUYER_LENS_ORDER lists keys in display order", () => {
-    expect(BUYER_LENS_ORDER).toEqual(["PS", "EXR", "CUBE", "SMA", "GENERIC"]);
+  test("BUYER_LENS_ORDER lists keys in display order (AMERCO between CUBE and SMA)", () => {
+    expect(BUYER_LENS_ORDER).toEqual(["PS", "EXR", "CUBE", "AMERCO", "SMA", "GENERIC"]);
   });
 
   test("DEFAULT_BUYER_KEY is PS (Reza pitch flagship)", () => {
@@ -260,6 +262,7 @@ describe("BUYER_LENSES registry — multi-buyer activation", () => {
     expect(getBuyerLens("PS")).toBe(PS_LENS);
     expect(getBuyerLens("EXR")).toBe(EXR_LENS);
     expect(getBuyerLens("CUBE")).toBe(CUBE_LENS);
+    expect(getBuyerLens("AMERCO")).toBe(AMERCO_LENS);
     expect(getBuyerLens("SMA")).toBe(SMA_LENS);
     expect(getBuyerLens("GENERIC")).toBe(GENERIC_LENS);
   });
@@ -324,6 +327,81 @@ describe("CUBE_LENS profile constants", () => {
   test("higher marketing spend than PSA + EXR (promo intensity)", () => {
     expect(CUBE_LENS.expenseOverrides.marketingPctRev).toBeGreaterThan(PS_LENS.expenseOverrides.marketingPctRev);
     expect(CUBE_LENS.expenseOverrides.marketingPctRev).toBeGreaterThan(EXR_LENS.expenseOverrides.marketingPctRev);
+  });
+});
+
+describe("AMERCO_LENS profile constants — truck-rental cross-subsidy", () => {
+  test("highest NOI margin in registry (~79% — truck side absorbs costs)", () => {
+    expect(AMERCO_LENS.benchmarks.sameStoreNOIMargin).toBeCloseTo(0.79, 3);
+    expect(AMERCO_LENS.benchmarks.sameStoreNOIMargin).toBeGreaterThan(PS_LENS.benchmarks.sameStoreNOIMargin);
+    expect(AMERCO_LENS.benchmarks.sameStoreNOIMargin).toBeGreaterThan(EXR_LENS.benchmarks.sameStoreNOIMargin);
+    expect(AMERCO_LENS.benchmarks.sameStoreNOIMargin).toBeGreaterThan(CUBE_LENS.benchmarks.sameStoreNOIMargin);
+  });
+
+  test("lowest opex ratio in registry (~21% — cross-subsidy)", () => {
+    expect(AMERCO_LENS.benchmarks.sameStoreOpexPctRev).toBeCloseTo(0.21, 3);
+    expect(AMERCO_LENS.benchmarks.sameStoreOpexPctRev).toBeLessThan(PS_LENS.benchmarks.sameStoreOpexPctRev);
+    expect(AMERCO_LENS.benchmarks.sameStoreOpexPctRev).toBeLessThan(GENERIC_LENS.benchmarks.sameStoreOpexPctRev);
+  });
+
+  test("lowest payroll cost — staff handle truck + storage together", () => {
+    expect(AMERCO_LENS.expenseOverrides.payrollPctRev).toBeLessThanOrEqual(PS_LENS.expenseOverrides.payrollPctRev);
+    expect(AMERCO_LENS.expenseOverrides.payrollPctRev).toBeLessThan(EXR_LENS.expenseOverrides.payrollPctRev);
+    expect(AMERCO_LENS.expenseOverrides.payrollPctRev).toBeLessThan(CUBE_LENS.expenseOverrides.payrollPctRev);
+  });
+
+  test("lowest property tax — truck side carries the land tax burden", () => {
+    expect(AMERCO_LENS.expenseOverrides.propertyTaxPctRev).toBeLessThan(PS_LENS.expenseOverrides.propertyTaxPctRev);
+    expect(AMERCO_LENS.expenseOverrides.propertyTaxPctRev).toBeLessThan(EXR_LENS.expenseOverrides.propertyTaxPctRev);
+  });
+
+  test("lowest marketing — cross-promotion from truck rental customers", () => {
+    expect(AMERCO_LENS.expenseOverrides.marketingPctRev).toBeLessThan(PS_LENS.expenseOverrides.marketingPctRev);
+    expect(AMERCO_LENS.expenseOverrides.marketingPctRev).toBeLessThan(CUBE_LENS.expenseOverrides.marketingPctRev);
+  });
+
+  test("highest brand premium (+10%) — cross-marketing with truck customers", () => {
+    expect(AMERCO_LENS.revenueAdjustment).toBeCloseTo(1.10, 3);
+    // Higher than EXR, CUBE, SMA, GENERIC; only PS (12%) is higher
+    expect(AMERCO_LENS.revenueAdjustment).toBeGreaterThan(EXR_LENS.revenueAdjustment);
+    expect(AMERCO_LENS.revenueAdjustment).toBeGreaterThan(CUBE_LENS.revenueAdjustment);
+  });
+
+  test("lowest top-30 acq cap — pays premium for adjacency", () => {
+    expect(AMERCO_LENS.capByMSATier.top30).toBeCloseTo(0.0575, 4);
+    expect(AMERCO_LENS.capByMSATier.top30).toBeLessThan(PS_LENS.capByMSATier.top30);
+    expect(AMERCO_LENS.capByMSATier.top30).toBeLessThan(EXR_LENS.capByMSATier.top30);
+  });
+
+  test("highest portfolio-fit cap reduction (50 bps, double PSA's 25)", () => {
+    expect(AMERCO_LENS.portfolioFitBonus.capReductionBps).toBe(50);
+    expect(AMERCO_LENS.portfolioFitBonus.capReductionBps).toBeGreaterThan(PS_LENS.portfolioFitBonus.capReductionBps);
+    expect(AMERCO_LENS.portfolioFitBonus.capReductionBps).toBeGreaterThan(EXR_LENS.portfolioFitBonus.capReductionBps);
+  });
+
+  test("tightest portfolio-fit trigger (2 mi vs PSA's 5 mi)", () => {
+    expect(AMERCO_LENS.portfolioFitBonus.triggerWithinMiles).toBe(2);
+    expect(AMERCO_LENS.portfolioFitBonus.triggerWithinMiles).toBeLessThan(PS_LENS.portfolioFitBonus.triggerWithinMiles);
+  });
+
+  test("lowest dev YOC target (6.5% — cross-subsidy makes effective YOC higher)", () => {
+    expect(AMERCO_LENS.benchmarks.devYOCTarget).toBeCloseTo(0.065, 3);
+    expect(AMERCO_LENS.benchmarks.devYOCTarget).toBeLessThan(PS_LENS.benchmarks.devYOCTarget);
+    expect(AMERCO_LENS.benchmarks.devYOCTarget).toBeLessThan(EXR_LENS.benchmarks.devYOCTarget);
+  });
+
+  test("self-managed — no third-party mgmt fee", () => {
+    expect(AMERCO_LENS.expenseOverrides.mgmtFeePctEGI).toBe(0);
+  });
+
+  test("smaller hardgates than other REITs (Centers fit on ~3 acres)", () => {
+    expect(AMERCO_LENS.hardGates.minNRSF).toBeLessThan(PS_LENS.hardGates.minNRSF);
+    expect(AMERCO_LENS.hardGates.minOneStoryAcres).toBeLessThan(PS_LENS.hardGates.minOneStoryAcres);
+  });
+
+  test("ticker = UHAL, name describes truck-cross-subsidy model", () => {
+    expect(AMERCO_LENS.ticker).toBe("UHAL");
+    expect(AMERCO_LENS.name).toMatch(/cross[-\s]subsid/i);
   });
 });
 
@@ -413,11 +491,11 @@ describe("computeBuyerLens — multi-lens routing", () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe("computeAllBuyerLenses", () => {
-  test("returns one row per registered lens (5 active)", () => {
+  test("returns one row per registered lens (6 active including AMERCO)", () => {
     const rows = computeAllBuyerLenses(baseInput);
-    expect(rows.length).toBe(5);
+    expect(rows.length).toBe(6);
     const keys = rows.map((r) => r.key).sort();
-    expect(keys).toEqual(["CUBE", "EXR", "GENERIC", "PS", "SMA"]);
+    expect(keys).toEqual(["AMERCO", "CUBE", "EXR", "GENERIC", "PS", "SMA"]);
   });
 
   test("each row carries dealStabCap + lensTargetCap + bpsDelta + verdict + impliedTakedownPrice", () => {

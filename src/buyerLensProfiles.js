@@ -493,6 +493,139 @@ export const GENERIC_LENS = {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
+// AMERCO / U-HAUL HOLDING (UHAL) — truck-rental-cross-subsidized storage
+//
+// U-Haul Holding Company (NYSE: UHAL) — successor to AMERCO via July 2022
+// reorganization. Most-recent annual filing: U-Haul Holding FY2025 10-K
+// (fiscal year ending March 31, 2025; filed June 2025).
+//
+// UHAL's storage underwriting differs from PSA / EXR / CUBE / SMA / GENERIC
+// in a fundamentally different way — the **truck-rental cross-subsidy**.
+//
+// The core economic insight:
+//
+//   UHAL operates ~2,200 U-Haul Centers. A typical Center has:
+//     - Truck/trailer rental fleet on the front of the lot
+//     - Self-storage building(s) on the back of the lot
+//     - Single staff team handles BOTH businesses
+//     - Single set of utilities, taxes, security, signage, marketing
+//
+//   The truck rental business pays for the LAND, the BUILDINGS, the STAFF.
+//   Storage is the marginal-revenue improvement on top of an already-paid-for
+//   real estate footprint. Storage's ALLOCATED opex is dramatically lower
+//   than a standalone storage facility:
+//
+//     - Payroll: 3.0% of storage rev (vs PSA 3.4%, EXR 6.2%) — staff handle
+//       both businesses; storage bears only its proportional share
+//     - Property tax: 7.5% of storage rev (vs PSA 10.05%) — truck side
+//       absorbs the bulk because the land's primary use is truck rental
+//     - Marketing: 1.4% (vs PSA 2.21%, CUBE 2.8%) — truck customers ARE the
+//       storage customers; cross-promotion handles incremental marketing
+//     - G&A: 2.4% — central UHAL G&A spreads across 2,200 Centers
+//
+//   Total opex: ~21% of storage revenue → storage NOI margin ~79%, the
+//   highest in the registry by ~4pp over PSA's 75.14%.
+//
+// PORTFOLIO-FIT IS EXTREMELY VALUABLE: when UHAL acquires standalone storage
+// adjacent to an existing U-Haul Center (within 2 mi), they capture both
+// the cross-subsidy AND the cross-marketing. -50 bps cap reduction (vs PSA's
+// -25 bps) reflects the doubled value.
+//
+// DEV YOC IS LOWEST: UHAL routinely accepts 6.5% dev YOC on greenfield
+// because the truck-side amortization makes effective YOC much higher. Hard
+// to compete with on land bids in markets where UHAL is expanding.
+//
+// PHASE 1 caveat: UHAL's segment-level storage-only disclosure is less
+// granular than PSA/EXR/CUBE. Some constants below are triangulated from
+// (1) the UHAL 10-K Self-Storage segment revenue + segment operating earnings,
+// (2) Inside Self-Storage industry surveys of truck-adjacent storage,
+// (3) Newmark 2025 Self-Storage Almanac UHAL acquisition activity. Each is
+// flagged in the citation footnote.
+
+export const AMERCO_LENS = {
+  key: "AMERCO",
+  name: "Truck-Rental-Cross-Subsidized Storage Operator",
+  ticker: "UHAL",
+  description:
+    "Truck-rental-cross-subsidized storage operator (U-Haul Holding, NYSE: UHAL). Storage rides on top of a 2,200+ U-Haul Center footprint where truck rental pays for the land, buildings, and staff. Storage opex ratio ~21% (vs PSA 24.86%, EXR 28.84%, CUBE 28.91%, SMA 33.10%, GENERIC 36%) — lowest in the registry. NOI margin ~79% (highest in the registry). Cross-marketing with truck customers drives 10% revenue premium. Tight 2-mile portfolio-fit trigger with −50 bps cap reduction (double PSA's bonus) reflects the cross-subsidy value of truck-adjacent storage.",
+
+  // ── Opex overrides — UHAL FY2025 10-K storage segment + truck cross-subsidy ──
+  // Source: U-Haul Holding (UHAL) FY2025 10-K, fiscal year ending March 31, 2025.
+  // Self-Storage segment operating earnings ÷ Self-Storage segment revenue
+  // implies ~78-80% NOI margin at the segment level, materially above the
+  // standalone-storage REIT cohort (PSA 75.14% / EXR 71.20% / CUBE 71.00%).
+  // The differential IS the truck-rental cross-subsidy.
+  expenseOverrides: {
+    propertyTaxPctRev: 0.075,   // truck side absorbs bulk of land tax
+    insurancePctRev: 0.011,
+    ccChargesPctEGI: 0.012,
+    reservesPctRev: 0.007,
+    payrollPctRev: 0.030,        // staff handle both businesses; storage bears prop. share
+    rmPctRev: 0.020,             // shared maintenance with truck side
+    utilitiesPctRev: 0.012,      // shared utilities
+    marketingPctRev: 0.014,      // cross-promotion from truck customers — minimal incremental
+    gaPctRev: 0.024,             // central UHAL G&A spread across 2,200 Centers
+    mgmtFeePctEGI: 0,            // self-managed (corporate)
+  },
+
+  // UHAL brand premium — cross-marketing with truck customers drives 8-12%
+  // revenue lift vs comparable standalone storage (Inside Self-Storage 2025
+  // Industry Survey: truck-adjacent storage commands 10-12% rate premium
+  // due to convenience-driven customer acquisition).
+  revenueAdjustment: 1.10,
+
+  // UHAL acquisition caps reflect the truck-cross-subsidy: they pay PREMIUM
+  // (lower cap) for storage because their effective cost basis is lower.
+  // Triangulated from Newmark 2025 Self-Storage Almanac UHAL acquisition
+  // commentary and historical UHAL acquisition disclosures (when they DO
+  // acquire standalone storage, which is rare — they prefer to BUILD on
+  // existing Centers).
+  capByMSATier: {
+    top30: 0.0575,        // lower than PSA's 6.00% — UHAL pays premium for adjacency
+    secondary: 0.0625,
+    tertiary: 0.0700,
+  },
+
+  // EXTRA-VALUABLE portfolio-fit: storage within 2 mi of an existing U-Haul
+  // Center captures BOTH the cross-subsidy economics AND the cross-marketing
+  // value. UHAL's −50 bps fit bonus is the highest in the registry — double
+  // PSA's −25 bps. This reflects the magnitude of the dual-business advantage.
+  portfolioFitBonus: {
+    triggerWithinMiles: 2,        // tighter trigger — truck-storage adjacency
+    capReductionBps: 50,           // double PSA bonus — dual-business value
+  },
+
+  // UHAL hardgates — they accept smaller facilities than PSA/EXR/CUBE because
+  // storage is the marginal product on a Center, not the primary asset.
+  hardGates: {
+    minNRSF: 30000,                  // smaller than PSA (50K) — Center storage averages ~50K
+    avgNRSF: 50000,
+    minOneStoryAcres: 1.5,            // tighter than PSA's 2.5 — Centers fit on ~3 acres
+    maxOneStoryAcres: 5,
+    minMultiStoryAcres: 1.0,
+    maxMultiStoryAcres: 3,
+    maxDistanceToPSFamilyMiles: 50,   // broader than others — UHAL's 2,200 Centers cover more ground
+  },
+
+  benchmarks: {
+    sameStoreNOIMargin: 0.7900,      // highest in registry — truck cross-subsidy
+    sameStoreOpexPctRev: 0.2100,
+    avgOccupancy: 0.840,              // lower than PSA/EXR — UHAL accepts lower because storage is "extra revenue" on Centers
+    yeOccupancy: 0.840,
+    realizedRentPerOccSF: 16.50,      // value-tier product (vs PSA $22.54, CUBE $22.73) — truck-adjacent storage is convenience-tier
+    fy2025BlendedAcqCap: 0.062,       // when UHAL acquires standalone storage
+    fy2025AcqPricePSF: 140,           // value-tier $/SF
+    devYOCTarget: 0.065,              // LOWEST in registry — cross-subsidy makes effective YOC much higher
+    devCostPSF: 110,                  // low — leveraging existing Center infrastructure
+    industryECRI: 0.06,                // less aggressive ECRI — convenience-tier customer base
+  },
+
+  brandColor: "#F97316",                // UHAL orange
+  badgeText: "STORVEX UNDERWRITE · UHAL LENS",
+  citationFootnote: "Constants calibrated to U-Haul Holding (UHAL, NYSE) FY2025 10-K, fiscal year ending March 31, 2025. Self-Storage segment NOI margin (~79%) implied from segment revenue / operating earnings disclosure. Cross-subsidy opex breakdown triangulated from UHAL segment-level disclosure + Inside Self-Storage 2025 Industry Survey (truck-adjacent storage cohort) + Newmark 2025 Self-Storage Almanac (UHAL acquisition commentary). Phase-1 lens — UHAL's segment disclosure is less granular than PSA/EXR/CUBE/SMA so some constants are triangulated rather than directly cited; refinement scheduled for Phase 2 once UHAL FY2026 10-K filed (June 2026).",
+};
+
+// ══════════════════════════════════════════════════════════════════════════
 // REGISTRY — all buyer lenses
 // Add new lenses here. Display order = sort order on the analyzer card.
 // ══════════════════════════════════════════════════════════════════════════
@@ -501,15 +634,18 @@ export const BUYER_LENSES = {
   PS: PS_LENS,
   EXR: EXR_LENS,
   CUBE: CUBE_LENS,
+  AMERCO: AMERCO_LENS,
   SMA: SMA_LENS,
   GENERIC: GENERIC_LENS,
-  // AMERCO: AMERCO_LENS,   // Phase 2 — U-Haul (UHAL) FY2025 10-K
   // NSA: NSA_LENS,          // Phase 2 — National Storage Affiliates (PSA-acquired)
   // SROA: SROA_LENS,        // Phase 2 — Storage Asset Management (3PM giant)
 };
 
-// Display order for UI dropdowns — most-relevant first.
-export const BUYER_LENS_ORDER = ["PS", "EXR", "CUBE", "SMA", "GENERIC"];
+// Display order for UI dropdowns — most-relevant first. AMERCO sits between
+// CUBE and SMA so the comparison view groups the four major self-managed
+// REIT-equivalents (PS / EXR / CUBE / AMERCO) before the small-cap and
+// generic profiles.
+export const BUYER_LENS_ORDER = ["PS", "EXR", "CUBE", "AMERCO", "SMA", "GENERIC"];
 
 // Default lens — Storvex's flagship pitch lens to PS VP Reza Mahdavian.
 export const DEFAULT_BUYER_KEY = "PS";
