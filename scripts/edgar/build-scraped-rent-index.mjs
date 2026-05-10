@@ -172,21 +172,101 @@ function crossValidate(msaAgg, psaMSARents) {
   };
 }
 
+// ─── citySlug → PSA MSA mapping (from MD&A "Same Store Facilities Operating
+//     Trends by Market" table). Sitemap facilities whose citySlug doesn't
+//     match the 24 named MSAs aggregate to "All other markets" cohort.
+
+const CITY_SLUG_TO_MSA = {
+  "self-storage-ca-los-angeles": "Los Angeles",
+  "self-storage-ca-san-francisco": "San Francisco",
+  "self-storage-ny-new-york": "New York",
+  "self-storage-dc-washington": "Washington DC",
+  "self-storage-fl-miami": "Miami",
+  "self-storage-wa-seattle": "Seattle-Tacoma",
+  "self-storage-tx-dallas": "Dallas-Ft. Worth",
+  "self-storage-tx-houston": "Houston",
+  "self-storage-il-chicago": "Chicago",
+  "self-storage-ga-atlanta": "Atlanta",
+  "self-storage-fl-west-palm-beach": "West Palm Beach",
+  "self-storage-fl-orlando": "Orlando-Daytona",
+  "self-storage-pa-philadelphia": "Philadelphia",
+  "self-storage-md-baltimore": "Baltimore",
+  "self-storage-ca-san-diego": "San Diego",
+  "self-storage-nc-charlotte": "Charlotte",
+  "self-storage-co-denver": "Denver",
+  "self-storage-fl-tampa": "Tampa",
+  "self-storage-az-phoenix": "Phoenix",
+  "self-storage-mi-detroit": "Detroit",
+  "self-storage-ma-boston": "Boston",
+  "self-storage-hi-honolulu": "Honolulu",
+  "self-storage-or-portland": "Portland",
+  "self-storage-mn-minneapolis": "Minneapolis/St. Paul",
+  "self-storage-ca-sacramento": "Sacramento",
+};
+
+const ALL_OTHER_MARKETS = "All other markets";
+
+// Convert sitemap-flat output → city-grouped structure compatible with the
+// existing aggregation pipeline. Sitemap facilities with citySlug not in
+// CITY_SLUG_TO_MSA fall into "All other markets" (PSA's MD&A catchall).
+function sitemapToCityGrouped(sitemapData) {
+  const cityBuckets = new Map();
+  for (const f of sitemapData.facilities) {
+    const slug = `self-storage-${f.stateSlug}-${f.citySlug}`;
+    const msa = CITY_SLUG_TO_MSA[slug] || ALL_OTHER_MARKETS;
+    if (!cityBuckets.has(msa)) cityBuckets.set(msa, []);
+    cityBuckets.get(msa).push(f);
+  }
+  return {
+    schema: "storvex.psa-facility-rents.v1",
+    generatedAt: sitemapData.generatedAt,
+    methodology: `(sitemap-driven full-portfolio crawl, regrouped to MSA cohort) ${sitemapData.methodology || ""}`,
+    citationRule: sitemapData.citationRule,
+    sourceFile: "psa-facility-rents-sitemap-fresh.json",
+    cities: [...cityBuckets.entries()].map(([msa, facilities]) => ({
+      msa,
+      facilities,
+    })),
+    totals: {
+      cities: cityBuckets.size,
+      facilities: sitemapData.facilities.length,
+      unitListings: sitemapData.facilities.reduce((s, f) => s + f.units.length, 0),
+    },
+  };
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 function main() {
-  // Find all psa-facility-rents-*.json files
-  const files = fs.readdirSync(DATA_DIR).filter((f) => /^psa-facility-rents-\d{4}-\d{2}-\d{2}\.json$/.test(f));
-  if (files.length === 0) {
-    console.log("No psa-facility-rents-*.json found. Run scrape-psa-facility-rents.mjs first.");
-    return;
-  }
-  console.log("Found", files.length, "scrape file(s):", files.join(", "));
+  // Prefer sitemap-driven full-portfolio output if present (3,483 facilities).
+  // Falls back to MSA-keyed city-listing scrape (~260 facilities).
+  let scrapeData = null;
+  let latestFile = null;
+  let isSitemap = false;
 
-  // Use the most recent scrape
-  const latestFile = files.sort().reverse()[0];
-  const scrapeData = JSON.parse(fs.readFileSync(path.join(DATA_DIR, latestFile), "utf-8"));
-  console.log("Using:", latestFile);
+  const sitemapFresh = path.join(DATA_DIR, "psa-facility-rents-sitemap-fresh.json");
+  if (fs.existsSync(sitemapFresh)) {
+    const raw = JSON.parse(fs.readFileSync(sitemapFresh, "utf-8"));
+    if (raw.facilities && raw.facilities.length > 0) {
+      scrapeData = sitemapToCityGrouped(raw);
+      latestFile = "psa-facility-rents-sitemap-fresh.json";
+      isSitemap = true;
+      console.log(`Using sitemap-driven full-portfolio scrape: ${raw.facilities.length} facilities (regrouped to ${scrapeData.cities.length} MSA cohorts)`);
+    }
+  }
+
+  if (!scrapeData) {
+    // Fallback: MSA-keyed city-listing scrape
+    const files = fs.readdirSync(DATA_DIR).filter((f) => /^psa-facility-rents-\d{4}-\d{2}-\d{2}\.json$/.test(f));
+    if (files.length === 0) {
+      console.log("No psa-facility-rents-*.json or psa-facility-rents-sitemap-fresh.json found. Run scrape-psa-sitemap-rents.mjs or scrape-psa-facility-rents.mjs first.");
+      return;
+    }
+    console.log("Found", files.length, "MSA-keyed scrape file(s):", files.join(", "));
+    latestFile = files.sort().reverse()[0];
+    scrapeData = JSON.parse(fs.readFileSync(path.join(DATA_DIR, latestFile), "utf-8"));
+    console.log("Using:", latestFile);
+  }
 
   // Load PSA MSA disclosed rents for cross-validation
   let psaMSARents = null;
@@ -215,6 +295,7 @@ function main() {
     schema: "storvex.psa-scraped-rent-index.v1",
     generatedAt: new Date().toISOString(),
     sourceScrapeFile: latestFile,
+    sourceMode: isSitemap ? "sitemap-full-portfolio" : "msa-city-listing",
     scrapeGeneratedAt: scrapeData.generatedAt,
     citationRule: "Per-facility primary-source rent records scraped from PSA's Schema.org SelfStorage entities on publicstorage.com facility detail pages. Each Offer (price + size + type) is current move-in availability at scrape time. Cross-validation against PSA's FY2025 10-K MD&A 'Same Store Facilities Operating Trends by Market' converts annual in-place rent → monthly portfolio → CC/DU split (73% mix, 80% premium); scraped median should track within ±20-40% (move-in rates are structurally lower than in-place due to cumulative ECRI on existing tenants).",
     methodology: {
