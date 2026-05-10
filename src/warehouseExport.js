@@ -351,6 +351,54 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       methodology: "For each registered buyer lens, runs computeBuyerLens(input, lens) which applies that lens's expense overrides + revenue adjustment + custom market cap to reconstruct the buyer's NOI and project Y3. Implied takedown price = Y3 NOI / lens.marketCap (the price each buyer would pay AT their own underwriting hurdle). Sorted DESC by implied takedown — top row is the natural institutional takeout. Platform-fit Δ = top - GENERIC. All constants trace to FY2025 10-K accession numbers (per-lens citation footnotes available in Goldman PDF).",
     } : null,
 
+    // Acquisition financing scenario — lens-specific levered hold model.
+    // Capital stack + debt service + DSCR + cash-on-cash + 10-yr levered IRR.
+    // Closes the all-cash credibility gap on every warehouse export.
+    financing_scenario: psLens?.financing && Number.isFinite(psLens.financing.equity) && psLens.financing.equity > 0 ? {
+      lens_key: psLens.lens?.key || null,
+      lens_ticker: psLens.lens?.ticker || null,
+      assumptions: {
+        ltv: numOrNull(psLens.financing.assumptions?.ltv),
+        rate: numOrNull(psLens.financing.assumptions?.rate),
+        amort_yrs: numOrNull(psLens.financing.assumptions?.amortYrs),
+        term_yrs: numOrNull(psLens.financing.assumptions?.termYrs),
+        hold_yrs: numOrNull(psLens.financing.assumptions?.holdYrs),
+        exit_cap_delta: numOrNull(psLens.financing.assumptions?.exitCapDelta),
+        effective_exit_cap: numOrNull(psLens.financing.assumptions?.effectiveExitCap),
+        rent_growth_yoy: numOrNull(psLens.financing.assumptions?.rentGrowthYoY),
+        debt_source: psLens.financing.assumptions?.debtSource || null,
+      },
+      capital_stack: {
+        ask: numOrNull(psLens.financing.ask),
+        loan_amount: numOrNull(psLens.financing.loanAmount),
+        equity: numOrNull(psLens.financing.equity),
+      },
+      debt_service: {
+        monthly: numOrNull(psLens.financing.monthlyDebtService),
+        annual: numOrNull(psLens.financing.annualDebtService),
+      },
+      y1: {
+        noi: numOrNull(psLens.financing.y1NOI),
+        dscr: numOrNull(psLens.financing.y1DSCR),
+        cash_on_cash: numOrNull(psLens.financing.y1CashOnCash),
+      },
+      y3_stabilized: {
+        noi: numOrNull(psLens.financing.y3NOI),
+        dscr: numOrNull(psLens.financing.y3DSCR),
+        cash_on_cash: numOrNull(psLens.financing.y3CashOnCash),
+      },
+      hold_exit: {
+        cashflows: Array.isArray(psLens.financing.cashflows) ? psLens.financing.cashflows.map(numOrNull) : [],
+        exit_value: numOrNull(psLens.financing.exitValue),
+        remaining_loan_at_exit: numOrNull(psLens.financing.remainingLoanAtExit),
+      },
+      irr: {
+        levered: numOrNull(psLens.financing.leveredIRR),
+        unlevered: numOrNull(psLens.financing.unleveredIRR),
+      },
+      methodology: "Lens-specific acquisition financing: capital stack (ask × LTV = senior debt; ask − senior debt = equity), debt service (P&I on amortizing loan), DSCR (NOI / debt service), cash-on-cash (levered cash flow / equity), 10-yr levered hold IRR (Y0 = -equity; Y1-Y10 = NOI - debt service; Y10 exit = sale price - remaining principal). Rent grows linearly Y1→Y3, then compounds at lens.benchmarks.industryECRI/4 capped 1-3%/yr. Exit cap = going-in cap + lens.financing.exitCapDelta (50-75 bps cap expansion). Sources: Newmark 2025 Self-Storage Capital Markets Report + Cushman H1 2025 Trends + Q1 2026 Freddie SBL/CMBS storage rate sheets.",
+    } : null,
+
     // New-supply pipeline within 3 mi — disclosed institutional REIT
     // facilities under construction or permitted that may compress Y3 NOI.
     // Saturation severity flags whether the analyst should haircut Y3 NOI

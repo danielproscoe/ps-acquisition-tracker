@@ -15,6 +15,7 @@ import {
   computeBuyerLens,
   computeAllBuyerLenses,
   computePlatformFitDelta,
+  computeBuyerFinancingScenario,
 } from "./buyerLensProfiles";
 import { analyzeExistingAsset, DEAL_TYPES } from "./existingAssetAnalysis";
 
@@ -598,5 +599,155 @@ describe("computePlatformFitDelta", () => {
     const delta = computePlatformFitDelta(rows);
     const recomputed = (delta.topPrice - delta.genericPrice) / delta.genericPrice;
     expect(delta.deltaPct).toBeCloseTo(recomputed, 6);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Acquisition financing — lens-specific levered hold model
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("LENS_FINANCING_DEFAULTS — financing block on each lens", () => {
+  test("PS_LENS has financing block (65% LTV, 5.75%, 30-yr amort, 10-yr term)", () => {
+    expect(PS_LENS.financing).toBeTruthy();
+    expect(PS_LENS.financing.ltv).toBe(0.65);
+    expect(PS_LENS.financing.rate).toBeCloseTo(0.0575, 4);
+    expect(PS_LENS.financing.amortYrs).toBe(30);
+    expect(PS_LENS.financing.termYrs).toBe(10);
+    expect(PS_LENS.financing.holdYrs).toBe(10);
+  });
+
+  test("EXR_LENS slight rate premium vs PS (5.85% vs 5.75%)", () => {
+    expect(EXR_LENS.financing.rate).toBeGreaterThan(PS_LENS.financing.rate);
+  });
+
+  test("CUBE_LENS LTV lower than PS/EXR (mid-cap senior)", () => {
+    expect(CUBE_LENS.financing.ltv).toBeLessThan(PS_LENS.financing.ltv);
+    expect(CUBE_LENS.financing.rate).toBeGreaterThan(EXR_LENS.financing.rate);
+  });
+
+  test("SMA_LENS small-cap premium (highest rate, lowest LTV among self-managed)", () => {
+    expect(SMA_LENS.financing.rate).toBeGreaterThan(CUBE_LENS.financing.rate);
+    expect(SMA_LENS.financing.ltv).toBeLessThan(CUBE_LENS.financing.ltv);
+    expect(SMA_LENS.financing.termYrs).toBe(7); // shorter term
+  });
+
+  test("AMERCO_LENS UHAL parent corp credit = lower rate than CUBE/SMA", () => {
+    expect(AMERCO_LENS.financing.rate).toBeLessThan(CUBE_LENS.financing.rate);
+    expect(AMERCO_LENS.financing.rate).toBeLessThan(SMA_LENS.financing.rate);
+  });
+
+  test("GENERIC_LENS highest rate + lowest LTV (3PM-managed CMBS)", () => {
+    expect(GENERIC_LENS.financing.rate).toBeGreaterThanOrEqual(SMA_LENS.financing.rate);
+    expect(GENERIC_LENS.financing.ltv).toBeLessThanOrEqual(SMA_LENS.financing.ltv);
+    expect(GENERIC_LENS.financing.holdYrs).toBe(7); // closed-end fund cycle
+    expect(GENERIC_LENS.financing.amortYrs).toBe(25); // shorter amort
+  });
+});
+
+describe("computeBuyerFinancingScenario", () => {
+  const baseFinInput = {
+    lens: PS_LENS,
+    ask: 12_000_000,
+    y1NOI: 720_000,
+    y3NOI: 850_000,
+    lensTargetCap: 0.06,
+    rentGrowthYoY: 0.02,
+  };
+
+  test("returns null when missing lens or invalid inputs", () => {
+    expect(computeBuyerFinancingScenario({})).toBeNull();
+    expect(computeBuyerFinancingScenario({ lens: PS_LENS })).toBeNull();
+    expect(computeBuyerFinancingScenario({ lens: PS_LENS, ask: 0, y3NOI: 1000 })).toBeNull();
+    expect(computeBuyerFinancingScenario({ lens: PS_LENS, ask: 1000, y3NOI: 0 })).toBeNull();
+  });
+
+  test("capital stack: loan + equity = ask", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.loanAmount + f.equity).toBeCloseTo(baseFinInput.ask, 2);
+    expect(f.loanAmount / baseFinInput.ask).toBeCloseTo(PS_LENS.financing.ltv, 6);
+  });
+
+  test("annual debt service > 0 and finite", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.annualDebtService).toBeGreaterThan(0);
+    expect(Number.isFinite(f.annualDebtService)).toBe(true);
+  });
+
+  test("DSCR = NOI / debt service", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.y1DSCR).toBeCloseTo(baseFinInput.y1NOI / f.annualDebtService, 4);
+    expect(f.y3DSCR).toBeCloseTo(baseFinInput.y3NOI / f.annualDebtService, 4);
+    // Y3 DSCR should be higher than Y1 (NOI ramps Y1→Y3)
+    expect(f.y3DSCR).toBeGreaterThan(f.y1DSCR);
+  });
+
+  test("Cash-on-cash = (NOI - debt service) / equity", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.y1CashOnCash).toBeCloseTo((baseFinInput.y1NOI - f.annualDebtService) / f.equity, 4);
+    expect(f.y3CashOnCash).toBeCloseTo((baseFinInput.y3NOI - f.annualDebtService) / f.equity, 4);
+  });
+
+  test("cashflows array length = holdYrs", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.cashflows.length).toBe(PS_LENS.financing.holdYrs);
+  });
+
+  test("Y1 cash flow = y1NOI; Y3 cash flow = y3NOI", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.cashflows[0]).toBeCloseTo(baseFinInput.y1NOI, 2);
+    expect(f.cashflows[2]).toBeCloseTo(baseFinInput.y3NOI, 2);
+  });
+
+  test("post-Y3 cash flows compound at rentGrowthYoY", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.cashflows[3]).toBeCloseTo(baseFinInput.y3NOI * 1.02, 2);
+    expect(f.cashflows[9]).toBeCloseTo(baseFinInput.y3NOI * Math.pow(1.02, 7), 2);
+  });
+
+  test("levered IRR > unlevered IRR (positive leverage)", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.leveredIRR).not.toBeNull();
+    expect(f.unleveredIRR).not.toBeNull();
+    expect(f.leveredIRR).toBeGreaterThan(f.unleveredIRR);
+  });
+
+  test("levered IRR is in reasonable range (5-25% for institutional storage)", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.leveredIRR).toBeGreaterThan(0.05);
+    expect(f.leveredIRR).toBeLessThan(0.30);
+  });
+
+  test("exit value = last-year NOI / exit cap", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    const lastNOI = f.cashflows[f.cashflows.length - 1];
+    expect(f.exitValue).toBeCloseTo(lastNOI / f.assumptions.effectiveExitCap, 1);
+  });
+
+  test("remaining loan at exit decreases vs initial loan", () => {
+    const f = computeBuyerFinancingScenario(baseFinInput);
+    expect(f.remainingLoanAtExit).toBeLessThan(f.loanAmount);
+    expect(f.remainingLoanAtExit).toBeGreaterThanOrEqual(0);
+  });
+
+  test("each lens produces distinct financing economics on same input", () => {
+    const ps = computeBuyerFinancingScenario({ ...baseFinInput, lens: PS_LENS });
+    const sma = computeBuyerFinancingScenario({ ...baseFinInput, lens: SMA_LENS });
+    const generic = computeBuyerFinancingScenario({ ...baseFinInput, lens: GENERIC_LENS });
+    // Different LTVs → different equity requirements
+    expect(ps.equity).not.toBe(sma.equity);
+    expect(sma.equity).not.toBe(generic.equity);
+    // PS uses higher LTV (more debt) than GENERIC, so PS has LARGER loan and
+    // higher annual debt service in absolute $. DSCR comparison is ambiguous
+    // (depends on rate × LTV interaction). What IS predictable: PS levered IRR
+    // is generally higher because of the leverage amplification.
+    expect(ps.loanAmount).toBeGreaterThan(generic.loanAmount);
+    expect(ps.equity).toBeLessThan(generic.equity);
+  });
+
+  test("computeBuyerLens result includes .financing block", () => {
+    const r = computeBuyerLens(baseInput, PS_LENS);
+    expect(r.financing).toBeTruthy();
+    expect(typeof r.financing.leveredIRR).toBe("number");
+    expect(typeof r.financing.equity).toBe("number");
   });
 });

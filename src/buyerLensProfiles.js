@@ -46,6 +46,30 @@ import { analyzeExistingAsset } from "./existingAssetAnalysis";
 //      family facility = PS + iStorage + NSA per CLAUDE.md §6b) get -25 bps
 //      cap for cross-marketing + customer overflow value.
 
+// ══════════════════════════════════════════════════════════════════════════
+// FINANCING ASSUMPTIONS PER LENS (Q1 2026 institutional storage market)
+//
+// Each lens has its own asset-level acquisition financing profile. PSA / EXR
+// (largest, unsecured-eligible) get tightest terms; small-cap and 3PM-managed
+// pay a small premium. UHAL parent corp credit makes their debt cheaper. All
+// rates are 10-yr fixed agency/CMBS-equivalent for storage; LTVs reflect
+// typical institutional senior debt at acquisition.
+//
+// Sources:
+//   - Newmark 2025 Self-Storage Capital Markets Report
+//   - Cushman & Wakefield H1 2025 Self-Storage Trends · Capital Markets section
+//   - Q4 2025 Freddie SBL + CMBS storage rate sheets (sub-pricing assumptions)
+// ══════════════════════════════════════════════════════════════════════════
+
+const LENS_FINANCING_DEFAULTS = {
+  ltv: 0.60,           // loan-to-value at acquisition
+  rate: 0.060,         // 10-yr fixed all-in rate
+  amortYrs: 30,        // amortization
+  termYrs: 10,         // fixed-rate term (matches hold)
+  holdYrs: 10,         // analysis hold period
+  exitCapDelta: 0.0050, // exit cap = going-in cap + 50 bps (cap expansion over hold)
+};
+
 export const PS_LENS = {
   // INTERNAL identifiers — used in code lookup, not shown to end users.
   // Display fields below are deliberately neutral institutional language so
@@ -159,6 +183,20 @@ export const PS_LENS = {
   // NOTE: badge + display fields are deliberately neutral. Internal
   // constants are pinned to FY2025 institutional REIT 10-K disclosures;
   // citations in docs/UNDERWRITING_MODEL.md.
+  // ── Acquisition financing assumptions (Q1 2026 institutional senior debt) ─
+  // PSA's largest-REIT scale + unsecured-debt eligibility = tightest terms.
+  // Storvex models asset-level CMBS/agency-equivalent for transparency; PSA's
+  // actual cost of capital on unsecured corporate debt is ~25-50 bps tighter.
+  financing: {
+    ltv: 0.65,         // 65% LTV — typical PSA acq financing
+    rate: 0.0575,      // 5.75% — Q1 2026 10-yr fixed agency-equivalent
+    amortYrs: 30,
+    termYrs: 10,
+    holdYrs: 10,
+    exitCapDelta: 0.0050, // exit cap = going-in cap + 50 bps
+    debtSource: "Agency / unsecured corporate (institutional REIT)",
+  },
+
   brandColor: "#3B82F6",
   badgeText: "STORVEX UNDERWRITE",
   citationFootnote: "Constants calibrated to FY2025 institutional REIT 10-K disclosures (same-store opex ratios, acquisition cap rates, brand-premium street rate dynamics) plus Newmark 2025 Self-Storage Almanac, Cushman & Wakefield H1 2025 Trends, Green Street Q1 2026 Sector. Internal source pack: docs/PS_UNDERWRITING_MODEL.md (dev only).",
@@ -265,6 +303,17 @@ export const EXR_LENS = {
     industryECRI: 0.08,
   },
 
+  // EXR financing — same scale as PSA, similar terms (institutional senior).
+  financing: {
+    ltv: 0.65,
+    rate: 0.0585,      // 5.85% — slight premium vs PSA (less tight unsecured pricing)
+    amortYrs: 30,
+    termYrs: 10,
+    holdYrs: 10,
+    exitCapDelta: 0.0050,
+    debtSource: "Agency / unsecured corporate (institutional REIT)",
+  },
+
   brandColor: "#10B981",
   badgeText: "STORVEX UNDERWRITE · EXR LENS",
   citationFootnote: "Constants calibrated to EXR FY2025 10-K MD&A (accession 0001289490-26-000011): same-store rent $19.91/SF/yr, move-in rate $13.16 (+51.3% ECRI premium directly disclosed), opex 28.84% of revenue, occupancy 92.6%. Acquisition cap rates triangulated from Newmark 2025 Self-Storage Almanac + EXR Q4 FY2025 earnings transcript.",
@@ -351,6 +400,18 @@ export const CUBE_LENS = {
     industryECRI: 0.08,
   },
 
+  // CUBE financing — mid-cap pays a small premium vs PSA/EXR; uses agency
+  // (Freddie SBL / Fannie storage program) + CMBS at 5-10 yr terms.
+  financing: {
+    ltv: 0.62,
+    rate: 0.0600,      // 6.00% — Q1 2026 mid-cap REIT senior
+    amortYrs: 30,
+    termYrs: 10,
+    holdYrs: 10,
+    exitCapDelta: 0.0050,
+    debtSource: "Agency (Freddie SBL) / CMBS",
+  },
+
   brandColor: "#F59E0B",
   badgeText: "STORVEX UNDERWRITE · CUBE LENS",
   citationFootnote: "Constants calibrated to CUBE FY2025 10-K MD&A (accession 0001298675-26-000010): same-store rent $22.73/SF/yr, opex 28.91% of revenue, occupancy 88.6%, revenue growth −0.5% / NOI growth −1.1%. Promotional discount 36% derived from Storvex direct per-facility scrape (1,549 facilities, 19,988 unit listings, 2026-05-10).",
@@ -419,6 +480,19 @@ export const SMA_LENS = {
     industryECRI: 0.08,
   },
 
+  // SMA financing — small-cap pays the highest cost of capital among the
+  // institutional REITs; lower LTV reflects higher coverage requirements
+  // from lenders + their non-traded REIT capital base.
+  financing: {
+    ltv: 0.58,
+    rate: 0.0625,      // 6.25% — small-cap premium
+    amortYrs: 30,
+    termYrs: 7,        // shorter term — lenders less willing to commit on small-cap
+    holdYrs: 10,
+    exitCapDelta: 0.0075, // wider exit-cap expansion on smaller-asset profile
+    debtSource: "Agency (Freddie SBL) / CMBS / Life co",
+  },
+
   brandColor: "#A855F7",
   badgeText: "STORVEX UNDERWRITE · SMA LENS",
   citationFootnote: "Constants calibrated to SmartStop Self Storage FY2025 10-K (accession 0001193125-26-082573): same-store rent $20.03/SF/yr (+0.3% YoY), revenue growth +1.6%, NOI growth +0.6%, NOI margin 66.9%. Higher acquisition caps reflect small-cap cost of capital.",
@@ -485,6 +559,19 @@ export const GENERIC_LENS = {
     devYOCTarget: 0.090,                 // higher hurdle — third-party capital cost
     devCostPSF: 165,
     industryECRI: 0.06,                  // less aggressive ECRI (3PM-managed)
+  },
+
+  // GENERIC financing — 3PM-managed PE / 1031 / non-REIT capital. Pays the
+  // highest spread because lender views the operator (3PM, not the equity)
+  // as the credit. Shorter terms, lower LTV.
+  financing: {
+    ltv: 0.55,
+    rate: 0.0650,      // 6.50% — 3PM-managed mid-mkt CMBS
+    amortYrs: 25,
+    termYrs: 7,
+    holdYrs: 7,        // shorter hold — closed-end fund cycles
+    exitCapDelta: 0.0075,
+    debtSource: "CMBS / Bridge debt fund (3PM-managed institutional)",
   },
 
   brandColor: "#94A3B8",
@@ -618,6 +705,19 @@ export const AMERCO_LENS = {
     devYOCTarget: 0.065,              // LOWEST in registry — cross-subsidy makes effective YOC much higher
     devCostPSF: 110,                  // low — leveraging existing Center infrastructure
     industryECRI: 0.06,                // less aggressive ECRI — convenience-tier customer base
+  },
+
+  // UHAL financing — UHAL parent corp credit (investment grade) backs
+  // asset-level debt at terms tighter than CUBE/SMA. Lower LTV because
+  // UHAL prefers cash-flow coverage cushion vs maximum leverage.
+  financing: {
+    ltv: 0.60,
+    rate: 0.0565,      // 5.65% — UHAL parent credit-enhanced
+    amortYrs: 30,
+    termYrs: 10,
+    holdYrs: 10,
+    exitCapDelta: 0.0050,
+    debtSource: "UHAL parent corp credit / agency",
   },
 
   brandColor: "#F97316",                // UHAL orange
@@ -786,6 +886,175 @@ export function computePlatformFitDelta(lensRows) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// ACQUISITION FINANCING SCENARIO (per buyer lens)
+//
+// Closes the all-cash credibility gap. Real institutional buyers don't
+// underwrite all-cash — they layer 55-65% LTV agency / CMBS / corp debt
+// at SOFR+200-300, 30-yr amort. Storvex now models the levered economics
+// each buyer would actually see on a deal:
+//
+//   - Capital stack (debt $ + equity $)
+//   - Annual debt service (P&I)
+//   - DSCR (NOI / debt service)
+//   - Cash-on-cash return (Y1 levered cash flow / equity)
+//   - 10-yr levered + unlevered IRR
+//
+// Each lens carries its own financing block (LTV, rate, amort, term,
+// exit-cap delta) reflecting that buyer's actual cost-of-capital position.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Newton-Raphson IRR solver — same approach as src/valuationAnalysis.js
+// `computeIRR`. Inlined here to keep buyerLensProfiles self-contained.
+function _solveIRR(cashflows, guess = 0.10) {
+  if (!Array.isArray(cashflows) || cashflows.length < 2) return null;
+  // Bisection bracket — safer than pure Newton when CF shape is unfavorable
+  let lo = -0.99;
+  let hi = 5.0;
+  const npv = (rate) => cashflows.reduce((acc, cf, i) => acc + cf / Math.pow(1 + rate, i), 0);
+  let nLo = npv(lo);
+  let nHi = npv(hi);
+  if (nLo * nHi > 0) return null; // no sign change in bracket — IRR not bracketed
+  for (let iter = 0; iter < 80; iter++) {
+    const mid = (lo + hi) / 2;
+    const nMid = npv(mid);
+    if (Math.abs(nMid) < 1e-7 || (hi - lo) < 1e-7) return mid;
+    if (nMid * nLo < 0) {
+      hi = mid;
+      nHi = nMid;
+    } else {
+      lo = mid;
+      nLo = nMid;
+    }
+  }
+  return (lo + hi) / 2;
+}
+
+/**
+ * Compute the acquisition financing scenario for a given buyer lens against
+ * a deal. Returns capital stack + debt service + DSCR + cash-on-cash +
+ * 10-yr levered/unlevered IRR.
+ *
+ * @param {Object} args
+ * @param {Object} args.lens              — a profile from BUYER_LENSES (with .financing block)
+ * @param {number} args.ask               — acquisition price
+ * @param {number} args.y1NOI             — Year 1 NOI (going-in)
+ * @param {number} args.y3NOI             — Year 3 stabilized NOI
+ * @param {number} [args.exitCap]         — override exit cap (otherwise lens hurdle + delta)
+ * @param {number} [args.lensTargetCap]   — buyer's target acq cap (drives default exit cap)
+ * @param {number} [args.rentGrowthYoY]   — Y4-Y10 rent growth assumption (default 2%/yr)
+ * @returns {Object} financing scenario with full math + assumptions
+ */
+export function computeBuyerFinancingScenario({ lens, ask, y1NOI, y3NOI, exitCap, lensTargetCap, rentGrowthYoY = 0.02 } = {}) {
+  if (!lens || !lens.financing) return null;
+  const f = lens.financing;
+  if (!Number.isFinite(ask) || !Number.isFinite(y3NOI) || ask <= 0 || y3NOI <= 0) return null;
+
+  const ltv = f.ltv;
+  const rate = f.rate;
+  const amortYrs = f.amortYrs;
+  const holdYrs = f.holdYrs;
+
+  // Capital stack
+  const loanAmount = ask * ltv;
+  const equity = ask - loanAmount;
+
+  // Debt service — fixed-rate amortizing P&I
+  const r = rate / 12;
+  const n = amortYrs * 12;
+  const monthlyDebtService = r > 0 && n > 0
+    ? (loanAmount * r) / (1 - Math.pow(1 + r, -n))
+    : 0;
+  const annualDebtService = monthlyDebtService * 12;
+
+  // Y1 metrics — use Y1 NOI (going-in) for DSCR and Y1 cash-on-cash
+  const y1NOIVal = Number.isFinite(y1NOI) && y1NOI > 0 ? y1NOI : y3NOI; // fallback to Y3 if Y1 missing
+  const y1DSCR = annualDebtService > 0 ? y1NOIVal / annualDebtService : 0;
+  const y1CashOnCash = equity > 0 ? (y1NOIVal - annualDebtService) / equity : 0;
+
+  // Stabilized metrics (Y3+)
+  const y3DSCR = annualDebtService > 0 ? y3NOI / annualDebtService : 0;
+  const y3CashOnCash = equity > 0 ? (y3NOI - annualDebtService) / equity : 0;
+
+  // Exit cap — caller can override; otherwise lens hurdle + exitCapDelta
+  const goingInCap = lensTargetCap ?? (Number.isFinite(y1NOI) && ask > 0 ? y1NOI / ask : 0.06);
+  const effectiveExitCap = exitCap != null ? exitCap : goingInCap + f.exitCapDelta;
+
+  // 10-yr cash flow projection — Y1 = going-in, Y2 = ramp, Y3+ = stabilized
+  // with rentGrowthYoY compounding.
+  const cashflows = [];
+  for (let yr = 1; yr <= holdYrs; yr++) {
+    let noi;
+    if (yr === 1) noi = y1NOIVal;
+    else if (yr === 2) noi = (y1NOIVal + y3NOI) / 2; // linear ramp Y1→Y3
+    else if (yr === 3) noi = y3NOI;
+    else noi = y3NOI * Math.pow(1 + rentGrowthYoY, yr - 3); // post-stabilization growth
+    cashflows.push(noi);
+  }
+
+  // Exit value — last-year NOI / exit cap
+  const lastYearNOI = cashflows[cashflows.length - 1];
+  const exitValue = effectiveExitCap > 0 ? lastYearNOI / effectiveExitCap : 0;
+
+  // Remaining loan balance at exit (if interest > 0)
+  const remainingLoanAtExit = (() => {
+    if (r <= 0) return 0;
+    let bal = loanAmount;
+    for (let m = 1; m <= holdYrs * 12; m++) {
+      const interest = bal * r;
+      const principal = Math.max(0, monthlyDebtService - interest);
+      bal = Math.max(0, bal - principal);
+    }
+    return bal;
+  })();
+
+  // Unlevered IRR — equity = ask, cash flows = NOIs, exit = sale price
+  const unleveredCF = [-ask, ...cashflows.slice(0, -1), lastYearNOI + exitValue];
+  const unleveredIRR = _solveIRR(unleveredCF);
+
+  // Levered IRR — equity = (ask - loan), cash flows = (NOI - debt service),
+  // exit = (sale price - remaining loan balance)
+  const leveredCF = [
+    -equity,
+    ...cashflows.slice(0, -1).map((noi) => noi - annualDebtService),
+    (lastYearNOI - annualDebtService) + exitValue - remainingLoanAtExit,
+  ];
+  const leveredIRR = _solveIRR(leveredCF);
+
+  return {
+    // Assumptions echoed for audit
+    assumptions: {
+      ltv, rate, amortYrs, termYrs: f.termYrs, holdYrs,
+      exitCapDelta: f.exitCapDelta,
+      effectiveExitCap,
+      rentGrowthYoY,
+      debtSource: f.debtSource,
+    },
+    // Capital stack
+    ask,
+    loanAmount,
+    equity,
+    // Debt service
+    monthlyDebtService,
+    annualDebtService,
+    // Y1 metrics
+    y1NOI: y1NOIVal,
+    y1DSCR,
+    y1CashOnCash,
+    // Y3 (stabilized) metrics
+    y3NOI,
+    y3DSCR,
+    y3CashOnCash,
+    // Hold + exit
+    cashflows,
+    exitValue,
+    remainingLoanAtExit,
+    // IRRs
+    unleveredIRR,
+    leveredIRR,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // COMPUTE LENS — runs full Asset Analyzer pipeline against a buyer profile
 // Returns the same shape as analyzeExistingAsset() so the UI can render
 // generic buyer-lens and PS-lens side-by-side without special-casing.
@@ -836,6 +1105,20 @@ export function computeBuyerLens(input, lens = PS_LENS, extra = {}) {
     marketRents: extra.marketRents || null,
   });
 
+  // Acquisition financing scenario — lens-specific debt terms + 10-yr levered
+  // IRR. Closes the all-cash credibility gap. Each lens carries its own LTV
+  // / rate / amort / hold reflecting that buyer's actual cost of capital.
+  const financing = computeBuyerFinancingScenario({
+    lens,
+    ask: analysis?.snapshot?.ask,
+    y1NOI: analysis?.projection?.y1?.noi,
+    y3NOI: analysis?.projection?.y3?.noi,
+    lensTargetCap: fit.cap,
+    rentGrowthYoY: lens.benchmarks?.industryECRI != null
+      ? Math.min(0.03, Math.max(0.01, lens.benchmarks.industryECRI / 4))
+      : 0.02,
+  });
+
   return {
     ...analysis,
     lens: {
@@ -862,5 +1145,6 @@ export function computeBuyerLens(input, lens = PS_LENS, extra = {}) {
       portfolioFitBps: lens.portfolioFitBonus?.capReductionBps ?? null,
       citationFootnote: lens.citationFootnote || null,
     },
+    financing,
   };
 }

@@ -1082,6 +1082,7 @@ function OutputsPanel({ analysis, psLens, multiLensRows, platformFitDelta, ready
       {/* PSA Lens drives the headline — generic buyer's verdict shows in the PS Lens card body as a context point only */}
       <PSAVerdictHero psLens={psLens} analysis={analysis} />
       <YOCVerdictCard psLens={psLens} />
+      <FinancingScenarioCard psLens={psLens} />
       <MultiLensComparisonCard rows={multiLensRows} platformFitDelta={platformFitDelta} ask={analysis.snapshot?.ask} />
       <DevelopmentPipelineCard
         nearby={enrichment?.pipelineNearby}
@@ -2064,6 +2065,100 @@ function YOCVerdictCard({ psLens }) {
       {devContextLine && (
         <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, fontStyle: "italic" }}>{devContextLine}</div>
       )}
+    </div>
+  );
+}
+
+// ─── Financing Scenario Card ──────────────────────────────────────────────
+//
+// Renders the lens-specific acquisition financing scenario: capital stack,
+// debt service, DSCR, cash-on-cash, 10-yr levered + unlevered IRR. Closes
+// the all-cash credibility gap institutional analysts flag immediately.
+//
+// Each lens carries its own financing block (LTV, rate, amort, term) — PSA
+// gets tightest terms (institutional unsecured); SMA pays small-cap premium;
+// AMERCO gets UHAL parent corp credit; GENERIC gets 3PM-managed CMBS.
+function FinancingScenarioCard({ psLens }) {
+  const fin = psLens?.financing;
+  if (!fin || !Number.isFinite(fin.equity) || fin.equity <= 0) return null;
+
+  const a = fin.assumptions || {};
+  const lensTicker = psLens?.lens?.ticker || "BUYER";
+  const dscrColor = (v) => (v >= 1.40 ? "#22C55E" : v >= 1.20 ? "#F59E0B" : "#EF4444");
+  const cocColor = (v) => (v >= 0.08 ? "#22C55E" : v >= 0.05 ? "#F59E0B" : "#EF4444");
+  const irrColor = (v) => (v == null ? "#94A3B8" : v >= 0.12 ? "#22C55E" : v >= 0.08 ? "#F59E0B" : "#EF4444");
+
+  return (
+    <div style={{ ...card, background: "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(15,21,56,0.6))", border: "1.5px solid rgba(59,130,246,0.50)", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: "#3B82F6", textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 4 }}>
+            💰 ACQUISITION FINANCING · {lensTicker} LENS
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+            10-Year Levered Hold · {a.debtSource || "Institutional senior debt"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ textAlign: "right", padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, minWidth: 110 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Levered IRR</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: irrColor(fin.leveredIRR), fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+              {fin.leveredIRR != null ? `${(fin.leveredIRR * 100).toFixed(1)}%` : "—"}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, minWidth: 110 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Unlevered IRR</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#94A3B8", fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+              {fin.unleveredIRR != null ? `${(fin.unleveredIRR * 100).toFixed(1)}%` : "—"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 12 }}>
+        <div style={{ padding: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
+          <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Capital Stack</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
+            {fmt$(Math.round(fin.loanAmount))} <span style={{ color: "#94A3B8", fontSize: 10 }}>debt</span>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#C9A84C", marginTop: 2, fontFamily: "'Space Mono', monospace" }}>
+            {fmt$(Math.round(fin.equity))} <span style={{ color: "#94A3B8", fontSize: 10 }}>equity</span>
+          </div>
+          <div style={{ fontSize: 9, color: "#64748B", marginTop: 4 }}>{(a.ltv * 100).toFixed(0)}% LTV</div>
+        </div>
+        <div style={{ padding: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
+          <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Debt Terms</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
+            {(a.rate * 100).toFixed(2)}% · {a.amortYrs}-yr amort
+          </div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2, fontFamily: "'Space Mono', monospace" }}>
+            {a.termYrs}-yr term · {a.holdYrs}-yr hold
+          </div>
+          <div style={{ fontSize: 9, color: "#64748B", marginTop: 4 }}>Annual P&I: {fmt$(Math.round(fin.annualDebtService))}</div>
+        </div>
+        <div style={{ padding: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
+          <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Y1 DSCR</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: dscrColor(fin.y1DSCR), marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
+            {fin.y1DSCR != null ? `${fin.y1DSCR.toFixed(2)}x` : "—"}
+          </div>
+          <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>Y3: {fin.y3DSCR?.toFixed(2)}x · 1.40x lender min</div>
+        </div>
+        <div style={{ padding: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
+          <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Y1 Cash-on-Cash</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: cocColor(fin.y1CashOnCash), marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
+            {fin.y1CashOnCash != null ? `${(fin.y1CashOnCash * 100).toFixed(1)}%` : "—"}
+          </div>
+          <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>Y3 Stabilized: {fin.y3CashOnCash != null ? `${(fin.y3CashOnCash * 100).toFixed(1)}%` : "—"}</div>
+        </div>
+      </div>
+
+      <div style={{ padding: 8, background: "rgba(0,0,0,0.15)", borderRadius: 4, fontSize: 11, color: "#E2E8F0", lineHeight: 1.5 }}>
+        <b style={{ color: "#3B82F6" }}>Levered hold model:</b> Equity in Y0 = {fmt$(Math.round(fin.equity))}. Y1-Y10 net cash flow = NOI − ${Math.round(fin.annualDebtService).toLocaleString()} P&I (rent ramps Y1→Y3, then grows {((a.rentGrowthYoY ?? 0.02) * 100).toFixed(1)}%/yr). Exit at Y10 = NOI ÷ {(a.effectiveExitCap * 100).toFixed(2)}% exit cap = {fmt$(Math.round(fin.exitValue))} sale price minus {fmt$(Math.round(fin.remainingLoanAtExit))} remaining principal. <b style={{ color: irrColor(fin.leveredIRR) }}>Levered IRR {fin.leveredIRR != null ? (fin.leveredIRR * 100).toFixed(1) + "%" : "—"}</b>; unlevered {fin.unleveredIRR != null ? (fin.unleveredIRR * 100).toFixed(1) + "%" : "—"}.
+      </div>
+
+      <div style={{ marginTop: 6, fontSize: 9, color: "#64748B", lineHeight: 1.4 }}>
+        Lens-specific terms reflect each buyer's institutional cost of capital position (Newmark 2025 Self-Storage Capital Markets Report + Q1 2026 storage agency/CMBS rate sheets). Storvex models asset-level senior debt for transparency; PSA's actual unsecured corporate cost is ~25-50 bps tighter than the modeled rate.
+      </div>
     </div>
   );
 }

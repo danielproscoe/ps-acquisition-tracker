@@ -504,6 +504,70 @@ function renderCrossREITMoveInRates({ snapshot, enrichment }) {
 </section>`;
 }
 
+// ─── ACQUISITION FINANCING SCENARIO ────────────────────────────────────────
+//
+// Renders the lens-specific levered hold scenario in the Goldman PDF.
+// Capital stack + debt service + DSCR + cash-on-cash + 10-yr levered IRR.
+// Closes the all-cash credibility gap on every artifact that hits a buyer.
+function renderFinancingScenario({ psLens }) {
+  const fin = psLens?.financing;
+  if (!fin || !Number.isFinite(fin.equity) || fin.equity <= 0) return "";
+  const a = fin.assumptions || {};
+  const lensTicker = psLens?.lens?.ticker || "BUYER";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">ACQUISITION FINANCING · ${safe(lensTicker)} LENS · 10-YEAR LEVERED HOLD</h2>
+  <div class="edgar-headline">
+    <div class="edgar-tile edgar-accent" style="border:2px solid #3B82F688">
+      <div class="ek-l">Levered IRR</div>
+      <div class="ek-v" style="color:#3B82F6">${fin.leveredIRR != null ? (fin.leveredIRR * 100).toFixed(1) + "%" : "—"}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Unlevered IRR</div>
+      <div class="ek-v">${fin.unleveredIRR != null ? (fin.unleveredIRR * 100).toFixed(1) + "%" : "—"}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Y1 DSCR</div>
+      <div class="ek-v">${fin.y1DSCR != null ? fin.y1DSCR.toFixed(2) + "x" : "—"}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Y1 Cash-on-Cash</div>
+      <div class="ek-v">${fin.y1CashOnCash != null ? (fin.y1CashOnCash * 100).toFixed(1) + "%" : "—"}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Y3 Cash-on-Cash</div>
+      <div class="ek-v">${fin.y3CashOnCash != null ? (fin.y3CashOnCash * 100).toFixed(1) + "%" : "—"}</div>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="th-name">Capital Stack / Term</th>
+        <th class="th-num">Value</th>
+        <th class="th-name">Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="td-name"><b>Acquisition price</b></td><td class="td-num">${fmt$(Math.round(fin.ask))}</td><td class="td-basis">Storvex-recommended takedown for ${safe(lensTicker)} lens</td></tr>
+      <tr><td class="td-name">Senior debt (${(a.ltv * 100).toFixed(0)}% LTV)</td><td class="td-num">${fmt$(Math.round(fin.loanAmount))}</td><td class="td-basis">${safe(a.debtSource || "Institutional senior debt")}</td></tr>
+      <tr><td class="td-name"><b>Equity required</b></td><td class="td-num td-accent">${fmt$(Math.round(fin.equity))}</td><td class="td-basis">${(((1 - a.ltv) * 100)).toFixed(0)}% equity contribution</td></tr>
+      <tr><td class="td-name">Interest rate</td><td class="td-num">${(a.rate * 100).toFixed(2)}%</td><td class="td-basis">${a.amortYrs}-yr amort · ${a.termYrs}-yr fixed term</td></tr>
+      <tr><td class="td-name">Annual debt service (P&amp;I)</td><td class="td-num">${fmt$(Math.round(fin.annualDebtService))}</td><td class="td-basis">Monthly P&amp;I × 12</td></tr>
+      <tr><td class="td-name">Y1 NOI / Y3 NOI</td><td class="td-num">${fmt$(Math.round(fin.y1NOI))} / ${fmt$(Math.round(fin.y3NOI))}</td><td class="td-basis">Going-in / stabilized projection</td></tr>
+      <tr><td class="td-name">Exit cap (Y10)</td><td class="td-num">${(a.effectiveExitCap * 100).toFixed(2)}%</td><td class="td-basis">Going-in cap + ${(a.exitCapDelta * 100).toFixed(0)} bps cap expansion</td></tr>
+      <tr><td class="td-name">Y10 exit value</td><td class="td-num">${fmt$(Math.round(fin.exitValue))}</td><td class="td-basis">Y10 NOI ÷ exit cap</td></tr>
+      <tr><td class="td-name">Remaining loan at exit</td><td class="td-num">${fmt$(Math.round(fin.remainingLoanAtExit))}</td><td class="td-basis">Amortized principal balance</td></tr>
+    </tbody>
+  </table>
+  <div class="footnote" style="margin-top:14pt">
+    <b>Levered hold model:</b> Y0 equity ${fmt$(Math.round(fin.equity))}; Y1-Y10 net cash flow = NOI − $${Math.round(fin.annualDebtService).toLocaleString()} debt service (rent ramps Y1→Y3 linearly, then grows ${((a.rentGrowthYoY ?? 0.02) * 100).toFixed(1)}%/yr per ${safe(lensTicker)}'s disclosed industry ECRI). Y10 exit = sale (${fmt$(Math.round(fin.exitValue))}) − remaining principal (${fmt$(Math.round(fin.remainingLoanAtExit))}) → equity received at exit. IRR solved via bisection on the levered cash-flow series.<br/><br/>
+    <b>Levered IRR ${fin.leveredIRR != null ? (fin.leveredIRR * 100).toFixed(1) + "%" : "—"}</b> vs <b>Unlevered IRR ${fin.unleveredIRR != null ? (fin.unleveredIRR * 100).toFixed(1) + "%" : "—"}</b>. Spread = leverage premium (debt amplification of unlevered yield).<br/><br/>
+    <b>Lens-specific debt assumptions</b> (LTV ${(a.ltv * 100).toFixed(0)}% · rate ${(a.rate * 100).toFixed(2)}% · ${a.amortYrs}-yr amort · ${a.termYrs}-yr term) reflect ${safe(lensTicker)}'s institutional cost-of-capital position. Sources: Newmark 2025 Self-Storage Capital Markets Report + Cushman &amp; Wakefield H1 2025 Self-Storage Trends · Capital Markets section + Q1 2026 Freddie SBL/CMBS storage rate sheets. PSA's actual unsecured corporate cost is ~25-50 bps tighter than the modeled rate; UHAL parent corp credit makes UHAL debt cheaper than other small/mid caps.
+  </div>
+</section>`;
+}
+
 // ─── NEW-SUPPLY PIPELINE ───────────────────────────────────────────────────
 //
 // Renders the institutional REIT pipeline within 3 mi of the subject site.
@@ -1013,6 +1077,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderExecSummary({ snapshot, verdict, ps, analysis, rentSanity })}
   ${renderVerdictKPIStrip({ verdict, ps, analysis })}
   ${renderYOCVerdict({ psLens: ps })}
+  ${renderFinancingScenario({ psLens: ps })}
   ${renderMultiLensComparison({ multiLensRows, platformFitDelta, snapshot })}
   ${renderDevelopmentPipeline({ enrichment })}
   ${renderPriceTiers({ ps, analysis, snapshot })}
