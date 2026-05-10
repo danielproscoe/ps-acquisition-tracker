@@ -1,29 +1,38 @@
-# Daily refresh of PSA per-facility unit rents.
+# Daily refresh of cross-REIT per-facility unit rents (PSA + CUBE).
 #
-# Runs at 06:00 UTC every day. Crawls all 24 PSA-disclosed MSAs (~250
-# facilities), rebuilds the cross-validated rent index, and commits the
-# updated JSON files back to the repo. The Vercel deployment auto-rebuilds
-# on push, so the Asset Analyzer always reflects rents <= 24 hours old.
+# Runs at 06:00 UTC every day. Crawls PSA's 24 disclosed MSAs (~250 facilities)
+# AND CubeSmart's full sitemap (~1,551 facilities), rebuilds both cross-validated
+# rent indexes, and commits the updated JSON files back to the repo. The Vercel
+# deployment auto-rebuilds on push, so the Asset Analyzer always reflects rents
+# <= 24 hours old across the two largest public REIT operators.
 #
 # Why GitHub Actions instead of Vercel Cron Jobs:
 #   - Vercel Cron Jobs invoke a serverless function under 300s — too short
-#     for our ~25 min crawl across 24 MSAs at 1 req/sec.
+#     for our ~50 min combined crawl across PSA + CUBE at 1 req/sec.
 #   - The crawl produces JSON files that need to be COMMITTED back to the
 #     repo so the static React app picks them up on the next build. Vercel
 #     serverless functions have no git access.
-#   - GitHub Actions runs on full Ubuntu, has 60-min default timeout,
-#     and a built-in GITHUB_TOKEN with repo write access. Right tool.
+#   - GitHub Actions runs on full Ubuntu, has 60-min default timeout (we set
+#     90 min for the combined crawl), and a built-in GITHUB_TOKEN with repo
+#     write access. Right tool for this job.
+#
+# EXR is NOT in this workflow — EXR's facility pages sit behind PerimeterX
+# bot protection that requires Puppeteer-core + stealth plugin AND residential
+# IP rotation to bulk-crawl. The scraper code is in scripts/edgar/scrape-exr-
+# facility-rents.mjs (validated against a single facility) and will be wired
+# into a separate workflow once a residential proxy is provisioned.
 #
 # This is what makes Storvex's per-facility rent data refresh AS FAST as
 # Radius+ — Radius+ does daily scraping; we do daily scraping with primary-
-# source SEC EDGAR audit trail layered on top.
+# source SEC EDGAR audit trail layered on top, across PSA + CubeSmart's
+# combined ~1,800 facilities.
 
-name: Refresh PSA Facility Rents
+name: Refresh REIT Facility Rents (PSA + CUBE)
 
 on:
   schedule:
     # Runs every day at 06:00 UTC (01:00 EST / 02:00 EDT) — quiet time
-    # for Cloudflare WAF, before US business hours.
+    # for operator WAFs, before US business hours.
     - cron: "0 6 * * *"
   # Allow manual trigger from the Actions tab for ad-hoc refreshes
   workflow_dispatch: {}
@@ -34,7 +43,7 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -50,26 +59,38 @@ jobs:
       - name: Run PSA facility rent scraper (24 MSAs · ~25 min)
         run: node scripts/edgar/scrape-psa-facility-rents.mjs
         env:
-          # No env required — public PSA pages, primary-source extraction
           NODE_ENV: production
 
-      - name: Rebuild aggregator + cross-validation index
+      - name: Rebuild PSA aggregator + cross-validation index
         run: node scripts/edgar/build-scraped-rent-index.mjs
+
+      - name: Run CUBE facility rent scraper (1551 facilities · ~26 min)
+        run: node scripts/edgar/scrape-cube-facility-rents.mjs
+        env:
+          NODE_ENV: production
+
+      - name: Rebuild CUBE aggregator + cross-validation index
+        run: node scripts/edgar/build-cube-rent-index.mjs
 
       - name: Commit refreshed data
         run: |
           git config user.name "storvex-bot"
           git config user.email "noreply@storvex.com"
-          # Add the freshly-generated files (date-stamped + canonical index)
+          # Add the freshly-generated files (date-stamped + canonical indexes)
           git add src/data/psa-facility-rents-*.json src/data/psa-scraped-rent-index.json
+          git add src/data/cube-facility-rents-*.json src/data/cube-scraped-rent-index.json
           # Only commit if there are actual changes (no-op on no-change days)
           if git diff --staged --quiet; then
             echo "No rent changes detected — skipping commit"
           else
             DATE=$(date -u +%Y-%m-%d)
-            # jq is pre-installed on ubuntu-latest; use it instead of node -e
-            FACILITIES=$(jq -r '.totals.facilities' src/data/psa-scraped-rent-index.json)
-            UNITS=$(jq -r '.totals.unitListings' src/data/psa-scraped-rent-index.json)
-            git commit -m "chore(rents): daily refresh ${DATE} · ${FACILITIES} fac · ${UNITS} units"
+            # jq is pre-installed on ubuntu-latest
+            PSA_FAC=$(jq -r '.totals.facilities' src/data/psa-scraped-rent-index.json)
+            PSA_UNITS=$(jq -r '.totals.unitListings' src/data/psa-scraped-rent-index.json)
+            CUBE_FAC=$(jq -r '.totals.facilities' src/data/cube-scraped-rent-index.json)
+            CUBE_UNITS=$(jq -r '.totals.unitListings' src/data/cube-scraped-rent-index.json)
+            TOTAL_FAC=$((PSA_FAC + CUBE_FAC))
+            TOTAL_UNITS=$((PSA_UNITS + CUBE_UNITS))
+            git commit -m "chore(rents): daily refresh ${DATE} · ${TOTAL_FAC} fac (${PSA_FAC} PSA + ${CUBE_FAC} CUBE) · ${TOTAL_UNITS} units"
             git push
           fi

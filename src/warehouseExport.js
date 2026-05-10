@@ -245,6 +245,42 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       })) : [],
     } : null,
 
+    // Cross-REIT primary-source per-facility move-in rate matrix. Each row
+    // is one operator (PSA + CUBE + EXR) with median CC + DU rates scraped
+    // directly from the operator's facility detail pages. Daily-refreshed.
+    // No third-party rate aggregator (no SpareFoot, no Radius+) — every
+    // rate cites the operator's source URL on their public storage website.
+    cross_reit_move_in_rates: enrichment?.crossREITMSARates && enrichment.crossREITMSARates.length > 0 ? {
+      msa: enrichment.subjectMSA || null,
+      operator_count: numOrNull(enrichment.crossREITScrapedMetadata?.operatorCount),
+      total_facilities_indexed: numOrNull(enrichment.crossREITScrapedMetadata?.totalFacilities),
+      total_unit_listings_indexed: numOrNull(enrichment.crossREITScrapedMetadata?.totalUnitListings),
+      operators: enrichment.crossREITMSARates.map((r) => ({
+        operator: r.operator,
+        operator_name: r.operatorName,
+        cc_median_psf_mo: numOrNull(r.ccMedianPerSF_mo),
+        cc_low_psf_mo: numOrNull(r.ccLowPerSF_mo),
+        cc_high_psf_mo: numOrNull(r.ccHighPerSF_mo),
+        du_median_psf_mo: numOrNull(r.duMedianPerSF_mo),
+        cc_standard_median_psf_mo: numOrNull(r.ccStandardMedianPerSF_mo),
+        du_standard_median_psf_mo: numOrNull(r.duStandardMedianPerSF_mo),
+        implied_discount_pct: numOrNull(r.impliedDiscountPct),
+        facilities_scraped: numOrNull(r.facilitiesScraped),
+        total_unit_listings: numOrNull(r.totalUnitListings),
+      })),
+      // Cross-REIT operator-level metadata for each scraped index
+      operator_metadata: (enrichment.crossREITScrapedMetadata?.operators || []).map((o) => ({
+        operator: o.operator,
+        schema: o.schema,
+        scrape_generated_at: o.scrapeGeneratedAt || o.generatedAt,
+        facilities: numOrNull(o.totals?.facilities),
+        unit_listings: numOrNull(o.totals?.unitListings),
+        national_validation: o.nationalValidation || null,
+      })),
+      data_source: "Per-facility unit-rent scraping from each operator's public-facing facility detail pages (publicstorage.com Schema.org SelfStorage entities, cubesmart.com structured HTML widget, extraspace.com Schema.org via Puppeteer-core + stealth plugin). Refreshed daily via GitHub Actions cron at 06:00 UTC.",
+      audit_trail: "Each operator's scraper outputs a date-stamped JSON file in src/data/{operator}-facility-rents-{YYYY-MM-DD}.json. The aggregator builds {operator}-scraped-rent-index.json with per-facility median + per-MSA rollup + national cross-validation against MD&A in-place rent.",
+    } : null,
+
     extraction: extractionMeta ? {
       om_filename: extractionMeta.filename || null,
       confidence: numOrNull(extractionMeta.confidence),
@@ -270,7 +306,7 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       ps_lens_documentation: "docs/PS_UNDERWRITING_MODEL.md",
       demographics_source: "ESRI ArcGIS GeoEnrichment 2025 (current year + 2030 projection)",
       ps_family_proximity_source: "PS_Locations_ALL.csv + NSA_Locations.csv (2026-Q2 vintage)",
-      market_rents_source: "EDGAR Rent Calibration Index v1 (cross-REIT primary source: PSA/EXR/CUBE/SMA 10-K same-store rent disclosures, Schedule III facility-weighted, geographic adjustment via weighted gross carrying $/SF). Endpoint: /api/sparefoot-rents (URL retained for backward compatibility).",
+      market_rents_source: "EDGAR Rent Calibration Index v1 (cross-REIT primary source: PSA/EXR/CUBE/SMA 10-K same-store rent disclosures, Schedule III facility-weighted, geographic adjustment via weighted gross carrying $/SF). Endpoint: /api/sparefoot-rents (URL retained for backward compatibility). PLUS per-facility move-in rates scraped daily from operator facility detail pages — see cross_reit_move_in_rates block above for the per-MSA primary-source matrix.",
       sale_comps_source: "src/data/storageCompSales.js (REIT 10-K + Cushman + SSA + MMX)",
       valuation_framework_version: VALUATION_FRAMEWORK_VERSION,
       valuation_framework_documentation: "memory/valuation-framework.md",

@@ -16,3 +16,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vercel/
+
+# Throwaway crawl logs + debug HTML samples from EDGAR scrapers.
+# Committed data lives in src/data/*-rent-index.json and src/data/*-facility-rents-*.json.
+scripts/edgar/_output/
+scripts/edgar/_probe-*.mjs
+
+# Stale audit logs from prior sprints
+cc-rent-audit-*.json
+cc-rent-audit-*.log
+esri-v3-refresh.log

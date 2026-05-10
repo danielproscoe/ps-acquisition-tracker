@@ -16,16 +16,31 @@ import sameStoreGrowth from "./edgar-same-store-growth.json";
 import transactions8K from "./edgar-8k-transactions-claude.json";
 import rentCalibration from "./edgar-rent-calibration.json";
 
-// Scraped per-facility rents — primary-source unit pricing pulled from PSA's
-// Schema.org SelfStorage entities on facility detail pages. Optional —
-// availability depends on whether the scraper has run for the subject MSA.
+// Scraped per-facility rents — primary-source unit pricing pulled from each
+// REIT's facility detail pages. Optional — availability depends on whether
+// the scraper has run for the subject MSA.
+//
+// PSA: Schema.org SelfStorage with makesOffer arrays, vanilla HTTPS works.
+// CUBE: HTML parser (csStorageSizeDimension widget), vanilla HTTPS works.
+// EXR: Schema.org with makesOffer arrays, requires Puppeteer + stealth plugin
+//      to bypass PerimeterX bot challenge.
 let scrapedRentIndex = null;
+let cubeScrapedRentIndex = null;
+let exrScrapedRentIndex = null;
 try {
   // eslint-disable-next-line global-require
   scrapedRentIndex = require("./psa-scraped-rent-index.json");
 } catch {
   // Optional asset; absent on fresh checkouts where scraper hasn't run.
 }
+try {
+  // eslint-disable-next-line global-require
+  cubeScrapedRentIndex = require("./cube-scraped-rent-index.json");
+} catch {}
+try {
+  // eslint-disable-next-line global-require
+  exrScrapedRentIndex = require("./exr-scraped-rent-index.json");
+} catch {}
 
 /**
  * Look up the cross-REIT institutional cost basis for a US state.
@@ -609,6 +624,222 @@ export function getScrapedRentIndexMetadata() {
   };
 }
 
+// ─── CUBE scraped rent index accessors ─────────────────────────────────────
+
+/**
+ * Look up the scraped rent record for a CUBE facility by ID.
+ * @param {string|number} facilityId
+ */
+export function getCubeFacilityRents(facilityId) {
+  if (!cubeScrapedRentIndex || !facilityId) return null;
+  return cubeScrapedRentIndex.facilityIndex?.[String(facilityId)] || null;
+}
+
+/**
+ * Get CUBE state-level scraped rent aggregation. CUBE doesn't disclose
+ * per-MSA breakdowns in its 10-K MD&A — state-keyed buckets are the
+ * primary geographic grouping.
+ * @param {string} stateCodeOrSlug — state slug ("california") or 2-letter ("CA")
+ */
+export function getCubeStateRentMedian(stateCodeOrSlug) {
+  if (!cubeScrapedRentIndex || !stateCodeOrSlug) return null;
+  const needle = String(stateCodeOrSlug).toLowerCase().trim();
+  // Match by state slug (e.g. "california") OR by 2-letter code (we look up
+  // any facility in the state group with stateCode set to the requested code)
+  const groups = cubeScrapedRentIndex.stateAggregations || [];
+  let group = groups.find((g) => String(g.state).toLowerCase() === needle);
+  if (group) return group;
+  // Try 2-letter mapping (we need to scan facility records for stateCode match)
+  const idx = cubeScrapedRentIndex.facilityIndex || {};
+  const matchingFacs = Object.values(idx).filter(
+    (f) => String(f.state || "").toLowerCase() === needle
+  );
+  if (!matchingFacs.length) return null;
+  // Find the state slug that maps to these matching facs
+  if (matchingFacs[0].stateSlug) {
+    group = groups.find((g) => String(g.state).toLowerCase() === matchingFacs[0].stateSlug);
+    if (group) return group;
+  }
+  return null;
+}
+
+/**
+ * Get CUBE MSA-level scraped rent aggregation. MSAs are computed at build
+ * time via the city → MSA resolver; only cities present in the resolver
+ * map will surface here.
+ * @param {string} msaName
+ */
+export function getCubeMSARentMedian(msaName) {
+  if (!cubeScrapedRentIndex || !msaName) return null;
+  return (cubeScrapedRentIndex.msaAggregations || []).find((m) => m.msa === msaName) || null;
+}
+
+/**
+ * Returns metadata about the CUBE scraped rent index.
+ */
+export function getCubeScrapedRentIndexMetadata() {
+  if (!cubeScrapedRentIndex) return null;
+  return {
+    schema: cubeScrapedRentIndex.schema,
+    operator: cubeScrapedRentIndex.operator,
+    generatedAt: cubeScrapedRentIndex.generatedAt,
+    sourceScrapeFile: cubeScrapedRentIndex.sourceScrapeFile,
+    scrapeGeneratedAt: cubeScrapedRentIndex.scrapeGeneratedAt,
+    citationRule: cubeScrapedRentIndex.citationRule,
+    methodology: cubeScrapedRentIndex.methodology,
+    totals: cubeScrapedRentIndex.totals,
+    nationalValidation: cubeScrapedRentIndex.nationalValidation,
+    statesScraped: (cubeScrapedRentIndex.stateAggregations || []).map((s) => s.state),
+    msasResolved: (cubeScrapedRentIndex.msaAggregations || []).map((m) => m.msa),
+  };
+}
+
+// ─── EXR scraped rent index accessors ──────────────────────────────────────
+
+/**
+ * Look up the scraped rent record for an EXR facility by ID.
+ * @param {string|number} facilityId
+ */
+export function getExrFacilityRents(facilityId) {
+  if (!exrScrapedRentIndex || !facilityId) return null;
+  return exrScrapedRentIndex.facilityIndex?.[String(facilityId)] || null;
+}
+
+/**
+ * Get EXR state-level scraped rent aggregation.
+ * @param {string} stateCode — 2-letter state code
+ */
+export function getExrStateRentMedian(stateCode) {
+  if (!exrScrapedRentIndex || !stateCode) return null;
+  const code = String(stateCode).toUpperCase().trim();
+  return (exrScrapedRentIndex.stateAggregations || []).find(
+    (g) => String(g.state).toUpperCase() === code
+  ) || null;
+}
+
+/**
+ * Get EXR MSA-level scraped rent aggregation.
+ * @param {string} msaName
+ */
+export function getExrMSARentMedian(msaName) {
+  if (!exrScrapedRentIndex || !msaName) return null;
+  return (exrScrapedRentIndex.msaAggregations || []).find((m) => m.msa === msaName) || null;
+}
+
+/**
+ * Returns metadata about the EXR scraped rent index.
+ */
+export function getExrScrapedRentIndexMetadata() {
+  if (!exrScrapedRentIndex) return null;
+  return {
+    schema: exrScrapedRentIndex.schema,
+    operator: exrScrapedRentIndex.operator,
+    generatedAt: exrScrapedRentIndex.generatedAt,
+    sourceScrapeFile: exrScrapedRentIndex.sourceScrapeFile,
+    scrapeGeneratedAt: exrScrapedRentIndex.scrapeGeneratedAt,
+    citationRule: exrScrapedRentIndex.citationRule,
+    methodology: exrScrapedRentIndex.methodology,
+    totals: exrScrapedRentIndex.totals,
+    nationalValidation: exrScrapedRentIndex.nationalValidation,
+    statesScraped: (exrScrapedRentIndex.stateAggregations || []).map((s) => s.state),
+    msasResolved: (exrScrapedRentIndex.msaAggregations || []).map((m) => m.msa),
+  };
+}
+
+// ─── Cross-REIT scraped rent matrix ─────────────────────────────────────────
+
+/**
+ * Get a cross-REIT matrix of scraped move-in rates for a given MSA. Returns
+ * one row per operator (PSA + CUBE + EXR) where rent data is available.
+ * Useful for the Asset Analyzer's "MOVE-IN RATES" panel that shows how each
+ * REIT's per-facility move-in median compares within the same MSA.
+ *
+ * @param {string} msaName — exact MSA label as used in scraper config
+ * @returns {Array<Object>} array of { operator, ccMedian, duMedian, sample, ... }
+ */
+export function getMSAMoveInRatesByOperator(msaName) {
+  if (!msaName) return [];
+  const out = [];
+  const psaAgg = getScrapedMSARentMedian(msaName);
+  if (psaAgg && (psaAgg.ccMedianPerSF_mo != null || psaAgg.duMedianPerSF_mo != null)) {
+    out.push({
+      operator: "PSA",
+      operatorName: "Public Storage",
+      ccMedianPerSF_mo: psaAgg.ccMedianPerSF_mo,
+      ccLowPerSF_mo: psaAgg.ccLowPerSF_mo,
+      ccHighPerSF_mo: psaAgg.ccHighPerSF_mo,
+      duMedianPerSF_mo: psaAgg.duMedianPerSF_mo,
+      facilitiesScraped: psaAgg.facilitiesScraped,
+      totalUnitListings: psaAgg.totalUnitListings,
+      crossValidation: psaAgg.crossValidation || null,
+    });
+  }
+  const cubeAgg = getCubeMSARentMedian(msaName);
+  if (cubeAgg && (cubeAgg.ccMedianPerSF_mo != null || cubeAgg.duMedianPerSF_mo != null)) {
+    out.push({
+      operator: "CUBE",
+      operatorName: "CubeSmart",
+      ccMedianPerSF_mo: cubeAgg.ccMedianPerSF_mo,
+      ccLowPerSF_mo: cubeAgg.ccLowPerSF_mo,
+      ccHighPerSF_mo: cubeAgg.ccHighPerSF_mo,
+      duMedianPerSF_mo: cubeAgg.duMedianPerSF_mo,
+      ccStandardMedianPerSF_mo: cubeAgg.ccStandardMedianPerSF_mo,
+      duStandardMedianPerSF_mo: cubeAgg.duStandardMedianPerSF_mo,
+      impliedDiscountPct: cubeAgg.impliedDiscountPct,
+      facilitiesScraped: cubeAgg.facilitiesScraped,
+      totalUnitListings: cubeAgg.totalUnitListings,
+    });
+  }
+  const exrAgg = getExrMSARentMedian(msaName);
+  if (exrAgg && (exrAgg.ccMedianPerSF_mo != null || exrAgg.duMedianPerSF_mo != null)) {
+    out.push({
+      operator: "EXR",
+      operatorName: "Extra Space Storage",
+      ccMedianPerSF_mo: exrAgg.ccMedianPerSF_mo,
+      ccLowPerSF_mo: exrAgg.ccLowPerSF_mo,
+      ccHighPerSF_mo: exrAgg.ccHighPerSF_mo,
+      duMedianPerSF_mo: exrAgg.duMedianPerSF_mo,
+      facilitiesScraped: exrAgg.facilitiesScraped,
+      totalUnitListings: exrAgg.totalUnitListings,
+    });
+  }
+  return out;
+}
+
+/**
+ * Cross-REIT consolidated metadata — useful for the dashboard's coverage
+ * banner and the Radius+ comparison card.
+ */
+export function getCrossREITScrapedRentMetadata() {
+  const psa = getScrapedRentIndexMetadata();
+  const cube = getCubeScrapedRentIndexMetadata();
+  const exr = getExrScrapedRentIndexMetadata();
+  const operators = [];
+  let totalFacilities = 0;
+  let totalUnitListings = 0;
+  if (psa) {
+    operators.push({ operator: "PSA", ...psa });
+    totalFacilities += psa.totals?.facilities || 0;
+    totalUnitListings += psa.totals?.unitListings || 0;
+  }
+  if (cube) {
+    operators.push({ operator: "CUBE", ...cube });
+    totalFacilities += cube.totals?.facilities || 0;
+    totalUnitListings += cube.totals?.unitListings || 0;
+  }
+  if (exr) {
+    operators.push({ operator: "EXR", ...exr });
+    totalFacilities += exr.totals?.facilities || 0;
+    totalUnitListings += exr.totals?.unitListings || 0;
+  }
+  return {
+    operatorCount: operators.length,
+    totalFacilities,
+    totalUnitListings,
+    operators,
+  };
+}
+
 /**
  * Compute per-facility cost basis allocation for a single PS family facility,
  * using PSA's Schedule III MSA aggregate when available, falling back to
@@ -805,6 +1036,23 @@ export default {
   estimateFacilityCostBasis,
   enrichCompetitor,
   enrichNearbyCompetitors,
+  // PSA scraped rent accessors (legacy, retained for backwards compat)
+  getScrapedFacilityRents,
+  getScrapedMSARentMedian,
+  getScrapedRentIndexMetadata,
+  // CUBE scraped rent accessors
+  getCubeFacilityRents,
+  getCubeStateRentMedian,
+  getCubeMSARentMedian,
+  getCubeScrapedRentIndexMetadata,
+  // EXR scraped rent accessors
+  getExrFacilityRents,
+  getExrStateRentMedian,
+  getExrMSARentMedian,
+  getExrScrapedRentIndexMetadata,
+  // Cross-REIT consolidated accessors
+  getMSAMoveInRatesByOperator,
+  getCrossREITScrapedRentMetadata,
   EDGAR_INDEX_METADATA,
   EDGAR_RENT_CALIBRATION_METADATA,
 };

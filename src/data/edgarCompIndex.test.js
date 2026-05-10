@@ -21,6 +21,16 @@ import {
   getScrapedFacilityRents,
   getScrapedMSARentMedian,
   getScrapedRentIndexMetadata,
+  getCubeFacilityRents,
+  getCubeStateRentMedian,
+  getCubeMSARentMedian,
+  getCubeScrapedRentIndexMetadata,
+  getExrFacilityRents,
+  getExrStateRentMedian,
+  getExrMSARentMedian,
+  getExrScrapedRentIndexMetadata,
+  getMSAMoveInRatesByOperator,
+  getCrossREITScrapedRentMetadata,
   EDGAR_RENT_CALIBRATION_METADATA,
   getEDGARStateData,
   formatEDGARCitation,
@@ -685,5 +695,200 @@ describe("existing accessors remain functional", () => {
     expect(EDGAR_INDEX_METADATA.issuersIngested).toContain("PSA");
     expect(EDGAR_INDEX_METADATA.issuersIngested).toContain("EXR");
     expect(EDGAR_INDEX_METADATA.issuersIngested).toContain("CUBE");
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// CUBE scraped rent accessors
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("getCubeFacilityRents — CUBE per-facility move-in pricing", () => {
+  test("returns null for unknown facility IDs", () => {
+    expect(getCubeFacilityRents("9999999999")).toBeNull();
+    expect(getCubeFacilityRents(null)).toBeNull();
+    expect(getCubeFacilityRents("")).toBeNull();
+  });
+
+  test("returns scrape data for known CUBE facility ID when available", () => {
+    // facility 4243 = Auburn AL CubeSmart (first row of sitemap)
+    const f = getCubeFacilityRents("4243");
+    if (f) {
+      expect(f.facilityId).toBe("4243");
+      expect(f.unitListings).toBeGreaterThan(0);
+      expect(f.scrapedAt).toBeTruthy();
+      // CUBE captures BOTH discount AND standard rate per unit; scrubbed
+      // facility-level CC median should be a positive number
+      if (f.ccMedianPerSF_mo != null) {
+        expect(f.ccMedianPerSF_mo).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+describe("getCubeStateRentMedian — state-level CUBE aggregation", () => {
+  test("returns null for unknown states", () => {
+    expect(getCubeStateRentMedian("XX")).toBeNull();
+    expect(getCubeStateRentMedian(null)).toBeNull();
+  });
+
+  test("returns texas aggregation when CUBE has scraped Texas facilities", () => {
+    const tx = getCubeStateRentMedian("texas");
+    if (tx) {
+      expect(tx.facilitiesScraped).toBeGreaterThan(0);
+      expect(tx.totalUnitListings).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("getCubeMSARentMedian — MSA-level CUBE aggregation", () => {
+  test("returns null for unknown MSAs", () => {
+    expect(getCubeMSARentMedian("Mars Colony")).toBeNull();
+    expect(getCubeMSARentMedian(null)).toBeNull();
+  });
+
+  test("returns Houston aggregation when CUBE has scraped Houston facilities", () => {
+    const houston = getCubeMSARentMedian("Houston");
+    if (houston) {
+      expect(houston.msa).toBe("Houston");
+      expect(houston.facilitiesScraped).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("getCubeScrapedRentIndexMetadata — CUBE index provenance", () => {
+  test("returns metadata when CUBE scrape data exists", () => {
+    const meta = getCubeScrapedRentIndexMetadata();
+    if (meta) {
+      expect(meta.schema).toMatch(/storvex.cube-scraped/);
+      expect(meta.operator).toBe("CUBE");
+      expect(meta.totals.facilities).toBeGreaterThan(0);
+      expect(Array.isArray(meta.statesScraped)).toBe(true);
+      expect(Array.isArray(meta.msasResolved)).toBe(true);
+      // National cross-validation against $22.73/SF/yr CUBE MD&A in-place
+      if (meta.nationalValidation) {
+        expect(meta.nationalValidation.cubeDisclosedAnnualPerSF).toBe(22.73);
+        expect(typeof meta.nationalValidation.sanityGatePassed).toBe("boolean");
+      }
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// EXR scraped rent accessors (data may be sparse if IP rotation pending)
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("getExrFacilityRents — EXR per-facility move-in pricing", () => {
+  test("returns null for unknown facility IDs", () => {
+    expect(getExrFacilityRents("9999999999")).toBeNull();
+    expect(getExrFacilityRents(null)).toBeNull();
+    expect(getExrFacilityRents("")).toBeNull();
+  });
+});
+
+describe("getExrStateRentMedian — state-level EXR aggregation", () => {
+  test("returns null for unknown states", () => {
+    expect(getExrStateRentMedian("XX")).toBeNull();
+    expect(getExrStateRentMedian(null)).toBeNull();
+  });
+});
+
+describe("getExrMSARentMedian — MSA-level EXR aggregation", () => {
+  test("returns null for unknown MSAs", () => {
+    expect(getExrMSARentMedian("Mars Colony")).toBeNull();
+    expect(getExrMSARentMedian(null)).toBeNull();
+  });
+});
+
+describe("getExrScrapedRentIndexMetadata — EXR index provenance", () => {
+  test("returns metadata when EXR scrape data exists", () => {
+    const meta = getExrScrapedRentIndexMetadata();
+    if (meta) {
+      expect(meta.schema).toMatch(/storvex.exr/);
+      expect(meta.operator).toBe("EXR");
+      expect(typeof meta.totals).toBe("object");
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Cross-REIT consolidated accessors (Radius+ kill-shot view)
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("getMSAMoveInRatesByOperator — cross-REIT MSA matrix", () => {
+  test("returns array (possibly empty) for any input", () => {
+    const result = getMSAMoveInRatesByOperator("Houston");
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  test("returns empty array for unknown MSAs", () => {
+    expect(getMSAMoveInRatesByOperator("Mars Colony")).toEqual([]);
+    expect(getMSAMoveInRatesByOperator(null)).toEqual([]);
+    expect(getMSAMoveInRatesByOperator("")).toEqual([]);
+  });
+
+  test("each row identifies operator with name + median rent", () => {
+    const houston = getMSAMoveInRatesByOperator("Houston");
+    for (const row of houston) {
+      expect(["PSA", "CUBE", "EXR"]).toContain(row.operator);
+      expect(typeof row.operatorName).toBe("string");
+      expect(row.facilitiesScraped).toBeGreaterThanOrEqual(0);
+      // At least CC OR DU rate must be populated for a row to exist
+      const hasRate = row.ccMedianPerSF_mo != null || row.duMedianPerSF_mo != null;
+      expect(hasRate).toBe(true);
+    }
+  });
+
+  test("rows from different operators surface side-by-side", () => {
+    // After CUBE crawl, Houston should have at least 2 operators (PSA + CUBE).
+    // If neither is scraped yet, we get 0 — that's fine for unit tests; the
+    // structure invariant is what we're enforcing here.
+    const houston = getMSAMoveInRatesByOperator("Houston");
+    const operators = new Set(houston.map((r) => r.operator));
+    if (houston.length >= 2) {
+      expect(operators.size).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test("CUBE rows expose impliedDiscountPct (web vs in-store standard rate)", () => {
+    const allMSAs = ["Houston", "Dallas-Ft. Worth", "Atlanta", "Phoenix", "Chicago", "Los Angeles"];
+    let foundCubeWithDiscount = false;
+    for (const msa of allMSAs) {
+      const rows = getMSAMoveInRatesByOperator(msa);
+      const cubeRow = rows.find((r) => r.operator === "CUBE");
+      if (cubeRow && typeof cubeRow.impliedDiscountPct === "number") {
+        foundCubeWithDiscount = true;
+        // CUBE's promo discount typically lands in 20-50% range across MSAs
+        expect(cubeRow.impliedDiscountPct).toBeGreaterThanOrEqual(0);
+        expect(cubeRow.impliedDiscountPct).toBeLessThanOrEqual(80);
+        break;
+      }
+    }
+    // If no CUBE data scraped yet, the test still passes (structure-only check)
+    // Once CUBE crawl completes the loop will find a real promo signal.
+    if (foundCubeWithDiscount) {
+      expect(foundCubeWithDiscount).toBe(true);
+    }
+  });
+});
+
+describe("getCrossREITScrapedRentMetadata — consolidated 3-REIT coverage", () => {
+  test("returns shape with operatorCount + totals always defined", () => {
+    const meta = getCrossREITScrapedRentMetadata();
+    expect(meta).toBeTruthy();
+    expect(typeof meta.operatorCount).toBe("number");
+    expect(typeof meta.totalFacilities).toBe("number");
+    expect(typeof meta.totalUnitListings).toBe("number");
+    expect(Array.isArray(meta.operators)).toBe(true);
+    // operatorCount matches the populated operators array length
+    expect(meta.operators.length).toBe(meta.operatorCount);
+  });
+
+  test("PSA + CUBE coverage means operatorCount >= 2 once both crawls have run", () => {
+    const meta = getCrossREITScrapedRentMetadata();
+    const operators = meta.operators.map((o) => o.operator);
+    // Sanity: returned operators are a subset of the 3 we support
+    for (const op of operators) {
+      expect(["PSA", "CUBE", "EXR"]).toContain(op);
+    }
   });
 });

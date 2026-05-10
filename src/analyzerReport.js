@@ -426,6 +426,64 @@ function renderEDGAR8KTransactions({ snapshot, analysis }) {
 </section>`;
 }
 
+// ─── Cross-REIT MOVE-IN RATE COMPARISON ─────────────────────────────────────
+//
+// Renders a section showing PSA + CUBE + EXR per-facility scraped move-in
+// medians for the subject MSA. Each row links back to the operator's source
+// URL on their public storage website. This is the Radius+ kill-shot block in
+// the institutional PDF — every primary-source rate is here, no third-party
+// data licensing, every operator's web rate vs in-store standard rate exposed.
+function renderCrossREITMoveInRates({ snapshot, enrichment }) {
+  if (!enrichment) return "";
+  const rates = enrichment.crossREITMSARates || [];
+  const meta = enrichment.crossREITScrapedMetadata;
+  if (!rates.length || !meta) return "";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">CROSS-REIT MOVE-IN RATE COMPARISON · ${safe(enrichment.subjectMSA || snapshot.market || snapshot.state)} · PRIMARY-SOURCE PER-FACILITY SCRAPING</h2>
+  <div class="edgar-headline">
+    <div class="edgar-tile"><div class="ek-l">Operators Indexed</div><div class="ek-v">${meta.operatorCount} of 3</div></div>
+    <div class="edgar-tile edgar-accent"><div class="ek-l">Total Facilities</div><div class="ek-v">${fmtN(meta.totalFacilities)}</div></div>
+    <div class="edgar-tile"><div class="ek-l">Unit Listings</div><div class="ek-v">${fmtN(meta.totalUnitListings)}</div></div>
+    <div class="edgar-tile"><div class="ek-l">MSA Coverage</div><div class="ek-v">${rates.length} REIT${rates.length === 1 ? "" : "s"} in ${safe(enrichment.subjectMSA || "—")}</div></div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="th-name">Operator</th>
+        <th class="th-num">CC $/SF/mo (median)</th>
+        <th class="th-num">CC Range</th>
+        <th class="th-num">DU $/SF/mo (median)</th>
+        <th class="th-num">Implied Discount</th>
+        <th class="th-num">Sample</th>
+        <th class="th-name">Source</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rates.map((row) => {
+        const sourceUrl = row.operator === "PSA" ? "https://www.publicstorage.com/"
+          : row.operator === "CUBE" ? "https://www.cubesmart.com/"
+          : row.operator === "EXR" ? "https://www.extraspace.com/"
+          : "";
+        return `<tr>
+          <td class="td-name"><b>${safe(row.operator)}</b><br/><span style="font-size:9pt;color:#64748B">${safe(row.operatorName)}</span></td>
+          <td class="td-num td-accent">${row.ccMedianPerSF_mo != null ? "$" + row.ccMedianPerSF_mo.toFixed(2) : "—"}</td>
+          <td class="td-num">${row.ccLowPerSF_mo != null && row.ccHighPerSF_mo != null ? "$" + row.ccLowPerSF_mo.toFixed(2) + "–$" + row.ccHighPerSF_mo.toFixed(2) : "—"}</td>
+          <td class="td-num">${row.duMedianPerSF_mo != null ? "$" + row.duMedianPerSF_mo.toFixed(2) : "—"}</td>
+          <td class="td-num">${row.impliedDiscountPct != null ? "−" + row.impliedDiscountPct.toFixed(1) + "%" : "—"}</td>
+          <td class="td-num">${row.facilitiesScraped} fac · ${row.totalUnitListings} units</td>
+          <td class="td-basis"><a href="${sourceUrl}" style="color:#1E2761;text-decoration:underline">${sourceUrl.replace("https://", "").replace(/\/$/, "")}</a></td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+  <div class="footnote">
+    Per-facility move-in rates scraped directly from each operator's facility detail pages — Schema.org SelfStorage entities for PSA + EXR, structured HTML widget for CUBE. ${meta.operatorCount} of 3 public storage REITs indexed; ${fmtN(meta.totalFacilities)} facilities and ${fmtN(meta.totalUnitListings)} unit listings refreshed daily via GitHub Actions. <b>No third-party rate aggregator</b> (no SpareFoot, no Radius+) — every rate cites the operator's source URL on their public website. CUBE's "Implied Discount" column reflects the spread between web/online rate and in-store standard rate, exposing CUBE's promotional posture per market — a signal Radius+ does not surface. Combined with the Schedule III cost basis above and the M&A 8-K transactions below, every assumption in this report traces to either a SEC EDGAR accession # or a primary-source operator URL.
+  </div>
+</section>`;
+}
+
 function renderEDGARCrossREIT({ snapshot, analysis }) {
   const e = analysis.edgarComp;
   if (!e) return "";
@@ -737,6 +795,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo }) {
   ${renderRentSanity({ rentSanity })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
+  ${renderCrossREITMoveInRates({ snapshot, enrichment })}
   ${renderEDGAR8KTransactions({ snapshot, analysis })}
   ${renderICMemo({ memo })}
   ${renderAudit({ snapshot, ps, analysis })}

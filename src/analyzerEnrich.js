@@ -12,7 +12,7 @@
 // no Firebase writes, no DOM, no React.
 
 import { haversine } from "./haversine";
-import { enrichNearbyCompetitors, getMSARentBand, getBestRentBand, resolveCityToMSA, getECRIPremiumIndex, getScrapedMSARentMedian, getScrapedRentIndexMetadata } from "./data/edgarCompIndex";
+import { enrichNearbyCompetitors, getMSARentBand, getBestRentBand, resolveCityToMSA, getECRIPremiumIndex, getScrapedMSARentMedian, getScrapedRentIndexMetadata, getMSAMoveInRatesByOperator, getCrossREITScrapedRentMetadata } from "./data/edgarCompIndex";
 import { getRentForecast } from "./data/rentForecast";
 
 const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
@@ -372,10 +372,28 @@ export async function enrichAssetAnalysis(input) {
   }
   const scrapedRentMetadata = getScrapedRentIndexMetadata();
 
+  // Cross-REIT MSA move-in rate matrix — surfaces PSA + CUBE + EXR median
+  // move-in rates side-by-side for the subject MSA. Each operator's row is
+  // independent (no per-REIT join required), so even partial coverage shows
+  // up. Empty array if no operator has scraped data for this MSA.
+  let crossREITMSARates = [];
+  if (subjectMSA) {
+    const candidates = [subjectMSA, `${subjectMSA} ${input.state || ""}`.trim()];
+    for (const candidate of candidates) {
+      const rates = getMSAMoveInRatesByOperator(candidate);
+      if (rates && rates.length > 0) {
+        crossREITMSARates = rates;
+        break;
+      }
+    }
+  }
+  const crossREITScrapedMetadata = getCrossREITScrapedRentMetadata();
+
   return {
     coords, demographics, psFamily, marketRents, competitors,
     subjectMSA, msaRentBand, bestRentBand, ecriIndex,
     rentForecast, scrapedMSARent, scrapedRentMetadata,
+    crossREITMSARates, crossREITScrapedMetadata,
     errors, generatedAt: new Date().toISOString(),
   };
 }
