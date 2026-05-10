@@ -17,17 +17,18 @@ export function useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert
     }
   }, []);
 
-  // ─── Deep-link: ?site=SITE_ID opens directly to property detail ───
-  // Handled by useDeepLink hook in App.js (needs access to site data)
-  // This hook just preserves the URL param on initial load
+  // ─── Deep-link: preserve query params on initial load ───
+  // ?site=<id>   — opens property detail (handled by useDeepLink hook in App.js)
+  // ?asset=<key> — opens Asset Analyzer with preset (handled by App.js + AssetAnalyzerView)
+  // Without this preservation, replaceState below would strip the query string
+  // before the consumer useEffects run, breaking the Reza demo deep-link emails.
   useEffect(() => {
-    // Set initial history state — preserve ?site= param if present
     const params = new URLSearchParams(window.location.search);
-    const siteParam = params.get("site");
+    const hasDeepLinkParam = params.has("site") || params.has("asset");
     window.history.replaceState(
       { tab: "dashboard", detailView: null, reviewDetailSite: null },
       "",
-      siteParam ? window.location.pathname + window.location.search : window.location.pathname
+      hasDeepLinkParam ? window.location.pathname + window.location.search : window.location.pathname
     );
     const onPopState = (e) => {
       const st = e.state;
