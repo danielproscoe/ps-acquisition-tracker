@@ -9,6 +9,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
 import { computeBuyerLens, PS_LENS, BUYER_LENSES, BUYER_LENS_ORDER, DEFAULT_BUYER_KEY, getBuyerLens } from "../buyerLensProfiles";
+import { detectBuyer, formatDetectionBadge } from "../buyerDetection";
 import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
 import { openAnalyzerReport } from "../analyzerReport";
@@ -338,6 +339,10 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   const [memo, setMemo] = useState(persisted?.memo || null);
   const [memoLoading, setMemoLoading] = useState(false);
   const [memoError, setMemoError] = useState(null);
+  // Auto-buyer-detection result — populated by handleOMFile after OM extraction
+  // completes. Null until first OM upload (or after Clear). Renders the
+  // AUTO-DETECTED badge next to the buyer dropdown.
+  const [buyerDetection, setBuyerDetection] = useState(null);
 
   // Persist on every analyzer-state change so navigating away and back (Methodology
   // → Asset Analyzer, etc.) restores the loaded deal. Transient flags (saving,
@@ -396,6 +401,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     setEnrichment(null);
     setMemo(null);
     setMemoError(null);
+    setBuyerDetection(null);
     clearPersisted();
   }, []);
 
@@ -485,6 +491,22 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
       if (f.listingSource) next.listingSource = String(f.listingSource);
       if (f.currentTaxAnnual != null) next.currentTaxAnnual = String(f.currentTaxAnnual);
 
+      // ── AUTO-BUYER-DETECTION ─────────────────────────────────────────────
+      // Score each registered buyer lens against the OM extraction signals
+      // (brand-name match in property name / filename, listing broker
+      // fingerprint, geographic match, deal type heuristics). Auto-set the
+      // dropdown to the detected buyer. User can override manually.
+      const detection = detectBuyer({
+        name: next.name,
+        filename: file.name,
+        listingBroker: next.listingBroker,
+        state: next.state,
+        city: f.city,
+        dealType: next.dealType,
+      });
+      next.buyerLens = detection.buyerKey;
+      setBuyerDetection(detection);
+
       setInputs(next);
       setExtractionMeta({
         confidence: data.confidence,
@@ -495,7 +517,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
         tokenUsage: data.tokenUsage,
       });
       setSavedId(null);
-      if (notify) notify(`OM extracted · ${file.name} · ${(data.elapsedMs / 1000).toFixed(1)}s · confidence ${((data.confidence || 0) * 100).toFixed(0)}%`, "success");
+      if (notify) notify(`OM extracted · ${file.name} · ${(data.elapsedMs / 1000).toFixed(1)}s · confidence ${((data.confidence || 0) * 100).toFixed(0)}% · buyer auto-detected: ${detection.buyerKey} (${detection.confidence})`, "success");
 
       // ── PSA-grade auto-enrichment (parallel to user reviewing extracted fields)
       // Pulls what a PSA underwriter pulls manually: ESRI 1-3-5 demographics,
@@ -672,7 +694,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
       <OMDropZone onFile={handleOMFile} extracting={extracting} meta={extractionMeta} />
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 20, alignItems: "flex-start" }}>
-        <FormPanel inputs={inputs} setField={setField} />
+        <FormPanel inputs={inputs} setField={setField} buyerDetection={buyerDetection} />
         <OutputsPanel
           analysis={analysis}
           psLens={psLens}
@@ -840,8 +862,51 @@ const btnPrimary = {
   fontFamily: "'Inter', sans-serif",
 };
 
+// ─── Buyer Detection Badge ────────────────────────────────────────────────
+//
+// Renders under the buyerLens dropdown when OM extraction triggered auto-
+// detection. Shows the winning signal evidence so analysts can see WHY a
+// particular lens was picked and audit/override if needed.
+function BuyerDetectionBadge({ detection }) {
+  if (!detection) return null;
+  const { buyerKey, confidence, defaulted, signals } = detection;
+  const winningSignals = (signals || [])
+    .filter((s) => s.buyer === buyerKey && s.weight > 0)
+    .sort((a, b) => b.weight - a.weight);
+  const evidence = defaulted
+    ? "no decisive signals — defaulted to PS lens"
+    : (winningSignals[0]?.evidence || "multiple signals");
+
+  const confColors = {
+    HIGH: { fg: "#22C55E", bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.40)" },
+    MEDIUM: { fg: "#C9A84C", bg: "rgba(201,168,76,0.10)", border: "rgba(201,168,76,0.40)" },
+    LOW: { fg: "#94A3B8", bg: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.30)" },
+  };
+  const c = confColors[confidence] || confColors.LOW;
+
+  return (
+    <div
+      style={{
+        marginTop: 6,
+        padding: "6px 10px",
+        background: c.bg,
+        border: `1px solid ${c.border}`,
+        borderRadius: 4,
+        fontSize: 10,
+        color: "#94A3B8",
+        lineHeight: 1.4,
+      }}
+    >
+      <span style={{ fontWeight: 800, color: c.fg, letterSpacing: "0.04em", textTransform: "uppercase", marginRight: 6 }}>
+        ⚡ AUTO-DETECTED · {buyerKey} ({confidence})
+      </span>
+      <span style={{ color: "#94A3B8" }}>{evidence}</span>
+    </div>
+  );
+}
+
 // ─── Form Panel ───────────────────────────────────────────────────────────
-function FormPanel({ inputs, setField }) {
+function FormPanel({ inputs, setField, buyerDetection }) {
   return (
     <div style={card}>
       <div style={sectionHeader}>Inputs</div>
@@ -871,6 +936,12 @@ function FormPanel({ inputs, setField }) {
                   placeholder={f.placeholder}
                   style={inputBase}
                 />
+              )}
+              {/* AUTO-DETECTED badge — surfaces under the buyerLens dropdown
+                  whenever an OM upload triggered detection. Shows the winning
+                  signal evidence so analysts can audit the auto-pick. */}
+              {f.key === "buyerLens" && buyerDetection && (
+                <BuyerDetectionBadge detection={buyerDetection} />
               )}
             </div>
           ))}
