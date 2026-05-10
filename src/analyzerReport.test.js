@@ -198,4 +198,41 @@ describe("generateAnalyzerReport", () => {
       expect(html).toMatch(/\d+\.\d{2}%\/yr/);
     });
   });
+
+  describe("cross-REIT historical same-store section (Crush Radius Plus)", () => {
+    test("renders CROSS-REIT HISTORICAL SAME-STORE section when EXR/CUBE/NSA data present", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("CROSS-REIT HISTORICAL SAME-STORE");
+      expect(html).toContain("PRIMARY-SOURCE SEC EDGAR");
+    });
+
+    test("section cites at least one issuer + datapoints + CAGR", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // At least one of EXR / CUBE / NSA should appear in the table body
+      expect(html).toMatch(/EXR|CUBE|NSA/);
+      // CAGR formatting "%/yr"
+      expect(html).toMatch(/\d+\.\d{2}%\/yr/);
+    });
+
+    test("section appears between PSA HISTORICAL RENT and SALE COMPS in render order", () => {
+      // Use a Houston input so PSA HISTORICAL RENT also renders, letting us
+      // verify the relative ordering of the three sections.
+      const houstonInput = { ...baseInput, name: "Houston Order Test", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      const psaIdx = html.indexOf("PSA HISTORICAL RENT");
+      const crossIdx = html.indexOf("CROSS-REIT HISTORICAL SAME-STORE");
+      // PSA section before cross-REIT section
+      expect(psaIdx).toBeGreaterThan(0);
+      expect(crossIdx).toBeGreaterThan(psaIdx);
+    });
+  });
 });

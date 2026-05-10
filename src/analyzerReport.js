@@ -3,6 +3,8 @@ import {
   resolveCityToMSA,
   getHistoricalMSARentSeries,
   getHistoricalRentMetadata,
+  getHistoricalSameStoreSeries,
+  getCrossREITHistoricalLatest,
 } from "./data/edgarCompIndex";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
@@ -390,6 +392,70 @@ function renderHistoricalMSARents({ snapshot }) {
     </table>
     <div style="margin-top:10px;font-size:9pt;color:#475569;">
       <b>Source:</b> ${safe(tooltipLine)}${meta ? ` · ${meta.timeSeriesRows} MSA series ingested · last refresh ${meta.generatedAt?.slice(0, 10)}` : ""}
+    </div>
+  </div>
+</section>`;
+}
+
+function renderCrossREITHistoricalSameStore() {
+  const latest = getCrossREITHistoricalLatest();
+  if (!latest || !latest.contributingIssuers || latest.contributingIssuers.length === 0) {
+    return "";
+  }
+
+  // Pull per-issuer rent-per-SF series for the cite-able mini-tables
+  const issuerRows = latest.contributingIssuers
+    .map((iss) => ({
+      issuer: iss,
+      rent: getHistoricalSameStoreSeries(iss, "sameStoreRentPerSF"),
+      occ: getHistoricalSameStoreSeries(iss, "sameStoreOccupancyEOP"),
+    }))
+    .filter((row) => row.rent || row.occ);
+
+  if (issuerRows.length === 0) return "";
+
+  const fmtPct1 = (v) => (v == null || !isFinite(v) ? "—" : `${(v * 100).toFixed(1)}%`);
+  const fmtRentVal = (v) => (v == null || !isFinite(v) ? "—" : `$${v.toFixed(2)}`);
+  const fmtCagr = (v) => (v == null || !isFinite(v) ? "—" : `${v.toFixed(2)}%/yr`);
+
+  return `
+<section class="page section">
+  <h2 class="section-h">CROSS-REIT HISTORICAL SAME-STORE — PORTFOLIO-AGGREGATE CONTEXT</h2>
+  <div class="sanity-card" style="border-color:#1E276140;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:#1E2761;color:#C9A84C">PRIMARY-SOURCE SEC EDGAR · CROSS-REIT</div>
+    <div class="sanity-message">
+      Multi-year portfolio-aggregate same-store performance for the institutional storage REITs that disclose at portfolio level (EXR, CUBE, NSA do not break out by MSA in their MD&A — these are the closest possible primary-source historical citations for non-PSA-specific buyer lenses). Cross-REIT FY${safe(latest.asOf)} averages: rent per occupied SF ${fmtRentVal(latest.avgSameStoreRentPerSF)} · occupancy ${fmtPct1(latest.avgSameStoreOccupancyEOP)} · revenue YoY ${fmtPct1(latest.avgSameStoreRevenueGrowthYoY)} · NOI YoY ${fmtPct1(latest.avgSameStoreNOIGrowthYoY)}.
+    </div>
+    <table class="data-table" style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th class="th-name">Issuer</th>
+          <th class="th-num">Rent / Occ SF — first yr</th>
+          <th class="th-num">Rent / Occ SF — last yr</th>
+          <th class="th-num">5-yr CAGR</th>
+          <th class="th-num">Datapoints</th>
+          <th class="th-num">Occ first yr</th>
+          <th class="th-num">Occ last yr</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${issuerRows.map((row) => {
+          const r = row.rent;
+          const o = row.occ;
+          return `<tr>
+            <td class="td-name">${safe(row.issuer)}</td>
+            <td class="td-num">${r ? `FY${r.firstYear} ${fmtRentVal(r.firstValue)}` : "—"}</td>
+            <td class="td-num">${r ? `FY${r.lastYear} ${fmtRentVal(r.lastValue)}` : "—"}</td>
+            <td class="td-num">${r ? fmtCagr(r.cagrPct) : "—"}</td>
+            <td class="td-num">${r ? r.dataPoints : "—"}</td>
+            <td class="td-num">${o ? `FY${o.firstYear} ${fmtPct1(o.firstValue)}` : "—"}</td>
+            <td class="td-num">${o ? `FY${o.lastYear} ${fmtPct1(o.lastValue)}` : "—"}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:9pt;color:#475569;">
+      <b>Source:</b> SEC EDGAR 10-K MD&amp;A · Same-Store Performance disclosures · ${safe(latest.contributingIssuers.join(" + "))} · ingested via Storvex/scripts/edgar/backfill-historical-same-store.mjs.
     </div>
   </div>
 </section>`;
@@ -1139,6 +1205,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderValuationMatrix({ analysis, snapshot })}
   ${renderRentSanity({ rentSanity })}
   ${renderHistoricalMSARents({ snapshot })}
+  ${renderCrossREITHistoricalSameStore()}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}
