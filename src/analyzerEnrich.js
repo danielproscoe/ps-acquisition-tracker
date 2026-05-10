@@ -12,7 +12,7 @@
 // no Firebase writes, no DOM, no React.
 
 import { haversine } from "./haversine";
-import { enrichNearbyCompetitors, getMSARentBand, getBestRentBand, resolveCityToMSA, getECRIPremiumIndex } from "./data/edgarCompIndex";
+import { enrichNearbyCompetitors, getMSARentBand, getBestRentBand, resolveCityToMSA, getECRIPremiumIndex, getScrapedMSARentMedian, getScrapedRentIndexMetadata } from "./data/edgarCompIndex";
 import { getRentForecast } from "./data/rentForecast";
 
 const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
@@ -166,17 +166,24 @@ export async function loadPSFamilyFacilities() {
     const nameIdx = header.findIndex((h) => /^(name|facility|location)/.test(h));
     const cityIdx = header.findIndex((h) => /^city$/.test(h));
     const stateIdx = header.findIndex((h) => /^state$/.test(h));
+    const numIdx = header.findIndex((h) => /^num$/.test(h));
     if (latIdx < 0 || lngIdx < 0) return;
     for (let i = 1; i < lines.length; i++) {
       const cells = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
       const lat = parseFloat(cells[latIdx]);
       const lng = parseFloat(cells[lngIdx]);
       if (isNaN(lat) || isNaN(lng)) continue;
+      // PSA "num" format: "PS #00809" → extract numeric ID "809" for joining
+      // with scraped facility records keyed by facilityId.
+      const numStr = numIdx >= 0 ? cells[numIdx] : "";
+      const idMatch = String(numStr).match(/(\d+)\s*$/);
+      const facilityId = idMatch ? String(parseInt(idMatch[1], 10)) : null;
       facilities.push({
         brand,
         name: nameIdx >= 0 ? cells[nameIdx] : "",
         city: cityIdx >= 0 ? cells[cityIdx] : "",
         state: stateIdx >= 0 ? cells[stateIdx] : "",
+        facilityId,
         lat,
         lng,
       });
@@ -349,10 +356,26 @@ export async function enrichAssetAnalysis(input) {
     horizons: [0, 1, 3, 5],
   });
 
+  // Scraped MSA rent — primary-source per-facility unit pricing from PSA
+  // Schema.org SelfStorage entities. Available where the scraper has run.
+  // The scraper labels MSAs slightly differently than PSA's MD&A taxonomy
+  // ("Austin TX" vs "Austin"), so try a few variants when matching.
+  let scrapedMSARent = null;
+  if (input.state) {
+    const candidates = subjectMSA
+      ? [subjectMSA, `${subjectMSA} ${input.state}`, `${input.city || ""} ${input.state}`.trim()]
+      : [`${input.city || ""} ${input.state}`.trim()];
+    for (const candidate of candidates) {
+      scrapedMSARent = getScrapedMSARentMedian(candidate);
+      if (scrapedMSARent) break;
+    }
+  }
+  const scrapedRentMetadata = getScrapedRentIndexMetadata();
+
   return {
     coords, demographics, psFamily, marketRents, competitors,
     subjectMSA, msaRentBand, bestRentBand, ecriIndex,
-    rentForecast,
+    rentForecast, scrapedMSARent, scrapedRentMetadata,
     errors, generatedAt: new Date().toISOString(),
   };
 }

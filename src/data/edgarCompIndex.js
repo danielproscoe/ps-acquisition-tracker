@@ -16,6 +16,17 @@ import sameStoreGrowth from "./edgar-same-store-growth.json";
 import transactions8K from "./edgar-8k-transactions-claude.json";
 import rentCalibration from "./edgar-rent-calibration.json";
 
+// Scraped per-facility rents — primary-source unit pricing pulled from PSA's
+// Schema.org SelfStorage entities on facility detail pages. Optional —
+// availability depends on whether the scraper has run for the subject MSA.
+let scrapedRentIndex = null;
+try {
+  // eslint-disable-next-line global-require
+  scrapedRentIndex = require("./psa-scraped-rent-index.json");
+} catch {
+  // Optional asset; absent on fresh checkouts where scraper hasn't run.
+}
+
 /**
  * Look up the cross-REIT institutional cost basis for a US state.
  *
@@ -537,6 +548,68 @@ export function resolveCityToMSA(cityName, stateCode = null) {
 }
 
 /**
+ * Look up scraped per-facility unit rents from the PSA facility scraper.
+ *
+ * The scraper crawls PSA's Schema.org SelfStorage entities on facility
+ * detail pages and extracts current move-in pricing per unit type. Coverage
+ * depends on which MSAs have been crawled; check the scraper output's
+ * msaAggregations array.
+ *
+ * @param {string} facilityId — PSA facility ID (e.g., "809" from URL
+ *                              `/self-storage-tx-austin/809.html`)
+ * @returns {Object|null} {
+ *     facilityId, address, city, state, zip, lat, lng, msa,
+ *     ccMedianPerSF_mo, ccLowPerSF_mo, ccHighPerSF_mo,
+ *     duMedianPerSF_mo, duLowPerSF_mo, duHighPerSF_mo,
+ *     unitListings, ccUnitsAvailable, duUnitsAvailable,
+ *     scrapedAt, units: [...] (full per-unit detail)
+ *   } or null if no scrape data exists for this facility.
+ */
+export function getScrapedFacilityRents(facilityId) {
+  if (!scrapedRentIndex || !facilityId) return null;
+  return scrapedRentIndex.facilityIndex?.[String(facilityId)] || null;
+}
+
+/**
+ * Get the scraped MSA-level median CC + DU rent + cross-validation result
+ * (scraped median vs PSA MD&A-disclosed in-place rent).
+ *
+ * @param {string} msaName — MSA name as labeled by the scraper
+ *                          (e.g., "Austin TX", "Los Angeles")
+ * @returns {Object|null} {
+ *     msa, facilitiesScraped, totalUnitListings,
+ *     ccMedianPerSF_mo, ccLowPerSF_mo, ccHighPerSF_mo, duMedianPerSF_mo,
+ *     crossValidation: {
+ *       psaDisclosedAnnualPerSF, psaImpliedMonthlyCC, psaImpliedMonthlyDU,
+ *       scrapedMedianCC, scrapedMedianDU, ccDeltaPct,
+ *       sanityGatePassed, basis, interpretation
+ *     }
+ *   } or null if MSA not scraped.
+ */
+export function getScrapedMSARentMedian(msaName) {
+  if (!scrapedRentIndex || !msaName) return null;
+  return (scrapedRentIndex.msaAggregations || []).find((m) => m.msa === msaName) || null;
+}
+
+/**
+ * Returns metadata about the scraped rent index — what's been scraped,
+ * when, and from how many facilities.
+ */
+export function getScrapedRentIndexMetadata() {
+  if (!scrapedRentIndex) return null;
+  return {
+    schema: scrapedRentIndex.schema,
+    generatedAt: scrapedRentIndex.generatedAt,
+    sourceScrapeFile: scrapedRentIndex.sourceScrapeFile,
+    scrapeGeneratedAt: scrapedRentIndex.scrapeGeneratedAt,
+    citationRule: scrapedRentIndex.citationRule,
+    methodology: scrapedRentIndex.methodology,
+    totals: scrapedRentIndex.totals,
+    msasScraped: (scrapedRentIndex.msaAggregations || []).map((m) => m.msa),
+  };
+}
+
+/**
  * Compute per-facility cost basis allocation for a single PS family facility,
  * using PSA's Schedule III MSA aggregate when available, falling back to
  * state-weighted PSF.
@@ -601,7 +674,8 @@ export function estimateFacilityCostBasis(facility) {
 /**
  * Build the full enrichment for a single competitor facility — distance to
  * subject, cost-basis estimate from Schedule III, rent estimate from the
- * EDGAR rent calibration. Pure function — caller supplies subject coords.
+ * EDGAR rent calibration, AND scraped per-facility unit rents when available.
+ * Pure function — caller supplies subject coords.
  */
 export function enrichCompetitor(facility, subjectLat, subjectLng, haversineFn, options = {}) {
   if (!facility?.lat || !facility?.lng || typeof haversineFn !== "function") return null;
@@ -618,6 +692,13 @@ export function enrichCompetitor(facility, subjectLat, subjectLng, haversineFn, 
   if (!rent && stateCode) {
     rent = getStateRentBand(stateCode, { fallbackToNational: true });
   }
+
+  // Scraped per-facility rents — primary-source unit-level pricing from PSA's
+  // Schema.org SelfStorage entities. Match by facilityId when caller supplies
+  // it (PS-branded facilities can be matched via name parsing or external
+  // ID join). For NSA / iStorage / non-PS family facilities, scraped data is
+  // not yet available — future sprints expand to those operators.
+  const scraped = facility.facilityId ? getScrapedFacilityRents(facility.facilityId) : null;
 
   return {
     brand: facility.brand,
@@ -638,6 +719,21 @@ export function enrichCompetitor(facility, subjectLat, subjectLng, haversineFn, 
     rentSource: rent?.source ?? null,
     rentConfidence: rent?.confidence ?? null,
     rentCitations: rent?.citations ?? [],
+    // Scraped per-facility data (when available) — overrides estimated rent
+    // with primary-source move-in pricing
+    scrapedRents: scraped ? {
+      ccMedianPerSF_mo: scraped.ccMedianPerSF_mo,
+      ccLowPerSF_mo: scraped.ccLowPerSF_mo,
+      ccHighPerSF_mo: scraped.ccHighPerSF_mo,
+      duMedianPerSF_mo: scraped.duMedianPerSF_mo,
+      ccUnitsAvailable: scraped.ccUnitsAvailable,
+      duUnitsAvailable: scraped.duUnitsAvailable,
+      unitListings: scraped.unitListings,
+      facilityUrl: scraped.facilityUrl,
+      scrapedAt: scraped.scrapedAt,
+      source: "PSA facility detail page (Schema.org SelfStorage entity)",
+    } : null,
+    hasScrapedData: !!scraped,
   };
 }
 

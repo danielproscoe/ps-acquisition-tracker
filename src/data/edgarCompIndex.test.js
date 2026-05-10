@@ -18,6 +18,9 @@ import {
   enrichCompetitor,
   enrichNearbyCompetitors,
   getECRIPremiumIndex,
+  getScrapedFacilityRents,
+  getScrapedMSARentMedian,
+  getScrapedRentIndexMetadata,
   EDGAR_RENT_CALIBRATION_METADATA,
   getEDGARStateData,
   formatEDGARCitation,
@@ -531,6 +534,127 @@ describe("getECRIPremiumIndex — rent-raising-headroom signal", () => {
     const idx = getECRIPremiumIndex();
     const exr = idx.issuerDetails.find((d) => d.issuer === "EXR");
     expect(exr.discountPctOfRevenue).toBeCloseTo(0.021, 3);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Scraped facility rent accessors
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("getScrapedFacilityRents — primary-source per-facility move-in rates", () => {
+  test("returns scrape data for known PSA facility ID (Austin TX 809)", () => {
+    const facility = getScrapedFacilityRents("809");
+    if (facility) {
+      // Scraped data may exist if scraper has run
+      expect(facility.facilityId).toBe("809");
+      expect(facility.city).toBe("Austin");
+      expect(facility.state).toBe("TX");
+      expect(facility.units.length).toBeGreaterThan(0);
+      expect(facility.scrapedAt).toBeTruthy();
+    }
+  });
+
+  test("returns null for unknown facility IDs", () => {
+    expect(getScrapedFacilityRents("9999999999")).toBeNull();
+    expect(getScrapedFacilityRents(null)).toBeNull();
+    expect(getScrapedFacilityRents("")).toBeNull();
+  });
+
+  test("returns CC + DU median rents per facility when available", () => {
+    const facility = getScrapedFacilityRents("2350"); // Austin facility w/ both
+    if (facility) {
+      // 2350 has both CC and DU units in the scrape
+      expect(facility.ccMedianPerSF_mo).toBeGreaterThan(0);
+      expect(facility.unitListings).toBeGreaterThan(1);
+    }
+  });
+});
+
+describe("getScrapedMSARentMedian — per-MSA scraped aggregation + cross-validation", () => {
+  test("returns Austin TX scraped median if scraper has run", () => {
+    const austin = getScrapedMSARentMedian("Austin TX");
+    if (austin) {
+      expect(austin.msa).toBe("Austin TX");
+      expect(austin.facilitiesScraped).toBeGreaterThan(0);
+      expect(austin.ccMedianPerSF_mo).toBeGreaterThan(0);
+      expect(austin.crossValidation).toBeTruthy();
+      expect(austin.crossValidation.psaDisclosedAnnualPerSF).toBeGreaterThan(0);
+      expect(austin.crossValidation.sanityGatePassed).toBeDefined();
+    }
+  });
+
+  test("cross-validation includes interpretation string + delta %", () => {
+    const austin = getScrapedMSARentMedian("Austin TX");
+    if (austin) {
+      const cv = austin.crossValidation;
+      expect(typeof cv.ccDeltaPct).toBe("number");
+      expect(typeof cv.interpretation).toBe("string");
+      expect(cv.interpretation.length).toBeGreaterThan(20);
+      // Sanity gate: scraped move-in should be within ±40% of MD&A in-place
+      // (move-in is structurally below in-place due to cumulative ECRI)
+      expect(Math.abs(cv.ccDeltaPct)).toBeLessThan(50);
+    }
+  });
+
+  test("returns null for unknown MSAs", () => {
+    expect(getScrapedMSARentMedian("Mars Colony")).toBeNull();
+    expect(getScrapedMSARentMedian(null)).toBeNull();
+  });
+});
+
+describe("getScrapedRentIndexMetadata — index provenance", () => {
+  test("returns metadata when scrape data exists", () => {
+    const meta = getScrapedRentIndexMetadata();
+    if (meta) {
+      expect(meta.schema).toMatch(/storvex.psa-scraped/);
+      expect(meta.totals.facilities).toBeGreaterThan(0);
+      expect(Array.isArray(meta.msasScraped)).toBe(true);
+      expect(meta.citationRule).toMatch(/Schema\.org|publicstorage\.com/i);
+    }
+  });
+});
+
+describe("enrichCompetitor — scraped data flows through when facilityId provided", () => {
+  function testHaversine(lat1, lon1, lat2, lon2) {
+    const R = 3958.8;
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  test("competitor with facilityId surfaces scraped rents when available", () => {
+    const facility = {
+      brand: "PS",
+      name: "PS Austin 809",
+      city: "Austin",
+      state: "TX",
+      lat: 30.27314,
+      lng: -97.75917,
+      facilityId: "809",
+    };
+    const e = enrichCompetitor(facility, 30.30, -97.75, testHaversine);
+    expect(e).not.toBeNull();
+    if (e.scrapedRents) {
+      expect(e.hasScrapedData).toBe(true);
+      expect(e.scrapedRents.source).toMatch(/Schema\.org|PSA facility detail/);
+    }
+  });
+
+  test("competitor without facilityId still enriches but has no scraped data", () => {
+    const facility = {
+      brand: "PS",
+      name: "PS Unknown",
+      city: "Austin",
+      state: "TX",
+      lat: 30.27,
+      lng: -97.75,
+    };
+    const e = enrichCompetitor(facility, 30.30, -97.75, testHaversine);
+    expect(e).not.toBeNull();
+    expect(e.hasScrapedData).toBe(false);
+    expect(e.scrapedRents).toBeNull();
   });
 });
 

@@ -880,7 +880,7 @@ function EnrichmentCard({ enrichment, loading }) {
   }
   if (!enrichment) return null;
 
-  const { coords, demographics, psFamily, marketRents, competitors, subjectMSA, msaRentBand, bestRentBand, ecriIndex, rentForecast } = enrichment;
+  const { coords, demographics, psFamily, marketRents, competitors, subjectMSA, msaRentBand, bestRentBand, ecriIndex, rentForecast, scrapedMSARent } = enrichment;
   const hasData = coords || demographics || psFamily || marketRents || (competitors && competitors.length);
   if (!hasData) return null;
 
@@ -952,6 +952,45 @@ function EnrichmentCard({ enrichment, loading }) {
           </div>
         )}
       </div>
+
+      {/* Scraped MSA Rent — primary-source per-facility move-in rates from PSA Schema.org SelfStorage */}
+      {scrapedMSARent && scrapedMSARent.crossValidation && (
+        <div style={{ marginTop: 14, padding: 12, background: "rgba(168, 85, 247, 0.08)", border: `1px solid #A855F755`, borderRadius: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: "#A855F7", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              🎯 PRIMARY-SOURCE MOVE-IN RATES · {scrapedMSARent.msa} · {scrapedMSARent.facilitiesScraped} facilities · {scrapedMSARent.totalUnitListings} units
+            </div>
+            <span style={{ fontSize: 8, color: "#64748B" }}>scraped from PSA facility detail pages</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>CC Median (move-in)</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#A855F7", fontFamily: "'Space Mono', monospace" }}>${scrapedMSARent.ccMedianPerSF_mo?.toFixed(2)}/mo</div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>range ${scrapedMSARent.ccLowPerSF_mo?.toFixed(2)} - ${scrapedMSARent.ccHighPerSF_mo?.toFixed(2)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>DU Median (move-in)</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>${scrapedMSARent.duMedianPerSF_mo?.toFixed(2) || "—"}/mo</div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>{scrapedMSARent.facilitiesWithDU} facilities w/ DU</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>PSA MD&A In-Place</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>${scrapedMSARent.crossValidation.psaImpliedMonthlyCC?.toFixed(2)}/mo CC</div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>${scrapedMSARent.crossValidation.psaDisclosedAnnualPerSF}/SF/yr disclosed</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>Move-In vs In-Place</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: scrapedMSARent.crossValidation.sanityGatePassed ? "#22C55E" : "#EF4444", fontFamily: "'Space Mono', monospace" }}>
+                {scrapedMSARent.crossValidation.ccDeltaPct > 0 ? "+" : ""}{scrapedMSARent.crossValidation.ccDeltaPct?.toFixed(1)}%
+              </div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>{scrapedMSARent.crossValidation.sanityGatePassed ? "✓ sanity gate" : "✗ deviation"}</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 9, color: "#64748B", lineHeight: 1.4 }}>
+            {scrapedMSARent.crossValidation.interpretation} The move-in vs in-place gap is the ECRI lift opportunity (existing customers pay above-market because of cumulative annual rate increases).
+          </div>
+        </div>
+      )}
 
       {/* Rent Forecast — Y0/Y1/Y3/Y5 trajectory under base/upside/downside scenarios per buyer lens */}
       {rentForecast && rentForecast.trajectories && (
