@@ -10,6 +10,7 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
 import { computeBuyerLens, PS_LENS, BUYER_LENSES, BUYER_LENS_ORDER, DEFAULT_BUYER_KEY, getBuyerLens, computeAllBuyerLenses, computePlatformFitDelta } from "../buyerLensProfiles";
 import { detectBuyer, formatDetectionBadge } from "../buyerDetection";
+import { RECIPIENTS, RECIPIENT_OPTIONS, getRecipient, resolveRecipientLens } from "../recipientProfiles";
 import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
 import { openAnalyzerReport } from "../analyzerReport";
@@ -343,6 +344,10 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   // completes. Null until first OM upload (or after Clear). Renders the
   // AUTO-DETECTED badge next to the buyer dropdown.
   const [buyerDetection, setBuyerDetection] = useState(null);
+  // Pitch target — when set, brands the Goldman PDF for a specific institutional
+  // recipient (Reza / Aaron / Jennifer / Custom). Selecting a recipient also
+  // auto-applies their default underwriting lens.
+  const [pitchTarget, setPitchTarget] = useState(null);
 
   // Persist on every analyzer-state change so navigating away and back (Methodology
   // → Asset Analyzer, etc.) restores the loaded deal. Transient flags (saving,
@@ -354,6 +359,22 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
   const setField = useCallback((key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
     setSavedId(null);
+  }, []);
+
+  // Pitch-target handler — selects a recipient + auto-applies their default
+  // lens. Reza → PS · Aaron / Jennifer → AMERCO · Custom → keeps current lens.
+  const handlePitchTargetChange = useCallback((targetKey) => {
+    if (!targetKey) {
+      setPitchTarget(null);
+      return;
+    }
+    const recipient = getRecipient(targetKey);
+    setPitchTarget(targetKey);
+    if (recipient && recipient.defaultLens && targetKey !== "custom") {
+      // Auto-apply recipient's default lens (skip for "custom" — leave whatever
+      // the analyst already picked).
+      setInputs((prev) => ({ ...prev, buyerLens: recipient.defaultLens }));
+    }
   }, []);
 
   const loadDemo = useCallback(() => {
@@ -618,24 +639,25 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
         dealId: savedId || null,
         multiLensRows,
         platformFitDelta,
+        pitchTarget,
       });
       downloadWarehousePayload(payload, payload.subject?.name || analysis.snapshot?.name);
       if (notify) notify("Exported · structured JSON ready for data warehouse ingestion", "success");
     } catch (e) {
       if (notify) notify(`Export failed: ${e.message || e}`, "error");
     }
-  }, [analysis, psLens, enrichment, extractionMeta, memo, savedId, multiLensRows, platformFitDelta, notify]);
+  }, [analysis, psLens, enrichment, extractionMeta, memo, savedId, multiLensRows, platformFitDelta, pitchTarget, notify]);
 
   // ── Export Report — Goldman-exec PDF deliverable (opens in new tab, browser prints)
   const handleExportReport = useCallback(() => {
     if (!analysis) return;
     try {
-      openAnalyzerReport({ analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta });
+      openAnalyzerReport({ analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta, pitchTarget });
       if (notify) notify("Report opened in new tab · click 'Save as PDF' to print", "success");
     } catch (e) {
       if (notify) notify(`Report failed: ${e.message || e}`, "error");
     }
-  }, [analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta, notify]);
+  }, [analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta, pitchTarget, notify]);
 
   const handleSave = useCallback(async () => {
     if (!analysis || !fbSet) return;
@@ -705,6 +727,8 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
         canExport={!!analysis}
         saving={saving}
         savedId={savedId}
+        pitchTarget={pitchTarget}
+        onPitchTargetChange={handlePitchTargetChange}
       />
       <OMDropZone onFile={handleOMFile} extracting={extracting} meta={extractionMeta} />
 
@@ -813,7 +837,7 @@ function OMDropZone({ onFile, extracting, meta }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────────────────
-function Header({ onLoadDemo, onLoadGreenville, onLoadTallahassee, onClear, onSave, onExport, onExportReport, canSave, canExport, saving, savedId }) {
+function Header({ onLoadDemo, onLoadGreenville, onLoadTallahassee, onClear, onSave, onExport, onExportReport, canSave, canExport, saving, savedId, pitchTarget, onPitchTargetChange }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
       <div>
@@ -839,13 +863,34 @@ function Header({ onLoadDemo, onLoadGreenville, onLoadTallahassee, onClear, onSa
         >
           ⤓ Push to Warehouse
         </button>
+        {/* Pitch-to dropdown — selecting a recipient auto-applies their lens
+            and brands the Goldman PDF cover for them. */}
+        <select
+          value={pitchTarget || ""}
+          onChange={(e) => onPitchTargetChange(e.target.value || null)}
+          style={{
+            ...btnGhost,
+            color: pitchTarget ? "#A855F7" : "#94A3B8",
+            borderColor: pitchTarget ? "rgba(168,85,247,0.5)" : "rgba(148,163,184,0.30)",
+            background: pitchTarget ? "rgba(168,85,247,0.10)" : "rgba(148,163,184,0.05)",
+            fontWeight: pitchTarget ? 700 : 500,
+            paddingRight: 26,
+            cursor: "pointer",
+          }}
+          title="Brand the Goldman PDF for a specific institutional recipient · auto-applies their default underwriting lens"
+        >
+          <option value="">🎯 Pitch to…</option>
+          {RECIPIENT_OPTIONS.map((opt) => (
+            <option key={opt.key} value={opt.key}>{opt.label}</option>
+          ))}
+        </select>
         <button
           onClick={onExportReport}
           disabled={!canExport}
           style={{ ...btnGhost, opacity: !canExport ? 0.5 : 1, cursor: !canExport ? "not-allowed" : "pointer", color: GOLD, borderColor: `${GOLD}66`, background: "rgba(201,168,76,0.10)", fontWeight: 700 }}
-          title="Open Goldman-exec institutional report in a new tab · browser handles Save-as-PDF"
+          title={pitchTarget ? `Open pitch-mode Goldman PDF for ${getRecipient(pitchTarget)?.recipientName || "recipient"}` : "Open Goldman-exec institutional report in a new tab · browser handles Save-as-PDF"}
         >
-          📄 Export Report
+          📄 {pitchTarget && pitchTarget !== "custom" ? `Pitch · ${getRecipient(pitchTarget)?.recipientName?.split(" ")[0] || "Custom"}` : "Export Report"}
         </button>
         <button
           onClick={onSave}

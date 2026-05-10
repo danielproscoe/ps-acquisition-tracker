@@ -1,3 +1,5 @@
+import { getRecipient } from "./recipientProfiles";
+
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
 // Renders a full institutional-grade printable HTML document from a single
@@ -43,13 +45,29 @@ const docIdFrom = (snapshot) => {
 
 // ─── Section renderers ─────────────────────────────────────────────────────
 
-function renderCover({ snapshot, verdict, ps, msaTier, dealType, docId }) {
+function renderCover({ snapshot, verdict, ps, msaTier, dealType, docId, recipient }) {
   const verdictColor = verdict.label === "PURSUE" ? "#22C55E" : verdict.label === "NEGOTIATE" ? "#F59E0B" : "#EF4444";
   const cap = ps?.marketCap || 0;
+  const lensTicker = ps?.lens?.ticker || null;
+  const lensName = ps?.lens?.name || null;
+  // Pitch-mode cover gets a personalized "PITCH FOR [Name]" strip and an
+  // institutional greeting paragraph. Otherwise rendered as standard.
+  const pitchStrip = recipient && recipient.recipientName ? `
+  <div class="pitch-strip" style="border-bottom:2px solid #A855F7;background:linear-gradient(135deg,rgba(168,85,247,0.18),rgba(15,21,56,0.6));padding:18pt 32pt 14pt;color:#fff;">
+    <div style="font-size:9pt;font-weight:800;color:#A855F7;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4pt;">⚡ Pitch · For Institutional Review</div>
+    <div style="font-size:18pt;font-weight:900;color:#fff;line-height:1.1;">${safe(recipient.recipientName)}</div>
+    <div style="font-size:11pt;font-weight:600;color:#C9A84C;margin-top:2pt;">${safe(recipient.role)} · ${safe(recipient.firm)}</div>
+    ${lensTicker ? `<div style="font-size:9pt;color:#94A3B8;margin-top:6pt;">Underwritten through <b style="color:#fff">${safe(lensTicker)} lens</b> — ${safe(lensName)}</div>` : ""}
+  </div>` : "";
+  const greetingBlock = recipient && recipient.greeting ? `
+    <div class="cover-greeting" style="margin-top:18pt;padding:14pt 18pt;background:rgba(168,85,247,0.06);border-left:3px solid #A855F7;border-radius:4pt;font-size:11pt;line-height:1.55;color:#E2E8F0;">
+      ${safe(recipient.greeting)}
+    </div>` : "";
   return `
 <section class="cover">
+  ${pitchStrip}
   <div class="cover-strip">
-    <div class="brand">STORVEX <span class="gold">PS</span></div>
+    <div class="brand">STORVEX${recipient && recipient.firm ? ` <span class="gold">· ${safe(lensTicker || "")}</span>` : ` <span class="gold">PS</span>`}</div>
     <div class="cover-meta">
       <div>INSTITUTIONAL ACQUISITION ANALYSIS</div>
       <div class="doc-id">${docId} · ${todayStr()}</div>
@@ -70,6 +88,8 @@ function renderCover({ snapshot, verdict, ps, msaTier, dealType, docId }) {
       </div>
     </div>
 
+    ${greetingBlock}
+
     <div class="cover-tiles">
       <div class="cover-tile"><div class="t-l">Ask</div><div class="t-v">${fmt$(snapshot.ask)}</div></div>
       <div class="cover-tile"><div class="t-l">Cap on Ask</div><div class="t-v">${fmtPct(snapshot.capOnAsk, 2)}</div></div>
@@ -78,8 +98,8 @@ function renderCover({ snapshot, verdict, ps, msaTier, dealType, docId }) {
     </div>
 
     <div class="cover-prepared">
-      <div>PREPARED BY</div>
-      <div class="prep-firm">DJR REAL ESTATE LLC · Storvex PS Asset Analyzer</div>
+      <div>PREPARED ${recipient && recipient.recipientName ? "FOR " + safe(recipient.recipientName).toUpperCase() + " · " : ""}BY</div>
+      <div class="prep-firm">DJR REAL ESTATE LLC · Storvex${lensTicker ? " · " + safe(lensTicker) + " Lens" : " PS"} Asset Analyzer</div>
       <div class="prep-contact">Daniel P. Roscoe · Droscoe@DJRrealestate.com · 312.805.5996</div>
     </div>
   </div>
@@ -893,7 +913,7 @@ function reportCSS() {
  * @param {Object} [args.memo]       — IC memo from /api/analyzer-memo
  * @returns {string} full HTML document
  */
-export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta }) {
+export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta, pitchTarget }) {
   if (!analysis || !analysis.snapshot) throw new Error("analysis with snapshot required");
   const { snapshot } = analysis;
   const verdict = (psLens && psLens.verdict) ? psLens.verdict : analysis.verdict;
@@ -917,7 +937,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
     <button class="print-btn" onclick="window.print()">🖨 Save as PDF</button>
   </div>
 
-  ${renderCover({ snapshot, verdict, ps, msaTier: analysis.msaTier, dealType: analysis.dealType, docId })}
+  ${renderCover({ snapshot, verdict, ps, msaTier: analysis.msaTier, dealType: analysis.dealType, docId, recipient: pitchTarget && pitchTarget !== "custom" ? getRecipient(pitchTarget) : null })}
   ${renderExecSummary({ snapshot, verdict, ps, analysis, rentSanity })}
   ${renderVerdictKPIStrip({ verdict, ps, analysis })}
   ${renderYOCVerdict({ psLens: ps })}

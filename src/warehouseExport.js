@@ -36,7 +36,7 @@ const PS_LENS_VERSION = "PSA FY2025 10-K (FYE 2025-12-31)";
  * @param {string} [args.dealId]        — deal ID (Firebase key); auto-generated if absent
  * @returns {Object} warehouse payload
  */
-export function buildWarehousePayload({ analysis, psLens, enrichment, extractionMeta, memo, dealId, multiLensRows, platformFitDelta }) {
+export function buildWarehousePayload({ analysis, psLens, enrichment, extractionMeta, memo, dealId, multiLensRows, platformFitDelta, pitchTarget }) {
   if (!analysis || !analysis.snapshot) {
     throw new Error("analysis with snapshot required");
   }
@@ -349,6 +349,34 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
         dev_yoc_target: numOrNull(row.devYOCTarget),
       })),
       methodology: "For each registered buyer lens, runs computeBuyerLens(input, lens) which applies that lens's expense overrides + revenue adjustment + custom market cap to reconstruct the buyer's NOI and project Y3. Implied takedown price = Y3 NOI / lens.marketCap (the price each buyer would pay AT their own underwriting hurdle). Sorted DESC by implied takedown — top row is the natural institutional takeout. Platform-fit Δ = top - GENERIC. All constants trace to FY2025 10-K accession numbers (per-lens citation footnotes available in Goldman PDF).",
+    } : null,
+
+    // Pitch target — when set, the analyzer was run in pitch mode for a
+    // specific institutional recipient (Reza Mahdavian / Aaron Liken /
+    // Jennifer Settles / Custom). Branded the Goldman PDF cover and (where
+    // applicable) auto-applied that recipient's default underwriting lens.
+    // Downstream consumers can use this to filter / route / track which
+    // institutional buyers each analysis was tailored for.
+    pitch_target: pitchTarget ? {
+      key: pitchTarget,
+      // Embed recipient meta inline so warehouse readers don't need to
+      // cross-reference recipientProfiles.js.
+      ...(() => {
+        try {
+          // eslint-disable-next-line global-require
+          const { getRecipient } = require("./recipientProfiles");
+          const r = getRecipient(pitchTarget);
+          if (!r) return {};
+          return {
+            recipient_name: r.recipientName,
+            role: r.role,
+            firm: r.firm,
+            default_lens: r.defaultLens,
+          };
+        } catch {
+          return {};
+        }
+      })(),
     } : null,
 
     extraction: extractionMeta ? {
