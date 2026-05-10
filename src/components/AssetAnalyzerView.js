@@ -1083,6 +1083,11 @@ function OutputsPanel({ analysis, psLens, multiLensRows, platformFitDelta, ready
       <PSAVerdictHero psLens={psLens} analysis={analysis} />
       <YOCVerdictCard psLens={psLens} />
       <MultiLensComparisonCard rows={multiLensRows} platformFitDelta={platformFitDelta} ask={analysis.snapshot?.ask} />
+      <DevelopmentPipelineCard
+        nearby={enrichment?.pipelineNearby}
+        saturation={enrichment?.pipelineSaturation}
+        metadata={enrichment?.pipelineMetadata}
+      />
       <DealTypeBadge dealType={analysis.dealType} />
       {/* Rent sanity — independent SpareFoot cross-check on seller's implied EGI rate.
           Renders only when marketRents enrichment has completed. */}
@@ -2200,6 +2205,140 @@ function MultiLensComparisonCard({ rows, platformFitDelta, ask }) {
 
       <div style={{ marginTop: 10, fontSize: 10, color: "#64748B", lineHeight: 1.5 }}>
         Implied takedown price = Y3 stabilized NOI ÷ lens hurdle (the price each buyer would pay AT their own underwriting hurdle). Each lens applies its own opex ratios + brand premium + portfolio-fit bonus, so the same input deal produces different reconstructed NOIs and different prices. Constants per lens trace to FY2025 10-K accession # — citation footnotes available in the Goldman PDF report.
+      </div>
+    </div>
+  );
+}
+
+// ─── Development Pipeline Card ────────────────────────────────────────────
+//
+// Renders the institutional REIT pipeline within a 3-mi radius of the
+// subject site. Each row: operator, distance, NRSF, expected delivery,
+// status. Saturation verdict at top tells the analyst whether to haircut
+// Y3 NOI assumptions because of competing new supply.
+//
+// Saturation thresholds (from edgarCompIndex.assessPipelineSaturation):
+//   ≥ 100K SF CC in horizon → MATERIAL flag (Y3 occ −1pp, rent growth −1pp)
+//   50–100K SF CC          → MODERATE flag (watch absorption)
+//   < 50K SF or out-of-horizon → no flag
+//
+// Storvex flags but does NOT auto-adjust the Y3 NOI math — the analyst
+// makes the call based on the local trade-area dynamics.
+function DevelopmentPipelineCard({ nearby, saturation, metadata }) {
+  // Don't render when there's no enrichment yet OR no pipeline within radius
+  if (!nearby || !Array.isArray(nearby) || nearby.length === 0 || !saturation) {
+    return null;
+  }
+
+  const severityColor =
+    saturation.severity === "MATERIAL" ? "#EF4444" :
+    saturation.severity === "MODERATE" ? "#F59E0B" :
+    saturation.severity === "MINIMAL" ? "#94A3B8" :
+    "#94A3B8";
+  const severityBg =
+    saturation.severity === "MATERIAL" ? "rgba(239,68,68,0.10)" :
+    saturation.severity === "MODERATE" ? "rgba(245,158,11,0.10)" :
+    "rgba(148,163,184,0.06)";
+
+  const operatorColors = {
+    PSA: "#3B82F6",
+    PS: "#3B82F6",
+    EXR: "#10B981",
+    CUBE: "#F59E0B",
+    SMA: "#A855F7",
+    AMERCO: "#F97316",
+    UHAL: "#F97316",
+  };
+
+  return (
+    <div style={{ ...card, background: `linear-gradient(135deg, ${severityBg}, rgba(15,21,56,0.6))`, border: `1.5px solid ${severityColor}55`, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: severityColor, textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 4 }}>
+            🏗️ NEW-SUPPLY PIPELINE · 3-MI RADIUS · {saturation.severity}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+            {saturation.verdict.replace(/^./, (c) => c.toUpperCase())}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ textAlign: "right", padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, minWidth: 130 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>CC SF in Horizon</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: severityColor, fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+              {saturation.ccNRSFInHorizon ? `${(saturation.ccNRSFInHorizon / 1000).toFixed(0)}K` : "—"}
+            </div>
+            <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>{saturation.facilitiesInHorizon} facilities · Y1-Y3</div>
+          </div>
+          <div style={{ textAlign: "right", padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Total Pipeline</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+              {saturation.totalNRSF ? `${(saturation.totalNRSF / 1000).toFixed(0)}K` : "0"}
+            </div>
+            <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>{saturation.facilityCount} facilities · all years</div>
+          </div>
+        </div>
+      </div>
+
+      <table style={{ width: "100%", fontSize: 12, fontFamily: "'Inter', sans-serif", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ color: "#64748B", borderBottom: `1px solid ${severityColor}33` }}>
+            <th style={{ textAlign: "left", padding: "5px 6px", fontWeight: 700, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Operator</th>
+            <th style={{ textAlign: "left", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>Location</th>
+            <th style={{ textAlign: "right", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>Distance</th>
+            <th style={{ textAlign: "right", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>NRSF</th>
+            <th style={{ textAlign: "right", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>CC %</th>
+            <th style={{ textAlign: "left", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>Delivery</th>
+            <th style={{ textAlign: "left", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {nearby.map((row) => (
+            <tr key={row.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+              <td style={{ padding: "7px 6px", color: "#fff", fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>
+                <span style={{ color: operatorColors[row.operator] || "#fff" }}>{row.operator}</span>
+              </td>
+              <td style={{ padding: "7px 6px", color: "#94A3B8", fontSize: 11 }}>
+                {row.address}
+                <div style={{ fontSize: 9, color: "#64748B" }}>{row.city}, {row.state} · {row.msa}</div>
+              </td>
+              <td style={{ padding: "7px 6px", textAlign: "right", color: "#fff", fontFamily: "'Space Mono', monospace" }}>
+                {row.distanceMi != null ? `${row.distanceMi.toFixed(2)} mi` : "—"}
+              </td>
+              <td style={{ padding: "7px 6px", textAlign: "right", color: "#fff", fontFamily: "'Space Mono', monospace" }}>
+                {row.nrsf != null ? `${(row.nrsf / 1000).toFixed(0)}K` : "—"}
+              </td>
+              <td style={{ padding: "7px 6px", textAlign: "right", color: "#94A3B8", fontFamily: "'Space Mono', monospace", fontSize: 11 }}>
+                {row.ccPct != null ? `${row.ccPct}%` : "—"}
+              </td>
+              <td style={{ padding: "7px 6px", color: "#94A3B8", fontFamily: "'Space Mono', monospace", fontSize: 11 }}>
+                {row.expectedDelivery || "—"}
+              </td>
+              <td style={{ padding: "7px 6px" }}>
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  color: row.status === "under-construction" ? "#F59E0B" : row.status === "permitted" ? "#3B82F6" : "#94A3B8",
+                  background: row.status === "under-construction" ? "rgba(245,158,11,0.10)" : row.status === "permitted" ? "rgba(59,130,246,0.10)" : "rgba(148,163,184,0.10)",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  whiteSpace: "nowrap",
+                }}>
+                  {(row.status || "").replace(/-/g, " ")}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 4, borderLeft: `3px solid ${severityColor}88`, fontSize: 11, color: "#E2E8F0", lineHeight: 1.5 }}>
+        <b style={{ color: severityColor }}>Verdict:</b> {saturation.narrative}
+      </div>
+
+      <div style={{ marginTop: 8, fontSize: 9, color: "#64748B", lineHeight: 1.4 }}>
+        {metadata?.totalFacilities || 0} disclosed REIT pipeline facilities indexed nationally · sourced from FY2025 10-K MD&A 'Properties Under Development' sections + Q1 2026 earnings transcripts · Phase {metadata?.phase || 1} dataset, refreshes quarterly. Saturation thresholds (LOCKED): ≥ 100K SF CC delivering Y1-Y3 → MATERIAL · 50–100K → MODERATE · &lt; 50K → MINIMAL.
       </div>
     </div>
   );

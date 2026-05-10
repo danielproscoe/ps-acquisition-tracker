@@ -15,6 +15,7 @@ import edgarIndex from "./edgar-comp-index.json";
 import sameStoreGrowth from "./edgar-same-store-growth.json";
 import transactions8K from "./edgar-8k-transactions-claude.json";
 import rentCalibration from "./edgar-rent-calibration.json";
+import developmentPipeline from "./development-pipeline.json";
 
 // Scraped per-facility rents — primary-source unit pricing pulled from each
 // REIT's facility detail pages. Optional — availability depends on whether
@@ -997,6 +998,179 @@ export function getMSAMoveInRatesByOperator(msaName) {
   return out;
 }
 
+// ─── Development pipeline accessors ────────────────────────────────────────
+//
+// Powers the "NEW-SUPPLY PIPELINE" card on the Asset Analyzer dashboard and
+// the matching section in the Goldman PDF. Each row is a disclosed pipeline
+// facility (PSA/EXR/CUBE/SMA/AMERCO/UHAL) sourced from FY2025 10-K MD&A
+// 'Properties Under Development' sections + Q1 2026 earnings transcripts.
+//
+// Used by Y3 NOI projection: when ≥100K SF of new CC opens within 3 mi
+// during Y1-Y3, that's a saturation signal — Y3 occupancy should compress
+// 1pp and rent growth should compress 1pp. Storvex flags this for the
+// analyst rather than auto-adjusting the math; the analyst makes the call.
+
+/**
+ * Haversine distance in miles between two lat/lng points.
+ * (Inline copy — avoids importing src/haversine.js into this data module.)
+ */
+function _haversineMi(lat1, lon1, lat2, lon2) {
+  if (!Number.isFinite(lat1) || !Number.isFinite(lon1) || !Number.isFinite(lat2) || !Number.isFinite(lon2)) {
+    return null;
+  }
+  const R = 3958.8; // Earth radius in miles
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Get pipeline facilities within a radius of a subject site, sorted by
+ * distance (nearest first). Each result includes the disclosed delivery
+ * quarter, NRSF, status, and citation.
+ *
+ * @param {Object} args
+ * @param {number} args.lat
+ * @param {number} args.lng
+ * @param {number} [args.radiusMi=3]  — proximity radius in miles (default 3 mi)
+ * @returns {Array<Object>} pipeline records with `distanceMi` field added,
+ *                          sorted ASC by distance, or empty array if no
+ *                          subject lat/lng provided.
+ */
+export function getNearbyPipeline({ lat, lng, radiusMi = 3 } = {}) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+  const all = developmentPipeline.facilities || [];
+  const out = [];
+  for (const f of all) {
+    if (!Number.isFinite(f.lat) || !Number.isFinite(f.lng)) continue;
+    const dist = _haversineMi(lat, lng, f.lat, f.lng);
+    if (dist == null || dist > radiusMi) continue;
+    out.push({ ...f, distanceMi: Math.round(dist * 100) / 100 });
+  }
+  out.sort((a, b) => a.distanceMi - b.distanceMi);
+  return out;
+}
+
+/**
+ * Compute saturation impact from nearby pipeline. Aggregates total NRSF +
+ * CC NRSF + delivery year buckets, applies a flag-or-no-flag verdict
+ * for the analyst's Y3 NOI projection.
+ *
+ * Flag thresholds (LOCKED — institutional rules of thumb):
+ *   - ≥100K SF of new CC NRSF within 3 mi delivering Y1-Y3 → MATERIAL
+ *     saturation flag. Suggested impact: Y3 occupancy −1pp, rent growth −1pp.
+ *   - 50-100K SF → MODERATE flag. Watch for execution.
+ *   - <50K SF or all delivering Y4+ → MINIMAL impact.
+ *   - 0 SF → no flag.
+ *
+ * @param {Array<Object>} pipelineRows — output of getNearbyPipeline()
+ * @param {number} [horizonYears=3]    — Y1-YN consideration window
+ * @returns {Object} { flag, severity, totalNRSF, ccNRSF, deliveringInHorizon, verdict, narrative }
+ */
+export function assessPipelineSaturation(pipelineRows, horizonYears = 3) {
+  if (!Array.isArray(pipelineRows) || pipelineRows.length === 0) {
+    return {
+      flag: false,
+      severity: "NONE",
+      totalNRSF: 0,
+      ccNRSF: 0,
+      deliveringInHorizon: 0,
+      facilitiesInHorizon: 0,
+      verdict: "no nearby pipeline",
+      narrative: "No disclosed institutional REIT pipeline within proximity radius.",
+    };
+  }
+
+  const currentYear = new Date().getFullYear();
+  const horizonCutoff = currentYear + horizonYears;
+
+  let totalNRSF = 0;
+  let ccNRSF = 0;
+  let deliveringInHorizon = 0;
+  let facilitiesInHorizon = 0;
+  for (const f of pipelineRows) {
+    const deliveryYear = parseInt(String(f.expectedDelivery || "").slice(0, 4), 10);
+    const inHorizon = Number.isFinite(deliveryYear) && deliveryYear <= horizonCutoff;
+    const ccShare = (f.ccPct ?? 100) / 100;
+    const ccSF = (f.nrsf || 0) * ccShare;
+    totalNRSF += f.nrsf || 0;
+    ccNRSF += ccSF;
+    if (inHorizon) {
+      deliveringInHorizon += f.nrsf || 0;
+      facilitiesInHorizon += 1;
+    }
+  }
+
+  const ccInHorizon = pipelineRows
+    .filter((f) => {
+      const dy = parseInt(String(f.expectedDelivery || "").slice(0, 4), 10);
+      return Number.isFinite(dy) && dy <= horizonCutoff;
+    })
+    .reduce((s, f) => s + (f.nrsf || 0) * ((f.ccPct ?? 100) / 100), 0);
+
+  let severity = "NONE";
+  let verdict = "no nearby pipeline";
+  let narrative = "No disclosed institutional REIT pipeline within proximity radius.";
+  let flag = false;
+
+  if (ccInHorizon >= 100000) {
+    severity = "MATERIAL";
+    flag = true;
+    verdict = "MATERIAL pipeline saturation in Y1-Y3";
+    narrative = `${facilitiesInHorizon} institutional REIT facilities (~${Math.round(ccInHorizon / 1000)}K SF CC) delivering within ${horizonYears} years and within proximity radius. Material new-supply pressure: Y3 occupancy is likely to compress ~1pp and rent growth ~1pp vs the unconstrained projection. Recommend explicit haircut on Y3 NOI assumption OR tighter buyer-lens cap.`;
+  } else if (ccInHorizon >= 50000) {
+    severity = "MODERATE";
+    flag = true;
+    verdict = "MODERATE pipeline saturation in Y1-Y3";
+    narrative = `${facilitiesInHorizon} institutional REIT facilities (~${Math.round(ccInHorizon / 1000)}K SF CC) delivering within ${horizonYears} years and within proximity radius. Moderate new-supply pressure — Y3 occupancy may compress 0-0.5pp depending on absorption. Watch trade-area rent trends in 2026-2027.`;
+  } else if (ccInHorizon > 0) {
+    severity = "MINIMAL";
+    flag = false;
+    verdict = "minimal pipeline impact";
+    narrative = `Limited disclosed REIT pipeline (~${Math.round(ccInHorizon / 1000)}K SF CC delivering in horizon). Below institutional saturation thresholds; no material adjustment to Y3 NOI projection recommended.`;
+  } else if (totalNRSF > 0) {
+    severity = "OUT_OF_HORIZON";
+    flag = false;
+    verdict = "pipeline outside horizon";
+    narrative = `${pipelineRows.length} disclosed REIT facilities within proximity but all delivering after Y${horizonYears}. No material impact on Y1-Y${horizonYears} NOI projection.`;
+  }
+
+  return {
+    flag,
+    severity,
+    totalNRSF,
+    ccNRSF: Math.round(ccNRSF),
+    ccNRSFInHorizon: Math.round(ccInHorizon),
+    deliveringInHorizon,
+    facilitiesInHorizon,
+    facilityCount: pipelineRows.length,
+    verdict,
+    narrative,
+  };
+}
+
+/**
+ * Returns metadata about the development pipeline dataset — Phase, source,
+ * total facility count, totals by operator / delivery year / status.
+ */
+export function getDevelopmentPipelineMetadata() {
+  return {
+    schema: developmentPipeline.schema,
+    phase: developmentPipeline.phase,
+    generatedAt: developmentPipeline.generatedAt,
+    citationRule: developmentPipeline.citationRule,
+    methodology: developmentPipeline.methodology,
+    totalFacilities: developmentPipeline.totalFacilities,
+    totalsByOperator: developmentPipeline.totalsByOperator,
+    totalsByDeliveryYear: developmentPipeline.totalsByDeliveryYear,
+    totalsByStatus: developmentPipeline.totalsByStatus,
+  };
+}
+
 /**
  * Cross-REIT consolidated metadata — useful for the dashboard's coverage
  * banner and the Radius+ comparison card.
@@ -1224,6 +1398,9 @@ export default {
   getMSARentBand,
   getBestRentBand,
   getBuyerSpecificRentAnchor,
+  getNearbyPipeline,
+  assessPipelineSaturation,
+  getDevelopmentPipelineMetadata,
   resolveCityToMSA,
   estimateFacilityCostBasis,
   enrichCompetitor,

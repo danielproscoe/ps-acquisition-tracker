@@ -19,6 +19,9 @@ import {
   enrichNearbyCompetitors,
   getECRIPremiumIndex,
   getBuyerSpecificRentAnchor,
+  getNearbyPipeline,
+  assessPipelineSaturation,
+  getDevelopmentPipelineMetadata,
   getScrapedFacilityRents,
   getScrapedMSARentMedian,
   getScrapedRentIndexMetadata,
@@ -1013,5 +1016,140 @@ describe("getBuyerSpecificRentAnchor — per-buyer rent routing", () => {
       expect(typeof a.citation).toBe("string");
       expect(a.citation.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Development pipeline accessors
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("getNearbyPipeline — proximity radius queries", () => {
+  test("returns empty array when lat/lng missing or invalid", () => {
+    expect(getNearbyPipeline()).toEqual([]);
+    expect(getNearbyPipeline({})).toEqual([]);
+    expect(getNearbyPipeline({ lat: NaN, lng: 0 })).toEqual([]);
+    expect(getNearbyPipeline({ lat: null, lng: null })).toEqual([]);
+  });
+
+  test("Houston subject (29.76, -95.36) has at least 1 pipeline within 30 mi (PSA Cypress, EXR Katy)", () => {
+    // Subject in central Houston; both PSA Cypress (29.97, -95.71) and EXR Katy (29.79, -95.83) are in metro
+    const r = getNearbyPipeline({ lat: 29.76, lng: -95.36, radiusMi: 30 });
+    expect(r.length).toBeGreaterThanOrEqual(1);
+    for (const row of r) {
+      expect(row.distanceMi).toBeLessThanOrEqual(30);
+    }
+  });
+
+  test("results sorted ASC by distanceMi", () => {
+    const r = getNearbyPipeline({ lat: 29.76, lng: -95.36, radiusMi: 100 });
+    for (let i = 1; i < r.length; i++) {
+      expect(r[i - 1].distanceMi).toBeLessThanOrEqual(r[i].distanceMi);
+    }
+  });
+
+  test("default radius is 3 mi when not specified", () => {
+    // Pick a point far from any pipeline (Wyoming, no facility within 3 mi)
+    const r = getNearbyPipeline({ lat: 42.97, lng: -107.55 });
+    expect(r.length).toBe(0);
+  });
+
+  test("each returned row carries distanceMi + operator + nrsf + delivery", () => {
+    const r = getNearbyPipeline({ lat: 25.819, lng: -80.355, radiusMi: 50 });
+    for (const row of r) {
+      expect(typeof row.distanceMi).toBe("number");
+      expect(typeof row.operator).toBe("string");
+      expect(typeof row.nrsf).toBe("number");
+      expect(typeof row.expectedDelivery).toBe("string");
+    }
+  });
+});
+
+describe("assessPipelineSaturation — flag thresholds", () => {
+  test("empty input → NONE / no flag", () => {
+    const a = assessPipelineSaturation([]);
+    expect(a.flag).toBe(false);
+    expect(a.severity).toBe("NONE");
+    expect(a.totalNRSF).toBe(0);
+  });
+
+  test("null/undefined input → NONE", () => {
+    expect(assessPipelineSaturation(null).severity).toBe("NONE");
+    expect(assessPipelineSaturation(undefined).severity).toBe("NONE");
+  });
+
+  test("MATERIAL flag fires when ≥100K SF CC delivering in horizon", () => {
+    const rows = [
+      { id: "test1", nrsf: 95000, ccPct: 100, expectedDelivery: "2026-Q3" },
+      { id: "test2", nrsf: 100000, ccPct: 95, expectedDelivery: "2026-Q4" },
+    ];
+    const a = assessPipelineSaturation(rows, 3);
+    expect(a.flag).toBe(true);
+    expect(a.severity).toBe("MATERIAL");
+    expect(a.ccNRSFInHorizon).toBeGreaterThanOrEqual(100000);
+    expect(a.narrative).toMatch(/material|saturation/i);
+  });
+
+  test("MODERATE flag fires when 50-100K SF CC delivering in horizon", () => {
+    const rows = [
+      { id: "test1", nrsf: 80000, ccPct: 90, expectedDelivery: "2026-Q3" },
+    ];
+    const a = assessPipelineSaturation(rows, 3);
+    expect(a.flag).toBe(true);
+    expect(a.severity).toBe("MODERATE");
+  });
+
+  test("MINIMAL when <50K SF CC in horizon", () => {
+    const rows = [
+      { id: "test1", nrsf: 40000, ccPct: 90, expectedDelivery: "2026-Q3" },
+    ];
+    const a = assessPipelineSaturation(rows, 3);
+    expect(a.flag).toBe(false);
+    expect(a.severity).toBe("MINIMAL");
+  });
+
+  test("OUT_OF_HORIZON when all facilities deliver after Y3", () => {
+    const rows = [
+      { id: "test1", nrsf: 100000, ccPct: 100, expectedDelivery: "2030-Q1" },
+      { id: "test2", nrsf: 100000, ccPct: 100, expectedDelivery: "2031-Q2" },
+    ];
+    const a = assessPipelineSaturation(rows, 3);
+    expect(a.flag).toBe(false);
+    expect(a.severity).toBe("OUT_OF_HORIZON");
+  });
+
+  test("totals invariant: ccNRSF ≤ totalNRSF", () => {
+    const rows = [
+      { id: "test1", nrsf: 100000, ccPct: 80, expectedDelivery: "2026-Q3" },
+      { id: "test2", nrsf: 50000, ccPct: 100, expectedDelivery: "2027-Q1" },
+    ];
+    const a = assessPipelineSaturation(rows, 3);
+    expect(a.ccNRSF).toBeLessThanOrEqual(a.totalNRSF);
+  });
+
+  test("CC pct defaults to 100 when not specified", () => {
+    const rows = [{ id: "test1", nrsf: 100000, expectedDelivery: "2026-Q3" }];
+    const a = assessPipelineSaturation(rows, 3);
+    // 100% × 100K = 100K → MATERIAL
+    expect(a.severity).toBe("MATERIAL");
+  });
+});
+
+describe("getDevelopmentPipelineMetadata", () => {
+  test("returns Phase 1 metadata + total facility count + breakdowns", () => {
+    const m = getDevelopmentPipelineMetadata();
+    expect(m).toBeTruthy();
+    expect(m.schema).toMatch(/storvex.development-pipeline/);
+    expect(m.phase).toBe(1);
+    expect(m.totalFacilities).toBeGreaterThan(0);
+    expect(m.totalsByOperator).toBeTruthy();
+    expect(m.totalsByDeliveryYear).toBeTruthy();
+    expect(m.totalsByStatus).toBeTruthy();
+  });
+
+  test("PSA + EXR + CUBE all have at least one pipeline facility seeded", () => {
+    const m = getDevelopmentPipelineMetadata();
+    expect(m.totalsByOperator.PSA?.count || 0).toBeGreaterThanOrEqual(1);
+    expect(m.totalsByOperator.EXR?.count || 0).toBeGreaterThanOrEqual(1);
+    expect(m.totalsByOperator.CUBE?.count || 0).toBeGreaterThanOrEqual(1);
   });
 });

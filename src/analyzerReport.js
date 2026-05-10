@@ -504,6 +504,78 @@ function renderCrossREITMoveInRates({ snapshot, enrichment }) {
 </section>`;
 }
 
+// ─── NEW-SUPPLY PIPELINE ───────────────────────────────────────────────────
+//
+// Renders the institutional REIT pipeline within 3 mi of the subject site.
+// Saturation verdict at top tells the analyst whether to haircut Y3 NOI
+// because of competing new supply. Each row cites the source REIT's 10-K
+// accession #.
+function renderDevelopmentPipeline({ enrichment }) {
+  const nearby = enrichment?.pipelineNearby;
+  const saturation = enrichment?.pipelineSaturation;
+  const metadata = enrichment?.pipelineMetadata;
+  if (!Array.isArray(nearby) || nearby.length === 0 || !saturation) return "";
+
+  const severityColor =
+    saturation.severity === "MATERIAL" ? "#EF4444" :
+    saturation.severity === "MODERATE" ? "#F59E0B" :
+    "#94A3B8";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">NEW-SUPPLY PIPELINE · 3-MI RADIUS · ${safe(saturation.severity)}</h2>
+  <div class="edgar-headline">
+    <div class="edgar-tile" style="border:2px solid ${severityColor}88">
+      <div class="ek-l">Saturation</div>
+      <div class="ek-v" style="color:${severityColor};font-size:14pt">${safe(saturation.severity)}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">CC SF in Y1-Y3</div>
+      <div class="ek-v">${saturation.ccNRSFInHorizon ? (saturation.ccNRSFInHorizon / 1000).toFixed(0) + "K" : "0"}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Total Pipeline NRSF</div>
+      <div class="ek-v">${saturation.totalNRSF ? (saturation.totalNRSF / 1000).toFixed(0) + "K" : "0"}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Facilities in Horizon</div>
+      <div class="ek-v">${saturation.facilitiesInHorizon || 0} of ${saturation.facilityCount || 0}</div>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="th-name">Operator</th>
+        <th class="th-name">Location</th>
+        <th class="th-num">Distance</th>
+        <th class="th-num">NRSF</th>
+        <th class="th-num">CC%</th>
+        <th class="th-name">Delivery</th>
+        <th class="th-name">Status</th>
+        <th class="th-name">Source</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${nearby.map((row) => `<tr>
+        <td class="td-name"><b>${safe(row.operator)}</b><br/><span style="font-size:9pt;color:#64748B">${safe(row.operatorName)}</span></td>
+        <td class="td-name">${safe(row.address)}<br/><span style="font-size:9pt;color:#64748B">${safe(row.city)}, ${safe(row.state)} · ${safe(row.msa)}</span></td>
+        <td class="td-num">${row.distanceMi != null ? row.distanceMi.toFixed(2) + " mi" : "—"}</td>
+        <td class="td-num">${row.nrsf != null ? (row.nrsf / 1000).toFixed(0) + "K" : "—"}</td>
+        <td class="td-num">${row.ccPct != null ? row.ccPct + "%" : "—"}</td>
+        <td class="td-name">${safe(row.expectedDelivery)}</td>
+        <td class="td-name" style="text-transform:uppercase;font-size:9pt">${safe((row.status || "").replace(/-/g, " "))}</td>
+        <td class="td-basis" style="font-size:8pt">${safe(row.citation)}</td>
+      </tr>`).join("")}
+    </tbody>
+  </table>
+  <div class="footnote" style="margin-top:14pt">
+    <b style="color:${severityColor}">Verdict:</b> ${safe(saturation.narrative)}<br/><br/>
+    <b>Methodology:</b> Phase ${metadata?.phase || 1} pipeline dataset sourced from each REIT's FY2025 10-K MD&A 'Properties Under Development' sections + Q1 2026 earnings transcripts. ${metadata?.totalFacilities || 0} disclosed institutional REIT pipeline facilities indexed nationally; ${nearby.length} fall within the subject site's 3-mi proximity radius. Refreshes quarterly upon new 10-Q/10-K filings.<br/><br/>
+    <b>Saturation thresholds (LOCKED):</b> ≥ 100K SF CC delivering Y1-Y3 → MATERIAL flag · 50-100K SF → MODERATE flag · &lt; 50K SF or all delivering Y4+ → MINIMAL impact. <b>Storvex flags but does NOT auto-adjust the Y3 NOI math</b> — the analyst makes the haircut call based on local trade-area dynamics + absorption assumptions.
+  </div>
+</section>`;
+}
+
 // ─── MULTI-LENS BUYER COMPARISON ───────────────────────────────────────────
 //
 // Renders the side-by-side buyer comparison view in the institutional PDF.
@@ -942,6 +1014,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderVerdictKPIStrip({ verdict, ps, analysis })}
   ${renderYOCVerdict({ psLens: ps })}
   ${renderMultiLensComparison({ multiLensRows, platformFitDelta, snapshot })}
+  ${renderDevelopmentPipeline({ enrichment })}
   ${renderPriceTiers({ ps, analysis, snapshot })}
   ${renderNOIReconstruction({ ps, analysis, snapshot })}
   ${renderProjection({ ps, analysis })}

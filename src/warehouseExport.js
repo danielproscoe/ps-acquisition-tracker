@@ -351,6 +351,42 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       methodology: "For each registered buyer lens, runs computeBuyerLens(input, lens) which applies that lens's expense overrides + revenue adjustment + custom market cap to reconstruct the buyer's NOI and project Y3. Implied takedown price = Y3 NOI / lens.marketCap (the price each buyer would pay AT their own underwriting hurdle). Sorted DESC by implied takedown — top row is the natural institutional takeout. Platform-fit Δ = top - GENERIC. All constants trace to FY2025 10-K accession numbers (per-lens citation footnotes available in Goldman PDF).",
     } : null,
 
+    // New-supply pipeline within 3 mi — disclosed institutional REIT
+    // facilities under construction or permitted that may compress Y3 NOI.
+    // Saturation severity flags whether the analyst should haircut Y3 NOI
+    // assumptions (Y3 occupancy −1pp, rent growth −1pp on MATERIAL flag).
+    development_pipeline: enrichment?.pipelineNearby && enrichment.pipelineNearby.length > 0 ? {
+      facilities_within_3mi: enrichment.pipelineNearby.length,
+      saturation_severity: enrichment.pipelineSaturation?.severity || null,
+      saturation_flag: !!enrichment.pipelineSaturation?.flag,
+      saturation_verdict: enrichment.pipelineSaturation?.verdict || null,
+      saturation_narrative: enrichment.pipelineSaturation?.narrative || null,
+      cc_nrsf_in_horizon: numOrNull(enrichment.pipelineSaturation?.ccNRSFInHorizon),
+      total_nrsf: numOrNull(enrichment.pipelineSaturation?.totalNRSF),
+      facilities_in_horizon: numOrNull(enrichment.pipelineSaturation?.facilitiesInHorizon),
+      pipeline: enrichment.pipelineNearby.map((row) => ({
+        id: row.id,
+        operator: row.operator,
+        operator_name: row.operatorName,
+        address: row.address,
+        city: row.city,
+        state: row.state,
+        msa: row.msa,
+        lat: numOrNull(row.lat),
+        lng: numOrNull(row.lng),
+        distance_mi: numOrNull(row.distanceMi),
+        nrsf: numOrNull(row.nrsf),
+        cc_pct: numOrNull(row.ccPct),
+        stories: numOrNull(row.stories),
+        expected_delivery: row.expectedDelivery,
+        status: row.status,
+        estimated_investment: numOrNull(row.estimatedInvestment),
+        source: row.source,
+        citation: row.citation,
+      })),
+      methodology: "Phase 1 pipeline dataset — disclosed institutional REIT facilities sourced from each REIT's FY2025 10-K MD&A 'Properties Under Development' sections + Q1 2026 earnings transcripts. Refreshes quarterly. Saturation thresholds: >=100K SF CC delivering Y1-Y3 = MATERIAL (Y3 occ -1pp, rent growth -1pp suggested haircut); 50-100K = MODERATE; <50K or out-of-horizon = MINIMAL/no flag.",
+    } : null,
+
     // Pitch target — when set, the analyzer was run in pitch mode for a
     // specific institutional recipient (Reza Mahdavian / Aaron Liken /
     // Jennifer Settles / Custom). Branded the Goldman PDF cover and (where
