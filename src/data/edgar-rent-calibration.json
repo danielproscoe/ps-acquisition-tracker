@@ -1,0 +1,2324 @@
+{
+  "schema": "storvex.edgar-rent-calibration.v1",
+  "generatedAt": "2026-05-10T00:35:54.674Z",
+  "methodology": {
+    "ccMixPct": 0.73,
+    "ccPremiumOverDU": 1.8,
+    "formula": "monthlyPortfolioRent = ccMix × ccRent + (1 − ccMix) × duRent; ccRent = duRent × ccPremium",
+    "perStateWeighting": "Σ(facilities_REIT × portfolioAnnualRent_REIT) / Σ(facilities_REIT) across all REITs operating in the state.",
+    "portfolioRentSources": {
+      "EXR": "FY2025 10-K MD&A same-store annual rent per occupied SF (extracted via scripts/edgar/extract-same-store-growth.mjs)",
+      "CUBE": "FY2025 10-K MD&A same-store annual rent per occupied SF (extracted via scripts/edgar/extract-same-store-growth.mjs)",
+      "PSA": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative.",
+      "SMA": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+    },
+    "ccDuSplitSource": "Industry standard: ~80% CC premium over drive-up of equivalent size. Source: Green Street Self-Storage Sector Report Q4 2025 + SSA Global benchmarks + cross-REIT earnings call commentary.",
+    "ccMixSource": "Cross-REIT average from each issuer's FY2025 10-K Item 2 Properties section: PSA 70% / EXR 78% / CUBE 73% → 73% blended.",
+    "geographicAdjustmentSource": "State-level rent variation derived from Schedule III weighted gross carrying $/SF. Per-state weightedPSF / national weightedPSF ($133/SF), square-root damped, clamped to [0.55, 1.65]. The weightedPSF figures are computed by aggregate-comps.mjs from each REIT's Schedule III gross carrying value disclosures."
+  },
+  "nationalWeightedPSF": 133.42,
+  "issuerPortfolioRents": {
+    "EXR": {
+      "annualPerSF": 19.91,
+      "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)",
+      "isImputed": false,
+      "accessionNumber": "0001289490-26-000011",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+      "reportDate": "2025-12-31"
+    },
+    "CUBE": {
+      "annualPerSF": 22.73,
+      "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)",
+      "isImputed": false,
+      "accessionNumber": "0001298675-26-000010",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+      "reportDate": "2025-12-31"
+    },
+    "PSA": {
+      "annualPerSF": 21.48,
+      "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative.",
+      "isImputed": false,
+      "accessionNumber": "0001628280-26-007696",
+      "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+      "reportDate": "2025-12-31"
+    },
+    "SMA": {
+      "annualPerSF": 15,
+      "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction.",
+      "isImputed": true,
+      "accessionNumber": null,
+      "filingURL": null,
+      "reportDate": null
+    }
+  },
+  "nationalFallback": {
+    "ccRent": 1.981,
+    "duRent": 1.101,
+    "annualPerSF": 20.92,
+    "sampleFacilities": 5967,
+    "confidence": "NATIONAL_AVERAGE"
+  },
+  "states": [
+    {
+      "stateCode": "TX",
+      "stateName": "Texas",
+      "ccRent": 1.956,
+      "duRent": 1.087,
+      "confidence": "HIGH",
+      "sampleFacilities": 858,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 21.01,
+      "monthlyPortfolioRentPerSF": 1.751,
+      "stateWeightedPSF": 129,
+      "geoMultiplier": 0.983,
+      "geoBasis": "sqrt(state PSF $129 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.99,
+      "duRentBeforeGeoAdj": 1.106,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 477,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 477,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 267,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 267,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 98,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 98,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 16,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 16,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $129 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "FL",
+      "stateName": "Florida",
+      "ccRent": 1.944,
+      "duRent": 1.08,
+      "confidence": "HIGH",
+      "sampleFacilities": 754,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.89,
+      "monthlyPortfolioRentPerSF": 1.741,
+      "stateWeightedPSF": 129,
+      "geoMultiplier": 0.983,
+      "geoBasis": "sqrt(state PSF $129 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.978,
+      "duRentBeforeGeoAdj": 1.099,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 378,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 378,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 256,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 256,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 95,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 95,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 25,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 25,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $129 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "CA",
+      "stateName": "California",
+      "ccRent": 2.019,
+      "duRent": 1.121,
+      "confidence": "HIGH",
+      "sampleFacilities": 748,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.82,
+      "monthlyPortfolioRentPerSF": 1.735,
+      "stateWeightedPSF": 140,
+      "geoMultiplier": 1.024,
+      "geoBasis": "sqrt(state PSF $140 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.972,
+      "duRentBeforeGeoAdj": 1.095,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 425,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 425,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 227,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 227,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 63,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 63,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 33,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 33,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $140 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "IL",
+      "stateName": "Illinois",
+      "ccRent": 1.755,
+      "duRent": 0.976,
+      "confidence": "HIGH",
+      "sampleFacilities": 305,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.99,
+      "monthlyPortfolioRentPerSF": 1.75,
+      "stateWeightedPSF": 104,
+      "geoMultiplier": 0.883,
+      "geoBasis": "sqrt(state PSF $104 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.988,
+      "duRentBeforeGeoAdj": 1.105,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 145,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 145,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 107,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 107,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 47,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 47,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 6,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 6,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $104 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "GA",
+      "stateName": "Georgia",
+      "ccRent": 1.707,
+      "duRent": 0.948,
+      "confidence": "HIGH",
+      "sampleFacilities": 293,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 20.93,
+      "monthlyPortfolioRentPerSF": 1.744,
+      "stateWeightedPSF": 99,
+      "geoMultiplier": 0.861,
+      "geoBasis": "sqrt(state PSF $99 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.982,
+      "duRentBeforeGeoAdj": 1.101,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 147,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 147,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 122,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 122,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 24,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 24,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $99 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "NY",
+      "stateName": "New York",
+      "ccRent": 2.746,
+      "duRent": 1.525,
+      "confidence": "HIGH",
+      "sampleFacilities": 265,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 21.28,
+      "monthlyPortfolioRentPerSF": 1.773,
+      "stateWeightedPSF": 248,
+      "geoMultiplier": 1.363,
+      "geoBasis": "sqrt(state PSF $248 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.015,
+      "duRentBeforeGeoAdj": 1.119,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 121,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 121,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 83,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 83,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 61,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 61,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $248 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "NC",
+      "stateName": "North Carolina",
+      "ccRent": 1.746,
+      "duRent": 0.97,
+      "confidence": "HIGH",
+      "sampleFacilities": 198,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.58,
+      "monthlyPortfolioRentPerSF": 1.715,
+      "stateWeightedPSF": 107,
+      "geoMultiplier": 0.896,
+      "geoBasis": "sqrt(state PSF $107 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.949,
+      "duRentBeforeGeoAdj": 1.083,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 118,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 118,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 55,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 55,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 9,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 9,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 16,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 16,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $107 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "AZ",
+      "stateName": "Arizona",
+      "ccRent": 2.124,
+      "duRent": 1.18,
+      "confidence": "HIGH",
+      "sampleFacilities": 167,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 21.22,
+      "monthlyPortfolioRentPerSF": 1.768,
+      "stateWeightedPSF": 149,
+      "geoMultiplier": 1.057,
+      "geoBasis": "sqrt(state PSF $149 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.009,
+      "duRentBeforeGeoAdj": 1.116,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 60,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 60,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 52,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 52,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 51,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 51,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 4,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 4,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $149 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "VA",
+      "stateName": "Virginia",
+      "ccRent": 1.853,
+      "duRent": 1.03,
+      "confidence": "HIGH",
+      "sampleFacilities": 145,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.73,
+      "monthlyPortfolioRentPerSF": 1.727,
+      "stateWeightedPSF": 119,
+      "geoMultiplier": 0.944,
+      "geoBasis": "sqrt(state PSF $119 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.963,
+      "duRentBeforeGeoAdj": 1.091,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 59,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 59,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 74,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 74,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 11,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 11,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 1,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 1,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $119 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "OH",
+      "stateName": "Ohio",
+      "ccRent": 1.582,
+      "duRent": 0.879,
+      "confidence": "HIGH",
+      "sampleFacilities": 144,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.94,
+      "monthlyPortfolioRentPerSF": 1.745,
+      "stateWeightedPSF": 85,
+      "geoMultiplier": 0.798,
+      "geoBasis": "sqrt(state PSF $85 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.983,
+      "duRentBeforeGeoAdj": 1.102,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 71,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 71,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 49,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 49,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 20,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 20,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 4,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 4,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $85 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "IN",
+      "stateName": "Indiana",
+      "ccRent": 1.636,
+      "duRent": 0.908,
+      "confidence": "HIGH",
+      "sampleFacilities": 143,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.37,
+      "monthlyPortfolioRentPerSF": 1.697,
+      "stateWeightedPSF": 96,
+      "geoMultiplier": 0.848,
+      "geoBasis": "sqrt(state PSF $96 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.929,
+      "duRentBeforeGeoAdj": 1.071,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 46,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 46,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 94,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 94,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 1,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 1,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 2,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 2,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $96 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "CO",
+      "stateName": "Colorado",
+      "ccRent": 1.759,
+      "duRent": 0.977,
+      "confidence": "HIGH",
+      "sampleFacilities": 139,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.85,
+      "monthlyPortfolioRentPerSF": 1.737,
+      "stateWeightedPSF": 106,
+      "geoMultiplier": 0.891,
+      "geoBasis": "sqrt(state PSF $106 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.974,
+      "duRentBeforeGeoAdj": 1.097,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 93,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 93,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 27,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 27,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 10,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 10,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 9,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 9,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $106 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "SC",
+      "stateName": "South Carolina",
+      "ccRent": 1.797,
+      "duRent": 0.998,
+      "confidence": "HIGH",
+      "sampleFacilities": 132,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.8,
+      "monthlyPortfolioRentPerSF": 1.733,
+      "stateWeightedPSF": 111,
+      "geoMultiplier": 0.912,
+      "geoBasis": "sqrt(state PSF $111 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.97,
+      "duRentBeforeGeoAdj": 1.094,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 73,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 73,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 47,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 47,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 8,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 8,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 4,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 4,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $111 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "NJ",
+      "stateName": "New Jersey",
+      "ccRent": 1.963,
+      "duRent": 1.09,
+      "confidence": "HIGH",
+      "sampleFacilities": 127,
+      "contributingIssuers": [
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.38,
+      "monthlyPortfolioRentPerSF": 1.699,
+      "stateWeightedPSF": 138,
+      "geoMultiplier": 1.017,
+      "geoBasis": "sqrt(state PSF $138 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.93,
+      "duRentBeforeGeoAdj": 1.072,
+      "issuerContributions": [
+        {
+          "issuer": "EXR",
+          "facilities": 92,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 92,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 30,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 30,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 5,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 5,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $138 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "WA",
+      "stateName": "Washington",
+      "ccRent": 2.109,
+      "duRent": 1.171,
+      "confidence": "HIGH",
+      "sampleFacilities": 123,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 21.01,
+      "monthlyPortfolioRentPerSF": 1.751,
+      "stateWeightedPSF": 150,
+      "geoMultiplier": 1.06,
+      "geoBasis": "sqrt(state PSF $150 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.99,
+      "duRentBeforeGeoAdj": 1.105,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 102,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 102,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 16,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 16,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 5,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 5,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $150 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "MA",
+      "stateName": "Massachusetts",
+      "ccRent": 2.181,
+      "duRent": 1.212,
+      "confidence": "HIGH",
+      "sampleFacilities": 121,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.71,
+      "monthlyPortfolioRentPerSF": 1.726,
+      "stateWeightedPSF": 165,
+      "geoMultiplier": 1.112,
+      "geoBasis": "sqrt(state PSF $165 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.961,
+      "duRentBeforeGeoAdj": 1.09,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 32,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 32,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 67,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 67,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 20,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 20,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 2,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 2,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $165 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "MD",
+      "stateName": "Maryland",
+      "ccRent": 2.567,
+      "duRent": 1.427,
+      "confidence": "HIGH",
+      "sampleFacilities": 121,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 21.02,
+      "monthlyPortfolioRentPerSF": 1.751,
+      "stateWeightedPSF": 222,
+      "geoMultiplier": 1.29,
+      "geoBasis": "sqrt(state PSF $222 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.99,
+      "duRentBeforeGeoAdj": 1.106,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 52,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 52,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 45,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 45,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 22,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 22,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 2,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 2,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $222 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "DC",
+      "stateName": "District of Columbia",
+      "ccRent": 2.704,
+      "duRent": 1.502,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 120,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 21.47,
+      "monthlyPortfolioRentPerSF": 1.789,
+      "stateWeightedPSF": 236,
+      "geoMultiplier": 1.33,
+      "geoBasis": "sqrt(state PSF $236 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.033,
+      "duRentBeforeGeoAdj": 1.129,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 119,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 119,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 1,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 1,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $236 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "PA",
+      "stateName": "Pennsylvania",
+      "ccRent": 1.846,
+      "duRent": 1.026,
+      "confidence": "HIGH",
+      "sampleFacilities": 119,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 21.19,
+      "monthlyPortfolioRentPerSF": 1.766,
+      "stateWeightedPSF": 113,
+      "geoMultiplier": 0.92,
+      "geoBasis": "sqrt(state PSF $113 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.007,
+      "duRentBeforeGeoAdj": 1.115,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 72,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 72,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 33,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 33,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 14,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 14,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $113 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "NV",
+      "stateName": "Nevada",
+      "ccRent": 2.232,
+      "duRent": 1.24,
+      "confidence": "HIGH",
+      "sampleFacilities": 106,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.58,
+      "monthlyPortfolioRentPerSF": 1.715,
+      "stateWeightedPSF": 175,
+      "geoMultiplier": 1.145,
+      "geoBasis": "sqrt(state PSF $175 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.949,
+      "duRentBeforeGeoAdj": 1.083,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 34,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 34,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 41,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 41,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 22,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 22,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 9,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 9,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $175 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "TN",
+      "stateName": "Tennessee",
+      "ccRent": 1.91,
+      "duRent": 1.061,
+      "confidence": "HIGH",
+      "sampleFacilities": 105,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 21.09,
+      "monthlyPortfolioRentPerSF": 1.758,
+      "stateWeightedPSF": 122,
+      "geoMultiplier": 0.956,
+      "geoBasis": "sqrt(state PSF $122 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.998,
+      "duRentBeforeGeoAdj": 1.11,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 63,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 63,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 33,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 33,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 9,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 9,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $122 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "MO",
+      "stateName": "Missouri",
+      "ccRent": 1.648,
+      "duRent": 0.915,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 88,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 20.96,
+      "monthlyPortfolioRentPerSF": 1.747,
+      "stateWeightedPSF": 92,
+      "geoMultiplier": 0.83,
+      "geoBasis": "sqrt(state PSF $92 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.985,
+      "duRentBeforeGeoAdj": 1.103,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 59,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 59,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 29,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 29,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $92 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "AL",
+      "stateName": "Alabama",
+      "ccRent": 1.813,
+      "duRent": 1.007,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 81,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.72,
+      "monthlyPortfolioRentPerSF": 1.727,
+      "stateWeightedPSF": 114,
+      "geoMultiplier": 0.924,
+      "geoBasis": "sqrt(state PSF $114 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.962,
+      "duRentBeforeGeoAdj": 1.09,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 45,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 45,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 35,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 35,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 1,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 1,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $114 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "MN",
+      "stateName": "Minnesota",
+      "ccRent": 1.871,
+      "duRent": 1.04,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 78,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 21.39,
+      "monthlyPortfolioRentPerSF": 1.782,
+      "stateWeightedPSF": 114,
+      "geoMultiplier": 0.924,
+      "geoBasis": "sqrt(state PSF $114 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.025,
+      "duRentBeforeGeoAdj": 1.125,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 68,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 68,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 7,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 7,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 3,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 3,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $114 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "MI",
+      "stateName": "Michigan",
+      "ccRent": 1.852,
+      "duRent": 1.029,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 74,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.9,
+      "monthlyPortfolioRentPerSF": 1.741,
+      "stateWeightedPSF": 117,
+      "geoMultiplier": 0.936,
+      "geoBasis": "sqrt(state PSF $117 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.979,
+      "duRentBeforeGeoAdj": 1.099,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 59,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 59,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 11,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 11,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 4,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 4,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $117 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "CT",
+      "stateName": "Connecticut",
+      "ccRent": 1.766,
+      "duRent": 0.981,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 61,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 21.44,
+      "monthlyPortfolioRentPerSF": 1.787,
+      "stateWeightedPSF": 101,
+      "geoMultiplier": 0.87,
+      "geoBasis": "sqrt(state PSF $101 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.03,
+      "duRentBeforeGeoAdj": 1.128,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 11,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 11,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 23,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 23,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 27,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 27,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $101 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "OR",
+      "stateName": "Oregon",
+      "ccRent": 1.887,
+      "duRent": 1.048,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 60,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 21.29,
+      "monthlyPortfolioRentPerSF": 1.774,
+      "stateWeightedPSF": 117,
+      "geoMultiplier": 0.936,
+      "geoBasis": "sqrt(state PSF $117 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.016,
+      "duRentBeforeGeoAdj": 1.12,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 51,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 51,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 8,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 8,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 1,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 1,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $117 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "OK",
+      "stateName": "Oklahoma",
+      "ccRent": 1.902,
+      "duRent": 1.057,
+      "confidence": "MEDIUM",
+      "sampleFacilities": 55,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 21.37,
+      "monthlyPortfolioRentPerSF": 1.78,
+      "stateWeightedPSF": 118,
+      "geoMultiplier": 0.94,
+      "geoBasis": "sqrt(state PSF $118 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.023,
+      "duRentBeforeGeoAdj": 1.124,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 51,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 51,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 4,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 4,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $118 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "UT",
+      "stateName": "Utah",
+      "ccRent": 1.592,
+      "duRent": 0.884,
+      "confidence": "LOW",
+      "sampleFacilities": 40,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 20.7,
+      "monthlyPortfolioRentPerSF": 1.725,
+      "stateWeightedPSF": 88,
+      "geoMultiplier": 0.812,
+      "geoBasis": "sqrt(state PSF $88 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.96,
+      "duRentBeforeGeoAdj": 1.089,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 13,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 13,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 23,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 23,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 4,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 4,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $88 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "KY",
+      "stateName": "Kentucky",
+      "ccRent": 1.641,
+      "duRent": 0.912,
+      "confidence": "LOW",
+      "sampleFacilities": 30,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 20.75,
+      "monthlyPortfolioRentPerSF": 1.729,
+      "stateWeightedPSF": 93,
+      "geoMultiplier": 0.835,
+      "geoBasis": "sqrt(state PSF $93 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.965,
+      "duRentBeforeGeoAdj": 1.092,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 16,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 16,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 14,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 14,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $93 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "HI",
+      "stateName": "Hawaii",
+      "ccRent": 2.756,
+      "duRent": 1.531,
+      "confidence": "LOW",
+      "sampleFacilities": 29,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 20.61,
+      "monthlyPortfolioRentPerSF": 1.718,
+      "stateWeightedPSF": 266,
+      "geoMultiplier": 1.412,
+      "geoBasis": "sqrt(state PSF $266 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.952,
+      "duRentBeforeGeoAdj": 1.084,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 13,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 13,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 16,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 16,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $266 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "LA",
+      "stateName": "Louisiana",
+      "ccRent": 1.778,
+      "duRent": 0.987,
+      "confidence": "LOW",
+      "sampleFacilities": 25,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 20.85,
+      "monthlyPortfolioRentPerSF": 1.738,
+      "stateWeightedPSF": 108,
+      "geoMultiplier": 0.9,
+      "geoBasis": "sqrt(state PSF $108 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.975,
+      "duRentBeforeGeoAdj": 1.097,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 15,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 15,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 10,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 10,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $108 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "WI",
+      "stateName": "Wisconsin",
+      "ccRent": 1.438,
+      "duRent": 0.799,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 19,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "SMA"
+      ],
+      "weightedAnnualPerSF": 20.97,
+      "monthlyPortfolioRentPerSF": 1.748,
+      "stateWeightedPSF": 70,
+      "geoMultiplier": 0.724,
+      "geoBasis": "sqrt(state PSF $70 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.986,
+      "duRentBeforeGeoAdj": 1.103,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 16,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 16,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 2,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 2,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "SMA",
+          "facilities": 1,
+          "portfolioAnnualRentPerSF": 15,
+          "contributionToWeight": 1,
+          "accessionNumber": null,
+          "filingURL": null,
+          "reportDate": null,
+          "isImputed": true,
+          "source": "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $70 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "NH",
+      "stateName": "New Hampshire",
+      "ccRent": 1.885,
+      "duRent": 1.047,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 17,
+      "contributingIssuers": [
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 19.91,
+      "monthlyPortfolioRentPerSF": 1.659,
+      "stateWeightedPSF": null,
+      "geoMultiplier": 1,
+      "geoBasis": "national average (no PSF data)",
+      "ccRentBeforeGeoAdj": 1.885,
+      "duRentBeforeGeoAdj": 1.047,
+      "issuerContributions": [
+        {
+          "issuer": "EXR",
+          "facilities": 17,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 17,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: national average (no PSF data)."
+    },
+    {
+      "stateCode": "ID",
+      "stateName": "Idaho",
+      "ccRent": 1.911,
+      "duRent": 1.062,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 16,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 21.28,
+      "monthlyPortfolioRentPerSF": 1.774,
+      "stateWeightedPSF": 120,
+      "geoMultiplier": 0.948,
+      "geoBasis": "sqrt(state PSF $120 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.016,
+      "duRentBeforeGeoAdj": 1.12,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 14,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 14,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 2,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 2,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $120 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "RI",
+      "stateName": "Rhode Island",
+      "ccRent": 1.886,
+      "duRent": 1.048,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 15,
+      "contributingIssuers": [
+        "PSA",
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 21.19,
+      "monthlyPortfolioRentPerSF": 1.765,
+      "stateWeightedPSF": 118,
+      "geoMultiplier": 0.94,
+      "geoBasis": "sqrt(state PSF $118 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.006,
+      "duRentBeforeGeoAdj": 1.115,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 5,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 5,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 6,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 6,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 4,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 4,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $118 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "NM",
+      "stateName": "New Mexico",
+      "ccRent": 1.311,
+      "duRent": 0.728,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 15,
+      "contributingIssuers": [
+        "EXR",
+        "CUBE"
+      ],
+      "weightedAnnualPerSF": 20.47,
+      "monthlyPortfolioRentPerSF": 1.706,
+      "stateWeightedPSF": 61,
+      "geoMultiplier": 0.676,
+      "geoBasis": "sqrt(state PSF $61 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 1.939,
+      "duRentBeforeGeoAdj": 1.077,
+      "issuerContributions": [
+        {
+          "issuer": "EXR",
+          "facilities": 12,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 12,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        },
+        {
+          "issuer": "CUBE",
+          "facilities": 3,
+          "portfolioAnnualRentPerSF": 22.73,
+          "contributionToWeight": 3,
+          "accessionNumber": "0001298675-26-000010",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1298675/000129867526000010/cube-20251231x10k.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "CubeSmart FY2025 10-K MD&A same-store disclosure (accession 0001298675-26-000010)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $61 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "NE",
+      "stateName": "Nebraska",
+      "ccRent": 1.77,
+      "duRent": 0.983,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 11,
+      "contributingIssuers": [
+        "PSA"
+      ],
+      "weightedAnnualPerSF": 21.48,
+      "monthlyPortfolioRentPerSF": 1.79,
+      "stateWeightedPSF": 101,
+      "geoMultiplier": 0.87,
+      "geoBasis": "sqrt(state PSF $101 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.034,
+      "duRentBeforeGeoAdj": 1.13,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 11,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 11,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $101 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "KS",
+      "stateName": "Kansas",
+      "ccRent": 1.224,
+      "duRent": 0.68,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 10,
+      "contributingIssuers": [
+        "PSA",
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 21.32,
+      "monthlyPortfolioRentPerSF": 1.777,
+      "stateWeightedPSF": 49,
+      "geoMultiplier": 0.606,
+      "geoBasis": "sqrt(state PSF $49 / national PSF $133) clamped [0.55, 1.65]",
+      "ccRentBeforeGeoAdj": 2.019,
+      "duRentBeforeGeoAdj": 1.122,
+      "issuerContributions": [
+        {
+          "issuer": "PSA",
+          "facilities": 9,
+          "portfolioAnnualRentPerSF": 21.48,
+          "contributionToWeight": 9,
+          "accessionNumber": "0001628280-26-007696",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1393311/000162828026007696/psa-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative."
+        },
+        {
+          "issuer": "EXR",
+          "facilities": 1,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 1,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: sqrt(state PSF $49 / national PSF $133) clamped [0.55, 1.65]."
+    },
+    {
+      "stateCode": "ME",
+      "stateName": "Maine",
+      "ccRent": 1.885,
+      "duRent": 1.047,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 5,
+      "contributingIssuers": [
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 19.91,
+      "monthlyPortfolioRentPerSF": 1.659,
+      "stateWeightedPSF": null,
+      "geoMultiplier": 1,
+      "geoBasis": "national average (no PSF data)",
+      "ccRentBeforeGeoAdj": 1.885,
+      "duRentBeforeGeoAdj": 1.047,
+      "issuerContributions": [
+        {
+          "issuer": "EXR",
+          "facilities": 5,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 5,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: national average (no PSF data)."
+    },
+    {
+      "stateCode": "MS",
+      "stateName": "Mississippi",
+      "ccRent": 1.885,
+      "duRent": 1.047,
+      "confidence": "VERY_LOW",
+      "sampleFacilities": 5,
+      "contributingIssuers": [
+        "EXR"
+      ],
+      "weightedAnnualPerSF": 19.91,
+      "monthlyPortfolioRentPerSF": 1.659,
+      "stateWeightedPSF": null,
+      "geoMultiplier": 1,
+      "geoBasis": "national average (no PSF data)",
+      "ccRentBeforeGeoAdj": 1.885,
+      "duRentBeforeGeoAdj": 1.047,
+      "issuerContributions": [
+        {
+          "issuer": "EXR",
+          "facilities": 5,
+          "portfolioAnnualRentPerSF": 19.91,
+          "contributionToWeight": 5,
+          "accessionNumber": "0001289490-26-000011",
+          "filingURL": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm",
+          "reportDate": "2025-12-31",
+          "isImputed": false,
+          "source": "Extra Space Storage Inc FY2025 10-K MD&A same-store disclosure (accession 0001289490-26-000011)"
+        }
+      ],
+      "derivation": "Weighted annual = Σ(facilities × portfolio$/SF) / Σ(facilities). CC mix 73%, CC premium 1.80× over DU. Geographic adjustment: national average (no PSF data)."
+    }
+  ],
+  "citationRule": "Each state band cites the specific 10-K accession # + filing URL of every REIT contributing to the weighted average. National fallback aggregates across all weighted state samples. PSA portfolio rent ($21.48/SF) is derived from FY2025 same-store revenue ÷ NRSF disclosed in PSA Q4/FY2025 press release; SMA rent ($15.00/SF) is imputed pending same-store extraction."
+}

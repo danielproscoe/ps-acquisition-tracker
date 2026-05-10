@@ -14,6 +14,7 @@
 import edgarIndex from "./edgar-comp-index.json";
 import sameStoreGrowth from "./edgar-same-store-growth.json";
 import transactions8K from "./edgar-8k-transactions-claude.json";
+import rentCalibration from "./edgar-rent-calibration.json";
 
 /**
  * Look up the cross-REIT institutional cost basis for a US state.
@@ -163,6 +164,102 @@ export function getRelevant8KTransactions(stateCode, limit = 5) {
 }
 
 /**
+ * EDGAR-calibrated rent band for a US state. Replaces the hard-coded
+ * SpareFoot fallback bands with a primary-source-derived calibration:
+ *   - Per-state weighted average annual rent per SF, weighted by each REIT's
+ *     facility footprint in the state (Schedule III). Issuer portfolio rents
+ *     come from FY2025 10-K MD&A same-store disclosures.
+ *   - Split into CC + DU monthly bands using cross-REIT 73% CC mix and
+ *     industry-standard 80% CC premium over DU.
+ *   - Geographic adjustment via square-root damped Schedule III weighted PSF
+ *     (high-carry states like NY/HI get higher rents; low-carry like KS/NM
+ *     get lower).
+ *
+ * @param {string} stateCode — 2-letter state code (e.g. "TX", "CA")
+ * @returns {Object|null} { ccRent, duRent, confidence, sampleFacilities,
+ *                          contributingIssuers, weightedAnnualPerSF,
+ *                          stateWeightedPSF, geoMultiplier, citations,
+ *                          source }
+ *                          or null if no REIT data for that state. Falls back
+ *                          to national average if explicit fallback requested.
+ */
+export function getStateRentBand(stateCode, options = {}) {
+  const code = String(stateCode || "").toUpperCase().trim();
+  if (!code) {
+    if (options.fallbackToNational !== false) return _nationalRentBand();
+    return null;
+  }
+  const state = (rentCalibration.states || []).find((s) => s.stateCode === code);
+  if (!state || state.ccRent == null) {
+    if (options.fallbackToNational !== false) return _nationalRentBand();
+    return null;
+  }
+
+  const citations = (state.issuerContributions || [])
+    .filter((c) => c.contributionToWeight > 0 && c.accessionNumber)
+    .map((c) => ({
+      issuer: c.issuer,
+      facilities: c.facilities,
+      portfolioAnnualRentPerSF: c.portfolioAnnualRentPerSF,
+      accessionNumber: c.accessionNumber,
+      filingURL: c.filingURL,
+      reportDate: c.reportDate,
+      isImputed: c.isImputed,
+      source: c.source,
+    }));
+
+  return {
+    stateCode: state.stateCode,
+    stateName: state.stateName,
+    ccRent: state.ccRent,
+    duRent: state.duRent,
+    confidence: state.confidence,
+    sampleFacilities: state.sampleFacilities,
+    contributingIssuers: state.contributingIssuers,
+    weightedAnnualPerSF: state.weightedAnnualPerSF,
+    monthlyPortfolioRentPerSF: state.monthlyPortfolioRentPerSF,
+    stateWeightedPSF: state.stateWeightedPSF,
+    geoMultiplier: state.geoMultiplier,
+    geoBasis: state.geoBasis,
+    derivation: state.derivation,
+    citations,
+    source: `EDGAR-calibrated (${state.contributingIssuers.join(" + ")} weighted by ${state.sampleFacilities} facilities; geographic adjustment via Schedule III $/SF)`,
+  };
+}
+
+function _nationalRentBand() {
+  const nat = rentCalibration.nationalFallback;
+  if (!nat) return null;
+  return {
+    stateCode: null,
+    stateName: "United States (national average)",
+    ccRent: nat.ccRent,
+    duRent: nat.duRent,
+    confidence: nat.confidence,
+    sampleFacilities: nat.sampleFacilities,
+    contributingIssuers: rentCalibration.issuerPortfolioRents ? Object.keys(rentCalibration.issuerPortfolioRents) : [],
+    weightedAnnualPerSF: nat.annualPerSF,
+    geoMultiplier: 1.0,
+    citations: [],
+    source: `EDGAR-calibrated national average (${nat.sampleFacilities} REIT facilities across all states)`,
+  };
+}
+
+/**
+ * Top-level metadata for the rent calibration: methodology, source provenance,
+ * and per-issuer portfolio rent breakdown. Used by audit blocks.
+ */
+export const EDGAR_RENT_CALIBRATION_METADATA = {
+  schema: rentCalibration.schema,
+  generatedAt: rentCalibration.generatedAt,
+  methodology: rentCalibration.methodology,
+  issuerPortfolioRents: rentCalibration.issuerPortfolioRents,
+  nationalWeightedPSF: rentCalibration.nationalWeightedPSF,
+  nationalFallback: rentCalibration.nationalFallback,
+  citationRule: rentCalibration.citationRule,
+};
+
+/**
  * Top-level metadata for audit blocks: how the index was built, when, what
  * issuers were ingested.
  */
@@ -187,5 +284,7 @@ export default {
   getCalibratedSameStoreGrowth,
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
+  getStateRentBand,
   EDGAR_INDEX_METADATA,
+  EDGAR_RENT_CALIBRATION_METADATA,
 };

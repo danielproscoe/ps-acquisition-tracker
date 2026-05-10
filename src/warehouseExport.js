@@ -270,7 +270,7 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       ps_lens_documentation: "docs/PS_UNDERWRITING_MODEL.md",
       demographics_source: "ESRI ArcGIS GeoEnrichment 2025 (current year + 2030 projection)",
       ps_family_proximity_source: "PS_Locations_ALL.csv + NSA_Locations.csv (2026-Q2 vintage)",
-      market_rents_source: "SpareFoot via Storvex /api/sparefoot-rents",
+      market_rents_source: "EDGAR Rent Calibration Index v1 (cross-REIT primary source: PSA/EXR/CUBE/SMA 10-K same-store rent disclosures, Schedule III facility-weighted, geographic adjustment via weighted gross carrying $/SF). Endpoint: /api/sparefoot-rents (URL retained for backward compatibility).",
       sale_comps_source: "src/data/storageCompSales.js (REIT 10-K + Cushman + SSA + MMX)",
       valuation_framework_version: VALUATION_FRAMEWORK_VERSION,
       valuation_framework_documentation: "memory/valuation-framework.md",
