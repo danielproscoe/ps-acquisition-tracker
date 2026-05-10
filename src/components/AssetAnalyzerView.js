@@ -90,6 +90,70 @@ const RED_ROCK_DEFAULTS = {
   listingSource: "M&M",
 };
 
+// ─── Defaults: Texas Store & Go Greenville TX (Reza demo — broker takedown) ───
+// 2024-vintage CO-LU lease-up flip listed by M&M Karr-Cunningham at $5.2M.
+// 33% physical occ, mom-and-pop self-managed, 11% climate-controlled, well/septic,
+// no fire sprinklers. M&M pro forma claims 8.99% Pro Forma cap with 24-month
+// stabilization — falsifiable against actual rent roll showing 2.7 net move-ins/mo.
+// All numbers from M&M OM (5/1/26) + seller's TTM P&L (Mar 2025–Feb 2026).
+const GREENVILLE_DEFAULTS = {
+  name: "Texas Store & Go · 2980 I-30 Greenville TX",
+  state: "TX",
+  msaTier: "tertiary",
+  dealType: "co-lu",
+  ask: "5200000",
+  nrsf: "111650",
+  unitCount: "451",
+  yearBuilt: "2024",
+  physicalOcc: "33",
+  economicOcc: "23",
+  t12NOI: "31508",
+  t12EGI: "157422",
+  proFormaEGI: "733467",
+  proFormaNOI: "467589",
+  ccPct: "11",
+  isManned: "yes",
+  currentTaxAnnual: "40699",
+  nearestPortfolioMi: "",
+  listingBroker: "Marcus & Millichap (Karr-Cunningham Storage Team)",
+  listingSource: "M&M / Crexi · 5/1/26",
+};
+
+// ─── Defaults: CubeSmart NNN Tallahassee FL (Reza demo — institutional pair) ───
+// 4-story, 121K NRSF, 100% climate-controlled, single-tenant NNN credit lease
+// to CubeSmart Inc (NYSE: CUBE). $21.6M @ 6.25% disclosed cap. Listed by
+// Premier Commercial Group 8 days ago. CO expected first week June 2026.
+//
+// NOTE: Analyzer is built for operational NOI reconstruction; credit-tenant
+// NNN inverts the model (tenant absorbs opex, not buyer). Pre-CO physical occ
+// at 85% reflects pre-stabilization; economic occ 100% via CubeSmart NNN rent
+// commitment. EGI/NOI compressed (~10% gap) to reflect NNN structure where
+// buyer's institutional opex haircut is minimal. Verdict may read PASS due to
+// analyzer treating CubeSmart's lease rent as operational EGI — flag for
+// Reza meeting that NNN credit-tenant mode is a future enhancement.
+const TALLAHASSEE_DEFAULTS = {
+  name: "CubeSmart NNN · 2320 Capital Circle NE Tallahassee FL",
+  state: "FL",
+  msaTier: "secondary",
+  dealType: "stabilized",
+  ask: "21600000",
+  nrsf: "121000",
+  unitCount: "960",
+  yearBuilt: "2026",
+  physicalOcc: "85",
+  economicOcc: "100",
+  t12NOI: "1350000",
+  t12EGI: "1500000",
+  proFormaEGI: "",
+  proFormaNOI: "",
+  ccPct: "100",
+  isManned: "no",
+  currentTaxAnnual: "",
+  nearestPortfolioMi: "",
+  listingBroker: "Premier Commercial Group (Tracy Waters / Logan Short / Fletcher Dilmore)",
+  listingSource: "Premier / Crexi · 5/1/26",
+};
+
 const EMPTY_INPUTS = Object.fromEntries(
   Object.keys(RED_ROCK_DEFAULTS).map((k) => [k, ""])
 );
@@ -263,6 +327,20 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
 
   const loadDemo = useCallback(() => {
     setInputs(RED_ROCK_DEFAULTS);
+    setSavedId(null);
+    setMemo(null);
+    setMemoError(null);
+  }, []);
+
+  const loadGreenville = useCallback(() => {
+    setInputs(GREENVILLE_DEFAULTS);
+    setSavedId(null);
+    setMemo(null);
+    setMemoError(null);
+  }, []);
+
+  const loadTallahassee = useCallback(() => {
+    setInputs(TALLAHASSEE_DEFAULTS);
     setSavedId(null);
     setMemo(null);
     setMemoError(null);
@@ -528,6 +606,8 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     <div style={{ animation: "fadeIn 0.3s ease-out", color: "#E2E8F0", fontFamily: "'Inter', sans-serif" }}>
       <Header
         onLoadDemo={loadDemo}
+        onLoadGreenville={loadGreenville}
+        onLoadTallahassee={loadTallahassee}
         onClear={clearAll}
         onSave={handleSave}
         onExport={handleExportToWarehouse}
@@ -637,7 +717,7 @@ function OMDropZone({ onFile, extracting, meta }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────────────────
-function Header({ onLoadDemo, onClear, onSave, onExport, onExportReport, canSave, canExport, saving, savedId }) {
+function Header({ onLoadDemo, onLoadGreenville, onLoadTallahassee, onClear, onSave, onExport, onExportReport, canSave, canExport, saving, savedId }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
       <div>
@@ -651,7 +731,9 @@ function Header({ onLoadDemo, onClear, onSave, onExport, onExportReport, canSave
         </p>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button onClick={onLoadDemo} style={btnGhost} title="Pre-load Red Rock Mega Storage Reno NV (4/21/26 PASS calibration deal)">⤓ Load demo</button>
+        <button onClick={onLoadDemo} style={btnGhost} title="Pre-load Red Rock Mega Storage Reno NV (4/21/26 PASS calibration deal)">⤓ Red Rock</button>
+        <button onClick={onLoadGreenville} style={{...btnGhost, color: GOLD, borderColor: `${GOLD}66`, background: "rgba(201,168,76,0.10)"}} title="Reza demo · Texas Store & Go Greenville TX — M&M $5.2M lease-up flip (broker pro forma takedown)">⤓ Greenville</button>
+        <button onClick={onLoadTallahassee} style={{...btnGhost, color: GOLD, borderColor: `${GOLD}66`, background: "rgba(201,168,76,0.10)"}} title="Reza demo · CubeSmart NNN Tallahassee FL — $21.6M Class A institutional pair (NNN credit-tenant — note analyzer treats as operational, future NNN mode TBD)">⤓ Tallahassee</button>
         <button onClick={onClear} style={btnGhost}>Clear</button>
         <button
           onClick={onExport}
