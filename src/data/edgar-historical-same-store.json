@@ -1,0 +1,824 @@
+{
+  "schema": "storvex.edgar-historical-same-store.v1",
+  "generated_at": "2026-05-10T20:13:17.086Z",
+  "issuers": [
+    "EXR",
+    "CUBE",
+    "NSA",
+    "LSI"
+  ],
+  "yearsCovered": [
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020",
+    "2021",
+    "2022",
+    "2023",
+    "2024",
+    "2025"
+  ],
+  "extractionLog": [
+    {
+      "ticker": "EXR",
+      "fyTag": "2020",
+      "metricsExtracted": 3,
+      "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $769,936K vs prior $775,273K)"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2021",
+      "metricsExtracted": 3,
+      "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $898,815K vs prior $750,838K)"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2022",
+      "metricsExtracted": 3,
+      "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,104,132K vs prior $917,970K)"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2023",
+      "metricsExtracted": 3,
+      "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,186,120K vs prior $1,153,795K)"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2024",
+      "metricsExtracted": 8,
+      "revenueGrowthBasis": "tabular (3-col) — same-store revenue table (current period $1,665,755K vs prior period $1,661,704K)",
+      "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,233,706K vs prior $1,252,777K)"
+    },
+    {
+      "ticker": "EXR",
+      "fyTag": "2025",
+      "metricsExtracted": 8,
+      "revenueGrowthBasis": "tabular (3-col) — same-store revenue table (current period $2,648,814K vs prior period $2,645,534K)",
+      "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,884,797K vs prior $1,917,206K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2020",
+      "metricsExtracted": 3,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $581,287K vs prior $576,947K, change $4,340K)",
+      "noiGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio NOI line (current $407,702K vs prior $407,407K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2021",
+      "metricsExtracted": 4,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $657,809K vs prior $581,874K, change $75,935K)",
+      "noiGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio NOI line (current $465,159K vs prior $396,935K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2022",
+      "metricsExtracted": 4,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $776,938K vs prior $689,458K, change $87,480K)",
+      "noiGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio NOI line (current $569,915K vs prior $488,388K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2023",
+      "metricsExtracted": 4,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $920,431K vs prior $889,657K, change $30,774K)",
+      "noiGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio NOI line (current $674,984K vs prior $647,824K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2024",
+      "metricsExtracted": 4,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $929,078K vs prior $933,914K, change $4,836K)",
+      "noiGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio NOI line (current $666,996K vs prior $683,884K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2025",
+      "metricsExtracted": 4,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $938,048K vs prior $942,457K, change $4,409K)",
+      "noiGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio NOI line (current $666,847K vs prior $674,490K)"
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2020",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2021",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2022",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2023",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2024",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "NSA",
+      "fyTag": "2025",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2016",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2017",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2018",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2019",
+      "metricsExtracted": 1
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2020",
+      "metricsExtracted": 0
+    },
+    {
+      "ticker": "LSI",
+      "fyTag": "2021",
+      "metricsExtracted": 0
+    }
+  ],
+  "crossREITLatest": {
+    "asOf": "2025",
+    "avgSameStoreRentPerSF": 21.32,
+    "avgSameStoreOccupancyEOP": 0.9059999999999999,
+    "avgSameStoreRevenueGrowthYoY": -0.002,
+    "avgSameStoreNOIGrowthYoY": -0.014000000000000002,
+    "contributingIssuers": [
+      "EXR",
+      "CUBE",
+      "NSA"
+    ]
+  },
+  "byIssuerYear": {
+    "EXR": {
+      "2020": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": -0.006999999999999999,
+        "sameStoreOccupancyEOP": 0.948,
+        "sameStoreOccupancyAvg": 0.948,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2021": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": 0.19699999999999998,
+        "sameStoreOccupancyEOP": 0.953,
+        "sameStoreOccupancyAvg": 0.953,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2022": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": 0.203,
+        "sameStoreOccupancyEOP": 0.9420000000000001,
+        "sameStoreOccupancyAvg": 0.9420000000000001,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2023": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": 0.027999999999999997,
+        "sameStoreOccupancyEOP": 0.93,
+        "sameStoreOccupancyAvg": 0.93,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2024": {
+        "sameStoreRevenueGrowthYoY": 0.002,
+        "sameStoreNOIGrowthYoY": -0.015,
+        "sameStoreOccupancyEOP": 0.937,
+        "sameStoreOccupancyAvg": 0.937,
+        "sameStoreRentPerSF": 21.68,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": 14.49,
+        "newLeaseRentPerSF_PriorYear": 16.18,
+        "discountPctOfRevenue": 0.021
+      },
+      "2025": {
+        "sameStoreRevenueGrowthYoY": 0.001,
+        "sameStoreNOIGrowthYoY": -0.017,
+        "sameStoreOccupancyEOP": 0.9259999999999999,
+        "sameStoreOccupancyAvg": 0.9259999999999999,
+        "sameStoreRentPerSF": 19.91,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": 13.16,
+        "newLeaseRentPerSF_PriorYear": 12.6,
+        "discountPctOfRevenue": 0.021
+      }
+    },
+    "CUBE": {
+      "2020": {
+        "sameStoreRevenueGrowthYoY": 0.008,
+        "sameStoreNOIGrowthYoY": 0.001,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 17.1,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2021": {
+        "sameStoreRevenueGrowthYoY": 0.131,
+        "sameStoreNOIGrowthYoY": 0.172,
+        "sameStoreOccupancyEOP": 0.9329999999999999,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 18.78,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2022": {
+        "sameStoreRevenueGrowthYoY": 0.127,
+        "sameStoreNOIGrowthYoY": 0.16699999999999998,
+        "sameStoreOccupancyEOP": 0.9209999999999999,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 21.49,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2023": {
+        "sameStoreRevenueGrowthYoY": 0.035,
+        "sameStoreNOIGrowthYoY": 0.042,
+        "sameStoreOccupancyEOP": 0.903,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 22.7,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2024": {
+        "sameStoreRevenueGrowthYoY": -0.005,
+        "sameStoreNOIGrowthYoY": -0.025,
+        "sameStoreOccupancyEOP": 0.893,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 22.75,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2025": {
+        "sameStoreRevenueGrowthYoY": -0.005,
+        "sameStoreNOIGrowthYoY": -0.011000000000000001,
+        "sameStoreOccupancyEOP": 0.8859999999999999,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 22.73,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      }
+    },
+    "NSA": {
+      "2020": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.8859999999999999,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2021": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.893,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2022": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.9470000000000001,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2023": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.9309999999999999,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2024": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.887,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2025": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.86,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      }
+    },
+    "LSI": {
+      "2016": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.948,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2017": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.948,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2018": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.9420000000000001,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2019": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": 0.9259999999999999,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2020": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2021": {
+        "sameStoreRevenueGrowthYoY": null,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": null,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      }
+    }
+  },
+  "timeSeries": [
+    {
+      "issuer": "EXR",
+      "metric": "sameStoreRevenueGrowthYoY",
+      "firstYear": "2024",
+      "lastYear": "2025",
+      "firstValue": 0.002,
+      "lastValue": 0.001,
+      "cagrPct": null,
+      "dataPoints": 2,
+      "series": [
+        {
+          "year": "2024",
+          "value": 0.002
+        },
+        {
+          "year": "2025",
+          "value": 0.001
+        }
+      ]
+    },
+    {
+      "issuer": "EXR",
+      "metric": "sameStoreNOIGrowthYoY",
+      "firstYear": "2020",
+      "lastYear": "2025",
+      "firstValue": -0.006999999999999999,
+      "lastValue": -0.017,
+      "cagrPct": null,
+      "dataPoints": 6,
+      "series": [
+        {
+          "year": "2020",
+          "value": -0.006999999999999999
+        },
+        {
+          "year": "2021",
+          "value": 0.19699999999999998
+        },
+        {
+          "year": "2022",
+          "value": 0.203
+        },
+        {
+          "year": "2023",
+          "value": 0.027999999999999997
+        },
+        {
+          "year": "2024",
+          "value": -0.015
+        },
+        {
+          "year": "2025",
+          "value": -0.017
+        }
+      ]
+    },
+    {
+      "issuer": "EXR",
+      "metric": "sameStoreOccupancyEOP",
+      "firstYear": "2020",
+      "lastYear": "2025",
+      "firstValue": 0.948,
+      "lastValue": 0.9259999999999999,
+      "cagrPct": -0.468504430246508,
+      "dataPoints": 6,
+      "series": [
+        {
+          "year": "2020",
+          "value": 0.948
+        },
+        {
+          "year": "2021",
+          "value": 0.953
+        },
+        {
+          "year": "2022",
+          "value": 0.9420000000000001
+        },
+        {
+          "year": "2023",
+          "value": 0.93
+        },
+        {
+          "year": "2024",
+          "value": 0.937
+        },
+        {
+          "year": "2025",
+          "value": 0.9259999999999999
+        }
+      ]
+    },
+    {
+      "issuer": "EXR",
+      "metric": "sameStoreOccupancyAvg",
+      "firstYear": "2020",
+      "lastYear": "2025",
+      "firstValue": 0.948,
+      "lastValue": 0.9259999999999999,
+      "cagrPct": -0.468504430246508,
+      "dataPoints": 6,
+      "series": [
+        {
+          "year": "2020",
+          "value": 0.948
+        },
+        {
+          "year": "2021",
+          "value": 0.953
+        },
+        {
+          "year": "2022",
+          "value": 0.9420000000000001
+        },
+        {
+          "year": "2023",
+          "value": 0.93
+        },
+        {
+          "year": "2024",
+          "value": 0.937
+        },
+        {
+          "year": "2025",
+          "value": 0.9259999999999999
+        }
+      ]
+    },
+    {
+      "issuer": "EXR",
+      "metric": "sameStoreRentPerSF",
+      "firstYear": "2024",
+      "lastYear": "2025",
+      "firstValue": 21.68,
+      "lastValue": 19.91,
+      "cagrPct": -8.164206642066418,
+      "dataPoints": 2,
+      "series": [
+        {
+          "year": "2024",
+          "value": 21.68
+        },
+        {
+          "year": "2025",
+          "value": 19.91
+        }
+      ]
+    },
+    {
+      "issuer": "EXR",
+      "metric": "newLeaseRentPerSF",
+      "firstYear": "2024",
+      "lastYear": "2025",
+      "firstValue": 14.49,
+      "lastValue": 13.16,
+      "cagrPct": -9.178743961352653,
+      "dataPoints": 2,
+      "series": [
+        {
+          "year": "2024",
+          "value": 14.49
+        },
+        {
+          "year": "2025",
+          "value": 13.16
+        }
+      ]
+    },
+    {
+      "issuer": "CUBE",
+      "metric": "sameStoreRevenueGrowthYoY",
+      "firstYear": "2020",
+      "lastYear": "2025",
+      "firstValue": 0.008,
+      "lastValue": -0.005,
+      "cagrPct": null,
+      "dataPoints": 6,
+      "series": [
+        {
+          "year": "2020",
+          "value": 0.008
+        },
+        {
+          "year": "2021",
+          "value": 0.131
+        },
+        {
+          "year": "2022",
+          "value": 0.127
+        },
+        {
+          "year": "2023",
+          "value": 0.035
+        },
+        {
+          "year": "2024",
+          "value": -0.005
+        },
+        {
+          "year": "2025",
+          "value": -0.005
+        }
+      ]
+    },
+    {
+      "issuer": "CUBE",
+      "metric": "sameStoreNOIGrowthYoY",
+      "firstYear": "2020",
+      "lastYear": "2025",
+      "firstValue": 0.001,
+      "lastValue": -0.011000000000000001,
+      "cagrPct": null,
+      "dataPoints": 6,
+      "series": [
+        {
+          "year": "2020",
+          "value": 0.001
+        },
+        {
+          "year": "2021",
+          "value": 0.172
+        },
+        {
+          "year": "2022",
+          "value": 0.16699999999999998
+        },
+        {
+          "year": "2023",
+          "value": 0.042
+        },
+        {
+          "year": "2024",
+          "value": -0.025
+        },
+        {
+          "year": "2025",
+          "value": -0.011000000000000001
+        }
+      ]
+    },
+    {
+      "issuer": "CUBE",
+      "metric": "sameStoreOccupancyEOP",
+      "firstYear": "2021",
+      "lastYear": "2025",
+      "firstValue": 0.9329999999999999,
+      "lastValue": 0.8859999999999999,
+      "cagrPct": -1.2838931171749723,
+      "dataPoints": 5,
+      "series": [
+        {
+          "year": "2021",
+          "value": 0.9329999999999999
+        },
+        {
+          "year": "2022",
+          "value": 0.9209999999999999
+        },
+        {
+          "year": "2023",
+          "value": 0.903
+        },
+        {
+          "year": "2024",
+          "value": 0.893
+        },
+        {
+          "year": "2025",
+          "value": 0.8859999999999999
+        }
+      ]
+    },
+    {
+      "issuer": "CUBE",
+      "metric": "sameStoreRentPerSF",
+      "firstYear": "2020",
+      "lastYear": "2025",
+      "firstValue": 17.1,
+      "lastValue": 22.73,
+      "cagrPct": 5.857264023254727,
+      "dataPoints": 6,
+      "series": [
+        {
+          "year": "2020",
+          "value": 17.1
+        },
+        {
+          "year": "2021",
+          "value": 18.78
+        },
+        {
+          "year": "2022",
+          "value": 21.49
+        },
+        {
+          "year": "2023",
+          "value": 22.7
+        },
+        {
+          "year": "2024",
+          "value": 22.75
+        },
+        {
+          "year": "2025",
+          "value": 22.73
+        }
+      ]
+    },
+    {
+      "issuer": "NSA",
+      "metric": "sameStoreOccupancyAvg",
+      "firstYear": "2020",
+      "lastYear": "2025",
+      "firstValue": 0.8859999999999999,
+      "lastValue": 0.86,
+      "cagrPct": -0.593920504717449,
+      "dataPoints": 6,
+      "series": [
+        {
+          "year": "2020",
+          "value": 0.8859999999999999
+        },
+        {
+          "year": "2021",
+          "value": 0.893
+        },
+        {
+          "year": "2022",
+          "value": 0.9470000000000001
+        },
+        {
+          "year": "2023",
+          "value": 0.9309999999999999
+        },
+        {
+          "year": "2024",
+          "value": 0.887
+        },
+        {
+          "year": "2025",
+          "value": 0.86
+        }
+      ]
+    },
+    {
+      "issuer": "LSI",
+      "metric": "sameStoreOccupancyAvg",
+      "firstYear": "2016",
+      "lastYear": "2019",
+      "firstValue": 0.948,
+      "lastValue": 0.9259999999999999,
+      "cagrPct": -0.779620656848945,
+      "dataPoints": 4,
+      "series": [
+        {
+          "year": "2016",
+          "value": 0.948
+        },
+        {
+          "year": "2017",
+          "value": 0.948
+        },
+        {
+          "year": "2018",
+          "value": 0.9420000000000001
+        },
+        {
+          "year": "2019",
+          "value": 0.9259999999999999
+        }
+      ]
+    }
+  ]
+}

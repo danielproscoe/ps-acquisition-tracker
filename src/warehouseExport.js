@@ -1,4 +1,9 @@
-import { resolveCityToMSA, getHistoricalMSARentSeries } from "./data/edgarCompIndex";
+import {
+  resolveCityToMSA,
+  getHistoricalMSARentSeries,
+  getHistoricalSameStoreSeries,
+  getCrossREITHistoricalLatest,
+} from "./data/edgarCompIndex";
 
 // warehouseExport.js — Push Storvex Asset Analyzer outputs to PSA's data warehouse.
 //
@@ -303,6 +308,68 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
         source_provider: "SEC EDGAR",
         ingestion_pipeline: "scripts/edgar/backfill-historical-msa-rents.mjs",
         schema_version: "storvex.edgar-historical-msa-rents.v1",
+      };
+    })(),
+
+    // Multi-year portfolio-aggregate same-store time series for non-PSA
+    // institutional storage REITs (EXR / CUBE / NSA / LSI). Covers FY2020-
+    // FY2025 where disclosed. Distinct from historical_msa_rent (PSA-only,
+    // MSA-granular) — these issuers don't disclose per-MSA, so this is the
+    // closest backfill for non-PSA buyer lenses. Each metric includes a
+    // multi-year series + first/last endpoints + computed CAGR (level
+    // metrics only).
+    historical_cross_reit_same_store: (() => {
+      const latest = getCrossREITHistoricalLatest();
+      if (!latest || !latest.contributingIssuers || latest.contributingIssuers.length === 0) {
+        return null;
+      }
+      // Pull the rent-per-SF series for each issuer (the most cite-able
+      // headline metric). Other metrics flow when caller wants them.
+      const issuerSeries = latest.contributingIssuers.map((iss) => {
+        const rentSeries = getHistoricalSameStoreSeries(iss, "sameStoreRentPerSF");
+        const occSeries = getHistoricalSameStoreSeries(iss, "sameStoreOccupancyEOP");
+        return {
+          issuer: iss,
+          rent_per_sf: rentSeries
+            ? {
+                first_year: rentSeries.firstYear,
+                last_year: rentSeries.lastYear,
+                first_value: numOrNull(rentSeries.firstValue),
+                last_value: numOrNull(rentSeries.lastValue),
+                cagr_pct: numOrNull(rentSeries.cagrPct),
+                data_points: rentSeries.dataPoints,
+                series: (rentSeries.series || []).map((p) => ({
+                  fiscal_year: p.year,
+                  rent_per_occ_sf: numOrNull(p.value),
+                })),
+              }
+            : null,
+          occupancy_eop: occSeries
+            ? {
+                first_year: occSeries.firstYear,
+                last_year: occSeries.lastYear,
+                first_value: numOrNull(occSeries.firstValue),
+                last_value: numOrNull(occSeries.lastValue),
+                series: (occSeries.series || []).map((p) => ({
+                  fiscal_year: p.year,
+                  occupancy: numOrNull(p.value),
+                })),
+              }
+            : null,
+        };
+      });
+      return {
+        as_of: latest.asOf,
+        cross_reit_avg_rent_per_sf: numOrNull(latest.avgSameStoreRentPerSF),
+        cross_reit_avg_occupancy_eop: numOrNull(latest.avgSameStoreOccupancyEOP),
+        cross_reit_avg_revenue_growth_yoy: numOrNull(latest.avgSameStoreRevenueGrowthYoY),
+        cross_reit_avg_noi_growth_yoy: numOrNull(latest.avgSameStoreNOIGrowthYoY),
+        contributing_issuers: latest.contributingIssuers,
+        issuer_series: issuerSeries,
+        source: `EDGAR 10-K MD&A · Same-Store Performance · ${latest.contributingIssuers.join(" + ")} · FY${latest.asOf}`,
+        source_provider: "SEC EDGAR",
+        ingestion_pipeline: "scripts/edgar/backfill-historical-same-store.mjs",
+        schema_version: "storvex.edgar-historical-same-store.v1",
       };
     })(),
 

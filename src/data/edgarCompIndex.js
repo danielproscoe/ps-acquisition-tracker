@@ -29,6 +29,19 @@ try {
   // Optional asset; run scripts/edgar/backfill-historical-msa-rents.mjs to generate.
 }
 
+// Multi-year portfolio-aggregate same-store performance for EXR / CUBE / NSA /
+// LSI / SMA, ingested from cached historical 10-Ks. Distinct from the PSA per-
+// MSA series (above) — these issuers do NOT disclose per-MSA same-store rent,
+// so this is the closest possible primary-source backfill for non-PSA buyer
+// lenses. Loaded optionally.
+let historicalSameStore = null;
+try {
+  // eslint-disable-next-line global-require
+  historicalSameStore = require("./edgar-historical-same-store.json");
+} catch {
+  // Optional asset; run scripts/edgar/backfill-historical-same-store.mjs to generate.
+}
+
 // Scraped per-facility rents — primary-source unit pricing pulled from each
 // REIT's facility detail pages. Optional — availability depends on whether
 // the scraper has run for the subject MSA.
@@ -1461,6 +1474,57 @@ export function listHistoricalMSACoverage(issuer = "PSA") {
 }
 
 /**
+ * Multi-year portfolio-aggregate same-store time series for an issuer × metric.
+ * Sourced from each issuer's 10-K MD&A across FY2020-FY2025 (or earlier when
+ * cached). Returned shape mirrors getHistoricalMSARentSeries but for portfolio-
+ * level metrics that EXR / CUBE / NSA disclose without MSA breakouts.
+ *
+ * Available metrics: sameStoreRevenueGrowthYoY, sameStoreNOIGrowthYoY,
+ *   sameStoreOccupancyEOP, sameStoreOccupancyAvg, sameStoreRentPerSF,
+ *   newLeaseRentPerSF
+ *
+ * @param {string} issuer — issuer ticker (EXR, CUBE, NSA, LSI, SMA)
+ * @param {string} metric — one of TIME_SERIES_METRICS above
+ * @returns {Object|null} series + endpoints + CAGR (when level-metric)
+ */
+export function getHistoricalSameStoreSeries(issuer, metric) {
+  if (!historicalSameStore || !issuer || !metric) return null;
+  const upperIssuer = String(issuer).toUpperCase();
+  const match = (historicalSameStore.timeSeries || []).find(
+    (t) => t.issuer === upperIssuer && t.metric === metric
+  );
+  return match || null;
+}
+
+/**
+ * Cross-REIT FY-latest portfolio-aggregate averages. Used by the IC memo
+ * prompt + warehouseExport when the subject is a non-PSA buyer (or when a
+ * cross-REIT comparison adds context to the institutional underwrite).
+ *
+ * @returns {Object|null} { asOf, avgSameStoreRentPerSF, avgSameStoreOccupancyEOP, ...}
+ */
+export function getCrossREITHistoricalLatest() {
+  if (!historicalSameStore || !historicalSameStore.crossREITLatest) return null;
+  return historicalSameStore.crossREITLatest;
+}
+
+/**
+ * Metadata about the multi-year same-store backfill — issuers covered, years,
+ * total time-series row count, generation timestamp.
+ */
+export function getHistoricalSameStoreMetadata() {
+  if (!historicalSameStore) return null;
+  return {
+    schema: historicalSameStore.schema,
+    generatedAt: historicalSameStore.generated_at,
+    issuers: historicalSameStore.issuers,
+    yearsCovered: historicalSameStore.yearsCovered,
+    timeSeriesRows: (historicalSameStore.timeSeries || []).length,
+    crossREITLatest: historicalSameStore.crossREITLatest,
+  };
+}
+
+/**
  * Metadata about the historical-rent backfill (schema version, generation
  * timestamp, issuers + years covered). Used for audit/provenance display.
  */
@@ -1485,6 +1549,9 @@ export default {
   getHistoricalMSACAGR,
   listHistoricalMSACoverage,
   getHistoricalRentMetadata,
+  getHistoricalSameStoreSeries,
+  getCrossREITHistoricalLatest,
+  getHistoricalSameStoreMetadata,
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
   getStateRentBand,

@@ -59,7 +59,11 @@ function parseNumber(s) {
 // Extract same-store performance metrics from REIT 10-K text.
 // Each issuer phrases the disclosure differently — we use multiple candidate
 // patterns and keep the first non-null match per metric.
-function extractSameStoreMetrics(text, ticker) {
+//
+// Exported so the historical backfill (backfill-historical-same-store.mjs)
+// can reuse the same parsing logic against cached 10-Ks from prior years —
+// single source of truth for the SEC EDGAR same-store extraction patterns.
+export function extractSameStoreMetrics(text, ticker) {
   const metrics = {
     sameStoreRevenueGrowthYoY: null,
     sameStoreNOIGrowthYoY: null,
@@ -430,8 +434,15 @@ async function run() {
   console.log(`\n✓ Saved: src/data/edgar-same-store-growth.json`);
 }
 
-run().catch((e) => {
-  console.error("✗ Failed:", e.message);
-  console.error(e.stack);
-  process.exit(1);
-});
+// Only auto-run when invoked directly as a script. When imported as a module
+// (e.g. by backfill-historical-same-store.mjs), the parser is reused without
+// re-triggering the full ingestion run.
+const __thisFile = fileURLToPath(import.meta.url);
+const __invokedAs = process.argv[1] ? path.resolve(process.argv[1]) : "";
+if (__thisFile === __invokedAs) {
+  run().catch((e) => {
+    console.error("✗ Failed:", e.message);
+    console.error(e.stack);
+    process.exit(1);
+  });
+}
