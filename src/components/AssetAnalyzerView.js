@@ -541,6 +541,7 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
           address: f.address,
           city: f.city,
           state: f.state,
+          buyerLens: next.buyerLens,
         });
         setEnrichment(enrich);
         // Auto-fill the PS Lens portfolio-fit input
@@ -708,7 +709,12 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
       <OMDropZone onFile={handleOMFile} extracting={extracting} meta={extractionMeta} />
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 20, alignItems: "flex-start" }}>
-        <FormPanel inputs={inputs} setField={setField} buyerDetection={buyerDetection} />
+        <FormPanel
+          inputs={inputs}
+          setField={setField}
+          buyerDetection={buyerDetection}
+          buyerRentAnchor={enrichment?.buyerSpecificRentAnchor}
+        />
         <OutputsPanel
           analysis={analysis}
           psLens={psLens}
@@ -921,8 +927,43 @@ function BuyerDetectionBadge({ detection }) {
   );
 }
 
+// ─── Buyer Rent Anchor Badge ──────────────────────────────────────────────
+//
+// Renders under the buyerLens dropdown when an enrichment has computed a
+// buyer-specific Y0 rent anchor. Surfaces which 10-K + scrape the rent
+// number cites, so analysts can see WHY this rent flowed into the forecast.
+function BuyerRentAnchorBadge({ anchor }) {
+  if (!anchor || anchor.annualPerSF == null) return null;
+  const sample = anchor.sampleN ? ` · ${anchor.sampleN.toLocaleString()} ${anchor.sampleN === 1 ? "facility" : "facilities"}` : "";
+  return (
+    <div
+      style={{
+        marginTop: 6,
+        padding: "6px 10px",
+        background: "rgba(59,130,246,0.08)",
+        border: "1px solid rgba(59,130,246,0.30)",
+        borderRadius: 4,
+        fontSize: 10,
+        color: "#94A3B8",
+        lineHeight: 1.4,
+      }}
+    >
+      <span style={{ fontWeight: 800, color: "#3B82F6", letterSpacing: "0.04em", textTransform: "uppercase", marginRight: 6 }}>
+        💰 RENT ANCHOR · {anchor.basis}
+      </span>
+      <span style={{ color: "#fff", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>
+        ${anchor.annualPerSF.toFixed(2)}/SF/yr
+      </span>
+      <span style={{ color: "#94A3B8" }}> · ${anchor.monthlyPerSF.toFixed(2)}/SF/mo{sample}</span>
+      <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
+        {anchor.source} · {anchor.citation}
+      </div>
+    </div>
+  );
+}
+
 // ─── Form Panel ───────────────────────────────────────────────────────────
-function FormPanel({ inputs, setField, buyerDetection }) {
+function FormPanel({ inputs, setField, buyerDetection, buyerRentAnchor }) {
   return (
     <div style={card}>
       <div style={sectionHeader}>Inputs</div>
@@ -958,6 +999,13 @@ function FormPanel({ inputs, setField, buyerDetection }) {
                   signal evidence so analysts can audit the auto-pick. */}
               {f.key === "buyerLens" && buyerDetection && (
                 <BuyerDetectionBadge detection={buyerDetection} />
+              )}
+              {/* RENT ANCHOR badge — shows which 10-K + scrape source the
+                  selected buyer's Y0 rent anchor cites. Renders only when an
+                  enrichment has run (post-OM-upload) and a rent anchor was
+                  routed for the selected buyer. */}
+              {f.key === "buyerLens" && buyerRentAnchor && (
+                <BuyerRentAnchorBadge anchor={buyerRentAnchor} />
               )}
             </div>
           ))}

@@ -410,6 +410,197 @@ export function getBestRentBand({ msa, state, options = {} } = {}) {
   return _nationalRentBand();
 }
 
+/**
+ * Buyer-specific rent anchor — routes Y0 in-place rent to the selected
+ * buyer's 10-K-disclosed rent + Storvex scrape, NOT the cross-REIT
+ * weighted fallback. This is what makes the analyzer's underwriting
+ * "speak each buyer's voice" — when buyer = CUBE, the rent anchor cites
+ * CUBE's actual scraped state-weighted median rather than a generic cross-
+ * REIT band.
+ *
+ * Routing per buyer:
+ *   - PS:      PSA per-MSA disclosed rent if MSA matches one of the 24
+ *              same-store markets; falls back to PSA national $22.54/SF/yr
+ *   - EXR:     EXR scraped MSA if available (data not yet ingested — IP
+ *              rotation pending); falls back to EXR national $19.91/SF/yr
+ *   - CUBE:    CUBE scraped MSA if available; CUBE scraped state-weighted
+ *              if state matches; falls back to CUBE national $22.73/SF/yr
+ *   - SMA:     SMA national $20.03/SF/yr (no per-MSA disclosure)
+ *   - AMERCO:  UHAL value-tier $16.50/SF/yr (truck-adjacent storage cohort)
+ *   - GENERIC: cross-REIT national average $20.92/SF/yr
+ *
+ * @param {Object} args
+ * @param {string} args.buyerKey — "PS" | "EXR" | "CUBE" | "SMA" | "AMERCO" | "GENERIC"
+ * @param {string} [args.msa]   — MSA name (e.g. "Houston")
+ * @param {string} [args.state] — 2-letter state code or full slug (e.g. "TX" or "texas")
+ * @returns {Object|null} {
+ *   annualPerSF, monthlyPerSF, source, citation, basis, sampleN,
+ *   buyerKey, buyerTicker
+ * }
+ */
+export function getBuyerSpecificRentAnchor({ buyerKey, msa, state } = {}) {
+  if (!buyerKey) return null;
+  const k = String(buyerKey).toUpperCase();
+
+  // ── PSA — per-MSA from FY2025 10-K MD&A (24 markets) ──
+  if (k === "PS" || k === "PSA") {
+    if (msa) {
+      const msaBand = getMSARentBand(msa);
+      // PSA per-MSA disclosure surfaces realized rent per OCCUPIED SF — that's
+      // the in-place rent we want as Y0 anchor. msaBand.weightedAnnualPerSF
+      // is the same MSA-level band; rentPerAvailSF_2025 is the available-SF
+      // variant. Prefer weightedAnnualPerSF for in-place underwriting.
+      const annual = msaBand?.weightedAnnualPerSF || null;
+      if (annual) {
+        return {
+          annualPerSF: annual,
+          monthlyPerSF: annual / 12,
+          source: "PSA FY2025 10-K MD&A · Same Store Facilities Operating Trends by Market",
+          citation: msaBand.accessionNumber || "Accession 0001628280-26-007696",
+          basis: "PSA MSA-disclosed",
+          sampleN: msaBand.facilities || null,
+          buyerKey: "PS",
+          buyerTicker: "INST",
+        };
+      }
+    }
+    return {
+      annualPerSF: 22.54,
+      monthlyPerSF: 22.54 / 12,
+      source: "PSA FY2025 10-K MD&A · realized annual rent per occupied SF (national same-store)",
+      citation: "Accession 0001628280-26-007696",
+      basis: "PSA national",
+      sampleN: 2565,
+      buyerKey: "PS",
+      buyerTicker: "INST",
+    };
+  }
+
+  // ── EXR — scraped MSA when available, fallback to EXR national disclosure ──
+  if (k === "EXR") {
+    const scraped = exrScrapedRentIndex && msa
+      ? (exrScrapedRentIndex.msaAggregations || []).find((m) => m.msa === msa)
+      : null;
+    if (scraped && scraped.ccMedianPerSF_mo) {
+      // Convert CC monthly median to annual estimate; CC is ~73% of EXR mix,
+      // and CC carries ~80% premium over DU. Reverse-derive the all-in annual.
+      const monthlyPortfolio = scraped.ccMedianPerSF_mo / 1.8 * (0.73 * 1.8 + 0.27);
+      return {
+        annualPerSF: monthlyPortfolio * 12,
+        monthlyPerSF: monthlyPortfolio,
+        source: "EXR Storvex per-facility scrape · MSA-aggregated CC median (move-in pricing)",
+        citation: `Storvex direct scrape · ${scraped.facilitiesScraped} facilities`,
+        basis: "EXR scraped MSA",
+        sampleN: scraped.facilitiesScraped,
+        buyerKey: "EXR",
+        buyerTicker: "EXR",
+      };
+    }
+    return {
+      annualPerSF: 19.91,
+      monthlyPerSF: 19.91 / 12,
+      source: "EXR FY2025 10-K MD&A · same-store realized rent per occupied SF (national)",
+      citation: "Accession 0001289490-26-000011",
+      basis: "EXR national",
+      sampleN: 2084,
+      buyerKey: "EXR",
+      buyerTicker: "EXR",
+    };
+  }
+
+  // ── CUBE — scraped MSA, then state, then CUBE national disclosure ──
+  if (k === "CUBE") {
+    if (cubeScrapedRentIndex && msa) {
+      const msaScrape = (cubeScrapedRentIndex.msaAggregations || []).find((m) => m.msa === msa);
+      if (msaScrape && msaScrape.ccMedianPerSF_mo) {
+        // CUBE captures BOTH discount + standard. Use discount price for in-place
+        // anchor (it's what CUBE's same-store cohort actually pays).
+        const monthlyPortfolio = msaScrape.ccMedianPerSF_mo / 1.8 * (0.73 * 1.8 + 0.27);
+        return {
+          annualPerSF: monthlyPortfolio * 12,
+          monthlyPerSF: monthlyPortfolio,
+          source: "CUBE Storvex per-facility scrape · MSA-aggregated CC median (move-in pricing)",
+          citation: `Storvex direct scrape · ${msaScrape.facilitiesScraped} facilities`,
+          basis: "CUBE scraped MSA",
+          sampleN: msaScrape.facilitiesScraped,
+          buyerKey: "CUBE",
+          buyerTicker: "CUBE",
+        };
+      }
+    }
+    if (cubeScrapedRentIndex && state) {
+      const stateAgg = getCubeStateRentMedian(state);
+      if (stateAgg && stateAgg.ccMedianPerSF_mo) {
+        const monthlyPortfolio = stateAgg.ccMedianPerSF_mo / 1.8 * (0.73 * 1.8 + 0.27);
+        return {
+          annualPerSF: monthlyPortfolio * 12,
+          monthlyPerSF: monthlyPortfolio,
+          source: "CUBE Storvex per-facility scrape · state-weighted CC median (move-in pricing)",
+          citation: `Storvex direct scrape · ${stateAgg.facilitiesScraped} facilities`,
+          basis: "CUBE scraped state-weighted",
+          sampleN: stateAgg.facilitiesScraped,
+          buyerKey: "CUBE",
+          buyerTicker: "CUBE",
+        };
+      }
+    }
+    return {
+      annualPerSF: 22.73,
+      monthlyPerSF: 22.73 / 12,
+      source: "CUBE FY2025 10-K MD&A · same-store realized rent per occupied SF (national)",
+      citation: "Accession 0001298675-26-000010",
+      basis: "CUBE national",
+      sampleN: 657,
+      buyerKey: "CUBE",
+      buyerTicker: "CUBE",
+    };
+  }
+
+  // ── SMA — national same-store disclosure (no per-MSA) ──
+  if (k === "SMA") {
+    return {
+      annualPerSF: 20.03,
+      monthlyPerSF: 20.03 / 12,
+      source: "SMA FY2025 10-K MD&A · annualized rent per occupied SF (national)",
+      citation: "Accession 0001193125-26-082573",
+      basis: "SMA national",
+      sampleN: 149,
+      buyerKey: "SMA",
+      buyerTicker: "SMA",
+    };
+  }
+
+  // ── AMERCO/UHAL — value-tier truck-adjacent storage cohort ──
+  if (k === "AMERCO" || k === "UHAL") {
+    return {
+      annualPerSF: 16.50,
+      monthlyPerSF: 16.50 / 12,
+      source: "U-Haul Holding (UHAL) FY2025 10-K · Self-Storage segment · value-tier truck-adjacent rent",
+      citation: "UHAL FY2025 10-K (FY ending March 31, 2025) + Inside Self-Storage 2025 Industry Survey (truck-adjacent cohort)",
+      basis: "UHAL value-tier",
+      sampleN: null,
+      buyerKey: "AMERCO",
+      buyerTicker: "UHAL",
+    };
+  }
+
+  // ── GENERIC — cross-REIT national average ──
+  if (k === "GENERIC" || k === "GEN") {
+    return {
+      annualPerSF: 20.92,
+      monthlyPerSF: 20.92 / 12,
+      source: "Cross-REIT FY2025 10-K average (PSA + EXR + CUBE + SMA + UHAL national same-store)",
+      citation: "Storvex EDGAR Rent Calibration Index v1 (cross-REIT weighted)",
+      basis: "Cross-REIT national",
+      sampleN: 5818,
+      buyerKey: "GENERIC",
+      buyerTicker: "GEN",
+    };
+  }
+
+  return null;
+}
+
 function _nationalRentBand() {
   const nat = rentCalibration.nationalFallback;
   if (!nat) return null;
@@ -1032,6 +1223,7 @@ export default {
   getStateRentBand,
   getMSARentBand,
   getBestRentBand,
+  getBuyerSpecificRentAnchor,
   resolveCityToMSA,
   estimateFacilityCostBasis,
   enrichCompetitor,

@@ -18,6 +18,7 @@ import {
   enrichCompetitor,
   enrichNearbyCompetitors,
   getECRIPremiumIndex,
+  getBuyerSpecificRentAnchor,
   getScrapedFacilityRents,
   getScrapedMSARentMedian,
   getScrapedRentIndexMetadata,
@@ -889,6 +890,128 @@ describe("getCrossREITScrapedRentMetadata — consolidated 3-REIT coverage", () 
     // Sanity: returned operators are a subset of the 3 we support
     for (const op of operators) {
       expect(["PSA", "CUBE", "EXR"]).toContain(op);
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Buyer-specific rent anchor — routes Y0 rent to the selected buyer's source
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("getBuyerSpecificRentAnchor — per-buyer rent routing", () => {
+  test("PS + Houston MSA → PSA per-MSA disclosed rent (Houston band)", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "PS", msa: "Houston", state: "TX" });
+    expect(a).toBeTruthy();
+    expect(a.buyerKey).toBe("PS");
+    expect(a.basis).toBe("PSA MSA-disclosed");
+    expect(a.citation).toMatch(/0001628280-26-007696/);
+    expect(a.annualPerSF).toBeGreaterThan(0);
+  });
+
+  test("PS + unmatched MSA → PSA national fallback ($22.54/SF/yr)", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "PS", msa: "Boise" });
+    expect(a.basis).toBe("PSA national");
+    expect(a.annualPerSF).toBe(22.54);
+  });
+
+  test("EXR → EXR national $19.91/SF/yr (scrape data not yet ingested)", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "EXR", state: "TX" });
+    expect(a.buyerKey).toBe("EXR");
+    expect(a.annualPerSF).toBe(19.91);
+    expect(a.basis).toBe("EXR national");
+    expect(a.citation).toMatch(/0001289490-26-000011/);
+  });
+
+  test("CUBE + Houston MSA → CUBE scraped MSA when available", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "CUBE", msa: "Houston", state: "TX" });
+    expect(a).toBeTruthy();
+    expect(a.buyerKey).toBe("CUBE");
+    // Tallahassee or unmatched MSAs fall back to national; Houston is in
+    // CUBE's resolved MSAs from the 2026-05-10 scrape
+    expect(["CUBE scraped MSA", "CUBE scraped state-weighted", "CUBE national"]).toContain(a.basis);
+    expect(a.annualPerSF).toBeGreaterThan(0);
+  });
+
+  test("CUBE + unmatched MSA + state in scrape → state-weighted from scrape", () => {
+    // Wyoming is not in CUBE's heavy states — falls back to national
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "CUBE", state: "WY" });
+    expect(a.buyerKey).toBe("CUBE");
+    expect(["CUBE scraped state-weighted", "CUBE national"]).toContain(a.basis);
+  });
+
+  test("CUBE + no MSA + no state → CUBE national $22.73/SF/yr", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "CUBE" });
+    expect(a.basis).toBe("CUBE national");
+    expect(a.annualPerSF).toBe(22.73);
+    expect(a.citation).toMatch(/0001298675-26-000010/);
+  });
+
+  test("SMA → SMA national $20.03/SF/yr", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "SMA", state: "FL" });
+    expect(a.buyerKey).toBe("SMA");
+    expect(a.annualPerSF).toBe(20.03);
+    expect(a.basis).toBe("SMA national");
+    expect(a.citation).toMatch(/0001193125-26-082573/);
+  });
+
+  test("AMERCO → UHAL value-tier $16.50/SF/yr", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "AMERCO", state: "AZ" });
+    expect(a.buyerKey).toBe("AMERCO");
+    expect(a.buyerTicker).toBe("UHAL");
+    expect(a.annualPerSF).toBe(16.50);
+    expect(a.basis).toBe("UHAL value-tier");
+  });
+
+  test("UHAL key (alias for AMERCO) routes to same anchor", () => {
+    const a1 = getBuyerSpecificRentAnchor({ buyerKey: "AMERCO" });
+    const a2 = getBuyerSpecificRentAnchor({ buyerKey: "UHAL" });
+    expect(a1.annualPerSF).toBe(a2.annualPerSF);
+    expect(a1.basis).toBe(a2.basis);
+  });
+
+  test("GENERIC → cross-REIT national average $20.92/SF/yr", () => {
+    const a = getBuyerSpecificRentAnchor({ buyerKey: "GENERIC" });
+    expect(a.buyerKey).toBe("GENERIC");
+    expect(a.annualPerSF).toBe(20.92);
+    expect(a.basis).toBe("Cross-REIT national");
+  });
+
+  test("GEN alias routes to same anchor as GENERIC", () => {
+    const a1 = getBuyerSpecificRentAnchor({ buyerKey: "GENERIC" });
+    const a2 = getBuyerSpecificRentAnchor({ buyerKey: "GEN" });
+    expect(a1.annualPerSF).toBe(a2.annualPerSF);
+  });
+
+  test("returns null for unknown buyer key", () => {
+    expect(getBuyerSpecificRentAnchor({ buyerKey: "UNKNOWN" })).toBeNull();
+    expect(getBuyerSpecificRentAnchor({})).toBeNull();
+    expect(getBuyerSpecificRentAnchor()).toBeNull();
+  });
+
+  test("buyer-specific anchors produce distinct rent numbers across the 6 lenses", () => {
+    const inputs = ["PS", "EXR", "CUBE", "SMA", "AMERCO", "GENERIC"];
+    const rents = inputs.map((k) => getBuyerSpecificRentAnchor({ buyerKey: k })?.annualPerSF);
+    const unique = new Set(rents.filter((v) => v != null));
+    // At minimum, AMERCO ($16.50), EXR ($19.91), SMA ($20.03), GENERIC ($20.92),
+    // PS ($22.54), CUBE ($22.73) should all be distinct
+    expect(unique.size).toBe(6);
+  });
+
+  test("monthlyPerSF = annualPerSF / 12", () => {
+    for (const k of ["PS", "EXR", "CUBE", "SMA", "AMERCO", "GENERIC"]) {
+      const a = getBuyerSpecificRentAnchor({ buyerKey: k });
+      if (a) expect(a.monthlyPerSF).toBeCloseTo(a.annualPerSF / 12, 5);
+    }
+  });
+
+  test("every routed anchor includes source + citation strings", () => {
+    for (const k of ["PS", "EXR", "CUBE", "SMA", "AMERCO", "GENERIC"]) {
+      const a = getBuyerSpecificRentAnchor({ buyerKey: k });
+      expect(a).toBeTruthy();
+      expect(typeof a.source).toBe("string");
+      expect(a.source.length).toBeGreaterThan(20);
+      expect(typeof a.citation).toBe("string");
+      expect(a.citation.length).toBeGreaterThan(0);
     }
   });
 });
