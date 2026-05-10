@@ -14,7 +14,7 @@ import { RECIPIENTS, RECIPIENT_OPTIONS, getRecipient, resolveRecipientLens } fro
 import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
 import { openAnalyzerReport } from "../analyzerReport";
-import { resolveCityToMSA, getHistoricalMSARentSeries } from "../data/edgarCompIndex";
+import { resolveCityToMSA, getHistoricalMSARentSeries, getCrossREITHistoricalLatest } from "../data/edgarCompIndex";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
 
 // ─── Brand tokens — match QuickLookupPanel + CLAUDE.md §3 ─────────────────
@@ -604,10 +604,14 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
       const subjectState = analysis?.snapshot?.state || null;
       const subjectMSA = subjectCity ? resolveCityToMSA(subjectCity, subjectState) : null;
       const historicalMSARent = subjectMSA ? getHistoricalMSARentSeries(subjectMSA, "PSA") : null;
+      // Cross-REIT FY-latest averages — used as fallback historical citation
+      // when the subject MSA isn't in PSA's disclosed set, OR as additional
+      // industry context alongside the per-MSA citation when both available.
+      const historicalCrossREITSameStore = getCrossREITHistoricalLatest();
       const resp = await fetch("/api/analyzer-memo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generic: analysis, psLens, enrichment, historicalMSARent }),
+        body: JSON.stringify({ generic: analysis, psLens, enrichment, historicalMSARent, historicalCrossREITSameStore }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.ok) throw new Error(data.error || `API ${resp.status}`);
