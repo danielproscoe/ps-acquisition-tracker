@@ -93,6 +93,42 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       gap_dollars: numOrNull(ps.verdict?.gapDollars),
       gap_pct: numOrNull(ps.verdict?.gapPct),
 
+      // Selected buyer lens — drives all psa_underwrite math below.
+      // (Field names retain the "psa_*" prefix for backwards-compat with
+      // existing PS-tracker consumers; lens_key tells you which buyer's
+      // profile actually drove the numbers — PS / EXR / CUBE / SMA / GENERIC.)
+      lens_key: ps.lens?.key || null,
+      lens_name: ps.lens?.name || null,
+      lens_ticker: ps.lens?.ticker || null,
+      lens_dev_yoc_target: numOrNull(ps.lens?.devYOCTarget),
+      lens_acq_cap_top30: numOrNull(ps.lens?.acqCapByMSATier?.top30),
+      lens_acq_cap_secondary: numOrNull(ps.lens?.acqCapByMSATier?.secondary),
+      lens_acq_cap_tertiary: numOrNull(ps.lens?.acqCapByMSATier?.tertiary),
+      lens_same_store_noi_margin: numOrNull(ps.lens?.sameStoreNOIMargin),
+      lens_avg_occupancy: numOrNull(ps.lens?.avgOccupancy),
+      lens_ecri_premium: numOrNull(ps.lens?.ecriPremium),
+      lens_realized_rent_per_occ_sf: numOrNull(ps.lens?.realizedRentPerOccSF),
+      lens_move_in_rate_per_occ_sf: numOrNull(ps.lens?.moveInRatePerOccSF),
+      lens_citation_footnote: ps.lens?.citationFootnote || null,
+
+      // YOC verdict — deal stabilized cap vs lens hurdle. Computed live;
+      // mirrors the YOCVerdictCard on the dashboard.
+      yoc_verdict: (() => {
+        const ask = ps.snapshot?.ask;
+        const y3NOI = ps.projection?.y3?.noi;
+        const target = ps.marketCap;
+        if (!ask || !y3NOI || !target || ask <= 0 || y3NOI <= 0 || target <= 0) return null;
+        const dealStabCap = y3NOI / ask;
+        const bps = Math.round((dealStabCap - target) * 10000);
+        const label = bps >= 50 ? "HURDLE_CLEARED" : bps >= -25 ? "AT_HURDLE" : "MISSES_HURDLE";
+        return {
+          deal_stab_cap: Math.round(dealStabCap * 100000) / 100000,
+          lens_target_cap: Math.round(target * 100000) / 100000,
+          delta_bps: bps,
+          verdict: label,
+        };
+      })(),
+
       psa_market_cap: numOrNull(ps.marketCap),
       psa_market_cap_basis: ps.lens?.capBasis || null,
       portfolio_fit: !!ps.lens?.portfolioFit,

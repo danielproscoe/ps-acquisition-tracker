@@ -1,6 +1,18 @@
 // buyerLensProfiles.test.js — PS Lens + buyer-profile pipeline tests.
 
-import { PS_LENS, BUYER_LENSES, computeLensMarketCap, computeBuyerLens } from "./buyerLensProfiles";
+import {
+  PS_LENS,
+  EXR_LENS,
+  CUBE_LENS,
+  SMA_LENS,
+  GENERIC_LENS,
+  BUYER_LENSES,
+  BUYER_LENS_ORDER,
+  DEFAULT_BUYER_KEY,
+  getBuyerLens,
+  computeLensMarketCap,
+  computeBuyerLens,
+} from "./buyerLensProfiles";
 import { analyzeExistingAsset, DEAL_TYPES } from "./existingAssetAnalysis";
 
 // Standard test deal — Class A stabilized in TX secondary MSA
@@ -218,5 +230,178 @@ describe("DEAL_TYPES — math path branching", () => {
     const va = analyzeExistingAsset(vaInput);
     const stab = analyzeExistingAsset(baseInput);
     expect(va.tiers.homeRun.cap).toBeGreaterThan(stab.tiers.homeRun.cap);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Multi-buyer lens registry — EXR + CUBE + SMA + GENERIC profiles
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("BUYER_LENSES registry — multi-buyer activation", () => {
+  test("registry contains all 5 active lenses (PS + EXR + CUBE + SMA + GENERIC)", () => {
+    expect(BUYER_LENSES.PS).toBe(PS_LENS);
+    expect(BUYER_LENSES.EXR).toBe(EXR_LENS);
+    expect(BUYER_LENSES.CUBE).toBe(CUBE_LENS);
+    expect(BUYER_LENSES.SMA).toBe(SMA_LENS);
+    expect(BUYER_LENSES.GENERIC).toBe(GENERIC_LENS);
+  });
+
+  test("BUYER_LENS_ORDER lists keys in display order", () => {
+    expect(BUYER_LENS_ORDER).toEqual(["PS", "EXR", "CUBE", "SMA", "GENERIC"]);
+  });
+
+  test("DEFAULT_BUYER_KEY is PS (Reza pitch flagship)", () => {
+    expect(DEFAULT_BUYER_KEY).toBe("PS");
+  });
+
+  test("getBuyerLens returns correct lens for each key", () => {
+    expect(getBuyerLens("PS")).toBe(PS_LENS);
+    expect(getBuyerLens("EXR")).toBe(EXR_LENS);
+    expect(getBuyerLens("CUBE")).toBe(CUBE_LENS);
+    expect(getBuyerLens("SMA")).toBe(SMA_LENS);
+    expect(getBuyerLens("GENERIC")).toBe(GENERIC_LENS);
+  });
+
+  test("getBuyerLens falls back to PS_LENS for unknown keys", () => {
+    expect(getBuyerLens("UNKNOWN")).toBe(PS_LENS);
+    expect(getBuyerLens(null)).toBe(PS_LENS);
+    expect(getBuyerLens(undefined)).toBe(PS_LENS);
+    expect(getBuyerLens("")).toBe(PS_LENS);
+  });
+});
+
+describe("EXR_LENS profile constants", () => {
+  test("calibrated to FY2025 10-K disclosed metrics", () => {
+    expect(EXR_LENS.benchmarks.realizedRentPerOccSF).toBe(19.91);
+    expect(EXR_LENS.benchmarks.moveInRatePerOccSF).toBe(13.16);
+    expect(EXR_LENS.benchmarks.ecriPremium).toBe(0.513);
+    expect(EXR_LENS.benchmarks.discountPctOfRevenue).toBe(0.021);
+    expect(EXR_LENS.benchmarks.avgOccupancy).toBe(0.926);
+  });
+
+  test("NOI margin lower than PSA (71.2% vs 75.14%)", () => {
+    expect(EXR_LENS.benchmarks.sameStoreNOIMargin).toBeLessThan(PS_LENS.benchmarks.sameStoreNOIMargin);
+    expect(EXR_LENS.benchmarks.sameStoreNOIMargin).toBeCloseTo(0.7120, 3);
+  });
+
+  test("brand premium lower than PSA (5% vs 12%)", () => {
+    expect(EXR_LENS.revenueAdjustment).toBe(1.05);
+    expect(EXR_LENS.revenueAdjustment).toBeLessThan(PS_LENS.revenueAdjustment);
+  });
+
+  test("self-managed (no third-party mgmt fee)", () => {
+    expect(EXR_LENS.expenseOverrides.mgmtFeePctEGI).toBe(0);
+  });
+
+  test("higher payroll cost than PSA (6.2% vs 3.4%)", () => {
+    expect(EXR_LENS.expenseOverrides.payrollPctRev).toBeGreaterThan(PS_LENS.expenseOverrides.payrollPctRev);
+  });
+
+  test("acquisition caps wider than PSA on tertiary (7.25% vs 7.0%)", () => {
+    expect(EXR_LENS.capByMSATier.tertiary).toBeCloseTo(0.0725, 4);
+    expect(EXR_LENS.capByMSATier.tertiary).toBeGreaterThan(PS_LENS.capByMSATier.tertiary);
+  });
+});
+
+describe("CUBE_LENS profile constants", () => {
+  test("calibrated to FY2025 10-K disclosed metrics", () => {
+    expect(CUBE_LENS.benchmarks.realizedRentPerOccSF).toBe(22.73);
+    expect(CUBE_LENS.benchmarks.avgOccupancy).toBe(0.886);
+    expect(CUBE_LENS.benchmarks.impliedDiscountPct).toBe(0.36);
+  });
+
+  test("NOI margin similar to EXR (71.0%)", () => {
+    expect(CUBE_LENS.benchmarks.sameStoreNOIMargin).toBeCloseTo(0.7100, 3);
+  });
+
+  test("brand premium narrowest among self-managed REITs (4%)", () => {
+    expect(CUBE_LENS.revenueAdjustment).toBe(1.04);
+    expect(CUBE_LENS.revenueAdjustment).toBeLessThan(EXR_LENS.revenueAdjustment);
+  });
+
+  test("higher marketing spend than PSA + EXR (promo intensity)", () => {
+    expect(CUBE_LENS.expenseOverrides.marketingPctRev).toBeGreaterThan(PS_LENS.expenseOverrides.marketingPctRev);
+    expect(CUBE_LENS.expenseOverrides.marketingPctRev).toBeGreaterThan(EXR_LENS.expenseOverrides.marketingPctRev);
+  });
+});
+
+describe("SMA_LENS profile constants", () => {
+  test("smallest NOI margin among major REITs (66.9%)", () => {
+    expect(SMA_LENS.benchmarks.sameStoreNOIMargin).toBeCloseTo(0.669, 3);
+    expect(SMA_LENS.benchmarks.sameStoreNOIMargin).toBeLessThan(CUBE_LENS.benchmarks.sameStoreNOIMargin);
+  });
+
+  test("highest dev YOC target (8.5% — small-cap cost of capital)", () => {
+    expect(SMA_LENS.benchmarks.devYOCTarget).toBe(0.085);
+    expect(SMA_LENS.benchmarks.devYOCTarget).toBeGreaterThan(PS_LENS.benchmarks.devYOCTarget);
+  });
+
+  test("higher G&A overhead than larger REITs", () => {
+    expect(SMA_LENS.expenseOverrides.gaPctRev).toBeGreaterThan(PS_LENS.expenseOverrides.gaPctRev);
+    expect(SMA_LENS.expenseOverrides.gaPctRev).toBeGreaterThan(EXR_LENS.expenseOverrides.gaPctRev);
+  });
+});
+
+describe("GENERIC_LENS profile constants", () => {
+  test("third-party-managed — pays 5.5% mgmt fee", () => {
+    expect(GENERIC_LENS.expenseOverrides.mgmtFeePctEGI).toBe(0.055);
+  });
+
+  test("no brand premium", () => {
+    expect(GENERIC_LENS.revenueAdjustment).toBe(1.0);
+  });
+
+  test("no portfolio-fit bonus (no operating platform)", () => {
+    expect(GENERIC_LENS.portfolioFitBonus.capReductionBps).toBe(0);
+  });
+
+  test("highest dev YOC target among non-small-cap (9.0% — third-party capital cost)", () => {
+    expect(GENERIC_LENS.benchmarks.devYOCTarget).toBe(0.09);
+  });
+
+  test("no max distance constraint (no portfolio coverage requirement)", () => {
+    expect(GENERIC_LENS.hardGates.maxDistanceToPSFamilyMiles).toBeNull();
+  });
+});
+
+describe("computeBuyerLens — multi-lens routing", () => {
+  test("each lens produces a distinct stabilized cap on the same input", () => {
+    const ps = computeBuyerLens(baseInput, PS_LENS);
+    const exr = computeBuyerLens(baseInput, EXR_LENS);
+    const cube = computeBuyerLens(baseInput, CUBE_LENS);
+    const sma = computeBuyerLens(baseInput, SMA_LENS);
+    const generic = computeBuyerLens(baseInput, GENERIC_LENS);
+
+    // PSA has lowest target cap (most aggressive on Class A secondary)
+    expect(ps.marketCap).toBeLessThanOrEqual(exr.marketCap);
+    expect(ps.marketCap).toBeLessThanOrEqual(cube.marketCap);
+    // SMA + GENERIC have widest target caps (highest cost of capital)
+    expect(sma.marketCap).toBeGreaterThanOrEqual(ps.marketCap);
+    expect(generic.marketCap).toBeGreaterThanOrEqual(ps.marketCap);
+  });
+
+  test("lens metadata exposes devYOCTarget for YOC verdict card", () => {
+    const ps = computeBuyerLens(baseInput, PS_LENS);
+    const sma = computeBuyerLens(baseInput, SMA_LENS);
+    expect(ps.lens.devYOCTarget).toBe(0.08);
+    expect(sma.lens.devYOCTarget).toBe(0.085);
+    // Lens block also surfaces benchmarks for the dashboard YOC card
+    expect(ps.lens.sameStoreNOIMargin).toBe(0.7514);
+    expect(ps.lens.acqCapByMSATier.top30).toBe(0.06);
+  });
+
+  test("lens metadata includes citation footnote for audit trail", () => {
+    const exr = computeBuyerLens(baseInput, EXR_LENS);
+    expect(exr.lens.citationFootnote).toMatch(/0001289490-26-000011/);
+    const cube = computeBuyerLens(baseInput, CUBE_LENS);
+    expect(cube.lens.citationFootnote).toMatch(/0001298675-26-000010/);
+  });
+
+  test("GENERIC lens applies 5.5% mgmt fee (compresses NOI margin)", () => {
+    const ps = computeBuyerLens(baseInput, PS_LENS);
+    const generic = computeBuyerLens(baseInput, GENERIC_LENS);
+    // Generic lens should reconstruct LOWER NOI than PS lens on same input
+    // (mgmt fee 5.5% of EGI is real cost PS doesn't pay)
+    expect(generic.reconstructed.buyerNOI).toBeLessThan(ps.reconstructed.buyerNOI);
   });
 });

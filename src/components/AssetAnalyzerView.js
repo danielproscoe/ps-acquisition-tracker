@@ -8,7 +8,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
-import { computeBuyerLens, PS_LENS } from "../buyerLensProfiles";
+import { computeBuyerLens, PS_LENS, BUYER_LENSES, BUYER_LENS_ORDER, DEFAULT_BUYER_KEY, getBuyerLens } from "../buyerLensProfiles";
 import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
 import { openAnalyzerReport } from "../analyzerReport";
@@ -69,6 +69,7 @@ const metricBox = {
 // the sample shows the framework producing the documented PASS verdict.
 const RED_ROCK_DEFAULTS = {
   name: "Red Rock Mega Storage",
+  buyerLens: "PS",
   state: "NV",
   msaTier: "tertiary",
   dealType: "stabilized",
@@ -99,6 +100,7 @@ const RED_ROCK_DEFAULTS = {
 // All numbers from M&M OM (5/1/26) + seller's TTM P&L (Mar 2025–Feb 2026).
 const GREENVILLE_DEFAULTS = {
   name: "Texas Store & Go · 2980 I-30 Greenville TX",
+  buyerLens: "PS",
   state: "TX",
   msaTier: "tertiary",
   dealType: "co-lu",
@@ -132,6 +134,7 @@ const GREENVILLE_DEFAULTS = {
 // cap band (5.5–6.5% per Green Street Q1 2026 + EDGAR M&A comps).
 const TALLAHASSEE_DEFAULTS = {
   name: "CubeSmart NNN · 2320 Capital Circle NE Tallahassee FL",
+  buyerLens: "CUBE",
   state: "FL",
   msaTier: "secondary",
   dealType: "nnn",
@@ -178,6 +181,20 @@ const DEAL_TYPE_OPTIONS = [
   { key: "nnn", label: "NNN — credit-tenant net lease (REIT-leased)" },
 ];
 
+// Buyer-lens dropdown options — derived from BUYER_LENSES registry. Each
+// entry shows the lens name + ticker so analysts can pick the underwriting
+// profile that matches the prospective buyer (PSA / EXR / CUBE / SMA /
+// Generic 3PM-managed). Drives:
+//   - opex ratios applied during NOI reconstruction
+//   - acquisition cap by MSA tier
+//   - revenue brand premium
+//   - portfolio-fit bonus (proximity-driven cap reduction)
+//   - YOC verdict (deal stabilized cap vs lens target acq cap)
+const BUYER_OPTIONS = BUYER_LENS_ORDER.map((k) => ({
+  key: k,
+  label: `${BUYER_LENSES[k]?.ticker || k} — ${BUYER_LENSES[k]?.name || k}`,
+}));
+
 const LISTING_SOURCE_OPTIONS = [
   "Crexi", "LoopNet", "M&M", "CBRE", "JLL", "Colliers", "Off-market", "Other",
 ];
@@ -188,6 +205,7 @@ const FIELD_GROUPS = [
     title: "Property",
     fields: [
       { key: "name", label: "Property name / address", type: "text", placeholder: "e.g. Red Rock Mega Storage" },
+      { key: "buyerLens", label: "Underwrite as buyer", type: "select", options: BUYER_OPTIONS, required: true },
       { key: "state", label: "State", type: "select", options: STATE_OPTIONS, required: true },
       { key: "msaTier", label: "MSA tier", type: "select", options: MSA_TIER_OPTIONS },
       { key: "dealType", label: "Deal type", type: "select", options: DEAL_TYPE_OPTIONS, required: true },
@@ -390,9 +408,18 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     () => (ready ? analyzeExistingAsset(parsed, { marketRents: enrichment?.marketRents || null }) : null),
     [parsed, ready, enrichment]
   );
+  // Buyer-lens analysis — driven by the user-selected buyer dropdown.
+  // Replaces the prior hard-coded PS_LENS so the analyzer can render any
+  // operator's underwriting view (PSA / EXR / CUBE / SMA / Generic 3PM).
+  // The selected lens drives opex ratios, MSA-tier acq cap, brand premium,
+  // portfolio-fit bonus, and the YOC verdict block.
+  const selectedLens = useMemo(
+    () => getBuyerLens(inputs.buyerLens || DEFAULT_BUYER_KEY),
+    [inputs.buyerLens]
+  );
   const psLens = useMemo(
-    () => (ready ? computeBuyerLens(parsed, PS_LENS, { nearestPortfolioMi: parsed.nearestPortfolioMi, marketRents: enrichment?.marketRents || null }) : null),
-    [parsed, ready, enrichment]
+    () => (ready ? computeBuyerLens(parsed, selectedLens, { nearestPortfolioMi: parsed.nearestPortfolioMi, marketRents: enrichment?.marketRents || null }) : null),
+    [parsed, ready, enrichment, selectedLens]
   );
 
   // ── OM upload + auto-extract ────────────────────────────────────────────
@@ -874,6 +901,7 @@ function OutputsPanel({ analysis, psLens, ready, enrichment, enriching, memo, me
     <div>
       {/* PSA Lens drives the headline — generic buyer's verdict shows in the PS Lens card body as a context point only */}
       <PSAVerdictHero psLens={psLens} analysis={analysis} />
+      <YOCVerdictCard psLens={psLens} />
       <DealTypeBadge dealType={analysis.dealType} />
       {/* Rent sanity — independent SpareFoot cross-check on seller's implied EGI rate.
           Renders only when marketRents enrichment has completed. */}
@@ -1764,6 +1792,92 @@ function PSAVerdictHero({ psLens, analysis }) {
           {!isPSA && analysis.snapshot.doaFlag && <div style={{ fontSize: 10, color: "#EF4444", fontWeight: 700, marginTop: 4 }}>⚠ DOA cap rate</div>}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── YOC Verdict Card ─────────────────────────────────────────────────────
+//
+// Renders the deal's stabilized cap vs the selected buyer's underwriting
+// hurdle. The hurdle is the buyer's MSA-tier-adjusted target acquisition cap
+// (with portfolio-fit bonus applied if applicable). The dev YOC target is
+// shown as context — that's the buyer's hurdle for ground-up development,
+// not for stabilized acquisitions.
+//
+// Verdict thresholds (vs target acq cap):
+//   ≥ +50 bps above hurdle  → HURDLE CLEARED (green)
+//   −25 to +50 bps          → AT HURDLE (gold — marginal)
+//   < −25 bps below hurdle  → MISSES HURDLE (red)
+//
+// This block answers Dan's #1 question: "if [buyer] underwrote this deal at
+// their hurdle, would they pursue it?"
+function YOCVerdictCard({ psLens }) {
+  if (!psLens || !psLens.projection?.y3 || !psLens.snapshot?.ask || psLens.snapshot.ask <= 0) return null;
+  const ask = psLens.snapshot.ask;
+  const y3NOI = psLens.projection.y3.noi;
+  if (!Number.isFinite(y3NOI) || y3NOI <= 0) return null;
+  const dealStabCap = y3NOI / ask;
+  const targetCap = psLens.marketCap;
+  if (!Number.isFinite(targetCap) || targetCap <= 0) return null;
+  const bpsDelta = Math.round((dealStabCap - targetCap) * 10000); // positive = above target = better
+  const devYOCTarget = psLens.lens?.devYOCTarget;
+  const baseCap = psLens.lens?.baseCap;
+  const portfolioFit = psLens.lens?.portfolioFit;
+  const lensName = psLens.lens?.ticker || "BUYER";
+
+  const verdictLabel = bpsDelta >= 50 ? "HURDLE CLEARED" : bpsDelta >= -25 ? "AT HURDLE" : "MISSES HURDLE";
+  const verdictColor = bpsDelta >= 50 ? "#22C55E" : bpsDelta >= -25 ? "#F59E0B" : "#EF4444";
+  const bg = bpsDelta >= 50 ? "rgba(34,197,94,0.08)" : bpsDelta >= -25 ? "rgba(245,158,11,0.08)" : "rgba(239,68,68,0.08)";
+  const verdictNarrative = bpsDelta >= 50
+    ? `${lensName} would PURSUE — deal stabilized cap is ${Math.abs(bpsDelta)} bps above the lens hurdle. Yield story holds with cushion.`
+    : bpsDelta >= -25
+      ? `${lensName} would NEGOTIATE — deal stabilized cap is within ±25 bps of the lens hurdle. Marginal at ask; pursue at or below Strike.`
+      : `${lensName} would PASS — deal stabilized cap is ${Math.abs(bpsDelta)} bps below the lens hurdle. Yield story breaks under disciplined underwriting.`;
+
+  // Dev YOC is the buyer's ground-up dev target — shown for context only
+  const devContextLine = devYOCTarget
+    ? `Dev hurdle (ground-up): ${(devYOCTarget * 100).toFixed(1)}% YOC — context only; this is a stabilized acquisition, not a development.`
+    : null;
+
+  return (
+    <div style={{ ...card, background: `linear-gradient(135deg, ${bg}, rgba(15,21,56,0.6))`, border: `1.5px solid ${verdictColor}66`, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: verdictColor, textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 4 }}>
+            🎯 YOC HURDLE · {lensName} LENS
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: verdictColor, letterSpacing: "-0.01em", lineHeight: 1 }}>
+            {verdictLabel}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 18 }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Deal Stab Cap</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#fff", fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{(dealStabCap * 100).toFixed(2)}%</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>Y3 NOI / ask</div>
+          </div>
+          <div style={{ textAlign: "right", borderLeft: "1px solid rgba(255,255,255,0.08)", paddingLeft: 18 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>{lensName} Hurdle</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#C9A84C", fontFamily: "'Space Mono', monospace", marginTop: 2 }}>{(targetCap * 100).toFixed(2)}%</div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
+              {portfolioFit && baseCap ? `${(baseCap * 100).toFixed(2)}% − ${psLens.lens?.portfolioFitBps || 0} bps fit` : `${psLens.lens?.capBasis || "MSA-tier acq cap"}`}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", borderLeft: "1px solid rgba(255,255,255,0.08)", paddingLeft: 18 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700 }}>Δ vs Hurdle</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: verdictColor, fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+              {bpsDelta >= 0 ? "+" : ""}{bpsDelta} bps
+            </div>
+            <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>+50 = clear · −25 = at · &lt;−25 = miss</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.5, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        {verdictNarrative}
+      </div>
+      {devContextLine && (
+        <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, fontStyle: "italic" }}>{devContextLine}</div>
+      )}
     </div>
   );
 }

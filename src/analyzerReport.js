@@ -484,6 +484,52 @@ function renderCrossREITMoveInRates({ snapshot, enrichment }) {
 </section>`;
 }
 
+// ─── YOC HURDLE VERDICT (BUYER-LENS) ───────────────────────────────────────
+//
+// Renders a one-page section showing the deal's stabilized cap vs the
+// selected buyer's underwriting hurdle. Mirrors the dashboard YOCVerdictCard
+// so the PDF the buyer (Reza, U-Haul COO, etc.) reads tells the same story
+// as the live dashboard.
+function renderYOCVerdict({ psLens }) {
+  if (!psLens?.projection?.y3 || !psLens?.snapshot?.ask) return "";
+  const ask = psLens.snapshot.ask;
+  const y3NOI = psLens.projection.y3.noi;
+  const target = psLens.marketCap;
+  if (!Number.isFinite(y3NOI) || y3NOI <= 0 || !Number.isFinite(target) || target <= 0 || ask <= 0) return "";
+  const dealStabCap = y3NOI / ask;
+  const bps = Math.round((dealStabCap - target) * 10000);
+  const label = bps >= 50 ? "HURDLE CLEARED" : bps >= -25 ? "AT HURDLE" : "MISSES HURDLE";
+  const color = bps >= 50 ? "#22C55E" : bps >= -25 ? "#F59E0B" : "#EF4444";
+  const lensName = psLens.lens?.ticker || "BUYER";
+  const lensFullName = psLens.lens?.name || "Buyer Lens";
+  const devYOCTarget = psLens.lens?.devYOCTarget;
+  const narrative = bps >= 50
+    ? `${lensFullName} would PURSUE — deal stabilized cap is ${Math.abs(bps)} bps above the lens hurdle. Yield story holds with cushion.`
+    : bps >= -25
+      ? `${lensFullName} would NEGOTIATE — deal stabilized cap is within ±25 bps of the lens hurdle. Marginal at ask; pursue at or below Strike.`
+      : `${lensFullName} would PASS — deal stabilized cap is ${Math.abs(bps)} bps below the lens hurdle. Yield story breaks under disciplined underwriting.`;
+
+  return `
+<section class="page section">
+  <h2 class="section-h">YOC HURDLE · ${safe(lensName)} LENS · DEAL STABILIZED CAP VS BUYER UNDERWRITING TARGET</h2>
+  <div class="edgar-headline">
+    <div class="edgar-tile"><div class="ek-l">Deal Stab Cap</div><div class="ek-v">${(dealStabCap * 100).toFixed(2)}%</div></div>
+    <div class="edgar-tile edgar-accent"><div class="ek-l">${safe(lensName)} Hurdle</div><div class="ek-v">${(target * 100).toFixed(2)}%</div></div>
+    <div class="edgar-tile" style="border:2px solid ${color}88"><div class="ek-l">Δ vs Hurdle</div><div class="ek-v" style="color:${color}">${bps >= 0 ? "+" : ""}${bps} bps</div></div>
+    <div class="edgar-tile" style="border:2px solid ${color}88"><div class="ek-l">Verdict</div><div class="ek-v" style="color:${color};font-size:14pt">${safe(label)}</div></div>
+    ${devYOCTarget ? `<div class="edgar-tile"><div class="ek-l">Dev YOC (context)</div><div class="ek-v">${(devYOCTarget * 100).toFixed(1)}%</div></div>` : ""}
+  </div>
+  <div class="footnote" style="margin-top:14pt;font-size:10pt;line-height:1.5">
+    <b style="color:${color}">${safe(narrative)}</b><br/><br/>
+    <b>Calculation:</b> Deal stabilized cap = Y3 stabilized NOI (${fmt$(Math.round(y3NOI))}) ÷ asking price (${fmt$(ask)}) = ${(dealStabCap * 100).toFixed(2)}%. ${safe(lensName)} target acquisition cap = ${(target * 100).toFixed(2)}% (${safe(psLens.lens?.capBasis || "MSA-tier acq cap")}).
+    <br/><br/>
+    <b>Verdict thresholds:</b> ≥ +50 bps above hurdle → HURDLE CLEARED · −25 to +50 bps → AT HURDLE (marginal) · &lt; −25 bps → MISSES HURDLE.
+    ${devYOCTarget ? `<br/><br/><b>Dev YOC target (${(devYOCTarget * 100).toFixed(1)}%) is shown for context only</b> — ${safe(lensName)}'s ground-up development hurdle, not their stabilized acquisition hurdle. This deal is a stabilized acquisition; the relevant comparison is deal stabilized cap vs target acq cap (above).` : ""}
+    ${psLens.lens?.citationFootnote ? `<br/><br/><b>Lens citation:</b> ${safe(psLens.lens.citationFootnote)}` : ""}
+  </div>
+</section>`;
+}
+
 function renderEDGARCrossREIT({ snapshot, analysis }) {
   const e = analysis.edgarComp;
   if (!e) return "";
@@ -788,6 +834,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo }) {
   ${renderCover({ snapshot, verdict, ps, msaTier: analysis.msaTier, dealType: analysis.dealType, docId })}
   ${renderExecSummary({ snapshot, verdict, ps, analysis, rentSanity })}
   ${renderVerdictKPIStrip({ verdict, ps, analysis })}
+  ${renderYOCVerdict({ psLens: ps })}
   ${renderPriceTiers({ ps, analysis, snapshot })}
   ${renderNOIReconstruction({ ps, analysis, snapshot })}
   ${renderProjection({ ps, analysis })}
