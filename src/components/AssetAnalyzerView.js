@@ -8,7 +8,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { analyzeExistingAsset, MSA_TIER_CAP_ADJUST, DEAL_TYPES } from "../existingAssetAnalysis";
-import { computeBuyerLens, PS_LENS, BUYER_LENSES, BUYER_LENS_ORDER, DEFAULT_BUYER_KEY, getBuyerLens } from "../buyerLensProfiles";
+import { computeBuyerLens, PS_LENS, BUYER_LENSES, BUYER_LENS_ORDER, DEFAULT_BUYER_KEY, getBuyerLens, computeAllBuyerLenses, computePlatformFitDelta } from "../buyerLensProfiles";
 import { detectBuyer, formatDetectionBadge } from "../buyerDetection";
 import { enrichAssetAnalysis } from "../analyzerEnrich";
 import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExport";
@@ -428,6 +428,18 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
     [parsed, ready, enrichment, selectedLens]
   );
 
+  // Multi-lens comparison — runs every registered lens against the same deal
+  // for the side-by-side YOC comparison view. Sorted DESC by implied takedown
+  // price so the natural takeout buyer is row 1. Powers MultiLensComparisonCard.
+  const multiLensRows = useMemo(
+    () => (ready ? computeAllBuyerLenses(parsed, { nearestPortfolioMi: parsed.nearestPortfolioMi, marketRents: enrichment?.marketRents || null }) : []),
+    [parsed, ready, enrichment]
+  );
+  const platformFitDelta = useMemo(
+    () => (multiLensRows.length ? computePlatformFitDelta(multiLensRows) : null),
+    [multiLensRows]
+  );
+
   // ── OM upload + auto-extract ────────────────────────────────────────────
   const handleOMFile = useCallback(async (file) => {
     if (!file || file.type !== "application/pdf") {
@@ -603,24 +615,26 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
         extractionMeta,
         memo,
         dealId: savedId || null,
+        multiLensRows,
+        platformFitDelta,
       });
       downloadWarehousePayload(payload, payload.subject?.name || analysis.snapshot?.name);
       if (notify) notify("Exported · structured JSON ready for data warehouse ingestion", "success");
     } catch (e) {
       if (notify) notify(`Export failed: ${e.message || e}`, "error");
     }
-  }, [analysis, psLens, enrichment, extractionMeta, memo, savedId, notify]);
+  }, [analysis, psLens, enrichment, extractionMeta, memo, savedId, multiLensRows, platformFitDelta, notify]);
 
   // ── Export Report — Goldman-exec PDF deliverable (opens in new tab, browser prints)
   const handleExportReport = useCallback(() => {
     if (!analysis) return;
     try {
-      openAnalyzerReport({ analysis, psLens, enrichment, memo });
+      openAnalyzerReport({ analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta });
       if (notify) notify("Report opened in new tab · click 'Save as PDF' to print", "success");
     } catch (e) {
       if (notify) notify(`Report failed: ${e.message || e}`, "error");
     }
-  }, [analysis, psLens, enrichment, memo, notify]);
+  }, [analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta, notify]);
 
   const handleSave = useCallback(async () => {
     if (!analysis || !fbSet) return;
@@ -698,6 +712,8 @@ export default function AssetAnalyzerView({ fbSet, notify }) {
         <OutputsPanel
           analysis={analysis}
           psLens={psLens}
+          multiLensRows={multiLensRows}
+          platformFitDelta={platformFitDelta}
           ready={ready}
           enrichment={enrichment}
           enriching={enriching}
@@ -955,7 +971,7 @@ function FormPanel({ inputs, setField, buyerDetection }) {
 }
 
 // ─── Outputs Panel ────────────────────────────────────────────────────────
-function OutputsPanel({ analysis, psLens, ready, enrichment, enriching, memo, memoLoading, memoError, onGenerateMemo }) {
+function OutputsPanel({ analysis, psLens, multiLensRows, platformFitDelta, ready, enrichment, enriching, memo, memoLoading, memoError, onGenerateMemo }) {
   if (!ready || !analysis) {
     return (
       <div style={{ ...card, minHeight: 480, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#64748B" }}>
@@ -973,6 +989,7 @@ function OutputsPanel({ analysis, psLens, ready, enrichment, enriching, memo, me
       {/* PSA Lens drives the headline — generic buyer's verdict shows in the PS Lens card body as a context point only */}
       <PSAVerdictHero psLens={psLens} analysis={analysis} />
       <YOCVerdictCard psLens={psLens} />
+      <MultiLensComparisonCard rows={multiLensRows} platformFitDelta={platformFitDelta} ask={analysis.snapshot?.ask} />
       <DealTypeBadge dealType={analysis.dealType} />
       {/* Rent sanity — independent SpareFoot cross-check on seller's implied EGI rate.
           Renders only when marketRents enrichment has completed. */}
@@ -1949,6 +1966,148 @@ function YOCVerdictCard({ psLens }) {
       {devContextLine && (
         <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, fontStyle: "italic" }}>{devContextLine}</div>
       )}
+    </div>
+  );
+}
+
+// ─── Multi-Lens Buyer Comparison Card ─────────────────────────────────────
+//
+// One screen, every buyer's verdict. For one OM input, this card runs every
+// registered buyer lens (PSA / EXR / CUBE / SMA / GENERIC) and shows them
+// side-by-side. The columns:
+//
+//   - Buyer (ticker + name)
+//   - Deal Stab Cap (Y3 NOI / ask) — same for every row (input-driven)
+//   - Lens Hurdle (lens.marketCap with portfolio-fit applied)
+//   - Δ vs Hurdle (bps) — color-coded
+//   - Verdict (CLEARED / AT / MISSES)
+//   - Implied Takedown Price (Y3 NOI / lens hurdle — what THAT buyer would
+//     pay at THEIR hurdle. The institutional "willingness to pay" number.)
+//
+// Rows sorted DESC by Implied Takedown Price → top row is the natural takeout
+// buyer. The price spread between row 1 and the GENERIC row IS the platform-
+// fit Δ — the dollar value the institutional self-managed REIT defensibly
+// pays above a generic 3PM-managed buyer on the identical asset.
+//
+// THIS is the institutional moat made literal in one card. Drop one OM, see
+// every buyer's verdict simultaneously, see who would pay most, see by how much.
+function MultiLensComparisonCard({ rows, platformFitDelta, ask }) {
+  if (!Array.isArray(rows) || rows.length < 2) return null;
+
+  const verdictColor = (v) =>
+    v === "HURDLE_CLEARED" ? "#22C55E" :
+    v === "AT_HURDLE" ? "#F59E0B" :
+    v === "MISSES_HURDLE" ? "#EF4444" :
+    "#94A3B8";
+  const verdictLabel = (v) =>
+    v === "HURDLE_CLEARED" ? "CLEARED" :
+    v === "AT_HURDLE" ? "AT HURDLE" :
+    v === "MISSES_HURDLE" ? "MISSES" :
+    "—";
+
+  // The natural takeout = top row (highest implied takedown price)
+  const winner = rows[0];
+  const winnerPrice = winner?.impliedTakedownPrice;
+  const winnerVerdict = winner?.verdict;
+
+  return (
+    <div style={{ ...card, background: "linear-gradient(135deg, rgba(201,168,76,0.06), rgba(15,21,56,0.6))", border: "1.5px solid rgba(201,168,76,0.50)", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: GOLD, textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 4 }}>
+            ⚔️ MULTI-BUYER COMPARISON · ALL LENSES
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+            Who would pay most for this deal — and by how much.
+          </div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, lineHeight: 1.4, maxWidth: 520 }}>
+            Each row is one buyer's view of the same asset, underwritten through THEIR FY2025 10-K constants. Sorted DESC by implied takedown price. Top row is the natural institutional takeout.
+          </div>
+        </div>
+        {platformFitDelta && Number.isFinite(platformFitDelta.deltaDollars) && (
+          <div style={{ textAlign: "right", padding: "8px 12px", background: "rgba(34,197,94,0.10)", border: "1px solid rgba(34,197,94,0.40)", borderRadius: 6, minWidth: 200 }}>
+            <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.04em" }}>Platform-Fit Δ</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#22C55E", fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+              {platformFitDelta.deltaDollars >= 0 ? "+" : ""}{fmt$(Math.round(platformFitDelta.deltaDollars))}
+            </div>
+            <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>
+              {platformFitDelta.topLensTicker} pays {platformFitDelta.deltaPct != null ? `${(platformFitDelta.deltaPct * 100).toFixed(1)}% more` : "more"} than GEN
+            </div>
+          </div>
+        )}
+      </div>
+
+      <table style={{ width: "100%", fontSize: 12, fontFamily: "'Inter', sans-serif", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ color: "#64748B", borderBottom: "1px solid rgba(201,168,76,0.30)" }}>
+            <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 700, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em" }}>Buyer</th>
+            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 700, fontSize: 9 }}>Deal Stab Cap</th>
+            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 700, fontSize: 9 }}>Lens Hurdle</th>
+            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 700, fontSize: 9 }}>Δ vs Hurdle</th>
+            <th style={{ textAlign: "center", padding: "6px 8px", fontWeight: 700, fontSize: 9 }}>Verdict</th>
+            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 700, fontSize: 9 }}>Implied Takedown $</th>
+            <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: 700, fontSize: 9 }}>vs Ask</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const isWinner = i === 0 && row.impliedTakedownPrice != null;
+            const vsAsk = (ask > 0 && row.impliedTakedownPrice != null)
+              ? (row.impliedTakedownPrice - ask) / ask
+              : null;
+            return (
+              <tr
+                key={row.key}
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                  background: isWinner ? "rgba(201,168,76,0.10)" : "transparent",
+                }}
+              >
+                <td style={{ padding: "8px 8px", color: "#fff", fontWeight: 700 }}>
+                  {isWinner && <span style={{ color: GOLD, marginRight: 6, fontSize: 11 }}>★</span>}
+                  <span style={{ color: row.brandColor || "#fff", fontFamily: "'Space Mono', monospace" }}>{row.ticker}</span>
+                  <div style={{ fontSize: 9, color: "#64748B", fontWeight: 400, marginTop: 1, fontFamily: "system-ui, sans-serif" }}>{row.name}</div>
+                </td>
+                <td style={{ padding: "8px 8px", textAlign: "right", color: "#fff", fontFamily: "'Space Mono', monospace" }}>
+                  {row.dealStabCap != null ? `${(row.dealStabCap * 100).toFixed(2)}%` : "—"}
+                </td>
+                <td style={{ padding: "8px 8px", textAlign: "right", color: "#94A3B8", fontFamily: "'Space Mono', monospace" }}>
+                  {row.lensTargetCap != null ? `${(row.lensTargetCap * 100).toFixed(2)}%` : "—"}
+                </td>
+                <td style={{ padding: "8px 8px", textAlign: "right", color: verdictColor(row.verdict), fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>
+                  {row.bpsDelta != null ? `${row.bpsDelta >= 0 ? "+" : ""}${row.bpsDelta} bps` : "—"}
+                </td>
+                <td style={{ padding: "8px 8px", textAlign: "center" }}>
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 800,
+                      color: verdictColor(row.verdict),
+                      background: `${verdictColor(row.verdict)}1A`,
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      letterSpacing: "0.04em",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {verdictLabel(row.verdict)}
+                  </span>
+                </td>
+                <td style={{ padding: "8px 8px", textAlign: "right", color: isWinner ? GOLD : "#fff", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>
+                  {row.impliedTakedownPrice != null ? fmt$(Math.round(row.impliedTakedownPrice)) : "—"}
+                </td>
+                <td style={{ padding: "8px 8px", textAlign: "right", color: vsAsk != null ? (vsAsk >= 0 ? "#22C55E" : "#EF4444") : "#64748B", fontFamily: "'Space Mono', monospace", fontSize: 11 }}>
+                  {vsAsk != null ? `${vsAsk >= 0 ? "+" : ""}${(vsAsk * 100).toFixed(1)}%` : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: 10, fontSize: 10, color: "#64748B", lineHeight: 1.5 }}>
+        Implied takedown price = Y3 stabilized NOI ÷ lens hurdle (the price each buyer would pay AT their own underwriting hurdle). Each lens applies its own opex ratios + brand premium + portfolio-fit bonus, so the same input deal produces different reconstructed NOIs and different prices. Constants per lens trace to FY2025 10-K accession # — citation footnotes available in the Goldman PDF report.
+      </div>
     </div>
   );
 }

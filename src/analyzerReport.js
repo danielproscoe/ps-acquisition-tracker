@@ -484,6 +484,92 @@ function renderCrossREITMoveInRates({ snapshot, enrichment }) {
 </section>`;
 }
 
+// ─── MULTI-LENS BUYER COMPARISON ───────────────────────────────────────────
+//
+// Renders the side-by-side buyer comparison view in the institutional PDF.
+// Same shape as the dashboard MultiLensComparisonCard: one row per buyer,
+// sorted DESC by implied takedown price. Top row is the natural takeout.
+// The platform-fit Δ (top vs GENERIC) is the institutional moat in dollars.
+function renderMultiLensComparison({ multiLensRows, platformFitDelta, snapshot }) {
+  if (!Array.isArray(multiLensRows) || multiLensRows.length < 2) return "";
+  const ask = snapshot?.ask || 0;
+
+  const verdictColor = (v) =>
+    v === "HURDLE_CLEARED" ? "#22C55E" :
+    v === "AT_HURDLE" ? "#F59E0B" :
+    v === "MISSES_HURDLE" ? "#EF4444" :
+    "#94A3B8";
+  const verdictLabel = (v) =>
+    v === "HURDLE_CLEARED" ? "CLEARED" :
+    v === "AT_HURDLE" ? "AT HURDLE" :
+    v === "MISSES_HURDLE" ? "MISSES" :
+    "—";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">MULTI-BUYER COMPARISON · ALL LENSES · WHO WOULD PAY MOST</h2>
+  ${platformFitDelta && Number.isFinite(platformFitDelta.deltaDollars) ? `
+  <div class="edgar-headline">
+    <div class="edgar-tile edgar-accent" style="border:2px solid #22C55E88">
+      <div class="ek-l">Platform-Fit Δ</div>
+      <div class="ek-v" style="color:#22C55E">${platformFitDelta.deltaDollars >= 0 ? "+" : ""}${fmt$(Math.round(platformFitDelta.deltaDollars))}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Top Buyer</div>
+      <div class="ek-v">${safe(platformFitDelta.topLensTicker)}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Top Price</div>
+      <div class="ek-v">${fmt$(Math.round(platformFitDelta.topPrice))}</div>
+    </div>
+    <div class="edgar-tile">
+      <div class="ek-l">Generic Price</div>
+      <div class="ek-v">${fmt$(Math.round(platformFitDelta.genericPrice))}</div>
+    </div>
+    ${platformFitDelta.deltaPct != null ? `
+    <div class="edgar-tile">
+      <div class="ek-l">Δ %</div>
+      <div class="ek-v">${(platformFitDelta.deltaPct * 100).toFixed(1)}%</div>
+    </div>` : ""}
+  </div>` : ""}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="th-name">Buyer</th>
+        <th class="th-num">Deal Stab Cap</th>
+        <th class="th-num">Lens Hurdle</th>
+        <th class="th-num">Δ vs Hurdle</th>
+        <th class="th-name">Verdict</th>
+        <th class="th-num">Implied Takedown $</th>
+        <th class="th-num">vs Ask</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${multiLensRows.map((row, i) => {
+        const isWinner = i === 0 && row.impliedTakedownPrice != null;
+        const vsAsk = (ask > 0 && row.impliedTakedownPrice != null)
+          ? (row.impliedTakedownPrice - ask) / ask
+          : null;
+        return `<tr${isWinner ? ' style="background:rgba(201,168,76,0.10)"' : ""}>
+          <td class="td-name"><b>${isWinner ? "★ " : ""}${safe(row.ticker)}</b><br/><span style="font-size:9pt;color:#64748B">${safe(row.name)}</span></td>
+          <td class="td-num">${row.dealStabCap != null ? (row.dealStabCap * 100).toFixed(2) + "%" : "—"}</td>
+          <td class="td-num">${row.lensTargetCap != null ? (row.lensTargetCap * 100).toFixed(2) + "%" : "—"}</td>
+          <td class="td-num" style="color:${verdictColor(row.verdict)};font-weight:700">${row.bpsDelta != null ? (row.bpsDelta >= 0 ? "+" : "") + row.bpsDelta + " bps" : "—"}</td>
+          <td class="td-name" style="color:${verdictColor(row.verdict)};font-weight:700">${safe(verdictLabel(row.verdict))}</td>
+          <td class="td-num td-accent">${row.impliedTakedownPrice != null ? fmt$(Math.round(row.impliedTakedownPrice)) : "—"}</td>
+          <td class="td-num" style="color:${vsAsk != null ? (vsAsk >= 0 ? "#22C55E" : "#EF4444") : "#64748B"}">${vsAsk != null ? (vsAsk >= 0 ? "+" : "") + (vsAsk * 100).toFixed(1) + "%" : "—"}</td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+  <div class="footnote" style="margin-top:14pt">
+    <b>Implied Takedown $</b> = Y3 stabilized NOI ÷ lens hurdle (the price each buyer would pay AT their own underwriting hurdle). Each lens applies its own opex ratios + brand premium + portfolio-fit bonus, so the same input deal produces different reconstructed NOIs and different prices. Top row (★) is the natural institutional takeout — they would pay the most at their own hurdle.<br/><br/>
+    <b>Platform-Fit Δ</b> = top buyer's implied takedown price minus GENERIC's implied takedown price = the dollar value the institutional self-managed REIT defensibly pays above a generic third-party-managed buyer on the identical asset.<br/><br/>
+    <b>Citations:</b> Each lens's constants trace to a specific FY2025 10-K accession # on sec.gov. PSA 0001628280-26-007696 · EXR 0001289490-26-000011 · CUBE 0001298675-26-000010 · SMA 0001193125-26-082573 · GENERIC = cross-REIT average.
+  </div>
+</section>`;
+}
+
 // ─── YOC HURDLE VERDICT (BUYER-LENS) ───────────────────────────────────────
 //
 // Renders a one-page section showing the deal's stabilized cap vs the
@@ -807,7 +893,7 @@ function reportCSS() {
  * @param {Object} [args.memo]       — IC memo from /api/analyzer-memo
  * @returns {string} full HTML document
  */
-export function generateAnalyzerReport({ analysis, psLens, enrichment, memo }) {
+export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, multiLensRows, platformFitDelta }) {
   if (!analysis || !analysis.snapshot) throw new Error("analysis with snapshot required");
   const { snapshot } = analysis;
   const verdict = (psLens && psLens.verdict) ? psLens.verdict : analysis.verdict;
@@ -835,6 +921,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo }) {
   ${renderExecSummary({ snapshot, verdict, ps, analysis, rentSanity })}
   ${renderVerdictKPIStrip({ verdict, ps, analysis })}
   ${renderYOCVerdict({ psLens: ps })}
+  ${renderMultiLensComparison({ multiLensRows, platformFitDelta, snapshot })}
   ${renderPriceTiers({ ps, analysis, snapshot })}
   ${renderNOIReconstruction({ ps, analysis, snapshot })}
   ${renderProjection({ ps, analysis })}

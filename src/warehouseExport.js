@@ -36,7 +36,7 @@ const PS_LENS_VERSION = "PSA FY2025 10-K (FYE 2025-12-31)";
  * @param {string} [args.dealId]        — deal ID (Firebase key); auto-generated if absent
  * @returns {Object} warehouse payload
  */
-export function buildWarehousePayload({ analysis, psLens, enrichment, extractionMeta, memo, dealId }) {
+export function buildWarehousePayload({ analysis, psLens, enrichment, extractionMeta, memo, dealId, multiLensRows, platformFitDelta }) {
   if (!analysis || !analysis.snapshot) {
     throw new Error("analysis with snapshot required");
   }
@@ -315,6 +315,40 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
       })),
       data_source: "Per-facility unit-rent scraping from each operator's public-facing facility detail pages (publicstorage.com Schema.org SelfStorage entities, cubesmart.com structured HTML widget, extraspace.com Schema.org via Puppeteer-core + stealth plugin). Refreshed daily via GitHub Actions cron at 06:00 UTC.",
       audit_trail: "Each operator's scraper outputs a date-stamped JSON file in src/data/{operator}-facility-rents-{YYYY-MM-DD}.json. The aggregator builds {operator}-scraped-rent-index.json with per-facility median + per-MSA rollup + national cross-validation against MD&A in-place rent.",
+    } : null,
+
+    // Multi-lens buyer comparison — runs every registered lens against this
+    // deal and emits an array sorted DESC by implied takedown price. The top
+    // row IS the natural institutional takeout — the buyer who would pay the
+    // most at their own underwriting hurdle. Platform-fit Δ is the dollar
+    // value the institutional self-managed REIT defensibly pays above the
+    // GENERIC third-party-managed buyer on the identical asset.
+    multi_lens_comparison: Array.isArray(multiLensRows) && multiLensRows.length > 0 ? {
+      lenses_evaluated: multiLensRows.length,
+      top_buyer_key: multiLensRows[0]?.key || null,
+      top_buyer_ticker: multiLensRows[0]?.ticker || null,
+      top_buyer_implied_takedown: numOrNull(multiLensRows[0]?.impliedTakedownPrice),
+      platform_fit_delta_dollars: numOrNull(platformFitDelta?.deltaDollars),
+      platform_fit_delta_pct: numOrNull(platformFitDelta?.deltaPct),
+      platform_fit_top_lens: platformFitDelta?.topLensTicker || null,
+      platform_fit_top_price: numOrNull(platformFitDelta?.topPrice),
+      platform_fit_generic_price: numOrNull(platformFitDelta?.genericPrice),
+      lenses: multiLensRows.map((row) => ({
+        key: row.key,
+        ticker: row.ticker,
+        name: row.name,
+        deal_stab_cap: numOrNull(row.dealStabCap),
+        lens_target_cap: numOrNull(row.lensTargetCap),
+        bps_delta: numOrNull(row.bpsDelta),
+        verdict: row.verdict || null,
+        implied_takedown_price: numOrNull(row.impliedTakedownPrice),
+        reconstructed_noi: numOrNull(row.reconstructedNOI),
+        revenue_premium_pct: numOrNull(row.revenuePremiumPct),
+        portfolio_fit: !!row.portfolioFit,
+        cap_basis: row.capBasis || null,
+        dev_yoc_target: numOrNull(row.devYOCTarget),
+      })),
+      methodology: "For each registered buyer lens, runs computeBuyerLens(input, lens) which applies that lens's expense overrides + revenue adjustment + custom market cap to reconstruct the buyer's NOI and project Y3. Implied takedown price = Y3 NOI / lens.marketCap (the price each buyer would pay AT their own underwriting hurdle). Sorted DESC by implied takedown — top row is the natural institutional takeout. Platform-fit Δ = top - GENERIC. All constants trace to FY2025 10-K accession numbers (per-lens citation footnotes available in Goldman PDF).",
     } : null,
 
     extraction: extractionMeta ? {

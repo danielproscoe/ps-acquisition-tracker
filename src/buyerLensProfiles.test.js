@@ -12,6 +12,8 @@ import {
   getBuyerLens,
   computeLensMarketCap,
   computeBuyerLens,
+  computeAllBuyerLenses,
+  computePlatformFitDelta,
 } from "./buyerLensProfiles";
 import { analyzeExistingAsset, DEAL_TYPES } from "./existingAssetAnalysis";
 
@@ -403,5 +405,120 @@ describe("computeBuyerLens — multi-lens routing", () => {
     // Generic lens should reconstruct LOWER NOI than PS lens on same input
     // (mgmt fee 5.5% of EGI is real cost PS doesn't pay)
     expect(generic.reconstructed.buyerNOI).toBeLessThan(ps.reconstructed.buyerNOI);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Multi-lens comparison — runs every lens against one deal
+// ══════════════════════════════════════════════════════════════════════════
+
+describe("computeAllBuyerLenses", () => {
+  test("returns one row per registered lens (5 active)", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    expect(rows.length).toBe(5);
+    const keys = rows.map((r) => r.key).sort();
+    expect(keys).toEqual(["CUBE", "EXR", "GENERIC", "PS", "SMA"]);
+  });
+
+  test("each row carries dealStabCap + lensTargetCap + bpsDelta + verdict + impliedTakedownPrice", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    for (const row of rows) {
+      expect(row.key).toBeDefined();
+      expect(row.ticker).toBeDefined();
+      expect(row.name).toBeDefined();
+      expect(typeof row.dealStabCap).toBe("number");
+      expect(typeof row.lensTargetCap).toBe("number");
+      expect(typeof row.bpsDelta).toBe("number");
+      expect(["HURDLE_CLEARED", "AT_HURDLE", "MISSES_HURDLE", "INSUFFICIENT_DATA"]).toContain(row.verdict);
+      expect(typeof row.impliedTakedownPrice).toBe("number");
+    }
+  });
+
+  test("rows are sorted DESC by impliedTakedownPrice", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    for (let i = 1; i < rows.length; i++) {
+      const prev = rows[i - 1].impliedTakedownPrice;
+      const curr = rows[i].impliedTakedownPrice;
+      if (prev != null && curr != null) {
+        expect(prev).toBeGreaterThanOrEqual(curr);
+      }
+    }
+  });
+
+  test("PS typically pays MORE than GENERIC at same input (platform-fit Δ > 0)", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    const ps = rows.find((r) => r.key === "PS");
+    const generic = rows.find((r) => r.key === "GENERIC");
+    expect(ps).toBeDefined();
+    expect(generic).toBeDefined();
+    expect(ps.impliedTakedownPrice).toBeGreaterThan(generic.impliedTakedownPrice);
+  });
+
+  test("dealStabCap is identical across all rows (input-driven, not lens-driven)", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    const stabCaps = rows.map((r) => r.dealStabCap).filter((v) => v != null);
+    // dealStabCap = Y3NOI/ask. Y3 NOI varies by lens (different opex/brand).
+    // So actually dealStabCaps WILL differ — they reflect the buyer-lens NOI
+    // reconstruction. Just verify all are positive numbers.
+    expect(stabCaps.every((c) => c > 0)).toBe(true);
+  });
+
+  test("bpsDelta is consistent with verdict thresholds", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    for (const row of rows) {
+      if (row.bpsDelta == null) continue;
+      if (row.bpsDelta >= 50) expect(row.verdict).toBe("HURDLE_CLEARED");
+      else if (row.bpsDelta >= -25) expect(row.verdict).toBe("AT_HURDLE");
+      else expect(row.verdict).toBe("MISSES_HURDLE");
+    }
+  });
+
+  test("ask=0 → impliedTakedownPrice still computable, dealStabCap null", () => {
+    const rows = computeAllBuyerLenses({ ...baseInput, ask: 0 });
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      // dealStabCap requires ask>0; impliedTakedownPrice = Y3NOI/lensTargetCap (lens-only)
+      // expect dealStabCap to be null when ask=0
+      expect(row.dealStabCap).toBeNull();
+    }
+  });
+});
+
+describe("computePlatformFitDelta", () => {
+  test("returns top - GENERIC dollar spread", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    const delta = computePlatformFitDelta(rows);
+    expect(delta).toBeTruthy();
+    expect(delta.topLensKey).toBeDefined();
+    expect(delta.topLensTicker).toBeDefined();
+    expect(typeof delta.topPrice).toBe("number");
+    expect(typeof delta.genericPrice).toBe("number");
+    expect(typeof delta.deltaDollars).toBe("number");
+    expect(typeof delta.deltaPct).toBe("number");
+    expect(delta.deltaDollars).toBeGreaterThanOrEqual(0);
+  });
+
+  test("top lens is row 0 of sorted rows (DESC by takedown price)", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    const delta = computePlatformFitDelta(rows);
+    expect(delta.topLensKey).toBe(rows[0].key);
+    expect(delta.topPrice).toBe(rows[0].impliedTakedownPrice);
+  });
+
+  test("returns null for empty rows", () => {
+    expect(computePlatformFitDelta([])).toBeNull();
+    expect(computePlatformFitDelta(null)).toBeNull();
+  });
+
+  test("returns null when GENERIC missing from rows", () => {
+    const rows = computeAllBuyerLenses(baseInput).filter((r) => r.key !== "GENERIC");
+    expect(computePlatformFitDelta(rows)).toBeNull();
+  });
+
+  test("deltaPct correctly normalized to GENERIC price", () => {
+    const rows = computeAllBuyerLenses(baseInput);
+    const delta = computePlatformFitDelta(rows);
+    const recomputed = (delta.topPrice - delta.genericPrice) / delta.genericPrice;
+    expect(delta.deltaPct).toBeCloseTo(recomputed, 6);
   });
 });

@@ -522,6 +522,134 @@ export function getBuyerLens(key) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// MULTI-LENS COMPARISON — runs every registered buyer lens against one deal
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Powers the side-by-side buyer comparison view. For one OM input, returns
+// an array with one entry per registered lens — each carrying:
+//
+//   - lens metadata (key, ticker, name, brandColor, badgeText)
+//   - dealStabCap (Y3 NOI / ask) — same for every lens (input-driven)
+//   - lensTargetCap (lens.marketCap with portfolio-fit applied)
+//   - bpsDelta (deal cap minus lens cap, positive = above hurdle = better)
+//   - verdict: "HURDLE_CLEARED" | "AT_HURDLE" | "MISSES_HURDLE"
+//   - impliedTakedownPrice = Y3 NOI / lens target cap (what THAT buyer would
+//     pay at THEIR hurdle — the institutional "willingness to pay" number)
+//   - reconstructedNOI (each lens applies its own opex ratios)
+//
+// Sorted by impliedTakedownPrice DESC so the strongest buyer is first.
+// The top-row buyer is the natural takeout — they'd pay the most at their
+// own hurdle. The price spread between row 1 and row N IS the platform-fit Δ.
+
+/**
+ * Run every registered buyer lens against one deal. Used by the side-by-side
+ * comparison view to surface the institutional "who would pay most for this"
+ * spread in a single screen.
+ *
+ * @param {Object} input    — same shape as analyzeExistingAsset() input
+ * @param {Object} [extras]
+ * @param {number} [extras.nearestPortfolioMi]
+ * @param {Object} [extras.marketRents]
+ * @returns {Array<Object>} sorted DESC by impliedTakedownPrice
+ */
+export function computeAllBuyerLenses(input, extras = {}) {
+  const ask = Number(input?.ask) || 0;
+  const rows = BUYER_LENS_ORDER.map((key) => {
+    const lens = BUYER_LENSES[key];
+    if (!lens) return null;
+    const r = computeBuyerLens(input, lens, extras);
+    const y3NOI = r?.projection?.y3?.noi;
+    const lensTargetCap = r?.marketCap;
+    if (!Number.isFinite(y3NOI) || !Number.isFinite(lensTargetCap) || y3NOI <= 0 || lensTargetCap <= 0) {
+      return {
+        key,
+        ticker: lens.ticker,
+        name: lens.name,
+        badgeText: lens.badgeText,
+        brandColor: lens.brandColor,
+        dealStabCap: null,
+        lensTargetCap: null,
+        bpsDelta: null,
+        verdict: "INSUFFICIENT_DATA",
+        impliedTakedownPrice: null,
+        reconstructedNOI: r?.reconstructed?.buyerNOI ?? null,
+        revenuePremiumPct: r?.lens?.revenuePremium ?? 0,
+        portfolioFit: !!r?.lens?.portfolioFit,
+        capBasis: r?.lens?.capBasis || null,
+        devYOCTarget: lens.benchmarks?.devYOCTarget ?? null,
+      };
+    }
+    const dealStabCap = ask > 0 ? y3NOI / ask : null;
+    const bpsDelta = dealStabCap != null ? Math.round((dealStabCap - lensTargetCap) * 10000) : null;
+    const verdict =
+      bpsDelta == null ? "INSUFFICIENT_DATA" :
+      bpsDelta >= 50 ? "HURDLE_CLEARED" :
+      bpsDelta >= -25 ? "AT_HURDLE" :
+      "MISSES_HURDLE";
+    const impliedTakedownPrice = y3NOI / lensTargetCap;
+    return {
+      key,
+      ticker: lens.ticker,
+      name: lens.name,
+      badgeText: lens.badgeText,
+      brandColor: lens.brandColor,
+      dealStabCap,
+      lensTargetCap,
+      bpsDelta,
+      verdict,
+      impliedTakedownPrice,
+      reconstructedNOI: r.reconstructed?.buyerNOI ?? null,
+      revenuePremiumPct: r.lens?.revenuePremium ?? 0,
+      portfolioFit: !!r.lens?.portfolioFit,
+      capBasis: r.lens?.capBasis || null,
+      devYOCTarget: lens.benchmarks?.devYOCTarget ?? null,
+    };
+  }).filter(Boolean);
+
+  // Sort by implied takedown price DESC — winner first. Buyers who would
+  // pay more at their own hurdle ARE the natural takeout for the asset.
+  rows.sort((a, b) => {
+    const pa = a.impliedTakedownPrice ?? -Infinity;
+    const pb = b.impliedTakedownPrice ?? -Infinity;
+    return pb - pa;
+  });
+
+  return rows;
+}
+
+/**
+ * Compute the platform-fit Δ from a multi-lens comparison: how much MORE the
+ * top-paying lens would pay vs. the GENERIC lens (third-party-managed buyer).
+ * This is the dollar value the institutional self-managed REIT defensibly
+ * pays above a generic institutional buyer on the identical asset.
+ *
+ * @param {Array<Object>} lensRows — output of computeAllBuyerLenses()
+ * @returns {Object} {
+ *   topLensKey, topPrice, genericPrice, deltaDollars, deltaPct
+ * } | null
+ */
+export function computePlatformFitDelta(lensRows) {
+  if (!Array.isArray(lensRows) || !lensRows.length) return null;
+  const top = lensRows[0];
+  const generic = lensRows.find((r) => r.key === "GENERIC");
+  if (!top || !generic || top.impliedTakedownPrice == null || generic.impliedTakedownPrice == null) {
+    return null;
+  }
+  const deltaDollars = top.impliedTakedownPrice - generic.impliedTakedownPrice;
+  const deltaPct = generic.impliedTakedownPrice > 0
+    ? deltaDollars / generic.impliedTakedownPrice
+    : null;
+  return {
+    topLensKey: top.key,
+    topLensTicker: top.ticker,
+    topPrice: top.impliedTakedownPrice,
+    genericPrice: generic.impliedTakedownPrice,
+    deltaDollars,
+    deltaPct,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // COMPUTE LENS — runs full Asset Analyzer pipeline against a buyer profile
 // Returns the same shape as analyzeExistingAsset() so the UI can render
 // generic buyer-lens and PS-lens side-by-side without special-casing.
