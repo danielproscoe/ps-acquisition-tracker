@@ -175,6 +175,7 @@ const DEAL_TYPE_OPTIONS = [
   { key: "stabilized", label: "Stabilized — 85%+ occ, run-rate T-12" },
   { key: "co-lu", label: "CO-LU lease-up — newly built, <70% occ" },
   { key: "value-add", label: "Value-Add — under-managed / rate-compressed" },
+  { key: "nnn", label: "NNN — credit-tenant net lease (REIT-leased)" },
 ];
 
 const LISTING_SOURCE_OPTIONS = [

@@ -397,6 +397,21 @@ function AppInner() {
     goToDetail,
   } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
 
+  // ─── DEEP-LINK ROUTING — ?asset=<preset> auto-opens Asset Analyzer ───
+  // Used for Reza demo emails: storvex.vercel.app/?asset=greenville lands
+  // directly on the Analyzer tab with the preset auto-loaded. Valid keys:
+  // greenville, tallahassee, red-rock. Unknown values are ignored.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const asset = (params.get("asset") || "").toLowerCase().trim();
+    const VALID_PRESETS = ["greenville", "tallahassee", "red-rock"];
+    if (asset && VALID_PRESETS.includes(asset)) {
+      setTab("asset-analyzer");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ─── PS Family Locations — owned + 3rd-party + combined + NSA (loaded once for Discover tab map) ───
   const [psLocations, setPsLocations] = useState([]);
   useEffect(() => {

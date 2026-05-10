@@ -92,15 +92,23 @@ export const DEAL_TYPES = {
   STABILIZED: "stabilized",
   CO_LU: "co-lu",
   VALUE_ADD: "value-add",
+  // NNN — single-tenant credit-tenant net lease (e.g. CubeSmart NNN, EXR NNN).
+  // Buyer underwrites tenant credit + disclosed cap rate. Operational opex is
+  // absorbed by the tenant, so the buyer-lens reconstruction is bypassed and
+  // tier pricing uses REIT-disclosed institutional credit-tenant cap bands.
+  NNN: "nnn",
 };
 
 // Tier cap rate ranges per deal type, from valuation-framework.md Step 6:
 //   "Newly-built C-of-O lease-up: 7.0-7.5% on stabilized NOI projection"
 //   Value-add typically 50bps wider than stabilized of same MSA tier
+//   NNN credit-tenant Class A: 5.5-6.5% per Green Street Q1 2026 + EDGAR M&A
+//   (PSA / EXR / CUBE acquisition activity)
 export const DEAL_TYPE_CAP_BANDS = {
   [DEAL_TYPES.STABILIZED]: { homeRunDelta: +0.0050, strikeDelta: 0, walkDelta: -0.0025 }, // off market cap
   [DEAL_TYPES.CO_LU]:      { walkCap: 0.0700, strikeCap: 0.0725, homeRunCap: 0.0750 },     // absolute caps
   [DEAL_TYPES.VALUE_ADD]:  { homeRunDelta: +0.0100, strikeDelta: +0.0050, walkDelta: 0 },  // off market cap (wider band)
+  [DEAL_TYPES.NNN]:        { walkCap: 0.0550, strikeCap: 0.0600, homeRunCap: 0.0650 },     // absolute caps · institutional credit-tenant
 };
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -171,6 +179,43 @@ export function reconstructBuyerNOI(input, opts = {}) {
   const ccPct = input.ccPct != null ? Number(input.ccPct) : 0.70;
   const isManned = input.isManned !== false; // default true
   const currentTax = Number(input.currentTaxAnnual) || 0;
+  const dealType = input.dealType || DEAL_TYPES.STABILIZED;
+
+  // ── NNN BYPASS ─────────────────────────────────────────────────────────
+  // For credit-tenant NNN leases the tenant absorbs all operating expenses.
+  // Buyer underwrites disclosed NOI directly; opex reconstruction would
+  // double-count expenses and compress the buyer NOI artificially. Return
+  // a passthrough shell with the disclosed NOI as buyer NOI; the lines
+  // array shows "Tenant absorbs" for each opex category (informational).
+  if (dealType === DEAL_TYPES.NNN) {
+    const t12NOI = Number(input.t12NOI) || 0;
+    const t12EGI = Number(input.t12EGI) || t12NOI;
+    const opexCategories = [
+      "Real Estate Taxes", "Insurance", "Utilities", "Payroll",
+      "Repairs & Maint", "Marketing", "G&A", "CC / Bank Charges",
+      "Property Mgmt", "Reserves",
+    ];
+    const lines = opexCategories.map((line) => ({
+      line,
+      buyer: 0,
+      basis: "NNN — tenant absorbs",
+      note: "Credit-tenant net lease — operational opex flows to tenant; buyer underwrites disclosed NOI on tenant credit.",
+    }));
+    return {
+      lines,
+      totalOpEx: 0,
+      sellerOpEx: t12EGI - t12NOI,
+      deltaOpEx: 0 - (t12EGI - t12NOI),
+      egi: t12EGI,
+      sellerNOI: t12NOI,
+      buyerNOI: t12NOI,
+      buyerCap: ask > 0 ? t12NOI / ask : 0,
+      opexRatio: 0,
+      deltaNOI: 0,
+      deltaPct: 0,
+      flags: [{ severity: "info", text: "NNN credit-tenant lease — analyzer bypassed buyer-lens opex reconstruction. Buyer NOI = disclosed NOI. Underwrite tenant credit (BBB+ public REIT, etc.) + disclosed cap rate vs. REIT institutional cap band (5.5–6.5% per Green Street Q1 2026)." }],
+    };
+  }
 
   // Buyer lens overrides — merge profile constants over institutional defaults.
   // Used by buyerLensProfiles.js to re-run the reconstruction with PS / AMERCO /
@@ -330,7 +375,15 @@ export function projectStabilizedNOI(reconstructed, opts = {}) {
 
   let y3Rev, y3Exp, y3NOI, basis;
 
-  if (dealType === DEAL_TYPES.CO_LU || dealType === DEAL_TYPES.VALUE_ADD) {
+  if (dealType === DEAL_TYPES.NNN) {
+    // NNN credit-tenant lease — disclosed NOI flat across hold period.
+    // Real-world NNN escalators (CPI-linked or fixed bumps) ignored for
+    // simple model; underwriter can apply own escalator if desired.
+    y3Rev = y1Rev;
+    y3Exp = y1Exp;
+    y3NOI = y1NOI;
+    basis = "NNN credit-tenant lease — disclosed NOI flat across Y1/Y3/Y5 (lease escalators ignored for simple model). Y5 = Y3 = Y1.";
+  } else if (dealType === DEAL_TYPES.CO_LU || dealType === DEAL_TYPES.VALUE_ADD) {
     if (proFormaReconstructed) {
       // Y3 = stabilized from buyer-lens reconstruction of pro forma EGI
       y3Rev = proFormaReconstructed.egi;
@@ -439,7 +492,19 @@ export function computePriceTiers(projection, marketCap, dealType = DEAL_TYPES.S
   let homeRunNumerator, strikeNumerator, walkNumerator;
   let homeRunBasis, strikeBasis, walkBasis;
 
-  if (dealType === DEAL_TYPES.CO_LU) {
+  if (dealType === DEAL_TYPES.NNN) {
+    const band = DEAL_TYPE_CAP_BANDS[DEAL_TYPES.NNN];
+    homeRunCap = band.homeRunCap;
+    strikeCap = band.strikeCap;
+    walkCap = band.walkCap;
+    // NNN: flat NOI across hold period — all tier numerators = Y1 NOI
+    homeRunNumerator = projection.y1.noi;
+    strikeNumerator = projection.y1.noi;
+    walkNumerator = projection.y1.noi;
+    homeRunBasis = "Y1 NOI @ 6.50% (institutional credit-tenant cap ceiling — Green Street Q1 2026)";
+    strikeBasis = "Y1 NOI @ 6.00% (institutional credit-tenant cap midpoint — REIT acquisition norm)";
+    walkBasis = "Y1 NOI @ 5.50% (institutional credit-tenant cap floor — tight pricing on premium credit)";
+  } else if (dealType === DEAL_TYPES.CO_LU) {
     const band = DEAL_TYPE_CAP_BANDS[DEAL_TYPES.CO_LU];
     homeRunCap = band.homeRunCap;
     strikeCap = band.strikeCap;
@@ -712,6 +777,53 @@ export function analyzeExistingAsset(input, opts = {}) {
     edgar8KTransactions = null;
   }
 
+  // ── LEASE-UP RISK OVERLAY (CO-LU only) ──────────────────────────────────
+  // Surfaces the gap between broker pro forma stabilization (typical 24 mo)
+  // and actual run-rate stabilization based on rent-roll-disclosed monthly
+  // move-ins. Calibrates against SSA new-supply lease-up benchmark (~32 mo
+  // for institutional Class A). Carry gap × estimated monthly burn produces
+  // unpriced negative cash flow that should come off the buyer's offer.
+  //
+  // Dataflow: actualMonthlyMoveins is an optional user-provided input
+  // (parsed from rent roll trailing 90 days). When absent, the overlay
+  // surfaces only the prompt to provide it. When present, computes:
+  //   - units to reach 90% target = (target_units - current_occupied)
+  //   - run-rate stab months = units_to_reach_target / monthly_moveins
+  //   - carry gap months = run_rate - broker_assumption (24)
+  //   - carry gap dollars = carry_gap_mo × $5K/mo (rough partial-LU burn)
+  let leaseUpRisk = null;
+  if (dealType === DEAL_TYPES.CO_LU && unitCount > 0 && physOcc > 0 && physOcc < 0.85) {
+    const actualMoveins = Number(input.actualMonthlyMoveins) || 0;
+    const vacantUnits = Math.round(unitCount * (1 - physOcc));
+    const targetOcc = 0.90;
+    const unitsToReachTarget = Math.max(0, Math.round(unitCount * targetOcc) - Math.round(unitCount * physOcc));
+    const brokerStabMonths = 24;     // M&M typical pro forma assumption
+    const reitBenchmarkMonths = 32;  // SSA / REIT new-supply institutional lease-up benchmark
+    const runRateMonths = actualMoveins > 0 ? Math.round(unitsToReachTarget / actualMoveins) : null;
+    const carryGapMonths = runRateMonths != null ? runRateMonths - brokerStabMonths : null;
+    const monthlyCarryBurn = 5000; // rough partial-LU operating burn proxy
+    const carryGapDollars = carryGapMonths != null && carryGapMonths > 0
+      ? carryGapMonths * monthlyCarryBurn
+      : 0;
+    leaseUpRisk = {
+      vacantUnits,
+      unitsToReachTarget,
+      targetOcc,
+      actualMonthlyMoveins: actualMoveins,
+      brokerStabMonths,
+      reitBenchmarkMonths,
+      runRateMonths,
+      carryGapMonths,
+      carryGapDollars,
+      severity: actualMoveins > 0
+        ? (carryGapMonths > 24 ? "high" : carryGapMonths > 6 ? "medium" : "low")
+        : "unknown",
+      note: actualMoveins > 0
+        ? `Run-rate stabilization ${runRateMonths} mo vs. broker assumption ${brokerStabMonths} mo / REIT benchmark ${reitBenchmarkMonths} mo. Carry gap ${carryGapMonths > 0 ? `+${carryGapMonths}` : carryGapMonths} mo ≈ $${carryGapDollars.toLocaleString()} unpriced burn — comes off offer.`
+        : "Provide actual monthly move-ins from rent roll to surface lease-up timing risk.",
+    };
+  }
+
   return {
     snapshot,
     reconstructed,
@@ -725,6 +837,7 @@ export function analyzeExistingAsset(input, opts = {}) {
     verdict,
     comps,
     rentSanity,
+    leaseUpRisk,
     edgarComp,
     edgar8KTransactions,
     generatedAt: new Date().toISOString(),
