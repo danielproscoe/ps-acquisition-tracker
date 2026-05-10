@@ -48,22 +48,19 @@ const CC_PREMIUM_OVER_DU = 1.80;
 
 // Per-issuer portfolio annual rent per occupied SF (in $/SF/yr).
 //
-// EXR + CUBE: extracted from edgar-same-store-growth.json (10-K disclosed).
-// PSA: 10-K is qualitative ("remained relatively unchanged") — no numeric
-//      disclosure. Use $21.48/SF derived from FY2025 same-store revenue
-//      ($3,764,833K) ÷ same-store NRSF (175.3M SF). Source citation lives in
-//      docs/PS_UNDERWRITING_MODEL.md and src/buyerLensProfiles.js line 71.
-//      That document traces this to PSA Q4/FY2025 Press Release.
-// SMA: not yet extracted. Use $15.00/SF as conservative imputed estimate
-//      — SMA's portfolio is more tertiary, ~$15/SF aligns with SmartStop's
-//      reported FY2024 disclosed rents in their 10-K. Flagged as imputed.
+// As of the 5/10/26 nuclear sprint, all four issuers' rent disclosures are
+// directly extracted from FY2025 10-K MD&A by extract-same-store-growth.mjs:
+//   PSA  $22.54 — "Realized annual rental income per Occupied square foot"
+//   EXR  $19.91 — same-store rental revenue ÷ NRSF tabular disclosure
+//   CUBE $22.73 — same-store property portfolio rent per SF
+//   SMA  $20.03 — "Annualized rent per occupied square foot"
 //
-// When EDGAR pipeline extracts new same-store data, this script will pick up
-// the new values automatically (PSA + SMA fallbacks only kick in when the
-// source JSON has null).
+// Fallback constants are retained as a defensive layer in case future 10-K
+// filings change format and the extractor regresses, but the v1 index uses
+// the directly-extracted values from edgar-same-store-growth.json.
 const ISSUER_PORTFOLIO_RENT_FALLBACK = {
-  PSA: { annualPerSF: 21.48, source: "PSA FY2025 same-store revenue ÷ same-store NRSF (Q4/FY2025 Press Release, BusinessWire 2026-02-12). 10-K narrative disclosure is qualitative.", isImputed: false },
-  SMA: { annualPerSF: 15.00, source: "Imputed conservative estimate aligned with SmartStop FY2024 10-K. Pending Day-6 same-store extraction.", isImputed: true },
+  PSA: { annualPerSF: 22.54, source: "PSA FY2025 10-K MD&A 'Realized annual rental income per Occupied square foot' tabular disclosure (accession 0001628280-26-007696).", isImputed: false },
+  SMA: { annualPerSF: 20.03, source: "SMA FY2025 10-K MD&A 'Annualized rent per occupied square foot' tabular disclosure (accession 0001193125-26-082573).", isImputed: false },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -71,6 +68,66 @@ const ISSUER_PORTFOLIO_RENT_FALLBACK = {
 function loadJSON(filename) {
   return JSON.parse(fs.readFileSync(path.join(DATA_DIR, filename), "utf-8"));
 }
+
+// MSA → US state code mapping (where the named MSA's primary city lives).
+// Single-state MSAs only — multi-state MSAs (DC metro, NYC) use the primary
+// state. The Schedule III's MSA breakdown also single-states each MSA, so
+// this matches PSA's own taxonomy.
+const MSA_TO_STATE = {
+  "Los Angeles": "CA",
+  "San Francisco": "CA",
+  "San Diego": "CA",
+  "Sacramento": "CA",
+  "New York": "NY",
+  "Washington DC": "DC",
+  "Miami": "FL",
+  "West Palm Beach": "FL",
+  "Orlando-Daytona": "FL",
+  "Tampa": "FL",
+  "Seattle-Tacoma": "WA",
+  "Portland": "OR",
+  "Dallas-Ft. Worth": "TX",
+  "Houston": "TX",
+  "Chicago": "IL",
+  "Atlanta": "GA",
+  "Philadelphia": "PA",
+  "Baltimore": "MD",
+  "Charlotte": "NC",
+  "Denver": "CO",
+  "Phoenix": "AZ",
+  "Detroit": "MI",
+  "Boston": "MA",
+  "Honolulu": "HI",
+  "Minneapolis/St. Paul": "MN",
+};
+
+// Aliases used elsewhere in the system (e.g. ESRI MSA names, Schedule III
+// MSA labels) → canonical PSA MSA name. Lets getMSARentBand("Dallas/Ft.
+// Worth") match PSA's "Dallas-Ft. Worth" disclosure.
+const MSA_ALIASES = {
+  "Dallas/Ft. Worth": "Dallas-Ft. Worth",
+  "DFW": "Dallas-Ft. Worth",
+  "Dallas": "Dallas-Ft. Worth",
+  "Dallas Ft Worth": "Dallas-Ft. Worth",
+  "Orlando/Daytona": "Orlando-Daytona",
+  "Orlando": "Orlando-Daytona",
+  "Seattle/Tacoma": "Seattle-Tacoma",
+  "Seattle": "Seattle-Tacoma",
+  "DC": "Washington DC",
+  "Washington": "Washington DC",
+  "Washington, DC": "Washington DC",
+  "Minneapolis": "Minneapolis/St. Paul",
+  "Minneapolis-St. Paul": "Minneapolis/St. Paul",
+  "Twin Cities": "Minneapolis/St. Paul",
+  "NYC": "New York",
+  "New York City": "New York",
+  "LA": "Los Angeles",
+  "Bay Area": "San Francisco",
+  "SF Bay": "San Francisco",
+  "Tampa-St. Petersburg": "Tampa",
+  "Phoenix-Mesa": "Phoenix",
+  "Honolulu, HI": "Honolulu",
+};
 
 /**
  * Convert annual portfolio rent ($/SF/yr) into monthly CC + DU bands.
@@ -115,6 +172,12 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function buildCalibration() {
   const compIndex = loadJSON("edgar-comp-index.json");
   const sameStore = loadJSON("edgar-same-store-growth.json");
+  let psaMSARents = null;
+  try {
+    psaMSARents = loadJSON("edgar-psa-msa-rents.json");
+  } catch {
+    // edgar-psa-msa-rents.json optional; calibration still works without it
+  }
 
   // Build per-issuer portfolio rent map: { ISSUER → { annualPerSF, source, isImputed } }
   const issuerRents = {};
@@ -232,14 +295,20 @@ function buildCalibration() {
     const ccRent = baseSplit.ccRent != null ? Math.round(baseSplit.ccRent * geoMultiplier * 1000) / 1000 : null;
     const duRent = baseSplit.duRent != null ? Math.round(baseSplit.duRent * geoMultiplier * 1000) / 1000 : null;
 
-    // Confidence tiers based on facility sample size + issuer count
+    // Confidence tiers based on facility sample size + issuer count.
+    // Naming convention reflects data-source provenance, not just sample size:
+    //   TRIPLE_VALIDATED  — 3+ REITs disclosed, 100+ facilities (institutional gold)
+    //   DOUBLE_VALIDATED  — 2+ REITs disclosed, 50+ facilities
+    //   SINGLE_SOURCE     — 1 REIT or <50 facilities (still primary-source, smaller sample)
+    //   THIN_SAMPLE       — <20 facilities (interpret with caution)
+    // Plus the special MSA_DISCLOSED_PSA tier on per-MSA bands (highest fidelity).
     const sampleFacilities = weightedAnnualDenom;
     const distinctIssuersWithRent = issuerContributions.filter((c) => c.contributionToWeight > 0).length;
     let confidence;
-    if (sampleFacilities >= 100 && distinctIssuersWithRent >= 3) confidence = "HIGH";
-    else if (sampleFacilities >= 50 && distinctIssuersWithRent >= 2) confidence = "MEDIUM";
-    else if (sampleFacilities >= 20) confidence = "LOW";
-    else confidence = "VERY_LOW";
+    if (sampleFacilities >= 100 && distinctIssuersWithRent >= 3) confidence = "TRIPLE_VALIDATED";
+    else if (sampleFacilities >= 50 && distinctIssuersWithRent >= 2) confidence = "DOUBLE_VALIDATED";
+    else if (sampleFacilities >= 20) confidence = "SINGLE_SOURCE";
+    else confidence = "THIN_SAMPLE";
 
     states.push({
       stateCode: stateRecord.stateCode,
@@ -279,6 +348,46 @@ function buildCalibration() {
   const nationalAnnual = nationalDenom > 0 ? nationalNumer / nationalDenom : null;
   const nationalSplit = splitPortfolioRentToCCDU(nationalAnnual);
 
+  // ── Per-MSA bands (from PSA's directly-disclosed MSA same-store rents) ───
+  // PSA's FY2025 10-K MD&A discloses 25 named MSAs with realized annual
+  // rent per occupied SF. Splitting into CC + DU monthly bands lets a
+  // subject site in LA pull $35.76/SF (LA-disclosed) instead of CA's
+  // state-weighted $20.82.
+  const msaBands = [];
+  if (psaMSARents?.records) {
+    for (const r of psaMSARents.records) {
+      const stateCode = MSA_TO_STATE[r.msa] || null;
+      const annualPerSF = r.rentPerOccSF_2025;
+      const split = splitPortfolioRentToCCDU(annualPerSF);
+      msaBands.push({
+        msa: r.msa,
+        stateCode,
+        ccRent: split.ccRent,
+        duRent: split.duRent,
+        weightedAnnualPerSF: annualPerSF,
+        rentPerAvailSF_2025: r.rentPerAvailSF_2025,
+        occupancy_2025: r.occupancy_2025,
+        rentChangeYoY: r.rentChangeYoY,
+        facilities: r.facilities,
+        sqftMillions: r.sqftMillions,
+        noi_2025_K: r.noi_2025_K,
+        confidence: "MSA_DISCLOSED_PSA",
+        source: `PSA FY2025 10-K MD&A 'Same Store Facilities Operating Trends by Market' (accession ${psaMSARents.source.accessionNumber})`,
+        accessionNumber: psaMSARents.source.accessionNumber,
+        filingURL: psaMSARents.source.filingURL,
+        reportDate: psaMSARents.source.reportDate,
+        derivation: `PSA-disclosed realized rent per occupied SF $${annualPerSF.toFixed(2)}/yr → $${(annualPerSF / 12).toFixed(3)}/mo monthly portfolio → CC ${(CC_MIX_PCT * 100).toFixed(0)}% × ${CC_PREMIUM_OVER_DU.toFixed(2)}× premium split.`,
+      });
+    }
+  }
+
+  // Build alias index for MSA lookups so getMSARentBand can resolve common
+  // synonyms ("Dallas/Ft. Worth" → "Dallas-Ft. Worth", "DFW" → ditto, etc.)
+  const msaAliasIndex = { ...MSA_ALIASES };
+  for (const r of psaMSARents?.records || []) {
+    msaAliasIndex[r.msa] = r.msa; // identity map for canonical names
+  }
+
   return {
     schema: "storvex.edgar-rent-calibration.v1",
     generatedAt: new Date().toISOString(),
@@ -298,6 +407,9 @@ function buildCalibration() {
       geographicAdjustmentSource: `State-level rent variation derived from Schedule III weighted gross carrying $/SF. Per-state weightedPSF / national weightedPSF ($${nationalWeightedPSF.toFixed(0)}/SF), square-root damped, clamped to [${GEO_MULT_MIN}, ${GEO_MULT_MAX}]. The weightedPSF figures are computed by aggregate-comps.mjs from each REIT's Schedule III gross carrying value disclosures.`,
     },
     nationalWeightedPSF: Math.round(nationalWeightedPSF * 100) / 100,
+    msaBands,
+    msaAliasIndex,
+    msaToState: MSA_TO_STATE,
     issuerPortfolioRents: issuerRents,
     nationalFallback: {
       ccRent: nationalSplit.ccRent,

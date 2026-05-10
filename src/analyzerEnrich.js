@@ -12,6 +12,7 @@
 // no Firebase writes, no DOM, no React.
 
 import { haversine } from "./haversine";
+import { enrichNearbyCompetitors, getMSARentBand, getBestRentBand, resolveCityToMSA } from "./data/edgarCompIndex";
 
 const ESRI_KEY = "AAPTaUYfi1SoeDufhIkJrnG_F2Q..-zBe5ghTDGTsSCeiaQYPhJmQQ5IKF7MvHv4i5LFTenLFy3ONZYOuiB9mGIPbWYgB9mHIUzNWHXEKPNz9NuuD-7U9VcXUPn28LkIy74pFEfpAdlDaXwME5Tuczq90l0hVssyMRfjXBX5rwmyHaI_8i2Nmgz4mLywQHr7VK2U1GeDyszM2nuUgrqEwUHGZGbA77YK4B7x2GvUK6dTalg0icDTtedzgihJG_CzuLsV-Wbk84LBoXHqmQM-i-0Q4HBep3LRuX-XCAT1_ZmGdGMNw";
 
@@ -188,6 +189,35 @@ export async function loadPSFamilyFacilities() {
 }
 
 /**
+ * Compute the N nearest PS family facilities within radius, with each
+ * enriched with EDGAR-derived cost basis ($/SF gross carrying) and rent
+ * estimate (CC + DU monthly $/SF). Every estimate cites a SEC EDGAR
+ * accession number.
+ *
+ * This is the primary-source competitor analysis Asset Analyzer surfaces
+ * in its enrichment block. Cost basis pulls from PSA's Schedule III MSA
+ * aggregate (when the city is matched to a PSA-disclosed MSA) or state-
+ * weighted PSF (fallback). Rent estimate uses MSA-disclosed rent when the
+ * MSA is named in PSA's same-store-by-market table, otherwise EDGAR-
+ * calibrated state-weighted rent.
+ *
+ * @param {number} lat — subject site latitude
+ * @param {number} lng — subject site longitude
+ * @param {Object} options — { radiusMi: 5, limit: 10 }
+ * @returns {Array} enriched competitor records sorted by distance ascending
+ */
+export async function nearbyCompetitorsEnriched(lat, lng, options = {}) {
+  if (typeof lat !== "number" || typeof lng !== "number") return [];
+  const facilities = await loadPSFamilyFacilities();
+  if (!facilities.length) return [];
+  return enrichNearbyCompetitors(facilities, lat, lng, {
+    radiusMi: options.radiusMi ?? 5,
+    limit: options.limit ?? 10,
+    haversineFn: haversine,
+  });
+}
+
+/**
  * Find nearest PS family facility to a given lat/lng.
  * Returns { distanceMi, brand, name, city, state, count35mi } — the latter
  * counts all PS family facilities within 35 mi (PSA market presence signal).
@@ -273,8 +303,11 @@ export async function enrichAssetAnalysis(input) {
     }
   }
 
-  // Step 2/3/4: parallel pulls
-  const [demographics, psFamily, marketRents] = await Promise.all([
+  // Step 2/3/4/5: parallel pulls — adds primary-source competitor analysis
+  // (top 10 within 5 mi, each enriched with EDGAR cost basis + rent estimate)
+  // and MSA-resolved rent band (highest-fidelity rent calibration when the
+  // subject city maps to a PSA-disclosed MSA).
+  const [demographics, psFamily, marketRents, competitors] = await Promise.all([
     coords ? enrichDemographics(coords.lat, coords.lng).catch((e) => {
       errors.push({ step: "demographics", error: e.message });
       return null;
@@ -287,7 +320,22 @@ export async function enrichAssetAnalysis(input) {
       errors.push({ step: "marketRents", error: e.message });
       return null;
     }),
+    coords ? nearbyCompetitorsEnriched(coords.lat, coords.lng, { radiusMi: 5, limit: 10 }).catch((e) => {
+      errors.push({ step: "competitors", error: e.message });
+      return [];
+    }) : Promise.resolve([]),
   ]);
 
-  return { coords, demographics, psFamily, marketRents, errors, generatedAt: new Date().toISOString() };
+  // Resolve MSA from subject city + state, then surface the MSA-disclosed
+  // rent band (or null if not in PSA's per-MSA disclosure)
+  const subjectMSA = resolveCityToMSA(input.city, input.state);
+  const msaRentBand = subjectMSA ? getMSARentBand(subjectMSA) : null;
+  // Best-available rent: MSA > state > national
+  const bestRentBand = getBestRentBand({ msa: subjectMSA, state: input.state });
+
+  return {
+    coords, demographics, psFamily, marketRents, competitors,
+    subjectMSA, msaRentBand, bestRentBand,
+    errors, generatedAt: new Date().toISOString(),
+  };
 }

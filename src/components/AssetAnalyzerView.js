@@ -798,8 +798,8 @@ function EnrichmentCard({ enrichment, loading }) {
   }
   if (!enrichment) return null;
 
-  const { coords, demographics, psFamily, marketRents } = enrichment;
-  const hasData = coords || demographics || psFamily || marketRents;
+  const { coords, demographics, psFamily, marketRents, competitors, subjectMSA, msaRentBand, bestRentBand } = enrichment;
+  const hasData = coords || demographics || psFamily || marketRents || (competitors && competitors.length);
   if (!hasData) return null;
 
   return (
@@ -870,6 +870,95 @@ function EnrichmentCard({ enrichment, loading }) {
           </div>
         )}
       </div>
+
+      {/* MSA-disclosed rent band — highest fidelity when subject city maps to a PSA-disclosed MSA */}
+      {msaRentBand && (
+        <div style={{ marginTop: 14, padding: 12, background: "rgba(201,168,76,0.08)", border: `1px solid ${GOLD}55`, borderRadius: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: GOLD, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              ⭐ MSA-DISCLOSED RENT · {msaRentBand.msa}
+            </div>
+            <span style={{ fontSize: 8, color: "#64748B", fontFamily: "'Space Mono', monospace" }}>
+              accession {msaRentBand.accessionNumber}
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>Rent / Occ SF</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>${msaRentBand.weightedAnnualPerSF.toFixed(2)}/yr</div>
+              <div style={{ fontSize: 8, color: "#64748B" }}>YoY {msaRentBand.rentChangeYoY > 0 ? "+" : ""}{msaRentBand.rentChangeYoY}%</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>CC $/Mo/SF</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: GOLD, fontFamily: "'Space Mono', monospace" }}>${msaRentBand.ccRent.toFixed(2)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>DU $/Mo/SF</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>${msaRentBand.duRent.toFixed(2)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>Avg Occ</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{(msaRentBand.occupancy_2025 * 100).toFixed(1)}%</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 8, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase" }}>PSA Facilities</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "'Space Mono', monospace" }}>{msaRentBand.facilities} · {msaRentBand.sqftMillions.toFixed(1)}M SF</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 9, color: "#64748B" }}>
+            PSA FY2025 10-K MD&A · Same Store Facilities Operating Trends by Market table · directly disclosed
+          </div>
+        </div>
+      )}
+
+      {/* Primary-source competitor analysis — top N nearest with EDGAR-derived cost basis + rent */}
+      {competitors && competitors.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: "#3B82F6", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              🎯 Primary-Source Competitor Analysis · {competitors.length} within 5 mi
+            </div>
+            <span style={{ fontSize: 8, color: "#64748B" }}>SEC EDGAR · Schedule III + 10-K MD&A</span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", fontSize: 10, color: "#CBD5E1", fontFamily: "'Space Mono', monospace", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${GOLD}33`, color: "#94A3B8", fontWeight: 700 }}>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Brand</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>City</th>
+                  <th style={{ textAlign: "right", padding: "4px 6px" }}>Distance</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>MSA</th>
+                  <th style={{ textAlign: "right", padding: "4px 6px" }}>Cost Basis</th>
+                  <th style={{ textAlign: "right", padding: "4px 6px" }}>CC $/mo</th>
+                  <th style={{ textAlign: "right", padding: "4px 6px" }}>DU $/mo</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>Conf</th>
+                </tr>
+              </thead>
+              <tbody>
+                {competitors.map((c, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <td style={{ padding: "4px 6px", fontWeight: 700, color: c.brand === "PS" ? "#3B82F6" : "#94A3B8" }}>{c.brand}</td>
+                    <td style={{ padding: "4px 6px" }}>{c.city || "—"}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>{c.distanceMi.toFixed(2)} mi</td>
+                    <td style={{ padding: "4px 6px", color: c.msa ? GOLD : "#64748B" }}>{c.msa || "—"}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "right", fontWeight: 700 }}>{c.estimatedGrossPSF != null ? `$${c.estimatedGrossPSF}` : "—"}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>{c.estimatedCCRentPerSF_mo != null ? `$${c.estimatedCCRentPerSF_mo.toFixed(2)}` : "—"}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>{c.estimatedDURentPerSF_mo != null ? `$${c.estimatedDURentPerSF_mo.toFixed(2)}` : "—"}</td>
+                    <td style={{ padding: "4px 6px", fontSize: 8, color: c.rentConfidence === "MSA_DISCLOSED_PSA" ? GOLD : c.rentConfidence === "TRIPLE_VALIDATED" ? "#22C55E" : "#94A3B8" }}>
+                      {c.rentConfidence ? c.rentConfidence.replace(/_/g, " ") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 9, color: "#64748B", lineHeight: 1.4 }}>
+            Cost basis: PSA Schedule III MSA aggregate (when MSA-matched) or cross-REIT state-weighted $/SF.
+            Rent: PSA MD&A MSA-disclosed (when MSA-matched) or cross-REIT state-calibrated.
+            Every figure traces to a specific 10-K accession #.
+          </div>
+        </div>
+      )}
 
       {enrichment.errors?.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 10, color: "#F59E0B" }}>

@@ -227,6 +227,82 @@ export function getStateRentBand(stateCode, options = {}) {
   };
 }
 
+/**
+ * EDGAR-disclosed MSA-level rent band. Highest fidelity: PSA's FY2025 10-K
+ * MD&A "Same Store Facilities Operating Trends by Market" table directly
+ * discloses realized annual rent per occupied SF for 25 named major
+ * metropolitan markets, plus average occupancy and YoY change.
+ *
+ * Returns null when the MSA is not disclosed (caller should fall back to
+ * getStateRentBand for state-weighted calibration).
+ *
+ * @param {string} msaName — MSA name; aliases resolved (e.g. "Dallas/Ft.
+ *                            Worth" → "Dallas-Ft. Worth", "DFW" → ditto,
+ *                            "NYC" → "New York", "DC" → "Washington DC")
+ * @returns {Object|null} { msa, stateCode, ccRent, duRent, weightedAnnualPerSF,
+ *                          occupancy_2025, rentChangeYoY, facilities,
+ *                          sqftMillions, noi_2025_K, confidence: "MSA_DISCLOSED_PSA",
+ *                          source, accessionNumber, filingURL, citations }
+ */
+export function getMSARentBand(msaName) {
+  if (!msaName) return null;
+  const aliases = rentCalibration.msaAliasIndex || {};
+  const trimmed = String(msaName).trim();
+  const canonical = aliases[trimmed] || aliases[trimmed.replace(/\s+/g, " ")] || trimmed;
+  const band = (rentCalibration.msaBands || []).find((b) => b.msa === canonical);
+  if (!band) return null;
+  return {
+    msa: band.msa,
+    stateCode: band.stateCode,
+    ccRent: band.ccRent,
+    duRent: band.duRent,
+    weightedAnnualPerSF: band.weightedAnnualPerSF,
+    rentPerAvailSF_2025: band.rentPerAvailSF_2025,
+    occupancy_2025: band.occupancy_2025,
+    rentChangeYoY: band.rentChangeYoY,
+    facilities: band.facilities,
+    sqftMillions: band.sqftMillions,
+    noi_2025_K: band.noi_2025_K,
+    confidence: band.confidence,
+    source: band.source,
+    accessionNumber: band.accessionNumber,
+    filingURL: band.filingURL,
+    reportDate: band.reportDate,
+    derivation: band.derivation,
+    citations: [{
+      issuer: "PSA",
+      facilities: band.facilities,
+      portfolioAnnualRentPerSF: band.weightedAnnualPerSF,
+      accessionNumber: band.accessionNumber,
+      filingURL: band.filingURL,
+      reportDate: band.reportDate,
+      isImputed: false,
+      sourceTable: "Same Store Facilities Operating Trends by Market",
+    }],
+  };
+}
+
+/**
+ * Best-available rent band — tries MSA first, falls back to state, falls
+ * back to national. Use this when you have lat/lng + city/state and want
+ * the highest-fidelity rent calibration available.
+ *
+ * @param {Object} loc — { msa, state, options }
+ * @returns rent band record
+ */
+export function getBestRentBand({ msa, state, options = {} } = {}) {
+  if (msa) {
+    const msaBand = getMSARentBand(msa);
+    if (msaBand) {
+      return { ...msaBand, source: msaBand.source + " (MSA-disclosed; highest fidelity)" };
+    }
+  }
+  if (state) {
+    return getStateRentBand(state, options);
+  }
+  return _nationalRentBand();
+}
+
 function _nationalRentBand() {
   const nat = rentCalibration.nationalFallback;
   if (!nat) return null;
@@ -243,6 +319,266 @@ function _nationalRentBand() {
     citations: [],
     source: `EDGAR-calibrated national average (${nat.sampleFacilities} REIT facilities across all states)`,
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PER-FACILITY COMPETITOR ENRICHMENT
+// ══════════════════════════════════════════════════════════════════════════
+//
+// PSA's Schedule III discloses per-MSA aggregate gross carrying value + NRSF
+// + facility count. From this we derive an implied $/SF cost basis per MSA
+// (or fall back to state-level when MSA is undisclosed). Combined with the
+// EDGAR-calibrated rent bands, we produce a primary-source competitor
+// estimate: each PS family facility carries an estimated cost basis ($/SF)
+// and rent (CC + DU monthly) traceable to specific 10-K accession numbers.
+
+// City → MSA disambiguation for cities clearly inside a PSA-disclosed MSA.
+// We don't try to match every suburb (would need MSA polygons). This is a
+// curated list of high-confidence matches that lets the analyzer upgrade
+// from state-level to MSA-level rents for ~50% of major-metro competitors.
+// Returns null when the city doesn't unambiguously map.
+const CITY_TO_MSA = {
+  // Los Angeles MSA
+  "Los Angeles": "Los Angeles", "Long Beach": "Los Angeles", "Anaheim": "Los Angeles",
+  "Pasadena": "Los Angeles", "Burbank": "Los Angeles", "Glendale": "Los Angeles",
+  "Inglewood": "Los Angeles", "Torrance": "Los Angeles", "Costa Mesa": "Los Angeles",
+  "Van Nuys": "Los Angeles", "Pico Rivera": "Los Angeles", "Whittier": "Los Angeles",
+  "Norwalk": "Los Angeles", "Downey": "Los Angeles", "Compton": "Los Angeles",
+  "Santa Monica": "Los Angeles", "Culver City": "Los Angeles", "Pomona": "Los Angeles",
+  "Ontario": "Los Angeles", "Riverside": "Los Angeles", "San Bernardino": "Los Angeles",
+  "Orange": "Los Angeles", "Irvine": "Los Angeles", "Santa Ana": "Los Angeles",
+  "Fullerton": "Los Angeles", "Garden Grove": "Los Angeles", "Huntington Beach": "Los Angeles",
+  // San Francisco MSA
+  "San Francisco": "San Francisco", "Oakland": "San Francisco", "San Jose": "San Francisco",
+  "Berkeley": "San Francisco", "Fremont": "San Francisco", "Hayward": "San Francisco",
+  "Sunnyvale": "San Francisco", "Santa Clara": "San Francisco", "San Mateo": "San Francisco",
+  "Daly City": "San Francisco", "Concord": "San Francisco", "Vallejo": "San Francisco",
+  "Richmond": "San Francisco", "Walnut Creek": "San Francisco",
+  // San Diego MSA
+  "San Diego": "San Diego", "Chula Vista": "San Diego", "Escondido": "San Diego",
+  "Oceanside": "San Diego", "Carlsbad": "San Diego", "El Cajon": "San Diego",
+  "La Mesa": "San Diego", "Vista": "San Diego",
+  // Sacramento MSA
+  "Sacramento": "Sacramento", "Roseville": "Sacramento", "Elk Grove": "Sacramento",
+  "Folsom": "Sacramento",
+  // New York MSA
+  "New York": "New York", "Brooklyn": "New York", "Queens": "New York", "Bronx": "New York",
+  "Staten Island": "New York", "Yonkers": "New York", "Mount Vernon": "New York",
+  "New Rochelle": "New York", "White Plains": "New York", "Newark": "New York",
+  "Jersey City": "New York", "Paterson": "New York", "Elizabeth": "New York",
+  "Hoboken": "New York", "Bayonne": "New York", "Long Island City": "New York",
+  // Washington DC MSA
+  "Washington": "Washington DC", "Alexandria": "Washington DC", "Arlington": "Washington DC",
+  "Fairfax": "Washington DC", "Reston": "Washington DC", "McLean": "Washington DC",
+  "Bethesda": "Washington DC", "Silver Spring": "Washington DC", "Rockville": "Washington DC",
+  "Gaithersburg": "Washington DC", "Frederick": "Washington DC",
+  // Miami MSA
+  "Miami": "Miami", "Hialeah": "Miami", "Coral Gables": "Miami", "Hollywood": "Miami",
+  "Pembroke Pines": "Miami", "Fort Lauderdale": "Miami", "Pompano Beach": "Miami",
+  "Deerfield Beach": "Miami", "Miramar": "Miami", "Plantation": "Miami",
+  "Davie": "Miami", "Sunrise": "Miami", "Doral": "Miami",
+  // Tampa MSA
+  "Tampa": "Tampa", "St. Petersburg": "Tampa", "Clearwater": "Tampa", "Brandon": "Tampa",
+  "Lakeland": "Tampa",
+  // Orlando MSA
+  "Orlando": "Orlando-Daytona", "Kissimmee": "Orlando-Daytona", "Daytona Beach": "Orlando-Daytona",
+  "Sanford": "Orlando-Daytona", "Altamonte Springs": "Orlando-Daytona",
+  // West Palm Beach MSA
+  "West Palm Beach": "West Palm Beach", "Boca Raton": "West Palm Beach",
+  "Boynton Beach": "West Palm Beach", "Delray Beach": "West Palm Beach",
+  // Seattle MSA
+  "Seattle": "Seattle-Tacoma", "Tacoma": "Seattle-Tacoma", "Bellevue": "Seattle-Tacoma",
+  "Everett": "Seattle-Tacoma", "Renton": "Seattle-Tacoma", "Kent": "Seattle-Tacoma",
+  // Portland MSA
+  "Portland": "Portland", "Beaverton": "Portland", "Gresham": "Portland", "Hillsboro": "Portland",
+  // Dallas-Ft. Worth MSA
+  "Dallas": "Dallas-Ft. Worth", "Fort Worth": "Dallas-Ft. Worth", "Plano": "Dallas-Ft. Worth",
+  "Arlington": "Dallas-Ft. Worth", "Garland": "Dallas-Ft. Worth", "Irving": "Dallas-Ft. Worth",
+  "Mesquite": "Dallas-Ft. Worth", "Carrollton": "Dallas-Ft. Worth",
+  "Frisco": "Dallas-Ft. Worth", "McKinney": "Dallas-Ft. Worth",
+  "Grand Prairie": "Dallas-Ft. Worth", "Denton": "Dallas-Ft. Worth", "Lewisville": "Dallas-Ft. Worth",
+  // Houston MSA
+  "Houston": "Houston", "Pasadena (TX)": "Houston", "Sugar Land": "Houston",
+  "Pearland": "Houston", "Katy": "Houston", "The Woodlands": "Houston",
+  "Spring": "Houston", "Cypress": "Houston", "Humble": "Houston", "Conroe": "Houston",
+  // Chicago MSA
+  "Chicago": "Chicago", "Naperville": "Chicago", "Schaumburg": "Chicago",
+  "Evanston": "Chicago", "Aurora": "Chicago", "Elgin": "Chicago", "Joliet": "Chicago",
+  "Skokie": "Chicago", "Oak Park": "Chicago",
+  // Atlanta MSA
+  "Atlanta": "Atlanta", "Marietta": "Atlanta", "Roswell": "Atlanta", "Sandy Springs": "Atlanta",
+  "Alpharetta": "Atlanta", "Decatur": "Atlanta", "Smyrna": "Atlanta", "Kennesaw": "Atlanta",
+  // Philadelphia MSA
+  "Philadelphia": "Philadelphia", "Wilmington": "Philadelphia", "Camden": "Philadelphia",
+  // Baltimore MSA
+  "Baltimore": "Baltimore", "Towson": "Baltimore", "Columbia": "Baltimore",
+  // Charlotte MSA
+  "Charlotte": "Charlotte", "Concord (NC)": "Charlotte", "Gastonia": "Charlotte",
+  "Huntersville": "Charlotte",
+  // Denver MSA
+  "Denver": "Denver", "Aurora (CO)": "Denver", "Lakewood": "Denver", "Thornton": "Denver",
+  "Westminster": "Denver", "Centennial": "Denver", "Englewood": "Denver",
+  // Phoenix MSA
+  "Phoenix": "Phoenix", "Scottsdale": "Phoenix", "Mesa": "Phoenix", "Chandler": "Phoenix",
+  "Glendale (AZ)": "Phoenix", "Tempe": "Phoenix", "Gilbert": "Phoenix", "Peoria": "Phoenix",
+  // Detroit MSA
+  "Detroit": "Detroit", "Warren": "Detroit", "Sterling Heights": "Detroit",
+  "Dearborn": "Detroit", "Livonia": "Detroit", "Troy": "Detroit",
+  // Boston MSA
+  "Boston": "Boston", "Cambridge": "Boston", "Quincy": "Boston", "Brockton": "Boston",
+  "Lynn": "Boston", "Newton": "Boston", "Somerville": "Boston",
+  // Honolulu MSA
+  "Honolulu": "Honolulu", "Pearl City": "Honolulu", "Waipahu": "Honolulu",
+  "Kailua": "Honolulu", "Kaneohe": "Honolulu",
+  // Minneapolis MSA
+  "Minneapolis": "Minneapolis/St. Paul", "St. Paul": "Minneapolis/St. Paul",
+  "Bloomington": "Minneapolis/St. Paul", "Plymouth": "Minneapolis/St. Paul",
+};
+
+/**
+ * Resolve a city name to a PSA-disclosed MSA, or null. Returns the canonical
+ * MSA name as it appears in PSA's same-store-by-market table.
+ */
+export function resolveCityToMSA(cityName, stateCode = null) {
+  if (!cityName) return null;
+  const trimmed = String(cityName).trim();
+  // Try exact match first
+  let msa = CITY_TO_MSA[trimmed];
+  if (msa) return msa;
+  // For cities that exist in multiple states (Aurora CO/IL, Concord NC/CA),
+  // try state-disambiguated key
+  if (stateCode) {
+    const stateKey = `${trimmed} (${stateCode})`;
+    msa = CITY_TO_MSA[stateKey];
+    if (msa) return msa;
+  }
+  return null;
+}
+
+/**
+ * Compute per-facility cost basis allocation for a single PS family facility,
+ * using PSA's Schedule III MSA aggregate when available, falling back to
+ * state-weighted PSF.
+ *
+ * @param {Object} facility — { brand, city, state, lat, lng }
+ * @returns {Object|null} { estimatedGrossPSF, source, citation, basis: 'msa-aggregate' | 'state-weighted' | 'no-data' }
+ */
+export function estimateFacilityCostBasis(facility) {
+  if (!facility?.state) return null;
+  const stateCode = String(facility.state).toUpperCase().trim();
+  const stateData = getEDGARStateData(stateCode);
+  if (!stateData) return null;
+
+  // Try MSA-level allocation first
+  const msa = resolveCityToMSA(facility.city, stateCode);
+  if (msa) {
+    // PSA's Schedule III lists per-MSA aggregates. Find the matching record
+    // (PSA's MSA names use slashes; the per-MSA same-store table uses hyphens).
+    const psaMSALabels = {
+      "Dallas-Ft. Worth": "Dallas/Ft. Worth",
+      "Orlando-Daytona": "Orlando/Daytona",
+      "Seattle-Tacoma": "Seattle/Tacoma",
+    };
+    const sched3Label = psaMSALabels[msa] || msa;
+    const psaContrib = (stateData.perIssuer || []).find(
+      (c) => c.issuer === "PSA" && c.sourceLabel && c.sourceLabel.includes(sched3Label.split("/")[0])
+    );
+    if (psaContrib?.impliedPSF) {
+      const sources = edgarIndex.sources;
+      return {
+        estimatedGrossPSF: psaContrib.impliedPSF,
+        msa,
+        msaLabel: psaContrib.sourceLabel,
+        basis: "msa-aggregate",
+        facilities: psaContrib.facilities,
+        nrsfThousands: psaContrib.nrsfThousands,
+        totalGrossThou: psaContrib.totalGrossThou,
+        source: `PSA Schedule III MSA aggregate for ${psaContrib.sourceLabel} (${psaContrib.facilities} facilities, ${(psaContrib.nrsfThousands / 1000).toFixed(1)}M SF, $${psaContrib.impliedPSF}/SF gross carrying basis).`,
+        accessionNumber: sources?.PSA?.accessionNumber,
+        filingURL: sources?.PSA?.filingURL,
+      };
+    }
+  }
+
+  // State-weighted fallback
+  if (stateData.weightedPSF) {
+    return {
+      estimatedGrossPSF: stateData.weightedPSF,
+      basis: "state-weighted",
+      facilities: stateData.totalFacilities,
+      nrsfThousands: stateData.totalNRSFThousands,
+      totalGrossThou: stateData.totalGrossCarryingThou,
+      numIssuers: stateData.numIssuersContributing,
+      source: `Cross-REIT state weighted gross carrying $/SF for ${stateData.stateName} (${stateData.totalFacilities} facilities across ${stateData.numIssuersContributing} REITs, $${stateData.weightedPSF}/SF).`,
+      accessionNumbers: (stateData.perIssuer || []).map((c) => edgarIndex.sources?.[c.issuer]?.accessionNumber).filter(Boolean),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Build the full enrichment for a single competitor facility — distance to
+ * subject, cost-basis estimate from Schedule III, rent estimate from the
+ * EDGAR rent calibration. Pure function — caller supplies subject coords.
+ */
+export function enrichCompetitor(facility, subjectLat, subjectLng, haversineFn, options = {}) {
+  if (!facility?.lat || !facility?.lng || typeof haversineFn !== "function") return null;
+  const distanceMi = haversineFn(subjectLat, subjectLng, facility.lat, facility.lng);
+  const stateCode = String(facility.state || "").toUpperCase().trim();
+  const costBasis = estimateFacilityCostBasis(facility);
+
+  // Rent estimate: try MSA first, fall back to state, then national.
+  const msa = resolveCityToMSA(facility.city, stateCode);
+  let rent = null;
+  if (msa) {
+    rent = getMSARentBand(msa);
+  }
+  if (!rent && stateCode) {
+    rent = getStateRentBand(stateCode, { fallbackToNational: true });
+  }
+
+  return {
+    brand: facility.brand,
+    name: facility.name,
+    city: facility.city,
+    state: facility.state,
+    lat: facility.lat,
+    lng: facility.lng,
+    distanceMi: Math.round(distanceMi * 100) / 100,
+    msa: msa || null,
+    estimatedGrossPSF: costBasis?.estimatedGrossPSF ?? null,
+    costBasisSource: costBasis?.source ?? null,
+    costBasisBasis: costBasis?.basis ?? null,
+    costBasisAccession: costBasis?.accessionNumber ?? null,
+    estimatedRentPerOccSF_yr: rent?.weightedAnnualPerSF ?? null,
+    estimatedCCRentPerSF_mo: rent?.ccRent ?? null,
+    estimatedDURentPerSF_mo: rent?.duRent ?? null,
+    rentSource: rent?.source ?? null,
+    rentConfidence: rent?.confidence ?? null,
+    rentCitations: rent?.citations ?? [],
+  };
+}
+
+/**
+ * Compute the N nearest competitors within radiusMi of subject coords from
+ * a pre-loaded facility list. Pure function — caller manages the facility
+ * source (CSV load lives in analyzerEnrich.js for browser-side, or test
+ * fixtures for unit tests).
+ */
+export function enrichNearbyCompetitors(facilities, subjectLat, subjectLng, options = {}) {
+  const { radiusMi = 5, limit = 10, haversineFn } = options;
+  if (!Array.isArray(facilities) || typeof haversineFn !== "function") return [];
+  if (typeof subjectLat !== "number" || typeof subjectLng !== "number") return [];
+
+  const enriched = [];
+  for (const f of facilities) {
+    const e = enrichCompetitor(f, subjectLat, subjectLng, haversineFn);
+    if (e && e.distanceMi <= radiusMi) enriched.push(e);
+  }
+  // Sort by distance ascending
+  enriched.sort((a, b) => a.distanceMi - b.distanceMi);
+  return enriched.slice(0, limit);
 }
 
 /**
@@ -285,6 +621,12 @@ export default {
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
   getStateRentBand,
+  getMSARentBand,
+  getBestRentBand,
+  resolveCityToMSA,
+  estimateFacilityCostBasis,
+  enrichCompetitor,
+  enrichNearbyCompetitors,
   EDGAR_INDEX_METADATA,
   EDGAR_RENT_CALIBRATION_METADATA,
 };

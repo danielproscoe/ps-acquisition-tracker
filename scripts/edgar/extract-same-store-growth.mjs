@@ -66,6 +66,7 @@ function extractSameStoreMetrics(text, ticker) {
     sameStoreOccupancyEOP: null,  // end-of-period occupancy
     sameStoreOccupancyAvg: null,
     sameStoreRentPerSF: null,
+    sameStoreRentPerSF_PriorYear: null,
     sourceExcerpt: null,
   };
 
@@ -251,15 +252,45 @@ function extractSameStoreMetrics(text, ticker) {
   }
 
   // ── Rent per occupied SF ──
-  // PSA: "average annualized realized rent per occupied square foot of $XX.XX"
+  // Three patterns to handle the variety of disclosure formats:
+  //
+  //   (1) Narrative form (legacy):
+  //       "average annualized realized rent per occupied square foot of $XX.XX"
+  //
+  //   (2) PSA tabular form (FY2025 10-K — the actual form PSA uses):
+  //       "Realized annual rental income per (c): Occupied square foot $ 22.54 $ 22.43 0.5%"
+  //       The disclosure is the FIRST dollar amount after the "Occupied square
+  //       foot" sub-row label, which is the current-period value.
+  //
+  //   (3) SMA tabular form (FY2025 10-K):
+  //       "Annualized rent per occupied square foot (5) $ 20.03 $ 19.98 0.3%"
+  //       Same pattern but with a footnote marker before the dollar values.
+  //
+  //   (4) PSA "Annual contract rent" form (a parallel disclosure):
+  //       "Annual contract rent per occupied square foot (d) $ 22.55 $ 22.72 (0.7)%"
+  //
+  // Critical: Pattern (2)/(3)/(4) MUST come BEFORE the narrative pattern (1)
+  // because the tabular form is the authoritative disclosure when present.
+  // The narrative pattern was previously matching qualitative descriptions
+  // that lacked the dollar amount.
   const rentPatterns = [
+    // PSA tabular: "Occupied square foot $ XX.XX $ XX.XX <pct>"
+    /Occupied\s+square\s+foot\s+\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/i,
+    // SMA tabular: "Annualized rent per occupied square foot (N) $ XX.XX $ XX.XX"
+    /[Aa]nnualized\s+rent\s+per\s+occupied\s+square\s+foot\s*(?:\(\d+\))?\s*\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/,
+    // PSA "Annual contract" form
+    /Annual\s+contract\s+rent\s+per\s+occupied\s+square\s+foot\s*(?:\([a-z]\))?\s*\$\s*(\d+\.\d{2})\s+\$\s*(\d+\.\d{2})/i,
+    // Narrative form (legacy)
     /(?:average\s+)?(?:annualized\s+)?(?:realized\s+)?rent\s+per\s+occupied\s+square\s+foot\s+(?:of\s+)?\$(\d+\.\d{2})/i,
     /rent\s+per\s+occupied\s+square\s+foot\s+(?:was\s+)?\$(\d+\.\d{2})/i,
   ];
   for (const re of rentPatterns) {
     const m = re.exec(text);
     if (m) {
+      // Pattern (2)/(3)/(4) capture both current + prior period; current is
+      // the first ($XX.XX). Pattern (1)/(5) capture only one value.
       metrics.sameStoreRentPerSF = parseFloat(m[1]);
+      if (m[2]) metrics.sameStoreRentPerSF_PriorYear = parseFloat(m[2]);
       break;
     }
   }
@@ -312,7 +343,7 @@ async function run() {
   console.log("  Day 6 — Same-Store Rent Growth Ingester");
   console.log("════════════════════════════════════════════════════════════════════");
 
-  const tickers = ["PSA", "EXR", "CUBE"];
+  const tickers = ["PSA", "EXR", "CUBE", "SMA"];
   const results = [];
   for (const t of tickers) {
     try {
