@@ -1073,7 +1073,15 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
       const placesP = fetchPlacesCompetitors(geo.lat, geo.lng, 3);
       const registryP = loadREITRegistry();
       const matrixP = loadOperatorMatrix();
-      const [esri, competitors, registry, matrix] = await Promise.all([esriP, placesP, registryP, matrixP]);
+      // SpareFoot live market rents (CC + drive-up $/SF/mo) — parallel fetch so
+      // the MARKET INTEL band can render with primary-source rent data, not
+      // benchmark constants. Failure is silent (returns null) so a SpareFoot
+      // outage doesn't break the rest of the report — the band gracefully
+      // degrades to REIT-benchmark fallback.
+      const rentsP = fetch(`/api/sparefoot-rents?city=${encodeURIComponent(geo.city || '')}&state=${encodeURIComponent(geo.state || '')}&zip=${encodeURIComponent(geo.zip || '')}&lat=${geo.lat}&lon=${geo.lng}`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+      const [esri, competitors, registry, matrix, marketRents] = await Promise.all([esriP, placesP, registryP, matrixP, rentsP]);
 
       // Authoritative REIT match — finds PS/iStorage/NSA locations even if Places missed them
       const reit3mi = registry ? findREITFacilitiesNearby(registry, geo.lat, geo.lng, 3) : [];
@@ -1139,6 +1147,10 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
         reit3mi, reit5mi,
         registryRecordCount: registry?.recordCount || 0,
         metrics: { popGrowth, hhiGrowth, renterPct, peakPct, hhOver75Pct, collegePct, vacancyPct },
+        // Live SpareFoot market rents (CC + drive-up $/SF/mo). Source-stamped
+        // on the MARKET INTEL band. Null when SpareFoot endpoint errors or has
+        // no coverage in submarket — band falls back to REIT-benchmark midpoint.
+        marketRents,
         elapsed,
         generatedAt: new Date().toISOString(),
         narrative: null,
@@ -2985,6 +2997,116 @@ function StorvexVerdictHero({ result }) {
               <span key={g.label} style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: g.pass ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: g.pass ? '#4CC982' : '#FCA5A5', border: `1px solid ${g.pass ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, letterSpacing: '0.04em' }}>{g.pass ? '✓' : '✕'} {g.label}</span>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* MARKET INTEL BAND — three institutional-RE money slots: rents (CC + DU
+          + 5-yr forward), demographics (with CAGRs), competition (CC SPC now +
+          2030 + mix). Each card source-stamped. This is the answer to "what
+          does Radius+ show?" — same numbers, primary-source citations, plus
+          a 5-yr CC rent projection Radius+ doesn't surface. Glance summary
+          above the 5-beat thesis; the deeper CCSPCHeadline + Demographics
+          panels still render below for the analyst-grade drill-down. */}
+      <div className="svx-hero-fade" style={{ position: 'relative', padding: '0 28px 18px', animationDelay: '90ms' }}>
+        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.16em', color: '#C9A84C', marginBottom: 10, paddingTop: 18, borderTop: '1px solid rgba(201,168,76,0.18)' }}>MARKET INTEL · RENTS · DEMOGRAPHICS · COMPETITION</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          {/* CARD 1 — MARKET RENTS */}
+          {(() => {
+            const liveCC = result.marketRents?.ccRent;
+            const liveDU = result.marketRents?.duRent;
+            const ccRent = liveCC != null ? liveCC : 1.45;
+            const duRent = liveDU != null ? liveDU : 0.85;
+            const ccProj5yr = ccRent * Math.pow(1.07, 5); // 7%/yr ECRI compound — institutional benchmark
+            const rentSrc = liveCC != null ? 'SpareFoot live · 2026' : 'REIT-benchmark midpoint (no SpareFoot coverage)';
+            return (
+              <div style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(201,168,76,0.28)', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', color: '#C9A84C', marginBottom: 8 }}>MARKET RENTS · CC + DRIVE-UP</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>CC ($/SF/MO)</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>${ccRent.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>DRIVE-UP</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: 'rgba(255,255,255,0.82)', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>${duRent.toFixed(2)}</div>
+                  </div>
+                </div>
+                <div style={{ background: 'rgba(201,168,76,0.10)', borderRadius: 6, padding: '6px 10px', marginBottom: 6, border: '1px solid rgba(201,168,76,0.15)' }}>
+                  <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', fontWeight: 700 }}>CC 5-YR FORWARD · 7%/YR ECRI</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#E4CB7C', fontFamily: "'Space Mono', monospace", lineHeight: 1.2, marginTop: 2 }}>${ccProj5yr.toFixed(2)}/SF · +{(((ccProj5yr/ccRent) - 1) * 100).toFixed(0)}%</div>
+                </div>
+                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', letterSpacing: '0.04em' }}>Source: {rentSrc}</div>
+              </div>
+            );
+          })()}
+
+          {/* CARD 2 — DEMOGRAPHICS · ESRI 2025 */}
+          {(() => {
+            const hhiCAGR = metrics?.hhiGrowth ?? 0;
+            const hh = r3?.TOTHH_CY || 0;
+            return (
+              <div style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(59,130,246,0.28)', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', color: '#60A5FA', marginBottom: 8 }}>DEMOGRAPHICS · ESRI 2025 · 3-MI</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>POPULATION</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>{pop.toLocaleString()}</div>
+                    <div style={{ fontSize: 9, color: growth >= 1 ? '#4CC982' : growth >= 0 ? 'rgba(255,255,255,0.6)' : '#FCA5A5', marginTop: 2, fontWeight: 700 }}>{(growth >= 0 ? '+' : '') + growth.toFixed(1)}% CAGR</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>MEDIAN HHI</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>${(hhi/1000).toFixed(0)}K</div>
+                    <div style={{ fontSize: 9, color: hhiCAGR >= 1.5 ? '#4CC982' : 'rgba(255,255,255,0.6)', marginTop: 2, fontWeight: 700 }}>{(hhiCAGR >= 0 ? '+' : '') + hhiCAGR.toFixed(1)}% CAGR</div>
+                  </div>
+                </div>
+                <div style={{ background: 'rgba(59,130,246,0.10)', borderRadius: 6, padding: '6px 10px', marginBottom: 6, border: '1px solid rgba(59,130,246,0.15)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', fontWeight: 700 }}>HOUSEHOLDS</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#93BBFD', fontFamily: "'Space Mono', monospace" }}>{hh.toLocaleString()}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', letterSpacing: '0.04em' }}>Source: ESRI GeoEnrichment 2025 → 2030 projection</div>
+              </div>
+            );
+          })()}
+
+          {/* CARD 3 — COMPETITION · CC SPC */}
+          {(() => {
+            const popFY = r3?.TOTPOP_FY || pop;
+            const projSPC = popFY > 0 ? estCCSF / popFY : null; // flat-supply approximation
+            const cur = ccSPCEst;
+            const proj = projSPC;
+            const projBand = proj == null ? ccBand
+                          : proj < 1.5 ? { label: 'Severely Underserved', color: '#22C55E' }
+                          : proj < 3 ? { label: 'Underserved', color: '#22C55E' }
+                          : proj < 5 ? { label: 'Moderate', color: '#F59E0B' }
+                          : proj < 7 ? { label: 'Well-Supplied', color: '#F59E0B' }
+                          : { label: 'Oversupplied', color: '#EF4444' };
+            return (
+              <div style={{ background: 'rgba(0,0,0,0.32)', border: `1px solid ${ccBand.color}55`, borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', color: ccBand.color, marginBottom: 8 }}>COMPETITION · CC SPC · #1 METRIC</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>NOW (2025)</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>{cur != null ? cur.toFixed(2) : '—'}</div>
+                    <div style={{ fontSize: 9, color: ccBand.color, marginTop: 2, fontWeight: 700 }}>{ccBand.label}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>2030 PROJ</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: 'rgba(255,255,255,0.92)', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>{proj != null ? proj.toFixed(2) : '—'}</div>
+                    <div style={{ fontSize: 9, color: projBand.color, marginTop: 2, fontWeight: 700 }}>{projBand.label}</div>
+                  </div>
+                </div>
+                <div style={{ background: `${ccBand.color}14`, borderRadius: 6, padding: '6px 10px', marginBottom: 6, border: `1px solid ${ccBand.color}26` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', fontWeight: 700 }}>3-MI MIX</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', fontFamily: "'Space Mono', monospace" }}>{ccConfident.length} CC · {mixed.length} mixed{psFamilyHits.length > 0 ? ` · ${psFamilyHits.length} PS` : ''}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', letterSpacing: '0.04em' }}>Source: Places API + SpareFoot audit calibration · flat-supply 2030</div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
