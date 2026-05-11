@@ -228,7 +228,41 @@ async function loadREITRegistry() {
   }
 }
 
-// Find REIT facilities within radius of subject coords
+/**
+ * Find REIT-family storage facilities within a haversine radius of subject
+ * coordinates, where "REIT family" includes brand-acquisition consolidations
+ * (Public Storage Inc. + iStorage + National Storage Affiliates treated as
+ * one family per the disclosed Q3-2024 and FY2025 M&A activity).
+ *
+ * PATENT CLAIM (system): A system for institutional self-storage facility
+ * proximity computation accounting for cross-brand portfolio acquisitions,
+ * comprising: (1) an authoritative storage facility registry containing
+ * per-facility coordinates and a normalized brand identifier; (2) a brand-
+ * consolidation table mapping acquired brands to their acquiring parent
+ * (e.g., iStorage → PSA, NSA → PSA, Life Storage → EXR); (3) a haversine
+ * distance computation between subject coordinates and every registry
+ * facility; (4) a render layer surfacing the nearest facility of the
+ * consolidated REIT family rather than the nearest facility of any single
+ * legacy brand — preventing the underwriter from mis-classifying a
+ * coverage-gap submarket as a cannibalization-risk submarket when the
+ * nearest facility was already acquired by the target REIT family.
+ *
+ * PATENT CLAIM (method): The method comprising: (a) loading a multi-source
+ * facility registry; (b) for each registry record, computing the great-
+ * circle distance from subject coordinates using the haversine formula;
+ * (c) filtering records to those within a configurable radius (default
+ * 35 mi for REIT exclusion gating, 5 mi for cannibalization gating); (d)
+ * collapsing legacy brand identifiers to their consolidated REIT family
+ * before reporting the nearest facility; (e) reporting both the
+ * consolidated family distance AND the legacy brand label so the
+ * institutional underwriter can audit the consolidation rule.
+ *
+ * Apparatus references:
+ *   data:    public/ps-locations.csv + public/nsa-locations.csv +
+ *            public/ps-locations-3rdparty.csv + public/ps-locations-combined.csv
+ *   logic:   this function + haversine() above
+ *   consumer: StorvexVerdictHero best-fit-buyer decision tree
+ */
 function findREITFacilitiesNearby(registry, lat, lng, radiusMi) {
   if (!registry?.locations) return [];
   const hits = [];
@@ -1052,6 +1086,67 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
     } catch (e) { /* cache write best-effort — never blocks lookup */ }
   };
 
+  /**
+   * runLookup — agentic orchestration of institutional self-storage site
+   * intelligence from a single address input.
+   *
+   * PATENT CLAIM (system): A system for institutional self-storage site
+   * intelligence orchestrated from a single address input, comprising:
+   *   (1) an address geocoder producing latitude / longitude / canonical
+   *       address from free-text input;
+   *   (2) a parallel-fetch dispatcher concurrently issuing requests to:
+   *       (a) a demographics enrichment service (ESRI GeoEnrichment) for
+   *           1-mile / 3-mile / 5-mile ring statistics with 5-year
+   *           forward projections;
+   *       (b) a competitor-discovery service (Google Places) within a
+   *           configurable radius filtered to storage-related place types;
+   *       (c) an authoritative REIT-family facility registry returning
+   *           consolidated-brand proximity hits within a configurable
+   *           radius (per the family-proximity claim above);
+   *       (d) a buyer-routing matrix returning per-operator firmographics,
+   *           tier, and deployment pressure;
+   *       (e) a market-rents service (SpareFoot) returning live climate-
+   *           controlled and drive-up rates per submarket;
+   *   (3) a synchronization barrier collecting all five parallel fetches
+   *       before proceeding;
+   *   (4) an oracle layer dispatching three asynchronous LLM agents in
+   *       parallel — a zoning oracle, a utility oracle, and an access
+   *       oracle — each invoking primary-source retrieval tools
+   *       (web_search + web_fetch) and returning structured JSON with
+   *       source citations and confidence classification;
+   *   (5) a synthesis layer producing a multi-section institutional site
+   *       intelligence memorandum including a verdict score, a best-fit-
+   *       buyer determination, a five-beat narrative thesis, a market-
+   *       intelligence band (rents + demographics + competition), and a
+   *       ranked buyer shortlist;
+   *   (6) a client-side cache keyed by normalized address with TTL of at
+   *       least one calendar day so repeat lookups are returned in
+   *       under one second from local storage without re-issuing the
+   *       parallel fetches.
+   *
+   * PATENT CLAIM (method): Method for ranked institutional storage site
+   * underwriting from a single address, the method comprising the steps
+   * of: (a) normalizing and geocoding the address; (b) checking a local
+   * client-side cache and returning the cached result if fresh; (c) on
+   * cache miss, issuing five parallel network fetches as enumerated in
+   * the system claim and awaiting all via Promise.all; (d) deriving
+   * key demographic metrics including 5-year compound annual growth
+   * rates from the current-year and forward-year ESRI variables; (e)
+   * computing a composite site score from weighted dimension scores
+   * (population, income, growth, competition, peak storage-age cohort);
+   * (f) dispatching three LLM oracle agents in parallel for zoning,
+   * utility, and access intelligence; (g) returning a structured result
+   * object including all primary-source citations so every rendered
+   * number traces to an audit-trail URL; (h) persisting the result to
+   * local cache for subsequent fast retrieval.
+   *
+   * Apparatus references:
+   *   geocode: geocodeAddress() above
+   *   parallel-fetch: Promise.all over [esriP, placesP, registryP, matrixP, rentsP]
+   *   oracles: ZoningOraclePanel / UtilityOraclePanel / AccessOraclePanel
+   *   synthesis: StorvexVerdictHero + MARKET INTEL band + CCSPCHeadline
+   *   cache: writeLookupCache / readLookupCache
+   */
   const runLookup = useCallback(async () => {
     if (!address.trim()) { setError('Enter an address'); return; }
     setLoading(true); setError(null); setResult(null);

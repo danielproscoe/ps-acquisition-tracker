@@ -7,6 +7,15 @@
   "operatorCount": 49,
   "refreshCadence": "Quarterly on SEC 10-K filing calendar (Feb/May/Aug/Nov)",
   "nextScheduledRefresh": "2026-07-20",
+  "patentClaims": {
+    "system": "System for ranking institutional self-storage acquisition buyers against a subject site, comprising: (1) a buyer-routing matrix indexed by operator identity and storing per-operator firmographics, capital-deployment-pressure classification, geographic underwriting bounds, and historical acquisition cadence; (2) a tier-classification engine assigning each operator to one of N tiers (TIER_1_HOT_CAPITAL through TIER_5_HYPER_LOCAL plus DO_NOT_ROUTE) based on disclosed capital events, fund vintage, transaction history, and product fit; (3) a composite ranking function combining a tier-weight value with a deployment-pressure bonus and a geographic-fit coefficient to produce a numerical buyer score per site; (4) a render layer surfacing the top-K ranked operators as a ranked shortlist with pitch-angle template, exec contact roster, and a one-click pitch-email generator.",
+    "method": "Method for ranked institutional buyer routing on a self-storage acquisition target, the method comprising: (a) maintaining a structured registry of N operator profiles each tagged with deployment-pressure classification, fund-cycle position, and underwriting geography; (b) receiving a subject site address with a geocoded state code; (c) for each operator in the registry, computing a composite buyer score as score = tierWeight(tier) + pressureBonus(deploymentPressure) + 10 * geographicFitCoefficient(operatorGeography, siteState), where pressureBonus follows the schedule {HIGH or VERY HIGH: 20, MEDIUM-HIGH: 15, MEDIUM: 10, default: 0} and geographicFitCoefficient ∈ {1.0 if site state in operator geography, 0.5 if no geography restriction, 0.3 otherwise}; (d) sorting operators by score in descending order and selecting the top K (default K=7); (e) rendering the ranked list with pitch-angle template, exec contact, and a deeplink that pre-fills a buyer-specific outreach email.",
+    "apparatusReferences": {
+      "data": "public/operator-matrix.json (this file)",
+      "scoring": "src/QuickLookupPanel.js — listMatrixOperators() + matrixShortlist computation in runLookup()",
+      "render": "DealFlow Oracle Shortlist Panel in QuickLookupPanel.js (line ~3153 onward)"
+    }
+  },
 
   "tierDefinitions": {
     "TIER_1_HOT_CAPITAL": "Peak deployment pressure · fresh fund or capital event <12mo · stretch-the-box mode · PITCH FIRST",
