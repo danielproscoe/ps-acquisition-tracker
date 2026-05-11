@@ -40,9 +40,11 @@ describe("PS_LENS profile constants", () => {
   test("registered in BUYER_LENSES table", () => {
     expect(BUYER_LENSES.PS).toBe(PS_LENS);
     expect(PS_LENS.key).toBe("PS");
-    // Display ticker is neutralized for REIT-level disclosure discipline.
-    // Internal key stays "PS" so code paths still resolve.
-    expect(PS_LENS.ticker).toBe("INST");
+    // Display ticker matches the public operator name — PSA is the listed
+    // ticker for Public Storage Inc (NYSE: PSA). Aligns with how peer lenses
+    // already render (EXR / CUBE / UHAL / SMA). Internal key stays "PS" so
+    // existing code paths still resolve.
+    expect(PS_LENS.ticker).toBe("PSA");
   });
 
   test("self-managed = $0 mgmt fee override", () => {
@@ -116,7 +118,7 @@ describe("computeBuyerLens — PS vs Generic", () => {
     expect(psLens.tiers).toBeDefined();
     expect(psLens.verdict).toBeDefined();
     expect(psLens.lens.key).toBe("PS");
-    expect(psLens.lens.ticker).toBe("INST");
+    expect(psLens.lens.ticker).toBe("PSA");
   });
 
   test("PS opex ratio is LOWER than generic (self-managed + central)", () => {

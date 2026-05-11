@@ -72,13 +72,16 @@ const LENS_FINANCING_DEFAULTS = {
 
 export const PS_LENS = {
   // INTERNAL identifiers — used in code lookup, not shown to end users.
-  // Display fields below are deliberately neutral institutional language so
-  // the user-visible surface doesn't reference any specific REIT by name
-  // (REIT-level disclosure discipline). Underlying constants stay pinned to
-  // FY2025 10-K data — full citations in docs/PS_UNDERWRITING_MODEL.md.
+  // Display fields name PSA explicitly — Public Storage Inc. (NYSE: PSA) is a
+  // publicly disclosed REIT and the operator-name aligns with how the peer
+  // lenses already render (EXR, CUBE, UHAL, SMA all name their operator).
+  // The IC memo NARRATIVE OUTPUT still uses neutral language per the
+  // SYSTEM_PROMPT in api/analyzer-memo.js — only the variant-SKU lens label
+  // is buyer-named. Underlying constants stay pinned to FY2025 10-K data —
+  // full citations in docs/PS_UNDERWRITING_MODEL.md.
   key: "PS",
-  name: "Institutional Self-Managed REIT",
-  ticker: "INST",
+  name: "PSA — Public Storage",
+  ticker: "PSA",
   description:
     "Self-managed national operator profile. Calibrated to FY2025 institutional REIT same-store opex (24.86% of revenue / 75.14% NOI margin) and disclosed acquisition activity. Buys at market cap, drives 50-100 bps yield uplift via platform integration (revenue management + cost rationalization on rolled tenants). Self-managed — no third-party mgmt fee.",
 
