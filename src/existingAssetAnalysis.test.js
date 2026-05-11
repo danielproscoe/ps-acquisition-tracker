@@ -151,9 +151,17 @@ describe("reconstructBuyerNOI", () => {
     expect(utilHeavy).toBeGreaterThan(utilLight);
   });
 
-  test("flags >20% NOI delta vs seller", () => {
+  test("does NOT raise the buyer-NOI-vs-seller delta flag (intentionally suppressed)", () => {
+    // The "Buyer NOI above/below seller by X%" flag was intentionally suppressed —
+    // on CO-LU / lease-up deals the seller T-12 NOI is near-zero, which produces
+    // absurd-looking percentages (e.g. -839%) that read as platform-error to an
+    // institutional viewer. The dollar delta is still computed and exposed via
+    // r.deltaNOI; only the user-facing flag is hidden.
     const r = reconstructBuyerNOI({ ...baseInput, t12NOI: 500_000 }); // big delta
-    expect(r.flags.some((f) => /Buyer NOI/.test(f.text))).toBe(true);
+    expect(r.flags.some((f) => /Buyer NOI/.test(f.text))).toBe(false);
+    // Underlying delta data is still computed and available downstream:
+    expect(typeof r.deltaNOI).toBe("number");
+    expect(typeof r.deltaPct).toBe("number");
   });
 
   test("handles zero/null inputs gracefully", () => {
