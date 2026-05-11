@@ -1920,7 +1920,7 @@ ${(() => {
     ${zi.overlayNotes ? `<div style="background:#F8FAFC;padding:8px;border-radius:6px"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:800">OVERLAY REQUIREMENTS</div><div style="font-size:11px;color:#1E293B;margin-top:4px;line-height:1.5">${zi.overlayNotes}</div></div>` : ''}
     ${zi.supStandards ? `<div style="background:#F8FAFC;padding:8px;border-radius:6px"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:800">SUPPLEMENTAL STANDARDS</div><div style="font-size:11px;color:#1E293B;margin-top:4px;line-height:1.5">${zi.supStandards}</div></div>` : ''}
   </div>` : ''}
-  ${zi.notes ? `<div style="padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#8B5CF6">INTERPRETATION:</b> ${zi.notes}</div>` : ''}
+  ${ziFound && zi.notes ? `<div style="padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#8B5CF6">INTERPRETATION:</b> ${zi.notes}</div>` : ''}
 </div>` : '';
 
   // ─── UTILITY ORACLE (from result.utilityIntel) ───
@@ -1963,7 +1963,7 @@ ${(() => {
     ${ui.gasProvider && ui.gasProvider !== 'N/A' ? `<div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">NATURAL GAS</div><div style="font-size:13px;font-weight:700;color:#1E2761;margin-top:4px">${ui.gasProvider}</div></div>` : ''}
     ${ui.tapFees ? `<div class="stat" style="border-left:3px solid #C9A84C"><div style="font-size:9px;color:#C9A84C;letter-spacing:0.1em;font-weight:700">TAP / IMPACT FEES</div><div style="font-size:11px;font-weight:700;color:#1E2761;margin-top:4px;line-height:1.5">${ui.tapFees}</div></div>` : ''}
   </div>` : ''}
-  ${ui.notes ? `<div style="margin-top:10px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#0EA5E9">INTERPRETATION:</b> ${ui.notes}</div>` : ''}
+  ${uiFound && ui.notes ? `<div style="margin-top:10px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#0EA5E9">INTERPRETATION:</b> ${ui.notes}</div>` : ''}
 </div>` : '';
 
   // ─── ACCESS ORACLE (from result.accessIntel) ───
@@ -2010,7 +2010,7 @@ ${(() => {
     <div class="stat"><div style="font-size:9px;color:#64748B;letter-spacing:0.1em;font-weight:700">VISIBILITY · DRIVEWAY GRADE</div><div style="font-size:12px;font-weight:700;color:#1E2761;margin-top:4px;text-transform:capitalize">${ai.visibility || 'unknown'} · ${ai.drivewayGrade || 'unknown'}</div></div>
   </div>` : ''}
   ${ai.landlockedRisk ? `<div style="margin-top:10px;padding:10px;background:#FEE2E2;border-left:3px solid #EF4444;border-radius:4px;font-size:11px;color:#991B1B"><b>🚨 LANDLOCKED RISK:</b> Interior parcel or easement-only access — major deal flag. Verify platted frontage before advancing.</div>` : ''}
-  ${ai.notes ? `<div style="margin-top:10px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#F59E0B">INTERPRETATION:</b> ${ai.notes}</div>` : ''}
+  ${aiFound && ai.notes ? `<div style="margin-top:10px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;line-height:1.5;color:#1E293B"><b style="color:#F59E0B">INTERPRETATION:</b> ${ai.notes}</div>` : ''}
 </div>` : '';
 
   return ccSPCHtml + envelopeHtml + zoningHtml + utilityHtml + accessHtml;
@@ -2322,7 +2322,10 @@ function ZoningOraclePanel({ zoningIntel, zoningStatus, jurisdiction }) {
         </div>
       )}
 
-      {zoningIntel.notes && (
+      {/* INTERPRETATION only on successful lookups — failed lookups show
+          the "AUTOMATED LOOKUP FAILED" footer instead so raw API errors
+          can't leak into the user-facing narrative. */}
+      {found && zoningIntel.notes && (
         <div style={{ padding: 10, background: 'rgba(0,0,0,0.35)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
           <b style={{ color: '#8B5CF6', letterSpacing: '0.08em', marginRight: 8 }}>INTERPRETATION:</b>
           {zoningIntel.notes}
@@ -2482,7 +2485,11 @@ function UtilityOraclePanel({ utilityIntel, utilityStatus, jurisdiction }) {
         </div>
       )}
 
-      {utilityIntel.notes && (
+      {/* INTERPRETATION rendered only on successful lookups — when the API
+          falls back to error mode, the "AUTOMATED LOOKUP FAILED" footer
+          conveys the failed state instead. Belt-and-suspenders defense
+          against raw API errors leaking through into the user-facing text. */}
+      {found && utilityIntel.notes && (
         <div style={{ padding: 10, background: 'rgba(0,0,0,0.35)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
           <b style={{ color: '#0EA5E9', letterSpacing: '0.08em', marginRight: 8 }}>INTERPRETATION:</b>
           {utilityIntel.notes}
@@ -2652,7 +2659,9 @@ function AccessOraclePanel({ accessIntel, accessStatus, jurisdiction }) {
         </div>
       )}
 
-      {accessIntel.notes && (
+      {/* INTERPRETATION only on successful lookups — failed lookups show
+          the "AUTOMATED ACCESS LOOKUP FAILED" footer instead. */}
+      {found && accessIntel.notes && (
         <div style={{ padding: 10, background: 'rgba(0,0,0,0.35)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
           <b style={{ color: '#F59E0B', letterSpacing: '0.08em', marginRight: 8 }}>INTERPRETATION:</b>
           {accessIntel.notes}

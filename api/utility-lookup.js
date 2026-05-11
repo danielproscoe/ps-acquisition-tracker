@@ -203,12 +203,16 @@ module.exports = async (req, res) => {
       elapsedMs: Date.now() - t0,
     });
   } catch (err) {
+    // Map error to a clean user-facing message — never leak raw API bodies,
+    // org IDs, doc URLs, or JSON wrappers into the rendered "INTERPRETATION:"
+    // line. Raw err.message is preserved in `error` for diagnostics only.
+    const userNote = userFacingErrorNote(err.message, "utility");
     return res.status(200).json({
       ok: false,
       found: false,
       jurisdiction: `${city}, ${state}`,
       subjectAddress: address || null,
-      notes: `Automated utility lookup failed: ${err.message}. Call the jurisdiction's planning department for utility routing.`,
+      notes: userNote,
       searchHints: [
         `https://www.google.com/search?q=${encodeURIComponent(city + " " + state + " water utility service area storage")}`,
         `https://www14.tceq.texas.gov/iwud/ccn` /* TX only — fallback still useful to flag the tool */,
@@ -217,7 +221,46 @@ module.exports = async (req, res) => {
       source: "error",
       verifiedAt: new Date().toISOString(),
       elapsedMs: Date.now() - t0,
-      error: err.message,
+      error: err.message, // diagnostic field — frontend should NOT render
     });
   }
 };
+
+/**
+ * Map a raw error message into a clean user-facing note. Filters out:
+ *   - Anthropic API rate-limit error JSON (org IDs, token counts, doc URLs)
+ *   - HTTP body snippets (URLs, status codes, JSON braces)
+ *   - Stack traces
+ * Returns a short, professional sentence keyed to error category.
+ */
+function userFacingErrorNote(rawMsg, oracleKind) {
+  const msg = String(rawMsg || "").toLowerCase();
+  const kind = oracleKind === "utility" ? "utility lookup" :
+               oracleKind === "access" ? "access lookup" :
+               oracleKind === "zoning" ? "zoning lookup" :
+               "automated lookup";
+  // Rate limit
+  if (/429|rate[- ]limit|exceed.*tokens.*per.*minute|too many requests/i.test(msg)) {
+    return `Automated ${kind} temporarily over capacity. Manual sources linked below.`;
+  }
+  // Server errors
+  if (/5\d{2}|server error|overloaded|service unavailable|internal error/i.test(msg)) {
+    return `Automated ${kind} service is temporarily unavailable. Manual sources linked below.`;
+  }
+  // Auth / configuration
+  if (/401|403|unauthorized|forbidden|invalid.*api.*key|not.*configured/i.test(msg)) {
+    return `Automated ${kind} unavailable due to a service configuration issue. Manual sources linked below.`;
+  }
+  // Timeout
+  if (/timeout|timed out|aborted|etimedout/i.test(msg)) {
+    return `Automated ${kind} timed out. Manual sources linked below.`;
+  }
+  // Malformed response
+  if (/non-json|malformed|parseerror|unexpected token/i.test(msg)) {
+    return `Automated ${kind} returned an unexpected response. Manual sources linked below.`;
+  }
+  // Default — generic without leaking the raw message
+  return `Automated ${kind} unavailable. Manual sources linked below.`;
+}
+
+module.exports.userFacingErrorNote = userFacingErrorNote;

@@ -383,7 +383,7 @@ module.exports = async (req, res) => {
       jurisdiction: jurisdictionLabel,
       subjectZoning: zoningDistrict || null,
       subjectAddress: address || null,
-      notes: `Automated lookup failed: ${err.message}. Try manual sources below.`,
+      notes: userFacingErrorNote(err.message, "zoning"),
       searchHints: [
         `https://www.google.com/search?q=${encodeURIComponent(city + " " + state + " zoning ordinance permitted uses self-storage")}`,
         `https://library.municode.com/${(state || "").toLowerCase().replace(/\s+/g, "-")}/${(city || "").toLowerCase().replace(/\s+/g, "-")}`,
@@ -393,7 +393,37 @@ module.exports = async (req, res) => {
       source: "error",
       verifiedAt: new Date().toISOString(),
       elapsedMs: Date.now() - t0,
-      error: err.message,
+      error: err.message, // diagnostic field — frontend should NOT render
     });
   }
 };
+
+/**
+ * Map a raw error message into a clean user-facing note. Strips API JSON
+ * bodies, org IDs, doc URLs, and stack traces.
+ */
+function userFacingErrorNote(rawMsg, oracleKind) {
+  const msg = String(rawMsg || "").toLowerCase();
+  const kind = oracleKind === "utility" ? "utility lookup" :
+               oracleKind === "access" ? "access lookup" :
+               oracleKind === "zoning" ? "zoning lookup" :
+               "automated lookup";
+  if (/429|rate[- ]limit|exceed.*tokens.*per.*minute|too many requests/i.test(msg)) {
+    return `Automated ${kind} temporarily over capacity. Manual sources linked below.`;
+  }
+  if (/5\d{2}|server error|overloaded|service unavailable|internal error/i.test(msg)) {
+    return `Automated ${kind} service is temporarily unavailable. Manual sources linked below.`;
+  }
+  if (/401|403|unauthorized|forbidden|invalid.*api.*key|not.*configured/i.test(msg)) {
+    return `Automated ${kind} unavailable due to a service configuration issue. Manual sources linked below.`;
+  }
+  if (/timeout|timed out|aborted|etimedout/i.test(msg)) {
+    return `Automated ${kind} timed out. Manual sources linked below.`;
+  }
+  if (/non-json|malformed|parseerror|unexpected token/i.test(msg)) {
+    return `Automated ${kind} returned an unexpected response. Manual sources linked below.`;
+  }
+  return `Automated ${kind} unavailable. Manual sources linked below.`;
+}
+
+module.exports.userFacingErrorNote = userFacingErrorNote;
