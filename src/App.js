@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import QuickLookupPanel from './QuickLookupPanel';
 import AssetAnalyzerView from './components/AssetAnalyzerView';
+import TheReadView from './components/TheReadView';
 import CalibrationView from './components/CalibrationView';
 import MethodologyView from './components/MethodologyView';
 import { db, storage } from "./firebase";
@@ -397,17 +398,19 @@ function AppInner() {
     goToDetail,
   } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
 
-  // ─── DEEP-LINK ROUTING — ?asset=<preset> auto-opens Asset Analyzer ───
+  // ─── DEEP-LINK ROUTING — ?asset=<preset> auto-opens The Read in OM mode ───
   // Used for Reza demo emails: storvex.vercel.app/?asset=greenville lands
-  // directly on the Analyzer tab with the preset auto-loaded. Valid keys:
-  // greenville, tallahassee, red-rock. Unknown values are ignored.
+  // directly on The Read tab with OM mode active + the preset auto-loaded.
+  // Valid keys: greenville, tallahassee, red-rock. Unknown values ignored.
+  // (Post-centralization: routes to "lookup" instead of "asset-analyzer";
+  // TheReadView's own ?asset= effect flips its internal mode to OM.)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const asset = (params.get("asset") || "").toLowerCase().trim();
     const VALID_PRESETS = ["greenville", "tallahassee", "red-rock"];
     if (asset && VALID_PRESETS.includes(asset)) {
-      setTab("asset-analyzer");
+      setTab("lookup");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2802,8 +2805,7 @@ function AppInner() {
             { key: "southwest", label: "Daniel Wollent" },
             { key: "east", label: "Matthew Toussaint" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
-            { key: "lookup", label: "⚡ Quick Lookup" },
-            { key: "asset-analyzer", label: "📊 Asset Analyzer" },
+            { key: "lookup", label: "⚡ The Read" },
             { key: "methodology", label: "📋 Methodology" },
             { key: "calibration", label: "🎯 Calibration" },
             // Hidden for now — re-enable when core is nailed down:
@@ -2826,9 +2828,7 @@ function AppInner() {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px", position: "relative", zIndex: 1 }}>
 
         {/* ═══ DASHBOARD ═══ */}
-        {tab === "lookup" && <QuickLookupPanel autoEnrichESRI={autoEnrichESRI} fbSet={fbSet} fbPush={fbPush} notify={notify} navigateTo={navigateTo} setTab={setTab} />}
-
-        {tab === "asset-analyzer" && <AssetAnalyzerView fbSet={fbSet} fbPush={fbPush} notify={notify} />}
+        {tab === "lookup" && <TheReadView autoEnrichESRI={autoEnrichESRI} fbSet={fbSet} fbPush={fbPush} notify={notify} navigateTo={navigateTo} setTab={setTab} />}
 
         {tab === "methodology" && <MethodologyView />}
 
