@@ -1,0 +1,55 @@
+{
+  "$schema": "https://djr.storvex.com/schemas/submarket-pipeline-supply-v1.json",
+  "version": "v1",
+  "generatedAt": "2026-05-11T00:00:00.000Z",
+  "methodology": "Per-submarket new-supply pipeline registry. Captures under-construction, permitted, and publicly-announced climate-controlled (CC) self-storage facilities aggregated from primary sources: REIT 10-Q / 8-K disclosures, local building permits, planning commission agendas, and operator press releases. Each pipeline entry timestamped with status (under_construction | permitted | announced) and source citation. Powers Storvex's projected-2030 CC SPC calculation — replaces the flat-supply approximation with empirically grounded new-supply ingestion so the platform's 5-yr forward projection matches what an institutional underwriter would compute manually. Empty submarkets fall through to flat-supply default; populated submarkets surface the pipeline-aware projection alongside the source-stamped facility list in the MARKET INTEL band's COMPETITION card.",
+  "patentClaims": {
+    "system": "Method for computing forward-looking climate-controlled self-storage supply-per-capita metric (CC SPC · 5-yr projected) comprising: (1) aggregating per-submarket pipeline CC SF from primary-source disclosures including REIT 10-Q / 8-K filings, building permits, and planning commission records; (2) normalizing pipeline facility square footage with status-weighted confidence (under_construction = 1.0, permitted = 0.85, announced = 0.50); (3) computing projected CC SPC as (current CC SF + status-weighted pipeline CC SF) divided by projected 5-yr population; (4) surfacing both the pipeline-aware projection and the flat-supply fallback in a unified market intelligence display with source citation per pipeline facility.",
+    "method": "Apparatus for surfacing audited and computed climate-controlled supply-per-capita metrics side-by-side: lookup table keyed by submarket coordinates returning facility-level pipeline data; render layer overlaying audited-vs-computed delta with confidence band; calibration loop that adjusts the computed estimator based on residual error vs the audited value over time."
+  },
+  "submarkets": {
+    "_README": "Submarket key = '<City>, <State>' (canonical form). Each entry: { pipelineCCSF (sum of status-weighted CC SF), facilities (array of {operator, sf, status, expectedDelivery, source}), asOf (YYYY-Q#), confidence ('high'|'medium'|'low'), notes }. Empty submarkets are treated as zero pipeline (flat-supply default). Populate via the backfill pipeline at scripts/backfill-pipeline-supply.mjs (planned).",
+    "Aubrey, TX": {
+      "pipelineCCSF": 0,
+      "facilities": [],
+      "asOf": "2025-Q4",
+      "confidence": "high",
+      "notes": "Aubrey exurban Denton County — DFW expansion corridor. No CC pipeline disclosed in REIT 10-Qs or Denton County permits as of 2025-Q4. Aubrey is a clean coverage-gap submarket for institutional CC product."
+    },
+    "Houston, TX": {
+      "pipelineCCSF": 0,
+      "facilities": [],
+      "asOf": "2025-Q4",
+      "confidence": "medium",
+      "notes": "Houston metro — Westchase / Galleria / Energy Corridor submarkets. Backfill pending: REIT 10-Q + permit aggregation for Q1 2026."
+    },
+    "Las Vegas, NV": {
+      "pipelineCCSF": 0,
+      "facilities": [],
+      "asOf": "2025-Q4",
+      "confidence": "low",
+      "notes": "Cross-REIT FY2025 same-store fallback market (not in PSA per-MSA disclosure). Pipeline backfill pending."
+    },
+    "Greenville, TX": {
+      "pipelineCCSF": 0,
+      "facilities": [],
+      "asOf": "2025-Q4",
+      "confidence": "medium",
+      "notes": "Texas Store & Go calibration market — confirmed no pipeline CC supply within 5-mi radius of 2980 I-30."
+    },
+    "Springboro, OH": {
+      "pipelineCCSF": 0,
+      "facilities": [],
+      "asOf": "2025-Q4",
+      "confidence": "high",
+      "notes": "Zero-PS Tier 2 target (S Dayton growth corridor). Warren County permit registry shows no active CC storage applications as of 2025-Q4."
+    },
+    "Independence, KY": {
+      "pipelineCCSF": 0,
+      "facilities": [],
+      "asOf": "2025-Q4",
+      "confidence": "high",
+      "notes": "Zero-PS Tier 2 target (Cincinnati-N.KY). Kenton County permit registry clean."
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://djr.storvex.com/schemas/audited-submarket-spc-v1.json",
+  "version": "v1",
+  "generatedAt": "2026-05-11T00:00:00.000Z",
+  "methodology": "Per-submarket audited climate-controlled supply-per-capita (CC SPC) registry. Captures multi-year SpareFoot audits + DJR/Storvex manual on-site verification of CC SF inventory at the 3-mile-ring level. Each audited value timestamped with year + audit source + facility coverage count. Powers a side-by-side display of audited vs computed CC SPC in the MARKET INTEL band's COMPETITION card — institutional analysts cross-check the Storvex computed estimate against the SpareFoot-equivalent audit, with the delta surfacing the calibration loop residual. Closes over time as the Welltower-calibration partnership generates more audited datapoints.",
+  "patentClaims": {
+    "system": "System for surfacing audited and computed climate-controlled supply-per-capita metrics side-by-side comprising: (1) a registry of per-submarket audited CC SF values timestamped by audit year and source; (2) a lookup function returning audited values keyed by submarket coordinates; (3) a render layer overlaying audited-vs-computed delta in the market intelligence display with confidence band rendered as a colored chip; (4) a calibration feedback loop that adjusts the computed estimator's brand-weighting constants based on residual error vs the audited value, persisted across submarkets so the platform converges toward Radius-Plus-equivalent accuracy without licensing third-party audit data.",
+    "method": "Method for institutional self-storage submarket benchmarking using a hybrid audited-and-computed climate-controlled supply-per-capita metric, the method comprising the steps of: (a) computing a candidate CC SPC from per-facility brand-weighted square footage; (b) querying an audited-SPC registry keyed by submarket; (c) when the registry hit returns a non-null audited value, rendering both values with a delta band; (d) when the registry returns null, rendering the computed value alone with a 'pending audit' marker; (e) periodically updating the registry from on-site verification or SpareFoot audit ingestion."
+  },
+  "submarkets": {
+    "_README": "Submarket key = '<City>, <State>'. Each entry: { auditedCCSPC (SF/capita), auditedCCSF (raw 3-mi CC SF), auditYear, auditSource ('sparefoot' | 'djr-manual' | 'reit-disclosed' | 'storvex-calibration'), facilityCount (audited facilities within 3-mi), confidence, notes }. Empty submarkets render the computed estimate alone with a 'pending audit' marker. Populate via scripts/backfill-audited-spc.mjs (planned).",
+    "Aubrey, TX": null,
+    "Houston, TX": null,
+    "Las Vegas, NV": null,
+    "Greenville, TX": null,
+    "Springboro, OH": null,
+    "Independence, KY": null
+  }
+}

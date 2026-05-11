@@ -6,6 +6,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { computeProjectedCCSPC } from './utils/pipelineSupplyLookup';
+import { lookupAuditedCCSPC, calibrationDelta } from './utils/auditedSPCLookup';
+import { RadiusPlusComparisonCard } from './components/AssetAnalyzerView';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Operator classification — universal 3-tier model for any buyer persona.
@@ -3070,18 +3073,29 @@ function StorvexVerdictHero({ result }) {
             );
           })()}
 
-          {/* CARD 3 — COMPETITION · CC SPC */}
+          {/* CARD 3 — COMPETITION · CC SPC
+              Pipeline-aware 2030 projection: lookupPipelineSupply() returns
+              status-weighted CC SF from the per-submarket registry (REIT
+              10-Q / 8-K + permits). Falls through to flat-supply when the
+              submarket has no pipeline disclosure yet. Audited-vs-computed
+              row surfaces the calibration delta when an audited datapoint
+              exists in the registry. */}
           {(() => {
             const popFY = r3?.TOTPOP_FY || pop;
-            const projSPC = popFY > 0 ? estCCSF / popFY : null; // flat-supply approximation
+            const proj = computeProjectedCCSPC(estCCSF, popFY, geo?.city, geo?.state);
             const cur = ccSPCEst;
-            const proj = projSPC;
-            const projBand = proj == null ? ccBand
-                          : proj < 1.5 ? { label: 'Severely Underserved', color: '#22C55E' }
-                          : proj < 3 ? { label: 'Underserved', color: '#22C55E' }
-                          : proj < 5 ? { label: 'Moderate', color: '#F59E0B' }
-                          : proj < 7 ? { label: 'Well-Supplied', color: '#F59E0B' }
+            const projSPC = proj.projectedCCSPC;
+            const projBand = projSPC == null ? ccBand
+                          : projSPC < 1.5 ? { label: 'Severely Underserved', color: '#22C55E' }
+                          : projSPC < 3 ? { label: 'Underserved', color: '#22C55E' }
+                          : projSPC < 5 ? { label: 'Moderate', color: '#F59E0B' }
+                          : projSPC < 7 ? { label: 'Well-Supplied', color: '#F59E0B' }
                           : { label: 'Oversupplied', color: '#EF4444' };
+            const audit = lookupAuditedCCSPC(geo?.city, geo?.state);
+            const cal = audit.matched ? calibrationDelta(audit.auditedCCSPC, cur) : null;
+            const projMethod = proj.methodology === 'pipeline-aware'
+              ? `pipeline-aware · ${Math.round(proj.pipelineCCSF / 1000)}K CC SF in-pipeline · ${proj.asOf}`
+              : 'flat-supply default · submarket pending pipeline backfill';
             return (
               <div style={{ background: 'rgba(0,0,0,0.32)', border: `1px solid ${ccBand.color}55`, borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', color: ccBand.color, marginBottom: 8 }}>COMPETITION · CC SPC · #1 METRIC</div>
@@ -3093,17 +3107,26 @@ function StorvexVerdictHero({ result }) {
                   </div>
                   <div>
                     <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>2030 PROJ</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: 'rgba(255,255,255,0.92)', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>{proj != null ? proj.toFixed(2) : '—'}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: 'rgba(255,255,255,0.92)', fontFamily: "'Space Mono', monospace", lineHeight: 1.1 }}>{projSPC != null ? projSPC.toFixed(2) : '—'}</div>
                     <div style={{ fontSize: 9, color: projBand.color, marginTop: 2, fontWeight: 700 }}>{projBand.label}</div>
                   </div>
                 </div>
+                {/* Audited overlay — renders when registry has a non-null entry */}
+                {audit.matched && audit.auditedCCSPC != null && (
+                  <div style={{ background: 'rgba(34,197,94,0.10)', borderRadius: 6, padding: '6px 10px', marginBottom: 6, border: '1px solid rgba(34,197,94,0.25)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
+                      <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.1em', fontWeight: 700 }}>AUDITED · {audit.auditYear} · {audit.auditSource}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: '#4CC982', fontFamily: "'Space Mono', monospace" }}>{audit.auditedCCSPC.toFixed(2)}{cal && cal.deltaPct != null ? ` · Δ ${(cal.deltaPct >= 0 ? '+' : '') + cal.deltaPct.toFixed(0)}%` : ''}</span>
+                    </div>
+                  </div>
+                )}
                 <div style={{ background: `${ccBand.color}14`, borderRadius: 6, padding: '6px 10px', marginBottom: 6, border: `1px solid ${ccBand.color}26` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                     <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', fontWeight: 700 }}>3-MI MIX</span>
                     <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', fontFamily: "'Space Mono', monospace" }}>{ccConfident.length} CC · {mixed.length} mixed{psFamilyHits.length > 0 ? ` · ${psFamilyHits.length} PS` : ''}</span>
                   </div>
                 </div>
-                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', letterSpacing: '0.04em' }}>Source: Places API + SpareFoot audit calibration · flat-supply 2030</div>
+                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', letterSpacing: '0.04em' }}>Source: Places + SpareFoot calibration · 2030 {projMethod}</div>
               </div>
             );
           })()}
@@ -3744,6 +3767,16 @@ function ResultsView({ result, saveToFirebase, fbPush }) {
           </>
         )}
       </div>
+
+      {/* STORVEX VS RADIUS+ · explicit feature parity comparison.
+          Surfaces the same 22-feature card already rendered in the OM
+          Asset Analyzer view — institutional positioning lever for
+          Radius+ users who land on Quick Lookup. Patent capture: the
+          comparison itself is novel — Radius+ doesn't publish a
+          feature-by-feature delta against any competitor, and Storvex's
+          architectural answer (primary-source citations + pipeline-aware
+          projections + audited-vs-computed overlay) is explicitly enumerated. */}
+      <RadiusPlusComparisonCard enrichment={null} />
 
       {/* FOOTER — SOURCE ATTRIBUTION */}
       <div style={{ ...card, background: 'rgba(0,0,0,0.3)' }}>

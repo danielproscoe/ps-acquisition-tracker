@@ -1126,7 +1126,7 @@ function OutputsPanel({ analysis, psLens, multiLensRows, platformFitDelta, ready
 // between Storvex and Radius+ (the storage industry's #1 data platform).
 // Refreshes from `enrichment` so per-deal data presence is reflected (when
 // scraped data is available for the subject MSA, it shows ✓ on that row).
-function RadiusPlusComparisonCard({ enrichment }) {
+export function RadiusPlusComparisonCard({ enrichment }) {
   const [expanded, setExpanded] = React.useState(false);
 
   const hasScrapedData = !!enrichment?.scrapedMSARent;
@@ -1207,14 +1207,21 @@ function RadiusPlusComparisonCard({ enrichment }) {
       ],
     },
     {
+      group: "Forward-looking supply intelligence",
+      rows: [
+        ["New-supply pipeline tracking (status-weighted)", "partial", "yes",
+          "Architecture shipped: per-submarket pipeline registry at src/data/submarketPipelineSupply.json keyed by '<City>, <State>', status-weighted CC SF (under_construction=1.0 · permitted=0.85 · announced=0.50), wired into MARKET INTEL band's 2030 projected CC SPC. Pipeline-aware projection replaces flat-supply approximation for any submarket with disclosed pipeline data; remaining submarkets fall through to flat-supply default while backfill continues. Radius+ ships a populated pipeline dataset out of the box."],
+        ["Audited submarket CC SPC + calibration delta", "partial", "yes",
+          "Architecture shipped: per-submarket audited-SPC registry at src/data/auditedSubmarketSPC.json with audited values timestamped by year + audit source (sparefoot / djr-manual / reit-disclosed / storvex-calibration), rendered as an audited-vs-computed overlay in the MARKET INTEL band's COMPETITION card with Δ% calibration delta. Closes over time via the Welltower calibration loop. Radius+ ships pre-audited values across major submarkets."],
+      ],
+    },
+    {
       group: "Coverage breadth (deferred to follow-on sprints)",
       rows: [
         ["Independent operator coverage (mom-and-pops)", "no", "yes",
           "Radius+ scrapes thousands of independent listings. Storvex roadmap: extend SpareFoot scraper via Puppeteer."],
         ["Per-facility occupancy estimates", "no", "yes",
           "Roadmap: derive from rating-count growth + price elasticity. Next sprint."],
-        ["New-supply pipeline tracking", "no", "yes",
-          "Roadmap: extract under-construction + permitted facilities from REIT 10-Q + 8-K disclosures (Claude-assisted). Next sprint."],
         ["Trade-area heatmap visualization", "no", "yes",
           "Roadmap: leverage existing competitor data + add WebGL/Mapbox heatmap layer. Next sprint."],
       ],
