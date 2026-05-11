@@ -2879,6 +2879,15 @@ function StorvexVerdictHero({ result }) {
         ? { name: 'Public Storage (PS Family)', why: nearestPS <= 5 ? `${nearestPS.toFixed(1)} mi to PS family — verify cannibalization vs. coverage-gap thesis before LOI` : `${nearestPS.toFixed(1)} mi to PS family — clean infill distance, submarket validated` }
     : composite >= 7.5 && psFar
         ? { name: 'Public Storage (PS Family)', why: `${nearestPS.toFixed(1)} mi to PS family — exurban expansion thesis` }
+    : composite >= 7.5 && nearestPS == null
+        // PSA coverage-gap thesis. No PS family within 5 mi but composite is
+        // institution-tier — that's a submarket PSA hasn't entered yet, not a
+        // strike against PSA. Aligns the hero tile with the operator stack-rank
+        // body content (which calibrates PSA economics regardless of proximity)
+        // so we don't say "Storage King is best fit" up top and "PSA is the
+        // home run" below. Previous bug: this case fell through to the
+        // composite ≥ 6 && hhi ≥ 70K Storage King default.
+        ? { name: 'Public Storage (PS Family)', why: 'no PS family within 5 mi — coverage-gap thesis with PS-tier demographics' }
     : composite >= 7.5 && psNear
         ? { name: 'Storage King / Andover (PS too close)', why: `PS only ${nearestPS.toFixed(1)} mi away — too tight for PS, but SK tolerates overlap` }
     : composite >= 6 && hhi >= 70000
