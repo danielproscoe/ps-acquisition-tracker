@@ -80,7 +80,7 @@ export const PS_LENS = {
   // is buyer-named. Underlying constants stay pinned to FY2025 10-K data —
   // full citations in docs/PS_UNDERWRITING_MODEL.md.
   key: "PS",
-  name: "Public Storage",
+  name: "PSA — Public Storage",
   ticker: "PSA",
   description:
     "Self-managed national operator profile. Calibrated to FY2025 institutional REIT same-store opex (24.86% of revenue / 75.14% NOI margin) and disclosed acquisition activity. Buys at market cap, drives 50-100 bps yield uplift via platform integration (revenue management + cost rationalization on rolled tenants). Self-managed — no third-party mgmt fee.",
