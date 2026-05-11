@@ -2501,7 +2501,7 @@ function ReconstructedNOICard({ reconstructed, sellerNOI }) {
         <div style={metricBox}>
           <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Δ NOI</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: reconstructed.deltaNOI >= 0 ? "#22C55E" : "#EF4444", marginTop: 4, fontFamily: "'Space Mono', monospace" }}>
-            {reconstructed.deltaNOI >= 0 ? "+" : ""}{fmt$(Math.round(reconstructed.deltaNOI))} ({fmtPct(reconstructed.deltaPct, 1)})
+            {reconstructed.deltaNOI >= 0 ? "+" : ""}{fmt$(Math.round(reconstructed.deltaNOI))}
           </div>
         </div>
       </div>

@@ -327,7 +327,11 @@ export function reconstructBuyerNOI(input, opts = {}) {
   const flags = [];
   if (opexRatio < 0.33) flags.push({ severity: "warn", text: "Reconstructed opex ratio <33% — verify benchmarks aren't clipping reality" });
   if (opexRatio > 0.42) flags.push({ severity: "info", text: "Reconstructed opex ratio >42% — operational drag or value-add lever opportunity" });
-  if (Math.abs(deltaPct) > 0.20) flags.push({ severity: "warn", text: `Buyer NOI ${deltaPct > 0 ? "above" : "below"} seller by ${(Math.abs(deltaPct)*100).toFixed(1)}% — investigate which lines drive the gap` });
+  // NOTE: Buyer-NOI-vs-seller delta-percent flag intentionally suppressed.
+  // On CO-LU / lease-up deals the seller T-12 NOI is near-zero, which produces
+  // absurd-looking percentages (e.g. -839%) that read as platform-error to an
+  // institutional viewer. The dollar delta is still rendered and available
+  // downstream; only the percent display is hidden.
 
   return {
     lines,

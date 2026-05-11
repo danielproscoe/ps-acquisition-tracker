@@ -275,26 +275,60 @@ module.exports = async (req, res) => {
 
     const json = JSON.parse(resp.body);
     const text = json.content?.[0]?.text || "";
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) {
-      return res.status(502).json({
-        error: "Claude returned non-JSON",
-        llmText: text.slice(0, 600),
-        elapsedMs: Date.now() - t0,
-      });
+
+    // Robust JSON extraction — handle Claude's common output shapes:
+    //   (1) bare JSON object
+    //   (2) ```json ... ``` or ``` ... ``` fenced block
+    //   (3) JSON preceded or followed by prose ("Here is the memo: { ... }. Let me know...")
+    //   (4) JSON with trailing commas or stray control characters
+    // We extract by brace-balancing the first '{' through its matching '}' rather than
+    // greedy-regex, then attempt a defensive repair pass on parse failure.
+    function extractAndRepairJSON(raw) {
+      if (!raw || typeof raw !== "string") return { ok: false, err: "empty LLM text" };
+      // 1. Strip code fences (```json ... ``` or ``` ... ```)
+      let s = raw.replace(/```(?:json)?\s*\n?/gi, "").replace(/```\s*$/g, "");
+      // 2. Find the outermost JSON object via brace balancing.
+      const start = s.indexOf("{");
+      if (start < 0) return { ok: false, err: "no opening brace in LLM output" };
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      let end = -1;
+      for (let i = start; i < s.length; i++) {
+        const ch = s[i];
+        if (escape) { escape = false; continue; }
+        if (ch === "\\" && inString) { escape = true; continue; }
+        if (ch === "\"") { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === "{") depth++;
+        else if (ch === "}") { depth--; if (depth === 0) { end = i; break; } }
+      }
+      if (end < 0) return { ok: false, err: "unbalanced braces in LLM output" };
+      let candidate = s.slice(start, end + 1);
+      // 3. First-pass parse.
+      try { return { ok: true, value: JSON.parse(candidate) }; } catch (_) {}
+      // 4. Defensive repair pass — trailing commas, stray control chars, smart quotes.
+      const repaired = candidate
+        .replace(/,(\s*[}\]])/g, "$1")             // trailing commas
+        .replace(/[ -]+/g, " ")         // stray control chars (newlines inside strings come back as \n already; this catches unescaped raw)
+        .replace(/[“”]/g, "\"")          // smart double quotes → straight
+        .replace(/[‘’]/g, "'");          // smart single quotes → straight
+      try { return { ok: true, value: JSON.parse(repaired) }; } catch (e) {
+        return { ok: false, err: e.message, candidate: candidate.slice(0, 400) };
+      }
     }
 
-    let memo;
-    try {
-      memo = JSON.parse(match[0]);
-    } catch (e) {
+    const extracted = extractAndRepairJSON(text);
+    if (!extracted.ok) {
       return res.status(502).json({
         error: "Claude returned malformed JSON",
-        parseErr: e.message,
+        parseErr: extracted.err,
         llmText: text.slice(0, 600),
+        candidate: extracted.candidate,
         elapsedMs: Date.now() - t0,
       });
     }
+    const memo = extracted.value;
 
     return res.status(200).json({
       ok: true,
