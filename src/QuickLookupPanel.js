@@ -941,6 +941,17 @@ export default function QuickLookupPanel({ autoEnrichESRI, fbSet, fbPush, notify
   const suggestAbortRef = useRef(null);
   const suggestBoxRef = useRef(null);
 
+  // Clear stale error banner the moment address changes (typing, suggestion
+  // click, chip click, or URL prefill). Prior bug: user typed an unrecognized
+  // address, got "No address match found" banner, then selected a real
+  // suggestion — the banner persisted below the input until the next runLookup
+  // started, making it look like the platform was still failing when the user
+  // had already corrected the input. Clearing on every address change kills
+  // that confusion at the source.
+  useEffect(() => {
+    if (address) setError(null);
+  }, [address]);
+
   // Debounced address suggestions (ESRI suggest — 220ms after last keypress)
   useEffect(() => {
     if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
