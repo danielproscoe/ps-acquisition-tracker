@@ -195,6 +195,9 @@ async function renderInPage(page, url, opts = {}) {
     waitForSelector = null,
     settleMs = 1500,
     navTimeoutMs = 30000,
+    extractFn = null,
+    extractArgs = null,
+    scrollToBottom = false,
   } = opts;
 
   let resp;
@@ -204,7 +207,7 @@ async function renderInPage(page, url, opts = {}) {
       timeout: navTimeoutMs,
     });
   } catch (e) {
-    return { status: 0, html: "", error: e.message };
+    return { status: 0, html: "", extracted: null, error: e.message };
   }
 
   const status = resp ? resp.status() : 0;
@@ -218,9 +221,42 @@ async function renderInPage(page, url, opts = {}) {
     }
   }
 
+  // Optional: scroll the page to the bottom to trigger lazy-loaded sections
+  // (IntersectionObserver-gated rendering, common on storage operator
+  // detail pages that defer unit-inventory rendering until viewport).
+  if (scrollToBottom) {
+    try {
+      await page.evaluate(async () => {
+        const distance = 400;
+        const delay = 100;
+        const maxScrolls = 30;
+        let i = 0;
+        while (i++ < maxScrolls && window.scrollY + window.innerHeight < document.body.scrollHeight) {
+          window.scrollBy(0, distance);
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      });
+    } catch {}
+  }
+
   await new Promise((r) => setTimeout(r, settleMs));
+
+  // Optional: run an extraction function inside the page context — gives
+  // the scraper access to the LIVE post-hydration DOM instead of relying
+  // on HTML snapshot timing. Returns whatever the extractFn returns
+  // (must be JSON-serializable). The scraper passes a function that uses
+  // document.querySelectorAll + DOM walk to extract structured unit data.
+  let extracted = null;
+  if (typeof extractFn === "function") {
+    try {
+      extracted = await page.evaluate(extractFn, extractArgs);
+    } catch (e) {
+      extracted = { __error: e.message };
+    }
+  }
+
   const html = await page.content();
-  return { status, html };
+  return { status, html, extracted };
 }
 
 // ─── Public API: one-shot render ───────────────────────────────────────────

@@ -1,23 +1,25 @@
 {
   "schema": "storvex.cross-reit-rent-trajectory.v1",
-  "generatedAt": "2026-05-12T15:34:02.502Z",
+  "generatedAt": "2026-05-12T16:20:38.561Z",
   "methodology": "Daily per-MSA-per-operator median CC + DU rent rollups from each storage REIT's facility-detail-page scrape. Each snapshot is a single day's median across the operator's facilities in the named MSA. Cumulative across days produces the trajectory time-series.",
   "operators": [
     "CUBE",
     "NSA",
-    "PSA"
+    "PSA",
+    "SMA"
   ],
   "daysCovered": 3,
   "earliestDate": "2026-05-10",
   "latestDate": "2026-05-12",
-  "msasCovered": 147,
-  "totalSnapshots": 322,
+  "msasCovered": 148,
+  "totalSnapshots": 324,
   "sourceFiles": [
     "cube-facility-rents-2026-05-10.json",
     "psa-facility-rents-2026-05-10.json",
     "cube-facility-rents-2026-05-11.json",
     "psa-facility-rents-2026-05-11.json",
-    "nsa-facility-rents-2026-05-12.json"
+    "nsa-facility-rents-2026-05-12.json",
+    "sma-facility-rents-2026-05-12.json"
   ],
   "snapshots": [
     {
@@ -4849,6 +4851,36 @@
       "duUnitCount": 73,
       "sourceFile": "src\\data\\nsa-facility-rents-2026-05-12.json",
       "scrapeGeneratedAt": "2026-05-12T15:33:24.857Z"
+    },
+    {
+      "date": "2026-05-12",
+      "operator": "SMA",
+      "msa": "Phoenix",
+      "facilitiesScraped": 3,
+      "totalUnitListings": 41,
+      "ccMedianPerSF_mo": 1.8,
+      "ccLowPerSF_mo": 1.4,
+      "ccHighPerSF_mo": 3,
+      "ccUnitCount": 33,
+      "duMedianPerSF_mo": 1.194,
+      "duUnitCount": 8,
+      "sourceFile": "src\\data\\sma-facility-rents-2026-05-12.json",
+      "scrapeGeneratedAt": "2026-05-12T16:20:24.806Z"
+    },
+    {
+      "date": "2026-05-12",
+      "operator": "SMA",
+      "msa": "Phoenix ",
+      "facilitiesScraped": 2,
+      "totalUnitListings": 22,
+      "ccMedianPerSF_mo": 1.587,
+      "ccLowPerSF_mo": 1.3,
+      "ccHighPerSF_mo": 2.12,
+      "ccUnitCount": 17,
+      "duMedianPerSF_mo": 1.12,
+      "duUnitCount": 5,
+      "sourceFile": "src\\data\\sma-facility-rents-2026-05-12.json",
+      "scrapeGeneratedAt": "2026-05-12T16:20:24.806Z"
     }
   ]
 }

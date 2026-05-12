@@ -51,6 +51,7 @@ const OPERATOR_FILE_PATTERNS = [
   { operator: "CUBE", regex: /^cube-facility-rents-(\d{4}-\d{2}-\d{2})\.json$/ },
   { operator: "EXR", regex: /^exr-facility-rents-(\d{4}-\d{2}-\d{2})\.json$/ },
   { operator: "NSA", regex: /^nsa-facility-rents-(\d{4}-\d{2}-\d{2})\.json$/ },
+  { operator: "SMA", regex: /^sma-facility-rents-(\d{4}-\d{2}-\d{2})\.json$/ },
 ];
 
 /**

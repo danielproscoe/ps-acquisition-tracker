@@ -1,0 +1,106 @@
+# Weekly refresh of SmartStop (SMA) per-facility unit rents through the
+# shared Puppeteer-render adapter.
+#
+# SmartStop operates ~250 facilities in the US + Canada and is also
+# SMA on EDGAR. Adding SmartStop closes the loop on a public REIT we
+# already cite (10-K pipeline disclosures · commit bb5ee4a) — every
+# SmartStop site we underwrite has BOTH the portfolio-level rent
+# context AND per-facility live move-in rates.
+#
+# Why a separate workflow from refresh-rents.yml:
+#   - SmartStop's facility detail pages need puppeteer + extractFn
+#     (page.evaluate against post-hydration DOM) — the lazy-loaded
+#     unit cards aren't in page.content() snapshots.
+#   - ~3 sec/facility puppeteer crawl × 254 facilities = ~13 min crawl.
+#     Fits comfortably alongside the daily PSA+CUBE crawl but combining
+#     blows past the 90-min budget once EXR comes online.
+#
+# Schedule:
+#   Saturdays at 07:00 UTC — 30 min after refresh-nsa-rents (06:30 UTC).
+#   This keeps weekly-cadence operator scrapers serialized so we don't
+#   stack GitHub Actions usage minutes.
+
+name: Refresh SMA (SmartStop) Facility Rents (Weekly)
+
+on:
+  schedule:
+    - cron: "0 7 * * 6"  # Saturdays at 07:00 UTC
+  workflow_dispatch:
+    inputs:
+      states:
+        description: 'State filter (comma-separated 2-letter lowercase, e.g. "tx,az,fl")'
+        required: false
+        default: ''
+      limit:
+        description: 'Facility limit for this run (5 = smoke, 50 = state batch, blank = full ~254)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-sma:
+    runs-on: ubuntu-latest
+    # ~3 sec/facility × 254 facilities = ~13 min. Set 40 for headroom.
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install puppeteer (bundled Chromium)
+        run: |
+          npm install --no-save puppeteer@^24
+          node -e "console.log('Bundled Chromium:', require('puppeteer').executablePath())"
+
+      - name: Diagnose Puppeteer adapter environment
+        run: |
+          node --input-type=module -e "
+            import('./scripts/edgar/_puppeteer-render.mjs').then(async m => {
+              const env = await m.diagnose();
+              console.log('Adapter diagnostics:', JSON.stringify(env, null, 2));
+            });
+          "
+
+      - name: Run SMA facility-rent scraper
+        run: |
+          STATES_ARG=""
+          if [ -n "${{ github.event.inputs.states }}" ]; then
+            STATES_ARG="--states=${{ github.event.inputs.states }}"
+          fi
+          LIMIT_ARG=""
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            LIMIT_ARG="--limit=${{ github.event.inputs.limit }}"
+          fi
+          echo "Running: node scripts/edgar/scrape-sma-facility-rents.mjs $STATES_ARG $LIMIT_ARG"
+          node scripts/edgar/scrape-sma-facility-rents.mjs $STATES_ARG $LIMIT_ARG
+        env:
+          NODE_ENV: production
+          CI: true
+
+      - name: Accumulate SMA snapshot into rent trajectory
+        run: node scripts/edgar/build-rent-trajectory.mjs
+
+      - name: Commit refreshed SMA snapshot
+        run: |
+          git config user.name "storvex-bot"
+          git config user.email "noreply@storvex.com"
+          git add src/data/sma-facility-rents-*.json 2>/dev/null || true
+          git add src/data/cross-reit-rent-trajectory.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No SMA snapshot changes — skipping commit"
+          else
+            DATE=$(date -u +%Y-%m-%d)
+            FACILITIES=$(jq -r '.totals.facilitiesWithUnits // 0' src/data/sma-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            UNITS=$(jq -r '.totals.unitListings // 0' src/data/sma-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            CC=$(jq -r '.totals.ccUnitListings // 0' src/data/sma-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            git commit -m "chore(sma-rents): weekly refresh ${DATE} · ${FACILITIES} SMA facilities · ${UNITS} units (${CC} CC)"
+            git push
+          fi
