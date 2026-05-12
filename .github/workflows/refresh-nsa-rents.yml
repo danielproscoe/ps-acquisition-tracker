@@ -1,0 +1,109 @@
+# Weekly refresh of National Storage Affiliates (NSA · nsastorage.com)
+# per-facility unit rents through the shared Puppeteer-render adapter.
+#
+# NSA operates 1,000+ facilities across 42 states under multiple sub-brands
+# (iStorage, Northwest Self Storage, Storage Solutions, Move It, SecurCare,
+# RightSpace). Customer-facing portal renders unit pricing via client-side
+# JS hydration — verified 5/12/26 — requiring puppeteer to capture.
+#
+# Why a SEPARATE workflow from refresh-rents.yml (PSA + CUBE):
+#   - NSA crawl is puppeteer-rendered at ~3 sec/facility vs PSA+CUBE's
+#     ~1 sec/facility vanilla HTTPS. A 1,142-facility full crawl is ~57
+#     min; PSA+CUBE crawl is ~50 min. Combining them exceeds the 60-min
+#     default GitHub Actions timeout.
+#   - Weekly cadence is appropriate for NSA — daily isn't necessary since
+#     NSA pricing changes more slowly than PSA's algorithmic price moves.
+#
+# Schedule:
+#   Saturdays at 06:30 UTC — separate from PSA+CUBE daily (06:00 UTC) and
+#   pipeline-disclosures (06:30 UTC weekdays). The 30-min offset keeps
+#   GitHub Actions resource contention minimal.
+#
+# Output:
+#   src/data/nsa-facility-rents-YYYY-MM-DD.json — same schema as PSA daily
+#   so build-rent-trajectory.mjs picks it up automatically via the existing
+#   OPERATOR_FILE_PATTERNS regex match for `nsa-facility-rents-*.json`.
+
+name: Refresh NSA Facility Rents (Weekly)
+
+on:
+  schedule:
+    - cron: "30 6 * * 6"  # Saturdays at 06:30 UTC
+  workflow_dispatch:
+    inputs:
+      states:
+        description: 'State filter (comma-separated lowercase slugs, e.g. "texas,arizona,florida")'
+        required: false
+        default: ''
+      limit:
+        description: 'Facility limit for this run (10 = smoke, 200 = state batch, blank = full)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-nsa:
+    runs-on: ubuntu-latest
+    # 1,142 facilities × ~3 sec/facility puppeteer = ~57 min. Set to 75 for headroom.
+    timeout-minutes: 75
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install puppeteer (bundled Chromium)
+        run: |
+          npm install --no-save puppeteer@^24
+          node -e "console.log('Bundled Chromium:', require('puppeteer').executablePath())"
+
+      - name: Diagnose Puppeteer adapter environment
+        run: node -e "
+          import('./scripts/edgar/_puppeteer-render.mjs').then(async m => {
+            const env = await m.diagnose();
+            console.log('Adapter diagnostics:', JSON.stringify(env, null, 2));
+          });
+        "
+
+      - name: Run NSA facility-rent scraper
+        run: |
+          STATES_ARG=""
+          if [ -n "${{ github.event.inputs.states }}" ]; then
+            STATES_ARG="--states=${{ github.event.inputs.states }}"
+          fi
+          LIMIT_ARG=""
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            LIMIT_ARG="--limit=${{ github.event.inputs.limit }}"
+          fi
+          echo "Running: node scripts/edgar/scrape-nsa-facility-rents.mjs $STATES_ARG $LIMIT_ARG"
+          node scripts/edgar/scrape-nsa-facility-rents.mjs $STATES_ARG $LIMIT_ARG
+        env:
+          NODE_ENV: production
+          CI: true
+
+      - name: Accumulate NSA snapshot into rent trajectory
+        run: node scripts/edgar/build-rent-trajectory.mjs
+
+      - name: Commit refreshed NSA snapshot
+        run: |
+          git config user.name "storvex-bot"
+          git config user.email "noreply@storvex.com"
+          git add src/data/nsa-facility-rents-*.json 2>/dev/null || true
+          git add src/data/cross-reit-rent-trajectory.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No NSA snapshot changes — skipping commit"
+          else
+            DATE=$(date -u +%Y-%m-%d)
+            FACILITIES=$(jq -r '.totals.facilitiesWithUnits // 0' src/data/nsa-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            UNITS=$(jq -r '.totals.unitListings // 0' src/data/nsa-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            CC=$(jq -r '.totals.ccUnitListings // 0' src/data/nsa-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            git commit -m "chore(nsa-rents): weekly refresh ${DATE} · ${FACILITIES} NSA facilities · ${UNITS} units (${CC} CC)"
+            git push
+          fi

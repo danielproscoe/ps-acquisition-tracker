@@ -97,6 +97,7 @@ import { gunzipSync, brotliDecompressSync } from "node:zlib";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createBrowserSession, diagnose } from "./_puppeteer-render.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, "..", "..", "src", "data");
@@ -105,7 +106,8 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 const SITEMAP_URL = "https://www.nsastorage.com/sitemap.xml";
-const REQ_DELAY_MS = 2500;
+const REQ_DELAY_MS = 1500;
+const RESTART_EVERY = 25;
 
 // CLI args
 const LIMIT_ARG = process.argv.find((a) => a.startsWith("--limit="));
@@ -225,14 +227,20 @@ function findSelfStorageEntity(blocks) {
 //
 // Regex captures each block's HTML, then per-block sub-regexes pull fields.
 function extractUnitCards(html) {
-  // Find all <div class="unit-select-item"...>...</div> blocks. The class
-  // appears alone or with other classes; match either.
+  // CRITICAL: nested divs `unit-select-item-detail`, `unit-select-item-
+  // detail-2`, `unit-select-item-detail-heading` all contain "unit-select-
+  // item" as a substring. JS `\b` doesn't treat `-` as a word boundary so
+  // matching on the class name alone fragments the outer card.
+  //
+  // Anchor on `data-unit-size="..."` instead — only the OUTER card carries
+  // that attribute, and it conveys the size category (small/medium/large/
+  // vehicle) for free.
   const blockRe =
-    /<div\s+[^>]*class="[^"]*\bunit-select-item\b[^"]*"[^>]*>([\s\S]*?)(?=<div\s+[^>]*class="[^"]*\bunit-select-item\b|<\/section|<\/main|<footer)/gi;
+    /<div[^>]*\bdata-unit-size="([^"]+)"[^>]*>([\s\S]*?)(?=<div[^>]*\bdata-unit-size="|<\/section|<\/main|<footer)/gi;
   const blocks = [];
   let m;
-  while ((m = blockRe.exec(html))) {
-    blocks.push(m[1]);
+  while ((m = blockRe.exec(html)) && blocks.length < 200) {
+    blocks.push({ category: m[1], html: m[2] });
   }
   return blocks;
 }
@@ -245,30 +253,41 @@ function parseUnitSize(text) {
   return { widthFt: w, lengthFt: l, sqft: w * l, sizeName: `${m[1]}x${m[2]}` };
 }
 
-function parseUnitCard(blockHTML) {
+function parseUnitCard(block) {
+  // block is { category: data-unit-size value, html: inner HTML of the card }
+  const blockHTML = block.html;
+  const dataCategory = block.category; // "small" / "medium" / "large" / "vehicle"
+
   // Strip HTML tags for text-content parsing.
   const text = blockHTML.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (!text) return null;
 
+  // Skip cards without a reservation link — those are placeholder/empty slots.
+  const reserveMatch = blockHTML.match(/\/reservation\/(\d+)\/(\d+)\/(\d+)/);
+  if (!reserveMatch) return null;
+
   const { widthFt, lengthFt, sqft, sizeName } = parseUnitSize(text);
   if (!sqft) return null;
 
-  // Online (web rental) price — the prominent "$X /mo" rate. This is the
-  // post-discount move-in rate that the customer sees and reserves at.
+  // Online (web rental) price — the prominent "$X /mo" rate. Rendered as
+  // `<div class="part_item_price">$41<sub>/mo</sub></div>` — after tag
+  // stripping becomes "$41 /mo" with whitespace.
   const onlineMatch = text.match(/\$\s*(\d+(?:\.\d{2})?)\s*\/\s*mo/i);
   const priceOnline = onlineMatch ? parseFloat(onlineMatch[1]) : null;
 
-  // In-store price — the standard (non-discounted) rate, labelled "In-Store".
+  // In-store price — labelled "In-Store" after the dollar amount.
+  // Rendered as `<span class="stroke">$64</span> In-Store`.
   const inStoreMatch = text.match(/\$\s*(\d+(?:\.\d{2})?)\s*In[- ]?Store/i);
   const priceInStore = inStoreMatch ? parseFloat(inStoreMatch[1]) : null;
 
-  // Use the IN-STORE rate for pricePerSF_mo when available — that's the
-  // sustained rent rate the operator targets after the move-in discount
-  // burns off. Falls back to online rate if in-store isn't visible.
+  // Use the IN-STORE (sustained) rate for pricePerSF_mo when available —
+  // that's the rate the operator targets after the move-in discount burns
+  // off, and it's the right benchmark for cross-operator rent comparison.
+  // Falls back to online (discounted) rate if in-store isn't visible.
   const sustainedRate = priceInStore || priceOnline;
 
   // Climate-control detection — NSA labels CC units as "Heated and Cooled"
-  // in the features section. Drive-up units use "Drive-up" or "Outside".
+  // in the features list. Drive-up units use "Drive-up" or "Outside".
   const isCC = /Heated\s+and\s+Cooled/i.test(text);
   const isDriveUp = /Drive[\s-]?up|Outside\s+Unit/i.test(text);
   const isIndoor = /Inside|Interior|Hallway|Elevator/i.test(text);
@@ -278,14 +297,17 @@ function parseUnitCard(blockHTML) {
   else if (isDriveUp) unitType = "DU";
   else if (isIndoor) unitType = "INDOOR_NOTCC";
 
-  // Category (Small/Medium/Large/Vehicle Storage)
+  // Size category — prefer the text label "Small Storage" / "Medium
+  // Storage" if visible, else fall back to data-unit-size attribute.
   const catMatch = text.match(/(Small|Medium|Large|Vehicle)\s+Storage/i);
-  const category = catMatch ? catMatch[1] : null;
+  const category = catMatch
+    ? catMatch[1]
+    : dataCategory
+    ? dataCategory.charAt(0).toUpperCase() + dataCategory.slice(1).toLowerCase()
+    : null;
 
-  // Reservation link → unit ID + facility ID
-  const reserveMatch = blockHTML.match(/\/reservation\/(\d+)\/(\d+)\/(\d+)/);
-  const facilityIdFromReserve = reserveMatch ? reserveMatch[1] : null;
-  const unitId = reserveMatch ? reserveMatch[2] : null;
+  const facilityIdFromReserve = reserveMatch[1];
+  const unitId = reserveMatch[2];
 
   // Promo (e.g. "50% Off First Month's Rent")
   const promoMatch = text.match(/(\d+%\s*Off[^.]*?Month[^.]*?Rent)/i);
@@ -381,8 +403,12 @@ function titleCaseSlug(slug) {
 
 async function main() {
   console.log("════════════════════════════════════════════════════════════════════");
-  console.log("  NSA Facility Unit-Rent Scraper");
+  console.log("  NSA Facility Unit-Rent Scraper (Puppeteer-rendered)");
   console.log("════════════════════════════════════════════════════════════════════");
+
+  // Diagnose Puppeteer environment before launching the crawl.
+  const env = await diagnose();
+  console.log(`Env: ${env.puppeteerLib} · Chrome: ${env.systemChromePath || "bundled"}`);
 
   let facilities = await fetchSitemap();
 
@@ -395,6 +421,9 @@ async function main() {
     console.log(`  Limit applied: ${LIMIT} → ${facilities.length} facilities`);
   }
 
+  console.log(`\nLaunching Puppeteer session (restart every ${RESTART_EVERY} facilities)...`);
+  const session = await createBrowserSession({ restartEvery: RESTART_EVERY });
+
   // Group facilities by city for PSA-style output shape
   const cityRecords = new Map(); // key: "STATE/CITY" → { state, city, facilities: [] }
 
@@ -402,17 +431,18 @@ async function main() {
   let skipCount = 0;
   let failCount = 0;
 
+  try {
   for (let i = 0; i < facilities.length; i++) {
     const f = facilities[i];
     process.stdout.write(`[${i + 1}/${facilities.length}] ${f.stateSlug}/${f.citySlug}/${f.facilityId} ... `);
-    const resp = await get(f.url);
+    const resp = await session.render(f.url, { waitForSelector: '[data-unit-size]', settleMs: 1200 });
     if (resp.status !== 200) {
       console.log(`✗ status ${resp.status}`);
       failCount++;
       await sleep(REQ_DELAY_MS);
       continue;
     }
-    const detail = parseFacilityDetail(resp.body, f);
+    const detail = parseFacilityDetail(resp.html, f);
     if (!detail) {
       console.log("✗ no SelfStorage entity");
       failCount++;
@@ -443,6 +473,9 @@ async function main() {
       console.log(`✓ ${detail.units.length} units · ${detail.brand}`);
     }
     await sleep(REQ_DELAY_MS);
+  }
+  } finally {
+    await session.close();
   }
 
   const cities = [...cityRecords.values()].sort((a, b) => b.facilities.length - a.facilities.length);

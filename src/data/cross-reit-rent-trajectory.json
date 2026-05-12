@@ -1,21 +1,23 @@
 {
   "schema": "storvex.cross-reit-rent-trajectory.v1",
-  "generatedAt": "2026-05-12T03:47:58.239Z",
+  "generatedAt": "2026-05-12T15:34:02.502Z",
   "methodology": "Daily per-MSA-per-operator median CC + DU rent rollups from each storage REIT's facility-detail-page scrape. Each snapshot is a single day's median across the operator's facilities in the named MSA. Cumulative across days produces the trajectory time-series.",
   "operators": [
     "CUBE",
+    "NSA",
     "PSA"
   ],
-  "daysCovered": 2,
+  "daysCovered": 3,
   "earliestDate": "2026-05-10",
-  "latestDate": "2026-05-11",
-  "msasCovered": 145,
-  "totalSnapshots": 318,
+  "latestDate": "2026-05-12",
+  "msasCovered": 147,
+  "totalSnapshots": 322,
   "sourceFiles": [
     "cube-facility-rents-2026-05-10.json",
     "psa-facility-rents-2026-05-10.json",
     "cube-facility-rents-2026-05-11.json",
-    "psa-facility-rents-2026-05-11.json"
+    "psa-facility-rents-2026-05-11.json",
+    "nsa-facility-rents-2026-05-12.json"
   ],
   "snapshots": [
     {
@@ -4787,6 +4789,66 @@
       "duUnitCount": 37,
       "sourceFile": "src\\data\\psa-facility-rents-2026-05-11.json",
       "scrapeGeneratedAt": "2026-05-11T09:48:15.728Z"
+    },
+    {
+      "date": "2026-05-12",
+      "operator": "NSA",
+      "msa": "Gilbert",
+      "facilitiesScraped": 1,
+      "totalUnitListings": 4,
+      "ccMedianPerSF_mo": null,
+      "ccLowPerSF_mo": null,
+      "ccHighPerSF_mo": null,
+      "ccUnitCount": 0,
+      "duMedianPerSF_mo": 0.829,
+      "duUnitCount": 4,
+      "sourceFile": "src\\data\\nsa-facility-rents-2026-05-12.json",
+      "scrapeGeneratedAt": "2026-05-12T15:33:24.857Z"
+    },
+    {
+      "date": "2026-05-12",
+      "operator": "NSA",
+      "msa": "Mesa",
+      "facilitiesScraped": 3,
+      "totalUnitListings": 21,
+      "ccMedianPerSF_mo": null,
+      "ccLowPerSF_mo": null,
+      "ccHighPerSF_mo": null,
+      "ccUnitCount": 0,
+      "duMedianPerSF_mo": 0.933,
+      "duUnitCount": 21,
+      "sourceFile": "src\\data\\nsa-facility-rents-2026-05-12.json",
+      "scrapeGeneratedAt": "2026-05-12T15:33:24.857Z"
+    },
+    {
+      "date": "2026-05-12",
+      "operator": "NSA",
+      "msa": "Queen Creek",
+      "facilitiesScraped": 1,
+      "totalUnitListings": 12,
+      "ccMedianPerSF_mo": null,
+      "ccLowPerSF_mo": null,
+      "ccHighPerSF_mo": null,
+      "ccUnitCount": 0,
+      "duMedianPerSF_mo": 1.23,
+      "duUnitCount": 12,
+      "sourceFile": "src\\data\\nsa-facility-rents-2026-05-12.json",
+      "scrapeGeneratedAt": "2026-05-12T15:33:24.857Z"
+    },
+    {
+      "date": "2026-05-12",
+      "operator": "NSA",
+      "msa": "Tucson",
+      "facilitiesScraped": 5,
+      "totalUnitListings": 73,
+      "ccMedianPerSF_mo": null,
+      "ccLowPerSF_mo": null,
+      "ccHighPerSF_mo": null,
+      "ccUnitCount": 0,
+      "duMedianPerSF_mo": 0.97,
+      "duUnitCount": 73,
+      "sourceFile": "src\\data\\nsa-facility-rents-2026-05-12.json",
+      "scrapeGeneratedAt": "2026-05-12T15:33:24.857Z"
     }
   ]
 }
