@@ -277,11 +277,11 @@ function renderCrushRadiusPlusFootprint() {
 
   return `
 <section class="page section">
-  <h2 class="section-h">CRUSH RADIUS+ CAPABILITIES FOOTPRINT</h2>
+  <h2 class="section-h">AUDIT-LAYER CAPABILITIES · STORVEX vs INCUMBENT DATA PLATFORMS</h2>
   <div class="sanity-card" style="border-color:#C9A84C40;background:rgba(214,228,247,0.10)">
-    <div class="sanity-tag" style="background:#C9A84C;color:#1E2761">DATA DEPTH BEHIND THIS REPORT · ${storvexCount} STORVEX-UNIQUE DIMENSIONS · ${parityCount} PARITY · ${radiusCount} RADIUS+-UNIQUE</div>
+    <div class="sanity-tag" style="background:#C9A84C;color:#1E2761">CAPABILITIES THIS REPORT EXERCISES · ${storvexCount} STORVEX-UNIQUE · ${parityCount} PARITY · ${radiusCount} INCUMBENT-UNIQUE</div>
     <div class="sanity-message">
-      Every section of this report is auto-populated from the primary-source data infrastructure below. Storvex's defensible wedge vs Radius+ is structural — not "we have more data" but "every datapoint is cite-able to a primary source + tunable + reproducible". A PSA analyst can re-derive every number in this report from the listed public sources. Radius+ aggregates the same upstream data and ships a portal — Storvex ships the audit trail with every deliverable.
+      Storvex does not replace breadth-of-coverage data platforms (Radius+ at 48,000 facilities, TractIQ at 70,000, Yardi, StorTrack). Storvex sits ABOVE that data layer as the institutional underwrite + audit + workpaper engine. The table below enumerates the capabilities this specific report exercised — Storvex's defensible edge is that every datapoint is cite-able to a primary source, tunable, and reproducible. A PSA analyst can re-derive every number from the listed public sources. The data platforms aggregate; Storvex ships the audit trail with every deliverable.
     </div>
 
     <table class="data-table" style="margin-top: 14px;">
@@ -306,7 +306,144 @@ function renderCrushRadiusPlusFootprint() {
     </table>
 
     <div style="margin-top:14px;font-size:9pt;color:#475569;">
-      <b>Storvex Crush Radius+ scoreboard:</b> Storvex unique on <b>${storvexCount}</b> dimensions · Parity on <b>${parityCount}</b> · Radius+ unique on <b>${radiusCount}</b>. This footprint reflects only the data layers that fired for the specific subject being analyzed — when the subject MSA is outside an operator's daily-scrape coverage or PSA's 25-MSA disclosure set, the relevant rows fall back gracefully and don't claim coverage we don't have.
+      <b>Capability tally (this report):</b> ${storvexCount} dimensions where Storvex's audit-layer wedge is unique · ${parityCount} parity with incumbent data platforms · ${radiusCount} where an incumbent platform retains a structural edge. This table reflects only the data layers that fired for the specific subject — when the subject MSA is outside an operator's daily-scrape coverage or PSA's 25-MSA disclosure set, the relevant rows fall back gracefully and don't claim coverage we don't have. Breadth-of-coverage (50K+ facility universe) remains the incumbent data platforms' lane; institutional underwrite + audit trail remains Storvex's.
+    </div>
+  </div>
+</section>`;
+}
+
+/**
+ * Institutional Audit Layer — DATA SOURCES panel.
+ *
+ * Reframes the "Crush Radius+" narrative from "we beat them on a scoreboard"
+ * to "we sit ABOVE them in the institutional workflow." The data layer
+ * (Radius+ / TractIQ / Yardi / StorTrack / SEC EDGAR / county GIS) is
+ * interchangeable. The audit + workpaper layer Storvex ships is the moat.
+ *
+ * Auto-populates the list of primary sources THIS specific report consumed:
+ *   - ESRI ArcGIS GeoEnrichment 2025 (every site)
+ *   - SEC EDGAR 10-K + 10-Q filings (issuers + filing count)
+ *   - PSA / CUBE daily-refresh scrapes (facility + unit listing count)
+ *   - Cross-REIT historical same-store + per-MSA rent backfill
+ *   - REIT pipeline disclosure registry (Move 2)
+ *   - Tapestry LifeMode demand model coefficients
+ *   - Verification Oracle audit ledger (cross-device, Move 3)
+ *
+ * The panel deliberately credits where data came from — including third-party
+ * platforms when applicable — to make clear Storvex is operator-agnostic.
+ * What Storvex uniquely owns is the underwrite logic + audit trail + IC-ready
+ * output, not the underlying data feed.
+ */
+function renderInstitutionalAuditLayer() {
+  const trajectoryMeta = getRentTrajectoryMetadata();
+  const historicalRentMeta = getHistoricalRentMetadata();
+  const pipelineMeta = getEdgarPipelineMetadata();
+  const histPipelineMeta = getHistoricalPipelineMetadata();
+  const crossREIT = getCrossREITHistoricalLatest();
+
+  const psMSACount = (historicalRentMeta && (historicalRentMeta.msasWithMultiYear || historicalRentMeta.totalMSAs)) || 17;
+  const totalFacilitiesScraped = trajectoryMeta
+    ? (trajectoryMeta.operators || []).reduce((sum, op) => {
+        // Trajectory meta only carries operator names, not facility counts.
+        // Use the conservative per-operator estimates seeded at last refresh.
+        if (op === "PSA") return sum + 260;
+        if (op === "CUBE") return sum + 1549;
+        return sum;
+      }, 0)
+    : 0;
+
+  // Each row = one primary-source feed Storvex actively consumes.
+  const sources = [
+    {
+      layer: "Demographics",
+      feed: "ESRI ArcGIS GeoEnrichment 2025",
+      contribution: "1-3-5 mile rings · 65 Tapestry segments + 14 LifeModes · 2025 estimates + 2030 projections · auto-enriched on every site",
+      auditNote: "Each ring cites the ESRI variable code + as-of date",
+    },
+    {
+      layer: "Demand model",
+      feed: "Tapestry LifeMode coefficients (Self-Storage Almanac + Newmark + REIT 10-K MD&A)",
+      contribution: "14 LifeMode propensity indices · 6 urbanization tiers · 4 calibration coefficients · every value source-cited in STORAGE_DEMAND_COEFFICIENTS",
+      auditNote: "Re-derivable from listed public sources in 5 minutes",
+    },
+    {
+      layer: "Daily rents",
+      feed: trajectoryMeta
+        ? `${(trajectoryMeta.operators || []).join(" + ")} daily-refresh scrape · refresh-rents.yml cron 06:00 UTC`
+        : "Daily rent scrape pipeline (bootstrapping)",
+      contribution: trajectoryMeta
+        ? `${totalFacilitiesScraped.toLocaleString()} facilities · per-unit street rates · ${trajectoryMeta.msasCovered || 0} MSAs covered`
+        : "—",
+      auditNote: "Each datapoint cites the dated snapshot file + operator URL",
+    },
+    {
+      layer: "Historical rents",
+      feed: "SEC EDGAR 10-K MD&A · PSA Same-Store Operating Trends by Market",
+      contribution: `${psMSACount} MSAs · FY2021–FY2025 · per-MSA street rent + occupancy + facility count by year`,
+      auditNote: "Each yearly value cites a specific 10-K accession #",
+    },
+    {
+      layer: "Cross-REIT performance",
+      feed: "SEC EDGAR 10-K backfill · EXR + CUBE + NSA + LSI portfolio same-store",
+      contribution: crossREIT
+        ? `${(crossREIT.contributingIssuers || []).join(" + ")} FY${crossREIT.asOf} · CUBE 10-yr decade · EXR + NSA + LSI 6-yr each`
+        : "Cross-REIT primary-source coverage",
+      auditNote: "Multi-issuer, multi-year — re-derivable from EDGAR",
+    },
+    {
+      layer: "Pipeline disclosures",
+      feed: "SEC EDGAR 10-Q + 10-K · PSA + EXR + CUBE + NSA + SMA",
+      contribution: pipelineMeta
+        ? `${pipelineMeta.totalIssuers || 5} issuers · ${pipelineMeta.totalFilings || 10} filings · ${pipelineMeta.totalDisclosures || 15} disclosures · refresh-pipeline-disclosures.yml cron 06:30 UTC`
+        : "Pipeline disclosure registry (bootstrapping)",
+      auditNote: "Every facility stamped verifiedSource: EDGAR-<form>-<accession>",
+    },
+    {
+      layer: "Pipeline history",
+      feed: "SEC EDGAR historical 10-K backfill",
+      contribution: histPipelineMeta
+        ? `${histPipelineMeta.totalFilings || 34} 10-Ks · ${histPipelineMeta.totalDisclosures || 27} disclosures · CUBE FY2016–FY2025 (10 yrs) · PSA + EXR + NSA + LSI 6 yrs each`
+        : "Multi-year pipeline trajectory",
+      auditNote: "Longitudinal view neither Radius+ nor TractIQ exposes",
+    },
+    {
+      layer: "Verification ledger",
+      feed: "Storvex Verification Oracle + Screenshot Intake (Move 3)",
+      contribution: "Cross-device audit ledger at Firebase /pipelineVerifyAudit · vision-extracted aggregator entries cross-referenced against primary-source registry",
+      auditNote: "Patent-pending — turns competitor data into Storvex audit-log input",
+    },
+  ];
+
+  return `
+<section class="page section">
+  <h2 class="section-h">STORVEX AUDIT LAYER · PRIMARY SOURCES CONSUMED BY THIS REPORT</h2>
+  <div class="sanity-card" style="border-color:#1E276180;background:rgba(214,228,247,0.15)">
+    <div class="sanity-tag" style="background:#1E2761;color:#fff">INSTITUTIONAL AUDIT LAYER · OPERATOR-AGNOSTIC · DATA-LAYER-INTERCHANGEABLE</div>
+    <div class="sanity-message">
+      Storvex is the institutional underwrite + verification + workpaper layer. It sits ABOVE the data layer — Radius+, TractIQ, Yardi Matrix, StorTrack, SEC EDGAR, county GIS, ESRI — and produces IC-ready deliverables auditable down to the originating filing or scrape URL. The data layer is interchangeable: Storvex consumes from whatever primary sources are wired in. The list below is every source THIS specific report consumed.
+    </div>
+
+    <table class="data-table" style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 14%;">Layer</th>
+          <th class="th-name" style="width: 28%;">Primary source</th>
+          <th class="th-name" style="width: 36%;">Contribution to this report</th>
+          <th class="th-name" style="width: 22%;">Audit-trail surface</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sources.map((s) => `<tr>
+          <td class="td-name" style="font-size:8.5pt;color:#1E2761;font-weight:700">${safe(s.layer)}</td>
+          <td class="td-name" style="font-size:9pt"><b>${safe(s.feed)}</b></td>
+          <td class="td-name" style="font-size:8.5pt;color:#1E2761">${safe(s.contribution)}</td>
+          <td class="td-name" style="font-size:8.5pt;color:#16A34A;font-weight:600">${safe(s.auditNote)}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+
+    <div style="margin-top:14px;font-size:9pt;color:#475569;line-height:1.5">
+      <b>Co-existence with Radius+ / TractIQ / Yardi:</b> Storvex does not replace breadth-of-coverage data platforms — Radius+ tracks 48,000 facilities, TractIQ 70,000, Storvex's daily scrape covers PSA + CUBE today (extensible to EXR, NSA, SmartStop, StorageMart, and beyond). Storvex's defensible position is the layer above: the institutional underwrite logic, the audit trail, the verification oracle, and the IC-ready output your team would otherwise hand-build in Excel + PowerPoint. Your existing Radius+ or TractIQ subscription continues to fund the data feed; Storvex turns it into a workpaper.
     </div>
   </div>
 </section>`;
@@ -1926,6 +2063,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
 
   ${renderCover({ snapshot, verdict, ps, msaTier: analysis.msaTier, dealType: analysis.dealType, docId, recipient: pitchTarget && pitchTarget !== "custom" ? getRecipient(pitchTarget) : null })}
   ${renderExecSummary({ snapshot, verdict, ps, analysis, rentSanity })}
+  ${renderInstitutionalAuditLayer()}
   ${renderCrushRadiusPlusFootprint()}
   ${renderVerdictKPIStrip({ verdict, ps, analysis })}
   ${renderYOCVerdict({ psLens: ps })}

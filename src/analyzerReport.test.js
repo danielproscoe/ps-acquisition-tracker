@@ -481,14 +481,81 @@ describe("generateAnalyzerReport", () => {
     });
   });
 
-  describe("Crush Radius+ Capabilities Footprint synthesis section", () => {
-    test("renders CRUSH RADIUS+ CAPABILITIES FOOTPRINT at top of every report", () => {
+  describe("Institutional Audit Layer · DATA SOURCES panel (Crush Radius+ reframe)", () => {
+    test("renders STORVEX AUDIT LAYER · PRIMARY SOURCES heading near top of every report", () => {
       const analysis = analyzeExistingAsset(baseInput);
       const psLens = computeBuyerLens(baseInput, PS_LENS);
       const html = generateAnalyzerReport({ analysis, psLens });
 
-      expect(html).toContain("CRUSH RADIUS+ CAPABILITIES FOOTPRINT");
-      expect(html).toContain("DATA DEPTH BEHIND THIS REPORT");
+      expect(html).toContain("STORVEX AUDIT LAYER");
+      expect(html).toContain("PRIMARY SOURCES CONSUMED BY THIS REPORT");
+      expect(html).toContain("OPERATOR-AGNOSTIC");
+    });
+
+    test("data-sources table lists every primary-source layer Storvex consumes", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Each "Layer" cell in the table — these are the rows the panel emits.
+      expect(html).toContain(">Demographics<");
+      expect(html).toContain(">Demand model<");
+      expect(html).toContain(">Daily rents<");
+      expect(html).toContain(">Historical rents<");
+      expect(html).toContain(">Cross-REIT performance<");
+      expect(html).toContain(">Pipeline disclosures<");
+      expect(html).toContain(">Pipeline history<");
+      expect(html).toContain(">Verification ledger<");
+    });
+
+    test("co-existence framing names the incumbent data platforms", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Audit-layer panel explicitly cites Radius+ + TractIQ + Yardi + StorTrack
+      // and frames them as the data layer beneath Storvex.
+      expect(html).toContain("Radius+");
+      expect(html).toContain("TractIQ");
+      expect(html).toContain("Yardi");
+      expect(html).toContain("StorTrack");
+      expect(html).toMatch(/48,000 facilities/);
+      expect(html).toMatch(/70,000/);
+    });
+
+    test("audit-layer panel appears between Executive Summary and Capabilities Footprint", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      const execIdx = html.indexOf("EXECUTIVE SUMMARY");
+      const auditLayerIdx = html.indexOf("STORVEX AUDIT LAYER");
+      const footprintIdx = html.indexOf("AUDIT-LAYER CAPABILITIES");
+
+      expect(execIdx).toBeGreaterThan(0);
+      expect(auditLayerIdx).toBeGreaterThan(execIdx);
+      expect(footprintIdx).toBeGreaterThan(auditLayerIdx);
+    });
+  });
+
+  describe("Audit-Layer Capabilities Footprint (reframed scoreboard)", () => {
+    test("renders AUDIT-LAYER CAPABILITIES heading (post-reframe)", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("AUDIT-LAYER CAPABILITIES");
+      expect(html).toContain("STORVEX vs INCUMBENT DATA PLATFORMS");
+      expect(html).toContain("CAPABILITIES THIS REPORT EXERCISES");
+    });
+
+    test("scoreboard label uses INCUMBENT-UNIQUE (not RADIUS+-UNIQUE) — co-existence framing", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Soft reframe — scoreboard now reads "INCUMBENT-UNIQUE" instead of "RADIUS+-UNIQUE"
+      expect(html).toContain("INCUMBENT-UNIQUE");
     });
 
     test("capabilities table renders all 4 pillars (DEMOS · CC RENTS · PIPELINE · VERIFICATION)", () => {
@@ -502,31 +569,14 @@ describe("generateAnalyzerReport", () => {
       expect(html).toMatch(/>VERIFICATION</);
     });
 
-    test("footprint section appears between EXECUTIVE SUMMARY and verdict strip", () => {
+    test("capability tally footer cites unique/parity/incumbent counts in audit-layer framing", () => {
       const analysis = analyzeExistingAsset(baseInput);
       const psLens = computeBuyerLens(baseInput, PS_LENS);
       const html = generateAnalyzerReport({ analysis, psLens });
 
-      const execIdx = html.indexOf("EXECUTIVE SUMMARY");
-      const footprintIdx = html.indexOf("CRUSH RADIUS+ CAPABILITIES FOOTPRINT");
-      const verdictIdx = html.indexOf("YOC VERDICT");
-
-      expect(execIdx).toBeGreaterThan(0);
-      expect(footprintIdx).toBeGreaterThan(execIdx);
-      // Verdict strip / YOC verdict comes AFTER the footprint
-      if (verdictIdx > 0) {
-        expect(verdictIdx).toBeGreaterThan(footprintIdx);
-      }
-    });
-
-    test("scoreboard tally — Storvex unique on multiple dimensions, 0 Radius+-unique", () => {
-      const analysis = analyzeExistingAsset(baseInput);
-      const psLens = computeBuyerLens(baseInput, PS_LENS);
-      const html = generateAnalyzerReport({ analysis, psLens });
-
-      // Scoreboard footer mentions "Storvex unique on N dimensions" and "Radius+ unique on 0"
-      expect(html).toMatch(/Storvex unique on <b>\d+<\/b>/);
-      expect(html).toContain("Radius+ unique on <b>0</b>");
+      // Audit-layer-reframe footer: "Capability tally (this report): N dimensions ..."
+      expect(html).toMatch(/Capability tally \(this report\)/);
+      expect(html).toMatch(/Breadth-of-coverage .* remains the incumbent data platforms' lane/);
     });
 
     test("capability table cites specific data infrastructure (refresh cadence + paths)", () => {
