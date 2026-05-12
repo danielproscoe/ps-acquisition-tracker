@@ -25,6 +25,10 @@ import {
   forecastStorageDemand,
   extractRingForDemandForecast,
 } from "./utils/storageDemandForecast.mjs";
+import {
+  computeForwardSupplyForecast,
+  describeForecast,
+} from "./utils/forwardSupplyForecast";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
@@ -262,6 +266,13 @@ function renderCrushRadiusPlusFootprint() {
       storvex: "Drag-drop a Radius+ pipeline screenshot · vision model extracts entries · Verification Oracle cross-references primary-source registry · verdict cards in 10s · immutable audit ledger",
       radius: "Cannot audit itself",
       advantage: "The inversion: Radius+ data becomes Storvex audit-log input",
+    },
+    {
+      pillar: "PIPELINE",
+      capability: "Multi-source forward supply forecast (24-month horizon)",
+      storvex: "Per-MSA forward CC SF forecast aggregating EDGAR pipeline + county-permit registry + historical-trajectory extrapolation · per-source attribution · confidence-weighted (VERIFIED 1.0 · CLAIMED 0.5 · STALE 0.3 · UNVERIFIED 0.0) · per-source breakdown surfaces which primary source contributes how much",
+      radius: "Current pipeline snapshot only · no forecast · no source attribution per entry · no confidence-weighting",
+      advantage: "Operators check forward supply BEFORE every greenfield decision; Storvex's forecast is the metric AND the audit trail",
     },
     {
       pillar: "VERIFICATION",
@@ -1495,6 +1506,212 @@ function renderEdgarPipelineDisclosures() {
 </section>`;
 }
 
+function renderForwardSupplyForecast({ snapshot }) {
+  // Try to derive a submarket to forecast against. Prefer MSA when known; fall
+  // back to city + state. Skip rendering when no submarket can be derived
+  // (rare — site records always have city/state).
+  const city = snapshot?.subject?.city || snapshot?.city || null;
+  const state = snapshot?.subject?.state || snapshot?.state || null;
+  const msa = snapshot?.subject?.msa || snapshot?.msa || resolveCityToMSA(city) || null;
+  if (!city && !msa) return "";
+
+  let forecast;
+  try {
+    forecast = computeForwardSupplyForecast({
+      city,
+      state,
+      msa,
+      horizonMonths: 24,
+      asOf: new Date(),
+      includeHistoricalProjection: true,
+    });
+  } catch (err) {
+    return ""; // Defensive — never break the report on a forecast computation error
+  }
+
+  const sm = forecast.submarket;
+  const smLabel = sm.msa || `${sm.city || "?"}, ${sm.state || "?"}`;
+  const t = forecast.totals;
+  const e = forecast.entriesByConfidence;
+  const totalK = (n) => Math.round((n || 0) / 1000).toLocaleString();
+
+  const tierColor = forecast.confidenceTier === "high" ? "#16A34A"
+    : forecast.confidenceTier === "medium" ? "#C9A84C"
+    : "#DC2626";
+
+  // Per-source bar widths for the visual breakdown (max value = scale)
+  const maxSrcCcSf = Math.max(
+    forecast.sources.edgar.confidenceWeightedCcSf || 0,
+    forecast.sources.permit.confidenceWeightedCcSf || 0,
+    forecast.sources.historical.projectedCcSf || 0,
+    1,
+  );
+  const widthPct = (v) => Math.min(100, Math.round((v / maxSrcCcSf) * 100));
+
+  // Top 5 EDGAR + PERMIT facilities by ccSf, regardless of source
+  const allEntries = [
+    ...forecast.sources.edgar.breakdown,
+    ...forecast.sources.permit.breakdown,
+  ].sort((a, b) => (b.ccSf || 0) - (a.ccSf || 0)).slice(0, 8);
+
+  return `
+<section class="page section">
+  <h2 class="section-h">FORWARD SUPPLY FORECAST — MULTI-SOURCE 24-MONTH HORIZON</h2>
+  <div class="sanity-card" style="border-color:${tierColor}40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:${tierColor};color:#fff">
+      ${forecast.primarySourceCount} PRIMARY-SOURCE ${forecast.primarySourceCount === 1 ? "REGISTRY" : "REGISTRIES"} · ${forecast.confidenceTier.toUpperCase()} CONFIDENCE · ${forecast.horizonMonths}-MONTH HORIZON
+    </div>
+    <div class="sanity-message">
+      <b>What this forecasts:</b> total climate-controlled square footage projected to enter the <b>${safe(smLabel)}</b> submarket within the next ${forecast.horizonMonths} months. Multi-source: EDGAR-disclosed REIT pipeline + county-permit registry + historical-trajectory extrapolation. Every datapoint cites its primary source; every entry carries a verification-confidence chip (VERIFIED / CLAIMED / STALE / UNVERIFIED) with weights ${DEFAULT_WEIGHTS_LABEL}.
+      <br><br>
+      <b>Why this beats Radius+ / TractIQ:</b> Aggregator platforms ship a current snapshot of disclosed pipeline only — Radius+'s "Pipeline" tab is a list, not a forecast, and has no source attribution per entry. Storvex computes a forward-looking forecast confidence-weighted by source verification status, exposing the audit trail so the reader can re-derive every number from the listed primary sources. This is the metric every storage operator checks before greenlighting a new build.
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Total Forecast — ${forecast.horizonMonths}-month horizon</h3>
+    <div style="display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 160px; background:#fff; border:1px solid #C9A84C40; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Confidence-Weighted</div>
+        <div style="font-size: 18pt; color: #1E2761; font-weight: 800;">${totalK(t.confidenceWeightedCcSf)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">K CC SF</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 2px;">From primary-source registries</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:#fff; border:1px solid #C9A84C40; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Historical Projection</div>
+        <div style="font-size: 18pt; color: #1E2761; font-weight: 800;">${totalK(t.projectedCcSf)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">K CC SF</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 2px;">Extrapolated from issuer trajectory</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:rgba(201,168,76,0.12); border:1px solid #C9A84C; border-radius: 6px; padding: 12px;">
+        <div style="font-size: 8.5pt; color: #1E2761; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Total Forecast</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">${totalK(t.totalForecastCcSf)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">K CC SF</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 2px;">Confidence tier: <b style="color:${tierColor}">${forecast.confidenceTier.toUpperCase()}</b></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Per-Source Attribution</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 18%;">Source</th>
+          <th class="th-num" style="width: 10%;">Entries</th>
+          <th class="th-num" style="width: 14%;">Raw CC SF</th>
+          <th class="th-num" style="width: 18%;">Confidence-Weighted</th>
+          <th class="th-name" style="width: 40%;">Audit Trail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name"><b>EDGAR · REIT 10-K/10-Q disclosures</b></td>
+          <td class="td-num">${forecast.sources.edgar.entryCount}</td>
+          <td class="td-num">${totalK(forecast.sources.edgar.ccSf)}K</td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${totalK(forecast.sources.edgar.confidenceWeightedCcSf)}K</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">SEC EDGAR public filings · every entry carries accession # · refresh-pipeline-disclosures.yml daily 06:30 UTC</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>PERMIT · county building-permit registry</b></td>
+          <td class="td-num">${forecast.sources.permit.entryCount}</td>
+          <td class="td-num">${totalK(forecast.sources.permit.ccSf)}K</td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${totalK(forecast.sources.permit.confidenceWeightedCcSf)}K</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">5-county pilot · verifiedSource: permit-&lt;county&gt;-&lt;permit-number&gt; · refresh-county-permits.yml daily 06:45 UTC</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>HISTORICAL · trajectory extrapolation</b></td>
+          <td class="td-num">${forecast.sources.historical.components.length}</td>
+          <td class="td-num">—</td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${totalK(forecast.sources.historical.projectedCcSf)}K</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">${safe(forecast.sources.historical.methodologyNote)} · confidence: ${safe(forecast.sources.historical.confidence)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Per-Confidence Breakdown · Entry Counts + CC SF Totals</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 18%;">Confidence Tier</th>
+          <th class="th-num" style="width: 14%;">Entry Count</th>
+          <th class="th-num" style="width: 16%;">CC SF Total</th>
+          <th class="th-num" style="width: 18%;">Weight Applied</th>
+          <th class="th-name" style="width: 34%;">Classification Rule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name" style="color:#16A34A;font-weight:700">VERIFIED</td>
+          <td class="td-num">${e.VERIFIED}</td>
+          <td class="td-num">${totalK(t.verifiedCcSf)}K</td>
+          <td class="td-num">1.00</td>
+          <td class="td-name" style="font-size: 8.5pt;">Primary-source citation (SEC accession # · county permit # · planning record)</td>
+        </tr>
+        <tr>
+          <td class="td-name" style="color:#C9A84C;font-weight:700">CLAIMED</td>
+          <td class="td-num">${e.CLAIMED}</td>
+          <td class="td-num">${totalK(t.claimedCcSf)}K</td>
+          <td class="td-num">0.50</td>
+          <td class="td-name" style="font-size: 8.5pt;">Aggregator-derived; recent but not primary-confirmed</td>
+        </tr>
+        <tr>
+          <td class="td-name" style="color:#EA580C;font-weight:700">STALE</td>
+          <td class="td-num">${e.STALE}</td>
+          <td class="td-num">${totalK(t.staleCcSf)}K</td>
+          <td class="td-num">0.30</td>
+          <td class="td-name" style="font-size: 8.5pt;">Primary-source citation but verifiedDate &gt; 90 days old</td>
+        </tr>
+        <tr>
+          <td class="td-name" style="color:#64748B;font-weight:700">UNVERIFIED</td>
+          <td class="td-num">${e.UNVERIFIED}</td>
+          <td class="td-num">${totalK(t.unverifiedCcSf)}K</td>
+          <td class="td-num">0.00</td>
+          <td class="td-name" style="font-size: 8.5pt;">No source citation; surfaced for awareness but excluded from forecast</td>
+        </tr>
+      </tbody>
+    </table>
+
+    ${allEntries.length > 0 ? `
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Top Pipeline Entries — Ranked by Forecast Contribution</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 8%;">Source</th>
+          <th class="th-name" style="width: 18%;">Operator</th>
+          <th class="th-name" style="width: 22%;">Address / City</th>
+          <th class="th-num" style="width: 10%;">CC SF</th>
+          <th class="th-name" style="width: 12%;">Expected Delivery</th>
+          <th class="th-name" style="width: 12%;">Confidence</th>
+          <th class="th-name" style="width: 18%;">Citation</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${allEntries.map((entry) => {
+          const f = entry.facility || {};
+          const expLabel = entry.expectedDeliveryDate
+            ? entry.expectedDeliveryDate.toISOString().slice(0, 7)
+            : (f.expectedDelivery || "—");
+          const confColor = entry.confidence === "VERIFIED" ? "#16A34A"
+            : entry.confidence === "CLAIMED" ? "#C9A84C"
+            : entry.confidence === "STALE" ? "#EA580C"
+            : "#64748B";
+          return `<tr>
+            <td class="td-name" style="font-size:9pt;font-weight:700;color:#1E2761">${entry.source}</td>
+            <td class="td-name">${safe(f.operatorName || f.operator || "—")}</td>
+            <td class="td-name" style="font-size:9pt">${safe(f.address || f.city || "—")}${f.city && f.state ? `<br><span style="font-size:8.5pt;color:#64748B">${safe(f.city)}, ${safe(f.state)}</span>` : ""}</td>
+            <td class="td-num">${(entry.ccSf / 1000).toFixed(1)}K</td>
+            <td class="td-name" style="font-size:9pt">${safe(expLabel)}${entry.derivedFromIssueDate ? '<br><span style="font-size:8pt;color:#64748B">derived from permit issue date</span>' : ""}</td>
+            <td class="td-name" style="color:${confColor};font-weight:700;font-size:9pt">${entry.confidence}</td>
+            <td class="td-name" style="font-size:8pt;color:#475569;font-family:'Space Mono',monospace">${safe(entry.citation || "—")}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+    ` : ""}
+
+    <div class="sanity-message" style="margin-top: 14px;">
+      <b>${safe(describeForecast(forecast))}</b>
+    </div>
+  </div>
+</section>`;
+}
+
+const DEFAULT_WEIGHTS_LABEL = "(VERIFIED 1.0 · CLAIMED 0.5 · STALE 0.3 · UNVERIFIED 0.0)";
+
 function renderComps({ analysis }) {
   const c = analysis?.comps;
   if (!c) return "";
@@ -2293,6 +2510,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderAuditedDemandForecast({ snapshot, analysis, enrichment })}
   ${renderEdgarPipelineDisclosures()}
   ${renderHistoricalPipelineTrajectory()}
+  ${renderForwardSupplyForecast({ snapshot })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}
