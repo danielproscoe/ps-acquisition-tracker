@@ -374,6 +374,62 @@ describe("generateAnalyzerReport", () => {
       expect(demandIdx).toBeGreaterThan(crossIdx);
       expect(pipelineIdx).toBeGreaterThan(demandIdx);
     });
+  });
+
+  describe("Cross-REIT Rent Trajectory (Crush Radius+ CC RENT wedge)", () => {
+    test("renders CROSS-REIT RENT TRAJECTORY section when subject MSA has trajectory data", () => {
+      const houstonInput = { ...baseInput, name: "Houston Trajectory Test", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Houston is in PSA's 24-MSA scrape coverage. Should render.
+      expect(html).toContain("CROSS-REIT RENT TRAJECTORY");
+      expect(html).toContain("CRUSH RADIUS+ CC RENT");
+      expect(html).toContain("DAILY-REFRESH SCRAPE");
+    });
+
+    test("trajectory table shows operator + CC median + Δ + DU median columns", () => {
+      const houstonInput = { ...baseInput, name: "Houston Trajectory Cols", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toMatch(/CC Median . First/);
+      expect(html).toMatch(/CC Median . Latest/);
+      expect(html).toMatch(/DU Median . Latest/);
+      expect(html).toMatch(/Snapshots/);
+    });
+
+    test("section omits when subject city doesn't map to a covered MSA", () => {
+      const obscureInput = { ...baseInput, name: "Obscure Town", city: "Whitebird", state: "ID" };
+      const analysis = analyzeExistingAsset(obscureInput);
+      const psLens = computeBuyerLens(obscureInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Whitebird ID is not in PSA/CUBE scrape coverage
+      expect(html).not.toContain("CROSS-REIT RENT TRAJECTORY");
+    });
+
+    test("trajectory section appears between CROSS-REIT HISTORICAL and AUDITED STORAGE DEMAND FORECAST", () => {
+      const houstonInput = { ...baseInput, name: "Order Test 2", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const enrichment = {
+        ring3mi: { pop: 60000, renterPct: 48, growthRate: 1.2, medianHHIncome: 72000 },
+        tapestryLifeMode3mi: "Midtown Singles",
+        tapestryUrbanization3mi: "Metro Cities",
+      };
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment });
+
+      const histIdx = html.indexOf("CROSS-REIT HISTORICAL SAME-STORE");
+      const trajIdx = html.indexOf("CROSS-REIT RENT TRAJECTORY");
+      const demandIdx = html.indexOf("AUDITED STORAGE DEMAND FORECAST");
+
+      expect(histIdx).toBeGreaterThan(0);
+      expect(trajIdx).toBeGreaterThan(histIdx);
+      expect(demandIdx).toBeGreaterThan(trajIdx);
+    });
 
     test("pipeline confidence chip + counts strip render when enrichment.pipelineNearby is populated", () => {
       // Crush Radius Plus: every pipeline facility carries a verification status.

@@ -9,6 +9,9 @@ import {
   getAllEdgarPipelineFacilities,
   getEdgarPipelineMetadata,
   getEdgarPipelineTotalDollars,
+  getRentTrajectoryMetadata,
+  summarizeRentTrajectory,
+  listOperatorsForMSA,
 } from "./data/edgarCompIndex";
 import {
   computePipelineConfidence,
@@ -475,6 +478,86 @@ function renderCrossREITHistoricalSameStore() {
     </table>
     <div style="margin-top:10px;font-size:9pt;color:#475569;">
       <b>Source:</b> SEC EDGAR 10-K MD&amp;A · Same-Store Performance disclosures · ${safe(latest.contributingIssuers.join(" + "))} · ingested via Storvex/scripts/edgar/backfill-historical-same-store.mjs.
+    </div>
+  </div>
+</section>`;
+}
+
+/**
+ * Cross-REIT Rent Trajectory — Crush Radius+ CC-RENT wedge.
+ *
+ * Renders the daily-refresh rent time-series for the subject MSA across
+ * every operator with coverage. Radius+ presumably keeps internal rent
+ * history but doesn't expose it with primary-source URL citations per
+ * snapshot. Storvex's daily scraper + accumulator pipeline turns this
+ * into an auditable trajectory: every datapoint cites the daily snapshot
+ * file + the scrape URL, every operator series is independently sourced.
+ */
+function renderRentTrajectory({ snapshot, analysis }) {
+  const meta = getRentTrajectoryMetadata();
+  if (!meta || !meta.totalSnapshots) return "";
+
+  // Resolve the subject city → MSA so the trajectory matches the report's
+  // subject. Fallback to the snapshot's city/MSA fields when available.
+  const city = snapshot?.city || analysis?.subject?.city || null;
+  const explicitMSA = snapshot?.msa || analysis?.msa || analysis?.subject?.msa || null;
+  const resolved = city ? resolveCityToMSA(city) : null;
+  const msa = explicitMSA || (resolved && resolved.msa) || city;
+  if (!msa) return "";
+
+  const operators = listOperatorsForMSA(msa);
+  if (operators.length === 0) return "";
+
+  const fmtRate = (v) => (v == null || !isFinite(v) ? "—" : `$${Number(v).toFixed(2)}`);
+  const fmtPct = (v) => (v == null || !isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`);
+
+  const operatorRows = operators
+    .map((op) => summarizeRentTrajectory(msa, op))
+    .filter((s) => s && s.snapshots > 0);
+
+  if (operatorRows.length === 0) return "";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">CROSS-REIT RENT TRAJECTORY — DAILY-REFRESH TIME-SERIES (CRUSH RADIUS+ CC RENT)</h2>
+  <div class="sanity-card" style="border-color:#C9A84C40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:#C9A84C;color:#1E2761">DAILY-REFRESH SCRAPE · ${safe(meta.daysCovered)} DAY(S) · ${safe(meta.operators.join(" + "))} · ${safe(meta.msasCovered)} MSAS COVERED</div>
+    <div class="sanity-message">
+      Per-MSA-per-operator median CC + DU rent rolled up daily from each storage REIT's facility-detail-page scrape. Radius+ keeps internal rent history but doesn't expose it with primary-source URL citations per snapshot; Storvex's GitHub Actions cron (refresh-rents.yml at 06:00 UTC) accumulates the daily scrapes into a longitudinal series — every datapoint cites the dated daily-snapshot file + the operator's public storage-facility URL. <b>Subject MSA: ${safe(msa)}</b> · trajectory window ${safe(meta.earliestDate)} → ${safe(meta.latestDate)}.
+    </div>
+
+    <table class="data-table" style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th class="th-name">Operator</th>
+          <th class="th-num">CC Median · First</th>
+          <th class="th-num">CC Median · Latest</th>
+          <th class="th-num">Δ ($/SF/mo)</th>
+          <th class="th-num">Δ %</th>
+          <th class="th-num">DU Median · Latest</th>
+          <th class="th-num">Facilities (latest)</th>
+          <th class="th-num">Unit listings (latest)</th>
+          <th class="th-num">Snapshots</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${operatorRows.map((s) => `<tr>
+          <td class="td-name"><b>${safe(s.operator)}</b><br><span style="font-size:8pt;color:#64748B">${safe(s.earliestDate)} → ${safe(s.latestDate)}</span></td>
+          <td class="td-num">${fmtRate(s.ccMedianFirst)}</td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${fmtRate(s.ccMedianLatest)}</td>
+          <td class="td-num" style="color:${s.ccDelta == null ? "#475569" : s.ccDelta > 0 ? "#16A34A" : s.ccDelta < 0 ? "#DC2626" : "#475569"}">${s.ccDelta == null ? "—" : (s.ccDelta >= 0 ? "+" : "") + s.ccDelta.toFixed(3)}</td>
+          <td class="td-num" style="color:${s.ccPctChange == null ? "#475569" : s.ccPctChange > 0 ? "#16A34A" : s.ccPctChange < 0 ? "#DC2626" : "#475569"}">${fmtPct(s.ccPctChange)}</td>
+          <td class="td-num">${fmtRate(s.duMedianLatest)}</td>
+          <td class="td-num">${s.facilitiesLatest ?? "—"}</td>
+          <td class="td-num">${s.unitListingsLatest ? s.unitListingsLatest.toLocaleString() : "—"}</td>
+          <td class="td-num" style="color:#64748B">${s.snapshots}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+
+    <div style="margin-top:14px;font-size:9pt;color:#475569;">
+      <b>Source:</b> Daily scrape of operator facility-detail pages · accumulator at <code>scripts/edgar/build-rent-trajectory.mjs</code> · refreshed daily via GitHub Actions <code>refresh-rents.yml</code> + <code>build-rent-trajectory</code> chain.
+      <br><b>Why this matters vs. Radius+:</b> A 30/60/90-day trajectory of CC + DU rents per operator per MSA — with every snapshot cite-able to a specific scrape file + operator URL — is the moat Radius+ keeps internal. Storvex makes it auditable. Series length grows by 1 datapoint per operator per MSA per day from the daily cron.
     </div>
   </div>
 </section>`;
@@ -1555,6 +1638,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderRentSanity({ rentSanity })}
   ${renderHistoricalMSARents({ snapshot })}
   ${renderCrossREITHistoricalSameStore()}
+  ${renderRentTrajectory({ snapshot, analysis })}
   ${renderAuditedDemandForecast({ snapshot, analysis, enrichment })}
   ${renderEdgarPipelineDisclosures()}
   ${renderComps({ analysis })}

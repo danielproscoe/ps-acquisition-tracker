@@ -57,6 +57,18 @@ try {
   // Optional asset; run scripts/edgar/extract-pipeline-disclosures.mjs to generate.
 }
 
+// Cross-REIT rent trajectory — daily-refresh time-series of per-MSA median
+// CC + DU rates across PSA + CUBE (+ EXR / NSA when their scrapers wire in).
+// Built by scripts/edgar/build-rent-trajectory.mjs walking the dated
+// daily snapshot files. Loaded optionally — absent on fresh checkouts.
+let rentTrajectory = null;
+try {
+  // eslint-disable-next-line global-require
+  rentTrajectory = require("./cross-reit-rent-trajectory.json");
+} catch {
+  // Optional asset; run scripts/edgar/build-rent-trajectory.mjs to generate.
+}
+
 // Scraped per-facility rents — primary-source unit pricing pulled from each
 // REIT's facility detail pages. Optional — availability depends on whether
 // the scraper has run for the subject MSA.
@@ -1611,6 +1623,86 @@ export function getEdgarPipelineMetadata() {
   };
 }
 
+// ─── Crush Radius+ CC RENT wedge — rent trajectory accessors ─────────────────
+
+/**
+ * Top-level metadata for the cross-REIT rent trajectory file.
+ */
+export function getRentTrajectoryMetadata() {
+  if (!rentTrajectory) return null;
+  return {
+    schema: rentTrajectory.schema,
+    generatedAt: rentTrajectory.generatedAt,
+    daysCovered: rentTrajectory.daysCovered,
+    earliestDate: rentTrajectory.earliestDate,
+    latestDate: rentTrajectory.latestDate,
+    operators: rentTrajectory.operators,
+    msasCovered: rentTrajectory.msasCovered,
+    totalSnapshots: rentTrajectory.totalSnapshots,
+  };
+}
+
+/**
+ * Per-MSA-per-operator trajectory series. Returns an array of snapshots
+ * ordered by date ascending — each snapshot has date, ccMedianPerSF_mo,
+ * duMedianPerSF_mo, facility count, unit listings count. Returns empty
+ * array when no series available.
+ */
+export function getRentTrajectorySeries(msa, operator) {
+  if (!rentTrajectory || !rentTrajectory.snapshots) return [];
+  const m = String(msa || "").trim().toLowerCase();
+  const op = String(operator || "").trim().toUpperCase();
+  return rentTrajectory.snapshots
+    .filter((s) => s.operator === op && String(s.msa || "").trim().toLowerCase() === m)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+/**
+ * All operators that have at least one snapshot in the named MSA.
+ */
+export function listOperatorsForMSA(msa) {
+  if (!rentTrajectory || !rentTrajectory.snapshots) return [];
+  const m = String(msa || "").trim().toLowerCase();
+  const set = new Set();
+  for (const s of rentTrajectory.snapshots) {
+    if (String(s.msa || "").trim().toLowerCase() === m) set.add(s.operator);
+  }
+  return Array.from(set).sort();
+}
+
+/**
+ * Compute trajectory summary stats for one operator/MSA pair — first / last
+ * rent + N-day delta + % change.
+ */
+export function summarizeRentTrajectory(msa, operator) {
+  const series = getRentTrajectorySeries(msa, operator);
+  if (series.length === 0) return null;
+  const first = series[0];
+  const last = series[series.length - 1];
+  const ccDelta = first.ccMedianPerSF_mo != null && last.ccMedianPerSF_mo != null
+    ? last.ccMedianPerSF_mo - first.ccMedianPerSF_mo
+    : null;
+  const ccPctChange = first.ccMedianPerSF_mo && ccDelta != null
+    ? (ccDelta / first.ccMedianPerSF_mo) * 100
+    : null;
+  return {
+    operator: last.operator,
+    msa: last.msa,
+    snapshots: series.length,
+    earliestDate: first.date,
+    latestDate: last.date,
+    ccMedianFirst: first.ccMedianPerSF_mo,
+    ccMedianLatest: last.ccMedianPerSF_mo,
+    ccDelta,
+    ccPctChange,
+    duMedianFirst: first.duMedianPerSF_mo,
+    duMedianLatest: last.duMedianPerSF_mo,
+    facilitiesLatest: last.facilitiesScraped,
+    unitListingsLatest: last.totalUnitListings,
+    series,
+  };
+}
+
 /**
  * Convenience: total dollar value of REIT-disclosed forward pipeline activity.
  * Sums PSA's "remaining-spend" aggregate, EXR's balance-sheet under-development
@@ -1671,6 +1763,11 @@ export default {
   getAllEdgarPipelineDisclosures,
   getEdgarPipelineMetadata,
   getEdgarPipelineTotalDollars,
+  // Crush Radius+ CC RENT · trajectory accessors
+  getRentTrajectoryMetadata,
+  getRentTrajectorySeries,
+  listOperatorsForMSA,
+  summarizeRentTrajectory,
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
   getStateRentBand,

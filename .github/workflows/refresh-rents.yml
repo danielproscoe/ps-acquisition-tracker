@@ -72,6 +72,9 @@ jobs:
       - name: Rebuild CUBE aggregator + cross-validation index
         run: node scripts/edgar/build-cube-rent-index.mjs
 
+      - name: Accumulate daily snapshot into rent trajectory time-series (Crush Radius+ CC RENT wedge)
+        run: node scripts/edgar/build-rent-trajectory.mjs
+
       - name: Commit refreshed data
         run: |
           git config user.name "storvex-bot"
