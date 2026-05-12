@@ -260,6 +260,38 @@ function matchScore(extracted, registryEntry) {
  * county-pilot architecture is especially valuable in suburban / exurban
  * submarkets where REIT 10-K disclosures are sparse but local permits are
  * dense.
+ *
+ * SYSTEM CLAIM (patent) — Method for classifying third-party-aggregator
+ * pipeline-data entries in a multi-source primary-registry environment:
+ *   (a) maintaining a plurality of independent primary-source registries
+ *       indexing self-storage / commercial-real-estate facilities, each
+ *       registry having distinct upstream provenance (SEC-EDGAR-derived
+ *       REIT disclosure; county-building-permit-derived municipal
+ *       disclosure; planning-commission-derived municipal disclosure);
+ *   (b) for each submarket (city + state) queried, counting indexed
+ *       facilities in each registry independently;
+ *   (c) computing a combined-registry coverage density as the sum of
+ *       per-registry counts, with optional per-registry weights;
+ *   (d) classifying an unmatched extracted entry as NOT_FOUND when
+ *       combined coverage density exceeds a configurable threshold
+ *       (default ≥5 facilities = "high"; ≥1 = "medium"), or as
+ *       INCONCLUSIVE when combined coverage density is below threshold;
+ *   (e) exposing a perRegistry breakdown { edgar, permit, submarket } on
+ *       every verdict so user-interface consumers and downstream auditors
+ *       can attribute coverage density to specific primary sources;
+ *   (f) preserving classification stability across registry-coverage
+ *       asymmetries — a submarket with high PERMIT density but zero
+ *       EDGAR density classifies identically to a submarket with the
+ *       converse coverage, so long as combined density meets threshold.
+ *
+ * This claim is INDEPENDENT of and CUMULATIVE WITH the multi-source
+ * match-scoring claim (lines 46-73) — together they constitute a
+ * primary-source-symmetric verification system that classifies BOTH
+ * matched and unmatched aggregator entries using all available
+ * primary-source registries simultaneously.
+ *
+ * Filed under DJR Real Estate LLC. Drafted 5/12/26 PM as part of the
+ * supplemental provisional addendum to USPTO #64/062,607.
  */
 function submarketCoverageSignal(extracted) {
   // Check submarketPipelineSupply.json registry first (it tracks per-submarket

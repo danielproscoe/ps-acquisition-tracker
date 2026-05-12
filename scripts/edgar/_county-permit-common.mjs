@@ -1,6 +1,56 @@
 // _county-permit-common.mjs — shared scaffold for per-county building-permit
 // scraper adapters that feed the Storvex Verification Oracle's PERMIT registry.
 //
+// ─── SYSTEM CLAIM (patent) ────────────────────────────────────────────────
+//
+// Method for ingesting county-level building-permit records into a
+// commercial-real-estate verification registry using a portal-agnostic
+// adapter architecture:
+//   (a) maintaining a per-county scraper adapter for each pilot jurisdiction,
+//       each adapter normalizing portal-specific data shapes to a canonical
+//       permit record schema (operator-normalized · verifiedSource-stamped ·
+//       jurisdiction-cited · citationRule-validated);
+//   (b) supporting a portal-coverage spectrum within a single ingestion
+//       pipeline: (i) automated vanilla-HTTPS scrape (e.g., ASP.NET Telerik
+//       RadGrid · Denton County, TX); (ii) manual CSV-export ingest path
+//       for reCAPTCHA-gated or CSRF-token-protected portals (e.g., iWorQ
+//       · Warren County, OH; GovBuilt + Orchard Core · Kenton County, KY);
+//       (iii) onFileSource paper-records-request adapter for jurisdictions
+//       with no online permit portal (e.g., Boone & Hancock Counties, IN);
+//   (c) stamping each permit record with verifiedSource of the canonical
+//       form "permit-<county-slug>-<permit-number>" so a downstream
+//       Pipeline Confidence engine auto-classifies the record as VERIFIED
+//       without per-record manual review;
+//   (d) enforcing a citationRule that REJECTS records missing any of
+//       (permitNumber, permitIssueDate, jurisdiction, city, state) AND
+//       requiring at least one of (permitUrl, onFileSource) — gating the
+//       audit-trail integrity that distinguishes the registry from
+//       aggregator-claimed data;
+//   (e) idempotently merging new permits into a single canonical
+//       facilities[] array keyed by stable record ID, preserving prior
+//       fields under partial-update conditions;
+//   (f) operator normalization through an alias table (PSA family · EXR
+//       family · CUBE · SMA · AMERCO · 6+ independents) so REIT M&A
+//       consolidation (e.g., PSA acquisition of iStorage + NSA) does not
+//       fragment portfolio coverage; and
+//   (g) automated daily refresh via a GitHub Actions cron that re-runs
+//       the orchestrator + commits the refreshed registry to git so a
+//       statically-imported React build picks it up on the next deploy
+//       cycle — a "data-is-build-artifact" architecture enabling
+//       audit-trail provenance preservation that serverless cron
+//       functions cannot achieve.
+//
+// Together with the Pipeline Verification Oracle's multi-source
+// match-scoring claim and the multi-source coverage-classification claim
+// (`pipelineVerificationOracle.js`), this scaffold implements the second
+// primary-source registry lineage of a multi-source verification system
+// that TractIQ at $199/mo cannot replicate without independently building
+// the same per-county permit ingestion across 5+ jurisdictions.
+//
+// Filed under DJR Real Estate LLC. Drafted 5/12/26 PM as part of the
+// supplemental provisional addendum to USPTO #64/062,607.
+// ─────────────────────────────────────────────────────────────────────────
+//
 // CRUSH-RADIUS-PLUS AUDIT-LAYER PIVOT · Sprint follow-on
 // -------------------------------------------------------
 // Architecture context (commit `bb64881` · 5/12/26 EOD):
