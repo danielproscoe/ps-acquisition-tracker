@@ -7,6 +7,8 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-le
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { computeProjectedCCSPC } from './utils/pipelineSupplyLookup';
+import { lookupPipelineSupply } from './utils/pipelineSupplyLookup';
+import { aggregatePipelineConfidence } from './utils/pipelineConfidence';
 import { lookupAuditedCCSPC, calibrationDelta } from './utils/auditedSPCLookup';
 import { RadiusPlusComparisonCard } from './components/AssetAnalyzerView';
 
@@ -3221,6 +3223,36 @@ function StorvexVerdictHero({ result }) {
                     <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', fontFamily: "'Space Mono', monospace" }}>{ccConfident.length} CC · {mixed.length} mixed{psFamilyHits.length > 0 ? ` · ${psFamilyHits.length} PS` : ''}</span>
                   </div>
                 </div>
+                {/* Pipeline Confidence summary — Storvex verification layer
+                    classifies each pipeline contributor as VERIFIED / CLAIMED
+                    / STALE / UNVERIFIED based on its source citation. Renders
+                    only when the submarket has at least one pipeline entry. */}
+                {(() => {
+                  if (proj.methodology !== 'pipeline-aware') return null;
+                  const supply = lookupPipelineSupply(geo?.city, geo?.state);
+                  if (!supply.matched || !Array.isArray(supply.facilities) || supply.facilities.length === 0) return null;
+                  const agg = aggregatePipelineConfidence(supply.facilities, { fileGeneratedAt: supply.asOf });
+                  const totalConfident = agg.counts.VERIFIED + agg.counts.CLAIMED;
+                  const total = supply.facilities.length;
+                  const pctPrimary = total > 0 ? Math.round((totalConfident / total) * 100) : 0;
+                  return (
+                    <div style={{ background: 'rgba(30,39,97,0.45)', borderRadius: 6, padding: '6px 10px', marginTop: 6, marginBottom: 6, border: '1px solid rgba(201,168,76,0.30)' }}>
+                      <div style={{ fontSize: 8, fontWeight: 800, color: '#C9A84C', letterSpacing: '0.10em', marginBottom: 4 }}>PIPELINE CONFIDENCE · STORVEX VERIFICATION</div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)' }}>
+                        <span style={{ color: '#16A34A', fontWeight: 700 }}>{agg.counts.VERIFIED} VERIFIED</span>
+                        <span style={{ color: 'rgba(255,255,255,0.40)' }}> · </span>
+                        <span style={{ color: '#D97706', fontWeight: 700 }}>{agg.counts.CLAIMED} CLAIMED</span>
+                        <span style={{ color: 'rgba(255,255,255,0.40)' }}> · </span>
+                        <span style={{ color: '#EA580C', fontWeight: 700 }}>{agg.counts.STALE} STALE</span>
+                        <span style={{ color: 'rgba(255,255,255,0.40)' }}> · </span>
+                        <span style={{ color: '#94A3B8', fontWeight: 700 }}>{agg.counts.UNVERIFIED} UNVERIFIED</span>
+                        <span style={{ color: 'rgba(255,255,255,0.50)', marginLeft: 6 }}>
+                          · {pctPrimary}% primary-source
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', letterSpacing: '0.04em' }}>Source: Places + SpareFoot calibration · 2030 {projMethod}</div>
               </div>
             );
