@@ -18,6 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import QuickLookupPanel from '../QuickLookupPanel';
 import AssetAnalyzerView from './AssetAnalyzerView';
+import PipelineScreenshotIntakePanel from './PipelineScreenshotIntakePanel';
 
 const NAVY = '#1E2761';
 const GOLD = '#C9A84C';
@@ -113,6 +114,27 @@ export default function TheReadView({ autoEnrichESRI, fbSet, fbPush, notify, nav
           >
             📄 Drop OM (Land or Storage)
           </button>
+          <button
+            onClick={() => setMode('verify')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              fontFamily: "'Inter', system-ui, sans-serif",
+              transition: 'all 0.2s',
+              background: mode === 'verify'
+                ? `linear-gradient(135deg, ${GOLD}, #B89540)`
+                : 'transparent',
+              color: mode === 'verify' ? NAVY : 'rgba(255,255,255,0.7)',
+              boxShadow: mode === 'verify' ? '0 4px 16px rgba(201,168,76,0.35)' : 'none',
+            }}
+          >
+            🔍 Verify Screenshot
+          </button>
         </div>
       </div>
 
@@ -134,6 +156,7 @@ export default function TheReadView({ autoEnrichESRI, fbSet, fbPush, notify, nav
           notify={notify}
         />
       )}
+      {mode === 'verify' && <PipelineScreenshotIntakePanel />}
     </div>
   );
 }
