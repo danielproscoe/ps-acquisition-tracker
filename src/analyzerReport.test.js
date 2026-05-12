@@ -479,6 +479,66 @@ describe("generateAnalyzerReport", () => {
       expect(histIdx).toBeGreaterThan(pipelineIdx);
       expect(compsIdx).toBeGreaterThan(histIdx);
     });
+  });
+
+  describe("Crush Radius+ Capabilities Footprint synthesis section", () => {
+    test("renders CRUSH RADIUS+ CAPABILITIES FOOTPRINT at top of every report", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("CRUSH RADIUS+ CAPABILITIES FOOTPRINT");
+      expect(html).toContain("DATA DEPTH BEHIND THIS REPORT");
+    });
+
+    test("capabilities table renders all 4 pillars (DEMOS · CC RENTS · PIPELINE · VERIFICATION)", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toMatch(/>DEMOS</);
+      expect(html).toMatch(/>CC RENTS</);
+      expect(html).toMatch(/>PIPELINE</);
+      expect(html).toMatch(/>VERIFICATION</);
+    });
+
+    test("footprint section appears between EXECUTIVE SUMMARY and verdict strip", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      const execIdx = html.indexOf("EXECUTIVE SUMMARY");
+      const footprintIdx = html.indexOf("CRUSH RADIUS+ CAPABILITIES FOOTPRINT");
+      const verdictIdx = html.indexOf("YOC VERDICT");
+
+      expect(execIdx).toBeGreaterThan(0);
+      expect(footprintIdx).toBeGreaterThan(execIdx);
+      // Verdict strip / YOC verdict comes AFTER the footprint
+      if (verdictIdx > 0) {
+        expect(verdictIdx).toBeGreaterThan(footprintIdx);
+      }
+    });
+
+    test("scoreboard tally — Storvex unique on multiple dimensions, 0 Radius+-unique", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Scoreboard footer mentions "Storvex unique on N dimensions" and "Radius+ unique on 0"
+      expect(html).toMatch(/Storvex unique on <b>\d+<\/b>/);
+      expect(html).toContain("Radius+ unique on <b>0</b>");
+    });
+
+    test("capability table cites specific data infrastructure (refresh cadence + paths)", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Citation strings — refresh-rents.yml cron, backfill scripts, EDGAR prefixes
+      expect(html).toMatch(/refresh-rents\.yml/);
+      expect(html).toMatch(/backfill-historical/);
+      expect(html).toMatch(/Tapestry/);
+    });
 
     test("pipeline confidence chip + counts strip render when enrichment.pipelineNearby is populated", () => {
       // Crush Radius Plus: every pipeline facility carries a verification status.
