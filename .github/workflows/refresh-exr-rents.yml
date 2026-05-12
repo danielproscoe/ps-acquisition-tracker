@@ -1,0 +1,148 @@
+# Weekly refresh of Extra Space Storage (EXR) per-facility unit rents.
+#
+# EXR is the #2 storage REIT after PSA — without daily rent coverage of EXR
+# we cannot answer the most-asked DW question: "what are EXR rates in this
+# submarket?" Adding EXR alone roughly DOUBLES Storvex's daily-rent
+# coverage from PSA+CUBE (~1,800 facilities) toward parity with Radius+
+# (20,000 facilities daily-priced).
+#
+# Why a SEPARATE workflow from refresh-rents.yml:
+#   - EXR's facility detail pages sit behind PerimeterX bot protection
+#     (px-captcha + WAF). PSA + CUBE allow 1-req/sec vanilla HTTPS; EXR
+#     requires a real browser fingerprint via Puppeteer-core + residential
+#     proxy rotation.
+#   - Per-facility crawl rate: ~5-7 sec (browser nav + JS settle + extract).
+#     Full 2,018-facility crawl is ~3 hours — too long for the daily
+#     refresh-rents.yml window (60 min). Weekly cadence with state
+#     rotation lets each EXR state refresh every 3-4 months.
+#   - Residential proxy infrastructure costs $50-100/mo (Bright Data /
+#     Smartproxy / Oxylabs). Without proxy, EXR's PerimeterX blocks
+#     datacenter IPs after ~3-5 facilities. Make the workflow proxy-aware.
+#
+# Activation steps (to flip from manual-dispatch to scheduled):
+#   1. Provision a residential proxy (Bright Data ~$50/mo for 1-2 GB).
+#   2. Add four GitHub Secrets to ps-acquisition-tracker:
+#        EXR_PROXY_HOST       (e.g. brd.superproxy.io)
+#        EXR_PROXY_PORT       (e.g. 22225)
+#        EXR_PROXY_USERNAME   (e.g. brd-customer-{id}-zone-residential)
+#        EXR_PROXY_PASSWORD   ({your_password})
+#   3. Uncomment the `schedule:` block below so the cron fires Sundays
+#      at 06:30 UTC (after the daily PSA+CUBE refresh at 06:00 UTC).
+#   4. Set GitHub Actions matrix `state` strategy to rotate through the
+#      8 highest-priority EXR states (CA, TX, FL, NY, NJ, IL, GA, AZ).
+#   5. Verify the rent-trajectory accumulator picks up the new EXR
+#      snapshots (build-rent-trajectory.mjs already recognizes the
+#      exr-facility-rents-YYYY-MM-DD.json filename pattern via
+#      OPERATOR_FILE_PATTERNS — no change needed).
+#
+# Current behavior (no proxy configured):
+#   - workflow_dispatch ONLY (no schedule cron) — runs only when manually
+#     triggered from the Actions tab.
+#   - If EXR_PROXY_HOST secret is missing, the smoke-test run is allowed
+#     to proceed for code-path validation but will mostly produce 403s
+#     from EXR's PerimeterX. That's a real signal — the workflow logs
+#     the 403 rate as a baseline for "without proxy, this is what we
+#     get." When the proxy is provisioned, the same workflow scales up.
+#   - --limit=10 keeps the smoke-test cost predictable (<5 min on CI).
+
+name: Refresh EXR Facility Rents (Weekly · Proxy-Gated)
+
+on:
+  # schedule:
+  #   # Uncomment after provisioning EXR_PROXY_* secrets (see header above).
+  #   # Sundays at 06:30 UTC — runs after the daily refresh-rents.yml cron.
+  #   - cron: "30 6 * * 0"
+  workflow_dispatch:
+    inputs:
+      state:
+        description: 'State filter (e.g. tx, ca, fl) — leave blank for default smoke test'
+        required: false
+        default: ''
+      limit:
+        description: 'Facility limit for this run (10 = smoke, 200 = full state batch)'
+        required: false
+        default: '10'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-exr:
+    runs-on: ubuntu-latest
+    # 60 min default × 1 min/facility worst case → 50 facility safe ceiling
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install puppeteer + system chrome bundle
+        # The existing scraper expects puppeteer-core from the master folder's
+        # _tools/pdf-gen toolchain (Windows-local). On Ubuntu CI we use the
+        # in-repo `puppeteer` package which bundles its own Chromium.
+        run: |
+          npm install --no-save puppeteer@^24
+          # Confirm chromium fetched
+          node -e "console.log('Puppeteer bundled chrome:', require('puppeteer').executablePath())"
+
+      - name: Diagnose proxy configuration
+        run: |
+          if [ -z "${{ secrets.EXR_PROXY_HOST }}" ]; then
+            echo "⚠️  EXR_PROXY_HOST not set — running in SMOKE-TEST mode."
+            echo "    Expected behavior: PerimeterX will 403 most facility pages."
+            echo "    Provision residential proxy + add EXR_PROXY_* secrets to unlock full scrape."
+            echo "    See .github/workflows/refresh-exr-rents.yml header for setup."
+          else
+            echo "✅ EXR_PROXY_HOST configured — full scrape mode."
+          fi
+
+      - name: Run EXR facility rent scraper (smoke or full)
+        run: |
+          STATE_ARG=""
+          if [ -n "${{ github.event.inputs.state }}" ]; then
+            STATE_ARG="--states=${{ github.event.inputs.state }}"
+          fi
+          LIMIT_ARG="--limit=${{ github.event.inputs.limit || '10' }}"
+          echo "Running: node scripts/edgar/scrape-exr-facility-rents.mjs $STATE_ARG $LIMIT_ARG"
+          # The scraper supports CI mode via env vars; failures are tolerated
+          # for the smoke test since PerimeterX 403s are expected without proxy.
+          node scripts/edgar/scrape-exr-facility-rents.mjs $STATE_ARG $LIMIT_ARG || echo "Scraper exited non-zero — likely PerimeterX blocking without proxy. Continuing to commit partial results."
+        env:
+          NODE_ENV: production
+          # Pass through proxy config if it exists in secrets — scraper auto-detects
+          EXR_PROXY_HOST: ${{ secrets.EXR_PROXY_HOST }}
+          EXR_PROXY_PORT: ${{ secrets.EXR_PROXY_PORT }}
+          EXR_PROXY_USERNAME: ${{ secrets.EXR_PROXY_USERNAME }}
+          EXR_PROXY_PASSWORD: ${{ secrets.EXR_PROXY_PASSWORD }}
+          # CI flag — scraper code can use this to switch to in-repo puppeteer
+          # instead of requiring the master-folder toolchain.
+          CI: true
+
+      - name: Accumulate EXR snapshot into rent trajectory time-series
+        # build-rent-trajectory.mjs already lists EXR in OPERATOR_FILE_PATTERNS
+        # — picking up any exr-facility-rents-YYYY-MM-DD.json file automatically.
+        run: node scripts/edgar/build-rent-trajectory.mjs || echo "Trajectory rebuild skipped (no new EXR data)"
+
+      - name: Commit refreshed EXR snapshot if any
+        run: |
+          git config user.name "storvex-bot"
+          git config user.email "noreply@storvex.com"
+          # Only stage EXR-specific outputs — never PSA/CUBE files from this workflow.
+          git add src/data/exr-facility-rents-*.json 2>/dev/null || true
+          git add src/data/cross-reit-rent-trajectory.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No EXR snapshot changes — skipping commit"
+            echo "(Expected on smoke-test runs without proxy: scraper 403'd before writing snapshot.)"
+          else
+            DATE=$(date -u +%Y-%m-%d)
+            FACILITIES=$(jq -r '.totals.facilitiesWithUnits // 0' src/data/exr-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            UNITS=$(jq -r '.totals.unitListings // 0' src/data/exr-facility-rents-${DATE}.json 2>/dev/null || echo "0")
+            git commit -m "chore(exr-rents): weekly refresh ${DATE} · ${FACILITIES} EXR facilities · ${UNITS} units"
+            git push
+          fi
