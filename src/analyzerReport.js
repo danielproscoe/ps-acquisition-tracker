@@ -263,6 +263,33 @@ function renderCrushRadiusPlusFootprint() {
       radius: "Cannot audit itself",
       advantage: "The inversion: Radius+ data becomes Storvex audit-log input",
     },
+    {
+      pillar: "VERIFICATION",
+      capability: "Multi-source primary-source registry (EDGAR + County Permits)",
+      storvex: (() => {
+        try {
+          // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+          const dp = require("./data/development-pipeline.json");
+          // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+          const cp = require("./data/county-permits.json");
+          const edgarCount = (dp.facilities || []).length;
+          const permitCount = (cp.facilities || []).length;
+          const pilotCount = (cp.pilotCounties || []).length;
+          return `Two independent primary-source registries · EDGAR ${edgarCount} REIT-disclosed facilities · County Permits ${permitCount} entries today (${pilotCount}-county pilot architecture · ${cp.phase || "PILOT"}) · Verification Oracle scans both with per-source attribution`;
+        } catch {
+          return "Two independent primary-source registries (EDGAR + County Permits) · multi-source Verification Oracle";
+        }
+      })(),
+      radius: "Single proprietary ingestion · no source attribution visible",
+      advantage: "TractIQ would have to replicate BOTH primary-source ingestions to match · architectural moat",
+    },
+    {
+      pillar: "VERIFICATION",
+      capability: "Cross-device shared verification audit ledger",
+      storvex: "Phase B Firebase wire (commit eb29608) · every verify-screenshot cycle from DW, MT, Reza, Dan, Aaron lands in one shared append-only ledger · localStorage offline-tolerant fallback · longitudinal Radius+-accuracy track record",
+      radius: "No audit log · no cross-user record of aggregator-vs-truth divergence",
+      advantage: "Track record of aggregator errors compounds across the engagement window",
+    },
   ];
 
   // Compute the unique/parity/Radius+-unique tallies

@@ -1,0 +1,18 @@
+{
+  "schema": "storvex.county-permits.v1",
+  "phase": "PILOT-ARCHITECTURE",
+  "generatedAt": "2026-05-12T22:00:00.000Z",
+  "methodology": "Per-county building-permit records for new self-storage construction. Sourced from the issuing jurisdiction's permit search portal (city, county, or state) and/or public records request. Each entry stamps `verifiedSource: \"permit-<county>-<permit-number>\"`, which `src/utils/pipelineConfidence.js` derivation rule #2 auto-classifies as VERIFIED. This is the SECOND primary-source lineage in the Storvex audit-layer registry alongside EDGAR — every entry here is independent of any aggregator (Radius+, TractIQ, StorTrack).",
+  "citationRule": "Every entry MUST carry permitNumber, permitIssueDate, jurisdiction, and either permitUrl (preferred — direct link to the public permit record) or onFileSource (when pulled from a county records request that cannot be permalinked). Entries missing any of these four fields are rejected by the Verification Oracle.",
+  "pilotCounties": [
+    "Denton County, TX",
+    "Warren County, OH",
+    "Kenton County, KY",
+    "Boone County, IN",
+    "Hancock County, IN"
+  ],
+  "totalFacilities": 0,
+  "scraperRoadmap": "scripts/edgar/scrape-county-permits-<county>.mjs · one script per county · runs daily / weekly · writes new permits into facilities[]. Each county's permit portal has its own UI quirks (Munis / Accela / Tyler EnerGov / OpenGov / homegrown). Architecture: separate per-county adapter that emits the canonical schema below; this JSON is the unified output.",
+  "facilities": [],
+  "verificationOracleNote": "Until facilities[] is populated by the per-county adapters, the Verification Oracle's permit-source query returns no matches. This is intentional — the Oracle's architecture supports the second source today; the data ingestion is the next sprint. Reza-relevant framing: Storvex's audit moat is two-source-ready before either source needs to be at full coverage. TractIQ would have to replicate BOTH the EDGAR primary-source ingestion AND the county-permit primary-source ingestion to match this architecture."
+}

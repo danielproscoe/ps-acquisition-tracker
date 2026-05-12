@@ -646,6 +646,29 @@ describe("generateAnalyzerReport", () => {
       expect(html).toMatch(/Tapestry/);
     });
 
+    test("Multi-source primary-source registry row renders with EDGAR + County Permits attribution", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // The new VERIFICATION row from the 5/12 audit-layer extension
+      expect(html).toMatch(/Multi-source primary-source registry/);
+      expect(html).toMatch(/EDGAR.*County Permits/i);
+      // TractIQ-counter advantage column
+      expect(html).toMatch(/TractIQ would have to replicate BOTH primary-source ingestions/);
+    });
+
+    test("Cross-device shared verification audit ledger row cites Phase B Firebase wire", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // The Phase B audit-ledger row — surfaces the longitudinal Radius+-accuracy moat
+      expect(html).toMatch(/Cross-device shared verification audit ledger/);
+      expect(html).toMatch(/Phase B Firebase wire/);
+      expect(html).toMatch(/eb29608/);
+    });
+
     test("pipeline confidence chip + counts strip render when enrichment.pipelineNearby is populated", () => {
       // Crush Radius Plus: every pipeline facility carries a verification status.
       // The renderDevelopmentPipeline() helper consumes enrichment.pipelineNearby,

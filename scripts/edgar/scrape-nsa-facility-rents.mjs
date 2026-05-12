@@ -72,6 +72,17 @@
 //   via the existing PSA scraper. This scraper produces data we control
 //   between now and the close.
 //
+//   CONSOLIDATION-STATUS VERIFICATION 2026-05-12:
+//   Sampled 3 NSA facility URLs (Tucson AZ — S Santa Clara, E Broadway,
+//   E Tanque Verde) via HEAD + follow-redirects. All 3 returned HTTP 200
+//   with zero redirects — final URL stayed on www.nsastorage.com. NSA's
+//   pricing site has NOT consolidated into publicstorage.com yet.
+//   Re-run this verification quarterly (Q3 2026 onward) — once redirects
+//   to publicstorage.com appear, NSA facilities will surface via the PSA
+//   scraper and this scraper can be retired. Until then, NSA's 1,142
+//   weekly snapshots remain independent primary-source coverage in the
+//   audit-layer registry.
+//
 // Architecture (matches PSA / CUBE pattern in build-rent-trajectory.mjs):
 //   Step 1 — fetch sitemap → extract facility URLs matching
 //            /storage/{state}/storage-units-{city}/{address}-{id}

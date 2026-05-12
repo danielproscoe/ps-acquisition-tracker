@@ -152,6 +152,75 @@ describe("verifyExtractedEntries — bulk", () => {
   });
 });
 
+describe("multi-source registry (EDGAR + PERMIT) — Crush Radius+ audit-layer wedge", () => {
+  test("REAL verdict carries registrySource: 'EDGAR' when match comes from development-pipeline.json", () => {
+    const result = verifyExtractedEntry(
+      { operator: "PSA", city: "Doral", state: "FL", nrsf: 95000 },
+      { asOf: ASOF }
+    );
+    expect(result.verdict).toBe("REAL");
+    expect(result.registrySource).toBe("EDGAR");
+    // Reasoning text explicitly attributes the registry source
+    expect(result.reasoning).toMatch(/EDGAR registry/i);
+  });
+
+  test("every verdict (REAL / NOT_FOUND / INCONCLUSIVE) exposes registriesScanned array", () => {
+    const realResult = verifyExtractedEntry(
+      { operator: "PSA", city: "Doral", state: "FL", nrsf: 95000 },
+      { asOf: ASOF }
+    );
+    const inconclusiveResult = verifyExtractedEntry(
+      { operator: "SmartStop", city: "Tulsa", state: "OK", nrsf: 60000 },
+      { asOf: ASOF }
+    );
+    const emptyResult = verifyExtractedEntry(null);
+
+    for (const r of [realResult, inconclusiveResult, emptyResult]) {
+      expect(Array.isArray(r.registriesScanned)).toBe(true);
+      expect(r.registriesScanned).toContain("EDGAR");
+      expect(r.registriesScanned).toContain("PERMIT");
+    }
+  });
+
+  test("registrySource is null on no-match verdicts (NOT_FOUND / INCONCLUSIVE)", () => {
+    const inconclusive = verifyExtractedEntry(
+      { operator: "Andover Properties", city: "Boise", state: "ID", nrsf: 70000 },
+      { asOf: ASOF }
+    );
+    expect(inconclusive.verdict).toBe("INCONCLUSIVE");
+    expect(inconclusive.registrySource).toBeNull();
+  });
+
+  test("empty PERMIT registry does not introduce false-positive matches for unindexed submarkets", () => {
+    // PERMIT registry today is empty (architecture-only). Verify that an
+    // operator+city pair NOT in EDGAR also does NOT spuriously match
+    // anything from PERMIT.
+    const result = verifyExtractedEntry(
+      { operator: "Storage Mart", city: "Denton", state: "TX", nrsf: 80000 },
+      { asOf: ASOF }
+    );
+    // Should be NOT_FOUND or INCONCLUSIVE — never REAL (no PERMIT entries
+    // exist for Denton TX yet).
+    expect(["NOT_FOUND", "INCONCLUSIVE"]).toContain(result.verdict);
+    expect(result.registrySource).toBeNull();
+  });
+
+  test("county-permits.json is loadable with the expected pilot-architecture schema", () => {
+    // Architecture sanity check — the second-source registry exists in the
+    // codebase with the correct shape, even though facilities[] is empty
+    // today. When the per-county scraper lands, facilities[] populates and
+    // PERMIT-sourced REAL verdicts start firing automatically with no
+    // Oracle code change.
+    // eslint-disable-next-line global-require
+    const countyPermits = require("../data/county-permits.json");
+    expect(countyPermits.schema).toBe("storvex.county-permits.v1");
+    expect(countyPermits.phase).toBe("PILOT-ARCHITECTURE");
+    expect(Array.isArray(countyPermits.facilities)).toBe(true);
+    expect(Array.isArray(countyPermits.pilotCounties)).toBe(true);
+    expect(countyPermits.pilotCounties.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe("operator alias table", () => {
   test("PS family aliases all route to PSA", () => {
     expect(PIPELINE_ORACLE_OPERATOR_ALIASES.PSA).toBe("PSA");
