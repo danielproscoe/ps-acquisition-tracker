@@ -531,10 +531,24 @@ function renderEdgarPipelineDisclosures() {
         kindLabel = "Named JV under construction";
       }
     } else if (iss === "SMA") {
+      // SMA repeats the same Canadian JV table in both the 10-Q and 10-K and
+      // sometimes in multiple sections of the same filing — dedupe by
+      // propertyName (latest filing wins) for the headline to avoid double-
+      // counting the same Regent / Allard / Finch / Edmonton JV row across
+      // 10-Q + 10-K disclosures.
       const named = ds.filter((d) => d.kind === "named-property-under-development");
       if (named.length) {
-        const totalCIPK = named.reduce((sum, d) => sum + (d.cipCurrentThousands || 0), 0);
-        headline = `${named.length} named Canadian JV propert${named.length === 1 ? "y" : "ies"} · ${fmt$K(totalCIPK * 1000)} aggregate CIP`;
+        const byProp = new Map();
+        for (const d of named) {
+          const key = (d.propertyName || "").toLowerCase();
+          const prev = byProp.get(key);
+          if (!prev || (d.filingDate || "") > (prev.filingDate || "")) {
+            byProp.set(key, d);
+          }
+        }
+        const unique = Array.from(byProp.values());
+        const totalCIPK = unique.reduce((sum, d) => sum + (d.cipCurrentThousands || 0), 0);
+        headline = `${unique.length} named Canadian JV propert${unique.length === 1 ? "y" : "ies"} · ${fmt$K(totalCIPK * 1000)} aggregate CIP`;
         kindLabel = "Per-property Canadian JV table (named)";
       }
     } else if (iss === "NSA") {
