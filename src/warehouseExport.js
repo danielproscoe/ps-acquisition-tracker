@@ -8,6 +8,10 @@ import {
   getAllEdgarPipelineFacilities,
   getEdgarPipelineTotalDollars,
 } from "./data/edgarCompIndex";
+import {
+  forecastStorageDemand,
+  extractRingForDemandForecast,
+} from "./utils/storageDemandForecast.mjs";
 
 // warehouseExport.js — Push Storvex Asset Analyzer outputs to PSA's data warehouse.
 //
@@ -388,6 +392,86 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
     // pipelineConfidence.js classifies as VERIFIED. This is the layer that
     // calibrates the Pipeline Confidence chip system's default state from
     // UNVERIFIED → VERIFIED as the registry fills out.
+    // Crush Radius+ DEMAND wedge — audited storage demand model output.
+    // Per-capita demand + total demand SF computed from ESRI Tapestry
+    // LifeMode + Urbanization + renter % + growth + median HHI, with each
+    // component's coefficient + formula + primary-source citation visible
+    // in the payload. Radius+ ships a black-box demand number; Storvex
+    // ships the same number with every input traced.
+    storage_demand_forecast: (() => {
+      // Precedence: explicit enrichment.ring3mi (Quick Lookup live pull) →
+      // analyzer's subject snapshot → enrichment top-level fallback.
+      const ring = enrichment?.ring3mi
+        ? {
+            pop: enrichment.ring3mi.pop,
+            renterPct: enrichment.ring3mi.renterPct,
+            growthRatePct: enrichment.ring3mi.growthRate,
+            medianHHIncome: enrichment.ring3mi.medianHHIncome,
+            tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+            tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+          }
+        : extractRingForDemandForecast({
+            ...(analysis?.subject || {}),
+            ...(enrichment || {}),
+          });
+      if (!ring || (!ring.pop && !ring.renterPct)) return null;
+      const ccCurrent = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+      const fc = forecastStorageDemand(ring, {
+        currentCCSPC: ccCurrent != null ? Number(ccCurrent) : undefined,
+      });
+      return {
+        model_version: fc.modelVersion,
+        demand_per_capita: numOrNull(fc.demandPerCapita),
+        total_demand_sf: numOrNull(fc.totalDemandSF),
+        confidence: fc.confidence,
+        missing_fields: fc.missingFields,
+        inputs: {
+          pop_3mi: numOrNull(fc.inputs.pop),
+          renter_pct_3mi: numOrNull(fc.inputs.renterPct),
+          growth_rate_pct: numOrNull(fc.inputs.growthPct),
+          median_hhincome: numOrNull(fc.inputs.medianHHI),
+          tapestry_lifemode: fc.inputs.tapestryLifeMode,
+          tapestry_urbanization: fc.inputs.tapestryUrbanization,
+        },
+        adjustments: {
+          lifemode_name: fc.adjustments.lifeMode.name || null,
+          lifemode_index: numOrNull(fc.adjustments.lifeMode.index),
+          lifemode_rationale: fc.adjustments.lifeMode.rationale || null,
+          urbanization_name: fc.adjustments.urbanization.name || null,
+          urbanization_index: numOrNull(fc.adjustments.urbanization.index),
+          urbanization_rationale: fc.adjustments.urbanization.rationale || null,
+        },
+        components: fc.components.map((c) => ({
+          label: c.label,
+          value_per_capita: numOrNull(c.valuePerCapita),
+          formula: c.formula,
+          source: c.source,
+          rationale: c.rationale,
+        })),
+        surplus_vs_observed_cc_spc: fc.surplus
+          ? {
+              observed_cc_spc: numOrNull(fc.surplus.observedCCSPC),
+              forecast_demand_spc: numOrNull(fc.surplus.forecastDemandSPC),
+              delta_per_capita: numOrNull(fc.surplus.deltaPerCapita),
+              delta_sf: numOrNull(fc.surplus.deltaSF),
+              signal: fc.surplus.signal,
+            }
+          : null,
+        coefficients: {
+          us_baseline_spc: numOrNull(5.4),
+          renter_premium_per_pct: numOrNull(fc.coefficients.RENTER_PREMIUM_PER_PCT),
+          growth_premium_per_pct: numOrNull(fc.coefficients.GROWTH_PREMIUM_PER_PCT),
+          income_slope_per_k: numOrNull(fc.coefficients.INCOME_SLOPE_PER_K),
+          renter_premium_source: fc.coefficients.RENTER_PREMIUM_SOURCE,
+          growth_premium_source: fc.coefficients.GROWTH_PREMIUM_SOURCE,
+          income_slope_source: fc.coefficients.INCOME_SLOPE_SOURCE,
+        },
+        citations: fc.citations,
+        source: "Storvex audited component-wise storage demand model · ESRI Tapestry + REIT 10-K MD&A + Self-Storage Almanac",
+        schema_version: "storvex.storageDemandForecast.v1",
+      };
+    })(),
+
     edgar_pipeline_disclosures: (() => {
       const meta = getEdgarPipelineMetadata();
       if (!meta) return null;

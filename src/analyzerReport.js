@@ -15,6 +15,10 @@ import {
   renderConfidenceChip,
   aggregatePipelineConfidence,
 } from "./utils/pipelineConfidence";
+import {
+  forecastStorageDemand,
+  extractRingForDemandForecast,
+} from "./utils/storageDemandForecast.mjs";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
@@ -471,6 +475,158 @@ function renderCrossREITHistoricalSameStore() {
     </table>
     <div style="margin-top:10px;font-size:9pt;color:#475569;">
       <b>Source:</b> SEC EDGAR 10-K MD&amp;A · Same-Store Performance disclosures · ${safe(latest.contributingIssuers.join(" + "))} · ingested via Storvex/scripts/edgar/backfill-historical-same-store.mjs.
+    </div>
+  </div>
+</section>`;
+}
+
+/**
+ * Audited Storage Demand Forecast — Crush Radius+ DEMAND wedge.
+ *
+ * Translates ESRI Tapestry LifeMode + Urbanization + renter share + growth
+ * rate + median HHI into a per-capita storage demand forecast with every
+ * coefficient visible, source-cited, and tunable. The defensible wedge vs
+ * Radius+: Radius+ shows a black-box demand number; Storvex shows the same
+ * number with every component's formula + citation + per-component value.
+ */
+function renderAuditedDemandForecast({ snapshot, analysis, enrichment }) {
+  // Pull demographics + tapestry from the enrichment payload (Quick Lookup
+  // intake) or fall back to the snapshot fields the Submit Site form writes.
+  const ring = enrichment?.ring3mi
+    ? {
+        pop: enrichment.ring3mi.pop,
+        renterPct: enrichment.ring3mi.renterPct,
+        growthRatePct: enrichment.ring3mi.growthRate,
+        medianHHIncome: enrichment.ring3mi.medianHHIncome,
+        tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+        tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+      }
+    : extractRingForDemandForecast({
+        ...snapshot,
+        ...(analysis?.subject || {}),
+        ...(enrichment || {}),
+      });
+
+  if (!ring || (!ring.pop && !ring.renterPct)) return "";
+
+  const currentCCSPC = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+  const forecast = forecastStorageDemand(ring, {
+    currentCCSPC: currentCCSPC != null ? Number(currentCCSPC) : undefined,
+  });
+
+  const fmtSPC = (v) => (v == null || !isFinite(v) ? "—" : Number(v).toFixed(2));
+  const fmtSF = (v) => (v == null || !isFinite(v) ? "—" : Number(v).toLocaleString());
+  const fmtDelta = (v) => {
+    if (v == null || !isFinite(v)) return "—";
+    const sign = v > 0 ? "+" : "";
+    return `${sign}${v.toFixed(2)}`;
+  };
+
+  const confidenceColor =
+    forecast.confidence === "high" ? "#16A34A"
+    : forecast.confidence === "medium" ? "#D97706"
+    : "#DC2626";
+
+  const surplusColor =
+    forecast.surplus == null ? "#475569"
+    : forecast.surplus.signal.startsWith("UNDER") ? "#16A34A"
+    : forecast.surplus.signal.startsWith("OVER") ? "#DC2626"
+    : "#475569";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">AUDITED STORAGE DEMAND FORECAST — CRUSH RADIUS+ DEMAND WEDGE</h2>
+  <div class="sanity-card" style="border-color:#C9A84C40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:#C9A84C;color:#1E2761">COMPONENT-WISE DEMAND MODEL · ${forecast.modelVersion}</div>
+    <div class="sanity-message">
+      Translates ESRI Tapestry LifeMode + Urbanization + renter share + growth + median HHI into per-capita storage demand. Every coefficient is visible, source-cited, and tunable in <code>STORAGE_DEMAND_COEFFICIENTS</code>. Radius+ shows a single demand number with proprietary math; Storvex shows the same number with every component, formula, and citation — a PSA analyst can re-derive every digit from the listed public sources in under 5 minutes, then adjust coefficients against PS's own observed-occupancy calibration over time.
+    </div>
+
+    <div style="margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+      <div style="background:#1E2761;color:#fff;padding:14px;border-radius:6px;text-align:center">
+        <div style="font-size:8.5pt;letter-spacing:1.1px;color:#C9A84C;font-weight:700">DEMAND / CAPITA</div>
+        <div style="font-size:22pt;font-weight:800;margin:4px 0">${fmtSPC(forecast.demandPerCapita)}</div>
+        <div style="font-size:8.5pt;color:#D6E4F7">SF / capita · forecast</div>
+      </div>
+      <div style="background:#1E2761;color:#fff;padding:14px;border-radius:6px;text-align:center">
+        <div style="font-size:8.5pt;letter-spacing:1.1px;color:#C9A84C;font-weight:700">TOTAL DEMAND SF</div>
+        <div style="font-size:22pt;font-weight:800;margin:4px 0">${fmtSF(forecast.totalDemandSF)}</div>
+        <div style="font-size:8.5pt;color:#D6E4F7">${forecast.inputs.pop ? `pop ${forecast.inputs.pop.toLocaleString()} · 3-mi ring` : "no pop input"}</div>
+      </div>
+      <div style="background:${confidenceColor};color:#fff;padding:14px;border-radius:6px;text-align:center">
+        <div style="font-size:8.5pt;letter-spacing:1.1px;color:#fff;font-weight:700">CONFIDENCE</div>
+        <div style="font-size:18pt;font-weight:800;margin:4px 0;text-transform:uppercase">${safe(forecast.confidence)}</div>
+        <div style="font-size:8.5pt">${forecast.missingFields.length ? `${forecast.missingFields.length} field(s) imputed` : "all inputs populated"}</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 22px; color:#1E2761; font-size: 10.5pt;">Component-Wise Build (every line item traces to a primary source)</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name">Component</th>
+          <th class="th-num">SF / Capita</th>
+          <th class="th-name">Formula</th>
+          <th class="th-name">Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${forecast.components.map((c) => `<tr>
+          <td class="td-name"><b>${safe(c.label)}</b><br><span style="font-size:8pt;color:#64748B">${safe(c.rationale)}</span></td>
+          <td class="td-num" style="font-weight:600;color:${c.valuePerCapita >= 0 ? "#1E2761" : "#DC2626"}">${fmtDelta(c.valuePerCapita)}</td>
+          <td class="td-name" style="font-size:8pt;color:#475569"><code>${safe(c.formula)}</code></td>
+          <td class="td-name" style="font-size:8pt;color:#475569">${safe(c.source)}</td>
+        </tr>`).join("")}
+        <tr style="background:#1E276110">
+          <td class="td-name"><b>= Total Forecast Demand / Capita</b></td>
+          <td class="td-num" style="font-weight:800;color:#1E2761">${fmtSPC(forecast.demandPerCapita)}</td>
+          <td class="td-name" colspan="2" style="font-size:9pt;color:#475569">Sum of components · clamped to demand floor ${forecast.coefficients.DEMAND_FLOOR_SPC}–${forecast.coefficients.DEMAND_CEILING_SPC} SF/capita</td>
+        </tr>
+      </tbody>
+    </table>
+
+    ${
+      forecast.surplus
+        ? `
+    <div style="margin-top: 18px; padding: 14px; background: ${surplusColor}15; border-left: 4px solid ${surplusColor}; border-radius: 4px;">
+      <div style="font-size: 9pt; color: ${surplusColor}; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;">Supply vs. Demand Calibration</div>
+      <div style="font-size: 11.5pt; color: #1E2761; font-weight: 700; margin: 6px 0;">${safe(forecast.surplus.signal)}</div>
+      <div style="font-size: 9pt; color: #475569;">
+        Forecast demand <b>${fmtSPC(forecast.surplus.forecastDemandSPC)} SF/capita</b> vs observed CC supply <b>${fmtSPC(forecast.surplus.observedCCSPC)} SF/capita</b> · delta <b style="color:${surplusColor}">${fmtDelta(forecast.surplus.deltaPerCapita)} SF/capita</b>${forecast.surplus.deltaSF != null ? ` ≈ <b>${fmtSF(forecast.surplus.deltaSF)} SF</b> across the 3-mi ring` : ""}.
+      </div>
+    </div>`
+        : ""
+    }
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 10.5pt;">Tapestry Adjustments Applied</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name">Dimension</th>
+          <th class="th-name">Resolved</th>
+          <th class="th-num">Index</th>
+          <th class="th-name">Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name"><b>LifeMode</b></td>
+          <td class="td-name">${safe(forecast.adjustments.lifeMode.name || "—")}</td>
+          <td class="td-num">${forecast.adjustments.lifeMode.index.toFixed(2)}×</td>
+          <td class="td-name" style="font-size:8.5pt;color:#475569">${safe(forecast.adjustments.lifeMode.rationale || "—")}</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>Urbanization</b></td>
+          <td class="td-name">${safe(forecast.adjustments.urbanization.name || "—")}</td>
+          <td class="td-num">${forecast.adjustments.urbanization.index.toFixed(2)}×</td>
+          <td class="td-name" style="font-size:8.5pt;color:#475569">${safe(forecast.adjustments.urbanization.rationale || "—")}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:14px;font-size:9pt;color:#475569;">
+      <b>Primary sources cited inline (by component):</b> ${forecast.citations.map((c) => safe(c)).join(" · ")}.
+      <br><b>Why this matters vs. Radius+:</b> Radius+ ships a single demand number sourced from proprietary aggregation. Storvex ships the same number with every component visible, every coefficient citation-anchored, and a coefficient-override hook so PS's quant team can calibrate to PS's own observed occupancy data over 20-50 deals. Auditable, tunable, replicable.
     </div>
   </div>
 </section>`;
@@ -1399,6 +1555,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderRentSanity({ rentSanity })}
   ${renderHistoricalMSARents({ snapshot })}
   ${renderCrossREITHistoricalSameStore()}
+  ${renderAuditedDemandForecast({ snapshot, analysis, enrichment })}
   ${renderEdgarPipelineDisclosures()}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}

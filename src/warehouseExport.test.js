@@ -168,3 +168,93 @@ describe("buildWarehousePayload — edgar_pipeline_disclosures (Move 2)", () => 
     expect(Array.isArray(payload.edgar_pipeline_disclosures.by_issuer_dollars)).toBe(true);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// Crush Radius+ DEMAND wedge — storage_demand_forecast warehouse block
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("buildWarehousePayload — storage_demand_forecast (Crush Radius+ DEMAND)", () => {
+  const enrichedHoustonInput = {
+    ...houstonInput,
+    name: "Houston Demand Forecast",
+  };
+
+  test("includes storage_demand_forecast when enrichment ring + tapestry are present", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const enrichment = {
+      ring3mi: { pop: 75000, renterPct: 48, growthRate: 1.4, medianHHIncome: 78000 },
+      tapestryLifeMode3mi: "Midtown Singles",
+      tapestryUrbanization3mi: "Metro Cities",
+      ccSPCCurrent: 2.6,
+    };
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment });
+
+    expect(payload.storage_demand_forecast).toBeTruthy();
+    expect(payload.storage_demand_forecast.model_version).toBe("storvex.storageDemandForecast.v1");
+    expect(payload.storage_demand_forecast.demand_per_capita).toBeGreaterThan(3);
+    expect(payload.storage_demand_forecast.demand_per_capita).toBeLessThan(13);
+    expect(payload.storage_demand_forecast.total_demand_sf).toBeGreaterThan(100_000);
+  });
+
+  test("payload exposes all 4 components with formula + source", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const enrichment = {
+      ring3mi: { pop: 75000, renterPct: 48, growthRate: 1.4, medianHHIncome: 78000 },
+      tapestryLifeMode3mi: "Midtown Singles",
+      tapestryUrbanization3mi: "Metro Cities",
+    };
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment });
+
+    expect(Array.isArray(payload.storage_demand_forecast.components)).toBe(true);
+    expect(payload.storage_demand_forecast.components.length).toBe(4);
+    for (const c of payload.storage_demand_forecast.components) {
+      expect(c.formula).toBeTruthy();
+      expect(c.source).toBeTruthy();
+    }
+  });
+
+  test("coefficients + citations sub-payloads ship for auditability", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const enrichment = {
+      ring3mi: { pop: 75000, renterPct: 48, growthRate: 1.4, medianHHIncome: 78000 },
+      tapestryLifeMode3mi: "Midtown Singles",
+      tapestryUrbanization3mi: "Metro Cities",
+    };
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment });
+
+    expect(payload.storage_demand_forecast.coefficients).toBeTruthy();
+    expect(payload.storage_demand_forecast.coefficients.us_baseline_spc).toBeCloseTo(5.4);
+    expect(payload.storage_demand_forecast.coefficients.renter_premium_per_pct).toBeCloseTo(0.035);
+    expect(payload.storage_demand_forecast.coefficients.renter_premium_source).toMatch(/REIT|MSA/);
+    expect(Array.isArray(payload.storage_demand_forecast.citations)).toBe(true);
+    expect(payload.storage_demand_forecast.citations.length).toBeGreaterThan(4);
+  });
+
+  test("surplus_vs_observed_cc_spc populated when currentCCSPC provided", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const enrichment = {
+      ring3mi: { pop: 75000, renterPct: 48, growthRate: 1.4, medianHHIncome: 78000 },
+      tapestryLifeMode3mi: "Midtown Singles",
+      tapestryUrbanization3mi: "Metro Cities",
+      ccSPCCurrent: 2.0,
+    };
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment });
+
+    expect(payload.storage_demand_forecast.surplus_vs_observed_cc_spc).toBeTruthy();
+    expect(payload.storage_demand_forecast.surplus_vs_observed_cc_spc.observed_cc_spc).toBeCloseTo(2.0);
+    expect(payload.storage_demand_forecast.surplus_vs_observed_cc_spc.signal).toMatch(/UNDER-SUPPLIED|OVER-SUPPLIED|BALANCED/);
+  });
+
+  test("storage_demand_forecast is null when no ring + tapestry data available", () => {
+    const sparseInput = { ...houstonInput, name: "No-data Demand", city: null, state: null };
+    const analysis = analyzeExistingAsset(sparseInput);
+    const psLens = computeBuyerLens(sparseInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    expect(payload.storage_demand_forecast).toBeNull();
+  });
+});

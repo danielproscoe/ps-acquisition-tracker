@@ -284,6 +284,96 @@ describe("generateAnalyzerReport", () => {
       // supply comes before historical sale comps).
       expect(compsIdx).toBeGreaterThan(pipelineIdx);
     });
+  });
+
+  describe("Audited Storage Demand Forecast (Crush Radius+ DEMAND wedge)", () => {
+    const enrichedInput = {
+      ...baseInput,
+      name: "Demand Forecast Test",
+      city: "Houston",
+      state: "TX",
+    };
+
+    test("renders AUDITED STORAGE DEMAND FORECAST section when 3-mi ring + tapestry present", () => {
+      const analysis = analyzeExistingAsset(enrichedInput);
+      const psLens = computeBuyerLens(enrichedInput, PS_LENS);
+      const enrichment = {
+        ring3mi: { pop: 60000, renterPct: 48, growthRate: 1.2, medianHHIncome: 72000 },
+        tapestryLifeMode3mi: "Midtown Singles",
+        tapestryUrbanization3mi: "Metro Cities",
+        ccSPCCurrent: 2.4,
+      };
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment });
+
+      expect(html).toContain("AUDITED STORAGE DEMAND FORECAST");
+      expect(html).toContain("CRUSH RADIUS+ DEMAND WEDGE");
+      expect(html).toContain("COMPONENT-WISE DEMAND MODEL");
+      expect(html).toContain("storvex.storageDemandForecast.v1");
+    });
+
+    test("renders all 4 component rows with formula + source", () => {
+      const analysis = analyzeExistingAsset(enrichedInput);
+      const psLens = computeBuyerLens(enrichedInput, PS_LENS);
+      const enrichment = {
+        ring3mi: { pop: 60000, renterPct: 48, growthRate: 1.2, medianHHIncome: 72000 },
+        tapestryLifeMode3mi: "Midtown Singles",
+        tapestryUrbanization3mi: "Metro Cities",
+      };
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment });
+
+      expect(html).toContain("Tapestry-Adjusted Baseline");
+      expect(html).toContain("Renter Premium");
+      expect(html).toContain("Growth Premium (mover flux)");
+      expect(html).toContain("Income Adjustment");
+      // Citation strings appear inline
+      expect(html).toMatch(/Self-Storage Almanac/);
+      expect(html).toMatch(/Census ACS/);
+    });
+
+    test("supply vs demand calibration strip fires when currentCCSPC provided", () => {
+      const analysis = analyzeExistingAsset(enrichedInput);
+      const psLens = computeBuyerLens(enrichedInput, PS_LENS);
+      const enrichment = {
+        ring3mi: { pop: 60000, renterPct: 48, growthRate: 1.2, medianHHIncome: 72000 },
+        tapestryLifeMode3mi: "Midtown Singles",
+        tapestryUrbanization3mi: "Metro Cities",
+        ccSPCCurrent: 2.0, // Lower than forecast demand → UNDER-SUPPLIED
+      };
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment });
+
+      expect(html).toContain("Supply vs. Demand Calibration");
+      expect(html).toMatch(/UNDER-SUPPLIED|OVER-SUPPLIED|BALANCED/);
+    });
+
+    test("section omits when no demographic enrichment is available", () => {
+      const sparseInput = { ...baseInput, name: "No-data Demand Test", city: null, state: null };
+      const analysis = analyzeExistingAsset(sparseInput);
+      const psLens = computeBuyerLens(sparseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Without ring data, the demand-forecast section does not render
+      expect(html).not.toContain("AUDITED STORAGE DEMAND FORECAST");
+    });
+
+    test("section appears between CROSS-REIT HISTORICAL and EDGAR PRIMARY-SOURCE PIPELINE in render order", () => {
+      const houstonInput = { ...baseInput, name: "Order Test", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const enrichment = {
+        ring3mi: { pop: 60000, renterPct: 48, growthRate: 1.2, medianHHIncome: 72000 },
+        tapestryLifeMode3mi: "Midtown Singles",
+        tapestryUrbanization3mi: "Metro Cities",
+      };
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment });
+
+      const crossIdx = html.indexOf("CROSS-REIT HISTORICAL SAME-STORE");
+      const demandIdx = html.indexOf("AUDITED STORAGE DEMAND FORECAST");
+      const pipelineIdx = html.indexOf("EDGAR PRIMARY-SOURCE PIPELINE");
+
+      expect(crossIdx).toBeGreaterThan(0);
+      expect(demandIdx).toBeGreaterThan(crossIdx);
+      expect(pipelineIdx).toBeGreaterThan(demandIdx);
+    });
 
     test("pipeline confidence chip + counts strip render when enrichment.pipelineNearby is populated", () => {
       // Crush Radius Plus: every pipeline facility carries a verification status.
