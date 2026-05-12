@@ -531,6 +531,41 @@ export default function PipelineScreenshotIntakePanel() {
                         ↳ {v.citation}
                       </div>
                     )}
+                    {/* Multi-source coverage attribution — shows which primary-source
+                        registries Storvex scanned + per-registry density for the
+                        submarket. Wired off the perRegistry field added in commit
+                        086a4ec. Renders even when registries are empty so Reza sees
+                        the audit trail every cycle, not only on hits. */}
+                    {v.submarketCoverage && v.submarketCoverage.perRegistry && (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          padding: "6px 8px",
+                          background: "rgba(0,0,0,0.20)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          borderRadius: 4,
+                          fontSize: 10,
+                          color: "rgba(255,255,255,0.65)",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <div style={{ color: GOLD, fontWeight: 700, letterSpacing: "0.06em" }}>
+                          STORVEX SCANNED · {(v.registriesScanned || []).join(" + ") || "EDGAR + PERMIT"}
+                        </div>
+                        <div>
+                          {v.submarketCoverage.perRegistry.edgar || 0} EDGAR ·{" "}
+                          {v.submarketCoverage.perRegistry.permit || 0} PERMIT
+                          {v.submarketCoverage.perRegistry.submarket
+                            ? ` · ${v.submarketCoverage.perRegistry.submarket} pre-indexed`
+                            : ""}
+                          {ex.city && ex.state ? ` entries in ${ex.city}, ${ex.state}` : ""}
+                          {" · coverage "}
+                          <span style={{ color: style.color, fontWeight: 700 }}>
+                            {v.submarketCoverage.confidence}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
