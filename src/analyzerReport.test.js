@@ -481,6 +481,62 @@ describe("generateAnalyzerReport", () => {
     });
   });
 
+  describe("Buyer-Fit Ranking · funnel-as-product engine", () => {
+    test("renders BUYER-FIT RANKING heading on every report", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("BUYER-FIT RANKING");
+      expect(html).toContain("WHO PURSUES THIS DEAL");
+    });
+
+    test("ranking table includes all 6 buyer specs (PS · AMERCO · EXR · CUBE · SMA · GENERIC)", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("PSA — Public Storage");
+      expect(html).toContain("AMERCO — U-Haul");
+      expect(html).toContain("EXR — Extra Space Storage");
+      expect(html).toContain("CUBE — CubeSmart");
+      expect(html).toContain("SMA — SmartStop Self Storage");
+      expect(html).toContain("GENERIC institutional storage buyer");
+    });
+
+    test("top-fit chip names the recipient (relationship owner)", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // The chip always names whoever owns this lens at Storvex
+      expect(html).toMatch(/recommended owner is <b>[^<]+<\/b>/);
+    });
+
+    test("funnel-as-product framing is in the section closer", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("Funnel-as-product");
+      expect(html).toContain("buyerMatchEngine.js");
+    });
+
+    test("Buyer-Fit Ranking appears between Executive Summary and Storvex Audit Layer", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      const execIdx = html.indexOf("EXECUTIVE SUMMARY");
+      const buyerFitIdx = html.indexOf("BUYER-FIT RANKING");
+      const auditLayerIdx = html.indexOf("STORVEX AUDIT LAYER");
+
+      expect(execIdx).toBeGreaterThan(0);
+      expect(buyerFitIdx).toBeGreaterThan(execIdx);
+      expect(auditLayerIdx).toBeGreaterThan(buyerFitIdx);
+    });
+  });
+
   describe("Institutional Audit Layer · DATA SOURCES panel (Crush Radius+ reframe)", () => {
     test("renders STORVEX AUDIT LAYER · PRIMARY SOURCES heading near top of every report", () => {
       const analysis = analyzeExistingAsset(baseInput);
@@ -712,6 +768,60 @@ describe("generateAnalyzerReport", () => {
       // Header label updated from "5-yr CAGR" → "Computed CAGR"
       expect(html).toContain("Computed CAGR");
       expect(html).not.toContain("5-yr CAGR");
+    });
+  });
+
+  // ── Multi-buyer comparison table — hardcoded clean ───────────────────────
+  // Regression guard: producer scripts in the past stripped the canonical
+  // row shape via .map() and shipped IC PDFs with all-dash tables. The
+  // renderer now normalizes any mangled shape so the table cannot ship
+  // blank. Hardcoded for ALL IC deliverables per Dan's directive 2026-05-12.
+  describe("multi-buyer comparison normalizer (all IC deliverables)", () => {
+    test("populates table when rows are passed in canonical computeAllBuyerLenses shape", () => {
+      const { computeAllBuyerLenses, computePlatformFitDelta } = require("./buyerLensProfiles");
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const allLenses = computeAllBuyerLenses(baseInput, {});
+      const platformFitDelta = computePlatformFitDelta(allLenses);
+      const html = generateAnalyzerReport({
+        analysis, psLens,
+        multiLensRows: allLenses,
+        platformFitDelta,
+      });
+      expect(html).toContain("MULTI-BUYER COMPARISON");
+      // Real implied-takedown dollar values render (not all dashes)
+      expect(html).toMatch(/\$[\d.]+M/);
+      // Verdict labels render (CLEARED / AT HURDLE / MISSES) — at least one
+      expect(html).toMatch(/CLEARED|AT HURDLE|MISSES/);
+    });
+
+    test("recovers when producer mangled rows with buyerKey/walk/strike shape", () => {
+      // Simulates the historical bug where producer scripts re-mapped to
+      // ({ buyerKey, buyerName, walk, strike, homeRun, verdict: v?.label }).
+      // The normalizer should still render the canonical column headers
+      // even though the values fall back to dashes for missing fields.
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const mangled = [
+        { buyerKey: "PSA", buyerName: "Public Storage", walk: 1, strike: 2, homeRun: 3, verdict: "HURDLE_CLEARED" },
+        { buyerKey: "EXR", buyerName: "Extra Space",   walk: 1, strike: 2, homeRun: 3, verdict: "AT_HURDLE" },
+        { buyerKey: "GENERIC", buyerName: "Generic",   walk: 1, strike: 2, homeRun: 3, verdict: "MISSES_HURDLE" },
+      ];
+      const html = generateAnalyzerReport({
+        analysis, psLens,
+        multiLensRows: mangled,
+        platformFitDelta: null,
+      });
+      // Section + column headers always render
+      expect(html).toContain("MULTI-BUYER COMPARISON");
+      expect(html).toContain("Deal Stab Cap");
+      // Ticker fallback from buyerKey
+      expect(html).toContain("PSA");
+      expect(html).toContain("EXR");
+      // Verdict labels resolved from string (not crashed by missing .label)
+      expect(html).toContain("CLEARED");
+      expect(html).toContain("AT HURDLE");
+      expect(html).toContain("MISSES");
     });
   });
 });

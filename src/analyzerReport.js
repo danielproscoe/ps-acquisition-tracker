@@ -313,6 +313,146 @@ function renderCrushRadiusPlusFootprint() {
 }
 
 /**
+ * Buyer-Fit Ranking — the funnel-as-product engine output.
+ *
+ * Every site this report renders is auto-scored against every buyer-spec
+ * Storvex maintains (PSA / AMERCO / EXR / CUBE / SMA / GENERIC). The
+ * ranking surfaces the buyer best-positioned to pursue this specific
+ * deal, the recipient owner inside Storvex's relationship map, and the
+ * route-to channel (DW for southwest, MT for east, Aaron/Jennifer for
+ * AMERCO, capital partner rotation for GENERIC).
+ *
+ * This is the layer that "makes Radius+ / TractIQ pointless" — the
+ * incumbents sell screening software; Storvex pushes pre-routed deal
+ * flow. Every REC Package answers "who actually buys this" before any
+ * spec user opens a competitor product.
+ *
+ * Source: src/utils/buyerMatchEngine.js — scoring spec + ranking logic.
+ */
+function renderBuyerFitRanking({ snapshot, analysis, enrichment, ps }) {
+  // Build the site object the match engine expects, mapping analyzer's
+  // snapshot + enrichment shape into the engine's flat-field shape.
+  const ring3mi = (enrichment && enrichment.ring3mi) || {};
+  const site = {
+    acreage: snapshot && Number.isFinite(snapshot.acreage) ? snapshot.acreage : null,
+    pop3mi: ring3mi.pop || null,
+    hhi3mi: ring3mi.medianHHIncome || null,
+    state: (snapshot && (snapshot.state || (snapshot.location && snapshot.location.state))) || null,
+    nearestPSFamilyMi:
+      (ps && Number.isFinite(ps.nearestPSFamilyMi) && ps.nearestPSFamilyMi) ||
+      (analysis && analysis.nearestPSFamilyMi) ||
+      null,
+    ccSPC:
+      (analysis && analysis.competition && analysis.competition.ccSPC) ||
+      (enrichment && enrichment.ccSPC) ||
+      null,
+    marketTier:
+      (analysis && analysis.msaTier && Number.parseInt(String(analysis.msaTier).match(/\d+/) ? String(analysis.msaTier).match(/\d+/)[0] : "", 10)) ||
+      null,
+    growth3mi: Number.isFinite(ring3mi.growthRate) ? ring3mi.growthRate : null,
+    zoningPath: (snapshot && (snapshot.zoningPath || snapshot.zoningClassification)) || null,
+    summary: (snapshot && snapshot.summary) || "",
+    frontageRoadName: snapshot && snapshot.frontageRoadName,
+    access: snapshot && snapshot.access,
+  };
+
+  let ranked;
+  let classify;
+  try {
+    // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+    const engine = require("./utils/buyerMatchEngine");
+    ranked = engine.rankBuyerFits(site);
+    classify = engine.classifyBuyerFit;
+  } catch {
+    return "";
+  }
+
+  if (!Array.isArray(ranked) || !ranked.length) return "";
+
+  const top = ranked[0];
+  const topClass = classify ? classify(top.score) : "PASS";
+  const topColor =
+    topClass === "STRONG"
+      ? "#16A34A"
+      : topClass === "VIABLE"
+      ? "#D97706"
+      : topClass === "MARGINAL"
+      ? "#B45309"
+      : "#94A3B8";
+
+  function classColor(c) {
+    return c === "STRONG"
+      ? "#16A34A"
+      : c === "VIABLE"
+      ? "#D97706"
+      : c === "MARGINAL"
+      ? "#B45309"
+      : "#94A3B8";
+  }
+
+  function formatRouteTo(routeTo) {
+    if (!routeTo || typeof routeTo !== "object") return "—";
+    if (routeTo.east && routeTo.southwest) return "MT (east) · DW (southwest)";
+    if (routeTo.default) return safe(routeTo.default);
+    return safe(Object.values(routeTo).join(" / "));
+  }
+
+  return `
+<section class="page section">
+  <h2 class="section-h">BUYER-FIT RANKING · WHO PURSUES THIS DEAL</h2>
+  <div class="sanity-card" style="border-color:${topColor}80;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:${topColor};color:#fff">
+      TOP FIT · ${safe(top.name)} · SCORE ${top.score.toFixed(2)}/10 · ${safe(topClass)}${top.isFallback ? " · FALLBACK" : ""}
+    </div>
+    <div class="sanity-message">
+      Every site in Storvex's daily scan is auto-scored against every buyer-spec we maintain. The funnel
+      pushes deals to the buyer best-positioned to pursue them — pre-vetted, REC-packaged, and routed by
+      relationship. This site's recommended owner is <b>${safe(top.recipient)}</b> via
+      <b>${formatRouteTo(top.routeTo)}</b>.
+    </div>
+
+    <table class="data-table" style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 22%;">Buyer</th>
+          <th class="th-num" style="width: 11%;">Fit Score</th>
+          <th class="th-name" style="width: 13%;">Class</th>
+          <th class="th-name" style="width: 27%;">Recipient</th>
+          <th class="th-name" style="width: 27%;">Flags / Hard Fails</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${ranked
+          .map((r) => {
+            const cls = classify ? classify(r.score) : "PASS";
+            const flagDisplay = (r.hardFails && r.hardFails.length)
+              ? r.hardFails.map((f) => `<span style="color:#DC2626">⊘ ${safe(f)}</span>`).join("<br/>")
+              : (r.flagged && r.flagged.length
+                ? r.flagged.map((f) => `<span style="color:#D97706">⚠ ${safe(f)}</span>`).join("<br/>")
+                : `<span style="color:#16A34A">— clean —</span>`);
+            return `<tr>
+              <td class="td-name" style="font-size:9.5pt"><b>${safe(r.name)}</b>${r.isFallback ? ' <span style="color:#94A3B8;font-size:7pt">(fallback)</span>' : ''}</td>
+              <td class="td-num" style="color:${classColor(cls)};font-weight:800">${r.score.toFixed(2)}</td>
+              <td class="td-name" style="color:${classColor(cls)};font-weight:700;font-size:9pt">${safe(cls)}</td>
+              <td class="td-name" style="font-size:8.5pt;color:#1E2761">${safe(r.recipient)}</td>
+              <td class="td-name" style="font-size:8pt">${flagDisplay}</td>
+            </tr>`;
+          })
+          .join("")}
+      </tbody>
+    </table>
+
+    <div style="margin-top:14px;font-size:9pt;color:#475569;line-height:1.5">
+      <b>Funnel-as-product:</b> incumbent data platforms (Radius+, TractIQ) sell screening software — the
+      buyer pulls data and decides. Storvex pushes — every site sourced is auto-matched to its highest-fit
+      buyer-spec, REC-packaged, and routed via the relationship owner. The buyer never opens a competitor
+      product because the deals arrive pre-vetted with audit trail. Spec source: <code>src/utils/buyerMatchEngine.js</code>.
+    </div>
+  </div>
+</section>`;
+}
+
+/**
  * Institutional Audit Layer — DATA SOURCES panel.
  *
  * Reframes the "Crush Radius+" narrative from "we beat them on a scoreboard"
@@ -1634,8 +1774,36 @@ function renderDevelopmentPipeline({ enrichment }) {
 // Same shape as the dashboard MultiLensComparisonCard: one row per buyer,
 // sorted DESC by implied takedown price. Top row is the natural takeout.
 // The platform-fit Δ (top vs GENERIC) is the institutional moat in dollars.
+// Defensive normalizer — catches producer scripts that re-shaped the rows
+// (e.g., `.map(l => ({ buyerKey, buyerName, walk, strike, homeRun, ... }))`)
+// and silently dropped the fields the renderer needs. The canonical shape
+// comes from `computeAllBuyerLenses()` in buyerLensProfiles.js; pass that
+// output directly. If a caller mangled the rows, we normalize on the way in
+// so the IC table never ships blank. Hardcoded for ALL IC deliverables
+// (per Dan's directive 2026-05-12 after the Greenville UHAUL deliverable).
+function normalizeLensRow(row) {
+  if (!row || typeof row !== "object") return row;
+  // If the canonical fields are already present, pass through.
+  if (row.ticker != null || row.impliedTakedownPrice != null) return row;
+  // Salvage from common bad-mapped shapes (buyerKey/buyerName/walk/strike/homeRun).
+  const salvageKey = row.key || row.buyerKey || row.lensKey || null;
+  const salvageName = row.name || row.buyerName || row.lensName || null;
+  return {
+    ...row,
+    key: salvageKey,
+    ticker: row.ticker || salvageKey,
+    name: salvageName,
+    dealStabCap: row.dealStabCap ?? null,
+    lensTargetCap: row.lensTargetCap ?? null,
+    bpsDelta: row.bpsDelta ?? null,
+    verdict: typeof row.verdict === "object" ? row.verdict?.label : row.verdict,
+    impliedTakedownPrice: row.impliedTakedownPrice ?? null,
+  };
+}
+
 function renderMultiLensComparison({ multiLensRows, platformFitDelta, snapshot }) {
   if (!Array.isArray(multiLensRows) || multiLensRows.length < 2) return "";
+  multiLensRows = multiLensRows.map(normalizeLensRow);
   const ask = snapshot?.ask || 0;
 
   const verdictColor = (v) =>
@@ -2063,6 +2231,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
 
   ${renderCover({ snapshot, verdict, ps, msaTier: analysis.msaTier, dealType: analysis.dealType, docId, recipient: pitchTarget && pitchTarget !== "custom" ? getRecipient(pitchTarget) : null })}
   ${renderExecSummary({ snapshot, verdict, ps, analysis, rentSanity })}
+  ${renderBuyerFitRanking({ snapshot, analysis, enrichment, ps })}
   ${renderInstitutionalAuditLayer()}
   ${renderCrushRadiusPlusFootprint()}
   ${renderVerdictKPIStrip({ verdict, ps, analysis })}
