@@ -1,6 +1,6 @@
 {
   "schema": "storvex.edgar-historical-same-store.v1",
-  "generated_at": "2026-05-10T20:21:45.625Z",
+  "generated_at": "2026-05-12T01:57:13.056Z",
   "issuers": [
     "EXR",
     "CUBE",
@@ -57,6 +57,30 @@
       "metricsExtracted": 9,
       "revenueGrowthBasis": "tabular (3-col) — same-store revenue table (current period $2,648,814K vs prior period $2,645,534K)",
       "noiGrowthBasis": "tabular (3-col) — same-store NOI table (current $1,884,797K vs prior $1,917,206K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2016",
+      "metricsExtracted": 2,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $444,411K vs prior $415,343K, change $29,068K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2017",
+      "metricsExtracted": 2,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $490,421K vs prior $469,666K, change $20,755K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2018",
+      "metricsExtracted": 2,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $533,309K vs prior $516,195K, change $17,114K)"
+    },
+    {
+      "ticker": "CUBE",
+      "fyTag": "2019",
+      "metricsExtracted": 2,
+      "revenueGrowthBasis": "tabular (4-col) — Same-Store Property Portfolio total revenues table (current $561,826K vs prior $551,219K, change $10,607K)"
     },
     {
       "ticker": "CUBE",
@@ -243,6 +267,50 @@
       }
     },
     "CUBE": {
+      "2016": {
+        "sameStoreRevenueGrowthYoY": 0.07,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 15.56,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2017": {
+        "sameStoreRevenueGrowthYoY": 0.044000000000000004,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 16.15,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2018": {
+        "sameStoreRevenueGrowthYoY": 0.033,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 16.6,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
+      "2019": {
+        "sameStoreRevenueGrowthYoY": 0.019,
+        "sameStoreNOIGrowthYoY": null,
+        "sameStoreOccupancyEOP": null,
+        "sameStoreOccupancyAvg": null,
+        "sameStoreRentPerSF": 17.01,
+        "sameStoreRentPerSF_PriorYear": null,
+        "newLeaseRentPerSF": null,
+        "newLeaseRentPerSF_PriorYear": null,
+        "discountPctOfRevenue": null
+      },
       "2020": {
         "sameStoreRevenueGrowthYoY": 0.008,
         "sameStoreNOIGrowthYoY": 0.001,
@@ -651,13 +719,29 @@
     {
       "issuer": "CUBE",
       "metric": "sameStoreRevenueGrowthYoY",
-      "firstYear": "2020",
+      "firstYear": "2016",
       "lastYear": "2025",
-      "firstValue": 0.008,
+      "firstValue": 0.07,
       "lastValue": -0.005,
       "cagrPct": null,
-      "dataPoints": 6,
+      "dataPoints": 10,
       "series": [
+        {
+          "year": "2016",
+          "value": 0.07
+        },
+        {
+          "year": "2017",
+          "value": 0.044000000000000004
+        },
+        {
+          "year": "2018",
+          "value": 0.033
+        },
+        {
+          "year": "2019",
+          "value": 0.019
+        },
         {
           "year": "2020",
           "value": 0.008
@@ -755,13 +839,29 @@
     {
       "issuer": "CUBE",
       "metric": "sameStoreRentPerSF",
-      "firstYear": "2020",
+      "firstYear": "2016",
       "lastYear": "2025",
-      "firstValue": 17.1,
+      "firstValue": 15.56,
       "lastValue": 22.73,
-      "cagrPct": 5.857264023254727,
-      "dataPoints": 6,
+      "cagrPct": 4.300829013841145,
+      "dataPoints": 10,
       "series": [
+        {
+          "year": "2016",
+          "value": 15.56
+        },
+        {
+          "year": "2017",
+          "value": 16.15
+        },
+        {
+          "year": "2018",
+          "value": 16.6
+        },
+        {
+          "year": "2019",
+          "value": 17.01
+        },
         {
           "year": "2020",
           "value": 17.1

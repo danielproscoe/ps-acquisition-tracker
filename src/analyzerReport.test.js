@@ -234,5 +234,29 @@ describe("generateAnalyzerReport", () => {
       expect(psaIdx).toBeGreaterThan(0);
       expect(crossIdx).toBeGreaterThan(psaIdx);
     });
+
+    test("CUBE row shows full-decade coverage (10 datapoints FY2016-FY2025) + period-tagged CAGR", () => {
+      // Crush Radius Plus moat-closure assertion. CUBE's FY2016-FY2019 10-Ks
+      // were backfilled 2026-05-11 so the issuer now ships 10 fiscal years of
+      // primary-source same-store rent in the cross-REIT render — closing
+      // the historical-data moat that Radius+ historically owned via
+      // proprietary submarket benchmarks.
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // CUBE row appears
+      expect(html).toContain("CUBE");
+      // FY2016 endpoint is present in the rent-first-year cell (proves the
+      // full decade landed, not just the prior 6-yr window)
+      expect(html).toContain("FY2016");
+      expect(html).toContain("FY2025");
+      // CAGR cell renders with the period-span tag "(9-yr)" — CUBE's
+      // 2016→2025 spans 9 compounding periods over 10 datapoints
+      expect(html).toMatch(/\d+\.\d{2}%\/yr \(9-yr\)/);
+      // Header label updated from "5-yr CAGR" → "Computed CAGR"
+      expect(html).toContain("Computed CAGR");
+      expect(html).not.toContain("5-yr CAGR");
+    });
   });
 });

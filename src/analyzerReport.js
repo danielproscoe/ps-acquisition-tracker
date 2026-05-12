@@ -416,7 +416,13 @@ function renderCrossREITHistoricalSameStore() {
 
   const fmtPct1 = (v) => (v == null || !isFinite(v) ? "—" : `${(v * 100).toFixed(1)}%`);
   const fmtRentVal = (v) => (v == null || !isFinite(v) ? "—" : `$${v.toFixed(2)}`);
-  const fmtCagr = (v) => (v == null || !isFinite(v) ? "—" : `${v.toFixed(2)}%/yr`);
+  const fmtCagrWithSpan = (series) => {
+    if (!series || series.cagrPct == null || !isFinite(series.cagrPct)) return "—";
+    const yrs = Number(series.lastYear) - Number(series.firstYear);
+    return Number.isFinite(yrs) && yrs > 0
+      ? `${series.cagrPct.toFixed(2)}%/yr (${yrs}-yr)`
+      : `${series.cagrPct.toFixed(2)}%/yr`;
+  };
 
   return `
 <section class="page section">
@@ -432,7 +438,7 @@ function renderCrossREITHistoricalSameStore() {
           <th class="th-name">Issuer</th>
           <th class="th-num">Rent / Occ SF — first yr</th>
           <th class="th-num">Rent / Occ SF — last yr</th>
-          <th class="th-num">5-yr CAGR</th>
+          <th class="th-num">Computed CAGR</th>
           <th class="th-num">Datapoints</th>
           <th class="th-num">Occ first yr</th>
           <th class="th-num">Occ last yr</th>
@@ -446,7 +452,7 @@ function renderCrossREITHistoricalSameStore() {
             <td class="td-name">${safe(row.issuer)}</td>
             <td class="td-num">${r ? `FY${r.firstYear} ${fmtRentVal(r.firstValue)}` : "—"}</td>
             <td class="td-num">${r ? `FY${r.lastYear} ${fmtRentVal(r.lastValue)}` : "—"}</td>
-            <td class="td-num">${r ? fmtCagr(r.cagrPct) : "—"}</td>
+            <td class="td-num">${fmtCagrWithSpan(r)}</td>
             <td class="td-num">${r ? r.dataPoints : "—"}</td>
             <td class="td-num">${o ? `FY${o.firstYear} ${fmtPct1(o.firstValue)}` : "—"}</td>
             <td class="td-num">${o ? `FY${o.lastYear} ${fmtPct1(o.lastValue)}` : "—"}</td>
