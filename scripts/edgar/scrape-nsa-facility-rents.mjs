@@ -435,7 +435,55 @@ async function main() {
   for (let i = 0; i < facilities.length; i++) {
     const f = facilities[i];
     process.stdout.write(`[${i + 1}/${facilities.length}] ${f.stateSlug}/${f.citySlug}/${f.facilityId} ... `);
-    const resp = await session.render(f.url, { waitForSelector: '[data-unit-size]', settleMs: 1200 });
+    const resp = await session.render(f.url, {
+      waitForSelector: '[data-unit-size]',
+      settleMs: 1500,
+      // Live-DOM extraction — matches the SMA scraper pattern (commit
+      // d2dd0f7). Works against the post-hydration React tree directly.
+      extractFn: () => {
+        const out = [];
+        const containers = document.querySelectorAll('[data-unit-size]');
+        for (const c of containers) {
+          const html = c.innerHTML || "";
+          const text = (c.innerText || c.textContent || "").replace(/\s+/g, " ").trim();
+          if (!text) continue;
+          const reserveMatch = html.match(/\/reservation\/(\d+)\/(\d+)\/(\d+)/);
+          if (!reserveMatch) continue;
+          const sizeMatch = text.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i);
+          if (!sizeMatch) continue;
+          const w = parseFloat(sizeMatch[1]);
+          const l = parseFloat(sizeMatch[2]);
+          if (!isFinite(w) || !isFinite(l) || w <= 0 || l <= 0) continue;
+          const sqft = w * l;
+          const onlineM = text.match(/\$\s*(\d+(?:\.\d{2})?)\s*\/\s*mo/i);
+          const inStoreM = text.match(/\$\s*(\d+(?:\.\d{2})?)\s*In[- ]?Store/i);
+          const priceOnline = onlineM ? parseFloat(onlineM[1]) : null;
+          const priceInStore = inStoreM ? parseFloat(inStoreM[1]) : null;
+          const sustainedRate = priceInStore || priceOnline;
+          const isCC = /Heated\s+and\s+Cooled/i.test(text);
+          const isDriveUp = /Drive[\s-]?up|Outside\s+Unit/i.test(text);
+          const isIndoor = /Inside|Interior|Hallway|Elevator/i.test(text);
+          let unitType = "UNKNOWN";
+          if (isCC) unitType = "CC";
+          else if (isDriveUp) unitType = "DU";
+          else if (isIndoor) unitType = "INDOOR_NOTCC";
+          out.push({
+            sizeName: `${w}x${l}`,
+            widthFt: w,
+            lengthFt: l,
+            sqft,
+            unitType,
+            climateControlled: isCC,
+            priceOnline,
+            priceInStore,
+            pricePerSF_mo: sqft && sustainedRate ? Math.round((sustainedRate / sqft) * 1000) / 1000 : null,
+            unitId: reserveMatch[2],
+            facilityIdFromReserve: reserveMatch[1],
+          });
+        }
+        return out;
+      },
+    });
     if (resp.status !== 200) {
       console.log(`✗ status ${resp.status}`);
       failCount++;
@@ -443,6 +491,12 @@ async function main() {
       continue;
     }
     const detail = parseFacilityDetail(resp.html, f);
+    // Prefer live-DOM extraction over the HTML regex (avoids snapshot
+    // timing issues). The regex parser remains as a fallback for older
+    // operator pages or environments where page.evaluate fails.
+    if (Array.isArray(resp.extracted) && resp.extracted.length) {
+      detail.units = resp.extracted;
+    }
     if (!detail) {
       console.log("✗ no SelfStorage entity");
       failCount++;
