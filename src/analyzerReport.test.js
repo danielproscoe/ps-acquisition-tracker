@@ -430,6 +430,55 @@ describe("generateAnalyzerReport", () => {
       expect(trajIdx).toBeGreaterThan(histIdx);
       expect(demandIdx).toBeGreaterThan(trajIdx);
     });
+  });
+
+  describe("Historical Pipeline Disclosure Trajectory (Crush Radius+ multi-year backfill)", () => {
+    test("renders HISTORICAL PIPELINE DISCLOSURE TRAJECTORY section when backfill data is loaded", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("HISTORICAL PIPELINE DISCLOSURE TRAJECTORY");
+      expect(html).toContain("6-10 YEAR EDGAR BACKFILL");
+    });
+
+    test("aggregate trajectory table renders for PSA + EXR with multi-year series", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // PSA + EXR both have multi-year aggregate disclosure series
+      expect(html).toMatch(/<b>PSA<\/b>/);
+      expect(html).toMatch(/<b>EXR<\/b>/);
+      // CAGR rendering
+      expect(html).toMatch(/%\/yr/);
+    });
+
+    test("named JV property trajectory table renders CUBE NY/MA/NJ entries", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Named JV trajectory section appears
+      expect(html).toContain("Named JV Property Trajectory");
+      // CUBE has 8 distinct named JV entries across years
+      expect(html).toMatch(/New York|Massachusetts|New Jersey/);
+    });
+
+    test("section appears after EDGAR PRIMARY-SOURCE PIPELINE in render order", () => {
+      const houstonInput = { ...baseInput, name: "Historical Order Test", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      const pipelineIdx = html.indexOf("EDGAR PRIMARY-SOURCE PIPELINE");
+      const histIdx = html.indexOf("HISTORICAL PIPELINE DISCLOSURE TRAJECTORY");
+      const compsIdx = html.indexOf("SALE COMPS");
+
+      expect(pipelineIdx).toBeGreaterThan(0);
+      expect(histIdx).toBeGreaterThan(pipelineIdx);
+      expect(compsIdx).toBeGreaterThan(histIdx);
+    });
 
     test("pipeline confidence chip + counts strip render when enrichment.pipelineNearby is populated", () => {
       // Crush Radius Plus: every pipeline facility carries a verification status.

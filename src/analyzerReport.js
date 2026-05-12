@@ -12,6 +12,9 @@ import {
   getRentTrajectoryMetadata,
   summarizeRentTrajectory,
   listOperatorsForMSA,
+  getHistoricalPipelineMetadata,
+  getHistoricalPipelineTrajectory,
+  listHistoricalPipelineIssuers,
 } from "./data/edgarCompIndex";
 import {
   computePipelineConfidence,
@@ -710,6 +713,156 @@ function renderAuditedDemandForecast({ snapshot, analysis, enrichment }) {
     <div style="margin-top:14px;font-size:9pt;color:#475569;">
       <b>Primary sources cited inline (by component):</b> ${forecast.citations.map((c) => safe(c)).join(" · ")}.
       <br><b>Why this matters vs. Radius+:</b> Radius+ ships a single demand number sourced from proprietary aggregation. Storvex ships the same number with every component visible, every coefficient citation-anchored, and a coefficient-override hook so PS's quant team can calibrate to PS's own observed occupancy data over 20-50 deals. Auditable, tunable, replicable.
+    </div>
+  </div>
+</section>`;
+}
+
+/**
+ * Historical Pipeline Disclosure Trajectory — multi-year EDGAR backfill
+ * compounding Move 2. Pulls 6-10 years of pipeline disclosures per REIT
+ * from cached historical 10-Ks and renders the longitudinal view:
+ *   - PSA aggregate remaining-spend by year (5-yr trajectory)
+ *   - EXR balance-sheet under-development by year (6-yr trajectory)
+ *   - CUBE named JV development projects by year (8-yr trajectory · NY / MA / NJ)
+ * Radius+ structurally cannot replicate this from public filings — each
+ * datapoint cites the FY 10-K filing year + EDGAR-HIST verifiedSource.
+ */
+function renderHistoricalPipelineTrajectory() {
+  const meta = getHistoricalPipelineMetadata();
+  if (!meta || !meta.totalDisclosures) return "";
+
+  const issuers = listHistoricalPipelineIssuers();
+  if (issuers.length === 0) return "";
+
+  const fmt$M = (v) => (v == null || !isFinite(v) ? "—" : `$${Number(v).toFixed(1)}M`);
+
+  // Per-issuer aggregate trajectory rows
+  const aggregateRows = issuers
+    .map((iss) => {
+      const traj = getHistoricalPipelineTrajectory(iss.operator);
+      if (!traj || !traj.aggregateRemainingByYear) return null;
+      const yrs = Object.keys(traj.aggregateRemainingByYear).sort();
+      if (yrs.length < 2) return null; // need ≥2 yrs for a trajectory
+      const first = traj.aggregateRemainingByYear[yrs[0]];
+      const last = traj.aggregateRemainingByYear[yrs[yrs.length - 1]];
+      const peak = Math.max(...Object.values(traj.aggregateRemainingByYear).map(Number).filter((v) => isFinite(v)));
+      const peakYear = Object.entries(traj.aggregateRemainingByYear).find(([, v]) => Number(v) === peak)?.[0];
+      const cagrPct = first > 0 && last > 0 && yrs.length > 1
+        ? (Math.pow(last / first, 1 / (Number(yrs[yrs.length - 1]) - Number(yrs[0]))) - 1) * 100
+        : null;
+      return {
+        operator: iss.operator,
+        operatorName: iss.operatorName,
+        firstYear: yrs[0],
+        lastYear: yrs[yrs.length - 1],
+        firstValue: first,
+        lastValue: last,
+        peakYear,
+        peakValue: peak,
+        yearsTracked: yrs.length,
+        cagrPct,
+        series: yrs.map((y) => ({ year: y, value: traj.aggregateRemainingByYear[y] })),
+      };
+    })
+    .filter(Boolean);
+
+  // Named per-property trajectories (CUBE NY/MA/NJ JVs by year · SMA Regent/Allard/Finch)
+  const propertyTrajectories = [];
+  for (const iss of issuers) {
+    const traj = getHistoricalPipelineTrajectory(iss.operator);
+    if (!traj || !traj.facilityCIPByPropAndYear) continue;
+    for (const [propName, byYr] of Object.entries(traj.facilityCIPByPropAndYear)) {
+      const yrs = Object.keys(byYr).sort();
+      propertyTrajectories.push({
+        operator: iss.operator,
+        propertyName: propName,
+        years: yrs,
+        firstYear: yrs[0],
+        latestYear: yrs[yrs.length - 1],
+        firstCIPK: byYr[yrs[0]],
+        latestCIPK: byYr[yrs[yrs.length - 1]],
+        yearCount: yrs.length,
+      });
+    }
+  }
+
+  if (aggregateRows.length === 0 && propertyTrajectories.length === 0) return "";
+
+  return `
+<section class="page section">
+  <h2 class="section-h">HISTORICAL PIPELINE DISCLOSURE TRAJECTORY — 6-10 YEAR EDGAR BACKFILL</h2>
+  <div class="sanity-card" style="border-color:#C9A84C40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:#C9A84C;color:#1E2761">PRIMARY-SOURCE SEC EDGAR · MULTI-YEAR · ${safe(meta.totalIssuers)} ISSUERS · ${safe(meta.totalFilings)} 10-Ks · ${safe(meta.totalDisclosures)} DISCLOSURES</div>
+    <div class="sanity-message">
+      Move 2 (single-filing extraction) compounded into a longitudinal pipeline disclosure registry. Walks 34 cached historical 10-K text files covering <b>CUBE FY2016-FY2025 (10 yrs), PSA FY2020-FY2025, EXR FY2020-FY2025, NSA FY2020-FY2025, LSI FY2016-FY2021 pre-merger</b>. The defensible wedge vs Radius+: Radius+ doesn't expose pipeline-disclosure history with per-FY citation; Storvex shows every operator's pipeline commitment trajectory over 5-10 years, every datapoint tied to a specific FY 10-K filing.
+    </div>
+
+    ${
+      aggregateRows.length > 0
+        ? `
+    <h3 style="margin-top: 16px; color:#1E2761; font-size: 10.5pt;">Aggregate Pipeline Commitment — Multi-Year Trajectory ($M)</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name">Issuer</th>
+          <th class="th-num">First Yr</th>
+          <th class="th-num">Latest Yr</th>
+          <th class="th-num">FY Peak (yr)</th>
+          <th class="th-num">CAGR</th>
+          <th class="th-num">Series</th>
+          <th class="th-name">Disclosure kind</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${aggregateRows.map((r) => `<tr>
+          <td class="td-name"><b>${safe(r.operator)}</b><br><span style="font-size:8pt;color:#64748B">${safe(r.operatorName)}</span></td>
+          <td class="td-num">${fmt$M(r.firstValue)}<br><span style="font-size:8pt;color:#64748B">FY${r.firstYear}</span></td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${fmt$M(r.lastValue)}<br><span style="font-size:8pt;color:#64748B">FY${r.lastYear}</span></td>
+          <td class="td-num">${fmt$M(r.peakValue)}<br><span style="font-size:8pt;color:#64748B">FY${r.peakYear}</span></td>
+          <td class="td-num" style="color:${r.cagrPct == null ? "#475569" : r.cagrPct > 0 ? "#16A34A" : "#DC2626"}">${r.cagrPct == null ? "—" : (r.cagrPct >= 0 ? "+" : "") + r.cagrPct.toFixed(2) + "%/yr"}</td>
+          <td class="td-num" style="font-size:8pt;color:#475569">${safe(r.series.map((p) => `FY${p.year} ${fmt$M(p.value)}`).join(" · "))}</td>
+          <td class="td-name" style="font-size:8.5pt;color:#475569">${r.operator === "PSA" ? "Remaining-spend on development pipeline (MD&A)" : "Real estate under development/redevelopment (balance sheet)"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`
+        : ""
+    }
+
+    ${
+      propertyTrajectories.length > 0
+        ? `
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 10.5pt;">Named JV Property Trajectory — CUBE / SMA disclosures by year</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name">Operator</th>
+          <th class="th-name">Property / Location</th>
+          <th class="th-num">First disclosed</th>
+          <th class="th-num">Latest disclosed</th>
+          <th class="th-num">CIP first</th>
+          <th class="th-num">CIP latest</th>
+          <th class="th-num">Years tracked</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${propertyTrajectories.map((p) => `<tr>
+          <td class="td-name"><b>${safe(p.operator)}</b></td>
+          <td class="td-name">${safe(p.propertyName)}</td>
+          <td class="td-num">FY${p.firstYear}</td>
+          <td class="td-num" style="font-weight:600">FY${p.latestYear}</td>
+          <td class="td-num">$${p.firstCIPK ? (Number(p.firstCIPK) / 1000).toFixed(1) : "—"}M</td>
+          <td class="td-num">$${p.latestCIPK ? (Number(p.latestCIPK) / 1000).toFixed(1) : "—"}M</td>
+          <td class="td-num">${p.yearCount}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`
+        : ""
+    }
+
+    <div style="margin-top:14px;font-size:9pt;color:#475569;">
+      <b>Source:</b> Cached historical 10-K filings · ingested via <code>scripts/edgar/backfill-historical-pipeline-disclosures.mjs</code> · pipeline disclosure extractors from <code>src/utils/pipelineDisclosures.mjs</code>. Each disclosure carries verifiedSource <code>EDGAR-10K-HIST-&lt;operator&gt;-FY&lt;year&gt;</code> for VERIFIED chip classification.
+      <br><b>Why this matters vs. Radius+:</b> Multi-year pipeline disclosure trajectory shows when each operator started + scaled + completed each named project. CUBE has rotated JV projects across NY/MA/NJ every 1-2 years for 8 straight years — that pattern is invisible in a single-snapshot view. Radius+ presents current pipeline; Storvex shows the LONGITUDE.
     </div>
   </div>
 </section>`;
@@ -1641,6 +1794,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderRentTrajectory({ snapshot, analysis })}
   ${renderAuditedDemandForecast({ snapshot, analysis, enrichment })}
   ${renderEdgarPipelineDisclosures()}
+  ${renderHistoricalPipelineTrajectory()}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}

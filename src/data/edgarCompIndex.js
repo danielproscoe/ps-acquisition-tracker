@@ -69,6 +69,21 @@ try {
   // Optional asset; run scripts/edgar/build-rent-trajectory.mjs to generate.
 }
 
+// Historical multi-year EDGAR pipeline disclosures — backfilled from cached
+// historical 10-Ks (CUBE 10 yrs, PSA/EXR/NSA/SMA 6 yrs, LSI 6 yrs pre-merger).
+// Provides longitudinal pipeline disclosure trajectory: PSA aggregate
+// remaining-spend by year, EXR balance-sheet under-development by year,
+// CUBE named JV development projects FY2018-FY2025, etc. Radius+
+// structurally cannot replicate this from public filings — each datapoint
+// cites the FY 10-K filing year + the EDGAR-HIST verifiedSource.
+let edgarHistoricalPipeline = null;
+try {
+  // eslint-disable-next-line global-require
+  edgarHistoricalPipeline = require("./edgar-historical-pipeline-disclosures.json");
+} catch {
+  // Optional asset; run scripts/edgar/backfill-historical-pipeline-disclosures.mjs to generate.
+}
+
 // Scraped per-facility rents — primary-source unit pricing pulled from each
 // REIT's facility detail pages. Optional — availability depends on whether
 // the scraper has run for the subject MSA.
@@ -1670,6 +1685,61 @@ export function listOperatorsForMSA(msa) {
   return Array.from(set).sort();
 }
 
+// ─── Historical Pipeline Disclosure Trajectory (Crush Radius+ compounding) ──
+
+/**
+ * Top-level meta for the multi-year EDGAR pipeline disclosure backfill.
+ */
+export function getHistoricalPipelineMetadata() {
+  if (!edgarHistoricalPipeline) return null;
+  return {
+    schema: edgarHistoricalPipeline.schema,
+    generatedAt: edgarHistoricalPipeline.generatedAt,
+    totalIssuers: edgarHistoricalPipeline.totalIssuers,
+    totalFilings: edgarHistoricalPipeline.totalFilings,
+    totalDisclosures: edgarHistoricalPipeline.totalDisclosures,
+    totalFacilities: edgarHistoricalPipeline.totalFacilities,
+    issuers: Object.keys(edgarHistoricalPipeline.issuers || {}),
+  };
+}
+
+/**
+ * Per-issuer trajectory snapshots:
+ *   - aggregate spend by FY year (PSA remaining-spend · EXR balance-sheet under-development)
+ *   - named facility CIP by property × year (CUBE NY/MA/NJ JVs over 8 yrs · SMA Canadian JVs)
+ */
+export function getHistoricalPipelineTrajectory(operator) {
+  if (!edgarHistoricalPipeline || !operator) return null;
+  return edgarHistoricalPipeline.trajectories?.[String(operator).toUpperCase()] || null;
+}
+
+/**
+ * All historical-backfill per-property facility entries with their filing year.
+ */
+export function getHistoricalPipelineFacilities(operator) {
+  if (!edgarHistoricalPipeline) return [];
+  const issuer = edgarHistoricalPipeline.issuers?.[String(operator || "").toUpperCase()];
+  if (!issuer) return [];
+  return (issuer.allFacilities || []).slice();
+}
+
+/**
+ * All issuer summaries — coveredYears + facility/disclosure counts.
+ */
+export function listHistoricalPipelineIssuers() {
+  if (!edgarHistoricalPipeline || !edgarHistoricalPipeline.issuers) return [];
+  return Object.entries(edgarHistoricalPipeline.issuers).map(([op, r]) => ({
+    operator: op,
+    operatorName: r.operatorName,
+    coveredYears: r.coveredYears,
+    earliestYear: r.coveredYears[0],
+    latestYear: r.coveredYears[r.coveredYears.length - 1],
+    yearCount: r.coveredYears.length,
+    facilityCount: (r.allFacilities || []).length,
+    disclosureYearCount: Object.keys(r.yearlyDisclosures || {}).length,
+  }));
+}
+
 /**
  * Compute trajectory summary stats for one operator/MSA pair — first / last
  * rent + N-day delta + % change.
@@ -1768,6 +1838,11 @@ export default {
   getRentTrajectorySeries,
   listOperatorsForMSA,
   summarizeRentTrajectory,
+  // Crush Radius+ PIPELINE · historical multi-year backfill accessors
+  getHistoricalPipelineMetadata,
+  getHistoricalPipelineTrajectory,
+  getHistoricalPipelineFacilities,
+  listHistoricalPipelineIssuers,
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
   getStateRentBand,

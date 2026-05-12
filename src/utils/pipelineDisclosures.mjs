@@ -263,8 +263,26 @@ export function extractCUBEPipelineDisclosures(text, meta) {
   //    expected to be completed during the first quarter of 2026. As of
   //    December 31, 2025, we had invested $17.2 million of the expected
   //    $19.0 million related to this project."
+  // CUBE's phrasing varies across filings:
+  //   FY2025: "...expected to be completed during the first quarter of 2026..."
+  //   FY2024: "...expected to be completed by the third quarter of 2025..."
+  //   Either "during" / "in" / "by" / "in mid" preceding the quarter spec is acceptable.
+  // Location prefix variants observed:
+  //   FY2025: "...one joint venture development property under construction, also in New York,..."
+  //   FY2024: "...two joint venture development properties under construction, both located in New York,..."
+  //   FY2023: "...joint venture development property under construction in Manhattan,..."
+  // Completion phrasing variants:
+  //   "expected to be completed during the first quarter of 2026"
+  //   "expected to be completed by the third quarter of 2025"
+  //   "expected to be completed in mid-2025"
+  // Investment phrasing variants:
+  //   "invested $17.2 million of the expected $19.0 million"
+  //   "invested $12.7 million of an expected $36.9 million"
+  // City capture group is GREEDY — matches one or more title-case words
+  // (e.g. "New York", "San Diego", "Manhattan") — anchored to end on a
+  // word boundary so we don't bleed across the comma.
   const jvProjectPattern =
-    /joint\s+venture\s+development\s+(?:property|properties)\s+under\s+construction(?:[\s\S]{0,260}?in\s+([A-Z][A-Za-z][A-Za-z\s,]{2,40}?)\s*,)?[\s\S]{0,260}?expected\s+to\s+be\s+completed\s+(?:during|in)\s+(?:the\s+)?([A-Za-z]+\s+quarter\s+of\s+\d{4}|[A-Z][a-z]+\s+\d{4}|\d{4})[\s\S]{0,260}?invested\s+\$\s*([\d,.]+)\s+million\s+of\s+the\s+expected\s+\$\s*([\d,.]+)\s+million/i;
+    /joint\s+venture\s+development\s+(?:property|properties)\s+under\s+construction(?:[\s\S]{0,300}?(?:both\s+|also\s+)?(?:located\s+)?in\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*))?[\s\S]{0,300}?expected\s+to\s+be\s+completed\s+(?:during|in|by)\s+(?:the\s+|mid[- ])?([A-Za-z]+\s+quarter\s+of\s+\d{4}|[A-Z][a-z]+\s+\d{4}|\d{4})[\s\S]{0,300}?invested\s+\$\s*([\d,.]+)\s+million\s+of\s+(?:the\s+|an?\s+)?expected\s+\$\s*([\d,.]+)\s+million/i;
   const jvMatch = jvProjectPattern.exec(t);
   if (jvMatch) {
     const city = jvMatch[1] ? jvMatch[1].trim() : null;
