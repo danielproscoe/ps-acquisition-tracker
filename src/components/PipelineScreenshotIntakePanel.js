@@ -13,15 +13,18 @@
 //      source registry (development-pipeline.json + submarketPipelineSupply
 //      .json), classifying each as REAL / NOT_FOUND / STALE /
 //      INCONCLUSIVE with the supporting citation.
-//   4. Verdict cards render inline. Each cycle is appended to an audit
-//      ledger (localStorage today, Firebase upgrade-path documented).
+//   4. Verdict cards render inline. Each cycle is appended to a shared
+//      audit ledger that mirrors localStorage → Firebase Realtime DB at
+//      /pipelineVerifyAudit/{cycleId} so DW + MT + Reza + Dan share one
+//      ledger across browsers and sessions (see ../utils/pipelineAuditLog.js).
 //
 // Over the engagement window, the audit ledger itself becomes the moat:
-// a public-by-default record of Radius+ accuracy errors that institutional
+// a cross-device record of Radius+ accuracy errors that institutional
 // users (DW, MT, Reza, Aaron) can reference.
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { verifyExtractedEntries } from "../utils/pipelineVerificationOracle";
+import { appendAuditEntry, subscribeAuditLog } from "../utils/pipelineAuditLog";
 
 const NAVY = "#1E2761";
 const GOLD = "#C9A84C";
@@ -61,31 +64,6 @@ const VERDICT_STYLES = {
   },
 };
 
-const AUDIT_LOG_KEY = "storvex.pipelineVerifyAuditLog.v1";
-
-function readAuditLog() {
-  if (typeof window === "undefined" || !window.localStorage) return [];
-  try {
-    const raw = window.localStorage.getItem(AUDIT_LOG_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function appendAuditLog(entry) {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  try {
-    const prior = readAuditLog();
-    const next = [...prior, entry].slice(-100); // cap at last 100 entries
-    window.localStorage.setItem(AUDIT_LOG_KEY, JSON.stringify(next));
-  } catch {
-    // ignore — audit log is best-effort
-  }
-}
-
 function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -107,9 +85,16 @@ export default function PipelineScreenshotIntakePanel() {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
 
-  // Load existing audit log on mount
+  // Subscribe to the shared Firebase audit ledger on mount (Phase B).
+  // The handler fires immediately with localStorage bootstrap and again
+  // every time Firebase pushes a new entry from any browser.
   useEffect(() => {
-    setAuditLog(readAuditLog());
+    const unsub = subscribeAuditLog((merged) => {
+      setAuditLog(merged);
+    });
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
   }, []);
 
   const handleFile = useCallback(async (file) => {
@@ -234,8 +219,10 @@ export default function PipelineScreenshotIntakePanel() {
         model: data.model,
         elapsedMs: data.elapsedMs,
       };
-      appendAuditLog(auditEntry);
-      setAuditLog(readAuditLog());
+      // Phase B: write goes to localStorage (sync) + Firebase (async).
+      // The subscribeAuditLog handler will refresh the UI on the Firebase
+      // round-trip — no manual setAuditLog needed.
+      await appendAuditEntry(auditEntry);
     } catch (e) {
       setError("Verification failed: " + (e.message || String(e)));
     } finally {
@@ -572,29 +559,47 @@ export default function PipelineScreenshotIntakePanel() {
               marginBottom: 8,
             }}
           >
-            AUDIT LEDGER · {auditLog.length} entries
+            AUDIT LEDGER · {auditLog.length} entries · shared across DJR devices
+            {auditLog.some((e) => e._source === "local") && (
+              <span style={{ marginLeft: 8, color: "rgba(255,255,255,0.50)", fontWeight: 600 }}>
+                ({auditLog.filter((e) => e._source === "local").length} pending sync)
+              </span>
+            )}
           </div>
           {auditLog
             .slice()
             .reverse()
             .slice(0, 5)
-            .map((entry, i) => (
-              <div
-                key={i}
-                style={{
-                  fontSize: 10,
-                  color: "rgba(255,255,255,0.70)",
-                  marginBottom: 4,
-                  paddingBottom: 4,
-                  borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                }}
-              >
-                <span style={{ color: "rgba(255,255,255,0.45)", marginRight: 6 }}>
-                  {new Date(entry.timestamp).toLocaleString()}
-                </span>
-                {entry.summary || `${entry.entriesExtracted} entries · ${entry.model}`}
-              </div>
-            ))}
+            .map((entry, i) => {
+              const isLocal = entry._source === "local";
+              return (
+                <div
+                  key={entry._cycleId || `${entry.timestamp}-${i}`}
+                  style={{
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.70)",
+                    marginBottom: 4,
+                    paddingBottom: 4,
+                    borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                  }}
+                >
+                  <span
+                    title={isLocal ? "Pending Firebase sync — visible on this device only" : "Synced to Firebase — visible across all DJR devices"}
+                    style={{
+                      marginRight: 6,
+                      color: isLocal ? "rgba(234,88,12,0.85)" : "rgba(22,163,74,0.85)",
+                      fontSize: 9,
+                    }}
+                  >
+                    {isLocal ? "⏳" : "☁"}
+                  </span>
+                  <span style={{ color: "rgba(255,255,255,0.45)", marginRight: 6 }}>
+                    {new Date(entry.timestamp).toLocaleString()}
+                  </span>
+                  {entry.summary || `${entry.entriesExtracted} entries · ${entry.model}`}
+                </div>
+              );
+            })}
           {auditLog.length > 5 && (
             <div style={{ fontSize: 9, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>
               + {auditLog.length - 5} earlier entries
