@@ -3,6 +3,10 @@ import {
   getHistoricalMSARentSeries,
   getHistoricalSameStoreSeries,
   getCrossREITHistoricalLatest,
+  getEdgarPipelineMetadata,
+  getAllEdgarPipelineDisclosures,
+  getAllEdgarPipelineFacilities,
+  getEdgarPipelineTotalDollars,
 } from "./data/edgarCompIndex";
 
 // warehouseExport.js — Push Storvex Asset Analyzer outputs to PSA's data warehouse.
@@ -370,6 +374,94 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
         source_provider: "SEC EDGAR",
         ingestion_pipeline: "scripts/edgar/backfill-historical-same-store.mjs",
         schema_version: "storvex.edgar-historical-same-store.v1",
+      };
+    })(),
+
+    // Move 2 (Crush Radius+ wedge #7 — Pipeline Verification long-tail data
+    // engine). Per-storage-REIT pipeline disclosures pulled directly from
+    // each issuer's most recent 10-Q + 10-K on SEC EDGAR. Includes:
+    //   - aggregate REIT-level disclosures (PSA remaining-spend, EXR balance-
+    //     sheet under-development, EXR JV under-development count)
+    //   - named per-property under-construction facilities (CUBE NY JV +
+    //     SMA Canadian JVs — Regent / Allard / Finch / Edmonton JV)
+    // Every record carries verifiedSource = "EDGAR-<form>-<accession>" which
+    // pipelineConfidence.js classifies as VERIFIED. This is the layer that
+    // calibrates the Pipeline Confidence chip system's default state from
+    // UNVERIFIED → VERIFIED as the registry fills out.
+    edgar_pipeline_disclosures: (() => {
+      const meta = getEdgarPipelineMetadata();
+      if (!meta) return null;
+      const disclosures = getAllEdgarPipelineDisclosures();
+      const facilities = getAllEdgarPipelineFacilities();
+      const dollars = getEdgarPipelineTotalDollars();
+      return {
+        as_of: meta.generatedAt,
+        schema_version: meta.schema,
+        total_issuers_disclosing: meta.totalIssuers,
+        total_filings_parsed: meta.totalFilings,
+        total_disclosures: meta.totalDisclosures,
+        total_named_facilities: meta.totalFacilities,
+        cumulative_disclosed_dollars: dollars ? dollars.total : null,
+        by_issuer_dollars: dollars ? dollars.byIssuer.map((b) => ({
+          operator: b.operator,
+          disclosed_dollars: b.dollars,
+        })) : [],
+        aggregate_disclosures: disclosures.map((d) => ({
+          operator: d.operator,
+          operator_name: d.operatorName,
+          form: d.form,
+          accession_number: d.accession,
+          filing_date: d.filingDate,
+          report_date: d.reportDate || null,
+          filing_url: d.sourceURL,
+          kind: d.kind,
+          remaining_spend_million: numOrNull(d.remainingSpendMillion),
+          delivery_window: d.deliveryWindow || null,
+          current_year_thousands: numOrNull(d.currentYearThousands),
+          prior_year_thousands: numOrNull(d.priorYearThousands),
+          named_jv_city: d.city || null,
+          named_jv_completion: d.completion || null,
+          named_jv_invested_million: numOrNull(d.investedMillion),
+          named_jv_expected_million: numOrNull(d.expectedMillion),
+          num_facilities: numOrNull(d.numFacilities),
+          num_states: numOrNull(d.numStates),
+          nrsf_million: numOrNull(d.nrsfMillion),
+          aggregate_price_million: numOrNull(d.aggregatePriceMillion),
+          narrative: d.narrative || null,
+          citation: d.citation || null,
+          verified_source: d.verifiedSource || null,
+          verified_date: d.verifiedDate || null,
+        })),
+        named_facilities: facilities.map((f) => ({
+          id: f.id,
+          name: f.name,
+          property_name: f.propertyName || null,
+          operator: f.operator,
+          city: f.city || null,
+          state: f.state || null,
+          country: f.country || null,
+          msa: f.msa || null,
+          status: f.status,
+          estimated_investment: numOrNull(f.estimatedInvestment),
+          invested_to_date: numOrNull(f.investedToDate),
+          ci_in_progress: numOrNull(f.ciInProgress),
+          acquisition_date: f.acquisitionDate || null,
+          expected_delivery: f.expectedDelivery || null,
+          form: f.form,
+          accession_number: f.accession,
+          filing_date: f.filingDate,
+          filing_url: f.sourceURL,
+          verified_source: f.verifiedSource,
+          verified_date: f.verifiedDate,
+          verifier_name: f.verifierName,
+          verification_notes: f.verificationNotes || null,
+          source: f.source || null,
+          citation: f.citation || null,
+        })),
+        source: "SEC EDGAR · 10-Q + 10-K Properties Under Development / Real Estate Facilities Under Development sections",
+        source_provider: "SEC EDGAR",
+        ingestion_pipeline: "scripts/edgar/extract-pipeline-disclosures.mjs",
+        chip_classification_rule: "verifiedSource prefix 'EDGAR-' → VERIFIED (pipelineConfidence.js derivation rule #3)",
       };
     })(),
 

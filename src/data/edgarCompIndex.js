@@ -42,6 +42,21 @@ try {
   // Optional asset; run scripts/edgar/backfill-historical-same-store.mjs to generate.
 }
 
+// Move 2 — primary-source pipeline disclosures extracted from each storage
+// REIT's most recent 10-Q + 10-K on SEC EDGAR. Per-issuer aggregate metrics
+// (PSA remaining-spend, EXR balance-sheet under-development) + named per-
+// property entries (CUBE NY JV, SMA Canadian JVs). Loaded optionally —
+// absent on fresh checkouts where extract-pipeline-disclosures.mjs hasn't
+// run. Records carry verifiedSource: "EDGAR-<form>-<accession>" which
+// pipelineConfidence.js classifies as VERIFIED.
+let edgarPipelineDisclosures = null;
+try {
+  // eslint-disable-next-line global-require
+  edgarPipelineDisclosures = require("./edgar-pipeline-disclosures.json");
+} catch {
+  // Optional asset; run scripts/edgar/extract-pipeline-disclosures.mjs to generate.
+}
+
 // Scraped per-facility rents — primary-source unit pricing pulled from each
 // REIT's facility detail pages. Optional — availability depends on whether
 // the scraper has run for the subject MSA.
@@ -1540,6 +1555,104 @@ export function getHistoricalRentMetadata() {
   };
 }
 
+// ─── Move 2 · EDGAR Pipeline Disclosure accessors ────────────────────────────
+
+/**
+ * Per-issuer pipeline disclosure record (aggregate + per-property facilities)
+ * extracted from each REIT's most recent 10-Q + 10-K. Returns null when the
+ * disclosure file hasn't been generated yet or when the issuer key is unknown.
+ */
+export function getEdgarPipelineDisclosures(operatorKey) {
+  if (!edgarPipelineDisclosures || !operatorKey) return null;
+  return edgarPipelineDisclosures.issuers?.[String(operatorKey).toUpperCase()] || null;
+}
+
+/**
+ * All per-property pipeline facility entries (CUBE + SMA today). Each carries
+ * verifiedSource = "EDGAR-<form>-<accession>" which pipelineConfidence.js
+ * automatically classifies as VERIFIED.
+ */
+export function getAllEdgarPipelineFacilities() {
+  if (!edgarPipelineDisclosures || !edgarPipelineDisclosures.issuers) return [];
+  const out = [];
+  for (const r of Object.values(edgarPipelineDisclosures.issuers)) {
+    for (const f of r.allFacilities || []) out.push(f);
+  }
+  return out;
+}
+
+/**
+ * Cross-issuer aggregate pipeline disclosures (PSA remaining-spend, EXR
+ * balance-sheet, NSA narrative). Useful for the report-level "REIT pipeline
+ * footprint" summary strip.
+ */
+export function getAllEdgarPipelineDisclosures() {
+  if (!edgarPipelineDisclosures || !edgarPipelineDisclosures.issuers) return [];
+  const out = [];
+  for (const r of Object.values(edgarPipelineDisclosures.issuers)) {
+    for (const d of r.allDisclosures || []) out.push(d);
+  }
+  return out;
+}
+
+/**
+ * Top-level meta + counts about the pipeline disclosures ingest run.
+ */
+export function getEdgarPipelineMetadata() {
+  if (!edgarPipelineDisclosures) return null;
+  return {
+    schema: edgarPipelineDisclosures.schema,
+    generatedAt: edgarPipelineDisclosures.generatedAt,
+    totalIssuers: edgarPipelineDisclosures.totalIssuers,
+    totalFilings: edgarPipelineDisclosures.totalFilings,
+    totalDisclosures: edgarPipelineDisclosures.totalDisclosures,
+    totalFacilities: edgarPipelineDisclosures.totalFacilities,
+    issuers: Object.keys(edgarPipelineDisclosures.issuers || {}),
+  };
+}
+
+/**
+ * Convenience: total dollar value of REIT-disclosed forward pipeline activity.
+ * Sums PSA's "remaining-spend" aggregate, EXR's balance-sheet under-development
+ * line item (current-year), CUBE's named-JV expected investment, and SMA's
+ * per-property CIP totals. Numbers in dollars (not millions / thousands).
+ */
+export function getEdgarPipelineTotalDollars() {
+  if (!edgarPipelineDisclosures || !edgarPipelineDisclosures.issuers) return null;
+  let total = 0;
+  let contributingIssuers = [];
+  for (const [issuerKey, r] of Object.entries(edgarPipelineDisclosures.issuers)) {
+    let issuerSum = 0;
+    for (const d of r.allDisclosures || []) {
+      if (d.kind === "aggregate-remaining-spend" && d.remainingSpendMillion != null) {
+        // Prefer latest filing (10-Q), de-dupe vs 10-K by skipping the older one
+        // when we've already seen a more recent disclosure for this issuer.
+        if (d.form === "10-Q" || issuerSum === 0) {
+          issuerSum = d.remainingSpendMillion * 1_000_000;
+        }
+      } else if (d.kind === "balance-sheet-under-development" && d.currentYearThousands != null) {
+        // Same: prefer 10-Q over 10-K when both populate
+        if (d.form === "10-Q" || issuerSum === 0) {
+          issuerSum = d.currentYearThousands * 1000;
+        }
+      } else if (d.kind === "named-jv-under-construction" && d.expectedMillion != null) {
+        issuerSum += d.expectedMillion * 1_000_000;
+      }
+    }
+    // Add per-property facility CIP for SMA
+    for (const f of r.allFacilities || []) {
+      if (f.ciInProgress != null && issuerKey === "SMA") {
+        issuerSum += f.ciInProgress;
+      }
+    }
+    if (issuerSum > 0) {
+      total += issuerSum;
+      contributingIssuers.push({ operator: issuerKey, dollars: issuerSum });
+    }
+  }
+  return { total, byIssuer: contributingIssuers };
+}
+
 export default {
   getEDGARStateData,
   formatEDGARCitation,
@@ -1552,6 +1665,12 @@ export default {
   getHistoricalSameStoreSeries,
   getCrossREITHistoricalLatest,
   getHistoricalSameStoreMetadata,
+  // Move 2 · pipeline disclosures
+  getEdgarPipelineDisclosures,
+  getAllEdgarPipelineFacilities,
+  getAllEdgarPipelineDisclosures,
+  getEdgarPipelineMetadata,
+  getEdgarPipelineTotalDollars,
   getEDGAR8KTransactions,
   getRelevant8KTransactions,
   getStateRentBand,

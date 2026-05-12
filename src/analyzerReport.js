@@ -5,6 +5,10 @@ import {
   getHistoricalRentMetadata,
   getHistoricalSameStoreSeries,
   getCrossREITHistoricalLatest,
+  getAllEdgarPipelineDisclosures,
+  getAllEdgarPipelineFacilities,
+  getEdgarPipelineMetadata,
+  getEdgarPipelineTotalDollars,
 } from "./data/edgarCompIndex";
 import {
   computePipelineConfidence,
@@ -467,6 +471,152 @@ function renderCrossREITHistoricalSameStore() {
     </table>
     <div style="margin-top:10px;font-size:9pt;color:#475569;">
       <b>Source:</b> SEC EDGAR 10-K MD&amp;A · Same-Store Performance disclosures · ${safe(latest.contributingIssuers.join(" + "))} · ingested via Storvex/scripts/edgar/backfill-historical-same-store.mjs.
+    </div>
+  </div>
+</section>`;
+}
+
+/**
+ * Move 2 · EDGAR Primary-Source Pipeline Disclosures. Renders the per-REIT
+ * aggregate pipeline footprint pulled from each issuer's most recent 10-Q +
+ * 10-K, plus the named per-property under-development entries (CUBE NY JV +
+ * SMA Canadian JVs). Sits below the historical sections and above the comp
+ * sales grid because it's forward-looking new-supply data.
+ */
+function renderEdgarPipelineDisclosures() {
+  const meta = getEdgarPipelineMetadata();
+  if (!meta || !meta.totalDisclosures) return "";
+
+  const disclosures = getAllEdgarPipelineDisclosures();
+  const facilities = getAllEdgarPipelineFacilities();
+  const dollars = getEdgarPipelineTotalDollars();
+
+  // Group disclosures by issuer for the aggregate panel
+  const byIssuer = {};
+  for (const d of disclosures) {
+    const k = d.operator || "?";
+    if (!byIssuer[k]) byIssuer[k] = [];
+    byIssuer[k].push(d);
+  }
+
+  const fmt$M = (millions) =>
+    millions == null || !isFinite(millions) ? "—" : `$${Number(millions).toLocaleString(undefined, { maximumFractionDigits: 1 })}M`;
+  const fmt$K = (dollars) =>
+    dollars == null || !isFinite(dollars) ? "—" : `$${(Number(dollars) / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })}K`;
+  const totalDisclosed$ = dollars && isFinite(dollars.total) ? dollars.total : 0;
+
+  // Aggregate rows — one summary line per issuer with the headline metric
+  const issuerSummaryRows = Object.entries(byIssuer).map(([iss, ds]) => {
+    const latest10Q = ds.find((d) => d.form === "10-Q");
+    const latest10K = ds.find((d) => d.form === "10-K");
+    const latest = latest10Q || latest10K;
+    let headline = "—";
+    let kindLabel = "";
+    if (iss === "PSA") {
+      const remaining = ds.find((d) => d.kind === "aggregate-remaining-spend" && d.form === "10-Q") || ds.find((d) => d.kind === "aggregate-remaining-spend");
+      if (remaining) {
+        headline = `${fmt$M(remaining.remainingSpendMillion)} remaining · ${safe(remaining.deliveryWindow || "")}`;
+        kindLabel = "Remaining-spend disclosure (MD&A)";
+      }
+    } else if (iss === "EXR") {
+      const bs = ds.find((d) => d.kind === "balance-sheet-under-development" && d.form === "10-Q") || ds.find((d) => d.kind === "balance-sheet-under-development");
+      if (bs) {
+        headline = `${fmt$M(bs.currentYearMillion)} balance-sheet line · vs ${fmt$M(bs.priorYearMillion)} prior`;
+        kindLabel = "Balance-sheet under-development/redevelopment";
+      }
+    } else if (iss === "CUBE") {
+      const jv = ds.find((d) => d.kind === "named-jv-under-construction");
+      if (jv) {
+        headline = `${safe(jv.city || "JV")} · invested ${fmt$M(jv.investedMillion)} / expected ${fmt$M(jv.expectedMillion)} · target ${safe(jv.completion || "")}`;
+        kindLabel = "Named JV under construction";
+      }
+    } else if (iss === "SMA") {
+      const named = ds.filter((d) => d.kind === "named-property-under-development");
+      if (named.length) {
+        const totalCIPK = named.reduce((sum, d) => sum + (d.cipCurrentThousands || 0), 0);
+        headline = `${named.length} named Canadian JV propert${named.length === 1 ? "y" : "ies"} · ${fmt$K(totalCIPK * 1000)} aggregate CIP`;
+        kindLabel = "Per-property Canadian JV table (named)";
+      }
+    } else if (iss === "NSA") {
+      headline = "Post-merger wind-down · no active pipeline disclosure";
+      kindLabel = "Residual filings";
+    }
+    return { iss, latest, headline, kindLabel };
+  });
+
+  // Top facility rows for the per-property table
+  const facilityRows = facilities.slice(0, 12);
+
+  return `
+<section class="page section">
+  <h2 class="section-h">EDGAR PRIMARY-SOURCE PIPELINE — REIT FOOTPRINT (MOVE 2)</h2>
+  <div class="sanity-card" style="border-color:#C9A84C40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:#C9A84C;color:#1E2761">PRIMARY-SOURCE SEC EDGAR · 10-Q + 10-K · ${meta.totalIssuers} ISSUERS · ${meta.totalFilings} FILINGS</div>
+    <div class="sanity-message">
+      Per-issuer pipeline disclosures pulled directly from each storage REIT's most recent 10-Q + 10-K on SEC EDGAR. Aggregate REIT-level numbers (remaining-spend, balance-sheet under-development) plus the named per-property entries that emerge in JV disclosures. Every record carries <code>verifiedSource: EDGAR-&lt;form&gt;-&lt;accession&gt;</code> which the Pipeline Confidence chip layer classifies as <b>VERIFIED</b>. Cumulative REIT-disclosed forward pipeline activity in scope: <b>${fmt$M(totalDisclosed$ / 1_000_000)}</b>.
+    </div>
+    <table class="data-table" style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th class="th-name">Issuer</th>
+          <th class="th-name">Headline disclosure</th>
+          <th class="th-name">Source</th>
+          <th class="th-num">Filing</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${issuerSummaryRows
+          .map(
+            (row) => `<tr>
+            <td class="td-name"><b>${safe(row.iss)}</b></td>
+            <td class="td-name">${safe(row.headline)}</td>
+            <td class="td-name" style="font-size:8.5pt;color:#475569">${safe(row.kindLabel)}</td>
+            <td class="td-num" style="font-size:8.5pt">${row.latest ? `${safe(row.latest.form)} ${safe(row.latest.filingDate)}` : "—"}</td>
+          </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>
+
+    ${
+      facilityRows.length > 0
+        ? `
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 10.5pt;">Named per-property pipeline entries (${facilities.length})</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name">Facility</th>
+          <th class="th-name">Location</th>
+          <th class="th-name">Status</th>
+          <th class="th-num">CIP / Est. Investment</th>
+          <th class="th-name">Chip</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${facilityRows
+          .map((f) => {
+            const loc = [f.city, f.state || f.province, f.country].filter(Boolean).join(", ");
+            const invest = f.estimatedInvestment || f.ciInProgress;
+            const chipHTML = renderConfidenceChip(f);
+            return `<tr>
+              <td class="td-name"><b>${safe(f.name)}</b><br><span style="font-size:8pt;color:#64748B">${safe(f.operator)} · ${safe(f.form || "")} ${safe(f.filingDate || "")}</span></td>
+              <td class="td-name">${safe(loc || "—")}</td>
+              <td class="td-name">${safe(f.status || "—")}</td>
+              <td class="td-num">${invest ? fmt$K(invest) : "—"}</td>
+              <td class="td-name">${chipHTML}</td>
+            </tr>`;
+          })
+          .join("")}
+      </tbody>
+    </table>
+    `
+        : ""
+    }
+
+    <div style="margin-top:10px;font-size:9pt;color:#475569;">
+      <b>Source:</b> SEC EDGAR 10-Q + 10-K · Properties Under Development / Real Estate Facilities Under Development / MD&amp;A Liquidity disclosures · ingested via Storvex/scripts/edgar/extract-pipeline-disclosures.mjs · ${safe(meta.generatedAt)}.
+      <br><b>Chip classification rule:</b> verifiedSource prefix <code>EDGAR-</code> → VERIFIED (pipelineConfidence.js derivation rule #3).
+      <br><b>Why this matters vs. Radius+:</b> Radius+ synthesizes per-facility pipeline from third-party signals (permits, listings, construction chatter) and presents it as primary-source. Storvex is honest about what's verifiable from SEC primary source — aggregate + the rare named JV — and classifies the rest as CLAIMED until cross-confirmed. The inversion wedge: Radius+ data becomes Storvex audit-log input.
     </div>
   </div>
 </section>`;
@@ -1235,6 +1385,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderRentSanity({ rentSanity })}
   ${renderHistoricalMSARents({ snapshot })}
   ${renderCrossREITHistoricalSameStore()}
+  ${renderEdgarPipelineDisclosures()}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}

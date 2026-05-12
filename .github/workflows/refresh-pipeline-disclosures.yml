@@ -1,0 +1,70 @@
+# Daily refresh of REIT pipeline disclosures from SEC EDGAR (Move 2 of the
+# Pipeline Verification wedge).
+#
+# Runs at 06:30 UTC every day — staggered 30 min after refresh-rents.yml to
+# avoid simultaneous SEC EDGAR + REIT-website crawl pressure. The orchestrator
+# pulls the latest 10-Q + 10-K for PSA / EXR / CUBE / NSA / SMA, extracts
+# pipeline disclosures (aggregate REIT-level + named per-property entries),
+# stamps every record with verifiedSource: "EDGAR-<form>-<accession>", and
+# writes src/data/edgar-pipeline-disclosures.json. The Vercel deployment auto-
+# rebuilds on push, so the Pipeline Confidence chip layer always reflects the
+# latest primary-source registry within 24 hours of any new SEC filing.
+#
+# This is the long-tail data engine behind the Move 1 Pipeline Confidence chip
+# system: every new filing ingested here flips one more pipeline entry's
+# chip default from UNVERIFIED → VERIFIED.
+#
+# Why daily (not quarterly with the filing cadence):
+#   - 10-Q + 10-K filing dates are unpredictable inside each filing window
+#     (40-day 10-Q deadline / 60-day 10-K deadline). Daily ensures we catch
+#     a new filing within 24h of it landing on EDGAR.
+#   - The extraction is fast (~10 HTTP requests at 200ms each ≈ 2-5s + parsing)
+#     — no reason to throttle harder.
+#   - Quiet days produce zero-change runs that no-op out of the commit step.
+
+name: Refresh REIT Pipeline Disclosures (EDGAR · Move 2)
+
+on:
+  schedule:
+    # 06:30 UTC daily — 30 min after refresh-rents.yml
+    - cron: "30 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run pipeline disclosure orchestrator
+        run: node scripts/edgar/extract-pipeline-disclosures.mjs
+        env:
+          NODE_ENV: production
+
+      - name: Commit refreshed pipeline disclosures
+        run: |
+          git config user.name "storvex-bot"
+          git config user.email "noreply@storvex.com"
+          git add src/data/edgar-pipeline-disclosures.json
+          if git diff --staged --quiet; then
+            echo "No pipeline disclosure changes detected — skipping commit"
+          else
+            DATE=$(date -u +%Y-%m-%d)
+            FILINGS=$(jq -r '.totalFilings' src/data/edgar-pipeline-disclosures.json)
+            DISC=$(jq -r '.totalDisclosures' src/data/edgar-pipeline-disclosures.json)
+            FAC=$(jq -r '.totalFacilities' src/data/edgar-pipeline-disclosures.json)
+            git commit -m "chore(edgar-pipeline): daily refresh ${DATE} · ${FILINGS} filings · ${DISC} disclosures · ${FAC} named facilities"
+            git push
+          fi

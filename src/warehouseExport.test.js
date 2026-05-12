@@ -97,3 +97,74 @@ describe("buildWarehousePayload — historical MSA rent (Crush Radius Plus)", ()
     expect(payload.historical_msa_rent).toBeNull();
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// Move 2 — edgar_pipeline_disclosures warehouse block
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("buildWarehousePayload — edgar_pipeline_disclosures (Move 2)", () => {
+  test("includes edgar_pipeline_disclosures when extract has run", () => {
+    const analysis = analyzeExistingAsset(houstonInput);
+    const psLens = computeBuyerLens(houstonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    // After running scripts/edgar/extract-pipeline-disclosures.mjs the
+    // edgar-pipeline-disclosures.json artifact ships; the block should
+    // surface in the payload.
+    expect(payload.edgar_pipeline_disclosures).toBeTruthy();
+    expect(payload.edgar_pipeline_disclosures.total_issuers_disclosing).toBeGreaterThanOrEqual(1);
+    expect(payload.edgar_pipeline_disclosures.total_filings_parsed).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(payload.edgar_pipeline_disclosures.aggregate_disclosures)).toBe(true);
+    expect(Array.isArray(payload.edgar_pipeline_disclosures.named_facilities)).toBe(true);
+  });
+
+  test("every aggregate disclosure carries verified_source EDGAR- prefix + citation", () => {
+    const analysis = analyzeExistingAsset(houstonInput);
+    const psLens = computeBuyerLens(houstonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    if (!payload.edgar_pipeline_disclosures) return;
+    for (const d of payload.edgar_pipeline_disclosures.aggregate_disclosures) {
+      expect(d.verified_source).toMatch(/^EDGAR-/);
+      expect(d.citation).toMatch(/^Accession /);
+      expect(d.filing_url).toMatch(/sec\.gov/i);
+    }
+  });
+
+  test("PSA aggregate disclosure carries remaining_spend_million + delivery_window", () => {
+    const analysis = analyzeExistingAsset(houstonInput);
+    const psLens = computeBuyerLens(houstonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    if (!payload.edgar_pipeline_disclosures) return;
+    const psaRemaining = payload.edgar_pipeline_disclosures.aggregate_disclosures.find(
+      (d) => d.operator === "PSA" && d.kind === "aggregate-remaining-spend"
+    );
+    expect(psaRemaining).toBeTruthy();
+    expect(psaRemaining.remaining_spend_million).toBeGreaterThan(100);
+    expect(psaRemaining.delivery_window).toBeTruthy();
+  });
+
+  test("every named facility carries verified_source EDGAR- prefix", () => {
+    const analysis = analyzeExistingAsset(houstonInput);
+    const psLens = computeBuyerLens(houstonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    if (!payload.edgar_pipeline_disclosures) return;
+    for (const f of payload.edgar_pipeline_disclosures.named_facilities) {
+      expect(f.verified_source).toMatch(/^EDGAR-/);
+      expect(f.verifier_name).toBe("storvex-edgar-pipeline-extractor");
+      expect(f.status).toMatch(/under-(construction|development)/);
+    }
+  });
+
+  test("cumulative_disclosed_dollars sums REIT pipeline activity", () => {
+    const analysis = analyzeExistingAsset(houstonInput);
+    const psLens = computeBuyerLens(houstonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    if (!payload.edgar_pipeline_disclosures) return;
+    expect(payload.edgar_pipeline_disclosures.cumulative_disclosed_dollars).toBeGreaterThan(100_000_000);
+    expect(Array.isArray(payload.edgar_pipeline_disclosures.by_issuer_dollars)).toBe(true);
+  });
+});

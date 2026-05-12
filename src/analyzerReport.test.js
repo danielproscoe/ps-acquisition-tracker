@@ -234,6 +234,56 @@ describe("generateAnalyzerReport", () => {
       expect(psaIdx).toBeGreaterThan(0);
       expect(crossIdx).toBeGreaterThan(psaIdx);
     });
+  });
+
+  describe("EDGAR primary-source pipeline section (Move 2)", () => {
+    test("renders EDGAR PRIMARY-SOURCE PIPELINE section header when ingest has run", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("EDGAR PRIMARY-SOURCE PIPELINE");
+    });
+
+    test("renders the cross-REIT issuer summary row table with PSA / EXR / CUBE / SMA", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // At least one of the four reliably-disclosing issuers should appear in
+      // the headline-disclosure row table.
+      expect(html).toMatch(/<b>(PSA|EXR|CUBE|SMA)<\/b>/);
+      // The "REMAINING-SPEND" / "Balance-sheet" / "Named JV" disclosure labels
+      expect(html).toMatch(/Remaining-spend|Balance-sheet|Named JV|Canadian JV/);
+    });
+
+    test("renders per-property facility table with at least one VERIFIED chip", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // The facility rows include a Pipeline Confidence chip; SMA's named
+      // properties (Regent / Allard / Finch / Edmonton JV) and CUBE's NY JV
+      // all carry verifiedSource: EDGAR-… so every chip should be VERIFIED.
+      expect(html).toContain("VERIFIED");
+      expect(html).toMatch(/SMA JV|JV \(CUBE\)/);
+    });
+
+    test("EDGAR PRIMARY-SOURCE PIPELINE section appears after CROSS-REIT HISTORICAL SAME-STORE", () => {
+      const houstonInput = { ...baseInput, name: "Houston Pipeline Order Test", city: "Houston", state: "TX" };
+      const analysis = analyzeExistingAsset(houstonInput);
+      const psLens = computeBuyerLens(houstonInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      const crossIdx = html.indexOf("CROSS-REIT HISTORICAL SAME-STORE");
+      const pipelineIdx = html.indexOf("EDGAR PRIMARY-SOURCE PIPELINE");
+      const compsIdx = html.indexOf("SALE COMPS");
+      expect(crossIdx).toBeGreaterThan(0);
+      expect(pipelineIdx).toBeGreaterThan(crossIdx);
+      // Move 2 section appears BEFORE the SALE COMPS section (forward-looking
+      // supply comes before historical sale comps).
+      expect(compsIdx).toBeGreaterThan(pipelineIdx);
+    });
 
     test("pipeline confidence chip + counts strip render when enrichment.pipelineNearby is populated", () => {
       // Crush Radius Plus: every pipeline facility carries a verification status.
