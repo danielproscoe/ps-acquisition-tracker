@@ -658,6 +658,45 @@ describe("generateAnalyzerReport", () => {
       expect(html).toMatch(/TractIQ would have to replicate BOTH primary-source ingestions/);
     });
 
+    test("Multi-source PERMIT row cites the daily 06:45 UTC cron + scraper adapter coverage", () => {
+      // 5/12/26 PM enrichment — once the per-county scraper adapter sprint
+      // landed (commit af0ebdb), the footprint row stopped being abstract
+      // architecture talk and started citing concrete data-engine
+      // infrastructure: cron schedule, adapter spread (automated HTTPS +
+      // manual CSV + paper-records onFileSource).
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toMatch(/daily 06:45 UTC cron/);
+      expect(html).toMatch(/refresh-county-permits\.yml/);
+      // Adapter coverage breakdown — 1 automated + 2 manual-ingest + 2 paper-records
+      expect(html).toMatch(/1 automated HTTPS \+ 2 manual-ingest portals \+ 2 paper-records adapters/);
+    });
+
+    test("Audit Layer table includes a dedicated County permits row beside EDGAR feeds", () => {
+      // 5/12/26 PM — `renderInstitutionalAuditLayer` gains a 9th layer row
+      // for the County Permits primary-source feed, citing the 5 pilot
+      // counties (Denton TX, Warren OH, Kenton KY, Boone IN, Hancock IN)
+      // and the verifiedSource: "permit-<county>-<permit-number>" stamp.
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      // Layer label appears in the audit-layer table
+      expect(html).toMatch(/<td[^>]*>County permits<\/td>/);
+      // Feed cites the new daily cron
+      expect(html).toMatch(/refresh-county-permits\.yml cron 06:45 UTC/);
+      // verifiedSource stamp pattern is exposed so a reader sees the audit-trail surface
+      expect(html).toMatch(/permit-&lt;county&gt;-&lt;permit-number&gt;|permit-<county>-<permit-number>/);
+      // All 5 pilot county adapters named explicitly
+      expect(html).toMatch(/Denton TX/);
+      expect(html).toMatch(/Warren OH/);
+      expect(html).toMatch(/Kenton KY/);
+      expect(html).toMatch(/Boone IN/);
+      expect(html).toMatch(/Hancock IN/);
+    });
+
     test("Cross-device shared verification audit ledger row cites Phase B Firebase wire", () => {
       const analysis = analyzeExistingAsset(baseInput);
       const psLens = computeBuyerLens(baseInput, PS_LENS);

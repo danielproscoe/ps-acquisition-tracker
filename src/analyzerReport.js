@@ -275,7 +275,7 @@ function renderCrushRadiusPlusFootprint() {
           const edgarCount = (dp.facilities || []).length;
           const permitCount = (cp.facilities || []).length;
           const pilotCount = (cp.pilotCounties || []).length;
-          return `Two independent primary-source registries · EDGAR ${edgarCount} REIT-disclosed facilities · County Permits ${permitCount} entries today (${pilotCount}-county pilot architecture · ${cp.phase || "PILOT"}) · Verification Oracle scans both with per-source attribution`;
+          return `Two independent primary-source registries · EDGAR ${edgarCount} REIT-disclosed facilities (daily 06:30 UTC) · County Permits ${permitCount} entries (${pilotCount}-county pilot · 1 automated HTTPS + 2 manual-ingest portals + 2 paper-records adapters · daily 06:45 UTC cron at refresh-county-permits.yml · ${cp.phase || "PILOT"}) · Verification Oracle scans both with per-source attribution`;
         } catch {
           return "Two independent primary-source registries (EDGAR + County Permits) · multi-source Verification Oracle";
         }
@@ -572,6 +572,22 @@ function renderInstitutionalAuditLayer() {
         ? `${histPipelineMeta.totalFilings || 34} 10-Ks · ${histPipelineMeta.totalDisclosures || 27} disclosures · CUBE FY2016–FY2025 (10 yrs) · PSA + EXR + NSA + LSI 6 yrs each`
         : "Multi-year pipeline trajectory",
       auditNote: "Longitudinal view neither Radius+ nor TractIQ exposes",
+    },
+    {
+      layer: "County permits",
+      feed: "Per-jurisdiction permit scrapers · refresh-county-permits.yml cron 06:45 UTC",
+      contribution: (() => {
+        try {
+          // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+          const cp = require("./data/county-permits.json");
+          const pilots = (cp.pilotCounties || []).length;
+          const facilities = (cp.facilities || []).length;
+          return `${pilots}-county pilot architecture · ${facilities} entries · adapters span the full portal spectrum: Denton TX (vanilla HTTPS · ASP.NET RadGrid), Warren OH (iWorQ + reCAPTCHA --ingest CSV), Kenton KY (GovBuilt + Orchard Core CSRF --ingest CSV), Boone IN + Hancock IN (onFileSource paper-records adapters)`;
+        } catch {
+          return "5-county pilot architecture · adapters span automated HTTPS, manual CSV ingest, and paper-records onFileSource paths";
+        }
+      })(),
+      auditNote: "Every entry stamped verifiedSource: permit-<county>-<permit-number> · second independent primary-source lineage beside EDGAR",
     },
     {
       layer: "Verification ledger",
