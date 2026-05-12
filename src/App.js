@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import QuickLookupPanel from './QuickLookupPanel';
 import AssetAnalyzerView from './components/AssetAnalyzerView';
 import TheReadView from './components/TheReadView';
+import BuyerDigestView from './components/BuyerDigestView';
 import CalibrationView from './components/CalibrationView';
 import MethodologyView from './components/MethodologyView';
 import { db, storage } from "./firebase";
@@ -2806,6 +2807,7 @@ function AppInner() {
             { key: "east", label: "Matthew Toussaint" },
             { key: "review", label: pendingN > 0 ? `Review (${pendingN})` : "Review" },
             { key: "lookup", label: "⚡ The Read" },
+            { key: "digest", label: "📨 Digests" },
             { key: "methodology", label: "📋 Methodology" },
             { key: "calibration", label: "🎯 Calibration" },
             // Hidden for now — re-enable when core is nailed down:
@@ -2829,6 +2831,8 @@ function AppInner() {
 
         {/* ═══ DASHBOARD ═══ */}
         {tab === "lookup" && <TheReadView autoEnrichESRI={autoEnrichESRI} fbSet={fbSet} fbPush={fbPush} notify={notify} navigateTo={navigateTo} setTab={setTab} />}
+
+        {tab === "digest" && <BuyerDigestView subs={subs} east={east} sw={sw} notify={notify} />}
 
         {tab === "methodology" && <MethodologyView />}
 
