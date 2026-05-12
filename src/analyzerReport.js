@@ -6,6 +6,11 @@ import {
   getHistoricalSameStoreSeries,
   getCrossREITHistoricalLatest,
 } from "./data/edgarCompIndex";
+import {
+  computePipelineConfidence,
+  renderConfidenceChip,
+  aggregatePipelineConfidence,
+} from "./utils/pipelineConfidence";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
@@ -710,6 +715,17 @@ function renderDevelopmentPipeline({ enrichment }) {
     saturation.severity === "MODERATE" ? "#F59E0B" :
     "#94A3B8";
 
+  // Pipeline Confidence: classify each facility's source citation + freshness.
+  // Closes the structural gap vs Radius+ (no verification status, no freshness
+  // stamps). VERIFIED = primary-source citation (REIT 10-K accession # / county
+  // permit # / planning commission record); CLAIMED = aggregator/screenshot;
+  // STALE = primary-source citation > 90 days old; UNVERIFIED = no source info.
+  const confidenceOpts = { fileGeneratedAt: metadata?.generatedAt || null };
+  const confidenceAgg = aggregatePipelineConfidence(nearby, confidenceOpts);
+
+  const totalConfident = confidenceAgg.counts.VERIFIED + confidenceAgg.counts.CLAIMED;
+  const confidencePct = nearby.length > 0 ? Math.round((totalConfident / nearby.length) * 100) : 0;
+
   return `
 <section class="page section">
   <h2 class="section-h">NEW-SUPPLY PIPELINE · 3-MI RADIUS · ${safe(saturation.severity)}</h2>
@@ -731,7 +747,13 @@ function renderDevelopmentPipeline({ enrichment }) {
       <div class="ek-v">${saturation.facilitiesInHorizon || 0} of ${saturation.facilityCount || 0}</div>
     </div>
   </div>
-  <table class="data-table">
+  <div class="sanity-card" style="border-color:#1E276140;background:rgba(214,228,247,0.10);margin-top:10pt">
+    <div class="sanity-tag" style="background:#1E2761;color:#C9A84C">PIPELINE CONFIDENCE · STORVEX VERIFICATION LAYER</div>
+    <div class="sanity-message">
+      Each pipeline facility carries a verification status derived from its source citation. <b style="color:#16A34A">${confidenceAgg.counts.VERIFIED} VERIFIED</b> (primary-source cite ≤ 90 days old) · <b style="color:#D97706">${confidenceAgg.counts.CLAIMED} CLAIMED</b> (aggregator or screenshot only) · <b style="color:#EA580C">${confidenceAgg.counts.STALE} STALE</b> (primary-source cite > 90 days old) · <b style="color:#64748B">${confidenceAgg.counts.UNVERIFIED} UNVERIFIED</b> (no source). Weighted CC SF (confidence-discounted): <b>${(confidenceAgg.weightedTotalCCSF / 1000).toFixed(0)}K</b> of <b>${(confidenceAgg.rawTotalCCSF / 1000).toFixed(0)}K</b> raw. ${confidencePct}% of rows traced to a primary source — institutional displacement of aggregator-only pipeline data.
+    </div>
+  </div>
+  <table class="data-table" style="margin-top:14px">
     <thead>
       <tr>
         <th class="th-name">Operator</th>
@@ -741,7 +763,7 @@ function renderDevelopmentPipeline({ enrichment }) {
         <th class="th-num">CC%</th>
         <th class="th-name">Delivery</th>
         <th class="th-name">Status</th>
-        <th class="th-name">Source</th>
+        <th class="th-name">Verification</th>
       </tr>
     </thead>
     <tbody>
@@ -753,13 +775,14 @@ function renderDevelopmentPipeline({ enrichment }) {
         <td class="td-num">${row.ccPct != null ? row.ccPct + "%" : "—"}</td>
         <td class="td-name">${safe(row.expectedDelivery)}</td>
         <td class="td-name" style="text-transform:uppercase;font-size:9pt">${safe((row.status || "").replace(/-/g, " "))}</td>
-        <td class="td-basis" style="font-size:8pt">${safe(row.citation)}</td>
+        <td class="td-basis">${renderConfidenceChip(row, confidenceOpts)}</td>
       </tr>`).join("")}
     </tbody>
   </table>
   <div class="footnote" style="margin-top:14pt">
     <b style="color:${severityColor}">Verdict:</b> ${safe(saturation.narrative)}<br/><br/>
     <b>Methodology:</b> Phase ${metadata?.phase || 1} pipeline dataset sourced from each REIT's FY2025 10-K MD&A 'Properties Under Development' sections + Q1 2026 earnings transcripts. ${metadata?.totalFacilities || 0} disclosed institutional REIT pipeline facilities indexed nationally; ${nearby.length} fall within the subject site's 3-mi proximity radius. Refreshes quarterly upon new 10-Q/10-K filings.<br/><br/>
+    <b>Pipeline Confidence layer:</b> Storvex's structural answer to the aggregator-data gap that institutional users routinely confirm in Radius Plus. Each facility's source citation is classified — REIT EDGAR filing or municipal permit = VERIFIED; aggregator scrape or screenshot = CLAIMED; verified entries older than 90 days flip to STALE pending re-confirmation. Confidence-weighted CC SF (VERIFIED × 1.0, CLAIMED × 0.5, STALE × 0.3, UNVERIFIED × 0.0) gives institutional underwriters a defensible Y3-NOI haircut input. Re-verification cadence: REIT entries quarterly upon 10-Q filings; permit entries on planning-commission cycle; screenshot intake on DW request.<br/><br/>
     <b>Saturation thresholds (LOCKED):</b> ≥ 100K SF CC delivering Y1-Y3 → MATERIAL flag · 50-100K SF → MODERATE flag · &lt; 50K SF or all delivering Y4+ → MINIMAL impact. <b>Storvex flags but does NOT auto-adjust the Y3 NOI math</b> — the analyst makes the haircut call based on local trade-area dynamics + absorption assumptions.
   </div>
 </section>`;

@@ -16,6 +16,7 @@ import { buildWarehousePayload, downloadWarehousePayload } from "../warehouseExp
 import { openAnalyzerReport } from "../analyzerReport";
 import { resolveCityToMSA, getHistoricalMSARentSeries, getCrossREITHistoricalLatest } from "../data/edgarCompIndex";
 import { uid, safeNum, fmt$, fmtN } from "../utils";
+import { computePipelineConfidence, aggregatePipelineConfidence } from "../utils/pipelineConfidence";
 
 // ─── Brand tokens — match QuickLookupPanel + CLAUDE.md §3 ─────────────────
 const NAVY = "#1E2761";
@@ -2354,6 +2355,13 @@ function DevelopmentPipelineCard({ nearby, saturation, metadata }) {
     saturation.severity === "MODERATE" ? "rgba(245,158,11,0.10)" :
     "rgba(148,163,184,0.06)";
 
+  // Pipeline Confidence: classify each facility's source citation + freshness
+  // for the Storvex verification layer (Crush Radius Plus moat).
+  const confidenceOpts = { fileGeneratedAt: metadata?.generatedAt || null };
+  const confidenceAgg = aggregatePipelineConfidence(nearby, confidenceOpts);
+  const totalConfident = confidenceAgg.counts.VERIFIED + confidenceAgg.counts.CLAIMED;
+  const confidencePct = nearby.length > 0 ? Math.round((totalConfident / nearby.length) * 100) : 0;
+
   const operatorColors = {
     PSA: "#3B82F6",
     PS: "#3B82F6",
@@ -2393,6 +2401,35 @@ function DevelopmentPipelineCard({ nearby, saturation, metadata }) {
         </div>
       </div>
 
+      {/* Pipeline Confidence strip — Storvex verification layer counts */}
+      <div style={{
+        marginTop: 4,
+        marginBottom: 10,
+        padding: "8px 12px",
+        background: "rgba(30, 39, 97, 0.25)",
+        border: "1px solid rgba(201, 168, 76, 0.30)",
+        borderRadius: 4,
+        fontSize: 11,
+        color: "#E2E8F0",
+        lineHeight: 1.5,
+      }}>
+        <span style={{ fontSize: 9, fontWeight: 800, color: "#C9A84C", textTransform: "uppercase", letterSpacing: "0.10em", marginRight: 10 }}>
+          ⚡ Pipeline Confidence · Storvex verification layer
+        </span>
+        <span style={{ color: "#16A34A", fontWeight: 700 }}>{confidenceAgg.counts.VERIFIED} VERIFIED</span>
+        <span style={{ color: "#94A3B8" }}> · </span>
+        <span style={{ color: "#D97706", fontWeight: 700 }}>{confidenceAgg.counts.CLAIMED} CLAIMED</span>
+        <span style={{ color: "#94A3B8" }}> · </span>
+        <span style={{ color: "#EA580C", fontWeight: 700 }}>{confidenceAgg.counts.STALE} STALE</span>
+        <span style={{ color: "#94A3B8" }}> · </span>
+        <span style={{ color: "#94A3B8", fontWeight: 700 }}>{confidenceAgg.counts.UNVERIFIED} UNVERIFIED</span>
+        <span style={{ color: "#94A3B8", marginLeft: 8 }}>
+          · Weighted CC SF: <b style={{ color: "#fff" }}>{(confidenceAgg.weightedTotalCCSF / 1000).toFixed(0)}K</b>
+          {" "}of <b style={{ color: "#fff" }}>{(confidenceAgg.rawTotalCCSF / 1000).toFixed(0)}K</b> raw
+          {" "}({confidencePct}% primary-source)
+        </span>
+      </div>
+
       <table style={{ width: "100%", fontSize: 12, fontFamily: "'Inter', sans-serif", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ color: "#64748B", borderBottom: `1px solid ${severityColor}33` }}>
@@ -2403,6 +2440,7 @@ function DevelopmentPipelineCard({ nearby, saturation, metadata }) {
             <th style={{ textAlign: "right", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>CC %</th>
             <th style={{ textAlign: "left", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>Delivery</th>
             <th style={{ textAlign: "left", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>Status</th>
+            <th style={{ textAlign: "left", padding: "5px 6px", fontWeight: 700, fontSize: 9 }}>Verification</th>
           </tr>
         </thead>
         <tbody>
@@ -2441,6 +2479,31 @@ function DevelopmentPipelineCard({ nearby, saturation, metadata }) {
                 }}>
                   {(row.status || "").replace(/-/g, " ")}
                 </span>
+              </td>
+              <td style={{ padding: "7px 6px" }}>
+                {(() => {
+                  const conf = computePipelineConfidence(row, confidenceOpts);
+                  return (
+                    <span
+                      title={conf.verificationNotes || conf.sourceCitation || ""}
+                      style={{
+                        display: "inline-block",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: conf.chip.color,
+                        background: conf.chip.background,
+                        border: `1px solid ${conf.chip.border}`,
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        letterSpacing: "0.04em",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {conf.chip.text}
+                    </span>
+                  );
+                })()}
               </td>
             </tr>
           ))}

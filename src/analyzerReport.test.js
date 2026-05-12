@@ -235,6 +235,106 @@ describe("generateAnalyzerReport", () => {
       expect(crossIdx).toBeGreaterThan(psaIdx);
     });
 
+    test("pipeline confidence chip + counts strip render when enrichment.pipelineNearby is populated", () => {
+      // Crush Radius Plus: every pipeline facility carries a verification status.
+      // The renderDevelopmentPipeline() helper consumes enrichment.pipelineNearby,
+      // classifies each entry's source citation via pipelineConfidence, and
+      // renders a chip-stripped table + per-status counts strip.
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const enrichment = {
+        pipelineNearby: [
+          // VERIFIED — legacy citation field with EDGAR accession #
+          {
+            operator: "PSA",
+            operatorName: "Public Storage",
+            address: "Test Loc 1",
+            city: "Houston",
+            state: "TX",
+            msa: "Houston",
+            distanceMi: 2.4,
+            nrsf: 95000,
+            ccPct: 100,
+            expectedDelivery: "2026-Q3",
+            status: "under-construction",
+            citation: "Accession 0001628280-26-007696",
+            source: "PSA FY2025 10-K MD&A",
+            verifiedDate: "2026-05-08",
+          },
+          // CLAIMED — aggregator scrape, recent
+          {
+            operator: "CUBE",
+            operatorName: "CubeSmart",
+            address: "Test Loc 2",
+            city: "Houston",
+            state: "TX",
+            msa: "Houston",
+            distanceMi: 2.8,
+            nrsf: 60000,
+            ccPct: 100,
+            expectedDelivery: "2027-Q1",
+            status: "announced",
+            verifiedSource: "aggregator-radiusplus-2026-05-01",
+            verifiedDate: "2026-05-01",
+          },
+          // UNVERIFIED — no source info
+          {
+            operator: "EXR",
+            operatorName: "Extra Space",
+            address: "Test Loc 3",
+            city: "Houston",
+            state: "TX",
+            msa: "Houston",
+            distanceMi: 1.9,
+            nrsf: 45000,
+            ccPct: 95,
+            expectedDelivery: "2027-Q2",
+            status: "permitted",
+          },
+        ],
+        pipelineSaturation: {
+          severity: "MATERIAL",
+          ccNRSFInHorizon: 200000,
+          totalNRSF: 200000,
+          facilitiesInHorizon: 3,
+          facilityCount: 3,
+          narrative: "Test verdict — material new supply within horizon.",
+        },
+        pipelineMetadata: { phase: 1, totalFacilities: 18, generatedAt: "2026-05-10" },
+      };
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment });
+
+      // Section + confidence strip both render
+      expect(html).toContain("NEW-SUPPLY PIPELINE");
+      expect(html).toContain("PIPELINE CONFIDENCE");
+      expect(html).toContain("STORVEX VERIFICATION LAYER");
+
+      // Verification column header replaces old "Source"
+      expect(html).toContain("Verification</th>");
+
+      // Per-status counts surface on the strip — 1 VERIFIED · 1 CLAIMED · 1 UNVERIFIED
+      expect(html).toMatch(/1\s*VERIFIED/);
+      expect(html).toMatch(/1\s*CLAIMED/);
+      expect(html).toMatch(/1\s*UNVERIFIED/);
+
+      // Chips render with the right icons + status labels per row
+      expect(html).toContain("✓"); // VERIFIED icon
+      expect(html).toContain("⚠"); // CLAIMED icon
+      expect(html).toContain("○"); // UNVERIFIED icon
+
+      // Confidence-weighted CC SF appears (PSA 95K * 1.0 + CUBE 60K * 0.5 + EXR 45K*0.95*0 = 125K weighted from 200K raw)
+      // The aggregate uses ccPct/100 so EXR contributes 0 (UNVERIFIED weight=0). 95K + 30K = 125K weighted.
+      expect(html).toMatch(/125K/);
+    });
+
+    test("pipeline section omitted entirely when enrichment.pipelineNearby is empty", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: { pipelineNearby: [] } });
+      expect(html).not.toContain("NEW-SUPPLY PIPELINE");
+      expect(html).not.toContain("PIPELINE CONFIDENCE");
+    });
+
     test("CUBE row shows full-decade coverage (10 datapoints FY2016-FY2025) + period-tagged CAGR", () => {
       // Crush Radius Plus moat-closure assertion. CUBE's FY2016-FY2019 10-Ks
       // were backfilled 2026-05-11 so the issuer now ships 10 fiscal years of
