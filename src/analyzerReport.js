@@ -33,6 +33,10 @@ import {
   computeSupplyDemandEquilibrium,
   describeEquilibrium,
 } from "./utils/supplyDemandEquilibrium";
+import {
+  computeForwardRentTrajectory,
+  describeRentTrajectory,
+} from "./utils/forwardRentTrajectory";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
@@ -284,6 +288,13 @@ function renderCrushRadiusPlusFootprint() {
       storvex: "Single ratio per submarket = total supply (current + forecast) ÷ audited demand · 6-tier classification (SEVERELY UNDERSUPPLIED → SATURATED) · composite confidence from BOTH upstream methodologies · audit trail exposes both upstream stacks inline",
       radius: "No equivalent · ships submarket benchmarks but never combines a forward supply forecast with an audited demand model",
       advantage: "The single go/no-go number every storage operator wants — with every digit traceable to a primary source · structurally unmatched",
+    },
+    {
+      pillar: "CC RENTS",
+      capability: "Forward Rent Trajectory (CAGR baseline × equilibrium adjustment × pipeline-pressure adjustment)",
+      storvex: "Year-by-year forward CC rent projection over 5-year horizon · baseline from SEC EDGAR per-MSA historical CAGR · UP-adjusted in UNDERSUPPLIED markets (Claim 8) · DOWN-adjusted by forward pipeline pressure (Claim 7 confidence-weighted forecast ÷ current observed CC SF × elasticity) · adjustment-factor decomposition + audit trail",
+      radius: "Current rent benchmarks only · no forward projection",
+      advantage: "The other metric every storage operator needs — paired with forward supply, forward rents drive the entire NOI underwrite · structurally novel composite of three patent-eligible upstream methods",
     },
     {
       pillar: "VERIFICATION",
@@ -1723,6 +1734,169 @@ function renderForwardSupplyForecast({ snapshot }) {
 
 const DEFAULT_WEIGHTS_LABEL = "(VERIFIED 1.0 · CLAIMED 0.5 · STALE 0.3 · UNVERIFIED 0.0)";
 
+function renderForwardRentTrajectory({ snapshot, analysis, enrichment }) {
+  const ring = enrichment?.ring3mi
+    ? {
+        pop: enrichment.ring3mi.pop,
+        renterPct: enrichment.ring3mi.renterPct,
+        growthRatePct: enrichment.ring3mi.growthRate,
+        medianHHIncome: enrichment.ring3mi.medianHHIncome,
+        tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+        tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+      }
+    : extractRingForDemandForecast({
+        ...snapshot,
+        ...(analysis?.subject || {}),
+        ...(enrichment || {}),
+      });
+
+  const city = snapshot?.subject?.city || snapshot?.city || null;
+  const state = snapshot?.subject?.state || snapshot?.state || null;
+  const msa = snapshot?.subject?.msa || snapshot?.msa || resolveCityToMSA(city) || null;
+  const currentCCSPC = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+  const currentCCSF = currentCCSPC != null && ring?.pop > 0
+    ? Number(currentCCSPC) * Number(ring.pop)
+    : null;
+
+  let rent;
+  try {
+    rent = computeForwardRentTrajectory({
+      city, state, msa,
+      operator: "PSA",
+      horizonMonths: 60,
+      ring,
+      currentCCSF: currentCCSF || undefined,
+      asOf: new Date(),
+    });
+  } catch (err) {
+    return ""; // defensive — never break the report
+  }
+
+  if (!rent || !rent.summary) {
+    // Render a slim placeholder so the missing-data story still appears in
+    // the audit-layer narrative.
+    return `
+<section class="page section">
+  <h2 class="section-h">FORWARD RENT TRAJECTORY — MULTI-SOURCE 5-YEAR PROJECTION</h2>
+  <div class="sanity-card" style="border-color:#64748B40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:#64748B;color:#fff">UNAVAILABLE · Insufficient historical rent series for this submarket</div>
+    <div class="sanity-message">
+      No PSA per-MSA rent series available for ${safe(msa || city || "this submarket")}, and cross-REIT fallback could not produce a baseline. The forward rent trajectory engine (Claim 9) requires at least one historical anchor point. Missing inputs: ${safe(rent?.missing?.join(", ") || "unknown")}.
+    </div>
+  </div>
+</section>`;
+  }
+
+  const s = rent.summary;
+  const a = rent.adjustments;
+  const tierColor =
+    rent.confidence === "high" ? "#16A34A" :
+    rent.confidence === "medium" ? "#C9A84C" :
+    "#DC2626";
+  const adjColor =
+    a.totalAnnualAdj > 0 ? "#16A34A" :
+    a.totalAnnualAdj < 0 ? "#DC2626" : "#64748B";
+
+  const finalYear = rent.path.length > 0 ? rent.path[rent.path.length - 1].year : null;
+  const dollar = (v) => v == null || !Number.isFinite(v) ? "—" : `$${Number(v).toFixed(2)}`;
+  const pct = (v) => v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${Number(v).toFixed(2)}%`;
+  const pctSimple = (v) => v == null || !Number.isFinite(v) ? "—" : `${Number(v).toFixed(2)}%`;
+
+  return `
+<section class="page section">
+  <h2 class="section-h">FORWARD RENT TRAJECTORY — MULTI-SOURCE 5-YEAR PROJECTION (CLAIM 9)</h2>
+  <div class="sanity-card" style="border-color:${tierColor}40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:${tierColor};color:#fff">
+      ${safe(rent.submarket.msa || `${rent.submarket.city}, ${rent.submarket.state}`)} · ${safe(rent.submarket.operator)} · CONFIDENCE: ${safe(rent.confidence.toUpperCase())}
+    </div>
+    <div class="sanity-message">
+      <b>The second metric every storage operator needs:</b> forward CC rent projected year-by-year over a ${rent.horizonMonths}-month horizon. Baseline = historical CAGR from SEC EDGAR REIT MD&A. Adjusted UP when supply-demand equilibrium tightens (Claim 8) and DOWN when forward pipeline pressure grows (Claim 7). Three patent-eligible upstream methods combined into a single forward rent path. Every adjustment factor traces to a primary source — every digit in this forecast is re-derivable.
+      <br><br>
+      <b>Why this beats Radius+ / TractIQ / StorTrack:</b> Radius+ ships current rent benchmarks only — no forward projection. TractIQ ships current + recent move-in rate trend — no forward forecast. StorTrack ships current occupancy + rent benchmarks. None adjust forward rents by primary-source pipeline pressure or supply-demand equilibrium. Storvex's forecast is paired with the forward supply forecast (Claim 7) to produce the whole NOI underwrite.
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">FY${finalYear} Forecast vs. Baseline</h3>
+    <div style="display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 180px; background:#fff; border:1px solid #C9A84C40; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Current Rent</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">${dollar(rent.baseline.currentRent)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">/SF/yr</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">FY${rent.baseline.asOfYear || "?"} per-MSA observed</div>
+      </div>
+      <div style="flex: 1; min-width: 180px; background:#fff; border:1px solid #C9A84C40; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Baseline FY${finalYear}</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">${dollar(s.finalYearBaseline)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">/SF/yr</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">CAGR ${pctSimple(rent.baseline.cagr * 100)}/yr × ${rent.horizonMonths / 12} yrs</div>
+      </div>
+      <div style="flex: 1; min-width: 180px; background:rgba(${tierColor === "#16A34A" ? "22,163,74" : tierColor === "#C9A84C" ? "201,168,76" : "220,38,38"},0.10); border:2px solid ${tierColor}; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: ${tierColor}; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Adjusted FY${finalYear}</div>
+        <div style="font-size: 26pt; color: ${tierColor}; font-weight: 800; line-height: 1.0;">${dollar(s.finalYearRent)}</div>
+        <div style="font-size: 9pt; color: ${tierColor}; margin-top: 4px; font-weight: 700;">${pct(s.finalYearVsBaselinePct)} vs baseline</div>
+        <div style="font-size: 8pt; color: #475569; margin-top: 2px;">Effective CAGR ${pctSimple(s.effectiveCAGR * 100)}/yr</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Adjustment Factor Decomposition</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 30%;">Component</th>
+          <th class="th-num" style="width: 16%;">bps / yr</th>
+          <th class="th-name" style="width: 54%;">Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name"><b>Baseline CAGR</b></td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${pctSimple(rent.baseline.cagr * 10000 / 100)} bps</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">${safe(rent.baseline.cagrSource || "—")}</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>Equilibrium adjustment</b><br><span style="font-size:8pt;color:#64748B">Tier: ${safe(a.equilibriumTier)}</span></td>
+          <td class="td-num" style="font-weight:700;color:${a.equilibriumAdj > 0 ? "#16A34A" : a.equilibriumAdj < 0 ? "#DC2626" : "#64748B"}">${pct(a.equilibriumAdj * 10000 / 100)} bps</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">Claim 8 equilibrium tier → rent-acceleration / -deceleration coefficient (UNDERSUPPLIED → premium; OVERSUPPLIED → discount)</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>Pipeline pressure adjustment</b><br><span style="font-size:8pt;color:#64748B">Ratio: ${a.pipelinePressureRatio == null ? "—" : a.pipelinePressureRatio.toFixed(2)}</span></td>
+          <td class="td-num" style="font-weight:700;color:${a.pipelinePressureAdj > 0 ? "#16A34A" : a.pipelinePressureAdj < 0 ? "#DC2626" : "#64748B"}">${pct(a.pipelinePressureAdj * 10000 / 100)} bps</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">Claim 7 confidence-weighted forward CC SF ÷ current observed CC SF × elasticity (${pctSimple(a.pipelineElasticity * 10000 / 100)} bps/yr per 100% supply pulse)</td>
+        </tr>
+        <tr style="background: rgba(201,168,76,0.10);">
+          <td class="td-name" style="font-weight:700">Adjusted CAGR (effective)</td>
+          <td class="td-num" style="font-weight:800;color:${adjColor};font-size:11pt">${pct(a.adjustedCAGR * 10000 / 100)} bps</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">Baseline + Equilibrium + Pipeline Pressure, clamped to [-10%, +15%]</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Year-by-Year Forward Path</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 12%;">Year</th>
+          <th class="th-num" style="width: 18%;">Baseline ($/SF/yr)</th>
+          <th class="th-num" style="width: 22%;">Adjusted ($/SF/yr)</th>
+          <th class="th-num" style="width: 16%;">Δ vs Baseline</th>
+          <th class="th-name" style="width: 32%;">Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rent.path.map((p, i) => `<tr${i === 0 ? ' style="background:rgba(201,168,76,0.08)"' : ""}>
+          <td class="td-name"><b>FY${safe(p.year)}</b>${i === 0 ? ' <span style="font-size:8pt;color:#64748B">(current)</span>' : ""}</td>
+          <td class="td-num">${dollar(p.baseline)}</td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${dollar(p.withAdjustment)}</td>
+          <td class="td-num" style="color:${p.deltaPct > 0 ? "#16A34A" : p.deltaPct < 0 ? "#DC2626" : "#64748B"};font-weight:600">${i === 0 ? "—" : pct(p.deltaPct)}</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">${i === 0 ? "Anchor — FY" + safe(rent.baseline.asOfYear || "?") + " observed" : "Year " + p.yearIndex + " forward"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+
+    <div class="sanity-message" style="margin-top: 14px;">
+      <b>${safe(describeRentTrajectory(rent))}</b>
+    </div>
+  </div>
+</section>`;
+}
+
 function renderSupplyDemandEquilibrium({ snapshot, analysis, enrichment }) {
   // Reuse the demand-forecast ring extraction so this composite renders
   // wherever the standalone demand forecast renders.
@@ -2644,6 +2818,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderHistoricalPipelineTrajectory()}
   ${renderForwardSupplyForecast({ snapshot })}
   ${renderSupplyDemandEquilibrium({ snapshot, analysis, enrichment })}
+  ${renderForwardRentTrajectory({ snapshot, analysis, enrichment })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}
