@@ -29,6 +29,10 @@ import {
   computeForwardSupplyForecast,
   describeForecast,
 } from "./utils/forwardSupplyForecast";
+import {
+  computeSupplyDemandEquilibrium,
+  describeEquilibrium,
+} from "./utils/supplyDemandEquilibrium";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
@@ -273,6 +277,13 @@ function renderCrushRadiusPlusFootprint() {
       storvex: "Per-MSA forward CC SF forecast aggregating EDGAR pipeline + county-permit registry + historical-trajectory extrapolation · per-source attribution · confidence-weighted (VERIFIED 1.0 · CLAIMED 0.5 · STALE 0.3 · UNVERIFIED 0.0) · per-source breakdown surfaces which primary source contributes how much",
       radius: "Current pipeline snapshot only · no forecast · no source attribution per entry · no confidence-weighting",
       advantage: "Operators check forward supply BEFORE every greenfield decision; Storvex's forecast is the metric AND the audit trail",
+    },
+    {
+      pillar: "COMPOSITE",
+      capability: "Supply-Demand Equilibrium Index (composite of Claim 7 forecast + audited Tapestry demand model)",
+      storvex: "Single ratio per submarket = total supply (current + forecast) ÷ audited demand · 6-tier classification (SEVERELY UNDERSUPPLIED → SATURATED) · composite confidence from BOTH upstream methodologies · audit trail exposes both upstream stacks inline",
+      radius: "No equivalent · ships submarket benchmarks but never combines a forward supply forecast with an audited demand model",
+      advantage: "The single go/no-go number every storage operator wants — with every digit traceable to a primary source · structurally unmatched",
     },
     {
       pillar: "VERIFICATION",
@@ -1712,6 +1723,127 @@ function renderForwardSupplyForecast({ snapshot }) {
 
 const DEFAULT_WEIGHTS_LABEL = "(VERIFIED 1.0 · CLAIMED 0.5 · STALE 0.3 · UNVERIFIED 0.0)";
 
+function renderSupplyDemandEquilibrium({ snapshot, analysis, enrichment }) {
+  // Reuse the demand-forecast ring extraction so this composite renders
+  // wherever the standalone demand forecast renders.
+  const ring = enrichment?.ring3mi
+    ? {
+        pop: enrichment.ring3mi.pop,
+        renterPct: enrichment.ring3mi.renterPct,
+        growthRatePct: enrichment.ring3mi.growthRate,
+        medianHHIncome: enrichment.ring3mi.medianHHIncome,
+        tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+        tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+      }
+    : extractRingForDemandForecast({
+        ...snapshot,
+        ...(analysis?.subject || {}),
+        ...(enrichment || {}),
+      });
+
+  if (!ring || (!ring.pop && !ring.renterPct)) return "";
+
+  const city = snapshot?.subject?.city || snapshot?.city || null;
+  const state = snapshot?.subject?.state || snapshot?.state || null;
+  const msa = snapshot?.subject?.msa || snapshot?.msa || resolveCityToMSA(city) || null;
+
+  // currentCCSF derived from observed CC SPC (SF/capita) × population
+  const currentCCSPC = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+  const currentCCSF =
+    currentCCSPC != null && ring.pop > 0
+      ? Number(currentCCSPC) * Number(ring.pop)
+      : null;
+
+  let eq;
+  try {
+    eq = computeSupplyDemandEquilibrium({
+      city, state, msa, ring,
+      currentCCSF: currentCCSF || undefined,
+      horizonMonths: 24,
+      asOf: new Date(),
+    });
+  } catch (err) {
+    return ""; // defensive — never break the report on a composite-engine error
+  }
+
+  if (!eq) return "";
+
+  const smLabel = eq.submarket.msa || `${eq.submarket.city || "?"}, ${eq.submarket.state || "?"}`;
+  const totalK = (n) => Math.round((n || 0) / 1000).toLocaleString();
+  const fmtRatio = (v) => (v == null || !Number.isFinite(v) ? "—" : v.toFixed(2));
+
+  const tier = eq.tier || {};
+  const tierColor = tier.color || "#64748B";
+
+  // Demand component visibility (collapsed audit-trail row)
+  const demand = eq.demandForecast || {};
+
+  return `
+<section class="page section">
+  <h2 class="section-h">SUPPLY-DEMAND EQUILIBRIUM INDEX — COMPOSITE METRIC ${eq.horizonMonths}-MONTH HORIZON</h2>
+  <div class="sanity-card" style="border-color:${tierColor}40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:${tierColor};color:#fff">
+      ${safe(tier.label || "UNKNOWN")} · COMPOSITE CONFIDENCE: ${safe((eq.compositeConfidence || "low").toUpperCase())}
+    </div>
+    <div class="sanity-message">
+      <b>One number every storage operator wants:</b> total ${eq.horizonMonths}-month CC supply (current observed + forward forecast) divided by audited demand for <b>${safe(smLabel)}</b>. Below 1.0 = undersupplied. Above 1.0 = oversupplied. The composite combines two patent-eligible upstream methods — the Multi-Source Forward Supply Forecast (Claim 7) and the Audited Storage Demand Forecast (Tapestry-anchored, citation-stacked) — into a single supply-demand ratio with the full audit trail of BOTH upstream methodology stacks exposed inline.
+      <br><br>
+      <b>Why this beats Radius+ / TractIQ / StorTrack:</b> No incumbent platform produces a forward-looking supply-demand equilibrium with audit-trail attribution. Radius+ ships current snapshot pipeline + submarket benchmarks (no forecast). TractIQ ships current + permit-count rollups (no demand model). StorTrack ships occupancy benchmarks (no forward forecast at all). Storvex ships the composite they need to make a go/no-go call — with every digit traceable to a primary source.
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 12pt;">${safe(tier.label || "—")} · Ratio ${fmtRatio(eq.equilibriumRatio)}</h3>
+    <div style="display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 180px; background:#fff; border:1px solid ${tierColor}80; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Total Supply (After Horizon)</div>
+        <div style="font-size: 20pt; color: #1E2761; font-weight: 800;">${totalK(eq.totalSupplyCcSf)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">K CC SF</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">Current ${totalK(eq.currentCcSf)}K + Horizon forecast ${totalK((eq.supplyForecast?.totals?.totalForecastCcSf) || 0)}K</div>
+      </div>
+      <div style="flex: 1; min-width: 180px; background:#fff; border:1px solid #C9A84C80; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Total Demand</div>
+        <div style="font-size: 20pt; color: #1E2761; font-weight: 800;">${totalK(eq.totalDemandCcSf)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">K CC SF</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">Per-capita ${demand.demandPerCapita != null ? demand.demandPerCapita.toFixed(2) : "—"} × pop ${ring.pop ? ring.pop.toLocaleString() : "—"}</div>
+      </div>
+      <div style="flex: 1; min-width: 180px; background:rgba(${tierColor === "#16A34A" ? "22,163,74" : tierColor === "#22C55E" ? "34,197,94" : tierColor === "#C9A84C" ? "201,168,76" : tierColor === "#EA580C" ? "234,88,12" : tierColor === "#DC2626" ? "220,38,38" : "127,29,29"},0.10); border:2px solid ${tierColor}; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: ${tierColor}; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Equilibrium Ratio</div>
+        <div style="font-size: 30pt; color: ${tierColor}; font-weight: 800; line-height: 1.0;">${fmtRatio(eq.equilibriumRatio)}</div>
+        <div style="font-size: 9pt; color: ${tierColor}; margin-top: 4px; font-weight: 700;">${safe(tier.label || "—")}</div>
+        <div style="font-size: 8pt; color: #475569; margin-top: 2px;">${safe(tier.note || "")}</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Composite Audit Trail · Both Upstream Methodologies</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 22%;">Upstream Component</th>
+          <th class="th-num" style="width: 16%;">Output</th>
+          <th class="th-name" style="width: 16%;">Confidence</th>
+          <th class="th-name" style="width: 46%;">Methodology</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name"><b>Forward Supply Forecast (Claim 7)</b><br><span style="font-size:8.5pt;color:#64748B">forwardSupplyForecast.js</span></td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${totalK(eq.supplyForecast?.totals?.totalForecastCcSf || 0)}K CC SF</td>
+          <td class="td-name">${safe((eq.supplyForecast?.confidenceTier || "unknown").toUpperCase())}</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">EDGAR pipeline (${eq.supplyForecast?.sources?.edgar?.entryCount || 0}) + county permits (${eq.supplyForecast?.sources?.permit?.entryCount || 0}) + historical-trajectory extrapolation (${eq.supplyForecast?.sources?.historical?.components?.length || 0} issuers). Confidence-weighted ${DEFAULT_WEIGHTS_LABEL}.</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>Audited Storage Demand Forecast</b><br><span style="font-size:8.5pt;color:#64748B">storageDemandForecast.mjs</span></td>
+          <td class="td-num" style="font-weight:700;color:#1E2761">${totalK(eq.totalDemandCcSf)}K CC SF</td>
+          <td class="td-name">${safe((demand.confidence || "unknown").toUpperCase())}</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">US baseline ${(5.4).toFixed(2)} SF/cap × Tapestry LifeMode × Urbanization × renter premium × growth premium × income slope. Per-capita demand: ${demand.demandPerCapita != null ? demand.demandPerCapita.toFixed(2) : "—"} SF/cap. Coefficients citation-anchored to Self-Storage Almanac · Newmark · REIT MD&A · Census ACS.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="sanity-message" style="margin-top: 14px;">
+      <b>${safe(describeEquilibrium(eq))}</b>
+    </div>
+  </div>
+</section>`;
+}
+
 function renderComps({ analysis }) {
   const c = analysis?.comps;
   if (!c) return "";
@@ -2511,6 +2643,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderEdgarPipelineDisclosures()}
   ${renderHistoricalPipelineTrajectory()}
   ${renderForwardSupplyForecast({ snapshot })}
+  ${renderSupplyDemandEquilibrium({ snapshot, analysis, enrichment })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}
