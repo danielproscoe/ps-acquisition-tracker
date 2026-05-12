@@ -251,6 +251,15 @@ function matchScore(extracted, registryEntry) {
  * Aggregate registry coverage signal for a submarket. Used to distinguish
  * NOT_FOUND (we have good coverage and didn't find it = high-confidence
  * fake) from INCONCLUSIVE (we have sparse coverage and can't validate).
+ *
+ * The coverage signal aggregates ACROSS BOTH primary-source registries
+ * (EDGAR + PERMIT) — this is the symmetric counterpart to the multi-source
+ * candidate pool used in the match-scoring phase. Without this, a submarket
+ * with strong PERMIT coverage but no EDGAR coverage would route to
+ * INCONCLUSIVE (defeating the audit-layer story). The PERMIT registry's
+ * county-pilot architecture is especially valuable in suburban / exurban
+ * submarkets where REIT 10-K disclosures are sparse but local permits are
+ * dense.
  */
 function submarketCoverageSignal(extracted) {
   // Check submarketPipelineSupply.json registry first (it tracks per-submarket
@@ -263,21 +272,40 @@ function submarketCoverageSignal(extracted) {
       confidence: entry.confidence || "unknown",
       facilitiesIndexed: Array.isArray(entry.facilities) ? entry.facilities.length : 0,
       asOf: entry.asOf || null,
+      perRegistry: { edgar: 0, permit: 0, submarket: Array.isArray(entry.facilities) ? entry.facilities.length : 0 },
     };
   }
 
-  // Fall back: count development-pipeline.json entries in the same city/state
-  const matchingDevEntries = (developmentPipeline.facilities || []).filter((f) => {
-    const sameCity = (f.city || "").trim().toLowerCase() === (extracted.city || "").trim().toLowerCase();
-    const sameState = (f.state || "").trim().toUpperCase() === (extracted.state || "").trim().toUpperCase();
+  // Multi-source fallback: count BOTH EDGAR and PERMIT entries in the same
+  // city/state. Each registry contributes independently to the coverage
+  // signal — a high count from either alone is enough to confidently route
+  // an unmatched entry to NOT_FOUND.
+  const lcCity = (extracted.city || "").trim().toLowerCase();
+  const ucState = (extracted.state || "").trim().toUpperCase();
+
+  const cityStateMatch = (f) => {
+    const sameCity = (f.city || "").trim().toLowerCase() === lcCity;
+    const sameState = (f.state || "").trim().toUpperCase() === ucState;
     return sameCity && sameState;
-  });
+  };
+
+  const edgarCount = (developmentPipeline.facilities || []).filter(cityStateMatch).length;
+  const permitCount = (countyPermits.facilities || []).filter(cityStateMatch).length;
+  const totalIndexed = edgarCount + permitCount;
+
+  // Confidence inference: high if combined coverage ≥ 5 facilities (large
+  // sample, NOT_FOUND highly trustworthy), medium if ≥ 1, unknown if 0.
+  let inferredConfidence;
+  if (totalIndexed >= 5) inferredConfidence = "high";
+  else if (totalIndexed >= 1) inferredConfidence = "medium";
+  else inferredConfidence = "unknown";
 
   return {
     hasEntry: false,
-    confidence: matchingDevEntries.length > 0 ? "medium" : "unknown",
-    facilitiesIndexed: matchingDevEntries.length,
+    confidence: inferredConfidence,
+    facilitiesIndexed: totalIndexed,
     asOf: null,
+    perRegistry: { edgar: edgarCount, permit: permitCount, submarket: 0 },
   };
 }
 
