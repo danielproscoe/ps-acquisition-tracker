@@ -1,0 +1,113 @@
+# Daily refresh of per-county building-permit records — the second primary-
+# source registry behind the Pipeline Verification Oracle (after EDGAR).
+#
+# CRUSH-RADIUS-PLUS AUDIT-LAYER · second source-of-truth lineage
+# --------------------------------------------------------------
+# The Multi-source Verification Oracle (shipped 5/12/26 commit `bb64881`)
+# queries TWO independent primary-source registries:
+#
+#   1. EDGAR        · refresh-pipeline-disclosures.yml (daily 06:30 UTC)
+#   2. County PERMITS · THIS WORKFLOW (daily 06:45 UTC)
+#
+# Together they form the audit-layer moat: TractIQ at $199/mo would have to
+# replicate BOTH primary-source ingestions to match Storvex's verification
+# attribution depth.
+#
+# Pilot county scope (locked in src/data/county-permits.json):
+#   Denton TX   · AUTOMATED · vanilla HTTPS on apps.dentoncounty.gov/DevPermit/
+#   Warren OH   · MANUAL    · reCAPTCHA-gated iWorQ portal · quarterly --ingest=<csv>
+#   Kenton KY   · MANUAL    · Orchard Core CSRF · quarterly --ingest=<csv>
+#   Boone IN    · MANUAL    · paper records · quarterly --ingest=<json>
+#   Hancock IN  · MANUAL    · paper records · quarterly --ingest=<json>
+#
+# Daily cron mode runs only the automated scrapers (Denton TX today). The
+# four manual-ingest counties run via workflow_dispatch when Dan completes
+# a quarterly records cycle and stages the batch files under permit-batches/.
+#
+# Why 06:45 UTC:
+#   - 15 minutes after refresh-pipeline-disclosures.yml (06:30 UTC) so the
+#     two primary-source registries refresh in sequence without overlapping
+#     git pushes
+#   - Denton County's portal is hosted on apps.dentoncounty.gov which has
+#     low traffic before 7 AM ET — we land in a quiet window
+#   - Vercel's auto-rebuild picks up the commit and redeploys within ~90s,
+#     so the live audit-layer registry is current within 24h of any new
+#     permit issuance
+#
+# WHY GITHUB ACTIONS (not Vercel Cron Jobs):
+#   The Verification Oracle imports county-permits.json STATICALLY at React
+#   build time (`import countyPermits from "../data/county-permits.json"`).
+#   For new permit data to reach the live dashboard the JSON must be
+#   committed so Vercel rebuilds with it. Vercel Cron Jobs run as serverless
+#   functions and cannot push to git — they're the wrong tool here. Every
+#   sibling workflow (refresh-rents.yml, refresh-pipeline-disclosures.yml,
+#   refresh-nsa-rents.yml, refresh-sma-rents.yml) follows this same data-is-
+#   the-build-artifact pattern for the same reason.
+
+name: Refresh County Permits (PERMIT registry · audit-layer)
+
+on:
+  schedule:
+    # 06:45 UTC daily — 15 min after EDGAR pipeline disclosures
+    - cron: "45 6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Scraper mode"
+        required: false
+        default: "daily"
+        type: choice
+        options:
+          - daily
+          - all
+      county:
+        description: "Optional single county slug (denton-tx, warren-oh, kenton-ky, boone-in, hancock-in)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies (puppeteer for future Phase 2 scrapers)
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Run county-permit orchestrator
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.county }}" ]; then
+            node scripts/edgar/refresh-county-permits.mjs --county=${{ inputs.county }} --ingest-dir=permit-batches
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.mode }}" = "all" ]; then
+            node scripts/edgar/refresh-county-permits.mjs --all --ingest-dir=permit-batches
+          else
+            node scripts/edgar/refresh-county-permits.mjs
+          fi
+        env:
+          NODE_ENV: production
+
+      - name: Commit refreshed county-permits.json
+        run: |
+          git config user.name "storvex-bot"
+          git config user.email "noreply@storvex.com"
+          git add src/data/county-permits.json
+          if git diff --staged --quiet; then
+            echo "No county permit changes detected — skipping commit"
+          else
+            DATE=$(date -u +%Y-%m-%d)
+            TOTAL=$(jq -r '.totalFacilities' src/data/county-permits.json)
+            git commit -m "chore(county-permits): daily refresh ${DATE} · ${TOTAL} total facilities · audit-layer PERMIT registry"
+            git push
+          fi
