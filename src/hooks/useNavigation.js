@@ -11,20 +11,29 @@ export function useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert
   const isPopState = useRef(false); // prevents pushState during popstate handling
 
   // ─── Browser History Integration — back/forward button support ───
+  // Preserves ?demo=1 across tab changes (session-mode flag, not a deep-link to
+  // a specific entity). ?site= and ?asset= are intentionally dropped on tab nav
+  // since they're tied to detail views the user is moving away from.
   const pushNav = useCallback((navState) => {
     if (!isPopState.current) {
-      window.history.pushState(navState, "", window.location.pathname);
+      const currentParams = new URLSearchParams(window.location.search);
+      const preserved = new URLSearchParams();
+      if (currentParams.get("demo") === "1") preserved.set("demo", "1");
+      const qs = preserved.toString();
+      const url = window.location.pathname + (qs ? "?" + qs : "");
+      window.history.pushState(navState, "", url);
     }
   }, []);
 
   // ─── Deep-link: preserve query params on initial load ───
   // ?site=<id>   — opens property detail (handled by useDeepLink hook in App.js)
   // ?asset=<key> — opens Asset Analyzer with preset (handled by App.js + AssetAnalyzerView)
+  // ?demo=1      — DJR Demo Mode (strips internal pipeline data — handled by App.js demoMode useMemo)
   // Without this preservation, replaceState below would strip the query string
-  // before the consumer useEffects run, breaking the Reza demo deep-link emails.
+  // before the consumer useEffects run, breaking the demo deep-link surfaces.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const hasDeepLinkParam = params.has("site") || params.has("asset");
+    const hasDeepLinkParam = params.has("site") || params.has("asset") || params.has("demo");
     window.history.replaceState(
       { tab: "dashboard", detailView: null, reviewDetailSite: null },
       "",

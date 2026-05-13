@@ -399,6 +399,24 @@ function AppInner() {
     goToDetail,
   } = useNavigation({ setExpandedSite, setFilterPhase, setShowNewAlert });
 
+  // ─── DJR DEMO MODE ───
+  // ?demo=1 → strips PS-specific tracker cards (DW/MT/Review/Dashboard/Digest),
+  // keeps The Read + Methodology + Calibration. The public-facing variant for
+  // walking a StorQuest / Storage Mart / SmartStop / PECO / 1031-fund exec
+  // through the Storvex SaaS platform without leaking DJR's internal deal flow.
+  // Per `memory/project_storvex-djr-pivot-2026-05-12.md` strategic pivot.
+  const demoMode = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("demo") === "1";
+  }, []);
+  const DEMO_TABS = useMemo(() => new Set(["lookup", "methodology", "calibration"]), []);
+  // Auto-redirect to lookup when demoMode user lands on a hidden tab
+  useEffect(() => {
+    if (demoMode && !DEMO_TABS.has(tab)) {
+      setTab("lookup");
+    }
+  }, [demoMode, tab, DEMO_TABS, setTab]);
+
   // ─── DEEP-LINK ROUTING — ?asset=<preset> auto-opens The Read in OM mode ───
   // Used for Reza demo emails: storvex.vercel.app/?asset=greenville lands
   // directly on The Read tab with OM mode active + the preset auto-loaded.
@@ -2758,8 +2776,8 @@ function AppInner() {
         SITE_SCORE_DEFAULTS={SITE_SCORE_DEFAULTS}
       />
 
-      {/* New site alert */}
-      {showNewAlert && (
+      {/* New site alert — hidden in DJR Demo mode (no internal pipeline leakage) */}
+      {!demoMode && showNewAlert && (
         <div style={{ background: "linear-gradient(135deg, rgba(243,124,51,0.08), rgba(255,179,71,0.06))", borderBottom: "1px solid rgba(243,124,51,0.2)", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, animation: "fadeIn 0.35s ease-out", backdropFilter: "blur(8px)" }}>
           <span style={{ fontSize: 13, color: "#92700C", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.5)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />{newSiteCount} new site{newSiteCount > 1 ? "s" : ""} pending review</span>
           <div style={{ display: "flex", gap: 8 }}>
@@ -2786,15 +2804,25 @@ function AppInner() {
                 <div style={{ fontSize: 8, color: "#6B7394", letterSpacing: "0.06em", marginTop: 2, fontWeight: 600 }}>Powered by DJR Real Estate LLC · <span style={{ color: "#C9A84C" }}>Patent Pending</span></div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowIQConfig(true)} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(201,168,76,0.15)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
-              >⚙️ SiteScore Config</button>
-              <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(243,124,51,0.25)", background: "rgba(243,124,51,0.06)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(243,124,51,0.15)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
-              >⬇ Export Excel</button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {demoMode && (
+                <div style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.35)", background: "linear-gradient(135deg, rgba(201,168,76,0.15), rgba(255,179,71,0.08))", color: "#C9A84C", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", gap: 6 }} title="Storvex SaaS public demo surface — strips internal pipeline data">
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.6)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />
+                  DJR Demo
+                </div>
+              )}
+              {!demoMode && (
+                <>
+                  <button onClick={() => setShowIQConfig(true)} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.25)", background: "rgba(201,168,76,0.06)", color: "#C9A84C", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(201,168,76,0.15)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
+                  >⚙️ SiteScore Config</button>
+                  <button onClick={handleExport} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(243,124,51,0.25)", background: "rgba(243,124,51,0.06)", color: "#F37C33", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", backdropFilter: "blur(8px)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.15)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(243,124,51,0.15)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(243,124,51,0.06)"; e.currentTarget.style.boxShadow = "none"; }}
+                  >⬇ Export Excel</button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2814,7 +2842,7 @@ function AppInner() {
             // { key: "quickscore", label: "Quick Score" },
             // { key: "executive", label: "Executive" },
             // { key: "discover", label: "Discover" },
-          ].map((n) => (
+          ].filter((n) => !demoMode || DEMO_TABS.has(n.key)).map((n) => (
             <button key={n.key} onClick={() => navigateTo(n.key)} style={{ ...navBtn(n.key), position: "relative", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}
               onMouseEnter={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#E87A2E"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.textShadow = "0 0 16px rgba(232,122,46,0.4)"; } }}
               onMouseLeave={(e) => { if (tab !== n.key) { e.currentTarget.style.color = "#6B7394"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.textShadow = "none"; } }}
