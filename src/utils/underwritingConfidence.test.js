@@ -263,3 +263,87 @@ describe("computeUnderwritingConfidence — edge cases", () => {
     expect(r.submarket.operator).toBe("PSA");
   });
 });
+
+// ─── CAUSAL CHAIN INTEGRATION — Claims 11 + 12 wired into URC ────────────
+
+const HOUSTON_CHAIN_RING = {
+  pop: 80000,
+  renterPct: 42,
+  growthRatePct: 1.8,
+  medianHHIncome: 78000,
+  tapestryLifeMode: "L5",
+  tapestryUrbanization: "Metro Cities",
+  popGrowth3mi: 0.018,
+  incomeGrowth3mi: 0.024,
+  pop3mi_fy: 87446,
+  income3mi_fy: 87831,
+};
+
+describe("computeUnderwritingConfidence — Claims 11 + 12 trajectory integration", () => {
+  test("upstream now exposes forwardDemandTrajectory + equilibriumTrajectory", () => {
+    const r = computeUnderwritingConfidence({
+      city: "Houston", state: "TX", msa: "Houston",
+      operator: "PSA", ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000, asOf: ASOF,
+    });
+    expect(r.upstream).toHaveProperty("forwardDemandTrajectory");
+    expect(r.upstream).toHaveProperty("equilibriumTrajectory");
+    expect(r.upstream.forwardDemandTrajectory).toBeTruthy();
+    expect(r.upstream.equilibriumTrajectory).toBeTruthy();
+  });
+
+  test("rent forecast is invoked with useTrajectory=true (causal chain on)", () => {
+    const r = computeUnderwritingConfidence({
+      city: "Houston", state: "TX", msa: "Houston",
+      operator: "PSA", ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000, asOf: ASOF,
+    });
+    expect(r.upstream.rentForecast).toBeTruthy();
+    expect(r.upstream.rentForecast.adjustments.useTrajectory).toBe(true);
+  });
+
+  test("audit-completeness check ingests new Claim 11/12 + causal-chain rows (7 total)", () => {
+    const r = computeUnderwritingConfidence({
+      city: "Houston", state: "TX", msa: "Houston",
+      operator: "PSA", ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000, asOf: ASOF,
+    });
+    // Audit completeness now checks 7 engines (was 4)
+    expect(r.subScores.auditCompleteness.note).toMatch(/\/7/);
+  });
+
+  test("scoreEquilibrium includes stability note when trajectory available", () => {
+    const r = computeUnderwritingConfidence({
+      city: "Houston", state: "TX", msa: "Houston",
+      operator: "PSA", ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000, asOf: ASOF,
+    });
+    // Note should mention trajectory direction (degrades / improves / holds)
+    expect(r.subScores.equilibrium.note).toMatch(/trajectory (degrades|improves|holds)/);
+  });
+
+  test("scoreDemand includes forward-trajectory growth note", () => {
+    const r = computeUnderwritingConfidence({
+      city: "Houston", state: "TX", msa: "Houston",
+      operator: "PSA", ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000, asOf: ASOF,
+    });
+    expect(r.subScores.demand.note).toMatch(/forward demand/);
+  });
+
+  test("verifiedOnly query option propagates to rent forecast + appears in diligence when low", () => {
+    const r = computeUnderwritingConfidence({
+      city: "Houston", state: "TX", msa: "Houston",
+      operator: "PSA", ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000, asOf: ASOF,
+      verifiedOnly: true,
+    });
+    expect(r.upstream.rentForecast.adjustments.verifiedOnly).toBe(true);
+    // If verifiedPctOfPulse < 0.5, a diligence item must surface
+    if (r.upstream.rentForecast.adjustments.verifiedPctOfPulse != null
+        && r.upstream.rentForecast.adjustments.verifiedPctOfPulse < 0.5) {
+      const hits = r.diligenceItems.filter((d) => /verified-only filter active/i.test(d));
+      expect(hits.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+});

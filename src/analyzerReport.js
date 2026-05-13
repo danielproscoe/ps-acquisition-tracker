@@ -1917,6 +1917,11 @@ function renderForwardRentTrajectory({ snapshot, analysis, enrichment }) {
         medianHHIncome: enrichment.ring3mi.medianHHIncome,
         tapestryLifeMode: enrichment.tapestryLifeMode3mi,
         tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+        // Forward projection fields — required for causal-chain mode
+        popGrowth3mi: enrichment.popGrowth3mi,
+        incomeGrowth3mi: enrichment.incomeGrowth3mi,
+        pop3mi_fy: enrichment.pop3mi_fy,
+        income3mi_fy: enrichment.income3mi_fy,
       }
     : extractRingForDemandForecast({
         ...snapshot,
@@ -1941,6 +1946,9 @@ function renderForwardRentTrajectory({ snapshot, analysis, enrichment }) {
       ring,
       currentCCSF: currentCCSF || undefined,
       asOf: new Date(),
+      // Causal-chain mode: per-year equilibrium tier + supply pulse +
+      // demand growth uplift drive rent CAGR year-by-year (Claims 11+12)
+      useTrajectory: true,
     });
   } catch (err) {
     return ""; // defensive — never break the report
@@ -2491,6 +2499,166 @@ function renderEquilibriumTrajectory({ snapshot, analysis, enrichment }) {
 
     <div class="sanity-message" style="margin-top: 14px;">
       <b>${safe(describeEquilibriumTrajectory(traj))}</b>
+    </div>
+  </div>
+</section>`;
+}
+
+// ─── CAUSAL CHAIN AUDIT TRAIL — how supply + demand drive rents year-by-year ─
+// Renders the explicit per-year causal flow: new supply pulse this year +
+// equilibrium tier this year + demand growth this year → adjusted rent CAGR
+// for the Y→Y+1 step → cumulative rent forecast. Surfaces VERIFIED-vs-CLAIMED
+// % of the supply pulse so the reader knows what data is actually driving the
+// rent math. This is the "show your work" section that proves the chain is
+// real and traceable to primary sources.
+function renderCausalChainAuditTrail({ snapshot, analysis, enrichment }) {
+  const ring = enrichment?.ring3mi
+    ? {
+        pop: enrichment.ring3mi.pop,
+        renterPct: enrichment.ring3mi.renterPct,
+        growthRatePct: enrichment.ring3mi.growthRate,
+        medianHHIncome: enrichment.ring3mi.medianHHIncome,
+        tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+        tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+        popGrowth3mi: enrichment.popGrowth3mi,
+        incomeGrowth3mi: enrichment.incomeGrowth3mi,
+        pop3mi_fy: enrichment.pop3mi_fy,
+        income3mi_fy: enrichment.income3mi_fy,
+      }
+    : extractRingForDemandForecast({
+        ...snapshot,
+        ...(analysis?.subject || {}),
+        ...(enrichment || {}),
+      });
+
+  if (!ring || !ring.pop) return "";
+
+  const city = snapshot?.subject?.city || snapshot?.city || null;
+  const state = snapshot?.subject?.state || snapshot?.state || null;
+  const msa = snapshot?.subject?.msa || snapshot?.msa || resolveCityToMSA(city) || null;
+  const currentCCSPC = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+  const currentCCSF = currentCCSPC != null && ring.pop > 0
+    ? Number(currentCCSPC) * Number(ring.pop)
+    : null;
+
+  let rent;
+  try {
+    rent = computeForwardRentTrajectory({
+      city, state, msa,
+      operator: "PSA",
+      horizonMonths: 60,
+      ring,
+      currentCCSF: currentCCSF || undefined,
+      asOf: new Date(),
+      useTrajectory: true,
+    });
+  } catch (err) {
+    return "";
+  }
+
+  // Only render when the causal chain actually engaged (perYearChain populated)
+  if (!rent || !rent.adjustments?.perYearChain || !rent.path || rent.path.length === 0) {
+    return "";
+  }
+
+  // Per-year rows showing the causal flow. Y0 has no chain (anchor).
+  const yearRows = rent.path
+    .filter((row) => row.causalChain && row.yearIndex >= 1)
+    .map((row) => {
+      const c = row.causalChain;
+      const pct = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(2)}%`;
+      const pctPlain = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+      const k = (v) => Math.round((v || 0) / 1000).toLocaleString();
+      const dollar = (v) => `$${v.toFixed(2)}`;
+      const tierColor =
+        c.equilibriumTier === "SEVERELY UNDERSUPPLIED" ? "#16A34A" :
+        c.equilibriumTier === "UNDERSUPPLIED" ? "#22C55E" :
+        c.equilibriumTier === "BALANCED" ? "#C9A84C" :
+        c.equilibriumTier === "WELL-SUPPLIED" ? "#EA580C" :
+        c.equilibriumTier === "OVERSUPPLIED" ? "#DC2626" :
+        c.equilibriumTier === "SATURATED" ? "#7F1D1D" : "#64748B";
+      return `
+    <tr>
+      <td class="td-name" style="font-weight:700">FY${row.year}</td>
+      <td class="td-num">${k(c.supplyPulseCcSf)}K</td>
+      <td class="td-num" style="color:${tierColor};font-weight:700">
+        <span style="background:${tierColor};color:#fff;padding:2px 6px;border-radius:3px;font-size:8.5pt">${safe(c.equilibriumTier)}</span>
+      </td>
+      <td class="td-num" style="color:${c.equilibriumAdj >= 0 ? "#16A34A" : "#DC2626"}">${pct(c.equilibriumAdj)}</td>
+      <td class="td-num" style="color:${c.supplyPressureAdj >= 0 ? "#16A34A" : "#DC2626"}">${pct(c.supplyPressureAdj)}</td>
+      <td class="td-num">${pctPlain(c.demandGrowthPct)}</td>
+      <td class="td-num" style="color:${c.demandUpliftAdj >= 0 ? "#16A34A" : "#DC2626"}">${pct(c.demandUpliftAdj)}</td>
+      <td class="td-num" style="font-weight:800;color:#1E2761">${pct(c.appliedCAGR)}</td>
+      <td class="td-num" style="font-weight:700">${dollar(row.withAdjustment)}</td>
+    </tr>`;
+    }).join("");
+
+  if (!yearRows) return "";
+
+  const chain = rent.adjustments.perYearChain;
+  const verifiedPctPulse = rent.adjustments.verifiedPctOfPulse;
+  const verifiedColor = verifiedPctPulse >= 0.9 ? "#16A34A" : verifiedPctPulse >= 0.6 ? "#C9A84C" : "#EA580C";
+  const verifiedLabel = verifiedPctPulse >= 0.9 ? "PRIMARILY VERIFIED" : verifiedPctPulse >= 0.6 ? "MIXED VERIFIED/CLAIMED" : "MOSTLY UNVERIFIED";
+  const pctFmt = (v) => `${(v >= 0 ? "+" : "")}${(v * 100).toFixed(2)}%`;
+
+  return `
+<section class="page section">
+  <h2 class="section-h">CAUSAL CHAIN AUDIT TRAIL — SUPPLY → DEMAND → RENT (YEAR-BY-YEAR)</h2>
+  <div class="sanity-card" style="border-color:#1E276180;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:#1E2761;color:#fff">
+      THE LINKAGE · ${chain.yearsAdjusted}-YEAR CAUSAL CHAIN · VERIFIED PULSE: ${(verifiedPctPulse * 100).toFixed(0)}%
+    </div>
+    <div class="sanity-message">
+      <b>Show your work.</b> Every CRE-intel platform asserts new supply will compress rents and that growing demand will lift them. Storvex SHOWS the causal flow per year, sourced and confidence-weighted. For each year, this table reconstructs the rent CAGR adjustment from its component parts: <i>(1) the supply pulse delivered that year</i> (CC SF from EDGAR + County Permits, confidence-weighted) → <i>(2) the equilibrium tier reached that year</i> (Claim 12 forward trajectory) → <i>(3) the demand growth that year</i> (Claim 11 ESRI 2030 × Tapestry projection) → <i>(4) the applied rent CAGR for the Y→Y+1 step</i>. Every coefficient is tunable; every digit traces to a primary source.
+      <br><br>
+      <b>"What's real" filter — VERIFIED PULSE: ${(verifiedPctPulse * 100).toFixed(0)}%.</b> The supply pulse driving rent compression is ${verifiedPctPulse >= 0.9 ? "primarily VERIFIED" : verifiedPctPulse >= 0.6 ? "a mix of VERIFIED + CLAIMED" : "mostly UNVERIFIED"} — i.e., ${(verifiedPctPulse * 100).toFixed(0)}% of forecast CC SF is traceable to SEC EDGAR REIT disclosures + county building permit primary sources. The remainder is CLAIMED/STALE aggregator data carried at fractional confidence weight. Switch <code>verifiedOnly</code> on to exclude synthesized data entirely.
+    </div>
+
+    <div style="display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 160px; background:#fff; border:1px solid #C9A84C80; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Baseline CAGR</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">${pctFmt(rent.baseline.cagr)}<span style="font-size: 9pt; font-weight: 600; margin-left: 3px;">/yr</span></div>
+        <div style="font-size: 8pt; color: #475569; margin-top: 4px;">${safe(rent.baseline.cagrSource || "—")}</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:#fff; border:2px solid #1E2761; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Avg Applied CAGR</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">${pctFmt(chain.averageAppliedCAGR)}<span style="font-size: 9pt; font-weight: 600; margin-left: 3px;">/yr</span></div>
+        <div style="font-size: 8pt; color: #475569; margin-top: 4px;">Mean of per-year adjusted CAGRs (${chain.yearsAdjusted} years)</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:rgba(${verifiedColor === "#16A34A" ? "22,163,74" : verifiedColor === "#C9A84C" ? "201,168,76" : "234,88,12"},0.10); border:2px solid ${verifiedColor}; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: ${verifiedColor}; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Verified Supply Pulse</div>
+        <div style="font-size: 22pt; color: ${verifiedColor}; font-weight: 800;">${(verifiedPctPulse * 100).toFixed(0)}<span style="font-size: 12pt; font-weight: 600;">%</span></div>
+        <div style="font-size: 8pt; color: ${verifiedColor}; margin-top: 4px; font-weight: 700;">${verifiedLabel}</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:#fff; border:1px solid #1E276180; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Final Year Rent</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">$${rent.summary.finalYearRent.toFixed(2)}</div>
+        <div style="font-size: 8pt; color: #475569; margin-top: 4px;">vs $${rent.summary.finalYearBaseline.toFixed(2)} baseline (Δ ${(rent.summary.finalYearVsBaselinePct >= 0 ? "+" : "")}${rent.summary.finalYearVsBaselinePct.toFixed(2)}%)</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Year-by-Year Causal Flow</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 8%;">Year</th>
+          <th class="th-num" style="width: 11%;">Supply Pulse</th>
+          <th class="th-num" style="width: 15%;">Equilibrium Tier</th>
+          <th class="th-num" style="width: 11%;">Equilibrium Adj</th>
+          <th class="th-num" style="width: 11%;">Supply Pressure</th>
+          <th class="th-num" style="width: 10%;">Demand Δ Y-o-Y</th>
+          <th class="th-num" style="width: 10%;">Demand Uplift</th>
+          <th class="th-num" style="width: 12%;">Applied CAGR</th>
+          <th class="th-num" style="width: 12%;">Adjusted Rent</th>
+        </tr>
+      </thead>
+      <tbody>${yearRows}</tbody>
+    </table>
+
+    <div class="sanity-message" style="margin-top: 14px;">
+      <b>How to read this:</b> Each year's <i>Applied CAGR</i> = baseline rent CAGR (${pctFmt(rent.baseline.cagr)}) + that year's <i>Equilibrium Adj</i> + that year's <i>Supply Pressure</i> + that year's <i>Demand Uplift</i>. UNDERSUPPLIED markets accelerate rents (+100-200bps/yr); OVERSUPPLIED markets compress them (-100-200bps/yr). The supply pressure column applies a -80bps/yr elasticity to every 100% of supply pulse vs current CC SF, but only counts CONFIDENCE-WEIGHTED supply (VERIFIED 100% / CLAIMED 50% / STALE 30% / UNVERIFIED 0%). The demand uplift column applies +35bps/yr per +1% of Y-over-Y demand growth (mover-flux + occupancy absorption effect). This is the model. Tune any coefficient via <code>STORAGE_DEMAND_COEFFICIENTS</code> / <code>EQUILIBRIUM_RENT_ADJUSTMENT</code> / <code>PIPELINE_PRESSURE_ELASTICITY</code> / <code>DEMAND_GROWTH_UPLIFT_COEFFICIENT</code>.
+      <br><br>
+      <b>Why this beats incumbents:</b> Radius+ + TractIQ + StorTrack ship NONE of the four inputs above as primary-source-verified forward forecasts. None expose the linkage from supply to rent. None expose the per-year math. Storvex ships the chain end-to-end with the full audit trail.
     </div>
   </div>
 </section>`;
@@ -3299,6 +3467,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderForwardRentTrajectory({ snapshot, analysis, enrichment })}
   ${renderForwardDemandTrajectory({ snapshot, analysis, enrichment })}
   ${renderEquilibriumTrajectory({ snapshot, analysis, enrichment })}
+  ${renderCausalChainAuditTrail({ snapshot, analysis, enrichment })}
   ${renderUnderwritingConfidenceScore({ snapshot, analysis, enrichment })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}

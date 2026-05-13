@@ -276,3 +276,181 @@ describe("computeForwardRentTrajectory — edge cases", () => {
     expect(r.asOf).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
+
+// ─── CAUSAL CHAIN MODE — useTrajectory + verifiedOnly ───────────────────
+
+const HOUSTON_CHAIN_RING = {
+  pop: 80000,
+  renterPct: 42,
+  growthRatePct: 1.8,
+  medianHHIncome: 78000,
+  tapestryLifeMode: "L5",
+  tapestryUrbanization: "Metro Cities",
+  popGrowth3mi: 0.018,
+  incomeGrowth3mi: 0.024,
+  pop3mi_fy: 87446,
+  income3mi_fy: 87831,
+};
+
+describe("computeForwardRentTrajectory — causal chain (useTrajectory)", () => {
+  test("default useTrajectory=false preserves backward-compat snapshot path", () => {
+    const r = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HEALTHY_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+    });
+    expect(r.adjustments.useTrajectory).toBe(false);
+    expect(r.adjustments.perYearChain).toBeNull();
+    // Path rows still exist
+    expect(r.path.length).toBeGreaterThan(1);
+    // Snapshot path doesn't populate causalChain field on rows
+    for (const row of r.path) {
+      expect(row.causalChain == null).toBe(true);
+    }
+  });
+
+  test("useTrajectory=true populates perYearChain summary + per-year causalChain", () => {
+    const r = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+    });
+    expect(r.adjustments.useTrajectory).toBe(true);
+    expect(r.adjustments.perYearChain).toBeTruthy();
+    expect(r.adjustments.perYearChain.yearsAdjusted).toBeGreaterThan(0);
+    expect(r.adjustments.perYearChain.causalChainSource).toMatch(/CLAIM 12/);
+
+    // Y0 has causal chain set to anchor (all zeros)
+    expect(r.path[0].causalChain).toBeTruthy();
+    expect(r.path[0].causalChain.totalAdj).toBe(0);
+
+    // Y1..YN have populated causal-chain breakdowns
+    for (let i = 1; i < r.path.length; i++) {
+      const c = r.path[i].causalChain;
+      expect(c).toBeTruthy();
+      expect(c).toHaveProperty("equilibriumTier");
+      expect(c).toHaveProperty("equilibriumAdj");
+      expect(c).toHaveProperty("supplyPulseCcSf");
+      expect(c).toHaveProperty("supplyPressureAdj");
+      expect(c).toHaveProperty("demandGrowthPct");
+      expect(c).toHaveProperty("demandUpliftAdj");
+      expect(c).toHaveProperty("totalAdj");
+      expect(c).toHaveProperty("appliedCAGR");
+    }
+  });
+
+  test("useTrajectory exposes equilibriumTrajectory + forwardDemand upstream attachments", () => {
+    const r = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+    });
+    expect(r.equilibriumTrajectory).toBeTruthy();
+    expect(r.equilibriumTrajectory.path).toBeDefined();
+    expect(r.forwardDemand).toBeTruthy();
+    expect(r.forwardDemand.path).toBeDefined();
+  });
+
+  test("useTrajectory totalAdj = equilibriumAdj + supplyPressureAdj + demandUpliftAdj per year", () => {
+    const r = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+    });
+    for (let i = 1; i < r.path.length; i++) {
+      const c = r.path[i].causalChain;
+      const expectedTotal = c.equilibriumAdj + c.supplyPressureAdj + c.demandUpliftAdj;
+      expect(c.totalAdj).toBeCloseTo(expectedTotal, 8);
+    }
+  });
+
+  test("demandUpliftAdj only fires on POSITIVE demand growth (no rent boost on demand decline)", () => {
+    const r = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: {
+        ...HOUSTON_CHAIN_RING,
+        popGrowth3mi: -0.01, // declining population
+        pop3mi_fy: 76121, // 80000 × 0.99^5
+      },
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+    });
+    // With declining pop, demand uplift should be 0 or near-0 on every year
+    for (let i = 1; i < r.path.length; i++) {
+      const c = r.path[i].causalChain;
+      expect(c.demandUpliftAdj).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe("computeForwardRentTrajectory — verifiedOnly filter", () => {
+  test("default verifiedOnly=false carries full forecast pulse into rent compression", () => {
+    const r = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+    });
+    expect(r.adjustments.verifiedOnly).toBe(false);
+    // Default-weighted pulse — verifiedPctOfPulse is 1.0 by definition when not filtering
+    expect(r.adjustments.verifiedPctOfPulse).toBeCloseTo(1.0, 5);
+  });
+
+  test("verifiedOnly=true exposes verifiedPctOfPulse on the result", () => {
+    const r = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+      verifiedOnly: true,
+    });
+    expect(r.adjustments.verifiedOnly).toBe(true);
+    expect(typeof r.adjustments.verifiedPctOfPulse).toBe("number");
+    expect(r.adjustments.verifiedPctOfPulse).toBeGreaterThanOrEqual(0);
+    expect(r.adjustments.verifiedPctOfPulse).toBeLessThanOrEqual(1);
+  });
+
+  test("verifiedOnly cannot inflate supply pulse — verified pct must be ≤ default pct", () => {
+    const defaultRun = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+    });
+    const strictRun = computeForwardRentTrajectory({
+      msa: "Houston",
+      operator: "PSA",
+      ring: HOUSTON_CHAIN_RING,
+      currentCCSF: 500000,
+      asOf: ASOF,
+      useTrajectory: true,
+      verifiedOnly: true,
+    });
+    // Pipeline pressure ratio (strict) <= pipeline pressure ratio (default).
+    // Default weights CLAIMED at 0.5; strict weights CLAIMED at 0.0 — so the
+    // strict ratio can only be smaller or equal.
+    if (defaultRun.adjustments.pipelinePressureRatio != null && strictRun.adjustments.pipelinePressureRatio != null) {
+      expect(strictRun.adjustments.pipelinePressureRatio)
+        .toBeLessThanOrEqual(defaultRun.adjustments.pipelinePressureRatio + 1e-9);
+    }
+  });
+});

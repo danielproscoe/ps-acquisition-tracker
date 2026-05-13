@@ -76,6 +76,8 @@
 import { computeForwardSupplyForecast } from "./forwardSupplyForecast";
 import { computeSupplyDemandEquilibrium } from "./supplyDemandEquilibrium";
 import { computeForwardRentTrajectory } from "./forwardRentTrajectory";
+import { computeForwardDemandTrajectory } from "./forwardDemandTrajectory";
+import { computeEquilibriumTrajectory } from "./equilibriumTrajectory";
 import {
   forecastStorageDemand,
   extractRingForDemandForecast,
@@ -136,8 +138,13 @@ function scoreForwardSupply(supplyForecast) {
  * Supply-Demand Equilibrium Index (CLAIM 8) — score 0-100 derived from
  * the equilibrium tier. BALANCED maps to 70 (target); UNDERSUPPLIED tiers
  * boost above target; OVERSUPPLIED tiers discount below.
+ *
+ * When equilibriumTrajectory (CLAIM 12) is supplied, a trajectory-stability
+ * adjustment is applied: markets where the END tier degrades vs the START
+ * tier get a -10 penalty (pipeline flood risk); markets where the END tier
+ * improves get a +5 bonus (favorable supply-demand trend).
  */
-function scoreEquilibrium(equilibrium) {
+function scoreEquilibrium(equilibrium, equilibriumTrajectory) {
   if (!equilibrium || equilibrium.equilibriumRatio == null) {
     return { score: 0, confidence: "low", note: "Equilibrium unavailable" };
   }
@@ -150,11 +157,31 @@ function scoreEquilibrium(equilibrium) {
     "SATURATED": 20,
     "UNKNOWN": 50,
   };
-  const score = TIER_SCORES[equilibrium.tier?.label] ?? 50;
+  let score = TIER_SCORES[equilibrium.tier?.label] ?? 50;
+
+  // Trajectory-stability adjustment (Claim 12)
+  let stabilityAdj = 0;
+  let stabilityNote = "";
+  if (equilibriumTrajectory?.summary && equilibriumTrajectory?.path?.length > 1) {
+    const startScore = TIER_SCORES[equilibriumTrajectory.summary.startTier] ?? 50;
+    const endScore = TIER_SCORES[equilibriumTrajectory.summary.endTier] ?? 50;
+    if (endScore < startScore - 10) {
+      stabilityAdj = -10;
+      stabilityNote = ` · trajectory degrades ${equilibriumTrajectory.summary.startTier} → ${equilibriumTrajectory.summary.endTier} (pipeline flood risk)`;
+    } else if (endScore > startScore + 10) {
+      stabilityAdj = 5;
+      stabilityNote = ` · trajectory improves ${equilibriumTrajectory.summary.startTier} → ${equilibriumTrajectory.summary.endTier} (demand catches up)`;
+    } else {
+      stabilityNote = ` · trajectory holds ${equilibriumTrajectory.summary.endTier}`;
+    }
+    score = Math.max(0, Math.min(100, score + stabilityAdj));
+  }
+
   return {
     score,
     confidence: equilibrium.compositeConfidence || "low",
-    note: `Equilibrium tier ${equilibrium.tier?.label || "UNKNOWN"} · ratio ${equilibrium.equilibriumRatio.toFixed(2)}`,
+    note: `Equilibrium tier ${equilibrium.tier?.label || "UNKNOWN"} · ratio ${equilibrium.equilibriumRatio.toFixed(2)}${stabilityNote}`,
+    stabilityAdj,
   };
 }
 
@@ -189,8 +216,13 @@ function scoreForwardRent(rentForecast) {
  * Audited Tapestry Demand Forecast — score from the demand-forecast
  * confidence tier + the per-capita demand level. High per-capita + high
  * confidence = high score.
+ *
+ * When forwardDemandTrajectory (CLAIM 11) is supplied, a forward-growth
+ * adjustment is applied: net 5-yr demand gain ≥ 8% adds +5; ≤ -2% subtracts
+ * -5. The trajectory's effectiveDemandCAGR provides forward visibility the
+ * snapshot lacks.
  */
-function scoreDemand(demandForecast) {
+function scoreDemand(demandForecast, forwardDemandTrajectory) {
   if (!demandForecast) return { score: 0, confidence: "low", note: "Demand forecast unavailable" };
   const confScore = demandForecast.confidence === "high" ? 85
     : demandForecast.confidence === "medium" ? 70
@@ -198,10 +230,28 @@ function scoreDemand(demandForecast) {
   // Per-capita demand uplift: above 6.0 SF/cap = +10; 5.0-6.0 = +5; below 4.5 = -5
   const dpc = Number(demandForecast.demandPerCapita) || 0;
   const dpcAdj = dpc >= 6.0 ? 10 : dpc >= 5.0 ? 5 : dpc < 4.5 ? -5 : 0;
+
+  // Forward-trajectory adjustment (Claim 11)
+  let forwardAdj = 0;
+  let forwardNote = "";
+  if (forwardDemandTrajectory?.summary) {
+    const gain = forwardDemandTrajectory.summary.totalDemandGainPct || 0;
+    if (gain >= 8) {
+      forwardAdj = 5;
+      forwardNote = ` · forward demand ${gain >= 0 ? "+" : ""}${gain.toFixed(1)}% (strong growth)`;
+    } else if (gain <= -2) {
+      forwardAdj = -5;
+      forwardNote = ` · forward demand ${gain.toFixed(1)}% (declining)`;
+    } else {
+      forwardNote = ` · forward demand ${gain >= 0 ? "+" : ""}${gain.toFixed(1)}%`;
+    }
+  }
+
   return {
-    score: Math.max(0, Math.min(100, confScore + dpcAdj)),
+    score: Math.max(0, Math.min(100, confScore + dpcAdj + forwardAdj)),
     confidence: demandForecast.confidence || "low",
-    note: `${dpc.toFixed(2)} SF/capita · confidence ${demandForecast.confidence}`,
+    note: `${dpc.toFixed(2)} SF/capita · confidence ${demandForecast.confidence}${forwardNote}`,
+    forwardAdj,
   };
 }
 
@@ -233,13 +283,20 @@ function scoreSourceDiversity(equilibrium, rentForecast) {
  * Audit-trail completeness — % of upstream engines with non-fallback,
  * non-missing inputs. Penalizes when the underlying forecasts had to fall
  * back to coarser data.
+ *
+ * Extended to verify CLAIM 11 (forward demand trajectory) + CLAIM 12
+ * (equilibrium trajectory) + the causal-chain integration (rent forecast
+ * used useTrajectory mode) are all present and high-confidence.
  */
-function scoreAuditCompleteness(supplyForecast, equilibrium, rentForecast, demandForecast) {
+function scoreAuditCompleteness(supplyForecast, equilibrium, rentForecast, demandForecast, forwardDemandTrajectory, equilibriumTrajectory) {
   const checks = [
     { passed: !!supplyForecast && supplyForecast.confidenceTier !== "low", label: "supply forecast" },
     { passed: !!equilibrium && equilibrium.compositeConfidence !== "low", label: "equilibrium" },
     { passed: !!rentForecast && rentForecast.confidence !== "low" && !rentForecast.baseline.fallbackUsed, label: "rent baseline" },
     { passed: !!demandForecast && demandForecast.confidence !== "low" && (demandForecast.missingFields || []).length === 0, label: "demand forecast" },
+    { passed: !!forwardDemandTrajectory && forwardDemandTrajectory.confidence !== "low", label: "forward demand trajectory (Claim 11)" },
+    { passed: !!equilibriumTrajectory && equilibriumTrajectory.compositeConfidence !== "low", label: "equilibrium trajectory (Claim 12)" },
+    { passed: !!rentForecast && rentForecast.adjustments?.useTrajectory === true, label: "causal-chain integration (rent uses Claim 12)" },
   ];
   const pass = checks.filter(c => c.passed).length;
   const total = checks.length;
@@ -341,13 +398,41 @@ export function computeUnderwritingConfidence(query = {}) {
     missing.push("ring");
   }
 
+  // ── CAUSAL CHAIN — Claims 11 + 12 forward trajectories ────────────────
+  // These wire ESRI 2030 demographic projections (Claim 11) through the
+  // Tapestry demand model + compose with Claim 7's forward supply pipeline
+  // (year-by-year, confidence-weighted) into a single per-year equilibrium
+  // path (Claim 12). The rent forecast below then consumes the trajectory
+  // YEAR-BY-YEAR so each year's rent CAGR reflects THAT YEAR's supply pulse
+  // + equilibrium tier + demand growth — not a single horizon-end adjustment.
+  let forwardDemandTrajectory = null;
+  let equilibriumTrajectory = null;
+  if (ring) {
+    try {
+      forwardDemandTrajectory = computeForwardDemandTrajectory({
+        city, state, msa, ring,
+        horizonMonths: Math.max(60, horizonMonths), asOf,
+      });
+    } catch (err) { missing.push("forwardDemandTrajectory"); }
+    try {
+      equilibriumTrajectory = computeEquilibriumTrajectory({
+        city, state, msa, ring,
+        currentCCSF: currentCCSF || undefined,
+        horizonMonths: Math.max(60, horizonMonths), asOf,
+      });
+    } catch (err) { missing.push("equilibriumTrajectory"); }
+  }
+
   let rentForecast = null;
   if (msa || city) {
     try {
+      // useTrajectory=true wires Claims 11+12 into the rent path year-by-year
       rentForecast = computeForwardRentTrajectory({
         city, state, msa, operator,
         horizonMonths: Math.max(60, horizonMonths),
         ring, currentCCSF: currentCCSF || undefined, asOf,
+        useTrajectory: true,
+        verifiedOnly: query.verifiedOnly === true,
       });
     } catch (err) { missing.push("rentForecast"); }
   }
@@ -362,11 +447,11 @@ export function computeUnderwritingConfidence(query = {}) {
 
   // ── Sub-scores ────────────────────────────────────────────────────────
   const fs = scoreForwardSupply(supplyForecast);
-  const eq = scoreEquilibrium(equilibrium);
+  const eq = scoreEquilibrium(equilibrium, equilibriumTrajectory);
   const fr = scoreForwardRent(rentForecast);
-  const dm = scoreDemand(demandForecast);
+  const dm = scoreDemand(demandForecast, forwardDemandTrajectory);
   const sd = scoreSourceDiversity(equilibrium, rentForecast);
-  const ac = scoreAuditCompleteness(supplyForecast, equilibrium, rentForecast, demandForecast);
+  const ac = scoreAuditCompleteness(supplyForecast, equilibrium, rentForecast, demandForecast, forwardDemandTrajectory, equilibriumTrajectory);
 
   const subScores = {
     forwardSupply:     { ...fs, weight: W.forwardSupply,     weighted: fs.score * W.forwardSupply },
@@ -413,6 +498,14 @@ export function computeUnderwritingConfidence(query = {}) {
     diligenceItems.push("Demographic ring not supplied — equilibrium + demand sub-scores defaulted to 0. Provide a Tapestry-enriched 3-mi ring.");
   }
 
+  // Causal-chain integrity item
+  if (rentForecast && rentForecast.adjustments?.useTrajectory !== true) {
+    diligenceItems.push("Rent forecast did not consume Claim 12 trajectory — per-year equilibrium adjustments not applied; rent path uses snapshot fallback");
+  }
+  if (query.verifiedOnly === true && rentForecast?.adjustments?.verifiedPctOfPulse != null && rentForecast.adjustments.verifiedPctOfPulse < 0.5) {
+    diligenceItems.push(`Verified-only filter active: only ${(rentForecast.adjustments.verifiedPctOfPulse * 100).toFixed(0)}% of forecast supply pulse is VERIFIED — rent compression math discounts the rest`);
+  }
+
   return {
     submarket: { city, state, msa, operator },
     horizonMonths,
@@ -421,7 +514,7 @@ export function computeUnderwritingConfidence(query = {}) {
     grade,
     gradeConfidence,
     subScores,
-    upstream: { supplyForecast, equilibrium, rentForecast, demandForecast },
+    upstream: { supplyForecast, equilibrium, rentForecast, demandForecast, forwardDemandTrajectory, equilibriumTrajectory },
     diligenceItems,
     weights: W,
     missing,

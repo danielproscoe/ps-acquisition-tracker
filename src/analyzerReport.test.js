@@ -1081,4 +1081,94 @@ describe("generateAnalyzerReport", () => {
       expect(html).toContain("equilibriumTrajectory.js");
     });
   });
+
+  describe("Causal Chain Audit Trail (Claims 11 + 12 wired into Claim 9 year-by-year)", () => {
+    const chainInput = {
+      ...baseInput,
+      name: "Causal Chain Test",
+      city: "Houston",
+      state: "TX",
+    };
+    const chainEnrichment = {
+      ring3mi: { pop: 80000, renterPct: 42, growthRate: 1.8, medianHHIncome: 78000 },
+      tapestryLifeMode3mi: "GenXurban",
+      tapestryUrbanization3mi: "Metro Cities",
+      popGrowth3mi: 0.018,
+      incomeGrowth3mi: 0.024,
+      pop3mi_fy: 87446,
+      income3mi_fy: 87831,
+      ccSPCCurrent: 4.0,
+    };
+
+    test("renders CAUSAL CHAIN AUDIT TRAIL section when trajectory data is present", () => {
+      const analysis = analyzeExistingAsset(chainInput);
+      const psLens = computeBuyerLens(chainInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: chainEnrichment });
+
+      expect(html).toContain("CAUSAL CHAIN AUDIT TRAIL");
+      expect(html).toContain("SUPPLY → DEMAND → RENT");
+    });
+
+    test("year-by-year flow table renders Supply Pulse + Equilibrium Tier + Demand Δ Y-o-Y + Applied CAGR columns", () => {
+      const analysis = analyzeExistingAsset(chainInput);
+      const psLens = computeBuyerLens(chainInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: chainEnrichment });
+
+      expect(html).toContain("Supply Pulse");
+      expect(html).toContain("Equilibrium Tier");
+      expect(html).toMatch(/Demand .{1,6}Y.{0,5}o.{0,5}Y/);
+      expect(html).toContain("Applied CAGR");
+      expect(html).toContain("Adjusted Rent");
+    });
+
+    test("renders verified pulse KPI card with percentage", () => {
+      const analysis = analyzeExistingAsset(chainInput);
+      const psLens = computeBuyerLens(chainInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: chainEnrichment });
+
+      expect(html).toContain("Verified Supply Pulse");
+      // Renders as a percent number
+      expect(html).toMatch(/\d+%[^<]*<\/span>/);
+    });
+
+    test("section appears AFTER equilibrium trajectory + BEFORE underwriting confidence", () => {
+      const analysis = analyzeExistingAsset(chainInput);
+      const psLens = computeBuyerLens(chainInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: chainEnrichment });
+
+      const eqIdx = html.indexOf("EQUILIBRIUM TRAJECTORY — YEAR-BY-YEAR");
+      const causalIdx = html.indexOf("CAUSAL CHAIN AUDIT TRAIL");
+      const urcIdx = html.indexOf("UNDERWRITING CONFIDENCE SCORE");
+
+      expect(causalIdx).toBeGreaterThan(0);
+      if (eqIdx >= 0) {
+        expect(causalIdx).toBeGreaterThan(eqIdx);
+      }
+      if (urcIdx >= 0) {
+        expect(urcIdx).toBeGreaterThan(causalIdx);
+      }
+    });
+
+    test("section omits when no ring data available", () => {
+      const sparseInput = { ...baseInput, name: "Sparse Chain Test", city: null, state: null };
+      const analysis = analyzeExistingAsset(sparseInput);
+      const psLens = computeBuyerLens(sparseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).not.toContain("CAUSAL CHAIN AUDIT TRAIL");
+    });
+
+    test("references each tunable coefficient by name (Storvex 'show your work' standard)", () => {
+      const analysis = analyzeExistingAsset(chainInput);
+      const psLens = computeBuyerLens(chainInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: chainEnrichment });
+
+      // Section explicitly names the tunable coefficients so the reader can
+      // re-derive the math from the public sources
+      expect(html).toContain("STORAGE_DEMAND_COEFFICIENTS");
+      expect(html).toContain("EQUILIBRIUM_RENT_ADJUSTMENT");
+      expect(html).toContain("PIPELINE_PRESSURE_ELASTICITY");
+      expect(html).toContain("DEMAND_GROWTH_UPLIFT_COEFFICIENT");
+    });
+  });
 });

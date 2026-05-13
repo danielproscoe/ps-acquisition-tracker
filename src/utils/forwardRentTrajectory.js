@@ -71,6 +71,9 @@ import {
   getHistoricalSameStoreSeries,
 } from "../data/edgarCompIndex";
 import { computeSupplyDemandEquilibrium } from "./supplyDemandEquilibrium";
+import { computeEquilibriumTrajectory } from "./equilibriumTrajectory";
+import { computeForwardDemandTrajectory } from "./forwardDemandTrajectory";
+import { computeForwardSupplyForecast } from "./forwardSupplyForecast";
 
 // ─── Configurable adjustment coefficients ────────────────────────────────
 
@@ -98,6 +101,25 @@ export const PIPELINE_PRESSURE_ELASTICITY = -0.008; // -80bps/yr per 100% supply
 export const DEFAULT_FALLBACK_CAGR = 0.040;
 
 export const DEFAULT_HORIZON_MONTHS = 60;
+
+// Per-year demand uplift coefficient. For every 1 percentage point of
+// year-over-year demand growth above the prior year, rent CAGR accelerates
+// by this amount. Newmark + Marcus & Millichap submarket commentary
+// shows demand-led rent surges run +20-50bps for every +1% demand growth
+// inflection. Coefficient anchored at the midpoint.
+export const DEMAND_GROWTH_UPLIFT_COEFFICIENT = 0.0035; // 35bps/yr per +1% demand growth
+
+// "Verified-only" confidence weights — when query.verifiedOnly=true, the
+// internal forward supply re-aggregation uses these instead of the default
+// VERIFIED/CLAIMED/STALE/UNVERIFIED weights. Effect: rent compression math
+// excludes synthesized aggregator data entirely, only feeding off SEC EDGAR
+// + county-permit primary-source-verified entries.
+export const VERIFIED_ONLY_WEIGHTS = {
+  VERIFIED: 1.0,
+  CLAIMED: 0.0,
+  STALE: 0.0,
+  UNVERIFIED: 0.0,
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -206,6 +228,17 @@ export function computeForwardRentTrajectory(query = {}) {
     currentCCSF = null,
     asOf = new Date(),
     adjustments = {},
+    // ── NEW CAUSAL-CHAIN OPTIONS ────────────────────────────────────────
+    // useTrajectory: when true, applies PER-YEAR equilibrium tier + supply
+    // pulse + demand-growth adjustments instead of a single horizon-end
+    // adjustment. Wires Claim 11 (forward demand trajectory) + Claim 12
+    // (equilibrium trajectory) into the rent path year-by-year.
+    useTrajectory = false,
+    // verifiedOnly: when true, the supply pulse driving rent compression
+    // uses VERIFIED-only confidence weights (CLAIMED/STALE/UNVERIFIED
+    // excluded). Surfaces "what's real" — synthesized aggregator data
+    // cannot push rents down in the projection.
+    verifiedOnly = false,
   } = query;
 
   const missing = [];
@@ -272,25 +305,82 @@ export function computeForwardRentTrajectory(query = {}) {
   const elasticity = adjustments.pipelineElasticity != null
     ? adjustments.pipelineElasticity
     : PIPELINE_PRESSURE_ELASTICITY;
+
+  // When verifiedOnly is set, re-aggregate the forward supply with strict
+  // VERIFIED-only weights. This makes the supply pulse used for rent
+  // compression strictly traceable to SEC EDGAR + county-permit primary
+  // sources — CLAIMED/STALE/UNVERIFIED do not push rents down.
+  let verifiedOnlySupplyForecast = null;
+  let totalForecastCcSfForPressure = 0;
+  let verifiedPctOfPulse = 1.0;
   if (equilibrium && equilibrium.supplyForecast) {
-    const forecastCcSf = equilibrium.supplyForecast.totals.totalForecastCcSf || 0;
+    const rawForecastCcSf = equilibrium.supplyForecast.totals.totalForecastCcSf || 0;
+    if (verifiedOnly) {
+      try {
+        verifiedOnlySupplyForecast = computeForwardSupplyForecast({
+          city, state, msa, horizonMonths, asOf,
+          confidenceWeights: VERIFIED_ONLY_WEIGHTS,
+          includeHistoricalProjection: true,
+        });
+        totalForecastCcSfForPressure = verifiedOnlySupplyForecast.totals.totalForecastCcSf || 0;
+        verifiedPctOfPulse = rawForecastCcSf > 0
+          ? totalForecastCcSfForPressure / rawForecastCcSf
+          : 1.0;
+      } catch (err) {
+        // fall through to default weighting if the re-aggregation fails
+        totalForecastCcSfForPressure = rawForecastCcSf;
+      }
+    } else {
+      totalForecastCcSfForPressure = rawForecastCcSf;
+    }
+
     const currentCcSf = equilibrium.currentCcSf || 0;
     if (currentCcSf > 0) {
-      pipelinePressureRatio = forecastCcSf / currentCcSf;
-      // Apply elasticity — ratio of 1.0 (100% supply pulse) yields PIPELINE_PRESSURE_ELASTICITY
+      pipelinePressureRatio = totalForecastCcSfForPressure / currentCcSf;
       pipelinePressureAdj = pipelinePressureRatio * elasticity;
     }
   }
 
-  // ── Combined annual adjustment ───────────────────────────────────────
+  // ── Snapshot combined annual adjustment (default / backwards compat) ─
   const totalAnnualAdj = equilibriumAdj + pipelinePressureAdj;
   const adjustedCAGR = clampCAGR(cagr + totalAnnualAdj);
+
+  // ── CAUSAL-CHAIN PATH MODE (useTrajectory) ───────────────────────────
+  // Per-year equilibrium tier + supply pulse + demand growth uplift, all
+  // applied year-by-year so rent CAGR varies with the actual trajectory.
+  let equilibriumTrajectory = null;
+  let forwardDemand = null;
+  let perYearChain = null; // populated only when useTrajectory=true
+  if (useTrajectory && ring) {
+    try {
+      const trajConfidenceWeights = verifiedOnly ? VERIFIED_ONLY_WEIGHTS : undefined;
+      equilibriumTrajectory = computeEquilibriumTrajectory({
+        city, state, msa, ring,
+        currentCCSF: currentCCSF || undefined,
+        horizonMonths, asOf,
+        confidenceWeights: trajConfidenceWeights,
+      });
+      forwardDemand = equilibriumTrajectory?.forwardDemand
+        || computeForwardDemandTrajectory({ city, state, msa, ring, horizonMonths, asOf });
+    } catch (err) {
+      // graceful fallback to snapshot path
+      missing.push("equilibriumTrajectory");
+    }
+  }
 
   // ── Build year-by-year path ──────────────────────────────────────────
   const path = [];
   const baseYear = currentRentInfo?.asOfYear || new Date(asOf).getFullYear();
   let baselineRent = currentRent;
   let adjustedRent = currentRent;
+  let chainEffectiveCAGRSum = 0;
+  let chainEffectiveYears = 0;
+
+  const adjMap = { ...EQUILIBRIUM_RENT_ADJUSTMENT, ...(adjustments.equilibrium || {}) };
+  const demandUpliftCoef = adjustments.demandGrowthUplift != null
+    ? adjustments.demandGrowthUplift
+    : DEMAND_GROWTH_UPLIFT_COEFFICIENT;
+
   if (baselineRent != null) {
     path.push({
       yearIndex: 0,
@@ -298,29 +388,112 @@ export function computeForwardRentTrajectory(query = {}) {
       baseline: baselineRent,
       withAdjustment: adjustedRent,
       deltaPct: 0,
+      // Per-year causal-chain fields populated below when useTrajectory=true
+      causalChain: useTrajectory && equilibriumTrajectory ? {
+        equilibriumTier: equilibriumTrajectory.path[0]?.tier?.label || equilibriumTier,
+        equilibriumAdj: 0, // Y0 is anchor — no adjustment applied
+        supplyPulseCcSf: 0,
+        supplyPressureAdj: 0,
+        demandGrowthPct: 0,
+        demandUpliftAdj: 0,
+        totalAdj: 0,
+        appliedCAGR: 0,
+      } : null,
     });
+
     for (let i = 1; i <= horizonYears; i++) {
+      let yearAdjustedCAGR = adjustedCAGR;
+      let causalChain = null;
+
+      // Use year-specific adjustment when useTrajectory + trajectory data
+      // is available. Otherwise fall back to uniform snapshot adjustment.
+      if (useTrajectory && equilibriumTrajectory && equilibriumTrajectory.path[i]) {
+        const trajRow = equilibriumTrajectory.path[i];
+        const yearTier = trajRow.tier?.label || equilibriumTier;
+        const yearEquilibriumAdj = adjMap[yearTier] != null ? adjMap[yearTier] : 0;
+
+        // Supply pulse this year is the confidence-weighted CC SF delivered
+        // in year i (per equilibrium trajectory bucketing). It's ALREADY
+        // weighted by the active confidence weights (default or verifiedOnly).
+        const supplyPulseCcSf = trajRow.supplyDeliveredThisYear || 0;
+        const currentCcSf = equilibriumTrajectory.currentCcSf
+          || equilibrium?.currentCcSf
+          || 0;
+        const yearSupplyPressureAdj = currentCcSf > 0
+          ? (supplyPulseCcSf / currentCcSf) * elasticity
+          : 0;
+
+        // Demand growth this year (Y-over-Y delta from forward demand path)
+        let yearDemandGrowthPct = 0;
+        let yearDemandUpliftAdj = 0;
+        if (forwardDemand && forwardDemand.path && forwardDemand.path[i] && forwardDemand.path[i - 1]) {
+          const prior = forwardDemand.path[i - 1].totalDemandSf || 0;
+          const curr = forwardDemand.path[i].totalDemandSf || 0;
+          if (prior > 0) {
+            yearDemandGrowthPct = ((curr / prior) - 1) * 100;
+            // Only positive demand growth ACCELERATES rents; negative growth
+            // does not subtract (handled separately via equilibrium tier shifts)
+            yearDemandUpliftAdj = Math.max(0, yearDemandGrowthPct) * demandUpliftCoef;
+          }
+        }
+
+        const yearTotalAdj = yearEquilibriumAdj + yearSupplyPressureAdj + yearDemandUpliftAdj;
+        yearAdjustedCAGR = clampCAGR(cagr + yearTotalAdj);
+
+        causalChain = {
+          equilibriumTier: yearTier,
+          equilibriumAdj: yearEquilibriumAdj,
+          supplyPulseCcSf,
+          supplyPressureAdj: yearSupplyPressureAdj,
+          demandGrowthPct: yearDemandGrowthPct,
+          demandUpliftAdj: yearDemandUpliftAdj,
+          totalAdj: yearTotalAdj,
+          appliedCAGR: yearAdjustedCAGR,
+        };
+
+        chainEffectiveCAGRSum += yearAdjustedCAGR;
+        chainEffectiveYears++;
+      }
+
       baselineRent = baselineRent * (1 + cagr);
-      adjustedRent = adjustedRent * (1 + adjustedCAGR);
+      adjustedRent = adjustedRent * (1 + yearAdjustedCAGR);
       path.push({
         yearIndex: i,
         year: baseYear + i,
         baseline: baselineRent,
         withAdjustment: adjustedRent,
         deltaPct: (adjustedRent / baselineRent - 1) * 100,
+        causalChain,
       });
     }
   }
 
+  // Compose perYearChain summary when useTrajectory=true
+  if (useTrajectory && chainEffectiveYears > 0) {
+    perYearChain = {
+      averageAppliedCAGR: chainEffectiveCAGRSum / chainEffectiveYears,
+      yearsAdjusted: chainEffectiveYears,
+      verifiedPctOfPulse,
+      causalChainSource:
+        "CLAIM 12 equilibrium trajectory (per-year tier + supply pulse) + CLAIM 11 forward demand growth Y-over-Y",
+    };
+  }
+
   // ── Summary stats ─────────────────────────────────────────────────────
   const finalRow = path.length > 0 ? path[path.length - 1] : null;
+  // When useTrajectory=true, effectiveCAGR is the Y0→final geometric mean
+  // of the per-year applied CAGRs; otherwise it's the snapshot adjustedCAGR.
+  const reportedEffectiveCAGR = useTrajectory && finalRow && currentRent && finalRow.withAdjustment
+    ? Math.pow(finalRow.withAdjustment / currentRent, 1 / horizonYears) - 1
+    : adjustedCAGR;
+
   const summary = finalRow && currentRent
     ? {
         finalYearRent: finalRow.withAdjustment,
         finalYearBaseline: finalRow.baseline,
         finalYearVsBaselinePct: finalRow.deltaPct,
         totalRentGainPct: (finalRow.withAdjustment / currentRent - 1) * 100,
-        effectiveCAGR: adjustedCAGR,
+        effectiveCAGR: reportedEffectiveCAGR,
         baselineCAGR: cagr,
       }
     : null;
@@ -349,10 +522,19 @@ export function computeForwardRentTrajectory(query = {}) {
       pipelineElasticity: elasticity,
       totalAnnualAdj,
       adjustedCAGR,
+      // New causal-chain summary (null when useTrajectory=false)
+      perYearChain,
+      // Provenance flags
+      useTrajectory,
+      verifiedOnly,
+      verifiedPctOfPulse,
     },
     path,
     summary,
     equilibrium,
+    // New upstream attachments — exposed only when useTrajectory=true
+    equilibriumTrajectory,
+    forwardDemand,
     confidence,
     missing,
   };
