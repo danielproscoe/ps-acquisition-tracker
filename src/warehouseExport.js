@@ -12,6 +12,12 @@ import {
   forecastStorageDemand,
   extractRingForDemandForecast,
 } from "./utils/storageDemandForecast.mjs";
+import {
+  computeForwardDemandTrajectory,
+} from "./utils/forwardDemandTrajectory";
+import {
+  computeEquilibriumTrajectory,
+} from "./utils/equilibriumTrajectory";
 
 // warehouseExport.js — Push Storvex Asset Analyzer outputs to PSA's data warehouse.
 //
@@ -469,6 +475,165 @@ export function buildWarehousePayload({ analysis, psLens, enrichment, extraction
         citations: fc.citations,
         source: "Storvex audited component-wise storage demand model · ESRI Tapestry + REIT 10-K MD&A + Self-Storage Almanac",
         schema_version: "storvex.storageDemandForecast.v1",
+      };
+    })(),
+
+    // CLAIM 11 — Forward Demand Trajectory. ESRI 2030 projection × Tapestry
+    // demand model, year-by-year over 60-month horizon. The demos axis of the
+    // three-axis forward-state underwrite surface. Radius+ / TractIQ /
+    // StorTrack ship snapshot demand only — none project forward through a
+    // published audited model.
+    forward_demand_trajectory: (() => {
+      const ring = enrichment?.ring3mi
+        ? {
+            pop: enrichment.ring3mi.pop,
+            renterPct: enrichment.ring3mi.renterPct,
+            growthRatePct: enrichment.ring3mi.growthRate,
+            medianHHIncome: enrichment.ring3mi.medianHHIncome,
+            tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+            tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+            popGrowth3mi: enrichment.popGrowth3mi,
+            incomeGrowth3mi: enrichment.incomeGrowth3mi,
+            pop3mi_fy: enrichment.pop3mi_fy,
+            income3mi_fy: enrichment.income3mi_fy,
+          }
+        : extractRingForDemandForecast({
+            ...(analysis?.subject || {}),
+            ...(enrichment || {}),
+          });
+      if (!ring || !ring.pop) return null;
+      const city = analysis?.subject?.city || s?.city || null;
+      const state = analysis?.subject?.state || s?.state || null;
+      const msa = analysis?.subject?.msa || s?.msa || (city ? resolveCityToMSA(city) : null);
+      let fd;
+      try {
+        fd = computeForwardDemandTrajectory({ city, state, msa, ring, horizonMonths: 60 });
+      } catch (err) {
+        return null;
+      }
+      if (!fd || !fd.summary) return null;
+      return {
+        schema_version: fd.modelVersion,
+        submarket: fd.submarket,
+        horizon_months: fd.horizonMonths,
+        as_of: fd.asOf,
+        confidence: fd.confidence,
+        missing: fd.missing,
+        baseline: {
+          pop_y0: numOrNull(fd.baseline.popY0),
+          median_hhi_y0: numOrNull(fd.baseline.medianHHIY0),
+          renter_pct_y0: numOrNull(fd.baseline.renterPctY0),
+          pop_cagr: numOrNull(fd.baseline.popCAGR),
+          income_cagr: numOrNull(fd.baseline.incomeCAGR),
+          growth_source: fd.baseline.growthSource,
+          tapestry_lifemode: fd.baseline.tapestryLifeMode,
+          tapestry_urbanization: fd.baseline.tapestryUrbanization,
+        },
+        path: fd.path.map((row) => ({
+          year_index: row.yearIndex,
+          year: row.year,
+          pop: numOrNull(row.popY),
+          median_hhi: numOrNull(row.medianHHIY),
+          renter_pct: numOrNull(row.renterPctY),
+          demand_per_capita: numOrNull(row.demandPerCapita),
+          total_demand_sf: numOrNull(row.totalDemandSf),
+          delta_sf_vs_y0: numOrNull(row.deltaSfVsY0),
+          delta_pct_vs_y0: numOrNull(row.deltaPctVsY0),
+        })),
+        summary: {
+          y0_demand_per_capita: numOrNull(fd.summary.y0DemandPerCapita),
+          y0_total_demand_sf: numOrNull(fd.summary.y0TotalDemandSf),
+          final_year_demand_per_capita: numOrNull(fd.summary.finalYearDemandPerCapita),
+          final_year_total_demand_sf: numOrNull(fd.summary.finalYearTotalDemandSf),
+          total_demand_gain_pct: numOrNull(fd.summary.totalDemandGainPct),
+          effective_demand_cagr: numOrNull(fd.summary.effectiveDemandCAGR),
+          final_year: fd.summary.finalYear,
+        },
+        citations: fd.citations,
+        source: "Storvex Forward Demand Trajectory · ESRI 2030 projection × audited Tapestry demand model",
+      };
+    })(),
+
+    // CLAIM 12 — Equilibrium Trajectory. Composes Forward Supply Forecast
+    // (Claim 7) year-by-year delivery schedule with Forward Demand Trajectory
+    // (Claim 11) year-by-year demand path → single ratio path with tier
+    // transitions surfaced. The synthesis layer no aggregator produces.
+    equilibrium_trajectory: (() => {
+      const ring = enrichment?.ring3mi
+        ? {
+            pop: enrichment.ring3mi.pop,
+            renterPct: enrichment.ring3mi.renterPct,
+            growthRatePct: enrichment.ring3mi.growthRate,
+            medianHHIncome: enrichment.ring3mi.medianHHIncome,
+            tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+            tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+            popGrowth3mi: enrichment.popGrowth3mi,
+            incomeGrowth3mi: enrichment.incomeGrowth3mi,
+            pop3mi_fy: enrichment.pop3mi_fy,
+            income3mi_fy: enrichment.income3mi_fy,
+          }
+        : extractRingForDemandForecast({
+            ...(analysis?.subject || {}),
+            ...(enrichment || {}),
+          });
+      if (!ring || !ring.pop) return null;
+      const city = analysis?.subject?.city || s?.city || null;
+      const state = analysis?.subject?.state || s?.state || null;
+      const msa = analysis?.subject?.msa || s?.msa || (city ? resolveCityToMSA(city) : null);
+      const ccCurrent = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+      const currentCCSF = ccCurrent != null && ring.pop > 0
+        ? Number(ccCurrent) * Number(ring.pop)
+        : undefined;
+      let eq;
+      try {
+        eq = computeEquilibriumTrajectory({ city, state, msa, ring, currentCCSF, horizonMonths: 60 });
+      } catch (err) {
+        return null;
+      }
+      if (!eq || !eq.summary) return null;
+      return {
+        schema_version: "storvex.equilibriumTrajectory.v1",
+        submarket: eq.submarket,
+        horizon_months: eq.horizonMonths,
+        as_of: eq.asOf,
+        composite_confidence: eq.compositeConfidence,
+        missing: eq.missing,
+        path: eq.path.map((row) => ({
+          year_index: row.yearIndex,
+          year: row.year,
+          supply_cc_sf: numOrNull(row.supplyCcSf),
+          supply_delivered_this_year: numOrNull(row.supplyDeliveredThisYear),
+          supply_delta_edgar: numOrNull(row.supplyConfidenceWeightedDelta?.edgar),
+          supply_delta_permit: numOrNull(row.supplyConfidenceWeightedDelta?.permit),
+          supply_delta_historical: numOrNull(row.supplyConfidenceWeightedDelta?.historical),
+          demand_cc_sf: numOrNull(row.demandCcSf),
+          ratio: numOrNull(row.ratio),
+          tier_label: row.tier?.label || null,
+          tier_color: row.tier?.color || null,
+        })),
+        tier_transitions: eq.tierTransitions.map((t) => ({
+          from_year: t.fromYear,
+          to_year: t.toYear,
+          from_tier: t.fromTier,
+          to_tier: t.toTier,
+          from_ratio: numOrNull(t.fromRatio),
+          to_ratio: numOrNull(t.toRatio),
+          delta_ratio: numOrNull(t.deltaRatio),
+        })),
+        summary: {
+          start_tier: eq.summary.startTier,
+          end_tier: eq.summary.endTier,
+          start_ratio: numOrNull(eq.summary.startRatio),
+          end_ratio: numOrNull(eq.summary.endRatio),
+          year_of_balance_crossing: eq.summary.yearOfBalanceCrossing,
+          years_to_balance: eq.summary.yearsToBalance,
+          peak_supply_pulse_year: eq.summary.peakSupplyPulseYear,
+          peak_supply_pulse_cc_sf: numOrNull(eq.summary.peakSupplyPulseCcSf),
+          net_supply_added_cc_sf: numOrNull(eq.summary.netSupplyAddedCcSf),
+          net_demand_added_cc_sf: numOrNull(eq.summary.netDemandAddedCcSf),
+          final_year: eq.summary.finalYear,
+        },
+        source: "Storvex Equilibrium Trajectory · composes CLAIM 7 forward supply + CLAIM 11 forward demand year-by-year",
       };
     })(),
 

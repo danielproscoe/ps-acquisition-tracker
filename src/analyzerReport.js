@@ -38,6 +38,14 @@ import {
   describeRentTrajectory,
 } from "./utils/forwardRentTrajectory";
 import {
+  computeForwardDemandTrajectory,
+  describeForwardDemandTrajectory,
+} from "./utils/forwardDemandTrajectory";
+import {
+  computeEquilibriumTrajectory,
+  describeEquilibriumTrajectory,
+} from "./utils/equilibriumTrajectory";
+import {
   computeUnderwritingConfidence,
   describeUnderwritingConfidence,
 } from "./utils/underwritingConfidence";
@@ -306,6 +314,20 @@ function renderCrushRadiusPlusFootprint() {
       storvex: "Single A+ → F letter grade per submarket · 0-100 weighted composite of forward supply (20%) + equilibrium (25%) + forward rent (20%) + demand (15%) + source diversity (10%) + audit completeness (10%) · grade-confidence flag · pre-bid diligence items surfaced inline",
       radius: "No equivalent · ships scattered metrics across multiple panels with no audit-graded composite",
       advantage: "The operator's go/no-go signal at a glance · design-around requires independently replicating SIX upstream forecast engines AND the synthesis logic · maximal patent moat",
+    },
+    {
+      pillar: "DEMOS",
+      capability: "Forward Demand Trajectory (Claim 11 — ESRI 2030 projection × audited Tapestry demand model, year-by-year)",
+      storvex: "Year-by-year forward CC demand path over 60-month horizon · ESRI ArcGIS GeoEnrichment 2030 projection (TOTPOP_FY · MEDHINC_FY · 5-year CAGRs) compounded through Tapestry-anchored audited demand model Y0→FY+5 · per-year demand-per-capita + total demand SF + delta vs Y0 + audit trail to each year's interpolated inputs and demand components",
+      radius: "Snapshot demand only · no forward demand projection · no published model behind the number",
+      advantage: "Closes the LAST static-snapshot gap across the four most-used CRE-intel categories (rents · projected rents · construction pipeline · demos) · pairs with Claim 7 forward supply + Claim 9 forward rent to form a THREE-AXIS forward-state surface no aggregator ships",
+    },
+    {
+      pillar: "COMPOSITE",
+      capability: "Equilibrium Trajectory (Claim 12 — year-by-year supply/demand ratio with tier transitions)",
+      storvex: "Composes Claim 7 forward supply forecast year-by-year delivery schedule with Claim 11 forward demand trajectory year-by-year demand path · per-year ratio · 6-tier classification per year · tier-transition detection (UNDERSUPPLIED → BALANCED → OVERSUPPLIED inflection years surfaced inline) · year-of-balance-crossing computed · peak supply pulse year identified · per-source (EDGAR + PERMIT + HIST) supply-pulse decomposition each year",
+      radius: "No equivalent · ships current snapshot benchmarks only · cannot answer 'when does the market shift?'",
+      advantage: "The synthesis layer no aggregator produces · the path year-by-year, not just the endpoint · answers the question every underwriter asks next after a Claim 8 snapshot · structurally inverts the aggregator framing: incumbents ship the data, Storvex ships the underwrite trajectory",
     },
     {
       pillar: "VERIFICATION",
@@ -638,6 +660,18 @@ function renderInstitutionalAuditLayer() {
       feed: "Storvex Verification Oracle + Screenshot Intake (Move 3)",
       contribution: "Cross-device audit ledger at Firebase /pipelineVerifyAudit · vision-extracted aggregator entries cross-referenced against primary-source registry",
       auditNote: "Patent-pending — turns competitor data into Storvex audit-log input",
+    },
+    {
+      layer: "Forward demand trajectory",
+      feed: "Claim 11 engine · forwardDemandTrajectory.js · ESRI 2030 projection × audited Tapestry demand model",
+      contribution: "Year-by-year forward demand path Y0 → FY+5 · per-year demand-per-capita + total demand SF + delta vs Y0 · pop CAGR + income CAGR sourced to ESRI ArcGIS GeoEnrichment 2025 (CY→FY)",
+      auditNote: "Closes the last static-snapshot gap across rents · projected rents · construction pipeline · demos",
+    },
+    {
+      layer: "Equilibrium trajectory",
+      feed: "Claim 12 engine · equilibriumTrajectory.js · composes Claim 7 forward supply × Claim 11 forward demand",
+      contribution: "Year-by-year supply/demand ratio · tier transitions surfaced (UNDERSUPPLIED → BALANCED → OVERSUPPLIED inflections) · year-of-balance-crossing computed · peak supply pulse year identified · per-source EDGAR + PERMIT + HIST supply-pulse decomposition each year",
+      auditNote: "The synthesis layer no aggregator produces — answers 'when does the market shift?'",
     },
   ];
 
@@ -2158,6 +2192,310 @@ function renderSupplyDemandEquilibrium({ snapshot, analysis, enrichment }) {
 </section>`;
 }
 
+// ─── CLAIM 11 — Forward Demand Trajectory ────────────────────────────────
+function renderForwardDemandTrajectory({ snapshot, analysis, enrichment }) {
+  const ring = enrichment?.ring3mi
+    ? {
+        pop: enrichment.ring3mi.pop,
+        renterPct: enrichment.ring3mi.renterPct,
+        growthRatePct: enrichment.ring3mi.growthRate,
+        medianHHIncome: enrichment.ring3mi.medianHHIncome,
+        tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+        tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+        // Forward projection fields — propagated from auto-enrichment
+        popGrowth3mi: enrichment.popGrowth3mi,
+        incomeGrowth3mi: enrichment.incomeGrowth3mi,
+        pop3mi_fy: enrichment.pop3mi_fy,
+        income3mi_fy: enrichment.income3mi_fy,
+      }
+    : extractRingForDemandForecast({
+        ...snapshot,
+        ...(analysis?.subject || {}),
+        ...(enrichment || {}),
+      });
+
+  if (!ring || !ring.pop) return "";
+
+  const city = snapshot?.subject?.city || snapshot?.city || null;
+  const state = snapshot?.subject?.state || snapshot?.state || null;
+  const msa = snapshot?.subject?.msa || snapshot?.msa || resolveCityToMSA(city) || null;
+
+  let traj;
+  try {
+    traj = computeForwardDemandTrajectory({
+      city, state, msa, ring, horizonMonths: 60, asOf: new Date(),
+    });
+  } catch (err) {
+    return ""; // defensive — never break the report
+  }
+
+  if (!traj || !traj.summary) return "";
+
+  const b = traj.baseline || {};
+  const s = traj.summary;
+  const conf = (traj.confidence || "low").toUpperCase();
+  const confColor = conf === "HIGH" ? "#16A34A" : conf === "MEDIUM" ? "#C9A84C" : "#64748B";
+  const pct = (v) => `${v >= 0 ? "+" : ""}${Number(v).toFixed(2)}%`;
+  const k = (v) => Math.round((v || 0) / 1000).toLocaleString();
+
+  // Pick which years to render in the path table (Y0, Y1, Y2, Y3, Y4, Y5)
+  const rows = traj.path.map((row) => `
+    <tr>
+      <td class="td-name" style="font-weight:700">Y${row.yearIndex} · FY${row.year}</td>
+      <td class="td-num">${Number(row.popY || 0).toLocaleString()}</td>
+      <td class="td-num">${row.medianHHIY ? `$${Number(row.medianHHIY).toLocaleString()}` : "—"}</td>
+      <td class="td-num">${row.demandPerCapita != null ? Number(row.demandPerCapita).toFixed(2) : "—"}</td>
+      <td class="td-num" style="font-weight:700;color:#1E2761">${k(row.totalDemandSf)}K</td>
+      <td class="td-num" style="color:${row.deltaPctVsY0 >= 0 ? "#16A34A" : "#DC2626"}">${row.yearIndex === 0 ? "—" : pct(row.deltaPctVsY0)}</td>
+    </tr>`).join("");
+
+  return `
+<section class="page section">
+  <h2 class="section-h">FORWARD DEMAND TRAJECTORY — ESRI 2030 PROJECTION × AUDITED DEMAND MODEL (CLAIM 11)</h2>
+  <div class="sanity-card" style="border-color:${confColor}40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:${confColor};color:#fff">
+      FORWARD DEMAND · Y0 → FY${s.finalYear} · CONFIDENCE: ${conf}
+    </div>
+    <div class="sanity-message">
+      <b>The DEMOS axis of the three-axis forward-state underwrite surface.</b> Applies ESRI ArcGIS GeoEnrichment 2030 projection data (TOTPOP_FY · MEDHINC_FY · 5-year CAGRs) through the Audited Storage Demand Forecast model (Tapestry LifeMode × Urbanization × renter premium × growth premium × income slope) year-by-year over the ${traj.horizonMonths}-month horizon. Every component is citation-anchored to primary sources; a PSA analyst can re-derive every digit from Self-Storage Almanac · Newmark · REIT MD&A · Census ACS · ESRI Tapestry.
+      <br><br>
+      <b>Why this beats Radius+ / TractIQ / StorTrack:</b> No incumbent platform projects demand forward through a published audited model. Radius+ ships a snapshot SF/capita number. TractIQ + StorTrack ship submarket benchmarks but no forward demand curve. Storvex ships the path Y0→FY${s.finalYear} with every coefficient + every input + every primary-source citation visible inline.
+    </div>
+
+    <div style="display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 180px; background:#fff; border:1px solid #C9A84C80; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Y0 Demand</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">${k(s.y0TotalDemandSf)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">K CC SF</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">Per-capita ${Number(s.y0DemandPerCapita || 0).toFixed(2)} SF/cap × pop ${Number(b.popY0 || 0).toLocaleString()}</div>
+      </div>
+      <div style="flex: 1; min-width: 180px; background:#fff; border:1px solid #C9A84C80; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">FY${s.finalYear} Demand</div>
+        <div style="font-size: 22pt; color: #1E2761; font-weight: 800;">${k(s.finalYearTotalDemandSf)}<span style="font-size: 10pt; font-weight: 600; margin-left: 4px;">K CC SF</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">Per-capita ${Number(s.finalYearDemandPerCapita || 0).toFixed(2)} SF/cap</div>
+      </div>
+      <div style="flex: 1; min-width: 180px; background:rgba(22,163,74,0.10); border:2px solid #16A34A; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #16A34A; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Net Demand Gain</div>
+        <div style="font-size: 30pt; color: #16A34A; font-weight: 800; line-height: 1.0;">${pct(s.totalDemandGainPct)}</div>
+        <div style="font-size: 9pt; color: #16A34A; margin-top: 4px; font-weight: 700;">Effective CAGR ${pct((s.effectiveDemandCAGR || 0) * 100)}/yr</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Year-by-Year Demand Path</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 14%;">Year</th>
+          <th class="th-num" style="width: 16%;">Population (3-mi)</th>
+          <th class="th-num" style="width: 16%;">Median HHI</th>
+          <th class="th-num" style="width: 16%;">SF/Capita</th>
+          <th class="th-num" style="width: 18%;">Total Demand CC SF</th>
+          <th class="th-num" style="width: 20%;">Δ vs Y0</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Forward CAGR Inputs</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 28%;">Input</th>
+          <th class="th-num" style="width: 14%;">Y0 Value</th>
+          <th class="th-num" style="width: 14%;">Forward CAGR</th>
+          <th class="th-name" style="width: 44%;">Primary Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name"><b>Population (3-mi)</b></td>
+          <td class="td-num">${Number(b.popY0 || 0).toLocaleString()}</td>
+          <td class="td-num" style="font-weight:700;color:${(b.popCAGR || 0) >= 0 ? "#16A34A" : "#DC2626"}">${pct((b.popCAGR || 0) * 100)}/yr</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">${safe(b.growthSource || "—")}</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>Median HHI (3-mi)</b></td>
+          <td class="td-num">${b.medianHHIY0 ? `$${Number(b.medianHHIY0).toLocaleString()}` : "—"}</td>
+          <td class="td-num" style="font-weight:700;color:${(b.incomeCAGR || 0) >= 0 ? "#16A34A" : "#DC2626"}">${pct((b.incomeCAGR || 0) * 100)}/yr</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">ESRI ArcGIS GeoEnrichment 2025 · MEDHINC_CY → MEDHINC_FY 5-year CAGR</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>Renter Share (3-mi)</b></td>
+          <td class="td-num">${b.renterPctY0 != null ? `${Number(b.renterPctY0).toFixed(1)}%` : "—"}</td>
+          <td class="td-num">held steady</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">Structural — long-term renter share treated as stable (premium applies via demand model)</td>
+        </tr>
+        <tr>
+          <td class="td-name"><b>Tapestry LifeMode</b></td>
+          <td class="td-num">—</td>
+          <td class="td-num">held steady</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">${safe(b.tapestryLifeMode || "—")} / ${safe(b.tapestryUrbanization || "—")}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="sanity-message" style="margin-top: 14px;">
+      <b>${safe(describeForwardDemandTrajectory(traj))}</b>
+    </div>
+  </div>
+</section>`;
+}
+
+// ─── CLAIM 12 — Equilibrium Trajectory (year-by-year supply/demand ratio) ─
+function renderEquilibriumTrajectory({ snapshot, analysis, enrichment }) {
+  const ring = enrichment?.ring3mi
+    ? {
+        pop: enrichment.ring3mi.pop,
+        renterPct: enrichment.ring3mi.renterPct,
+        growthRatePct: enrichment.ring3mi.growthRate,
+        medianHHIncome: enrichment.ring3mi.medianHHIncome,
+        tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+        tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+        popGrowth3mi: enrichment.popGrowth3mi,
+        incomeGrowth3mi: enrichment.incomeGrowth3mi,
+        pop3mi_fy: enrichment.pop3mi_fy,
+        income3mi_fy: enrichment.income3mi_fy,
+      }
+    : extractRingForDemandForecast({
+        ...snapshot,
+        ...(analysis?.subject || {}),
+        ...(enrichment || {}),
+      });
+
+  if (!ring || !ring.pop) return "";
+
+  const city = snapshot?.subject?.city || snapshot?.city || null;
+  const state = snapshot?.subject?.state || snapshot?.state || null;
+  const msa = snapshot?.subject?.msa || snapshot?.msa || resolveCityToMSA(city) || null;
+
+  const currentCCSPC = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+  const currentCCSF = currentCCSPC != null && ring.pop > 0
+    ? Number(currentCCSPC) * Number(ring.pop)
+    : null;
+
+  let traj;
+  try {
+    traj = computeEquilibriumTrajectory({
+      city, state, msa, ring,
+      currentCCSF: currentCCSF || undefined,
+      horizonMonths: 60, asOf: new Date(),
+    });
+  } catch (err) {
+    return ""; // defensive
+  }
+
+  if (!traj || !traj.summary || !traj.path || traj.path.length === 0) return "";
+
+  const s = traj.summary;
+  const startTier = traj.path[0]?.tier || {};
+  const endTier = traj.path[traj.path.length - 1]?.tier || {};
+  const conf = (traj.compositeConfidence || "low").toUpperCase();
+  const confColor = conf === "HIGH" ? "#16A34A" : conf === "MEDIUM" ? "#C9A84C" : "#64748B";
+  const k = (v) => Math.round((v || 0) / 1000).toLocaleString();
+  const fmtRatio = (v) => (v == null || !Number.isFinite(v) ? "—" : v.toFixed(2));
+
+  const rows = traj.path.map((row) => {
+    const t = row.tier || {};
+    const ratioColor = t.color || "#64748B";
+    const delta = row.supplyConfidenceWeightedDelta || {};
+    return `
+    <tr>
+      <td class="td-name" style="font-weight:700">Y${row.yearIndex} · FY${row.year}</td>
+      <td class="td-num">${k(row.supplyCcSf)}K</td>
+      <td class="td-num">${k(row.demandCcSf)}K</td>
+      <td class="td-num" style="font-weight:800;color:${ratioColor}">${fmtRatio(row.ratio)}</td>
+      <td class="td-name"><span style="background:${ratioColor};color:#fff;padding:2px 8px;border-radius:3px;font-size:8.5pt;font-weight:700">${safe(t.label || "—")}</span></td>
+      <td class="td-num" style="font-size:8.5pt;color:#475569">
+        +${k(row.supplyDeliveredThisYear)}K
+        <span style="display:block;font-size:7.5pt">(${k(delta.edgar || 0)}K EDGAR · ${k(delta.permit || 0)}K PERMIT · ${k(delta.historical || 0)}K HIST)</span>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const transitionsHtml = traj.tierTransitions.length > 0
+    ? `
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Tier Transitions Detected</h3>
+    <table class="data-table">
+      <thead><tr><th class="th-name">Year</th><th class="th-name">From</th><th class="th-name">To</th><th class="th-num">Δ Ratio</th></tr></thead>
+      <tbody>
+        ${traj.tierTransitions.map((t) => `<tr>
+          <td class="td-name" style="font-weight:700">FY${t.fromYear} → FY${t.toYear}</td>
+          <td class="td-name">${safe(t.fromTier)}</td>
+          <td class="td-name" style="font-weight:700;color:#1E2761">${safe(t.toTier)}</td>
+          <td class="td-num">${t.deltaRatio != null ? `${t.deltaRatio >= 0 ? "+" : ""}${t.deltaRatio.toFixed(2)}` : "—"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`
+    : `
+    <div style="margin-top: 18px; padding: 12px; background: rgba(214,228,247,0.30); border-radius: 6px; color: #475569; font-size: 9pt;">
+      <b>No tier transitions in the ${traj.horizonMonths}-month horizon.</b> Submarket remains in <span style="font-weight:700;color:${endTier.color || "#64748B"}">${safe(endTier.label || "—")}</span> from Y0 through FY${s.finalYear}.
+    </div>`;
+
+  const balanceCrossingLine = s.yearOfBalanceCrossing != null
+    ? `<b style="color:#C9A84C">Market crosses balance (ratio ≥ 1.0) in FY${s.yearOfBalanceCrossing}</b> — that's ${s.yearsToBalance} ${s.yearsToBalance === 1 ? "year" : "years"} from today. This is the inflection point underwriters need to know.`
+    : startTier.label && startTier.maxRatio && startTier.maxRatio < 1.0
+      ? `<b>Market remains undersupplied through the horizon</b> — supply does NOT catch up to demand in the ${traj.horizonMonths}-month forecast window. Rent acceleration thesis holds.`
+      : `<b>Market starts at or above balance</b> — supply-demand crossing already occurred.`;
+
+  return `
+<section class="page section">
+  <h2 class="section-h">EQUILIBRIUM TRAJECTORY — YEAR-BY-YEAR SUPPLY/DEMAND RATIO (CLAIM 12)</h2>
+  <div class="sanity-card" style="border-color:${confColor}40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:${confColor};color:#fff">
+      ${safe(startTier.label || "UNKNOWN")} → ${safe(endTier.label || "UNKNOWN")} · COMPOSITE CONFIDENCE: ${conf}
+    </div>
+    <div class="sanity-message">
+      <b>The synthesis layer.</b> Composes the Forward Supply Forecast (Claim 7) year-by-year delivery schedule with the Forward Demand Trajectory (Claim 11) year-by-year demand path. Today's Supply-Demand Equilibrium Index (Claim 8) ships ONE snapshot at the horizon endpoint. This engine ships the PATH — year-by-year ratio with tier transitions surfaced. Every storage operator wants to know "when does the market shift?" — this is the answer.
+      <br><br>
+      <b>${balanceCrossingLine}</b>
+    </div>
+
+    <div style="display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 160px; background:#fff; border:2px solid ${startTier.color || "#64748B"}; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: ${startTier.color || "#64748B"}; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Y0 Tier</div>
+        <div style="font-size: 14pt; color: ${startTier.color || "#64748B"}; font-weight: 800;">${safe(startTier.label || "—")}</div>
+        <div style="font-size: 10pt; color: #475569; margin-top: 4px;">Ratio ${fmtRatio(s.startRatio)}</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:#fff; border:2px solid ${endTier.color || "#64748B"}; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: ${endTier.color || "#64748B"}; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">FY${s.finalYear} Tier</div>
+        <div style="font-size: 14pt; color: ${endTier.color || "#64748B"}; font-weight: 800;">${safe(endTier.label || "—")}</div>
+        <div style="font-size: 10pt; color: #475569; margin-top: 4px;">Ratio ${fmtRatio(s.endRatio)}</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:rgba(201,168,76,0.10); border:1px solid #C9A84C80; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Net Supply Added</div>
+        <div style="font-size: 18pt; color: #1E2761; font-weight: 800;">+${k(s.netSupplyAddedCcSf)}<span style="font-size: 9pt; font-weight: 600; margin-left: 3px;">K</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">Confidence-weighted CC SF</div>
+      </div>
+      <div style="flex: 1; min-width: 160px; background:rgba(22,163,74,0.10); border:1px solid #16A34A80; border-radius: 6px; padding: 14px;">
+        <div style="font-size: 8.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;">Net Demand Added</div>
+        <div style="font-size: 18pt; color: #16A34A; font-weight: 800;">+${k(s.netDemandAddedCcSf)}<span style="font-size: 9pt; font-weight: 600; margin-left: 3px;">K</span></div>
+        <div style="font-size: 8.5pt; color: #475569; margin-top: 4px;">ESRI projection × demand model</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 18px; color:#1E2761; font-size: 11pt;">Year-by-Year Equilibrium Path</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 12%;">Year</th>
+          <th class="th-num" style="width: 14%;">Supply (cum)</th>
+          <th class="th-num" style="width: 14%;">Demand</th>
+          <th class="th-num" style="width: 12%;">Ratio</th>
+          <th class="th-name" style="width: 22%;">Tier</th>
+          <th class="th-num" style="width: 26%;">Supply Pulse This Year</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    ${transitionsHtml}
+
+    <div class="sanity-message" style="margin-top: 14px;">
+      <b>${safe(describeEquilibriumTrajectory(traj))}</b>
+    </div>
+  </div>
+</section>`;
+}
+
 function renderComps({ analysis }) {
   const c = analysis?.comps;
   if (!c) return "";
@@ -2959,6 +3297,8 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderForwardSupplyForecast({ snapshot })}
   ${renderSupplyDemandEquilibrium({ snapshot, analysis, enrichment })}
   ${renderForwardRentTrajectory({ snapshot, analysis, enrichment })}
+  ${renderForwardDemandTrajectory({ snapshot, analysis, enrichment })}
+  ${renderEquilibriumTrajectory({ snapshot, analysis, enrichment })}
   ${renderUnderwritingConfidenceScore({ snapshot, analysis, enrichment })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}

@@ -258,3 +258,163 @@ describe("buildWarehousePayload — storage_demand_forecast (Crush Radius+ DEMAN
     expect(payload.storage_demand_forecast).toBeNull();
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// CLAIM 11 — forward_demand_trajectory warehouse block
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("buildWarehousePayload — forward_demand_trajectory (Claim 11)", () => {
+  const enrichedHoustonInput = {
+    ...houstonInput,
+    name: "Houston Forward Demand",
+  };
+  const trajEnrichment = {
+    ring3mi: { pop: 75000, renterPct: 48, growthRate: 1.4, medianHHIncome: 78000 },
+    tapestryLifeMode3mi: "Midtown Singles",
+    tapestryUrbanization3mi: "Metro Cities",
+    popGrowth3mi: 0.018,
+    incomeGrowth3mi: 0.024,
+    pop3mi_fy: 81986,
+    income3mi_fy: 87831,
+    ccSPCCurrent: 2.6,
+  };
+
+  test("payload carries forward_demand_trajectory with schema_version stamp", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    expect(payload.forward_demand_trajectory).toBeTruthy();
+    expect(payload.forward_demand_trajectory.schema_version).toBe("storvex.forwardDemandTrajectory.v1");
+    expect(payload.forward_demand_trajectory.horizon_months).toBe(60);
+  });
+
+  test("path is an array of 6 year rows (Y0..Y5)", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    expect(Array.isArray(payload.forward_demand_trajectory.path)).toBe(true);
+    expect(payload.forward_demand_trajectory.path).toHaveLength(6);
+    for (const row of payload.forward_demand_trajectory.path) {
+      expect(row).toHaveProperty("year");
+      expect(row).toHaveProperty("pop");
+      expect(row).toHaveProperty("median_hhi");
+      expect(row).toHaveProperty("demand_per_capita");
+      expect(row).toHaveProperty("total_demand_sf");
+    }
+  });
+
+  test("baseline carries pop + income CAGR + Tapestry tags", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    expect(payload.forward_demand_trajectory.baseline.pop_cagr).toBeCloseTo(0.018, 3);
+    expect(payload.forward_demand_trajectory.baseline.income_cagr).toBeCloseTo(0.024, 3);
+    expect(payload.forward_demand_trajectory.baseline.tapestry_lifemode).toBe("Midtown Singles");
+    expect(payload.forward_demand_trajectory.baseline.growth_source).toMatch(/ESRI/i);
+  });
+
+  test("summary carries effective_demand_cagr + total_demand_gain_pct", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    expect(payload.forward_demand_trajectory.summary).toBeTruthy();
+    expect(payload.forward_demand_trajectory.summary.effective_demand_cagr).toBeGreaterThan(0);
+    expect(payload.forward_demand_trajectory.summary.total_demand_gain_pct).toBeGreaterThan(0);
+  });
+
+  test("forward_demand_trajectory is null when no ring data available", () => {
+    const sparseInput = { ...houstonInput, name: "No-data forward demand", city: null, state: null };
+    const analysis = analyzeExistingAsset(sparseInput);
+    const psLens = computeBuyerLens(sparseInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    expect(payload.forward_demand_trajectory).toBeNull();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// CLAIM 12 — equilibrium_trajectory warehouse block
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("buildWarehousePayload — equilibrium_trajectory (Claim 12)", () => {
+  const enrichedHoustonInput = {
+    ...houstonInput,
+    name: "Houston Equilibrium Trajectory",
+  };
+  const trajEnrichment = {
+    ring3mi: { pop: 75000, renterPct: 48, growthRate: 1.4, medianHHIncome: 78000 },
+    tapestryLifeMode3mi: "Midtown Singles",
+    tapestryUrbanization3mi: "Metro Cities",
+    popGrowth3mi: 0.018,
+    incomeGrowth3mi: 0.024,
+    pop3mi_fy: 81986,
+    income3mi_fy: 87831,
+    ccSPCCurrent: 2.6,
+  };
+
+  test("payload carries equilibrium_trajectory with schema_version stamp", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    expect(payload.equilibrium_trajectory).toBeTruthy();
+    expect(payload.equilibrium_trajectory.schema_version).toBe("storvex.equilibriumTrajectory.v1");
+    expect(payload.equilibrium_trajectory.horizon_months).toBe(60);
+  });
+
+  test("path is an array of 6 year rows with supply/demand/ratio/tier", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    expect(Array.isArray(payload.equilibrium_trajectory.path)).toBe(true);
+    expect(payload.equilibrium_trajectory.path).toHaveLength(6);
+    for (const row of payload.equilibrium_trajectory.path) {
+      expect(row).toHaveProperty("year");
+      expect(row).toHaveProperty("supply_cc_sf");
+      expect(row).toHaveProperty("demand_cc_sf");
+      expect(row).toHaveProperty("ratio");
+      expect(row).toHaveProperty("tier_label");
+      expect(row).toHaveProperty("supply_delivered_this_year");
+      expect(row).toHaveProperty("supply_delta_edgar");
+      expect(row).toHaveProperty("supply_delta_permit");
+      expect(row).toHaveProperty("supply_delta_historical");
+    }
+  });
+
+  test("tier_transitions is an array (may be empty)", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    expect(Array.isArray(payload.equilibrium_trajectory.tier_transitions)).toBe(true);
+  });
+
+  test("summary carries start/end tier + ratios + final year", () => {
+    const analysis = analyzeExistingAsset(enrichedHoustonInput);
+    const psLens = computeBuyerLens(enrichedHoustonInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens, enrichment: trajEnrichment });
+
+    const summary = payload.equilibrium_trajectory.summary;
+    expect(summary).toHaveProperty("start_tier");
+    expect(summary).toHaveProperty("end_tier");
+    expect(summary).toHaveProperty("start_ratio");
+    expect(summary).toHaveProperty("end_ratio");
+    expect(summary).toHaveProperty("final_year");
+    expect(summary).toHaveProperty("net_supply_added_cc_sf");
+    expect(summary).toHaveProperty("net_demand_added_cc_sf");
+  });
+
+  test("equilibrium_trajectory is null when no ring data available", () => {
+    const sparseInput = { ...houstonInput, name: "No-data equilibrium", city: null, state: null };
+    const analysis = analyzeExistingAsset(sparseInput);
+    const psLens = computeBuyerLens(sparseInput, PS_LENS);
+    const payload = buildWarehousePayload({ analysis, psLens });
+
+    expect(payload.equilibrium_trajectory).toBeNull();
+  });
+});

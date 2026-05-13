@@ -886,4 +886,199 @@ describe("generateAnalyzerReport", () => {
       expect(html).toContain("MISSES");
     });
   });
+
+  describe("Forward Demand Trajectory (Claim 11 — ESRI 2030 × audited demand model)", () => {
+    const trajInput = {
+      ...baseInput,
+      name: "Forward Demand Test",
+      city: "Houston",
+      state: "TX",
+    };
+    const trajEnrichment = {
+      ring3mi: { pop: 80000, renterPct: 38, growthRate: 1.8, medianHHIncome: 82000 },
+      tapestryLifeMode3mi: "Sprouting Explorers",
+      tapestryUrbanization3mi: "Suburban Periphery",
+      popGrowth3mi: 0.018,
+      incomeGrowth3mi: 0.024,
+      pop3mi_fy: 87446,
+      income3mi_fy: 92302,
+      ccSPCCurrent: 4.0,
+    };
+
+    test("renders FORWARD DEMAND TRAJECTORY section when ring + ESRI projection present", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      expect(html).toContain("FORWARD DEMAND TRAJECTORY");
+      expect(html).toContain("ESRI 2030 PROJECTION");
+      expect(html).toContain("CLAIM 11");
+    });
+
+    test("trajectory table renders Y0 through Y5 rows with population + HHI + demand columns", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      expect(html).toMatch(/Year-by-Year Demand Path/);
+      expect(html).toMatch(/Y0 .{0,10}FY/);
+      expect(html).toMatch(/Y5 .{0,10}FY/);
+      expect(html).toMatch(/Population/);
+      expect(html).toMatch(/Median HHI/);
+      expect(html).toMatch(/SF.{0,3}Capita/);
+    });
+
+    test("Forward CAGR Inputs table surfaces ESRI source line", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      expect(html).toContain("Forward CAGR Inputs");
+      expect(html).toContain("ESRI ArcGIS GeoEnrichment 2025");
+      expect(html).toContain("MEDHINC_CY");
+      expect(html).toContain("MEDHINC_FY");
+    });
+
+    test("section appears AFTER forwardRentTrajectory + BEFORE underwritingConfidence", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      const fdIdx = html.indexOf("FORWARD DEMAND TRAJECTORY");
+      const ucIdx = html.indexOf("UNDERWRITING CONFIDENCE SCORE");
+
+      expect(fdIdx).toBeGreaterThan(0);
+      // forwardRent may not always have data; underwriting confidence is the
+      // hard downstream anchor.
+      if (ucIdx >= 0) {
+        expect(ucIdx).toBeGreaterThan(fdIdx);
+      }
+    });
+
+    test("section omits when no ring data available", () => {
+      const sparseInput = { ...baseInput, name: "Sparse Demand Test", city: null, state: null };
+      const analysis = analyzeExistingAsset(sparseInput);
+      const psLens = computeBuyerLens(sparseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).not.toContain("FORWARD DEMAND TRAJECTORY — ESRI 2030");
+    });
+  });
+
+  describe("Equilibrium Trajectory (Claim 12 — year-by-year supply/demand ratio)", () => {
+    const trajInput = {
+      ...baseInput,
+      name: "Equilibrium Trajectory Test",
+      city: "Houston",
+      state: "TX",
+    };
+    const trajEnrichment = {
+      ring3mi: { pop: 80000, renterPct: 38, growthRate: 1.8, medianHHIncome: 82000 },
+      tapestryLifeMode3mi: "Sprouting Explorers",
+      tapestryUrbanization3mi: "Suburban Periphery",
+      popGrowth3mi: 0.018,
+      incomeGrowth3mi: 0.024,
+      pop3mi_fy: 87446,
+      income3mi_fy: 92302,
+      ccSPCCurrent: 4.0,
+    };
+
+    test("renders EQUILIBRIUM TRAJECTORY section when ring + ESRI projection present", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      expect(html).toContain("EQUILIBRIUM TRAJECTORY");
+      expect(html).toContain("YEAR-BY-YEAR SUPPLY/DEMAND RATIO");
+      expect(html).toContain("CLAIM 12");
+    });
+
+    test("path table renders Y0 through Y5 rows with supply/demand/ratio/tier columns", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      expect(html).toMatch(/Year-by-Year Equilibrium Path/);
+      expect(html).toMatch(/Supply.{0,10}\(cum\)/);
+      expect(html).toMatch(/Demand/);
+      expect(html).toMatch(/Ratio/);
+      expect(html).toMatch(/Tier/);
+      expect(html).toMatch(/Supply Pulse This Year/);
+    });
+
+    test("per-source supply pulse decomposition (EDGAR / PERMIT / HIST) shown each year", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      expect(html).toContain("EDGAR");
+      expect(html).toContain("PERMIT");
+      expect(html).toContain("HIST");
+    });
+
+    test("renders Net Supply Added + Net Demand Added KPI cards", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      expect(html).toContain("Net Supply Added");
+      expect(html).toContain("Net Demand Added");
+    });
+
+    test("section appears AFTER forwardDemandTrajectory + BEFORE underwritingConfidence", () => {
+      const analysis = analyzeExistingAsset(trajInput);
+      const psLens = computeBuyerLens(trajInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens, enrichment: trajEnrichment });
+
+      const fdIdx = html.indexOf("FORWARD DEMAND TRAJECTORY");
+      const eqIdx = html.indexOf("EQUILIBRIUM TRAJECTORY — YEAR-BY-YEAR");
+      const ucIdx = html.indexOf("UNDERWRITING CONFIDENCE SCORE");
+
+      expect(fdIdx).toBeGreaterThan(0);
+      expect(eqIdx).toBeGreaterThan(fdIdx);
+      if (ucIdx >= 0) {
+        expect(ucIdx).toBeGreaterThan(eqIdx);
+      }
+    });
+
+    test("section omits when no ring data available", () => {
+      const sparseInput = { ...baseInput, name: "Sparse Eq Test", city: null, state: null };
+      const analysis = analyzeExistingAsset(sparseInput);
+      const psLens = computeBuyerLens(sparseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).not.toContain("EQUILIBRIUM TRAJECTORY — YEAR-BY-YEAR");
+    });
+  });
+
+  describe("Audit-Layer Capabilities Footprint — Claims 11 + 12 rows", () => {
+    test("footprint table cites forward demand trajectory engine (Claim 11)", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("Forward Demand Trajectory (Claim 11");
+      expect(html).toContain("ESRI 2030 projection");
+    });
+
+    test("footprint table cites equilibrium trajectory engine (Claim 12)", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("Equilibrium Trajectory (Claim 12");
+      expect(html).toContain("tier transitions");
+    });
+
+    test("institutional audit layer surfaces both new engines", () => {
+      const analysis = analyzeExistingAsset(baseInput);
+      const psLens = computeBuyerLens(baseInput, PS_LENS);
+      const html = generateAnalyzerReport({ analysis, psLens });
+
+      expect(html).toContain("Forward demand trajectory");
+      expect(html).toContain("forwardDemandTrajectory.js");
+      expect(html).toContain("Equilibrium trajectory");
+      expect(html).toContain("equilibriumTrajectory.js");
+    });
+  });
 });
