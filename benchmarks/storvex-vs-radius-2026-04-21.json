@@ -1,0 +1,712 @@
+[
+  {
+    "id": "temple_tx",
+    "address": "1402 S 5th Street, Temple, TX",
+    "market": "Temple TX · local",
+    "tier": "Tier 4 DFW-adjacent",
+    "geo": {
+      "lat": 31.083827965779,
+      "lon": -97.349078224791,
+      "city": "Temple",
+      "state": "TX",
+      "county": "Bell County",
+      "zip": "76504",
+      "formatted": "1402 S 5th St, Temple, Texas, 76504"
+    },
+    "runtime_ms": 76929,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "medium",
+        "cacheHit": true,
+        "elapsedMs": 30678
+      },
+      "utility": {
+        "found": true,
+        "confidence": "high",
+        "waterProvider": "City of Temple Utility Services Division",
+        "waterHookupStatus": "by-right",
+        "waterContact": {
+          "name": "Utility Business Office / Customer Service",
+          "phone": "(254) 298-5616",
+          "email": "utilities@templetx.gov",
+          "website": "https://www.templetx.gov/departments/city_departments/utility_business_office/index.php"
+        },
+        "fireFlowNotes": "City of Temple maintains municipal water system with fire protection via hydrants and water mains throughout service area. Specific fire flow/hydrant details not published online; contact City for fire flow certification at 254-298-5611 (water/sewer emergencies).",
+        "sewerProvider": "City of Temple Utility Services Division",
+        "electricProvider": "Oncor Electric Delivery",
+        "threePhase": "likely-available",
+        "tapFees": "Water deposit: $115–$2,500 (commercial, based on meter size). Sewer: included in water billing. New account fee: $25. Extra trip fee: $25. Rates effective 10/1/2025: Water (3/4-inch meter, first 2,000 gal) $13.40/mo + $4.85/1,000 gal over minimum. Wastewater minimum (2,000 gal): $25.90/mo + $9.75/1,000 gal over. Customers outside city limits pay 25% higher water rates.",
+        "elapsedMs": 26751
+      },
+      "access": {
+        "found": true,
+        "confidence": "medium",
+        "frontageRoad": "S 5th Street",
+        "frontageRoadType": "local",
+        "vpd": null,
+        "vpdSource": "Not published online — local street data held by City of Temple Engineering or Bell County",
+        "vpdSourceUrl": null,
+        "medianType": "unknown",
+        "nearestSignal": "Blackland Road/Canyon Creek Drive (exact distance unknown)",
+        "decelLaneRisk": "low",
+        "visibility": "moderate",
+        "landlockedRisk": false,
+        "elapsedMs": 18319
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "mckinney_tx",
+    "address": "3303 N McDonald St, McKinney, TX",
+    "market": "McKinney TX · arterial",
+    "tier": "Tier 4 DFW",
+    "geo": {
+      "lat": 33.233139008858,
+      "lon": -96.612717982667,
+      "city": "Mckinney",
+      "state": "TX",
+      "county": "Collin County",
+      "zip": "75071",
+      "formatted": "3303 N McDonald St, Mckinney, Texas, 75071"
+    },
+    "runtime_ms": 190618,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "low",
+        "cacheHit": true,
+        "elapsedMs": 22855
+      },
+      "utility": {
+        "found": true,
+        "confidence": "high",
+        "waterProvider": "City of McKinney (wholesale source: North Texas Municipal Water District - NTMWD)",
+        "waterHookupStatus": "by-right",
+        "waterContact": {
+          "name": "Water / Wastewater Department",
+          "phone": "(972) 547-7360",
+          "email": "contact-waterbilling@mckinneytexas.org",
+          "website": "https://www.mckinneytexas.org/512/Water-Usage"
+        },
+        "fireFlowNotes": "McKinney maintains fire hydrants throughout city service area. City of McKinney 24-hour emergency contact (972) 547-7360 can provide specific hydrant/main size info for 3303 N McDonald St. Sprinkler system fire-flow testing required per commercial building code—typically 1,500+ GPM at 20 PSI minimum.",
+        "sewerProvider": "City of McKinney Water / Wastewater",
+        "electricProvider": "Oncor Electric Delivery (transmission/distribution; deregulated retail market for power purchase)",
+        "threePhase": "likely-available",
+        "tapFees": "Not published on public website. Contact City of McKinney Water Billing (972) 547-7550 or Development Services for new commercial water/sewer meter tap fees and impact fees. Standard commercial connection includes meter installation fee plus impact/capacity fees (TBD).",
+        "elapsedMs": 25697
+      },
+      "access": {
+        "found": true,
+        "confidence": "medium",
+        "frontageRoad": "N McDonald Street",
+        "frontageRoadType": "local",
+        "vpd": null,
+        "vpdSource": "Not published online — call McKinney Engineering or Collin County for local counts",
+        "vpdSourceUrl": "https://www.txdot.gov/data-maps/traffic-count-maps/stars.html",
+        "medianType": "unknown",
+        "nearestSignal": "unknown",
+        "decelLaneRisk": "low",
+        "visibility": "moderate",
+        "landlockedRisk": false,
+        "elapsedMs": 19507
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "greenfield_in",
+    "address": "7352 W 300 N, Greenfield, IN",
+    "market": "Greenfield IN · suburban",
+    "tier": "Tier 4 east Indy",
+    "geo": {
+      "lat": 39.82715181067,
+      "lon": -85.940946334014,
+      "city": "Greenfield",
+      "state": "IN",
+      "county": "Hancock County",
+      "zip": "46140",
+      "formatted": "7352 W 300 N, Greenfield, Indiana, 46140"
+    },
+    "runtime_ms": 131873,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "medium",
+        "cacheHit": true,
+        "elapsedMs": 24908
+      },
+      "utility": {
+        "found": true,
+        "confidence": "medium",
+        "waterProvider": "City of Greenfield Water Utility",
+        "waterHookupStatus": "by-request",
+        "waterContact": {
+          "name": "Charles Gill, Water Utility Manager",
+          "phone": "(317) 477-4350",
+          "email": "cgill@greenfieldin.org",
+          "website": "https://www.greenfield.in.gov/utilities/water-utility"
+        },
+        "fireFlowNotes": "Not published on city website. Recommend contacting Greenfield Fire Department (317-477-4301) or Water Utility Manager for fire flow analysis at 451 Meek St.",
+        "sewerProvider": "City of Greenfield Wastewater Utility (service inside city limits only; septic likely required for extraterritorial site)",
+        "electricProvider": "City of Greenfield Power and Light",
+        "threePhase": "verify-with-utility",
+        "tapFees": "Water availability fee: $2,000/acre (as of Oct 1, 2021). Water connection (1-inch meter): $4,625. Sewer connection: contact Wastewater Utility (317-477-4360) for rates if available.",
+        "elapsedMs": 27118
+      },
+      "access": {
+        "found": true,
+        "confidence": "medium",
+        "frontageRoad": "W 300 N (also known as County Road 300 North)",
+        "frontageRoadType": "collector",
+        "vpd": null,
+        "vpdSource": "Not published online — call INDOT Traffic Statistics or Hancock County Engineering",
+        "vpdSourceUrl": "https://www.in.gov/indot/about-indot/central-office/asset-data-collection/traffic-statistics/",
+        "medianType": "unknown",
+        "nearestSignal": "Unknown — requires field verification or contact with Greenfield City or Hancock County Engineering",
+        "decelLaneRisk": "low",
+        "visibility": "good",
+        "landlockedRisk": false,
+        "elapsedMs": 17417
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "springboro_oh",
+    "address": "1200 S Pioneer Blvd, Springboro, OH",
+    "market": "Springboro OH · I-75 corridor",
+    "tier": "Tier 2 zero-PS",
+    "geo": {
+      "lat": 39.554282044895,
+      "lon": -84.256394611276,
+      "city": "Springboro",
+      "state": "OH",
+      "county": "Warren County",
+      "zip": "45066",
+      "formatted": "S Pioneer Blvd, Springboro, Ohio, 45066"
+    },
+    "runtime_ms": 132626,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "low",
+        "cacheHit": true,
+        "storageTerm": null,
+        "ordinanceSection": "Chapter 1263, Section 1263.04, Table 6",
+        "byRightDistricts": [],
+        "conditionalDistricts": [],
+        "elapsedMs": 24576
+      },
+      "utility": {
+        "found": true,
+        "confidence": "high",
+        "waterProvider": "City of Springboro",
+        "waterHookupStatus": "by-right",
+        "waterContact": {
+          "name": "Utility Department",
+          "phone": "(937) 748-9721",
+          "email": "utilities@cityofspringboro.com",
+          "website": "https://www.cityofspringboro.com/152/Water-Sewer-Trash"
+        },
+        "fireFlowNotes": "City of Springboro schedules fire hydrant flushing throughout the year; specific fire flow and main size for Pioneer Blvd location requires contact with city engineering.",
+        "sewerProvider": "City of Springboro (operated by Veolia North America)",
+        "electricProvider": "Duke Energy Ohio (distribution); deregulated market for generation",
+        "threePhase": "likely-available",
+        "tapFees": "Not published; water/sewer rates frozen since Jan 1, 2019 ($13.00/mo + tiered water usage; $34.00/mo + $1.88/1000 gal sewer). New tap/impact fees should be confirmed with City Utility Dept.",
+        "elapsedMs": 23136
+      },
+      "access": {
+        "found": true,
+        "confidence": "low",
+        "frontageRoad": "Pioneer Boulevard (Pioneer Blvd)",
+        "frontageRoadType": "local",
+        "vpd": null,
+        "vpdSource": "Not published online — call OKI or ODOT for access",
+        "vpdSourceUrl": "https://www.oki.org/data-maps/view-data-maps/traffic-counts/ (interactive map requires direct access; data sources: OKI, ODOT, Warren County)",
+        "medianType": "unknown",
+        "nearestSignal": "unknown",
+        "decelLaneRisk": "low",
+        "visibility": "good",
+        "landlockedRisk": false,
+        "elapsedMs": 23695
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "independence_ky",
+    "address": "2150 Harris Pike, Independence, KY",
+    "market": "Independence KY · Kenton County",
+    "tier": "Tier 2 zero-PS",
+    "geo": {
+      "lat": 38.927330779271,
+      "lon": -84.539380486366,
+      "city": "Independence",
+      "state": "KY",
+      "county": "Kenton County",
+      "zip": "41051",
+      "formatted": "2150 Harris Pike, Independence, Kentucky, 41051"
+    },
+    "runtime_ms": 131894,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "low",
+        "cacheHit": true,
+        "elapsedMs": 21292
+      },
+      "utility": {
+        "found": true,
+        "confidence": "high",
+        "waterProvider": "Northern Kentucky Water District (NKWD)",
+        "waterHookupStatus": "by-request",
+        "waterContact": {
+          "name": "Customer Service Department",
+          "phone": "(859) 578-9898",
+          "email": "info@nkywater.org",
+          "website": "https://www.nkywater.org"
+        },
+        "fireFlowNotes": "Published fire flow requirements not found in public materials. NKWD maintains three water treatment plants with 54 million gallons per day total capacity. Site is within municipal service area. Recommend contacting NKWD Engineering at 859-578-9898 for fire flow specifications, hydrant locations, and main sizes adjacent to 2150 Harris Pike.",
+        "sewerProvider": "Sanitation District No. 1 (SD1)",
+        "electricProvider": "Duke Energy Kentucky",
+        "threePhase": "verify-with-utility",
+        "tapFees": "Specific new service connection fees not published online. NKWD maintains published rate schedules (Rates, Rules and Regulations document) available at https://www.nkywater.org/DocumentCenter/View/814/Rates-Rules-and-Regulations-PDF. Recommend contacting NKWD directly for current commercial water/sewer tap fees and impact fees.",
+        "elapsedMs": 24856
+      },
+      "access": {
+        "found": true,
+        "confidence": "medium",
+        "frontageRoad": "Harris Pike (KY 536)",
+        "frontageRoadType": "state-highway",
+        "vpd": null,
+        "vpdSource": "Not published online — KYTC Traffic Count database requires interactive map access",
+        "vpdSourceUrl": "https://maps.kytc.ky.gov/trafficcounts/",
+        "medianType": "unknown",
+        "nearestSignal": "At Harris Pike & Madison Pike (KY 17) intersection — immediate frontage",
+        "decelLaneRisk": "medium",
+        "visibility": "excellent",
+        "landlockedRisk": false,
+        "elapsedMs": 23837
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "spring_hill_tn",
+    "address": "4607 205 Loop, Spring Hill, TN",
+    "market": "Spring Hill TN · Columbia Pike",
+    "tier": "Tier 3 Middle TN",
+    "geo": {
+      "lat": 35.748409,
+      "lon": -86.933003,
+      "city": "Spring Hill",
+      "state": "TN",
+      "county": "Maury County",
+      "zip": "",
+      "formatted": "Spring Hill, Tennessee"
+    },
+    "runtime_ms": 74994,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "medium",
+        "cacheHit": true,
+        "elapsedMs": 26950
+      },
+      "utility": {
+        "found": true,
+        "confidence": "high",
+        "waterProvider": "City of Spring Hill Water Department",
+        "waterHookupStatus": "by-right",
+        "waterContact": {
+          "name": "Spring Hill Water General Manager - Dan Allen",
+          "phone": "(931) 451-0246",
+          "email": "dan.allen@springhilltn.org",
+          "website": "https://www.springhilltn.org/260/Water"
+        },
+        "fireFlowNotes": "Spring Hill Water operates a 4 million GPD treatment plant with 150+ miles of distribution mains and lift stations; municipal system provides adequate fire flow capability. Confirm specific hydrant location and main size with utility engineering at (931) 797-2152 (non-emergency water issues).",
+        "sewerProvider": "City of Spring Hill Water Reclamation Division (municipal sewer)",
+        "electricProvider": "Columbia Power & Water Systems (CPWS) [primary in Spring Hill]; also Middle Tennessee Electric (MTEMC) and Duck River Electric (DREMC) in some areas",
+        "threePhase": "likely-available",
+        "tapFees": "New service connection fee: $50 (non-refundable, per-account setup). Water tap fees for irrigation meters: $1,300. Development/impact fees vary by property type. Annual rate increases adopted through 2026 (25-30% cumulative over 3 years starting July 2024). Commercial stormwater fee: $6.50/ERU as of July 2024, increasing $0.25-$0.75 annually through 2026.",
+        "elapsedMs": 29138
+      },
+      "access": {
+        "found": false,
+        "confidence": "low",
+        "frontageRoad": null,
+        "frontageRoadType": "unknown",
+        "vpd": null,
+        "vpdSource": "TDOT TCDS accessible at https://tdot.public.ms2soft.com/tcds — requires direct site query by county and station number",
+        "vpdSourceUrl": "https://tdot.public.ms2soft.com/tcds",
+        "medianType": "unknown",
+        "nearestSignal": null,
+        "decelLaneRisk": "unknown",
+        "visibility": "unknown",
+        "landlockedRisk": false,
+        "elapsedMs": 17530
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "port_charlotte_fl",
+    "address": "3450 Tamiami Trail, Port Charlotte, FL",
+    "market": "Port Charlotte FL · US-41",
+    "tier": "FL Charlotte County",
+    "geo": {
+      "lat": 26.980034972997,
+      "lon": -82.095395709432,
+      "city": "Port Charlotte",
+      "state": "FL",
+      "county": "Charlotte County",
+      "zip": "33952",
+      "formatted": "3450 Tamiami Trl, Port Charlotte, Florida, 33952"
+    },
+    "runtime_ms": 185236,
+    "storvex": {
+      "zoning": {
+        "found": true,
+        "confidence": "medium",
+        "cacheHit": true,
+        "storageTerm": "Mini-warehouses or storage facilities",
+        "ordinanceSection": "Section 3-9-42 (Commercial General district); Section 3-9-26.4 (Use Table—Commercial districts)",
+        "byRightDistricts": [
+          "CG"
+        ],
+        "conditionalDistricts": [],
+        "elapsedMs": 19309
+      },
+      "utility": {
+        "found": true,
+        "confidence": "high",
+        "waterProvider": "Charlotte County Utilities (CCU)",
+        "waterHookupStatus": "by-right",
+        "waterContact": {
+          "name": "Engineering Services / Customer Service",
+          "phone": "(941) 764-4300",
+          "email": "CCUSupport@CharlotteCountyFL.gov",
+          "website": "https://www.charlottecountyfl.gov/departments/utilities/"
+        },
+        "fireFlowNotes": "No published fire flow or hydrant data in results. Contact CCU Engineering at (941) 764-4300 Option 3 for fire flow requirements and nearest hydrant location.",
+        "sewerProvider": "Charlotte County Utilities (CCU)",
+        "electricProvider": "Florida Power & Light (FPL)",
+        "threePhase": "likely-available",
+        "tapFees": "Water $6,792 (current 2025) including TAP fee ($531), Distribution extension ($2,940), Service line ($1,070), Meter ($375); Sewer $11,201 (current 2025). Indexed proposals available. Contact CCU for exact non-MSBU charges.",
+        "elapsedMs": 24158
+      },
+      "access": {
+        "found": true,
+        "confidence": "medium",
+        "frontageRoad": "US-41 (Tamiami Trail)",
+        "frontageRoadType": "US-highway",
+        "vpd": 61000,
+        "vpdSource": "FDOT Traffic Data / Commercial Real Estate Listing",
+        "vpdSourceUrl": "https://www.commercialcafe.com/commercial-property/us/fl/port-charlotte/2421-2423-tamiami-trail-port-charlotte-fl/",
+        "medianType": "unknown",
+        "nearestSignal": "~0.3 mi south at US-41 & Midway Blvd",
+        "decelLaneRisk": "medium",
+        "visibility": "excellent",
+        "landlockedRisk": false,
+        "elapsedMs": 19140
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "westampton_nj",
+    "address": "1000 Irick Rd, Westampton, NJ",
+    "market": "Westampton NJ · Burlington County",
+    "tier": "NJ CEO-priority",
+    "geo": {
+      "lat": 40.031288305778,
+      "lon": -74.821118793833,
+      "city": "Burlington",
+      "state": "NJ",
+      "county": "Burlington County",
+      "zip": "08016",
+      "formatted": "Irick Rd, Burlington, New Jersey, 08016"
+    },
+    "runtime_ms": 196850,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "low",
+        "cacheHit": false,
+        "elapsedMs": 13955
+      },
+      "utility": {
+        "found": true,
+        "confidence": "medium",
+        "waterProvider": "Burlington Township Department of Public Works & Utilities",
+        "waterHookupStatus": "by-request",
+        "waterContact": {
+          "name": "Public Works & Utilities Office / Water Department Superintendent (Jim Lallo)",
+          "phone": "(609) 239-5909",
+          "email": "publicworks@twp.burlington.nj.us",
+          "website": "https://twp.burlington.nj.us/public-works"
+        },
+        "fireFlowNotes": "Municipal water required for commercial fire suppression per NJ code; fire hydrants available in developed areas. Exact hydrant locations and main size should be verified with Public Works. Property may require fire line connection per township regulations.",
+        "sewerProvider": "Burlington Township Department of Public Works & Utilities (sewer available in limited service areas; septic viable elsewhere)",
+        "electricProvider": "Public Service Electric & Gas (PSE&G)",
+        "threePhase": "likely-available",
+        "tapFees": "Published fee schedule not located in web search; contact Burlington Township Public Works at (609) 239-5909 for current water/sewer connection fees and impact charges.",
+        "elapsedMs": 35396
+      },
+      "access": {
+        "found": true,
+        "confidence": "low",
+        "frontageRoad": "Irick Road",
+        "frontageRoadType": "local",
+        "vpd": null,
+        "vpdSource": "Not published online — contact NJDOT or Burlington County Engineering",
+        "vpdSourceUrl": "https://www.nj.gov/transportation/refdata/roadway/trafficreport.shtm (NJDOT Traffic Count Data portal)",
+        "medianType": "unknown",
+        "nearestSignal": "unknown",
+        "decelLaneRisk": "low",
+        "visibility": "moderate",
+        "landlockedRisk": false,
+        "elapsedMs": 21108
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "escondido_ca",
+    "address": "222 W Mission Ave, Escondido, CA",
+    "market": "Escondido CA · local arterial",
+    "tier": "Reference only",
+    "geo": {
+      "lat": 33.129992691395,
+      "lon": -117.087941205636,
+      "city": "Escondido",
+      "state": "CA",
+      "county": "San Diego County",
+      "zip": "92025",
+      "formatted": "222 W Mission Ave, Escondido, California, 92025"
+    },
+    "runtime_ms": 180500,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "low",
+        "cacheHit": false,
+        "elapsedMs": 14780
+      },
+      "utility": {
+        "found": true,
+        "confidence": "high",
+        "waterProvider": "City of Escondido Water & Sewer Department (Utilities Division)",
+        "waterHookupStatus": "by-right",
+        "waterContact": {
+          "name": "City of Escondido Utilities Division / Water Division",
+          "phone": "(760) 839-4657",
+          "email": "UBCustomerservice@escondido.gov",
+          "website": "https://www.escondido.gov/467/Utilities"
+        },
+        "fireFlowNotes": "Fire flow test available for $500; City maintains approximately 423 miles of pipelines with 50 pressure reducing/regulating stations, 5 pump stations, and 11 reservoirs for reliable water delivery and fire protection capacity.",
+        "sewerProvider": "City of Escondido Water & Sewer Department",
+        "electricProvider": "San Diego Gas & Electric (SDG&E)",
+        "threePhase": "likely-available",
+        "tapFees": "Water connection (5/8\"-3/4\" meter): $4,690 + $6,501 SDCWA capacity charge = $11,191 · Wastewater connection (commercial/industrial per EDU): $7,500 · Water meter installation varies by size ($7,000-$14,400 as of Sept 2024). All fees effective as of January 1, 2026 or September 15, 2024.",
+        "elapsedMs": 23964
+      },
+      "access": {
+        "found": true,
+        "confidence": "medium",
+        "frontageRoad": "W Mission Avenue",
+        "frontageRoadType": "arterial",
+        "vpd": 22138,
+        "vpdSource": "LoopNet listing (historical cite; note: Mission Ave & Escondido Blvd intersection)",
+        "vpdSourceUrl": "https://www.loopnet.com/Listing/15009426/220-W-Mission-Ave-Escondido-CA/",
+        "medianType": "unknown",
+        "nearestSignal": "unknown — multiple signals on Mission Ave in downtown Escondido area",
+        "decelLaneRisk": "medium",
+        "visibility": "good",
+        "landlockedRisk": false,
+        "elapsedMs": 20346
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  },
+  {
+    "id": "pflugerville_tx",
+    "address": "15001 Pflugerville Pkwy, Pflugerville, TX",
+    "market": "Pflugerville TX · MOPAC/IH-35",
+    "tier": "Tier 4 Austin growth",
+    "geo": {
+      "lat": 30.461690825672,
+      "lon": -97.621539669647,
+      "city": "Pflugerville",
+      "state": "TX",
+      "county": "Travis County",
+      "zip": "78660",
+      "formatted": "Pflugerville Pkwy, Pflugerville, Texas, 78660"
+    },
+    "runtime_ms": 182966,
+    "storvex": {
+      "zoning": {
+        "found": false,
+        "confidence": "low",
+        "cacheHit": false,
+        "elapsedMs": 14377
+      },
+      "utility": {
+        "found": true,
+        "confidence": "medium",
+        "waterProvider": "City of Pflugerville Utilities (primary) — or potentially Paseo Del Este MUD, Texas Water Utilities, or SW Water Co. depending on exact site location",
+        "waterHookupStatus": "unknown",
+        "waterContact": {
+          "name": "Utility Billing Department / Victor Gonzales",
+          "phone": "(512) 990-6100",
+          "email": "Victor.Gonzales@Pflugervilletx.Gov",
+          "website": "https://www.pflugervilletx.gov/339/Utility-Billing"
+        },
+        "fireFlowNotes": "Fire suppression systems required by municipal code; contact City of Pflugerville Utility Engineering at (512) 990-6101 for main size and nearest hydrant location near Pflugerville Pkwy",
+        "sewerProvider": "City of Pflugerville Wastewater Utility",
+        "electricProvider": "Oncor Electric Delivery",
+        "threePhase": "verify-with-utility",
+        "tapFees": "Water and wastewater impact fees established per City Ordinance; specific amounts require consultation with Utility Billing Dept. Recent rate increases noted (FY 2025-26): base fees increased $5–$13.50 depending on meter size, volume charges $0.55–$0.80 per 1,000 gal tier increase for water; wastewater base $4 increase.",
+        "elapsedMs": 29943
+      },
+      "access": {
+        "found": true,
+        "confidence": "medium",
+        "frontageRoad": "Pflugerville Parkway (West and East)",
+        "frontageRoadType": "arterial",
+        "vpd": null,
+        "vpdSource": "Not published online — call City of Pflugerville or Central Texas MPO for local traffic counts",
+        "vpdSourceUrl": null,
+        "medianType": "raised",
+        "nearestSignal": "Multiple signals on corridor; FM 685 intersection is signalized with displaced left-turn design",
+        "decelLaneRisk": "medium",
+        "visibility": "good",
+        "landlockedRisk": false,
+        "elapsedMs": 15923
+      }
+    },
+    "radius": {
+      "note": "Dan to fill from Radius report",
+      "ccRent_CC_per_SF_month": null,
+      "ccRent_DU_per_SF_month": null,
+      "ccSPC_current": null,
+      "pop_3mi": null,
+      "income_3mi": null,
+      "population_growth_5yr": null,
+      "zoning_notes": null,
+      "provides_zoning_citation": false,
+      "provides_utility_contact": false,
+      "provides_VPD": null
+    }
+  }
+]
