@@ -31,24 +31,24 @@ export const REZA_MAHDAVIAN = {
     "Reza — recommending this asset for PSA review through the institutional self-managed lens. Underwriting cites PSA's FY2025 10-K MD&A line items directly: same-store opex 24.86% of revenue, NOI margin 75.14%, MSA-disclosed in-place rent where applicable, and PSNext's +50 bps stabilized cap uplift. Cross-buyer comparison (PSA vs EXR vs CUBE vs SMA vs UHAL vs GENERIC) shows the platform-fit Δ in dollars on this asset — the dollar value PSA defensibly pays above a generic third-party-managed buyer on the identical asset.",
 };
 
-export const AARON_LIKEN = {
+export const AARON_COOK = {
   key: "aaron",
-  recipientName: "Aaron Liken",
-  role: "Head of Real Estate Acquisitions",
-  firm: "U-Haul Holding (UHAL)",
+  recipientName: "Aaron Cook",
+  role: "Director of Acquisitions",
+  firm: "AMERCO Real Estate Company / U-Haul (UHAL)",
   defaultLens: "AMERCO",
   greeting:
-    "Aaron — recommending this asset through the U-Haul truck-rental-cross-subsidized lens. Underwriting cites UHAL FY2025 10-K Self-Storage segment economics: storage opex ratio 21% (vs PSA 24.86%, EXR 28.84%, CUBE 28.91%) due to truck-side absorption of land tax, payroll, marketing. Stabilized NOI margin 79% (highest in registry). Within-2-mi Center adjacency triggers −50 bps cap reduction (double PSA's bonus). Cross-buyer comparison shows where UHAL's cross-subsidy advantage prices into the deal — UHAL's effective takedown $ vs every other major institutional buyer on the same asset.",
+    "Aaron — recommending this Greenville TX existing-stabilized asset through the U-Haul truck-rental-cross-subsidized lens. Underwriting cites UHAL FY2025 10-K Self-Storage segment economics: storage opex ratio 21% (vs PSA 24.86%, EXR 28.84%, CUBE 28.91%) due to truck-side absorption of land tax, payroll, marketing. Stabilized NOI margin 79% (highest in registry). Cross-buyer comparison shows where UHAL's cross-subsidy advantage prices into the deal — UHAL's effective takedown $ vs every other major institutional buyer on the same 111,650 RSF, 2025-build, 33%-occupied CO-LU asset. Connor copied per the existing-facility lane.",
 };
 
-export const JENNIFER_SETTLES = {
+export const JENNIFER_SAWYER = {
   key: "jennifer",
-  recipientName: "Jennifer Settles",
-  role: "Director of Self-Storage Acquisitions",
-  firm: "U-Haul Holding (UHAL)",
+  recipientName: "Jennifer Sawyer",
+  role: "Real Estate Representative II — Land",
+  firm: "AMERCO Real Estate Company / U-Haul (UHAL)",
   defaultLens: "AMERCO",
   greeting:
-    "Jennifer — recommending this asset through the U-Haul truck-rental-cross-subsidized lens. Storage rides on UHAL's 2,200+ Center footprint where truck rental absorbs land + staff + marketing costs. Same-store NOI margin 79% per UHAL's FY2025 10-K segment disclosure. Within-2-mi adjacency cap reduction −50 bps reflects the dual-business value of truck + storage on the same lot. Cross-buyer comparison shows UHAL's takedown $ vs PSA / EXR / CUBE / SMA / GENERIC on the same asset.",
+    "Jennifer — recommending this land asset through the U-Haul truck-rental-cross-subsidized lens. Storage rides on UHAL's 2,200+ Center footprint where truck rental absorbs land + staff + marketing costs. Same-store NOI margin 79% per UHAL's FY2025 10-K segment disclosure. Within-2-mi adjacency cap reduction −50 bps reflects the dual-business value of truck + storage on the same lot. Cross-buyer comparison shows UHAL's takedown $ vs PSA / EXR / CUBE / SMA / GENERIC on the same asset.",
 };
 
 // Custom recipient — when the analyst picks a one-off contact not in the
@@ -69,8 +69,8 @@ export const CUSTOM_RECIPIENT = {
 
 export const RECIPIENTS = {
   reza: REZA_MAHDAVIAN,
-  aaron: AARON_LIKEN,
-  jennifer: JENNIFER_SETTLES,
+  aaron: AARON_COOK,
+  jennifer: JENNIFER_SAWYER,
   custom: CUSTOM_RECIPIENT,
 };
 

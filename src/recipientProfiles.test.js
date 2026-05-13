@@ -2,8 +2,8 @@
 
 import {
   REZA_MAHDAVIAN,
-  AARON_LIKEN,
-  JENNIFER_SETTLES,
+  AARON_COOK,
+  JENNIFER_SAWYER,
   CUSTOM_RECIPIENT,
   RECIPIENTS,
   RECIPIENT_ORDER,
@@ -15,8 +15,8 @@ import {
 describe("RECIPIENTS registry — institutional pitch targets", () => {
   test("registry contains all 4 declared recipients (Reza, Aaron, Jennifer, Custom)", () => {
     expect(RECIPIENTS.reza).toBe(REZA_MAHDAVIAN);
-    expect(RECIPIENTS.aaron).toBe(AARON_LIKEN);
-    expect(RECIPIENTS.jennifer).toBe(JENNIFER_SETTLES);
+    expect(RECIPIENTS.aaron).toBe(AARON_COOK);
+    expect(RECIPIENTS.jennifer).toBe(JENNIFER_SAWYER);
     expect(RECIPIENTS.custom).toBe(CUSTOM_RECIPIENT);
   });
 
@@ -30,7 +30,7 @@ describe("RECIPIENTS registry — institutional pitch targets", () => {
     expect(reza.label).toContain("Reza Mahdavian");
     expect(reza.label).toContain("Public Storage");
     const aaron = RECIPIENT_OPTIONS.find((o) => o.key === "aaron");
-    expect(aaron.label).toContain("Aaron Liken");
+    expect(aaron.label).toContain("Aaron Cook");
     expect(aaron.label).toContain("U-Haul");
     const custom = RECIPIENT_OPTIONS.find((o) => o.key === "custom");
     expect(custom.label).toMatch(/custom/i);
@@ -56,31 +56,31 @@ describe("REZA_MAHDAVIAN profile", () => {
   });
 });
 
-describe("AARON_LIKEN profile", () => {
+describe("AARON_COOK profile", () => {
   test("default lens is AMERCO (U-Haul)", () => {
-    expect(AARON_LIKEN.defaultLens).toBe("AMERCO");
+    expect(AARON_COOK.defaultLens).toBe("AMERCO");
   });
 
   test("recipientName + role + firm populated", () => {
-    expect(AARON_LIKEN.recipientName).toBe("Aaron Liken");
-    expect(AARON_LIKEN.firm).toMatch(/u-haul|uhal/i);
+    expect(AARON_COOK.recipientName).toBe("Aaron Cook");
+    expect(AARON_COOK.firm).toMatch(/u-haul|uhal/i);
   });
 
   test("greeting cites UHAL truck-cross-subsidy facts", () => {
-    const g = AARON_LIKEN.greeting.toLowerCase();
+    const g = AARON_COOK.greeting.toLowerCase();
     expect(g).toMatch(/cross[-\s]subsid|truck/);
     expect(g).toMatch(/79|81|center|adjacency/);
   });
 });
 
-describe("JENNIFER_SETTLES profile", () => {
+describe("JENNIFER_SAWYER profile", () => {
   test("default lens is AMERCO (U-Haul)", () => {
-    expect(JENNIFER_SETTLES.defaultLens).toBe("AMERCO");
+    expect(JENNIFER_SAWYER.defaultLens).toBe("AMERCO");
   });
 
   test("recipientName + firm match Aaron's firm (both at UHAL)", () => {
-    expect(JENNIFER_SETTLES.recipientName).toBe("Jennifer Settles");
-    expect(JENNIFER_SETTLES.firm).toBe(AARON_LIKEN.firm);
+    expect(JENNIFER_SAWYER.recipientName).toBe("Jennifer Sawyer");
+    expect(JENNIFER_SAWYER.firm).toBe(AARON_COOK.firm);
   });
 });
 
@@ -105,8 +105,8 @@ describe("getRecipient", () => {
   test("returns correct profile for each known key (case-insensitive)", () => {
     expect(getRecipient("reza")).toBe(REZA_MAHDAVIAN);
     expect(getRecipient("REZA")).toBe(REZA_MAHDAVIAN);
-    expect(getRecipient("Aaron")).toBe(AARON_LIKEN);
-    expect(getRecipient("jennifer")).toBe(JENNIFER_SETTLES);
+    expect(getRecipient("Aaron")).toBe(AARON_COOK);
+    expect(getRecipient("jennifer")).toBe(JENNIFER_SAWYER);
     expect(getRecipient("custom")).toBe(CUSTOM_RECIPIENT);
   });
 
