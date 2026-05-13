@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "storvex-dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 3000,
+      "cwd": "C:\\Users\\danie\\OneDrive\\Desktop\\MASTER FOLDER - CLAUDE\\ps-acquisition-tracker"
+    },
+    {
+      "name": "rec-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "4444", "C:\\Users\\danie\\OneDrive\\Desktop\\MASTER FOLDER - CLAUDE"],
+      "port": 4444
+    }
+  ]
+}

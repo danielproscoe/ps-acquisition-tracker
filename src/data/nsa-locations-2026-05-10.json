@@ -1,0 +1,75 @@
+{
+  "schema": "storvex.nsa-locations.v1",
+  "operator": "NSA",
+  "operatorBrand": "iStorage (PSA-acquired Sept 2023)",
+  "source": "nsastorage.com",
+  "generatedAt": "2026-05-10T05:31:41.336Z",
+  "methodology": "Vanilla HTTPS crawl of NSA/iStorage sitemap-listed facility detail pages. Sitemap exposes ~1,724 facility URLs. Each detail page publishes Schema.org SelfStorage metadata (name, address, telephone, opening hours); lat/lng extracted from embedded Google Maps URL. Per-unit pricing is JS-loaded and not captured here — see Phase 2 Puppeteer-based rent scraper. Robots.txt Crawl-delay: 5 sec respected.",
+  "citationRule": "Each facility cites its source URL on nsastorage.com. NSA / iStorage facilities are post-PSA-acquisition (Sept 2023 NSA merger; iStorage was already merged into NSA pre-acquisition). Storvex treats all NSA-managed facilities as part of the PS Family per CLAUDE.md §6b.",
+  "rateLimit": "5100ms between requests (~5.1s — robots.txt Crawl-delay compliance)",
+  "statesGroups": [
+    {
+      "state": "AL",
+      "facilities": [
+        {
+          "facilityId": "1144",
+          "url": "https://www.nsastorage.com/storage/alabama/storage-units-northport/9251-Charlie-Shirley-Rd-1144",
+          "name": "iStorage | 9251 Charlie Shirley Rd",
+          "telephone": "(205) 829-2014",
+          "address": "9251 Charlie Shirley Rd",
+          "city": "Northport",
+          "state": "AL",
+          "zip": "35473",
+          "stateSlug": "alabama",
+          "citySlug": "northport",
+          "lat": null,
+          "lng": null,
+          "image": "https://www.nsastorage.com/uploads/nsastorage/facilities/1144/moUN0MYx2AwjrV41QPFTlpuV2I8eKW42WWVIbgx1/medium/lP4hAhiyzQo6v5LnudjzNqhxifN7llLBj14Lwkzc.png",
+          "openingHours": [],
+          "scrapedAt": "2026-05-10T05:31:25.601Z"
+        },
+        {
+          "facilityId": "1145",
+          "url": "https://www.nsastorage.com/storage/alabama/storage-units-northport/9351-Charlie-Shirley-Rd-1145",
+          "name": "iStorage | 9351 Charlie Shirley Rd",
+          "telephone": "(205) 453-1684",
+          "address": "9351 Charlie Shirley Rd",
+          "city": "Northport",
+          "state": "AL",
+          "zip": "35473",
+          "stateSlug": "alabama",
+          "citySlug": "northport",
+          "lat": null,
+          "lng": null,
+          "image": "https://www.nsastorage.com/uploads/nsastorage/facilities/1145/vz7OZT5viWgHyaixkJpKQRgXWZ9lQw1LUl6GIMFm/medium/Wi7zUfbFZaQBPVz9U2140efST0kIxwLhE3yt5nvk.png",
+          "openingHours": [],
+          "scrapedAt": "2026-05-10T05:31:30.913Z"
+        },
+        {
+          "facilityId": "1146",
+          "url": "https://www.nsastorage.com/storage/alabama/storage-units-northport/9801-Charlie-Shirley-Rd-1146",
+          "name": "iStorage | 9801 Charlie Shirley Rd",
+          "telephone": "(205) 623-1798",
+          "address": "9801 Charlie Shirley Rd",
+          "city": "Northport",
+          "state": "AL",
+          "zip": "35473",
+          "stateSlug": "alabama",
+          "citySlug": "northport",
+          "lat": null,
+          "lng": null,
+          "image": "https://www.nsastorage.com/uploads/nsastorage/facilities/1146/lRkgDm8EJJtWXczDb7fkdIVcU3kcuCXDLBbZwojp/medium/YDrJN8ISYTAjStp2fvI6JGEcrZVMMhieOLCQQ0Fz.png",
+          "openingHours": [],
+          "scrapedAt": "2026-05-10T05:31:36.223Z"
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "facilitiesAttempted": 3,
+    "facilitiesScraped": 3,
+    "facilitiesWithCoords": 0,
+    "facilitiesFailed": 0,
+    "states": 1
+  }
+}
