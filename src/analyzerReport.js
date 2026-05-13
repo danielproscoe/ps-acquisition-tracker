@@ -37,6 +37,10 @@ import {
   computeForwardRentTrajectory,
   describeRentTrajectory,
 } from "./utils/forwardRentTrajectory";
+import {
+  computeUnderwritingConfidence,
+  describeUnderwritingConfidence,
+} from "./utils/underwritingConfidence";
 
 // analyzerReport.js — Storvex PS Asset Analyzer · Goldman-exec PDF report.
 //
@@ -295,6 +299,13 @@ function renderCrushRadiusPlusFootprint() {
       storvex: "Year-by-year forward CC rent projection over 5-year horizon · baseline from SEC EDGAR per-MSA historical CAGR · UP-adjusted in UNDERSUPPLIED markets (Claim 8) · DOWN-adjusted by forward pipeline pressure (Claim 7 confidence-weighted forecast ÷ current observed CC SF × elasticity) · adjustment-factor decomposition + audit trail",
       radius: "Current rent benchmarks only · no forward projection",
       advantage: "The other metric every storage operator needs — paired with forward supply, forward rents drive the entire NOI underwrite · structurally novel composite of three patent-eligible upstream methods",
+    },
+    {
+      pillar: "UNDERWRITE",
+      capability: "Underwriting Confidence Score (Claim 10 composite of Claims 1, 4, 7, 8, 9 + demand + audit completeness)",
+      storvex: "Single A+ → F letter grade per submarket · 0-100 weighted composite of forward supply (20%) + equilibrium (25%) + forward rent (20%) + demand (15%) + source diversity (10%) + audit completeness (10%) · grade-confidence flag · pre-bid diligence items surfaced inline",
+      radius: "No equivalent · ships scattered metrics across multiple panels with no audit-graded composite",
+      advantage: "The operator's go/no-go signal at a glance · design-around requires independently replicating SIX upstream forecast engines AND the synthesis logic · maximal patent moat",
     },
     {
       pillar: "VERIFICATION",
@@ -1734,6 +1745,135 @@ function renderForwardSupplyForecast({ snapshot }) {
 
 const DEFAULT_WEIGHTS_LABEL = "(VERIFIED 1.0 · CLAIMED 0.5 · STALE 0.3 · UNVERIFIED 0.0)";
 
+function renderUnderwritingConfidenceScore({ snapshot, analysis, enrichment }) {
+  const ring = enrichment?.ring3mi
+    ? {
+        pop: enrichment.ring3mi.pop,
+        renterPct: enrichment.ring3mi.renterPct,
+        growthRatePct: enrichment.ring3mi.growthRate,
+        medianHHIncome: enrichment.ring3mi.medianHHIncome,
+        tapestryLifeMode: enrichment.tapestryLifeMode3mi,
+        tapestryUrbanization: enrichment.tapestryUrbanization3mi,
+      }
+    : extractRingForDemandForecast({
+        ...snapshot,
+        ...(analysis?.subject || {}),
+        ...(enrichment || {}),
+      });
+
+  const city = snapshot?.subject?.city || snapshot?.city || null;
+  const state = snapshot?.subject?.state || snapshot?.state || null;
+  const msa = snapshot?.subject?.msa || snapshot?.msa || resolveCityToMSA(city) || null;
+  const currentCCSPC = enrichment?.ccSPCCurrent ?? analysis?.competition?.ccSPC ?? null;
+  const currentCCSF = currentCCSPC != null && ring?.pop > 0
+    ? Number(currentCCSPC) * Number(ring.pop)
+    : null;
+
+  let urc;
+  try {
+    urc = computeUnderwritingConfidence({
+      city, state, msa,
+      operator: "PSA",
+      horizonMonths: 24,
+      ring,
+      currentCCSF: currentCCSF || undefined,
+      asOf: new Date(),
+    });
+  } catch (err) {
+    return "";
+  }
+
+  if (!urc) return "";
+
+  const smLabel = urc.submarket.msa || `${urc.submarket.city || "?"}, ${urc.submarket.state || "?"}`;
+  const gradeColor = urc.grade?.color || "#64748B";
+  const confColor = urc.gradeConfidence === "high" ? "#16A34A"
+    : urc.gradeConfidence === "medium" ? "#C9A84C" : "#DC2626";
+  const fmtScore = (v) => v == null || !Number.isFinite(v) ? "—" : v.toFixed(1);
+
+  return `
+<section class="page section">
+  <h2 class="section-h">UNDERWRITING CONFIDENCE SCORE (URC) — COMPOSITE OF CLAIMS 1, 4, 7, 8, 9 + DEMAND</h2>
+  <div class="sanity-card" style="border-color:${gradeColor}40;background:rgba(214,228,247,0.10)">
+    <div class="sanity-tag" style="background:${gradeColor};color:#fff">
+      ${safe(smLabel)} · GRADE ${safe(urc.grade.label)} · COMPOSITE ${fmtScore(urc.compositeScore)}/100 · CONFIDENCE: ${safe(urc.gradeConfidence.toUpperCase())}
+    </div>
+    <div class="sanity-message">
+      <b>One letter grade. Every digit traceable.</b> The Underwriting Confidence Score rolls every primary-source-attributed forecast Storvex ships — Forward Supply (Claim 7) · Supply-Demand Equilibrium (Claim 8) · Forward Rent Trajectory (Claim 9) · Audited Tapestry Demand · Multi-source Verification Coverage (Claim 1) · Audit-Trail Completeness — into a single 0-100 score that maps to an A+ → F underwrite-confidence letter. The operator's go/no-go signal at a glance, with full sub-score decomposition below.
+      <br><br>
+      <b>Why no incumbent ships this:</b> Radius+ ships scattered metrics across multiple panels. TractIQ ships submarket benchmarks without confidence-graded composites. StorTrack ships occupancy alone. Yardi ships rent comps alone. None roll the entire forward-state underwrite surface into a single audit-traceable letter grade. The composite is novel because it integrates SIX patent-eligible upstream forecast methods AND propagates per-engine confidence into a final grade confidence — a design-around requires independently replicating every upstream engine PLUS the synthesis logic.
+    </div>
+
+    <h3 style="margin-top: 20px; color:#1E2761; font-size: 11pt; text-align: center;">Underwriting Grade · ${safe(smLabel)}</h3>
+    <div style="display: flex; justify-content: center; margin-top: 8px;">
+      <div style="display: flex; gap: 18px; align-items: center; padding: 18px 28px; background: white; border: 3px solid ${gradeColor}; border-radius: 10px;">
+        <div style="font-size: 56pt; font-weight: 900; color: ${gradeColor}; line-height: 1.0; letter-spacing: -0.04em;">${safe(urc.grade.label)}</div>
+        <div style="border-left: 1px solid #C8D0E0; padding-left: 18px;">
+          <div style="font-size: 9pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.10em; font-weight: 700;">Composite Score</div>
+          <div style="font-size: 24pt; color: #1E2761; font-weight: 800;">${fmtScore(urc.compositeScore)}<span style="font-size: 12pt; font-weight: 600; color: #64748B;"> / 100</span></div>
+          <div style="font-size: 8.5pt; color: ${confColor}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Confidence ${safe(urc.gradeConfidence)}</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align: center; font-size: 9.5pt; color: #475569; margin-top: 10px; font-style: italic;">${safe(urc.grade.note || "")}</div>
+
+    <h3 style="margin-top: 20px; color:#1E2761; font-size: 11pt;">Sub-Score Decomposition · Weighted Composite</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-name" style="width: 20%;">Component</th>
+          <th class="th-num" style="width: 10%;">Score</th>
+          <th class="th-num" style="width: 10%;">Weight</th>
+          <th class="th-num" style="width: 12%;">Weighted</th>
+          <th class="th-name" style="width: 12%;">Confidence</th>
+          <th class="th-name" style="width: 36%;">Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${[
+          { key: "forwardSupply",     label: "Forward Supply (Claim 7)",     ss: urc.subScores.forwardSupply },
+          { key: "equilibrium",       label: "Supply-Demand Equilibrium (Claim 8)", ss: urc.subScores.equilibrium },
+          { key: "forwardRent",       label: "Forward Rent Trajectory (Claim 9)",  ss: urc.subScores.forwardRent },
+          { key: "demand",            label: "Audited Tapestry Demand",       ss: urc.subScores.demand },
+          { key: "sourceDiversity",   label: "Primary-Source Diversity",     ss: urc.subScores.sourceDiversity },
+          { key: "auditCompleteness", label: "Audit-Trail Completeness",     ss: urc.subScores.auditCompleteness },
+        ].map(({ label, ss }) => {
+          const subConfColor = ss.confidence === "high" ? "#16A34A"
+            : ss.confidence === "medium" ? "#C9A84C" : "#DC2626";
+          return `<tr>
+            <td class="td-name"><b>${safe(label)}</b></td>
+            <td class="td-num" style="font-weight:700;color:#1E2761">${fmtScore(ss.score)}</td>
+            <td class="td-num">${(ss.weight * 100).toFixed(0)}%</td>
+            <td class="td-num" style="font-weight:700">${fmtScore(ss.weighted)}</td>
+            <td class="td-name" style="color:${subConfColor};font-weight:700">${safe(ss.confidence.toUpperCase())}</td>
+            <td class="td-name" style="font-size: 8.5pt; color: #475569;">${safe(ss.note)}</td>
+          </tr>`;
+        }).join("")}
+        <tr style="background: rgba(201,168,76,0.10);">
+          <td class="td-name" style="font-weight:700">Weighted Composite</td>
+          <td class="td-num" style="font-weight:800;color:${gradeColor};font-size:11pt">${fmtScore(urc.compositeScore)}</td>
+          <td class="td-num">100%</td>
+          <td class="td-num" style="font-weight:800;color:${gradeColor};font-size:11pt">${fmtScore(urc.compositeScore)}</td>
+          <td class="td-name" style="color:${confColor};font-weight:700">${safe(urc.gradeConfidence.toUpperCase())}</td>
+          <td class="td-name" style="font-size: 8.5pt; color: #475569;">Sum of (sub-score × weight) ÷ Σ weights · grade band ${safe(urc.grade.label)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    ${urc.diligenceItems && urc.diligenceItems.length > 0 ? `
+    <h3 style="margin-top: 20px; color:#1E2761; font-size: 11pt;">Pre-Bid Diligence Items · ${urc.diligenceItems.length}</h3>
+    <ul style="margin-top: 4px; font-size: 9.5pt; line-height: 1.6;">
+      ${urc.diligenceItems.map((item) => `<li style="margin-bottom: 4px; color: #475569;">${safe(item)}</li>`).join("")}
+    </ul>
+    ` : ""}
+
+    <div class="sanity-message" style="margin-top: 14px;">
+      <b>${safe(describeUnderwritingConfidence(urc))}</b>
+    </div>
+  </div>
+</section>`;
+}
+
 function renderForwardRentTrajectory({ snapshot, analysis, enrichment }) {
   const ring = enrichment?.ring3mi
     ? {
@@ -2819,6 +2959,7 @@ export function generateAnalyzerReport({ analysis, psLens, enrichment, memo, mul
   ${renderForwardSupplyForecast({ snapshot })}
   ${renderSupplyDemandEquilibrium({ snapshot, analysis, enrichment })}
   ${renderForwardRentTrajectory({ snapshot, analysis, enrichment })}
+  ${renderUnderwritingConfidenceScore({ snapshot, analysis, enrichment })}
   ${renderComps({ analysis })}
   ${renderEDGARCrossREIT({ snapshot, analysis })}
   ${renderCrossREITMoveInRates({ snapshot, enrichment })}
