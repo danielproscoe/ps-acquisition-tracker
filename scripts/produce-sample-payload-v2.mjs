@@ -100,14 +100,11 @@ const extractionMeta = {
 
 const allLenses = computeAllBuyerLenses(input, { marketRents });
 const platformFitDelta = computePlatformFitDelta(allLenses);
-const multiLensRows = allLenses.map((l) => ({
-  buyerKey: l.lensKey,
-  buyerName: l.lensName,
-  walk: l.tiers?.walk,
-  strike: l.tiers?.strike,
-  homeRun: l.tiers?.homeRun,
-  verdict: l.verdict?.label,
-}));
+// computeAllBuyerLenses returns the canonical row shape the renderer +
+// warehouseExport both expect. Pass directly — prior .map() stripped fields
+// and corrupted the multi-buyer table. Hardcoded per Dan's directive
+// 2026-05-12 after the Greenville UHAUL deliverable caught the bug.
+const multiLensRows = allLenses;
 
 const payload = buildWarehousePayload({
   analysis: generic,
