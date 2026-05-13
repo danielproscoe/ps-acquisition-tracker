@@ -1,16 +1,21 @@
 // TheReadView.js — The Read: centralized institutional intake surface.
 //
-// One tab, two intake modes:
+// One tab, four intake modes:
 //   1. Address Lookup → market overview via QuickLookupPanel
 //                       (ESRI + Places + PS Family + Oracles)
 //   2. OM Drop → OM-anchored underwrite via AssetAnalyzerView
 //                (works for both land and existing-stabilized OMs;
 //                 the underlying Analyzer detects + routes)
+//   3. Verify Screenshot → single-screenshot aggregator verification
+//                          (drag/drop a Radius+ pipeline view → Vision OCR →
+//                           Oracle verdicts → audit-log cycle)
+//   4. Bulk Import → CSV-mode aggregator verification at scale
+//                    (drop a Radius+/TractIQ/StorTrack pipeline CSV export →
+//                     verify every row → single audit-log cycle with all verdicts)
 //
-// This wrapper does NOT mutate either component — it composes them as
-// sibling intake surfaces. Both flows continue to function exactly as
-// they did when each was its own tab. The only thing that changes is
-// the user-facing nav: one "⚡ The Read" tab instead of two.
+// This wrapper does NOT mutate any of the intake components — it composes
+// them as sibling surfaces. Each flow continues to function exactly as it
+// did when it was its own tab. The user-facing nav stays one "⚡ The Read".
 //
 // Deep-link routing (?asset=greenville etc) auto-selects OM mode so
 // the demo loaders inside AssetAnalyzerView fire as expected.
@@ -19,6 +24,7 @@ import React, { useState, useEffect } from 'react';
 import QuickLookupPanel from '../QuickLookupPanel';
 import AssetAnalyzerView from './AssetAnalyzerView';
 import PipelineScreenshotIntakePanel from './PipelineScreenshotIntakePanel';
+import PipelineBulkImportPanel from './PipelineBulkImportPanel';
 
 const NAVY = '#1E2761';
 const GOLD = '#C9A84C';
@@ -135,6 +141,27 @@ export default function TheReadView({ autoEnrichESRI, fbSet, fbPush, notify, nav
           >
             🔍 Verify Screenshot
           </button>
+          <button
+            onClick={() => setMode('bulk')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              fontFamily: "'Inter', system-ui, sans-serif",
+              transition: 'all 0.2s',
+              background: mode === 'bulk'
+                ? `linear-gradient(135deg, ${GOLD}, #B89540)`
+                : 'transparent',
+              color: mode === 'bulk' ? NAVY : 'rgba(255,255,255,0.7)',
+              boxShadow: mode === 'bulk' ? '0 4px 16px rgba(201,168,76,0.35)' : 'none',
+            }}
+          >
+            📊 Bulk Import
+          </button>
         </div>
       </div>
 
@@ -157,6 +184,7 @@ export default function TheReadView({ autoEnrichESRI, fbSet, fbPush, notify, nav
         />
       )}
       {mode === 'verify' && <PipelineScreenshotIntakePanel />}
+      {mode === 'bulk' && <PipelineBulkImportPanel />}
     </div>
   );
 }
