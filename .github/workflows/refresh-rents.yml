@@ -27,7 +27,26 @@
 # source SEC EDGAR audit trail layered on top, across PSA + CubeSmart's
 # combined ~1,800 facilities.
 
-name: Refresh REIT Facility Rents (PSA + CUBE)
+name: Refresh REIT Facility Rents (PSA · daily)
+
+# ──────────────────────────────────────────────────────────────────────────
+# 2026-05-13: CUBE STEPS REMOVED — moved to puppeteer-parked queue.
+#
+# CubeSmart deployed Imperva Incapsula anti-bot between 5/11 and 5/12
+# (HTTP 403 on every facility URL · _Incapsula_Resource script in body).
+# Workflow ran successfully through 5/11 then failed 5/12 + 5/13 crons.
+# Same blocker profile as EXR (PerimeterX) — CUBE now needs puppeteer-
+# core + stealth + residential proxy rotation to bulk-crawl.
+#
+# Pending migration: a separate refresh-cube-rents.yml (puppeteer-based,
+# weekly cadence) modeled on refresh-exr-rents.yml. Tracked alongside
+# the EXR proxy provisioning ask ($50/mo Bright Data residential).
+#
+# This daily workflow now scrapes ONLY PSA (260 facilities, ~25 min,
+# vanilla HTTPS — Cloudflare-fronted but no bot challenge). Net effect:
+# PSA daily-fresh rent data continues uninterrupted; CUBE data goes
+# stale on the 5/11 snapshot until the puppeteer migration lands.
+# ──────────────────────────────────────────────────────────────────────────
 
 on:
   schedule:
@@ -64,13 +83,9 @@ jobs:
       - name: Rebuild PSA aggregator + cross-validation index
         run: node scripts/edgar/build-scraped-rent-index.mjs
 
-      - name: Run CUBE facility rent scraper (1551 facilities · ~26 min)
-        run: node scripts/edgar/scrape-cube-facility-rents.mjs
-        env:
-          NODE_ENV: production
-
-      - name: Rebuild CUBE aggregator + cross-validation index
-        run: node scripts/edgar/build-cube-rent-index.mjs
+      # CUBE steps removed 2026-05-13 — Imperva Incapsula bot block (HTTP 403
+      # on every facility page). Migration pending: separate puppeteer-based
+      # weekly workflow modeled on refresh-exr-rents.yml.
 
       - name: Accumulate daily snapshot into rent trajectory time-series (Crush Radius+ CC RENT wedge)
         run: node scripts/edgar/build-rent-trajectory.mjs
@@ -81,7 +96,9 @@ jobs:
           git config user.email "noreply@storvex.com"
           # Add the freshly-generated files (date-stamped + canonical indexes)
           git add src/data/psa-facility-rents-*.json src/data/psa-scraped-rent-index.json
-          git add src/data/cube-facility-rents-*.json src/data/cube-scraped-rent-index.json
+          # Also commit the trajectory accumulator output (it now rebuilds
+          # against every snapshot file, including any stale CUBE data).
+          git add src/data/cross-reit-rent-trajectory.json
           # Only commit if there are actual changes (no-op on no-change days)
           if git diff --staged --quiet; then
             echo "No rent changes detected — skipping commit"
@@ -90,10 +107,6 @@ jobs:
             # jq is pre-installed on ubuntu-latest
             PSA_FAC=$(jq -r '.totals.facilities' src/data/psa-scraped-rent-index.json)
             PSA_UNITS=$(jq -r '.totals.unitListings' src/data/psa-scraped-rent-index.json)
-            CUBE_FAC=$(jq -r '.totals.facilities' src/data/cube-scraped-rent-index.json)
-            CUBE_UNITS=$(jq -r '.totals.unitListings' src/data/cube-scraped-rent-index.json)
-            TOTAL_FAC=$((PSA_FAC + CUBE_FAC))
-            TOTAL_UNITS=$((PSA_UNITS + CUBE_UNITS))
-            git commit -m "chore(rents): daily refresh ${DATE} · ${TOTAL_FAC} fac (${PSA_FAC} PSA + ${CUBE_FAC} CUBE) · ${TOTAL_UNITS} units"
+            git commit -m "chore(rents): daily refresh ${DATE} · ${PSA_FAC} PSA facilities · ${PSA_UNITS} units (CUBE parked pending puppeteer migration)"
             git push
           fi
