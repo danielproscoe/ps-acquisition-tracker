@@ -1,3 +1,29 @@
+# ══════════════════════════════════════════════════════════════════════════
+# DISABLED 2026-05-13 — renamed from .yml to .yml.disabled
+#
+# This workflow has never successfully completed since it was added on
+# 2026-05-12 (commit fcf300e). 29 consecutive failures between 2026-05-12
+# 16:22 UTC and 2026-05-13 15:38 UTC. Root cause undiagnosed (GitHub Actions
+# logs require auth + workflow-level inspection); most likely:
+#   (1) 1,142-facility puppeteer crawl hits the 75-min timeout, OR
+#   (2) NSA anti-bot escalates mid-crawl, OR
+#   (3) puppeteer-render adapter has an edge case on the NSA DOM shape
+#
+# To re-enable:
+#   1. Investigate logs (download from GitHub Actions UI) to pinpoint failure
+#   2. Likely fix: add a default --limit flag (e.g., --limit=200) so state
+#      batches succeed inside the timeout; rotate states across weeks via
+#      workflow_dispatch input
+#   3. OR provision a residential proxy (same model as EXR scaffold)
+#   4. Rename back to refresh-nsa-rents.yml + git push
+#
+# Manual single-run alternative while disabled:
+#   node scripts/edgar/scrape-nsa-facility-rents.mjs --limit=10
+# (works locally; the scraper itself isn't broken — only the CI crawl is)
+#
+# Original workflow intent below.
+# ══════════════════════════════════════════════════════════════════════════
+#
 # Weekly refresh of National Storage Affiliates (NSA · nsastorage.com)
 # per-facility unit rents through the shared Puppeteer-render adapter.
 #
