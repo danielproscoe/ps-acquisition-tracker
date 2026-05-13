@@ -46,18 +46,33 @@
 //                 24 months ago, matching the typical pipeline horizon)
 //   --dryrun      print results, do not write to county-permits.json
 //
-// MULTI-STEP POSTBACK
+// MULTI-STEP POSTBACK — Phase 2 IMPLEMENTED 5/12/26
 // -------------------
-// ASP.NET WebForms RadGrid pagination requires:
-//   1. GET / → capture __VIEWSTATE + __VIEWSTATEGENERATOR + __EVENTVALIDATION
-//   2. POST / with __EVENTTARGET=ctl00$MainContent$rgReport$ctl00$ctl03$
-//      ctl01$PageSizeComboBox + __VIEWSTATE → returns page-size-changed page
-//   3. POST / with __EVENTTARGET=...ChangePage and __EVENTARGUMENT=N → page N
+// ASP.NET WebForms RadGrid pagination requires preserving form state +
+// session cookies across requests. Confirmed live mechanism:
 //
-// To keep the scraper simple this first version takes page 1 at the default
-// page size (50 rows), which covers the most recent ~50 permits in chronological
-// order — sufficient for the daily refresh cron. Larger backfill runs use
-// --max-pages>1.
+//   1. GET / → capture __VIEWSTATE, __VIEWSTATEGENERATOR, __EVENTVALIDATION,
+//              and ASP.NET_SessionId cookie. Returns page 1.
+//   2. To advance to page 2+: POST / with the application/x-www-form-urlencoded
+//      body containing:
+//        __EVENTTARGET     = "" (empty — submit button activates server event)
+//        __EVENTARGUMENT   = ""
+//        __VIEWSTATE       = (latest captured value — changes each response)
+//        __VIEWSTATEGENERATOR = (latest captured)
+//        __EVENTVALIDATION = (latest captured)
+//        <NextPageBtnName> = " "  (the rgPageNext input's name + space value)
+//      with Cookie header carrying ASP.NET_SessionId.
+//   3. Parse the response, re-extract form state + the new rgPageNext button
+//      name (the ctlNN suffix shifts when the pager set rolls forward), and
+//      repeat until the rgPageNext button disappears (last page) or
+//      --max-pages reached.
+//
+// Daily cron mode (default --max-pages=1): scrapes page 1 only — covers the
+// daily delta of ~50 permits. Backfill mode (--max-pages=1134) walks the full
+// 56,691-permit history at ~1.5s per page (~28 min total).
+//
+// Page-size change postback (PageSizeComboBox) is a separate sprint — adds
+// throughput but doubles state-machine complexity. Daily ROI is fine at 50/page.
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,6 +120,73 @@ function extractHidden(html, name) {
   const re2 = new RegExp(`name="${name}"\\s+value="([^"]*)"`, "i");
   const m2 = html.match(re2);
   return m2 ? m2[1] : null;
+}
+
+/**
+ * Extract the full ASP.NET WebForms postback state from a response HTML.
+ * Returns the three hidden fields needed to issue a valid follow-up POST.
+ * Returns null fields when the page is non-WebForms (e.g., an error page);
+ * the caller should treat that as the end of pagination.
+ */
+function parseAspNetState(html) {
+  return {
+    viewstate: extractHidden(html, "__VIEWSTATE"),
+    viewstateGenerator: extractHidden(html, "__VIEWSTATEGENERATOR"),
+    eventValidation: extractHidden(html, "__EVENTVALIDATION"),
+  };
+}
+
+/**
+ * Locate the "Next Page" submit button name in the rendered pager. RadGrid
+ * emits `<input type="submit" name="ctl00$...$ctlNN" class="rgPageNext" />`
+ * but the ctlNN suffix shifts as the pager set rolls forward (page 1 → ctl28,
+ * page 11 → some other ctl), so we re-parse after every response. Returns
+ * null when the button isn't present, signaling the last page.
+ *
+ * Returns null if the rgPageNext button is disabled — Telerik adds the
+ * disabled rgPageNextDisabled class instead of removing the element on the
+ * last page. Treat both shapes as "no next page."
+ */
+function findNextPageButton(html) {
+  if (/class="rgPageNextDisabled/i.test(html)) return null;
+  const order1 = html.match(
+    /<input[^>]*type="submit"[^>]*name="([^"]+)"[^>]*class="rgPageNext"/i,
+  );
+  if (order1) return order1[1];
+  const order2 = html.match(
+    /<input[^>]*class="rgPageNext"[^>]*name="([^"]+)"/i,
+  );
+  return order2 ? order2[1] : null;
+}
+
+/**
+ * Parse a Set-Cookie response header into a `name=value` cookie jar string
+ * suitable for the Cookie request header. node-fetch (and undici) folds
+ * multiple Set-Cookie headers into one comma-joined string; this splitter
+ * handles that and strips Path / HttpOnly / Domain / SameSite attributes.
+ *
+ * Merges with an existing jar — newer cookies overwrite same-name entries.
+ */
+function mergeCookieJar(existing, setCookieHeader) {
+  const jar = new Map();
+  if (existing) {
+    for (const pair of existing.split(/;\s*/)) {
+      const eq = pair.indexOf("=");
+      if (eq > 0) jar.set(pair.slice(0, eq), pair.slice(eq + 1));
+    }
+  }
+  if (setCookieHeader) {
+    // Cookies are comma-separated at the top level but date values may also
+    // contain commas (e.g. "Expires=Wed, 14 Jun 2026 ...") — split on /, \s*\w+=/
+    // boundaries which works for the simple ASP.NET cookies we see in practice.
+    const cookies = setCookieHeader.split(/,(?=\s*[A-Za-z0-9_\-.]+=)/);
+    for (const c of cookies) {
+      const firstPair = c.split(";")[0].trim();
+      const eq = firstPair.indexOf("=");
+      if (eq > 0) jar.set(firstPair.slice(0, eq), firstPair.slice(eq + 1));
+    }
+  }
+  return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
 // ─── Row extraction ────────────────────────────────────────────────────────
@@ -199,14 +281,91 @@ function parseCityFromLegal(legalDesc) {
   return null;
 }
 
-// ─── Single-page fetch ─────────────────────────────────────────────────────
+// ─── Page fetching with WebForms state persistence ─────────────────────────
 
-async function fetchPage1() {
-  const res = await httpGet(PORTAL_URL);
+const DEFAULT_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+/**
+ * Initial GET against the Denton portal. Returns the parsed page-1 HTML,
+ * extracted ASP.NET form state, and the cookie jar (ASP.NET_SessionId etc).
+ * Throws on non-200 status — caller treats that as a hard failure.
+ */
+async function fetchInitial(url = PORTAL_URL) {
+  const res = await httpGet(url);
   if (res.status !== 200) {
     throw new Error(`Denton portal returned HTTP ${res.status}`);
   }
-  return res.body;
+  const cookies = mergeCookieJar("", res.headers["set-cookie"]);
+  return {
+    html: res.body,
+    state: parseAspNetState(res.body),
+    cookies,
+  };
+}
+
+/**
+ * Submit the "Next Page" pager button. Returns the same shape as fetchInitial
+ * — { html, state, cookies } — with cookies merged forward and form state
+ * re-extracted from the new response. Returns null when:
+ *   - buttonName is null (last page reached)
+ *   - response is non-200 (treat as end of pagination, log + continue)
+ *   - resulting HTML lacks rgRow markers (server rejected the postback)
+ */
+async function fetchNextPage(url, prevState, prevCookies, buttonName) {
+  if (!buttonName) return null;
+  if (!prevState.viewstate) {
+    throw new Error("missing __VIEWSTATE — cannot post pagination request");
+  }
+
+  const params = new URLSearchParams();
+  params.append("__EVENTTARGET", "");
+  params.append("__EVENTARGUMENT", "");
+  params.append("__VIEWSTATE", prevState.viewstate);
+  if (prevState.viewstateGenerator) {
+    params.append("__VIEWSTATEGENERATOR", prevState.viewstateGenerator);
+  }
+  if (prevState.eventValidation) {
+    params.append("__EVENTVALIDATION", prevState.eventValidation);
+  }
+  // The submit button itself goes in the form data — its `name=value` pair
+  // is what ASP.NET reads to fire the right server-side event handler. The
+  // rendered value is a single space (RadGrid uses CSS background image for
+  // the arrow icon).
+  params.append(buttonName, " ");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "User-Agent": DEFAULT_UA,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      Origin: new URL(url).origin,
+      Referer: url,
+      Cookie: prevCookies,
+    },
+    body: params.toString(),
+  });
+
+  if (res.status !== 200) {
+    return { html: null, state: prevState, cookies: prevCookies, status: res.status };
+  }
+
+  const html = await res.text();
+  const setCookie = res.headers.get("set-cookie");
+  const cookies = mergeCookieJar(prevCookies, setCookie);
+  return {
+    html,
+    state: parseAspNetState(html),
+    cookies,
+    status: 200,
+  };
+}
+
+function delay(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 // ─── Page → records ────────────────────────────────────────────────────────
@@ -259,12 +418,19 @@ function rowToRecord(row, opts = {}) {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const opts = { maxPages: 5, pageSize: 200, since: null, dryRun: false };
+  const opts = {
+    maxPages: 5,
+    pageSize: 200,
+    since: null,
+    dryRun: false,
+    rateLimitMs: 1500,
+  };
   for (const a of args) {
     if (a === "--dryrun" || a === "--dry-run") opts.dryRun = true;
     else if (a.startsWith("--max-pages=")) opts.maxPages = parseInt(a.split("=")[1], 10);
     else if (a.startsWith("--page-size=")) opts.pageSize = parseInt(a.split("=")[1], 10);
     else if (a.startsWith("--since=")) opts.since = a.split("=")[1];
+    else if (a.startsWith("--rate-limit-ms=")) opts.rateLimitMs = parseInt(a.split("=")[1], 10);
   }
   // Default since = 24 months ago
   if (!opts.since) {
@@ -272,6 +438,12 @@ function parseArgs() {
     d.setMonth(d.getMonth() - 24);
     opts.since = d.toISOString().slice(0, 10);
   }
+  // Floor max-pages at 1, ceiling at 2000 (defensive — 1134 is the real cap
+  // at default page-size; 2000 covers larger page-size requests if/when the
+  // PageSizeComboBox postback ships).
+  if (!Number.isFinite(opts.maxPages) || opts.maxPages < 1) opts.maxPages = 1;
+  if (opts.maxPages > 2000) opts.maxPages = 2000;
+  if (!Number.isFinite(opts.rateLimitMs) || opts.rateLimitMs < 0) opts.rateLimitMs = 1500;
   return opts;
 }
 
@@ -279,7 +451,7 @@ async function main() {
   const opts = parseArgs();
   console.log(`[${NAME}] starting · portal=${PORTAL_URL}`);
   console.log(
-    `[${NAME}] options: maxPages=${opts.maxPages} pageSize=${opts.pageSize} since=${opts.since} dryRun=${opts.dryRun}`
+    `[${NAME}] options: maxPages=${opts.maxPages} pageSize=${opts.pageSize} since=${opts.since} rateLimitMs=${opts.rateLimitMs} dryRun=${opts.dryRun}`
   );
 
   let totalRows = 0;
@@ -287,32 +459,66 @@ async function main() {
   const records = [];
 
   try {
-    const html = await fetchPage1();
-    const rows = extractRows(html);
-    totalRows += rows.length;
+    // ── Page 1 (GET) ──────────────────────────────────────────────────────
+    let page = await fetchInitial(PORTAL_URL);
+    let pageIndex = 1;
+    let html = page.html;
+    let state = page.state;
+    let cookies = page.cookies;
 
-    for (const r of rows) {
-      const rec = rowToRecord(r, { minSince: opts.since });
-      if (rec) {
-        totalStorage++;
-        records.push(rec);
+    while (true) {
+      const rows = extractRows(html);
+      totalRows += rows.length;
+
+      let pageStorageCount = 0;
+      for (const r of rows) {
+        const rec = rowToRecord(r, { minSince: opts.since });
+        if (rec) {
+          pageStorageCount++;
+          records.push(rec);
+        }
       }
-    }
+      totalStorage += pageStorageCount;
 
-    console.log(
-      `[${NAME}] page 1 scraped — ${rows.length} rows · ${totalStorage} storage-classified`
-    );
-
-    // Page 2+ pagination is non-trivial in WebForms (requires __VIEWSTATE
-    // round-trip per page). The scraper is intentionally scoped to page 1
-    // for the daily refresh — that's the most recent ~50 permits, which
-    // covers the daily delta in a county this size. Multi-page backfill is
-    // a follow-up sprint that swaps in puppeteer (or a properly tracked
-    // ASP.NET session) for the multi-step postback dance.
-    if (opts.maxPages > 1) {
       console.log(
-        `[${NAME}] page-2+ pagination requires ASP.NET WebForms postback round-trip — deferred to follow-up sprint (see header comment "MULTI-STEP POSTBACK")`
+        `[${NAME}] page ${pageIndex} scraped — ${rows.length} rows · ${pageStorageCount} storage-classified · running storage total ${totalStorage}`
       );
+
+      if (pageIndex >= opts.maxPages) {
+        console.log(`[${NAME}] reached --max-pages=${opts.maxPages} · stopping pagination`);
+        break;
+      }
+
+      const nextBtn = findNextPageButton(html);
+      if (!nextBtn) {
+        console.log(`[${NAME}] no rgPageNext button in page ${pageIndex} response · last page reached`);
+        break;
+      }
+
+      if (opts.rateLimitMs > 0) await delay(opts.rateLimitMs);
+
+      const next = await fetchNextPage(PORTAL_URL, state, cookies, nextBtn);
+      if (!next || !next.html) {
+        console.log(
+          `[${NAME}] postback to page ${pageIndex + 1} returned HTTP ${next?.status || "?"} · stopping pagination`
+        );
+        break;
+      }
+
+      // Sanity check: if the new HTML has no row markers, the server likely
+      // returned an error page or a partial UpdatePanel response. Bail out
+      // rather than spin.
+      if (!/<tr class="(?:rgRow|rgAltRow)"/i.test(next.html)) {
+        console.log(
+          `[${NAME}] page ${pageIndex + 1} response has no rgRow markers · bailing`
+        );
+        break;
+      }
+
+      html = next.html;
+      state = next.state;
+      cookies = next.cookies;
+      pageIndex++;
     }
   } catch (e) {
     console.error(`[${NAME}] ERROR: ${e.message}`);
@@ -347,6 +553,10 @@ export {
   isLikelyStorage,
   parseMDY,
   stripHtml,
+  parseAspNetState,
+  findNextPageButton,
+  mergeCookieJar,
+  parseArgs,
   COL,
   NAME,
   COUNTY_NAME,
