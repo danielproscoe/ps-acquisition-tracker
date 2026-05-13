@@ -2806,10 +2806,23 @@ function AppInner() {
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {demoMode && (
-                <div style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.35)", background: "linear-gradient(135deg, rgba(201,168,76,0.15), rgba(255,179,71,0.08))", color: "#C9A84C", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", gap: 6 }} title="Storvex SaaS public demo surface — strips internal pipeline data">
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.6)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />
-                  DJR Demo
-                </div>
+                <>
+                  <a
+                    href="/Storvex_Pricing_Tiers_v1.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#C9A84C", fontSize: 11, fontWeight: 800, letterSpacing: "0.10em", textTransform: "uppercase", backdropFilter: "blur(8px)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.2s" }}
+                    title="Storvex Pricing & Engagement Tiers — Operator $2.5K/mo · Enterprise $10K/mo · Advisory $25-100K/project"
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.18)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(201,168,76,0.18)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.08)"; e.currentTarget.style.boxShadow = "none"; }}
+                  >
+                    📋 Pricing &amp; Tiers
+                  </a>
+                  <div style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(201,168,76,0.35)", background: "linear-gradient(135deg, rgba(201,168,76,0.15), rgba(255,179,71,0.08))", color: "#C9A84C", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", gap: 6 }} title="Storvex SaaS public demo surface — strips internal pipeline data">
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #C9A84C)", boxShadow: "0 0 8px rgba(201,168,76,0.6)", animation: "sitescore-glow 1.5s ease-in-out infinite alternate" }} />
+                    DJR Demo
+                  </div>
+                </>
               )}
               {!demoMode && (
                 <>
