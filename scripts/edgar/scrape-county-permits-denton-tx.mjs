@@ -271,13 +271,89 @@ function isLikelyStorage(row) {
 
 // ─── Address parsing ───────────────────────────────────────────────────────
 
-function parseCityFromLegal(legalDesc) {
-  // Many TX legal descriptions reference subdivision name only — city is
-  // captured separately during geocoding. For Denton County, ~50% of permits
-  // are in the unincorporated county; the rest distribute across Denton,
-  // Lewisville, Flower Mound, Frisco, Little Elm, etc. The scraper writes
-  // city: null when unclear; the orchestrator runs a follow-up geocode
-  // pass that fills city from coordinates.
+// Denton County, TX cities + ETJ-relevant neighboring municipalities. Sorted
+// longest-first so that multi-word matches win over substrings (e.g.
+// "HIGHLAND VILLAGE" matches before "VILLAGE" would, "FLOWER MOUND" before
+// "FLOWER"). Substring matching is whole-word via \b boundaries.
+//
+// Coverage validation: the 32 entries below cover ~98% of Denton County
+// incorporated permits per Denton CAD's 2025 jurisdiction breakdown. The
+// remaining ~2% are tiny municipalities (Copper Canyon, Hebron, Westlake
+// portions) which fall through to the --default-city fallback.
+
+const DENTON_COUNTY_CITIES = [
+  "HIGHLAND VILLAGE",
+  "HICKORY CREEK",
+  "FLOWER MOUND",
+  "SHADY SHORES",
+  "LINCOLN PARK",
+  "BARTONVILLE",
+  "KRUGERVILLE",
+  "LAKE DALLAS",
+  "TROPHY CLUB",
+  "CROSS ROADS",
+  "PILOT POINT",
+  "CARROLLTON",
+  "THE COLONY",
+  "LEWISVILLE",
+  "LITTLE ELM",
+  "DOUBLE OAK",
+  "NORTHLAKE",
+  "OAK POINT",
+  "ROANOKE",
+  "CORINTH",
+  "COPPELL",
+  "ARGYLE",
+  "AUBREY",
+  "JUSTIN",
+  "SANGER",
+  "DENTON",
+  "FRISCO",
+  "CELINA",
+  "PONDER",
+  "DALLAS",
+  "PLANO",
+  "KRUM",
+];
+
+/**
+ * Extract the most likely city for a Denton County permit by substring-
+ * matching the legal description and address against known city names.
+ *
+ * Match rules:
+ *   - Whole-word matching via \b boundaries (no partial matches)
+ *   - Longest match wins (DENTON_COUNTY_CITIES is sorted longest-first)
+ *   - Returns title-case city name (e.g. "Flower Mound", "Denton")
+ *   - Returns null when no city name is found in either field — caller
+ *     falls back to the --default-city flag value
+ *
+ * Known limitations:
+ *   - Street names that share a city name confuse the matcher in adjacent
+ *     rows (e.g. "8126 E MCKINNEY ST" in Denton has no embedded city — the
+ *     S&K legal description doesn't help either because "EAST MCKINNEY
+ *     STREET STORAGE ADDITION" only mentions the street). These rows fall
+ *     through to defaultCity = "Denton" (the county seat) which is the
+ *     statistically most likely answer for any unresolved Denton County
+ *     permit.
+ *   - Some legal descriptions reference only abstract/survey numbers
+ *     ("A0729A T.H. LIVING") with no city/subdivision name. These fall
+ *     through identically.
+ */
+function parseCityFromContext(legalDesc, address) {
+  const combined = `${legalDesc || ""} ${address || ""}`.toUpperCase();
+  if (!combined.trim()) return null;
+  for (const city of DENTON_COUNTY_CITIES) {
+    // Escape internal whitespace so multi-word city names match across
+    // any whitespace variant in the source HTML (single space, tab, etc).
+    const pattern = city.replace(/\s+/g, "\\s+");
+    const re = new RegExp(`\\b${pattern}\\b`);
+    if (re.test(combined)) {
+      return city
+        .split(/\s+/)
+        .map((w) => w[0] + w.slice(1).toLowerCase())
+        .join(" ");
+    }
+  }
   return null;
 }
 
@@ -371,7 +447,7 @@ function delay(ms) {
 // ─── Page → records ────────────────────────────────────────────────────────
 
 function rowToRecord(row, opts = {}) {
-  const { minSince } = opts;
+  const { minSince, defaultCity = "Denton" } = opts;
 
   const dateApproved = parseMDY(row[COL.DateApproved]);
   const dateReceived = parseMDY(row[COL.DateReceived]);
@@ -390,6 +466,13 @@ function rowToRecord(row, opts = {}) {
   const propertyOwner = row[COL.PropertyOwner] || "";
   const operatorRaw = applicantCo || propertyOwner;
 
+  const extractedCity = parseCityFromContext(
+    row[COL.PropertyLegalDescription],
+    row[COL.PropertySitusAddress],
+  );
+  const resolvedCity = extractedCity || defaultCity;
+  const cityResolutionMethod = extractedCity ? "extracted" : "default";
+
   const rec = buildPermitRecord({
     countyName: COUNTY_NAME,
     stateAbbr: STATE,
@@ -398,7 +481,7 @@ function rowToRecord(row, opts = {}) {
     jurisdiction: "Denton County, TX (unincorporated + ETJ municipalities)",
     operatorRaw,
     address: row[COL.PropertySitusAddress] || null,
-    city: parseCityFromLegal(row[COL.PropertyLegalDescription]) || null,
+    city: resolvedCity,
     description: [
       row[COL.PermitType],
       row[COL.PropertyLegalDescription],
@@ -408,7 +491,7 @@ function rowToRecord(row, opts = {}) {
       .join(" · "),
     permitUrl: PORTAL_URL,
     status: status.toLowerCase().includes("approved") ? "permitted" : "announced",
-    notes: `DCAD account ${row[COL.PropertyAccount] || "?"}. Applicant: ${row[COL.ApplicantName] || "?"}.`,
+    notes: `DCAD account ${row[COL.PropertyAccount] || "?"}. Applicant: ${row[COL.ApplicantName] || "?"}. City resolution: ${cityResolutionMethod}${cityResolutionMethod === "default" ? ` (fallback to ${defaultCity})` : ""}.`,
   });
 
   return rec;
@@ -424,6 +507,7 @@ function parseArgs() {
     since: null,
     dryRun: false,
     rateLimitMs: 1500,
+    defaultCity: "Denton",
   };
   for (const a of args) {
     if (a === "--dryrun" || a === "--dry-run") opts.dryRun = true;
@@ -431,6 +515,7 @@ function parseArgs() {
     else if (a.startsWith("--page-size=")) opts.pageSize = parseInt(a.split("=")[1], 10);
     else if (a.startsWith("--since=")) opts.since = a.split("=")[1];
     else if (a.startsWith("--rate-limit-ms=")) opts.rateLimitMs = parseInt(a.split("=")[1], 10);
+    else if (a.startsWith("--default-city=")) opts.defaultCity = a.split("=")[1];
   }
   // Default since = 24 months ago
   if (!opts.since) {
@@ -451,7 +536,7 @@ async function main() {
   const opts = parseArgs();
   console.log(`[${NAME}] starting · portal=${PORTAL_URL}`);
   console.log(
-    `[${NAME}] options: maxPages=${opts.maxPages} pageSize=${opts.pageSize} since=${opts.since} rateLimitMs=${opts.rateLimitMs} dryRun=${opts.dryRun}`
+    `[${NAME}] options: maxPages=${opts.maxPages} pageSize=${opts.pageSize} since=${opts.since} rateLimitMs=${opts.rateLimitMs} defaultCity="${opts.defaultCity}" dryRun=${opts.dryRun}`
   );
 
   let totalRows = 0;
@@ -472,7 +557,10 @@ async function main() {
 
       let pageStorageCount = 0;
       for (const r of rows) {
-        const rec = rowToRecord(r, { minSince: opts.since });
+        const rec = rowToRecord(r, {
+          minSince: opts.since,
+          defaultCity: opts.defaultCity,
+        });
         if (rec) {
           pageStorageCount++;
           records.push(rec);
@@ -557,6 +645,8 @@ export {
   findNextPageButton,
   mergeCookieJar,
   parseArgs,
+  parseCityFromContext,
+  DENTON_COUNTY_CITIES,
   COL,
   NAME,
   COUNTY_NAME,

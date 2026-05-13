@@ -17,6 +17,10 @@ import {
   findNextPageButton,
   mergeCookieJar,
   parseArgs,
+  parseCityFromContext,
+  DENTON_COUNTY_CITIES,
+  rowToRecord,
+  COL,
 } from "../scrape-county-permits-denton-tx.mjs";
 
 // ─── parseAspNetState ─────────────────────────────────────────────────────
@@ -178,11 +182,12 @@ describe("parseArgs", () => {
     }
   }
 
-  test("defaults: maxPages=5, rateLimitMs=1500, dryRun=false, since≈24mo ago", () => {
+  test("defaults: maxPages=5, rateLimitMs=1500, dryRun=false, defaultCity=Denton, since≈24mo ago", () => {
     const opts = withArgv([], () => parseArgs());
     assert.equal(opts.maxPages, 5);
     assert.equal(opts.rateLimitMs, 1500);
     assert.equal(opts.dryRun, false);
+    assert.equal(opts.defaultCity, "Denton");
     // since should be a YYYY-MM-DD string
     assert.match(opts.since, /^\d{4}-\d{2}-\d{2}$/);
     // and roughly 24 months in the past — allow 23-25 month tolerance to
@@ -235,5 +240,186 @@ describe("parseArgs", () => {
     assert.equal(opts.rateLimitMs, 500);
     assert.equal(opts.since, "2024-06-01");
     assert.equal(opts.dryRun, true);
+  });
+
+  test("--default-city=Frisco overrides the Denton county-seat fallback", () => {
+    const opts = withArgv(["--default-city=Frisco"], () => parseArgs());
+    assert.equal(opts.defaultCity, "Frisco");
+  });
+});
+
+// ─── parseCityFromContext ─────────────────────────────────────────────────
+
+describe("parseCityFromContext", () => {
+  test("extracts a single-word city from legal description", () => {
+    assert.equal(
+      parseCityFromContext("ABCD ADDITION TO FRISCO BLK A LOT 1", ""),
+      "Frisco",
+    );
+  });
+
+  test("extracts a multi-word city (Flower Mound)", () => {
+    assert.equal(
+      parseCityFromContext("PEMBERTON HILL FLOWER MOUND BLK 3 LOT 7", ""),
+      "Flower Mound",
+    );
+  });
+
+  test("longest match wins — Highland Village beats Village", () => {
+    assert.equal(
+      parseCityFromContext("HIGHLAND VILLAGE SHORES BLK 2 LOT 4", ""),
+      "Highland Village",
+    );
+  });
+
+  test("falls back to address when legal description is empty", () => {
+    assert.equal(parseCityFromContext("", "100 MAIN ST LITTLE ELM TX"), "Little Elm");
+  });
+
+  test("returns null when no Denton County city is named in either field", () => {
+    // McKinney (Collin Co city) is NOT in DENTON_COUNTY_CITIES, so the
+    // S&K MINI WAREHOUSES rows fall through to defaultCity in rowToRecord.
+    assert.equal(
+      parseCityFromContext(
+        "EAST MCKINNEY STREET STORAGE ADDITION BLK A LOT 1",
+        "8126 E MCKINNEY ST BLDG F1-F11",
+      ),
+      null,
+    );
+  });
+
+  test("returns null on empty inputs", () => {
+    assert.equal(parseCityFromContext("", ""), null);
+    assert.equal(parseCityFromContext(null, null), null);
+    assert.equal(parseCityFromContext(undefined, undefined), null);
+  });
+
+  test("whole-word matching — no partial-word false positives", () => {
+    // "PRIVATEPLANTATIONS" should NOT match the city "PLANO"
+    assert.equal(
+      parseCityFromContext("PRIVATEPLANTATIONS SUBDIVISION", ""),
+      null,
+    );
+  });
+
+  test("case-insensitive — handles legal descriptions in lowercase or mixed case", () => {
+    assert.equal(parseCityFromContext("subdivision in aubrey", ""), "Aubrey");
+    assert.equal(parseCityFromContext("Pilot Point Heights", ""), "Pilot Point");
+  });
+
+  test("DENTON_COUNTY_CITIES is sorted longest-first to enable longest-match wins", () => {
+    // Sanity check that the data list maintains its ordering invariant
+    for (let i = 1; i < DENTON_COUNTY_CITIES.length; i++) {
+      const prev = DENTON_COUNTY_CITIES[i - 1].length;
+      const cur = DENTON_COUNTY_CITIES[i].length;
+      assert.ok(
+        prev >= cur,
+        `DENTON_COUNTY_CITIES not longest-first at index ${i}: "${DENTON_COUNTY_CITIES[i - 1]}" (${prev}) precedes "${DENTON_COUNTY_CITIES[i]}" (${cur})`,
+      );
+    }
+  });
+
+  test("covers ≥30 Denton County municipalities (real coverage check)", () => {
+    assert.ok(DENTON_COUNTY_CITIES.length >= 30);
+  });
+});
+
+// ─── rowToRecord city resolution ──────────────────────────────────────────
+
+describe("rowToRecord city resolution", () => {
+  // Helper to build a fake RadGrid row with the right column positions.
+  function makeRow({
+    permitId = "20999999",
+    applicantName = "TEST APPLICANT",
+    applicantCompany = "PUBLIC STORAGE INC",
+    address = "100 MAIN ST",
+    legal = "TEST SUBDIVISION BLK A LOT 1",
+    permitType = "COMMERCIAL BUILDING",
+    dateApproved = "01/15/2025",
+    propertyAccount = "12345",
+    comments = "self-storage facility",
+    permitStatus = "Approved",
+    dateReceived = "01/01/2025",
+    propertyOwner = "PUBLIC STORAGE LP",
+  } = {}) {
+    const row = new Array(13).fill("");
+    row[COL.PermitID] = permitId;
+    row[COL.ApplicantName] = applicantName;
+    row[COL.ApplicantCompany] = applicantCompany;
+    row[COL.PropertySitusAddress] = address;
+    row[COL.PropertyLegalDescription] = legal;
+    row[COL.PermitType] = permitType;
+    row[COL.DateApproved] = dateApproved;
+    row[COL.PropertyAccount] = propertyAccount;
+    row[COL.Comments] = comments;
+    row[COL.PermitStatus] = permitStatus;
+    row[COL.DateReceived] = dateReceived;
+    row[COL.PropertyOwner] = propertyOwner;
+    return row;
+  }
+
+  test("uses extracted city when legal description contains a recognized name", () => {
+    const row = makeRow({ legal: "FRISCO BOAT STORAGE ADDN BLK 1 LOT 1" });
+    const rec = rowToRecord(row, { minSince: "2020-01-01" });
+    assert.equal(rec.city, "Frisco");
+    assert.match(rec.notes, /City resolution: extracted/);
+  });
+
+  test("falls back to defaultCity when no city name appears in row text", () => {
+    const row = makeRow({
+      legal: "EAST MCKINNEY STREET STORAGE ADDITION BLK A LOT 1",
+      address: "8126 E MCKINNEY ST",
+    });
+    const rec = rowToRecord(row, { minSince: "2020-01-01", defaultCity: "Denton" });
+    assert.equal(rec.city, "Denton");
+    assert.match(rec.notes, /City resolution: default \(fallback to Denton\)/);
+  });
+
+  test("defaultCity is overridable per-call (Frisco backfill scenario)", () => {
+    const row = makeRow({
+      legal: "ANONYMOUS SUBDIVISION BLK A LOT 1",
+      address: "100 NAMELESS ST",
+    });
+    const rec = rowToRecord(row, { minSince: "2020-01-01", defaultCity: "Frisco" });
+    assert.equal(rec.city, "Frisco");
+    assert.match(rec.notes, /fallback to Frisco/);
+  });
+
+  test("when defaultCity is omitted entirely, falls back to 'Denton'", () => {
+    const row = makeRow({
+      legal: "ANONYMOUS SUBDIVISION BLK A LOT 1",
+      address: "100 NAMELESS ST",
+    });
+    const rec = rowToRecord(row, { minSince: "2020-01-01" });
+    assert.equal(rec.city, "Denton");
+  });
+
+  test("extracted city wins over defaultCity (extraction is preferred)", () => {
+    const row = makeRow({ legal: "TROPHY CLUB SUBDIVISION BLK A LOT 1" });
+    const rec = rowToRecord(row, {
+      minSince: "2020-01-01",
+      defaultCity: "Anyplace",
+    });
+    assert.equal(rec.city, "Trophy Club");
+  });
+
+  test("S&K MINI WAREHOUSES batch (the smoke-test repro) now validates", () => {
+    // This row mirrors the 7 S&K MINI WAREHOUSES permits that smoke-test
+    // detected on page 13 but rejected for missing city. With Denton fallback
+    // the records now flow through.
+    const row = makeRow({
+      permitId: "20231929",
+      applicantName: "S&K MINI WAREHOUSES",
+      applicantCompany: "S&K MINI WREHOUSES TX LLC",
+      address: "8126 E MCKINNEY ST BLDG F1-F11",
+      legal: "EAST MCKINNEY STREET STORAGE ADDITION BLK A LOT 1",
+      permitType: "COMMERCIAL RETAIL",
+      comments: "EXISTING MIXED USE COMMERCIAL BLDG",
+    });
+    const rec = rowToRecord(row, { minSince: "2020-01-01" });
+    assert.ok(rec, "record should not be null");
+    assert.equal(rec.city, "Denton");
+    assert.equal(rec.state, "TX");
+    assert.match(rec.verifiedSource, /^permit-denton-tx-20231929$/);
   });
 });
