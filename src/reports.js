@@ -4400,14 +4400,8 @@ td{padding:10px 14px;border-bottom:1px solid #F1F5F9;font-size:12px}
   tr,td,th{break-inside:avoid!important;page-break-inside:avoid!important}
   /* Sections: allow internal paging, tight padding in print */
   .section{break-inside:auto!important;padding:18px 28px!important}
-  /* Capstone lands on its own page — workpaper crescendo */
-  #sec-CAP{break-before:page!important;page-break-before:always!important}
-  /* Major deep-dives get fresh pages */
-  #sec-VW,#sec-RA{break-before:page!important;page-break-before:always!important}
-  /* SiteScore, Demographics, Competition, Zoning each get fresh pages */
-  #sec-R4,#sec-R5,#sec-R6,#sec-R7{break-before:page!important;page-break-before:always!important}
-  /* Recommendation + Research gate on page 2 */
-  #sec-R1{break-before:page!important;page-break-before:always!important}
+  /* Each top-level section gets its own page — clean scannable PDF */
+  #sec-R1,#sec-rents,#sec-demos,#sec-val,#sec-audit{break-before:page!important;page-break-before:always!important}
   /* Tighten widows/orphans */
   p,li{widows:3;orphans:3}
   /* Hyperlinks: keep blue but no underline-on-print fluff */
@@ -4570,20 +4564,15 @@ ${(() => {
 })()}
 
 
-<!-- TOC Sidebar — McKinsey nav strip -->
+<!-- TOC Sidebar — clean 4-section nav -->
 <nav class="toc-sidebar" id="tocNav" style="display:none">
   <div class="toc-icon"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div>
   <div class="toc-title">REC Package</div>
-  <a href="#sec-R1" onclick="document.getElementById('sec-R1').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">1</span><span class="toc-label">Recommendation</span></a>
-  <a href="#sec-R2" onclick="document.getElementById('sec-R2').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">2</span><span class="toc-label">SiteScore</span></a>
-  <a href="#sec-R3" onclick="document.getElementById('sec-R3').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">3</span><span class="toc-label">Demographics</span></a>
-  <a href="#sec-R4" onclick="document.getElementById('sec-R4').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">4</span><span class="toc-label">Competition</span></a>
-  <a href="#sec-R5" onclick="document.getElementById('sec-R5').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">5</span><span class="toc-label">Zoning</span></a>
-  <a href="#sec-R6" onclick="document.getElementById('sec-R6').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">6</span><span class="toc-label">Utilities</span></a>
-  <a href="#sec-R7" onclick="document.getElementById('sec-R7').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">7</span><span class="toc-label">Site Access</span></a>
-  <a href="#sec-R8" onclick="document.getElementById('sec-R8').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">8</span><span class="toc-label">Financials</span></a>
-  <a href="#sec-R9" onclick="document.getElementById('sec-R9').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">9</span><span class="toc-label">Institutional</span></a>
-  <a href="#sec-R10" onclick="document.getElementById('sec-R10').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">10</span><span class="toc-label">Risk</span></a>
+  <a href="#sec-R1" onclick="document.getElementById('sec-R1').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">◆</span><span class="toc-label">Recommendation</span></a>
+  <a href="#sec-rents" onclick="document.getElementById('sec-rents').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">1</span><span class="toc-label">Rents</span></a>
+  <a href="#sec-demos" onclick="document.getElementById('sec-demos').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">2</span><span class="toc-label">Demographics</span></a>
+  <a href="#sec-val" onclick="document.getElementById('sec-val').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">3</span><span class="toc-label">Valuation</span></a>
+  <a href="#sec-audit" onclick="document.getElementById('sec-audit').scrollIntoView({behavior:'smooth'});return false"><span class="toc-num">4</span><span class="toc-label">Audit Trail</span></a>
 </nav>
 
 <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
@@ -4653,7 +4642,7 @@ ${(() => {
 
 <!-- ═══════════════ SECTION 1: RECOMMENDATION ═══════════════ -->
 <div id="sec-R1" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #1E2761">
-  <h2><span class="sec-num">1</span> Storvex Recommendation</h2>
+  <h2><span class="sec-num" style="background:linear-gradient(135deg,#C9A84C,#E87A2E);color:#fff">◆</span> Recommendation</h2>
   <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
     <span style="font-size:28px">${recIcon}</span>
     <div>
@@ -4716,2045 +4705,387 @@ ${(() => {
   </div>` : ""}
 </div>
 
-<!-- ═══════════════ VALUATION WORKUP — FULL STORAGE PRO FORMA ═══════════════ -->
-<div id="sec-VW" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #1E2761">
-  <h2><span class="sec-num">2</span> Valuation Workup — Full Development Pro Forma</h2>
-  <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">PS 10-K calibrated Storvex Engine v2.0: 78.4% NOI margin (Q4 2025), 92% stabilized occupancy, 32% cumulative ECRI by Y5, 6.0% exit cap, 8-10.5% Walk/Strike/Home Run YOC. All construction costs state-indexed; operating expenses per PS 10-K.</div>
+<!-- ═══════════════ §1 RENTS ═══════════════ -->
+<div id="sec-rents" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #C9A84C">
+  <h2><span class="sec-num" style="background:#C9A84C">1</span> Rents</h2>
+  <p style="font-size:11px;color:#64748B;margin:0 0 18px;line-height:1.55">Stabilized rents are the median of three independent sources: live SpareFoot comp set (M1), MSA REIT 10-K data (M2 — PSA / EXR / CUBE FY2025 same-store), and income-tier proxy (M3). Stabilized = $/SF × 92% occupancy × 12 months × net rentable SF. ECRI compounds 8%/yr on rolled tenants per PSA disclosure.</p>
 
-  <!-- FACILITY PROGRAM -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:10px">FACILITY PROGRAM — SIZING MODEL</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">BUILD TYPE</div><div style="font-size:14px;font-weight:900;color:#C9A84C;margin-top:4px">${isMultiStory ? stories + "-Story" : "1-Story"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${isMultiStory ? "Tighter site — vertical" : "Suburban format"}</div></div>
-      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">TOTAL GROSS SF</div><div style="font-size:14px;font-weight:900;color:#1E2761;margin-top:4px">${grossSF ? (grossSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${footprint ? Math.round(footprint).toLocaleString() + " SF × " + stories + " stories" : "—"}</div></div>
-      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">NET RENTABLE SF</div><div style="font-size:14px;font-weight:900;color:#3B82F6;margin-top:4px">${totalSF ? (totalSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${netToGross ? (netToGross*100).toFixed(0) + "% efficiency" : "—"}</div></div>
-      <div><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em">INCOME TIER</div><div style="font-size:14px;font-weight:900;color:#C9A84C;margin-top:4px">${(incTier || "").toUpperCase()}</div><div style="font-size:9px;color:#64748B;margin-top:2px">HHI ${incN ? "$" + Math.round(incN/1000) + "K" : "—"}</div></div>
+  <!-- Headline rate cards -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-left:3px solid #3B82F6;border-radius:10px;padding:18px">
+      <div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">CLIMATE-CONTROLLED</div>
+      <div style="font-size:30px;font-weight:900;color:#3B82F6;font-family:'Space Mono',monospace;line-height:1.05;margin:6px 0 4px">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}<span style="font-size:13px;color:#94A3B8;font-weight:600;margin-left:4px">/SF/mo</span></div>
+      <div style="font-size:10px;color:#64748B">${climateSF ? (climateSF/1000).toFixed(0) + "K SF · 92% occ · " + fmtD((climateSF || 0)*(mktClimateRate || 0)*12*0.92) + "/yr stabilized" : "—"}</div>
+    </div>
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-left:3px solid #E87A2E;border-radius:10px;padding:18px">
+      <div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">DRIVE-UP</div>
+      <div style="font-size:30px;font-weight:900;color:#E87A2E;font-family:'Space Mono',monospace;line-height:1.05;margin:6px 0 4px">$${mktDriveRate ? mktDriveRate.toFixed(2) : "—"}<span style="font-size:13px;color:#94A3B8;font-weight:600;margin-left:4px">/SF/mo</span></div>
+      <div style="font-size:10px;color:#64748B">${driveSF ? (driveSF/1000).toFixed(0) + "K SF · 92% occ · " + fmtD((driveSF || 0)*(mktDriveRate || 0)*12*0.92) + "/yr stabilized" : "—"}</div>
     </div>
   </div>
 
-  <!-- UNIT MIX -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:10px">UNIT MIX — CLIMATE vs DRIVE-UP</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px;border-bottom:2px solid #1E2761">Product Type</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Net Rentable SF</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">% of Total</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Stabilized Rate ($/SF/mo)</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Annual Revenue (Y5)</th></tr></thead>
+  <!-- 3-source consensus table -->
+  <table style="margin-bottom:16px">
+    <thead><tr><th>Source</th><th style="text-align:right">CC ($/SF/mo)</th><th style="text-align:right">Drive-Up</th><th>Method</th></tr></thead>
+    <tbody>
+      ${(() => {
+        const mr = site.marketRents;
+        const audited = mr && mr.auditStatus === "verified" && Array.isArray(mr.rates) && mr.rates.length > 0;
+        const rate = audited ? mr.averageCC : m1Rate;
+        return rate ? `<tr><td><b style="color:#3B82F6">M1 — SpareFoot Live</b>${audited ? ` <span class="pill" style="background:#16A34A18;color:#16A34A;margin-left:4px">VERIFIED · n=${mr.rates.length}</span>` : ""}</td><td style="text-align:right" class="mono">$${Number(rate).toFixed(2)}</td><td style="text-align:right" class="mono">—</td><td style="font-size:10px;color:#64748B">${audited ? `Audited ${h(mr.auditDate || "—")} — best signal for submarket pricing power` : "Local comp facility scan within 3 mi"}</td></tr>` : "";
+      })()}
+      ${m2ClimRate ? `<tr style="background:#FAFBFC"><td><b style="color:#16A34A">M2 — MSA REIT 10-K</b></td><td style="text-align:right" class="mono">$${m2ClimRate.toFixed(2)}</td><td style="text-align:right" class="mono">${m2DriveRate ? "$" + m2DriveRate.toFixed(2) : "—"}</td><td style="font-size:10px;color:#64748B">PSA / EXR / CUBE FY2025 10-K Same-Store, this MSA</td></tr>` : ""}
+      ${m3ClimRate ? `<tr><td><b style="color:#C9A84C">M3 — Income Tier</b></td><td style="text-align:right" class="mono">$${m3ClimRate.toFixed(2)}</td><td style="text-align:right" class="mono">—</td><td style="font-size:10px;color:#64748B">Fallback: 3-mi HHI ${incN ? "$" + Math.round(incN/1000) + "K" : "—"} → ${(incTier || "").toUpperCase()} tier rate card</td></tr>` : ""}
+      <tr style="background:#1E2761;color:#fff">
+        <td style="font-weight:900">CONSENSUS (median of 3)</td>
+        <td style="text-align:right;font-weight:900" class="mono">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</td>
+        <td style="text-align:right;font-weight:900" class="mono">$${mktDriveRate ? mktDriveRate.toFixed(2) : "—"}</td>
+        <td style="font-size:10px"><b>${rateConfidence || "—"} confidence</b> · comp adj × ${compAdj ? compAdj.toFixed(2) : "1.00"} · escalation ${annualEsc ? (annualEsc * 100).toFixed(1) : "3.0"}%/yr</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ECRI in-place rate (Y5 effective) -->
+  ${ecriSchedule && Array.isArray(ecriSchedule) && ecriSchedule.length >= 5 && mktClimateRate ? (() => {
+    const y5 = ecriSchedule[4];
+    const y5prem = typeof y5 === "number" ? y5 : (y5.premium || 0);
+    const y5eff = mktClimateRate * (1 + y5prem);
+    return `<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:11px;gap:14px">
+      <div><b style="color:#16A34A">ECRI compounding (PSA method):</b> existing tenants pay above street rate · cumulative Y5 premium <b>+${(y5prem*100).toFixed(0)}%</b></div>
+      <div style="text-align:right"><div style="font-size:9px;color:#64748B;letter-spacing:0.06em">Y5 IN-PLACE CC RATE</div><div class="mono" style="font-size:14px;font-weight:900;color:#16A34A">$${y5eff.toFixed(2)}/SF/mo</div></div>
+    </div>`;
+  })() : ""}
+
+  <!-- Live SpareFoot comp set (when available) -->
+  ${site.ccRentData && site.ccRentData.competitorSet && site.ccRentData.competitorSet.length > 0 ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">
+    <div style="padding:10px 14px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><b style="color:#1E2761;font-size:11px;letter-spacing:0.04em">LIVE COMP SET — SPAREFOOT AUDIT</b> <span class="pill" style="background:${site.ccRentData.auditConfidence === 'HIGH' ? '#16A34A' : site.ccRentData.auditConfidence === 'MEDIUM' ? '#F59E0B' : '#94A3B8'}18;color:${site.ccRentData.auditConfidence === 'HIGH' ? '#16A34A' : site.ccRentData.auditConfidence === 'MEDIUM' ? '#F59E0B' : '#94A3B8'};margin-left:6px">${site.ccRentData.auditConfidence || '—'} CONF</span></div>
+      <div style="font-size:9px;color:#64748B">${site.ccRentData.totalCompetitorsFound || 0} fac enumerated · ${site.ccRentData.psFamilyCount || 0} PS family excluded · ${site.ccRentData.lastAudited ? new Date(site.ccRentData.lastAudited).toLocaleDateString() : '—'}</div>
+    </div>
+    <table style="font-size:11px">
+      <thead><tr><th>Operator</th><th>Type</th><th style="text-align:right">CC SF est.</th><th style="text-align:right">Median 10×10 ($)</th><th>Distance</th></tr></thead>
       <tbody>
-        <tr><td style="padding:10px;font-weight:700;color:#3B82F6">Climate-Controlled</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${climateSF ? climateSF.toLocaleString() : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${climatePct ? Math.round(climatePct*100) + "%" : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">${climateSF && mktClimateRate ? fmtD(climateSF * mktClimateRate * 12 * 0.92) : "—"}</td></tr>
-        <tr style="background:#FAFBFC"><td style="padding:10px;font-weight:700;color:#E87A2E">Drive-Up</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${driveSF ? driveSF.toLocaleString() : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">${drivePct ? Math.round(drivePct*100) + "%" : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">$${mktDriveRate ? mktDriveRate.toFixed(2) : "—"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">${driveSF && mktDriveRate ? fmtD(driveSF * mktDriveRate * 12 * 0.92) : "—"}</td></tr>
-        <tr style="background:#1E2761;color:#fff"><td style="padding:12px;font-weight:900">TOTAL NET RENTABLE</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">${totalSF ? totalSF.toLocaleString() : "—"}</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">100%</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">—</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">${stabRev ? fmtD(stabRev) : "—"}</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- NOI BUILD-UP -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">STABILIZED NOI BUILD-UP (YEAR 5)</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <tbody>
-        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Stabilized Revenue (92% occ + ECRI)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800">${stabRev ? fmtD(stabRev) : "—"}</td></tr>
-        ${opexDetail && Array.isArray(opexDetail) ? opexDetail.map((o, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:8px 10px;color:#64748B">${h(o.item || o.label || "OpEx")}</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';color:#EF4444">-${fmtD(o.amount || 0)}</td></tr>`).join("") : ""}
-        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Total Operating Expenses</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800;color:#EF4444">-${totalOpexDetail ? fmtD(totalOpexDetail) : "—"}</td></tr>
-        <tr style="background:#16A34A;color:#fff"><td style="padding:12px 10px;font-weight:900">STABILIZED NOI (Year 5)</td><td style="padding:12px 10px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">${stabNOI ? fmtD(stabNOI) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#64748B;font-size:10px">NOI Margin (${operatorLabel || "PS Operating Platform"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-size:10px;color:#64748B">${noiMarginPct && noiMarginPct !== "N/A" ? noiMarginPct + "%" : "—"} (benchmark: ${noiMarginBenchmark || "78.4%"})</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- DEV COST STACK -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">DEVELOPMENT COST STACK</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <tbody>
-        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Land Cost (ask: ${site.askingPrice || "—"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:700">${landCost ? fmtD(landCost) : "—"}</td></tr>
-        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Building Shell + HVAC ($${hardCostPerSF || "—"}/SF × ${grossSF ? (grossSF/1000).toFixed(0) + "K gross" : "—"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${hardCost ? fmtD(hardCost) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#64748B">Site Development ($${baseSiteWorkPerSF || "—"}/SF × ${siteAreaSF ? (siteAreaSF/1000).toFixed(0) + "K site" : "—"})</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${siteWorkCost ? fmtD(siteWorkCost) : "—"}</td></tr>
-        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Fire Suppression (NFPA 13/72, $${baseFireSuppressionPerSF || "—"}/SF)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${fireSuppressionCost ? fmtD(fireSuppressionCost) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#64748B">Interior Buildout ($${baseInteriorPerSF || "—"}/SF net — partitions, doors, office)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${interiorBuildoutCost ? fmtD(interiorBuildoutCost) : "—"}</td></tr>
-        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Technology & Security ($${baseTechPerSF || "—"}/SF — access, cameras, IoT)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${technologyCost ? fmtD(technologyCost) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#64748B">Utility Infrastructure (base ${utilityInfraBase ? fmtD(utilityInfraBase) : "—"} + $${baseUtilityPerSF || "—"}/SF)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${utilityInfraCost ? fmtD(utilityInfraCost) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#1E293B;font-weight:700">Total Hard Costs</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-weight:800">${totalHardCost ? fmtD(totalHardCost) : "—"}</td></tr>
-        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Soft Costs (${softCostPct ? (softCostPct*100).toFixed(0) + "%" : "20%"} of all hard — A&E, permits, legal, dev fee)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${softCost ? fmtD(softCost) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#64748B">Contingency (${contingencyPct ? (contingencyPct*100).toFixed(1) + "%" : "7.5%"} of all hard)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${contingency ? fmtD(contingency) : "—"}</td></tr>
-        <tr style="background:#FAFBFC"><td style="padding:8px 10px;color:#64748B">Construction Carry (${constructionMonths || "—"}mo — interest + tax + insurance)</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono'">${carryCosts ? fmtD(carryCosts) : "—"}</td></tr>
-        <tr style="background:#1E2761;color:#fff"><td style="padding:12px 10px;font-weight:900">TOTAL DEVELOPMENT COST</td><td style="padding:12px 10px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">${totalDevCost ? fmtD(totalDevCost) : "—"}</td></tr>
-        <tr><td style="padding:8px 10px;color:#64748B;font-size:10px">Cost per Gross SF</td><td style="padding:8px 10px;text-align:right;font-family:'Space Mono';font-size:10px;color:#64748B">$${grossSF && totalDevCost ? Math.round(totalDevCost / grossSF) : "—"}/SF</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- RETURN METRICS -->
-  <div style="background:linear-gradient(135deg,${verdictColor}15,${verdictColor}05);border:2px solid ${verdictColor}40;border-radius:12px;padding:20px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:${verdictColor};margin-bottom:14px">RETURN METRICS — STORVEX LAND PRICING MODEL</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
-      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">YOC @ STAB.</div><div style="font-size:22px;font-weight:900;color:${verdictColor};font-family:'Space Mono'">${yocStab && yocStab !== "N/A" ? yocStab + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">NOI ÷ Total Dev Cost</div></div>
-      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STRIKE LAND PRICE</div><div style="font-size:22px;font-weight:900;color:#16A34A;font-family:'Space Mono'">${landPrices && landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ 8.5% Strike YOC</div></div>
-      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">ASK vs STRIKE</div><div style="font-size:22px;font-weight:900;color:${parseFloat(askVsStrike) <= 0 ? "#16A34A" : "#EF4444"};font-family:'Space Mono'">${askVsStrike != null ? (parseFloat(askVsStrike) > 0 ? "+" : "") + askVsStrike + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${parseFloat(askVsStrike) <= 0 ? "Below Strike" : "Above Strike"}</div></div>
-      <div style="background:#fff;padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">STAB. VALUE</div><div style="font-size:22px;font-weight:900;color:#C9A84C;font-family:'Space Mono'">${valuations && valuations[1] ? fmtM(valuations[1].value) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ ${mktAcqCap ? (mktAcqCap*100).toFixed(1) + "%" : "5.75%"} market cap</div></div>
-    </div>
-    <div style="margin-top:16px;padding:12px;background:${verdictColor};color:#fff;border-radius:8px;text-align:center"><span style="font-size:14px;font-weight:900;letter-spacing:0.06em">${landVerdict || "—"}</span><span style="font-size:11px;margin-left:10px;opacity:0.9">vs PS Walk (7.0%) / Strike (8.5%) / Home Run (10.5%) YOC</span></div>
-  </div>
-</div>
-
-<!-- ═══════════════ RENT ANALYSIS WORKUP ═══════════════ -->
-<div id="sec-RA" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(201,168,76,0.04),rgba(59,130,246,0.03));border-left:4px solid #C9A84C">
-  <h2><span class="sec-num" style="background:#C9A84C">3</span> Rent Analysis — Rate Build-up & Comparables</h2>
-  <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">Three-source consensus methodology: Local SpareFoot comps (M1), MSA REIT data (M2 — PSA/EXR/CUBE 10-K filings), and income-tier proxy (M3). Competition adjustment layered on base rate. ECRI premium builds revenue above street rate over 5-year lease-up.</div>
-
-  <!-- RATE CONSENSUS -->
-  ${m1Rate || m2ClimRate || m3ClimRate ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">CLIMATE-CONTROLLED RATE — 3-SOURCE CONSENSUS</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px;border-bottom:2px solid #C9A84C">Source</th><th style="text-align:right;padding:10px;border-bottom:2px solid #C9A84C">Rate ($/SF/mo)</th><th style="text-align:left;padding:10px;border-bottom:2px solid #C9A84C">Methodology</th></tr></thead>
-      <tbody>
-        ${(() => {
-          const mr = site.marketRents;
-          const audited = mr && mr.auditStatus === "verified" && typeof mr.averageCC === "number" && mr.averageCC > 0;
-          const displayRate = audited ? mr.averageCC : m1Rate;
-          const label = audited ? `M1: Local SpareFoot Audit · ${mr.rates.length} comps` : "M1: Local SpareFoot Comps";
-          const methodology = audited
-            ? `Audited ${mr.auditDate || ""} — ${mr.rates.map(r => `${r.operator} $${r.perSF.toFixed(2)}`).slice(0,3).join(" · ")}${mr.rates.length > 3 ? " · …" : ""}`
-            : "Competitor facility rates within 3 mi — best signal for submarket pricing power";
-          return displayRate ? `<tr><td style="padding:10px;font-weight:700;color:#3B82F6">${label}${audited ? ' <span style="display:inline-block;background:#16A34A;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px">VERIFIED</span>' : ""}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${Number(displayRate).toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">${methodology}</td></tr>` : "";
-        })()}
-        ${m2ClimRate ? `<tr style="background:#FAFBFC"><td style="padding:10px;font-weight:700;color:#16A34A">M2: MSA REIT Data</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m2ClimRate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">PSA/EXR/CUBE 10-K disclosures for same metro — institutional scale benchmark</td></tr>` : ""}
-        ${m3ClimRate ? `<tr><td style="padding:10px;font-weight:700;color:#C9A84C">M3: Income-Tier Proxy</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${m3ClimRate.toFixed(2)}</td><td style="padding:10px;color:#64748B;font-size:10px">Fallback based on 3-mi median HHI (${(incTier || "").toUpperCase()} tier — ${incN ? "$" + Math.round(incN/1000) + "K" : "—"})</td></tr>` : ""}
-        <tr style="background:#1E2761;color:#fff"><td style="padding:12px;font-weight:900">CONSENSUS (weighted)</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900">$${consensusClimRate ? consensusClimRate.toFixed(2) : mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</td><td style="padding:12px;font-size:10px">${rateConfidence || "—"} confidence</td></tr>
-      </tbody>
-    </table>
-  </div>` : ""}
-
-  <!-- ADJUSTMENTS -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">RATE ADJUSTMENT STACK</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <tbody>
-        <tr><td style="padding:10px;color:#64748B;width:40%">Base Climate Rate</td><td style="padding:10px;color:#1E2761;font-weight:700">${incTier} tier</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${baseClimateRate ? baseClimateRate.toFixed(2) : "—"}</td></tr>
-        <tr style="background:#FAFBFC"><td style="padding:10px;color:#64748B">Base Drive-Up Rate</td><td style="padding:10px;color:#1E2761;font-weight:700">${incTier} tier</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700">$${baseDriveRate ? baseDriveRate.toFixed(2) : "—"}</td></tr>
-        <tr><td style="padding:10px;color:#64748B">Competition Adjustment (${compCount || 0} competitors within 3mi)</td><td style="padding:10px;color:${compAdj < 1 ? "#EF4444" : compAdj > 1 ? "#16A34A" : "#64748B"};font-weight:700">${compAdj < 1 ? "Oversupply discount" : compAdj > 1 ? "Underserved premium" : "Neutral"}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';font-weight:700;color:${compAdj < 1 ? "#EF4444" : compAdj > 1 ? "#16A34A" : "#64748B"}">× ${compAdj ? compAdj.toFixed(2) : "1.00"}</td></tr>
-        <tr style="background:#1E2761;color:#fff"><td style="padding:12px" colspan="2"><b>STABILIZED CLIMATE RATE</b> (base × compAdj)</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900;font-size:14px">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}/SF/mo</td></tr>
-        <tr><td style="padding:12px;color:#64748B" colspan="2"><b>Annual Escalation Engine</b> (demand growth + supply trajectory blend)</td><td style="padding:12px;text-align:right;font-family:'Space Mono';font-weight:900;color:#16A34A">${annualEsc ? (annualEsc * 100).toFixed(1) + "%" : "3.0%"}/yr</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- ECRI PREMIUM SCHEDULE -->
-  ${ecriSchedule && Array.isArray(ecriSchedule) && ecriSchedule.length > 0 ? `<div style="background:linear-gradient(135deg,rgba(22,163,74,0.05),rgba(201,168,76,0.04));border:1px solid rgba(22,163,74,0.25);border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A">ECRI PREMIUM — EXISTING CUSTOMER RATE INCREASES</div><span style="font-size:9px;color:#64748B;background:#fff;padding:2px 8px;border-radius:4px;border:1px solid #E2E8F0">PS benchmark: 32% cumulative Y5, 38-42% of mature revenue</span></div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px">Year</th><th style="text-align:right;padding:10px">ECRI Premium Above Street</th><th style="text-align:right;padding:10px">Effective In-Place Rate</th></tr></thead>
-      <tbody>
-        ${ecriSchedule.slice(0, 5).map((e, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="padding:10px;font-weight:700;color:#1E2761">Year ${i + 1}</td><td style="padding:10px;text-align:right;font-family:'Space Mono';color:#16A34A">+${typeof e === "number" ? (e * 100).toFixed(0) : e.premium ? (e.premium * 100).toFixed(0) : "—"}%</td><td style="padding:10px;text-align:right;font-family:'Space Mono'">$${mktClimateRate ? (mktClimateRate * (1 + (typeof e === "number" ? e : e.premium || 0))).toFixed(2) : "—"}/SF/mo</td></tr>`).join("")}
-      </tbody>
-    </table>
-  </div>` : ""}
-
-  <!-- FINAL APPLIED RATES -->
-  <div style="background:linear-gradient(135deg,rgba(22,163,74,0.05),rgba(201,168,76,0.04));border:1px solid rgba(22,163,74,0.25);border-radius:10px;padding:18px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">APPLIED RATES — THIS SITE</div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
-      <div style="background:#fff;padding:16px;border-radius:8px;text-align:center;border-top:3px solid #3B82F6"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">CLIMATE-CONTROLLED</div><div style="font-size:28px;font-weight:900;color:#3B82F6;font-family:'Space Mono'">$${mktClimateRate ? mktClimateRate.toFixed(2) : "—"}</div><div style="font-size:10px;color:#64748B;margin-top:2px">per SF per month</div><div style="font-size:9px;color:#94A3B8;margin-top:4px">${climateSF ? (climateSF/1000).toFixed(0) + "K SF × 92% occ × $/SF × 12mo = " + fmtD((climateSF || 0) * (mktClimateRate || 0) * 12 * 0.92) : "—"}</div></div>
-      <div style="background:#fff;padding:16px;border-radius:8px;text-align:center;border-top:3px solid #E87A2E"><div style="font-size:9px;color:#94A3B8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px">DRIVE-UP</div><div style="font-size:28px;font-weight:900;color:#E87A2E;font-family:'Space Mono'">$${mktDriveRate ? mktDriveRate.toFixed(2) : "—"}</div><div style="font-size:10px;color:#64748B;margin-top:2px">per SF per month</div><div style="font-size:9px;color:#94A3B8;margin-top:4px">${driveSF ? (driveSF/1000).toFixed(0) + "K SF × 92% occ × $/SF × 12mo = " + fmtD((driveSF || 0) * (mktDriveRate || 0) * 12 * 0.92) : "—"}</div></div>
-    </div>
-    <div style="margin-top:14px;padding:12px;background:#1E2761;color:#fff;border-radius:8px;text-align:center"><span style="font-size:11px;letter-spacing:0.08em;color:#C9A84C;font-weight:700">STABILIZED REVENUE (Y5)</span><span style="font-size:20px;font-weight:900;margin-left:14px;font-family:'Space Mono'">${stabRev ? fmtD(stabRev) : "—"}</span></div>
-    <div style="margin-top:10px;font-size:10px;color:#64748B;text-align:center">Annual escalation: ${annualEsc ? (annualEsc * 100).toFixed(1) + "%" : "3.0%"} | ECRI cumulative Y5: 32% (PS 10-K benchmark) | NOI margin: ${noiMarginBenchmark || "78.4%"}</div>
-  </div>
-</div>
-
-<!-- ═══════════════ MARKET INTEL — SPAREFOOT + ESRI + PROJECTION ═══════════════ -->
-${site.ccRentData ? (() => {
-  const cc = site.ccRentData;
-  const conf = cc.auditConfidence || 'UNKNOWN';
-  const confPct = conf === 'HIGH' ? 0.85 : conf === 'MEDIUM' ? 0.55 : 0.25;
-  const confColor = conf === 'HIGH' ? '#16A34A' : conf === 'MEDIUM' ? '#C9A84C' : '#94A3B8';
-  // Gauge geometry: 180° arc from (20,110) to (220,110), radius 100
-  const gaugeAngle = Math.PI - (confPct * Math.PI);
-  const needleX = 120 + 90 * Math.cos(gaugeAngle);
-  const needleY = 110 - 90 * Math.sin(gaugeAngle);
-
-  // Rent histogram — prepare the bars
-  const ccBand = cc.marketRentBand?.ccBand;
-  const nonCCBand = cc.marketRentBand?.nonCCBand;
-  const marketBand = cc.marketRentBand?.marketBand;
-  const allRates = [];
-  if (cc.competitorSet) {
-    for (const c of cc.competitorSet) {
-      for (const r of (c.rates || [])) {
-        if (r.ratePerSf && r.sf >= 50 && r.sf <= 200) {
-          allRates.push({ rate: r.ratePerSf, type: r.type, facility: c.name, size: r.size });
-        }
-      }
-    }
-  }
-  allRates.sort((a, b) => a.rate - b.rate);
-  // Histogram bins
-  const histMin = allRates.length ? Math.min(...allRates.map(r => r.rate)) : 0.4;
-  const histMax = allRates.length ? Math.max(...allRates.map(r => r.rate)) : 2.0;
-  const histRange = Math.max(0.01, histMax - histMin);
-  const binCount = 12;
-  const binSize = histRange / binCount;
-  const bins = Array(binCount).fill(0).map((_, i) => ({ loRate: histMin + i*binSize, hiRate: histMin + (i+1)*binSize, cc: 0, nonCC: 0 }));
-  for (const r of allRates) {
-    const binIdx = Math.min(binCount - 1, Math.floor((r.rate - histMin) / binSize));
-    if (r.type === 'CC') bins[binIdx].cc++; else bins[binIdx].nonCC++;
-  }
-  const maxBinCount = Math.max(1, ...bins.map(b => b.cc + b.nonCC));
-
-  // Projection curve — prepare sparkline path
-  const curve = cc.rentProjection?.curve || [];
-  const curveW = 520, curveH = 140, curveMarginL = 40, curveMarginR = 10;
-  const curveRates = curve.map(p => p.streetRentPerSf);
-  const curveMin = Math.min(...curveRates, 0.1);
-  const curveMax = Math.max(...curveRates, curveMin + 0.1);
-  const curveRange = curveMax - curveMin || 0.1;
-  const curveXStep = curve.length > 1 ? (curveW - curveMarginL - curveMarginR) / (curve.length - 1) : 0;
-  const curvePoints = curve.map((p, i) => ({
-    x: curveMarginL + i * curveXStep,
-    y: 30 + (curveH - 60) * (1 - (p.streetRentPerSf - curveMin) / curveRange),
-    rate: p.streetRentPerSf,
-    y10x10: p.streetRent10x10Monthly,
-    year: p.year,
-    growth: p.growthRate
-  }));
-  const linePath = curvePoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-  const areaPath = linePath + ` L${curvePoints[curvePoints.length-1]?.x || 0},${curveH-20} L${curveMarginL},${curveH-20} Z`;
-
-return `<div id="sec-MI" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,#0F1538 0%,#1E2761 45%,#0A1127 100%);color:#fff;padding:0;margin:20px 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(15,21,56,0.4),0 0 0 1px rgba(201,168,76,0.3)">
-
-  <!-- HERO HEADER -->
-  <div style="padding:28px 32px 22px;background:linear-gradient(180deg,rgba(201,168,76,0.08),transparent);border-bottom:1px solid rgba(201,168,76,0.2);position:relative;overflow:hidden">
-    <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(201,168,76,0.15),transparent 70%);pointer-events:none"></div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-      <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,rgba(76,201,130,0.18),rgba(76,201,130,0.06));padding:4px 12px;border-radius:20px;border:1px solid rgba(76,201,130,0.35)">
-        <span style="width:6px;height:6px;border-radius:50%;background:#4CC982;box-shadow:0 0 12px #4CC982;animation:miPulse 1.8s ease-in-out infinite"></span>
-        <span style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#4CC982">LIVE MARKET INTELLIGENCE</span>
-      </div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.08em">AUDIT ${cc.auditVersion || 'v2.0'} · ${cc.lastAudited ? new Date(cc.lastAudited).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
-    </div>
-    <h2 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.02em;color:#fff;line-height:1.1">
-      <span style="background:linear-gradient(90deg,#C9A84C 0%,#E4CB7C 50%,#C9A84C 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Storvex</span>
-      <span style="color:#fff">&nbsp;Market Intel</span>
-      <span style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.55);letter-spacing:0.04em;margin-left:8px">— Live Comp Set · Forward Rent Curve · Value-Add Thesis</span>
-    </h2>
-    <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:8px;letter-spacing:0.02em">
-      ${cc.totalCompetitorsFound || 0} competitors enumerated · ${cc.marketRentBand?.samples?.allSizes || 0} live rate observations · ${cc.psFamilyCount || 0} PS Family facilities auto-excluded · ESRI 2025→2030 demographic projections
-    </div>
-  </div>
-
-  <!-- HERO GRID: Confidence Gauge + Big Numbers -->
-  <div style="padding:24px 32px;display:grid;grid-template-columns:260px 1fr;gap:28px;border-bottom:1px solid rgba(201,168,76,0.15)">
-
-    <!-- CONFIDENCE GAUGE (SVG) -->
-    <div style="background:rgba(0,0,0,0.25);border-radius:12px;padding:16px;text-align:center;position:relative">
-      <div style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:4px">AUDIT CONFIDENCE</div>
-      <svg width="240" height="130" viewBox="0 0 240 130" style="margin:0 auto;display:block">
-        <!-- gauge track -->
-        <path d="M 30 110 A 90 90 0 0 1 210 110" stroke="rgba(255,255,255,0.08)" stroke-width="14" fill="none" stroke-linecap="round" />
-        <!-- LOW zone (red) -->
-        <path d="M 30 110 A 90 90 0 0 1 82 33" stroke="#EF4444" stroke-width="14" fill="none" stroke-linecap="butt" opacity="${conf === 'LOW' ? 1 : 0.25}" />
-        <!-- MED zone (gold) -->
-        <path d="M 82 33 A 90 90 0 0 1 158 33" stroke="#C9A84C" stroke-width="14" fill="none" stroke-linecap="butt" opacity="${conf === 'MEDIUM' ? 1 : 0.25}" />
-        <!-- HIGH zone (green) -->
-        <path d="M 158 33 A 90 90 0 0 1 210 110" stroke="#16A34A" stroke-width="14" fill="none" stroke-linecap="butt" opacity="${conf === 'HIGH' ? 1 : 0.25}" />
-        <!-- needle -->
-        <line x1="120" y1="110" x2="${needleX}" y2="${needleY}" stroke="${confColor}" stroke-width="3" stroke-linecap="round" />
-        <circle cx="120" cy="110" r="7" fill="${confColor}" />
-        <circle cx="120" cy="110" r="3" fill="#0F1538" />
-        <!-- labels -->
-        <text x="40" y="122" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">LOW</text>
-        <text x="120" y="22" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">MED</text>
-        <text x="200" y="122" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">HIGH</text>
-      </svg>
-      <div style="margin-top:-4px;font-size:22px;font-weight:900;color:${confColor};letter-spacing:0.02em">${conf}</div>
-      <div style="font-size:9.5px;color:rgba(255,255,255,0.45);margin-top:2px;line-height:1.4;padding:0 8px">${cc.confidenceReason || 'Confidence reflects % of CC facilities with measured live rate inventory'}</div>
-    </div>
-
-    <!-- BIG NUMBERS -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
-      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${(cc.ccSPC_verified || 99) < 3 ? '#16A34A' : (cc.ccSPC_verified || 99) < 5 ? '#C9A84C' : '#EF4444'}">
-        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">CC SPC VERIFIED</div>
-        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:${(cc.ccSPC_verified || 99) < 3 ? '#22C55E' : (cc.ccSPC_verified || 99) < 5 ? '#C9A84C' : '#EF4444'};line-height:1">${cc.ccSPC_verified?.toFixed(2) || '—'}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px;letter-spacing:0.04em">${(cc.ccSPC_verified || 99) < 1.5 ? 'severely underserved' : (cc.ccSPC_verified || 99) < 3 ? 'underserved' : (cc.ccSPC_verified || 99) < 5 ? 'balanced' : 'saturated'}</div>
-      </div>
-      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #C9A84C">
-        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">CC RENT (10×10)</div>
-        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:#C9A84C;line-height:1">$${Math.round((ccBand?.median || 0) * 100) || '—'}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">median · $${ccBand?.p25?.toFixed(2) || '—'}–$${ccBand?.p75?.toFixed(2) || '—'}/SF band</div>
-      </div>
-      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${(cc.rentCurveSummary?.y5_10x10 || 0) > (cc.rentCurveSummary?.y1_10x10 || 999) ? '#16A34A' : '#EF4444'}">
-        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">Y5 PROJECTION</div>
-        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:${(cc.rentCurveSummary?.y5_10x10 || 0) > (cc.rentCurveSummary?.y1_10x10 || 999) ? '#22C55E' : '#EF4444'};line-height:1">$${cc.rentCurveSummary?.y5_10x10 || '—'}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">${cc.rentCurveSummary?.y1_to_y5_cagr || '—'} CAGR · Y10 $${cc.rentCurveSummary?.y10_10x10 || '—'}</div>
-      </div>
-      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${(cc.absorption?.verdict || '').includes('flood') ? '#EF4444' : (cc.absorption?.verdict || '').includes('healthy') ? '#16A34A' : '#C9A84C'}">
-        <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">ABSORPTION</div>
-        <div style="font-size:28px;font-weight:900;font-family:'Space Mono',monospace;color:${(cc.absorption?.verdict || '').includes('flood') ? '#EF4444' : (cc.absorption?.verdict || '').includes('healthy') ? '#22C55E' : '#C9A84C'};line-height:1">${cc.absorption?.monthsToAbsorb ? cc.absorption.monthsToAbsorb.toFixed(0) : '—'}<span style="font-size:14px;color:rgba(255,255,255,0.5);margin-left:4px">mo</span></div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px;line-height:1.2">${(cc.absorption?.verdict || 'no pipeline').split('—')[0].trim()}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PROVENANCE CHAIN -->
-  <div style="padding:14px 32px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(201,168,76,0.1)">
-    <div style="font-size:8.5px;letter-spacing:0.14em;color:rgba(201,168,76,0.7);font-weight:800;margin-bottom:8px">DATA PROVENANCE</div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px">
-      <div style="background:linear-gradient(135deg,#C9A84C,#E4CB7C);color:#1E2761;padding:6px 10px;border-radius:5px;font-weight:800;letter-spacing:0.04em;box-shadow:0 0 12px rgba(201,168,76,0.3)">SpareFoot ${cc.totalCompetitorsFound || 0} facs</div>
-      <span style="color:rgba(201,168,76,0.5)">→</span>
-      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">PS Family Registry (4,247 excl ${cc.psFamilyCount || 0})</div>
-      <span style="color:rgba(201,168,76,0.5)">→</span>
-      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">Places API (gap fill)</div>
-      <span style="color:rgba(201,168,76,0.5)">→</span>
-      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">ESRI GeoEnrichment 2025+2030</div>
-      <span style="color:rgba(201,168,76,0.5)">→</span>
-      <div style="background:rgba(30,39,97,0.6);color:#C9A84C;padding:6px 10px;border-radius:5px;font-weight:700;border:1px solid rgba(201,168,76,0.3)">Churn Model (70% CC turnover)</div>
-      <span style="color:rgba(201,168,76,0.5)">→</span>
-      <div style="background:linear-gradient(135deg,#16A34A,#22C55E);color:#fff;padding:6px 10px;border-radius:5px;font-weight:800;letter-spacing:0.04em;box-shadow:0 0 12px rgba(22,163,74,0.3)">THIS REPORT</div>
-    </div>
-  </div>
-
-  ${allRates.length > 0 ? `<!-- LIVE RENT HISTOGRAM -->
-  <div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div>
-        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">CC VS NON-CC RATE DISTRIBUTION</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Live competitor rates from SpareFoot comp set (50-200 SF units) · ${allRates.length} observations</div>
-      </div>
-      <div style="display:flex;gap:10px;font-size:10px">
-        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#3B82F6;border-radius:2px"></span><span style="color:rgba(255,255,255,0.7)">CC units</span></div>
-        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#F97316;border-radius:2px"></span><span style="color:rgba(255,255,255,0.7)">Drive-up units</span></div>
-      </div>
-    </div>
-    <svg width="100%" height="180" viewBox="0 0 720 180" preserveAspectRatio="none" style="display:block">
-      <!-- axis -->
-      <line x1="50" y1="150" x2="680" y2="150" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-      ${bins.map((b, i) => {
-        const total = b.cc + b.nonCC;
-        if (total === 0) return '';
-        const w = (680 - 50) / binCount - 2;
-        const x = 50 + i * ((680 - 50) / binCount);
-        const ccH = (b.cc / maxBinCount) * 120;
-        const nonCCH = (b.nonCC / maxBinCount) * 120;
-        const totalH = ccH + nonCCH;
-        return `<g>
-          <rect x="${x}" y="${150 - nonCCH}" width="${w}" height="${nonCCH}" fill="#F97316" opacity="0.9"/>
-          <rect x="${x}" y="${150 - totalH}" width="${w}" height="${ccH}" fill="#3B82F6" opacity="0.95"/>
-        </g>`;
-      }).join('')}
-      <!-- P25/P50/P75 markers for CC -->
-      ${ccBand ? `
-        <line x1="${50 + ((ccBand.p25 - histMin) / histRange) * (680 - 50)}" y1="20" x2="${50 + ((ccBand.p25 - histMin) / histRange) * (680 - 50)}" y2="150" stroke="#C9A84C" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
-        <text x="${50 + ((ccBand.p25 - histMin) / histRange) * (680 - 50)}" y="15" fill="#C9A84C" font-size="9" text-anchor="middle" font-family="sans-serif">P25 $${ccBand.p25.toFixed(2)}</text>
-        <line x1="${50 + ((ccBand.median - histMin) / histRange) * (680 - 50)}" y1="20" x2="${50 + ((ccBand.median - histMin) / histRange) * (680 - 50)}" y2="150" stroke="#C9A84C" stroke-width="2"/>
-        <text x="${50 + ((ccBand.median - histMin) / histRange) * (680 - 50)}" y="15" fill="#C9A84C" font-size="10" text-anchor="middle" font-weight="800" font-family="sans-serif">MEDIAN $${ccBand.median.toFixed(2)}</text>
-        <line x1="${50 + ((ccBand.p75 - histMin) / histRange) * (680 - 50)}" y1="20" x2="${50 + ((ccBand.p75 - histMin) / histRange) * (680 - 50)}" y2="150" stroke="#C9A84C" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
-        <text x="${50 + ((ccBand.p75 - histMin) / histRange) * (680 - 50)}" y="15" fill="#C9A84C" font-size="9" text-anchor="middle" font-family="sans-serif">P75 $${ccBand.p75.toFixed(2)}</text>
-      ` : ''}
-      <!-- x-axis labels -->
-      <text x="50" y="170" fill="rgba(255,255,255,0.4)" font-size="10" font-family="sans-serif">$${histMin.toFixed(2)}/SF</text>
-      <text x="680" y="170" fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="end" font-family="sans-serif">$${histMax.toFixed(2)}/SF</text>
-    </svg>
-  </div>` : ''}
-
-  ${curve.length > 0 ? `<!-- FORWARD RENT CURVE SPARKLINE -->
-  <div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div>
-        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">10-YEAR FORWARD RENT CURVE · 10×10 CC STREET RATE</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Driven by ESRI ${cc.rentProjection?.assumptions?.popCagr || '—'}% pop CAGR · ${cc.rentProjection?.assumptions?.hhiCagr || '—'}% HHI CAGR · ${cc.rentProjection?.assumptions?.pipelineRatio || '—'}% pipeline/existing supply drag${cc.rentProjection?.assumptions?.reitDominated ? ' · REIT premium +50bps' : ''}</div>
-      </div>
-      <div style="background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:6px;border:1px solid rgba(201,168,76,0.25);font-size:10px;color:rgba(255,255,255,0.7)">
-        <span style="color:rgba(201,168,76,0.8)">Y1→Y5:</span> <b style="color:${curvePoints[4]?.rate > curvePoints[0]?.rate ? '#22C55E' : '#EF4444'}">${cc.rentCurveSummary?.y1_to_y5_cagr}</b>
-        <span style="margin-left:10px;color:rgba(201,168,76,0.8)">Y1→Y10:</span> <b style="color:${curvePoints[9]?.rate > curvePoints[0]?.rate ? '#22C55E' : '#EF4444'}">${cc.rentCurveSummary?.y1_to_y10_cagr || '—'}</b>
-      </div>
-    </div>
-    <svg width="100%" height="${curveH + 20}" viewBox="0 0 ${curveW + 20} ${curveH + 20}" preserveAspectRatio="none" style="display:block">
-      <defs>
-        <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#C9A84C" stop-opacity="0.4"/>
-          <stop offset="100%" stop-color="#C9A84C" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <!-- horizontal grid -->
-      ${[0.25, 0.5, 0.75].map(p => {
-        const y = 30 + (curveH - 60) * p;
-        return `<line x1="${curveMarginL}" y1="${y}" x2="${curveW - curveMarginR}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
-      }).join('')}
-      <!-- area -->
-      <path d="${areaPath}" fill="url(#curveGrad)"/>
-      <!-- line -->
-      <path d="${linePath}" fill="none" stroke="#C9A84C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-      <!-- points + labels -->
-      ${curvePoints.map((p, i) => `
-        <circle cx="${p.x}" cy="${p.y}" r="4" fill="${p.y <= curvePoints[0].y ? '#22C55E' : '#EF4444'}" stroke="#0F1538" stroke-width="2"/>
-        ${i === 0 || i === 4 || i === 9 || i === curvePoints.length - 1 ? `<text x="${p.x}" y="${p.y - 10}" fill="#fff" font-size="10" font-weight="800" text-anchor="middle" font-family="'Space Mono',monospace">$${p.y10x10}</text>` : ''}
-        <text x="${p.x}" y="${curveH - 4}" fill="rgba(255,255,255,0.5)" font-size="9" text-anchor="middle" font-family="sans-serif">Y${p.year}</text>
-      `).join('')}
-      <!-- y-axis min/max labels -->
-      <text x="${curveMarginL - 5}" y="32" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="end" font-family="sans-serif">$${curveMax.toFixed(2)}</text>
-      <text x="${curveMarginL - 5}" y="${curveH - 20}" fill="rgba(255,255,255,0.4)" font-size="9" text-anchor="end" font-family="sans-serif">$${curveMin.toFixed(2)}</text>
-    </svg>
-  </div>` : ''}
-
-  <div style="padding:24px 32px">
-  <!-- NARRATIVE EXECUTIVE SUMMARY -->
-  ${cc.narrative?.executiveSummary ? `<div style="background:rgba(0,0,0,0.25);border-left:3px solid #C9A84C;border-radius:0 10px 10px 0;padding:20px 24px;margin-bottom:16px">
-    <div style="font-size:9px;font-weight:800;letter-spacing:0.16em;color:#C9A84C;margin-bottom:12px">EXECUTIVE NARRATIVE · SOURCE-STAMPED</div>
-    <div style="font-size:12px;line-height:1.8;color:rgba(255,255,255,0.88);white-space:pre-wrap">${cc.narrative.executiveSummary.replace(/\*\*(.*?)\*\*/g, '<b style="color:#C9A84C">$1</b>')}</div>
-  </div>` : ''}
-  </div>
-  <style>@keyframes miPulse {0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.6}}</style>
-</div>` + `
-
-<!-- MARKET INTEL DETAIL PANELS (light theme, extend the hero) -->
-${site.ccRentData.marketRentBand ? `<div class="section" style="background:#fff;padding:24px;margin:0 0 20px;border-radius:10px;border:1px solid #E2E8F0">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:12px">MARKET RENT BANDS · $/SF/MO (10×10 MONTHLY IN PARENTHESES)</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
-      ${site.ccRentData.marketRentBand.ccBand ? `<div style="background:linear-gradient(135deg,#3B82F6,#1E3A8A);color:#fff;padding:16px;border-radius:8px">
-        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">CLIMATE-CONTROLLED</div>
-        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.ccBand.median.toFixed(2)}</div>
-        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.ccBand.sampleSize} rates)</div>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.ccBand.p25.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p25*100)}/mo) · P75 $${site.ccRentData.marketRentBand.ccBand.p75.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p75*100)}/mo)</div>
-      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">CC band — insufficient sample</div>'}
-      ${site.ccRentData.marketRentBand.nonCCBand ? `<div style="background:linear-gradient(135deg,#F97316,#9A3412);color:#fff;padding:16px;border-radius:8px">
-        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">DRIVE-UP / NON-CC</div>
-        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.nonCCBand.median.toFixed(2)}</div>
-        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.nonCCBand.sampleSize} rates)</div>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.nonCCBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.nonCCBand.p75.toFixed(2)}</div>
-      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">Non-CC band — insufficient sample</div>'}
-      ${site.ccRentData.marketRentBand.marketBand ? `<div style="background:linear-gradient(135deg,#64748B,#334155);color:#fff;padding:16px;border-radius:8px">
-        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">MARKET-WIDE (ALL TYPES)</div>
-        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.marketBand.median.toFixed(2)}</div>
-        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.marketBand.sampleSize} rates)</div>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.marketBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.marketBand.p75.toFixed(2)}</div>
-      </div>` : ''}
-    </div>
-  </div>` : ''}
-
-  <!-- NARRATIVE EXECUTIVE SUMMARY -->
-  ${site.ccRentData.narrative?.executiveSummary ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">EXECUTIVE NARRATIVE</div>
-    <div style="font-size:11.5px;line-height:1.7;color:#1E2761;white-space:pre-wrap">${site.ccRentData.narrative.executiveSummary.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</div>
-  </div>` : ''}
-
-  <!-- RENT BANDS — CC vs Non-CC vs Market-wide -->
-  ${site.ccRentData.marketRentBand ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:12px">LIVE MARKET RENT BANDS — $/SF/mo (10×10 monthly in parentheses)</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
-      ${site.ccRentData.marketRentBand.ccBand ? `<div style="background:linear-gradient(135deg,#3B82F6,#1E3A8A);color:#fff;padding:16px;border-radius:8px">
-        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">CLIMATE-CONTROLLED</div>
-        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.ccBand.median.toFixed(2)}</div>
-        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.ccBand.sampleSize} rates)</div>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.ccBand.p25.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p25*100)}/mo) · P75 $${site.ccRentData.marketRentBand.ccBand.p75.toFixed(2)} ($${Math.round(site.ccRentData.marketRentBand.ccBand.p75*100)}/mo)</div>
-      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">CC band — insufficient sample</div>'}
-      ${site.ccRentData.marketRentBand.nonCCBand ? `<div style="background:linear-gradient(135deg,#F97316,#9A3412);color:#fff;padding:16px;border-radius:8px">
-        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">DRIVE-UP / NON-CC</div>
-        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.nonCCBand.median.toFixed(2)}</div>
-        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.nonCCBand.sampleSize} rates)</div>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.nonCCBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.nonCCBand.p75.toFixed(2)}</div>
-      </div>` : '<div style="background:#F8FAFC;color:#94A3B8;padding:16px;border-radius:8px;text-align:center;font-size:11px">Non-CC band — insufficient sample</div>'}
-      ${site.ccRentData.marketRentBand.marketBand ? `<div style="background:linear-gradient(135deg,#64748B,#334155);color:#fff;padding:16px;border-radius:8px">
-        <div style="font-size:9px;letter-spacing:0.12em;opacity:0.85;margin-bottom:4px">MARKET-WIDE (ALL TYPES)</div>
-        <div style="font-size:22px;font-weight:900;font-family:'Space Mono'">$${site.ccRentData.marketRentBand.marketBand.median.toFixed(2)}</div>
-        <div style="font-size:10px;opacity:0.9">median (${site.ccRentData.marketRentBand.marketBand.sampleSize} rates)</div>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:10px">P25 $${site.ccRentData.marketRentBand.marketBand.p25.toFixed(2)} · P75 $${site.ccRentData.marketRentBand.marketBand.p75.toFixed(2)}</div>
-      </div>` : ''}
-    </div>
-  </div>` : ''}
-
-<!-- ═══════════════ SEC-VA — VALUE-ADD WORKUP (Existing Facility Acquisitions) ═══════════════ -->
-${site.ccRentData.valueAddWorkup ? (() => {
-  const va = site.ccRentData.valueAddWorkup;
-  const v = va.verdict || {};
-  const b = va.bridge || {};
-  const sc = va.scenarioIRRs || {};
-  const ps = va.priceSensitivity || {};
-  const fmt$ = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString();
-  const fmtM = (n) => n == null ? '—' : '$' + (n / 1000000).toFixed(2) + 'M';
-  const fmtK = (n) => n == null ? '—' : '$' + Math.round(n / 1000) + 'K';
-  const pct = (n, d = 1) => n == null ? '—' : (n > 0 ? '+' : '') + n.toFixed(d) + '%';
-
-  // NOI Bridge waterfall geometry
-  const wf = b.waterfall || {};
-  const bars = [
-    { label: 'In-Place NOI', value: wf.inPlaceNOI || 0, type: 'start', cumul: wf.inPlaceNOI || 0 },
-    { label: 'Rent Mark-to-Market', value: wf.rentMarkToMarket || 0, type: 'positive', cumul: (wf.inPlaceNOI || 0) + (wf.rentMarkToMarket || 0) },
-    { label: 'Occupancy Lift', value: wf.occupancyLift || 0, type: 'positive', cumul: (wf.inPlaceNOI || 0) + (wf.rentMarkToMarket || 0) + (wf.occupancyLift || 0) },
-    { label: 'ECRI Program', value: wf.ecriBenefit || 0, type: 'positive', cumul: (wf.finalNOI || 0) },
-    { label: 'Market NOI', value: wf.finalNOI || 0, type: 'end', cumul: wf.finalNOI || 0 },
-  ];
-  const maxBarVal = Math.max(...bars.map(x => x.cumul), 1);
-  const barW = 820, barH = 220, barPad = 40;
-  const colW = (barW - barPad * 2) / bars.length - 12;
-
-  return `<div id="sec-VA" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,#0A2E1A 0%,#0F1538 40%,#1E2761 100%);color:#fff;padding:0;margin:20px 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(10,46,26,0.45),0 0 0 1px ${v.color || '#22C55E'}">
-
-  <!-- VA HERO -->
-  <div style="padding:28px 32px 22px;background:linear-gradient(180deg,rgba(22,163,74,0.12),transparent);border-bottom:1px solid rgba(${v.color === '#EF4444' ? '239,68,68' : '22,163,74'},0.25);position:relative;overflow:hidden">
-    <div style="position:absolute;top:-40px;right:-40px;width:260px;height:260px;background:radial-gradient(circle,${v.color === '#EF4444' ? 'rgba(239,68,68,0.15)' : 'rgba(22,163,74,0.2)'},transparent 70%);pointer-events:none"></div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-      <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,${v.color === '#EF4444' ? 'rgba(239,68,68,0.25)' : 'rgba(22,163,74,0.25)'},${v.color === '#EF4444' ? 'rgba(239,68,68,0.08)' : 'rgba(22,163,74,0.08)'});padding:4px 12px;border-radius:20px;border:1px solid ${v.color === '#EF4444' ? 'rgba(239,68,68,0.4)' : 'rgba(22,163,74,0.4)'}">
-        <span style="width:6px;height:6px;border-radius:50%;background:${v.color || '#22C55E'};box-shadow:0 0 14px ${v.color || '#22C55E'};animation:vaPulse 2s ease-in-out infinite"></span>
-        <span style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:${v.color || '#22C55E'}">EXISTING FACILITY · VALUE-ADD WORKUP</span>
-      </div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.06em">${va.engine || 'storvex-value-add-v1.0'} · ${va.generatedAt ? new Date(va.generatedAt).toLocaleDateString() : '—'}</div>
-    </div>
-    <h2 style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.02em;color:#fff;line-height:1.1">
-      <span style="background:linear-gradient(90deg,${v.color || '#22C55E'} 0%,${v.color === '#EF4444' ? '#FCA5A5' : '#86EFAC'} 50%,${v.color || '#22C55E'} 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${v.verdict || 'Value-Add'}</span>
-    </h2>
-    <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:10px;line-height:1.55;max-width:1000px">
-      ${v.thesis || '—'}
-    </div>
-  </div>
-
-  <!-- VA HERO GRID -->
-  <div style="padding:24px 32px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;border-bottom:1px solid rgba(201,168,76,0.15)">
-    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #64748B">
-      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">IN-PLACE RENT</div>
-      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:#fff;line-height:1">$${va.inPlace?.ccRent?.toFixed(2) || '—'}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">${va.inPlace?.occupancy ? (va.inPlace.occupancy * 100).toFixed(0) : '—'}% occ · CC $/SF/mo</div>
-    </div>
-    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #C9A84C">
-      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">MARKET RENT</div>
-      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:#C9A84C;line-height:1">$${va.market?.ccRent?.toFixed(2) || '—'}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">${va.market?.source || 'SpareFoot'}</div>
-    </div>
-    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid ${v.color || '#22C55E'}">
-      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">RENT GAP</div>
-      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:${v.color || '#22C55E'};line-height:1">${pct(v.rentGapPct)}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">mark-to-market delta</div>
-    </div>
-    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #22C55E">
-      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">NOI UPLIFT</div>
-      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:#22C55E;line-height:1">${fmtK(v.noiUplift)}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">annual · at market rates</div>
-    </div>
-    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 12px;border-left:3px solid #C9A84C">
-      <div style="font-size:8.5px;letter-spacing:0.12em;color:rgba(201,168,76,0.85);font-weight:800;margin-bottom:6px">PROB-WEIGHTED IRR</div>
-      <div style="font-size:22px;font-weight:900;font-family:'Space Mono',monospace;color:${(sc.weightedIRR || 0) >= 15 ? '#22C55E' : (sc.weightedIRR || 0) >= 10 ? '#C9A84C' : '#EF4444'};line-height:1">${sc.weightedIRR?.toFixed(1) || '—'}%</div>
-      <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px">25/50/25 scenarios · ${fmtM(sc.weightedValueCreation)} val creation</div>
-    </div>
-  </div>
-
-  <!-- NOI BRIDGE WATERFALL (SVG) -->
-  <div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div>
-        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">NOI BRIDGE · IN-PLACE → MARKET (Annual $)</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Source-stamped waterfall — every component traceable to SpareFoot comps + ESRI projections + PSA/EXR 10-K OpEx ratios</div>
-      </div>
-    </div>
-    <svg width="100%" height="${barH + 50}" viewBox="0 0 ${barW + 20} ${barH + 50}" preserveAspectRatio="none" style="display:block">
-      <!-- base line -->
-      <line x1="${barPad}" y1="${barH}" x2="${barW - barPad}" y2="${barH}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-      ${bars.map((bar, i) => {
-        const x = barPad + i * (colW + 12);
-        let yTop, yBot, fill, label;
-        if (bar.type === 'start' || bar.type === 'end') {
-          const h = (bar.cumul / maxBarVal) * (barH - 40);
-          yTop = barH - h; yBot = barH;
-          fill = bar.type === 'start' ? '#64748B' : '#22C55E';
-          label = fmtK(bar.value);
-        } else {
-          const prevCumul = bars[i-1]?.cumul || 0;
-          const h1 = (prevCumul / maxBarVal) * (barH - 40);
-          const h2 = (bar.cumul / maxBarVal) * (barH - 40);
-          if (bar.value >= 0) {
-            yTop = barH - h2; yBot = barH - h1; fill = '#16A34A';
-          } else {
-            yTop = barH - h1; yBot = barH - h2; fill = '#EF4444';
-          }
-          label = (bar.value >= 0 ? '+' : '') + fmtK(bar.value);
-        }
-        const h = Math.max(2, yBot - yTop);
-        return `<g>
-          <rect x="${x}" y="${yTop}" width="${colW}" height="${h}" fill="${fill}" opacity="0.88" rx="3"/>
-          <text x="${x + colW/2}" y="${yTop - 6}" font-size="11" font-weight="800" fill="#fff" text-anchor="middle" font-family="'Space Mono',monospace">${label}</text>
-          <text x="${x + colW/2}" y="${barH + 18}" font-size="10" fill="rgba(255,255,255,0.75)" text-anchor="middle" font-family="sans-serif">${bar.label}</text>
-          ${bar.type !== 'start' && bar.type !== 'end' ? `<text x="${x + colW/2}" y="${barH + 32}" font-size="9" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="sans-serif">cumul ${fmtK(bar.cumul)}</text>` : ''}
-          ${i < bars.length - 1 ? `<line x1="${x + colW}" y1="${barH - (bar.cumul / maxBarVal) * (barH - 40)}" x2="${x + colW + 12}" y2="${barH - (bar.cumul / maxBarVal) * (barH - 40)}" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3,3"/>` : ''}
-        </g>`;
-      }).join('')}
-    </svg>
-  </div>
-
-  <!-- 3-SCENARIO IRR PANEL -->
-  ${sc.scenarios?.length ? `<div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div>
-        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">3-SCENARIO IRR · CONSERVATIVE · BASE · AGGRESSIVE</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Different ramp timelines (24/36/48mo) + rent capture rates (70/85/95%) + exit cap shifts. Total basis: ${fmtM(sc.totalBasis)} (acq ${fmtM(sc.acquisitionPrice)} + acq costs ${fmtK(sc.acqCosts)} + capex ${fmtK(sc.repositioningCapex)})</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
-      ${sc.scenarios.map(s => {
-        const c = s.key === 'aggressive' ? '#22C55E' : s.key === 'base' ? '#C9A84C' : '#64748B';
-        return `<div style="background:rgba(0,0,0,0.3);border-radius:12px;padding:18px;border-top:4px solid ${c}">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div>
-              <div style="font-size:10px;color:${c};letter-spacing:0.14em;font-weight:800">${(s.label || '').toUpperCase()}</div>
-              <div style="font-size:9px;color:rgba(255,255,255,0.4);margin-top:2px">${s.rampMonths || '—'}mo ramp · ${((s.rentCaptureRate || 0) * 100).toFixed(0)}% rent capture</div>
-            </div>
-            <div style="background:${c};color:#0F1538;padding:3px 9px;border-radius:4px;font-size:9px;font-weight:800">${((s.prob || 0) * 100).toFixed(0)}% weight</div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-            <div>
-              <div style="font-size:8px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;font-weight:700">IRR</div>
-              <div style="font-size:24px;font-weight:900;font-family:'Space Mono',monospace;color:${(s.irr || 0) >= 15 ? '#22C55E' : (s.irr || 0) >= 10 ? '#C9A84C' : '#EF4444'};line-height:1">${(s.irr || 0).toFixed(1)}%</div>
-            </div>
-            <div>
-              <div style="font-size:8px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;font-weight:700">MOIC</div>
-              <div style="font-size:24px;font-weight:900;font-family:'Space Mono',monospace;color:#fff;line-height:1">${(s.moic || 0).toFixed(2)}x</div>
-            </div>
-          </div>
-          <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:4px;font-size:10px">
-            <div style="display:flex;justify-content:space-between;color:rgba(255,255,255,0.65)"><span>Exit Cap</span><span class="mono">${s.exitCap}%</span></div>
-            <div style="display:flex;justify-content:space-between;color:rgba(255,255,255,0.65)"><span>Exit NOI</span><span class="mono">${fmtK(s.exitNOI)}</span></div>
-            <div style="display:flex;justify-content:space-between;color:rgba(255,255,255,0.65)"><span>Net Exit Proceeds</span><span class="mono">${fmtM(s.netExitProceeds)}</span></div>
-            <div style="display:flex;justify-content:space-between;color:${(s.valueCreation || 0) > 0 ? '#22C55E' : '#EF4444'};font-weight:700"><span>Value Creation</span><span class="mono">${fmtM(s.valueCreation)}</span></div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>` : ''}
-
-  <!-- PURCHASE PRICE SENSITIVITY -->
-  ${ps.cells?.length ? `<div style="padding:24px 32px;border-bottom:1px solid rgba(201,168,76,0.1)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div>
-        <div style="font-size:9px;letter-spacing:0.14em;color:rgba(201,168,76,0.85);font-weight:800">PURCHASE PRICE × EXIT CAP SENSITIVITY · BASE SCENARIO IRR</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Columns: price (${ps.baseAcquisitionPrice ? fmtM(ps.baseAcquisitionPrice) : '—'} ± 10%). Rows: exit cap (${sc.scenarios?.[1]?.exitCap || '—'}% ± 50 bps). Cell = base-scenario IRR %</div>
-      </div>
-      <div style="background:rgba(22,163,74,0.15);border:1px solid rgba(22,163,74,0.35);padding:10px 16px;border-radius:8px;text-align:right">
-        <div style="font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:0.1em;font-weight:700;margin-bottom:2px">MAX PURCHASE @ ${ps.targetIRR}% IRR</div>
-        <div style="font-size:18px;font-weight:900;font-family:'Space Mono',monospace;color:#22C55E">${fmtM(ps.maxPurchasePriceAtTarget)}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:2px">${ps.strikeDiscount > 0 ? ps.strikeDiscount.toFixed(1) + '% below asking' : Math.abs(ps.strikeDiscount).toFixed(1) + '% above asking'}</div>
-      </div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px;background:rgba(0,0,0,0.2);border-radius:8px;overflow:hidden">
-      <thead><tr><th style="padding:8px;color:rgba(201,168,76,0.7);letter-spacing:0.08em;font-weight:700;text-align:center">Cap / Price</th>${ps.priceSteps.map(p => `<th style="padding:8px;color:rgba(201,168,76,0.7);letter-spacing:0.08em;font-weight:700;text-align:center">${p > 0 ? '+' : ''}${(p * 100).toFixed(0)}%<div style="font-size:8px;color:rgba(255,255,255,0.4);font-weight:500">${fmtM(ps.baseAcquisitionPrice * (1 + p))}</div></th>`).join('')}</tr></thead>
-      <tbody>
-        ${ps.cells.map((row, ri) => {
-          const capBps = ps.capSteps[ri] * 10000;
-          return `<tr><td style="padding:8px;color:rgba(255,255,255,0.75);text-align:center;font-weight:700">${capBps > 0 ? '+' : ''}${capBps}bps</td>${row.map(cell => {
-            const irrColor = cell.irr >= 20 ? '#16A34A' : cell.irr >= 15 ? '#22C55E' : cell.irr >= 10 ? '#C9A84C' : cell.irr >= 5 ? '#F59E0B' : '#EF4444';
-            const bg = cell.irr >= (ps.targetIRR || 14) ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.08)';
-            return `<td style="padding:10px;text-align:center;background:${bg}" class="mono"><span style="color:${irrColor};font-weight:800;font-size:13px">${cell.irr.toFixed(1)}%</span></td>`;
-          }).join('')}</tr>`;
+        ${site.ccRentData.competitorSet.slice(0, 6).map(c => {
+          const ccRates = (c.rates || []).filter(r => r.type === 'CC' && r.ratePerSf);
+          const sorted = ccRates.map(r => r.ratePerSf).sort((a,b) => a - b);
+          const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
+          return `<tr><td><b>${h(c.name || '—')}</b></td><td><span style="font-size:10px;color:${c.isCC ? '#3B82F6' : '#E87A2E'};font-weight:700">${c.isCC ? 'CC' : 'Drive-up'}</span></td><td style="text-align:right" class="mono">${c.estCCSF ? Math.round(c.estCCSF/1000) + 'K' : '—'}</td><td style="text-align:right" class="mono">${median ? '$' + Math.round(median*100) : '—'}</td><td style="font-size:10px;color:#64748B">${c.distanceMi ? c.distanceMi.toFixed(1) + ' mi' : '—'}</td></tr>`;
         }).join('')}
       </tbody>
     </table>
-  </div>` : ''}
-
-  <!-- FOOTER -->
-  <div style="padding:16px 32px;background:rgba(0,0,0,0.25);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.04em;line-height:1.6">
-    Value-Add Workup methodology: Mark-to-market NOI computed from SpareFoot live comp rates (${site.ccRentData.marketRentBand?.ccBand?.sampleSize || 0} observations). ECRI uplift calibrated to PSA 10-K disclosures (~8% annualized on rolled tenants). OpEx ratio 38% blended from PSA/EXR/CUBE/NSA operating expense benchmarks. Exit cap ${(sc.scenarios?.[1]?.exitCap || 5.80)}% from Green Street Q1 2026 storage sector report. Acquisition costs 1.5% of purchase (DD, legal, title, survey). Every $ traceable to primary source. <b style="color:rgba(201,168,76,0.9)">This is the acquisition workpaper. Every number defensible under institutional due diligence.</b>
-  </div>
-
-  <style>@keyframes vaPulse {0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.6}}</style>
-</div>`;
-})() : ''}
-
-<!-- COMP SET + ANOMALY + VALUE-ADD panels (light theme extensions of sec-MI hero) -->
-${site.ccRentData.competitorSet?.length ? `<div class="section" style="background:#fff;padding:24px;margin:0 0 16px;border-radius:10px;border:1px solid #E2E8F0">
-  <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:10px">COMPETITOR COMP SET — ${site.ccRentData.competitorSet.length} FACILITIES WITHIN 3 MI</div>
-  <table style="width:100%;border-collapse:collapse;font-size:10.5px">
-    <thead><tr style="background:#1E2761;color:#fff"><th style="text-align:left;padding:8px">Facility</th><th style="text-align:right;padding:8px">Dist</th><th style="text-align:center;padding:8px">Class</th><th style="text-align:center;padding:8px">Source</th><th style="text-align:right;padding:8px">Rates</th></tr></thead>
-    <tbody>
-      ${site.ccRentData.competitorSet.slice(0, 20).map((c, i) => `<tr style="background:${i % 2 ? '#FAFBFC' : '#fff'};border-bottom:1px solid #F1F5F9">
-        <td style="padding:8px;font-weight:600;color:#1E2761">${c.name || '—'}${c.address ? `<div style="font-size:9px;color:#94A3B8;margin-top:2px">${typeof c.address === 'string' ? c.address : [c.address.street, c.address.city, c.address.state].filter(Boolean).join(', ')}</div>` : ''}</td>
-        <td style="padding:8px;text-align:right;font-family:'Space Mono'">${c.distanceMi ? c.distanceMi + ' mi' : '—'}</td>
-        <td style="padding:8px;text-align:center"><span style="background:${c.classification?.includes('cc_confirmed') || c.classification?.includes('cc_mixed') ? '#DCFCE7' : c.classification?.includes('non_cc') ? '#FED7AA' : '#F1F5F9'};color:${c.classification?.includes('cc_confirmed') || c.classification?.includes('cc_mixed') ? '#166534' : c.classification?.includes('non_cc') ? '#9A3412' : '#64748B'};padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700">${(c.classification || 'unknown').replace(/_confirmed|_likely/, '').replace('_', ' ').toUpperCase()}</span></td>
-        <td style="padding:8px;text-align:center;font-size:9px;color:#64748B">${c.primarySource === 'sparefoot' ? 'SpareFoot' : c.primarySource === 'places_only' ? 'Places' : c.source || '—'}</td>
-        <td style="padding:8px;text-align:right;font-family:'Space Mono';font-weight:700;color:${(c.rates?.length || c.rateDataCount || 0) > 0 ? '#16A34A' : '#94A3B8'}">${c.rates?.length || c.rateDataCount || 0}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>
-</div>` : ''}
-
-${site.ccRentData.narrative?.anomalyFlags?.length ? `<div class="section" style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);padding:18px;margin:0 0 16px;border-radius:10px">
-  <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#991B1B;margin-bottom:10px">⚠️ ANOMALY FLAGS</div>
-  <ul style="margin:0;padding-left:20px;font-size:11px;color:#1E2761;line-height:1.7">
-    ${site.ccRentData.narrative.anomalyFlags.map(f => `<li>${f}</li>`).join('')}
-  </ul>
-</div>` : ''}
-
-${site.ccRentData.narrative?.valueAddThesis ? `<div class="section" style="background:linear-gradient(135deg,rgba(22,163,74,0.08),rgba(201,168,76,0.06));border:1px solid rgba(22,163,74,0.3);padding:18px;margin:0 0 16px;border-radius:10px">
-  <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#16A34A;margin-bottom:10px">VALUE-ADD THESIS</div>
-  <div style="font-size:11.5px;line-height:1.7;color:#1E2761">${site.ccRentData.narrative.valueAddThesis.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</div>
-</div>` : ''}
-`;
-})() : ''}
-
-<!-- sec-CAP wrapped in IIFE try/catch — isolates capstone render from rest of REC Package -->
-${(() => { try { if (sxCapError) throw sxCapError; return `
-<div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.04),rgba(201,168,76,0.06));border-left:4px solid #1E2761">
-  <h2><span class="sec-num" style="background:#1E2761">4</span> Institutional Investment Analysis</h2>
-  <div style="font-size:11px;color:#64748B;margin-bottom:20px;line-height:1.5">PSA / EXR / CUBE / NSA 10-K calibrated, Green Street Self-Storage Sector Report + Cushman &amp; Wakefield verified. Every number traceable to a primary source. Sub-sections below: 10-year pro forma, ECRI build-up, sensitivity analysis, scenarios, land triangulation, comp sales, financing, risk-adjusted IRR, source provenance.</div>
-
-  <!-- ── 4j · HOW WE KNOW (the dagger) ── -->
-  <div style="background:#1E2761;color:#fff;border-radius:12px;padding:22px;margin-bottom:20px;position:relative;overflow:hidden">
-    <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,0.25),transparent);pointer-events:none"></div>
-    <div style="font-size:9px;font-weight:800;letter-spacing:0.22em;color:#C9A84C;margin-bottom:10px">HOW WE KNOW</div>
-    <div style="font-size:13px;line-height:1.65;color:rgba(255,255,255,0.92);max-width:860px">
-      Every number in this analysis maps to a primary source. <span style="color:#C9A84C;font-weight:700">PSA FY2025 10-K, EXR FY2025 10-K, CUBE + LSI + NSA 10-Ks, Green Street Q1 2026 Self-Storage Sector Report, Cushman &amp; Wakefield Self-Storage Market Report, RSMeans Q1 2026,</span> and <span style="color:#C9A84C;font-weight:700">ESRI GeoEnrichment 2025</span> &mdash; cross-validated across 2&ndash;3 sources per assumption.
-      The CC rent we modeled? It's the MSA rent from PSA's 10-K Same-Store disclosure, adjusted for this submarket's CC SPC and income tier. The exit cap we used? Green Street Q1 2026 grocery + self-storage sector reports. The ECRI schedule? PSA's disclosed Existing Customer Rate Increase actuals from 2023-2025. No guesses. No markups. <span style="font-weight:800;color:#fff">No model required.</span>
-    </div>
-  </div>
-
-  <!-- ── 4a · 10-YEAR OPERATING PRO FORMA ── -->
-  ${(() => { const pfRows = (Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData; return pfRows && Array.isArray(pfRows) && pfRows.length >= 5; })() ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761">4a &mdash; 10-YEAR OPERATING PRO FORMA</div>
-      <div style="font-size:9px;color:#94A3B8">Lease-up Y1-Y2 &rarr; Stab Y3+ (91% occ) &middot; ECRI 8%/yr on rolled tenants &middot; Street bumps 3.5%/yr &middot; PSA 10-K calibrated</div>
-    </div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:720px">
-        <thead><tr style="background:#F8FAFC">
-          <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #1E2761;position:sticky;left:0;background:#F8FAFC">Line Item</th>
-          ${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr, i) => `<th style="text-align:right;padding:8px;border-bottom:2px solid #1E2761;color:#1E2761">Y${i + 1}</th>`).join("")}
-        </tr></thead>
-        <tbody>
-          <tr><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#fff">Occupancy</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => { const occ = yr.occupancy != null ? yr.occupancy : yr.occRate != null ? yr.occRate : yr.occ != null ? yr.occ : null; return `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;color:${(occ || 0) >= 0.88 ? "#16A34A" : (occ || 0) >= 0.70 ? "#F59E0B" : "#64748B"}">${occ != null ? (occ * 100).toFixed(1) + "%" : "\u2014"}</td>`; }).join("")}</tr>
-          <tr style="background:#FAFBFC"><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#FAFBFC">Total Revenue</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace">${(yr.totalRev || yr.revenue || 0) > 0 ? "$" + ((yr.totalRev || yr.revenue) / 1e6).toFixed(2) + "M" : "\u2014"}</td>`).join("")}</tr>
-          <tr><td style="padding:6px 10px;color:#64748B;position:sticky;left:0;background:#fff">Total OpEx</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;color:#EF4444">(${(yr.opex || 0) > 0 ? "$" + ((yr.opex) / 1e6).toFixed(2) + "M" : "\u2014"})</td>`).join("")}</tr>
-          <tr style="background:#1E2761;color:#fff"><td style="padding:10px;font-weight:900;position:sticky;left:0;background:#1E2761">NOI</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:10px 8px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${(yr.noi || 0) > 0 ? "$" + ((yr.noi) / 1e6).toFixed(2) + "M" : "\u2014"}</td>`).join("")}</tr>
-          <tr><td style="padding:6px 10px;color:#64748B;font-size:9px;position:sticky;left:0;background:#fff">NOI Margin</td>${((Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData).slice(0, 10).map((yr) => `<td style="padding:6px 8px;text-align:right;font-family:'Space Mono',monospace;font-size:9px;color:${((yr.noi || 0) / (yr.totalRev || yr.revenue || 1)) >= 0.70 ? "#16A34A" : "#94A3B8"}">${yr.totalRev || yr.revenue ? (((yr.noi || 0) / (yr.totalRev || yr.revenue || 1)) * 100).toFixed(1) + "%" : "\u2014"}</td>`).join("")}</tr>
-        </tbody>
-      </table>
-    </div>
-    <div style="margin-top:10px;padding:10px 14px;background:#F8FAFC;border-radius:8px;font-size:10px;color:#64748B;line-height:1.6">
-      <b style="color:#1E2761">Method:</b> Year 1 occupancy 45% (lease-up), Y2 75%, Y3+ stabilized at 91% (PSA + EXR portfolio avg). Street rates bump 3.5%/yr; ECRI averages 8%/yr on rolled tenants (PSA disclosure). NOI margin stabilizes at 72-78% (PSA self-managed benchmark). Year 10 NOI drives reversion value at exit cap.
-    </div>
   </div>` : ""}
+</div>
 
-  <!-- ── 4b · ECRI PREMIUM SCHEDULE ── -->
-  ${ecriSchedule && Array.isArray(ecriSchedule) && ecriSchedule.length > 0 ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:10px">4b &mdash; ECRI RATE ESCALATION (PSA 10-K method)</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:#F8FAFC"><th style="text-align:left;padding:10px;border-bottom:2px solid #1E2761">Year</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">ECRI Premium</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Effective In-Place CC Rate</th><th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">vs. Street Rate</th></tr></thead>
+<!-- ═══════════════ §2 DEMOGRAPHICS ═══════════════ -->
+<div id="sec-demos" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #3B82F6">
+  <h2><span class="sec-num" style="background:#3B82F6">2</span> Demographics</h2>
+  <p style="font-size:11px;color:#64748B;margin:0 0 18px;line-height:1.55">ESRI ArcGIS GeoEnrichment 2025 — geocoded radial rings from site coordinates. Current-year (2025) estimates and 2030 projections; growth CAGRs computed CY→FY by ESRI.</p>
+
+  <!-- 1-3-5 Mile Rings Table -->
+  ${(() => {
+    const parsePct = (v) => { if (v == null || v === "") return null; const n = parseFloat(String(v).replace(/[^0-9.\-]/g, "")); return isNaN(n) ? null : n; };
+    const parseN = (v) => { if (v == null || v === "") return null; const n = parseInt(String(v).replace(/[^0-9]/g, ""), 10); return isNaN(n) ? null : n; };
+    const fmtCell = (v) => v == null ? "—" : v.toLocaleString();
+    const fmtMoney = (v) => v == null ? "—" : "$" + v.toLocaleString();
+    const fmtPctCell = (v) => v == null ? "—" : v.toFixed(1) + "%";
+    const r1 = { pop: parseN(site.pop1mi) ?? (!isNaN(pop1) ? pop1 : null), hh: parseN(site.households1mi), inc: parseN(site.income1mi), hv: parseN(site.homeValue1mi), gr: parsePct(site.popGrowth1mi) };
+    const r3 = { pop: parseN(site.pop3mi) ?? (!isNaN(popN) ? popN : null), hh: parseN(site.households3mi) ?? (!isNaN(hhN) ? hhN : null), inc: parseN(site.income3mi) ?? (!isNaN(incN) ? incN : null), hv: parseN(site.homeValue3mi) ?? (!isNaN(hvN) ? hvN : null), gr: parsePct(site.popGrowth3mi) ?? growthPct };
+    const r5 = { pop: parseN(site.pop5mi), hh: parseN(site.households5mi), inc: parseN(site.income5mi), hv: parseN(site.homeValue5mi), gr: parsePct(site.popGrowth5mi) };
+    const grColor = (g) => g == null ? "#94A3B8" : g >= 2 ? "#16A34A" : g >= 1 ? "#C9A84C" : g >= 0 ? "#94A3B8" : "#EF4444";
+    return `<table>
+      <thead><tr>
+        <th>Metric</th>
+        <th style="text-align:right">1-Mile</th>
+        <th style="text-align:right;background:#F0F9FF;color:#1E2761">3-Mile (primary)</th>
+        <th style="text-align:right">5-Mile</th>
+      </tr></thead>
       <tbody>
-        ${ecriSchedule.slice(0, 5).map((e, i) => {
-          const premium = typeof e === "number" ? e : (e.premium || 0);
-          const effRate = mktClimateRate ? mktClimateRate * (1 + premium) : 0;
-          return `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}">
-            <td style="padding:10px;font-weight:700;color:#1E2761">Year ${i + 1}</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace;color:#16A34A;font-weight:700">+${(premium * 100).toFixed(0)}%</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace;font-weight:700">$${effRate.toFixed(2)}/SF/mo</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace;color:#C9A84C">+$${(effRate - (mktClimateRate || 0)).toFixed(2)}/SF/mo</td>
-          </tr>`;
-        }).join("")}
+        <tr><td><b>Population (2025)</b></td><td class="mono" style="text-align:right">${fmtCell(r1.pop)}</td><td class="mono" style="text-align:right;background:#F0F9FF;font-weight:700">${fmtCell(r3.pop)}</td><td class="mono" style="text-align:right">${fmtCell(r5.pop)}</td></tr>
+        <tr style="background:#FAFBFC"><td><b>5-Yr Pop Growth (CAGR)</b></td><td class="mono" style="text-align:right;color:${grColor(r1.gr)}">${fmtPctCell(r1.gr)}</td><td class="mono" style="text-align:right;background:#F0F9FF;font-weight:700;color:${grColor(r3.gr)}">${fmtPctCell(r3.gr)}</td><td class="mono" style="text-align:right;color:${grColor(r5.gr)}">${fmtPctCell(r5.gr)}</td></tr>
+        <tr><td><b>Households</b></td><td class="mono" style="text-align:right">${fmtCell(r1.hh)}</td><td class="mono" style="text-align:right;background:#F0F9FF;font-weight:700">${fmtCell(r3.hh)}</td><td class="mono" style="text-align:right">${fmtCell(r5.hh)}</td></tr>
+        <tr style="background:#FAFBFC"><td><b>Median HHI</b></td><td class="mono" style="text-align:right">${fmtMoney(r1.inc)}</td><td class="mono" style="text-align:right;background:#F0F9FF;font-weight:700">${fmtMoney(r3.inc)}</td><td class="mono" style="text-align:right">${fmtMoney(r5.inc)}</td></tr>
+        <tr><td><b>Median Home Value</b></td><td class="mono" style="text-align:right">${fmtMoney(r1.hv)}</td><td class="mono" style="text-align:right;background:#F0F9FF;font-weight:700">${fmtMoney(r3.hv)}</td><td class="mono" style="text-align:right">${fmtMoney(r5.hv)}</td></tr>
+        ${site.renterPct3mi ? `<tr style="background:#FAFBFC"><td><b>Renter % (3-mi)</b></td><td colspan="3" class="mono" style="text-align:right;font-weight:700">${h(String(site.renterPct3mi))}</td></tr>` : ""}
       </tbody>
     </table>
-    <div style="margin-top:10px;padding:10px 14px;background:#F8FAFC;border-radius:8px;font-size:10px;color:#64748B;line-height:1.6">
-      <b style="color:#1E2761">Method:</b> Existing Customer Rate Increases (ECRI) push stabilized tenants above street rate over time. PSA discloses cumulative 32% ECRI premium at Y5, 38-42% of mature revenue. Street rate applies only to new move-ins; ECRI builds silently on the ~50-60% of tenants who don't move in any given year. This is the quiet compounder in storage economics.
-    </div>
-  </div>` : ""}
+    <div style="margin-top:8px;font-size:9px;color:#94A3B8;font-style:italic">Source: ESRI ArcGIS GeoEnrichment 2025 — Census 2020 base × proprietary updates · 1-3-5 mi geocoded radial rings · CY→FY CAGR computed by ESRI.</div>`;
+  })()}
 
-  <!-- ── 4c · SENSITIVITY MATRICES ── -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:14px">4c &mdash; SENSITIVITY ANALYSIS</div>
+  ${site.demandDrivers ? `<div style="margin-top:16px;padding:12px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px"><div style="font-size:9px;font-weight:800;color:#16A34A;letter-spacing:0.08em;margin-bottom:6px">DEMAND DRIVERS</div><div style="font-size:11px;color:#1E293B;line-height:1.6">${h(site.demandDrivers)}</div></div>` : ""}
+</div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+<!-- ═══════════════ §3 VALUATION ═══════════════ -->
+<div id="sec-val" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #1E2761">
+  <h2><span class="sec-num">3</span> Valuation</h2>
+  <p style="font-size:11px;color:#64748B;margin:0 0 18px;line-height:1.55">PSA-calibrated underwrite — 78.4% NOI margin · 92% stabilized occupancy · 32% cumulative ECRI by Y5 · ${(STORAGE_CONST.EXIT_CAP*100).toFixed(2)}% exit cap. RSMeans state-indexed construction (state factor ${costIdx ? costIdx.toFixed(2) : "1.00"}×). Hurdle: ${(STORAGE_CONST.YOC_HURDLE*100).toFixed(1)}% stabilized YOC.</p>
 
-      <!-- Matrix 1: Rent × Hard Cost → YOC -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:#1E2761;margin-bottom:6px">Rent &times; Hard Cost &rarr; Stabilized YOC</div>
-        <div style="font-size:9px;color:#94A3B8;margin-bottom:10px">Y5 stabilized NOI &divide; Total Dev Cost. PS IC hurdle 8.5%.</div>
-        <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <thead><tr>
-            <th style="padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-weight:600;color:#64748B;font-size:9px"></th>
-            ${sxYocSens.rentDeltas.map(rd => `<th style="padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-weight:700;color:#1E2761;font-size:10px">Rent ${rd > 0 ? "+" : ""}${(rd*100).toFixed(0)}%</th>`).join("")}
-          </tr></thead>
-          <tbody>
-            ${sxYocSens.cells.map((row, i) => `<tr>
-              <th style="padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;text-align:left;font-weight:700;color:#1E2761;font-size:10px">Cost ${sxYocSens.costDeltas[i] > 0 ? "+" : ""}${(sxYocSens.costDeltas[i]*100).toFixed(0)}%</th>
-              ${row.map((v, j) => {
-                const hurdle = STORAGE_CONST.YOC_HURDLE;
-                const bg = v >= hurdle + 0.02 ? "#F0FDF4" : v >= hurdle ? "#FEFCE8" : v >= hurdle - 0.01 ? "#FFF7ED" : "#F8FAFC";
-                const color = v >= hurdle + 0.02 ? "#16A34A" : v >= hurdle ? "#CA8A04" : v >= hurdle - 0.01 ? "#EA580C" : "#1E2761";
-                const weight = (i === 1 && j === 1) ? "900" : "700";
-                const border = (i === 1 && j === 1) ? "2px solid #1E2761" : "1px solid #E2E8F0";
-                return `<td style="padding:10px;background:${bg};border:${border};text-align:center;font-family:'Space Mono',monospace;font-weight:${weight};color:${color};font-size:${(i===1&&j===1)?"14":"12"}px">${(v*100).toFixed(1)}%</td>`;
-              }).join("")}
-            </tr>`).join("")}
-          </tbody>
-        </table>
-      </div>
+  <!-- Facility program strip -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">BUILD TYPE</div><div style="font-size:14px;font-weight:900;color:#C9A84C;margin-top:4px">${isMultiStory ? stories + "-Story" : "1-Story"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${isMultiStory ? "Vertical / tighter site" : "Suburban format"}</div></div>
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">GROSS SF</div><div style="font-size:14px;font-weight:900;color:#1E2761;margin-top:4px">${grossSF ? (grossSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${footprint ? Math.round(footprint).toLocaleString() + " SF × " + stories + (stories === 1 ? " story" : " stories") : "—"}</div></div>
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">NET RENTABLE</div><div style="font-size:14px;font-weight:900;color:#3B82F6;margin-top:4px">${totalSF ? (totalSF/1000).toFixed(0) + "K" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">${netToGross ? (netToGross*100).toFixed(0) + "% efficiency" : "—"}</div></div>
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">UNIT MIX</div><div style="font-size:14px;font-weight:900;color:#1E2761;margin-top:4px">${climatePct ? Math.round(climatePct*100) + "/" + Math.round(drivePct*100) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">CC / Drive-up split</div></div>
+  </div>
 
-      <!-- Matrix 2: Rent × Cap Rate → Stabilized Value -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:#1E2761;margin-bottom:6px">Rent &times; Exit Cap &rarr; Stabilized Value</div>
-        <div style="font-size:9px;color:#94A3B8;margin-bottom:10px">Base cap ${(sxVSens.baseCap*100).toFixed(2)}% (PSA + Green Street Q1 2026).</div>
-        <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <thead><tr>
-            <th style="padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-weight:600;color:#64748B;font-size:9px"></th>
-            ${sxVSens.rentDeltas.map(rd => `<th style="padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;font-weight:700;color:#1E2761;font-size:10px">Rent ${rd > 0 ? "+" : ""}${(rd*100).toFixed(0)}%</th>`).join("")}
-          </tr></thead>
-          <tbody>
-            ${sxVSens.cells.map((row, i) => `<tr>
-              <th style="padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;text-align:left;font-weight:700;color:#1E2761;font-size:10px">Cap ${sxVSens.capDeltas[i] > 0 ? "+" : ""}${(sxVSens.capDeltas[i]*10000).toFixed(0)}bp</th>
-              ${row.map((v, j) => {
-                const base = sxVSens.cells[1][1];
-                const delta = base > 0 ? (v - base) / base : 0;
-                const bg = delta >= 0.05 ? "#F0FDF4" : delta >= -0.05 ? "#F8FAFC" : "#FFF1F2";
-                const color = delta >= 0.05 ? "#16A34A" : delta >= -0.05 ? "#1E2761" : "#B91C1C";
-                const weight = (i === 1 && j === 1) ? "900" : "700";
-                const border = (i === 1 && j === 1) ? "2px solid #1E2761" : "1px solid #E2E8F0";
-                return `<td style="padding:10px;background:${bg};border:${border};text-align:center;font-family:'Space Mono',monospace;font-weight:${weight};color:${color};font-size:${(i===1&&j===1)?"13":"11"}px">${v > 0 ? "$" + (v/1e6).toFixed(2) + "M" : "\u2014"}</td>`;
-              }).join("")}
-            </tr>`).join("")}
-          </tbody>
-        </table>
-      </div>
-
-    </div>
-    <div style="margin-top:14px;padding:10px 14px;background:#F8FAFC;border-radius:8px;font-size:10px;color:#64748B;line-height:1.6">
-      <b style="color:#1E2761">Read:</b> Centre cells (bold, boxed) are the base case. Rent &pm;10% reflects market CC rent negotiation range. Hard cost &pm;10% reflects GC bid variance (RSMeans Q1 2026 storage index). Cap rate &pm;75bps reflects the full trading range for class-A self-storage (Green Street survey).
+  <!-- Headline returns -->
+  <div style="background:linear-gradient(135deg,${verdictColor || "#1E2761"}10,${verdictColor || "#1E2761"}05);border:2px solid ${verdictColor || "#1E2761"}40;border-radius:12px;padding:18px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+      <div style="background:#fff;padding:12px;border-radius:8px;text-align:center"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">STAB. YOC</div><div style="font-size:22px;font-weight:900;color:${parseFloat(yocStab) >= 8.5 ? "#16A34A" : parseFloat(yocStab) >= 7.5 ? "#C9A84C" : "#EF4444"};font-family:'Space Mono',monospace;margin-top:4px">${yocStab && yocStab !== "N/A" ? yocStab + "%" : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">NOI ÷ Total Dev</div></div>
+      <div style="background:#fff;padding:12px;border-radius:8px;text-align:center"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">STRIKE LAND</div><div style="font-size:22px;font-weight:900;color:#16A34A;font-family:'Space Mono',monospace;margin-top:4px">${landPrices && landPrices[1] ? fmtM(landPrices[1].maxLand) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ ${landPrices && landPrices[1] ? (landPrices[1].yoc*100).toFixed(1) : "8.5"}% target</div></div>
+      <div style="background:#fff;padding:12px;border-radius:8px;text-align:center"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">STAB. VALUE</div><div style="font-size:22px;font-weight:900;color:#1E2761;font-family:'Space Mono',monospace;margin-top:4px">${valuations && valuations[1] ? fmtM(valuations[1].value) : "—"}</div><div style="font-size:9px;color:#64748B;margin-top:2px">@ ${valuations && valuations[1] ? (valuations[1].rate*100).toFixed(2) : "—"}% cap</div></div>
+      <div style="background:#fff;padding:12px;border-radius:8px;text-align:center"><div style="font-size:8px;color:#94A3B8;font-weight:700;letter-spacing:0.1em">VERDICT</div><div class="badge" style="background:${verdictColor}18;color:${verdictColor};border:1px solid ${verdictColor}40;font-size:13px;padding:6px 12px;margin-top:6px;display:inline-block">${landVerdict || "—"}</div>${askVsStrike !== null ? `<div style="font-size:9px;color:${parseFloat(askVsStrike) <= 0 ? '#16A34A' : '#E87A2E'};font-weight:700;margin-top:4px">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}% vs strike</div>` : ""}</div>
     </div>
   </div>
 
-  <!-- ── 4d · DOWNSIDE / BASE / UPSIDE SCENARIOS ── -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:14px">4d &mdash; DOWNSIDE / BASE / UPSIDE SCENARIOS</div>
+  <!-- Stabilized NOI Build-Up -->
+  <table style="margin-bottom:16px">
+    <thead><tr><th colspan="2" style="background:#1E2761;color:#fff;padding:10px;letter-spacing:0.06em">STABILIZED NOI BUILD-UP (YEAR 5)</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:700;color:#1E293B">Stabilized Revenue</td><td class="mono" style="text-align:right;font-weight:800">${stabRev ? fmtD(stabRev) : "—"}</td></tr>
+      ${opexDetail && Array.isArray(opexDetail) ? opexDetail.map((o, i) => `<tr style="background:${i % 2 ? "#FAFBFC" : "#fff"}"><td style="color:#64748B;padding-left:24px">${h(o.item || o.label || "OpEx")}</td><td class="mono" style="text-align:right;color:#EF4444">(${fmtD(o.amount || 0)})</td></tr>`).join("") : ""}
+      <tr><td style="font-weight:700;color:#1E293B">Total Operating Expenses</td><td class="mono" style="text-align:right;font-weight:800;color:#EF4444">(${totalOpexDetail ? fmtD(totalOpexDetail) : "—"})</td></tr>
+      <tr style="background:#16A34A;color:#fff"><td style="padding:12px 14px;font-weight:900">STABILIZED NOI (Year 5)</td><td class="mono" style="text-align:right;font-weight:900;font-size:14px;padding:12px 14px">${stabNOI ? fmtD(stabNOI) : "—"}</td></tr>
+      <tr><td style="font-size:10px;color:#64748B">NOI Margin · benchmark ${noiMarginBenchmark || "78.4%"} (PSA self-managed FY2025)</td><td class="mono" style="text-align:right;font-size:10px;color:#64748B">${noiMarginPct && noiMarginPct !== "N/A" ? noiMarginPct + "%" : "—"}</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Development Cost Stack -->
+  <table style="margin-bottom:16px">
+    <thead><tr><th colspan="2" style="background:#1E2761;color:#fff;padding:10px;letter-spacing:0.06em">DEVELOPMENT COST STACK</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:700;color:#1E293B">Land${site.askingPrice ? ` <span style="font-weight:400;color:#64748B;font-size:10px">(asking ${h(site.askingPrice)})</span>` : ""}</td><td class="mono" style="text-align:right;font-weight:700">${landCost ? fmtD(landCost) : "—"}</td></tr>
+      <tr style="background:#FAFBFC"><td style="color:#64748B;padding-left:24px">Building Shell + HVAC <span style="font-size:10px">($${hardCostPerSF || "—"}/SF × ${grossSF ? (grossSF/1000).toFixed(0) + "K gross" : "—"})</span></td><td class="mono" style="text-align:right">${hardCost ? fmtD(hardCost) : "—"}</td></tr>
+      <tr><td style="color:#64748B;padding-left:24px">Site Development${siteAreaSF ? ` <span style="font-size:10px">($${baseSiteWorkPerSF}/SF × ${(siteAreaSF/1000).toFixed(0)}K site SF)</span>` : ""}</td><td class="mono" style="text-align:right">${siteWorkCost ? fmtD(siteWorkCost) : "—"}</td></tr>
+      <tr style="background:#FAFBFC"><td style="color:#64748B;padding-left:24px">Fire Suppression <span style="font-size:10px">(NFPA 13/72)</span></td><td class="mono" style="text-align:right">${fireSuppressionCost ? fmtD(fireSuppressionCost) : "—"}</td></tr>
+      <tr><td style="color:#64748B;padding-left:24px">Interior Buildout, Tech &amp; Utility Infra</td><td class="mono" style="text-align:right">${fmtD((interiorBuildoutCost || 0) + (technologyCost || 0) + (utilityInfraCost || 0))}</td></tr>
+      <tr><td style="font-weight:700;color:#1E293B">Total Hard Costs <span style="font-weight:400;color:#64748B;font-size:10px">($${totalHardPerSF || "—"}/SF all-in · state idx ${costIdx ? costIdx.toFixed(2) : "1.00"}×)</span></td><td class="mono" style="text-align:right;font-weight:800">${totalHardCost ? fmtD(totalHardCost) : "—"}</td></tr>
+      <tr style="background:#FAFBFC"><td style="color:#64748B;padding-left:24px">Soft Costs <span style="font-size:10px">(${softCostPct ? (softCostPct*100).toFixed(0) + "%" : "20%"} of hard — A&amp;E, permits, legal, dev fee)</span></td><td class="mono" style="text-align:right">${softCost ? fmtD(softCost) : "—"}</td></tr>
+      <tr><td style="color:#64748B;padding-left:24px">Contingency <span style="font-size:10px">(${contingencyPct ? (contingencyPct*100).toFixed(1) + "%" : "7.5%"} of hard)</span></td><td class="mono" style="text-align:right">${contingency ? fmtD(contingency) : "—"}</td></tr>
+      <tr style="background:#FAFBFC"><td style="color:#64748B;padding-left:24px">Construction Carry <span style="font-size:10px">(${constructionMonths || "—"} mo · interest + tax + insurance)</span></td><td class="mono" style="text-align:right">${carryCosts ? fmtD(carryCosts) : "—"}</td></tr>
+      <tr style="background:#1E2761;color:#fff"><td style="padding:12px 14px;font-weight:900">TOTAL DEVELOPMENT COST</td><td class="mono" style="text-align:right;font-weight:900;font-size:14px;padding:12px 14px">${totalDevCost ? fmtD(totalDevCost) : "—"}</td></tr>
+      <tr><td style="font-size:10px;color:#64748B">Cost per gross SF</td><td class="mono" style="text-align:right;font-size:10px;color:#64748B">$${grossSF && totalDevCost ? Math.round(totalDevCost / grossSF) : "—"}/SF</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 10-Year Pro Forma -->
+  ${(() => {
+    if (sxCapError) return "";
+    const pfRows = (Array.isArray(yearData10) && yearData10.length >= 10) ? yearData10 : yearData;
+    if (!Array.isArray(pfRows) || pfRows.length < 5) return "";
+    return `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:0;overflow:hidden;margin-bottom:16px">
+      <div style="padding:10px 14px;background:#F8FAFC;border-bottom:1px solid #E2E8F0"><b style="color:#1E2761;font-size:11px;letter-spacing:0.04em">10-YEAR OPERATING PRO FORMA</b> <span style="font-size:9px;color:#64748B;margin-left:8px">Y1-Y2 lease-up &rarr; Y3+ stabilized · ECRI 8%/yr on rolled tenants · PSA 10-K calibrated</span></div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px;min-width:680px">
+        <thead><tr style="background:#F8FAFC">
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid #E2E8F0">Line</th>
+          ${pfRows.slice(0, 10).map((yr, i) => `<th style="text-align:right;padding:8px;border-bottom:1px solid #E2E8F0;color:#1E2761">Y${i + 1}</th>`).join("")}
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:6px 10px;color:#64748B">Occupancy</td>${pfRows.slice(0, 10).map(yr => { const occ = yr.occupancy != null ? yr.occupancy : yr.occRate != null ? yr.occRate : yr.occ != null ? yr.occ : null; return `<td style="padding:6px 8px;text-align:right" class="mono">${occ != null ? (occ * 100).toFixed(0) + "%" : "—"}</td>`; }).join("")}</tr>
+          <tr style="background:#FAFBFC"><td style="padding:6px 10px;color:#64748B">Revenue</td>${pfRows.slice(0, 10).map(yr => `<td style="padding:6px 8px;text-align:right" class="mono">${(yr.totalRev || yr.revenue || 0) > 0 ? "$" + ((yr.totalRev || yr.revenue) / 1e6).toFixed(2) + "M" : "—"}</td>`).join("")}</tr>
+          <tr><td style="padding:6px 10px;color:#64748B">OpEx</td>${pfRows.slice(0, 10).map(yr => `<td style="padding:6px 8px;text-align:right;color:#EF4444" class="mono">(${(yr.opex || 0) > 0 ? "$" + ((yr.opex) / 1e6).toFixed(2) + "M" : "—"})</td>`).join("")}</tr>
+          <tr style="background:#16A34A;color:#fff"><td style="padding:8px 10px;font-weight:800">NOI</td>${pfRows.slice(0, 10).map(yr => `<td style="padding:8px;text-align:right;font-weight:800" class="mono">${(yr.noi || 0) > 0 ? "$" + ((yr.noi) / 1e6).toFixed(2) + "M" : "—"}</td>`).join("")}</tr>
+        </tbody>
+      </table></div>
+    </div>`;
+  })()}
+
+  <!-- Sensitivity matrices side-by-side -->
+  ${!sxCapError && sxYocSens && sxVSens ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#1E2761;margin-bottom:14px">SENSITIVITY — RENT × COST &rarr; YOC · RENT × CAP &rarr; VALUE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div>
+        <div style="font-size:10px;color:#64748B;margin-bottom:6px">Stabilized YOC · hurdle ${(STORAGE_CONST.YOC_HURDLE*100).toFixed(1)}%</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px">
+          <thead><tr><th style="padding:6px;background:#F8FAFC;border:1px solid #E2E8F0"></th>${sxYocSens.rentDeltas.map(rd => `<th style="padding:6px;background:#F8FAFC;border:1px solid #E2E8F0;color:#1E2761">Rent ${rd > 0 ? "+" : ""}${(rd*100).toFixed(0)}%</th>`).join("")}</tr></thead>
+          <tbody>${sxYocSens.cells.map((row, i) => `<tr><th style="padding:6px;background:#F8FAFC;border:1px solid #E2E8F0;text-align:left;color:#1E2761">Cost ${sxYocSens.costDeltas[i] > 0 ? "+" : ""}${(sxYocSens.costDeltas[i]*100).toFixed(0)}%</th>${row.map((v, j) => { const hurdle = STORAGE_CONST.YOC_HURDLE; const bg = v >= hurdle + 0.02 ? "#F0FDF4" : v >= hurdle ? "#FEFCE8" : v >= hurdle - 0.01 ? "#FFF7ED" : "#fff"; const color = v >= hurdle + 0.02 ? "#16A34A" : v >= hurdle ? "#CA8A04" : v >= hurdle - 0.01 ? "#EA580C" : "#1E2761"; const isBase = i === 1 && j === 1; return `<td style="padding:8px;background:${bg};border:${isBase ? "2px solid #1E2761" : "1px solid #E2E8F0"};text-align:center;font-family:'Space Mono',monospace;font-weight:${isBase ? "900" : "700"};color:${color};font-size:${isBase ? "12" : "11"}px">${(v*100).toFixed(1)}%</td>`; }).join("")}</tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#64748B;margin-bottom:6px">Stabilized Value · base cap ${(sxVSens.baseCap*100).toFixed(2)}%</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px">
+          <thead><tr><th style="padding:6px;background:#F8FAFC;border:1px solid #E2E8F0"></th>${sxVSens.rentDeltas.map(rd => `<th style="padding:6px;background:#F8FAFC;border:1px solid #E2E8F0;color:#1E2761">Rent ${rd > 0 ? "+" : ""}${(rd*100).toFixed(0)}%</th>`).join("")}</tr></thead>
+          <tbody>${sxVSens.cells.map((row, i) => `<tr><th style="padding:6px;background:#F8FAFC;border:1px solid #E2E8F0;text-align:left;color:#1E2761">Cap ${sxVSens.capDeltas[i] > 0 ? "+" : ""}${(sxVSens.capDeltas[i]*10000).toFixed(0)}bp</th>${row.map((v, j) => { const base = sxVSens.cells[1][1]; const delta = base > 0 ? (v - base) / base : 0; const bg = delta >= 0.05 ? "#F0FDF4" : delta >= -0.05 ? "#fff" : "#FFF1F2"; const color = delta >= 0.05 ? "#16A34A" : delta >= -0.05 ? "#1E2761" : "#B91C1C"; const isBase = i === 1 && j === 1; return `<td style="padding:8px;background:${bg};border:${isBase ? "2px solid #1E2761" : "1px solid #E2E8F0"};text-align:center;font-family:'Space Mono',monospace;font-weight:${isBase ? "900" : "700"};color:${color};font-size:${isBase ? "11" : "10"}px">${v > 0 ? "$" + (v/1e6).toFixed(2) + "M" : "—"}</td>`; }).join("")}</tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:9px;color:#94A3B8;font-style:italic">Centre cell = base case (heavy border). Rent ±10% reflects negotiation range; cost ±10% reflects GC bid variance (RSMeans Q1'26); cap ±75 bps reflects class-A storage trading range (Green Street).</div>
+  </div>` : ""}
+
+  <!-- Downside / Base / Upside -->
+  ${!sxCapError && Array.isArray(sxScenarios) && sxScenarios.length === 3 ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
+    <div style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#1E2761;margin-bottom:14px">DOWNSIDE / BASE / UPSIDE</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
       ${sxScenarios.map(s => {
         const color = s.key === "downside" ? "#B91C1C" : s.key === "base" ? "#1E2761" : "#16A34A";
         const bg = s.key === "downside" ? "#FFF1F2" : s.key === "base" ? "#F8FAFC" : "#F0FDF4";
         return `<div style="background:${bg};border:${s.key === "base" ? "2" : "1"}px solid ${color};border-radius:10px;padding:14px">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-            <div style="font-size:10px;font-weight:900;color:${color};letter-spacing:0.1em">${s.label.toUpperCase()}</div>
-            <div style="font-size:9px;color:#94A3B8">prob ${(s.prob*100).toFixed(0)}%</div>
-          </div>
-          <div style="font-size:9px;color:#64748B;margin-bottom:10px;line-height:1.4">Rent ${s.rentFlex >= 0 ? "+" : ""}${(s.rentFlex*100).toFixed(0)}% &middot; Hard ${s.hardFlex >= 0 ? "+" : ""}${(s.hardFlex*100).toFixed(0)}% &middot; Cap ${(s.exitCap*100).toFixed(2)}% &middot; Occ ${(s.stabOcc*100).toFixed(0)}%</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><div style="font-size:10px;font-weight:900;color:${color};letter-spacing:0.1em">${s.label.toUpperCase()}</div><div style="font-size:9px;color:#94A3B8">prob ${(s.prob*100).toFixed(0)}%</div></div>
+          <div style="font-size:9px;color:#64748B;margin-bottom:10px;line-height:1.4">Rent ${s.rentFlex >= 0 ? "+" : ""}${(s.rentFlex*100).toFixed(0)}% · Cost ${s.hardFlex >= 0 ? "+" : ""}${(s.hardFlex*100).toFixed(0)}% · Cap ${(s.exitCap*100).toFixed(2)}% · Occ ${(s.stabOcc*100).toFixed(0)}%</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px">
-            <div><div style="color:#94A3B8;font-size:8px;letter-spacing:0.06em">NOI</div><div style="font-family:'Space Mono',monospace;font-weight:700">${fmtM(s.noi)}</div></div>
-            <div><div style="color:#94A3B8;font-size:8px;letter-spacing:0.06em">DEV COST</div><div style="font-family:'Space Mono',monospace;font-weight:700">${fmtM(s.devCost)}</div></div>
-            <div><div style="color:#94A3B8;font-size:8px;letter-spacing:0.06em">YOC</div><div style="font-family:'Space Mono',monospace;font-weight:900;color:${color}">${(s.yoc*100).toFixed(1)}%</div></div>
-            <div><div style="color:#94A3B8;font-size:8px;letter-spacing:0.06em">STAB VALUE</div><div style="font-family:'Space Mono',monospace;font-weight:700">${fmtM(s.stabValue)}</div></div>
-            <div><div style="color:#94A3B8;font-size:8px;letter-spacing:0.06em">VALUE CREATION</div><div style="font-family:'Space Mono',monospace;font-weight:700;color:${s.valueCreation >= 0 ? "#16A34A" : "#B91C1C"}">${s.valueCreation >= 0 ? "+" : ""}${fmtM(s.valueCreation)}</div></div>
-            <div><div style="color:#94A3B8;font-size:8px;letter-spacing:0.06em">UNLEV IRR</div><div style="font-family:'Space Mono',monospace;font-weight:900;color:${color}">${isFinite(s.irr) ? (s.irr*100).toFixed(1) + "%" : "\u2014"}</div></div>
+            <div><div style="color:#94A3B8;font-size:8px">YOC</div><div class="mono" style="font-weight:900;color:${color}">${(s.yoc*100).toFixed(1)}%</div></div>
+            <div><div style="color:#94A3B8;font-size:8px">STAB VAL</div><div class="mono" style="font-weight:700">${fmtM(s.stabValue)}</div></div>
+            <div><div style="color:#94A3B8;font-size:8px">VALUE CRT'D</div><div class="mono" style="font-weight:700;color:${s.valueCreation >= 0 ? "#16A34A" : "#B91C1C"}">${s.valueCreation >= 0 ? "+" : ""}${fmtM(s.valueCreation)}</div></div>
+            <div><div style="color:#94A3B8;font-size:8px">UNLEV IRR</div><div class="mono" style="font-weight:900;color:${color}">${isFinite(s.irr) ? (s.irr*100).toFixed(1) + "%" : "—"}</div></div>
           </div>
         </div>`;
       }).join("")}
     </div>
-    <div style="margin-top:14px;padding:10px 14px;background:#F8FAFC;border-radius:8px;font-size:10px;color:#64748B;line-height:1.6">
-      <b style="color:#1E2761">Read:</b> Each scenario flexes rent, hard cost, exit cap, and stabilized occupancy against the PS IC 8.5% hurdle. IRR assumes 10-yr hold, exit Y10 at scenario cap. Downside stress tests simultaneous rent softening + cost overrun + cap expansion + sub-stabilization occupancy &mdash; the true institutional stress case.
-    </div>
-  </div>
-
-  <!-- ── 4e · LAND PRICING TRIANGULATION ── -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:14px">4e &mdash; LAND PRICING TRIANGULATION (3-method convergence)</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
-      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-left:3px solid #16A34A;border-radius:8px;padding:14px">
-        <div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#16A34A;margin-bottom:4px">METHOD 1 &middot; RESIDUAL</div>
-        <div style="font-size:9px;color:#94A3B8;margin-bottom:8px">Stab Value &minus; Dev Cost (ex-land) &minus; 15% Dev Profit</div>
-        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#1E2761">${fmtM(Math.max(0, sxTri.method1))}</div>
-        ${acres > 0 && sxTri.method1 > 0 ? `<div style="font-size:10px;color:#64748B;margin-top:2px">$${Math.round(sxTri.method1 / acres / 1000)}K/AC</div>` : ""}
-      </div>
-      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-left:3px solid #3B82F6;border-radius:8px;padding:14px">
-        <div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#3B82F6;margin-bottom:4px">METHOD 2 &middot; INCOME @ 8.5% YOC</div>
-        <div style="font-size:9px;color:#94A3B8;margin-bottom:8px">NOI &divide; Target YOC &minus; Dev Cost (ex-land)</div>
-        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#1E2761">${fmtM(Math.max(0, sxTri.method2))}</div>
-        ${acres > 0 && sxTri.method2 > 0 ? `<div style="font-size:10px;color:#64748B;margin-top:2px">$${Math.round(sxTri.method2 / acres / 1000)}K/AC</div>` : ""}
-      </div>
-      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-left:3px solid #C9A84C;border-radius:8px;padding:14px">
-        <div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#C9A84C;margin-bottom:4px">METHOD 3 &middot; COMP SALES</div>
-        <div style="font-size:9px;color:#94A3B8;margin-bottom:8px">${sxTri.compsUsed} comps &middot; avg ${sxTri.avgPerAc > 0 ? "$" + Math.round(sxTri.avgPerAc / 1000) + "K/AC" : "n/a"}</div>
-        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:${sxTri.method3 > 0 ? "#1E2761" : "#94A3B8"}">${sxTri.method3 > 0 ? fmtM(sxTri.method3) : "No comps"}</div>
-      </div>
-    </div>
-    <div style="background:linear-gradient(135deg,rgba(30,39,97,0.05),rgba(201,168,76,0.08));border:2px solid #1E2761;border-radius:10px;padding:16px">
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:14px;align-items:center">
-        <div>
-          <div style="font-size:9px;font-weight:800;letter-spacing:0.14em;color:#C9A84C;margin-bottom:4px">TRIANGULATED RANGE</div>
-          <div style="font-size:11px;color:#64748B">Based on ${[sxTri.method1, sxTri.method2, sxTri.method3].filter(v => v > 0).length} of 3 methods</div>
-        </div>
-        <div style="text-align:center"><div style="font-size:9px;color:#94A3B8;letter-spacing:0.06em">LOW</div><div style="font-family:'Space Mono',monospace;font-weight:800;color:#1E2761">${fmtM(sxTri.low)}</div></div>
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px"><div style="font-size:9px;color:#94A3B8;letter-spacing:0.06em">MID (AVG)</div><div style="font-family:'Space Mono',monospace;font-weight:900;color:#1E2761;font-size:16px">${fmtM(sxTri.avg)}</div></div>
-        <div style="text-align:center"><div style="font-size:9px;color:#94A3B8;letter-spacing:0.06em">HIGH</div><div style="font-family:'Space Mono',monospace;font-weight:800;color:#1E2761">${fmtM(sxTri.high)}</div></div>
-      </div>
-      ${landCost > 0 && sxTri.avg > 0 ? `<div style="margin-top:12px;padding:10px;background:#fff;border-radius:6px;font-size:11px;display:flex;justify-content:space-between;align-items:center">
-        <div style="color:#64748B"><b style="color:#1E2761">Subject Asking:</b> ${fmtM(landCost)}${acres > 0 ? ` ($${Math.round(landCost / acres / 1000)}K/AC)` : ""}</div>
-        <div style="font-weight:800;color:${landCost <= sxTri.avg ? "#16A34A" : landCost <= sxTri.high ? "#F59E0B" : "#B91C1C"}">${landCost <= sxTri.low ? "BELOW RANGE \u2014 STRONG BUY" : landCost <= sxTri.avg ? "BELOW MID \u2014 BUY" : landCost <= sxTri.high ? "ABOVE MID \u2014 NEGOTIATE" : "ABOVE RANGE \u2014 PASS / REDUCE"}</div>
-      </div>` : ""}
-    </div>
-  </div>
-
-  <!-- ── 4f · COMP SALES GRID (self-storage facilities) ── -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761">4f &mdash; COMP SALES GRID &mdash; ${(site.state || "US").toUpperCase()} SELF-STORAGE</div>
-      ${sxAvgCompCap ? `<div style="font-size:10px;color:#64748B">${sxSaleCompsState.length} comps &middot; avg cap <b style="color:#C9A84C">${(sxAvgCompCap*100).toFixed(2)}%</b></div>` : ""}
-    </div>
-    ${sxSaleCompsState.length > 0 ? `<div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:720px">
-        <thead><tr style="background:#F8FAFC">
-          <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #1E2761">Property</th>
-          <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #1E2761">City</th>
-          <th style="text-align:left;padding:8px;border-bottom:2px solid #1E2761">Date</th>
-          <th style="text-align:left;padding:8px;border-bottom:2px solid #1E2761">Type</th>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #1E2761">NRSF</th>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #1E2761">Price</th>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #1E2761">$/SF</th>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #1E2761">Cap</th>
-          <th style="text-align:left;padding:8px;border-bottom:2px solid #1E2761">Buyer</th>
-          <th style="text-align:left;padding:8px;border-bottom:2px solid #1E2761">Src</th>
-        </tr></thead>
-        <tbody>
-          ${sxSaleCompsState.map((c, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#FAFBFC"}">
-            <td style="padding:6px 10px;font-weight:700;color:#1E2761">${c.name}</td>
-            <td style="padding:6px 10px;color:#64748B">${c.city}</td>
-            <td style="padding:6px;color:#64748B;font-family:'Space Mono',monospace">${c.date}</td>
-            <td style="padding:6px;color:#1E293B;font-size:9px">${c.type}</td>
-            <td style="padding:6px;text-align:right;font-family:'Space Mono',monospace">${c.nrsf.toLocaleString()}</td>
-            <td style="padding:6px;text-align:right;font-family:'Space Mono',monospace;font-weight:700">$${c.priceM.toFixed(1)}M</td>
-            <td style="padding:6px;text-align:right;font-family:'Space Mono',monospace;font-weight:700;color:#1E2761">$${c.ppsf}</td>
-            <td style="padding:6px;text-align:right;font-family:'Space Mono',monospace;font-weight:700;color:#C9A84C">${(c.cap*100).toFixed(2)}%</td>
-            <td style="padding:6px;color:#64748B;font-size:9px">${c.buyer}</td>
-            <td style="padding:6px;font-size:8px"><span style="padding:1px 6px;border-radius:3px;background:${c.src === "EST" ? "#FEF3C7" : "#DBEAFE"};color:${c.src === "EST" ? "#B45309" : "#1E40AF"};font-weight:700">${c.src}</span></td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-    </div>
-    <div style="margin-top:10px;padding:10px 14px;background:#F8FAFC;border-radius:8px;font-size:10px;color:#64748B;line-height:1.6">
-      <b style="color:#1E2761">Methodology:</b> Stabilized self-storage transactions within state, last 24 months. Average cap rate ${sxAvgCompCap ? `<b style="color:#C9A84C">${(sxAvgCompCap*100).toFixed(2)}%</b>` : "n/a"} &mdash; ${sxAvgCompCap ? (Math.abs(sxAvgCompCap - STORAGE_CONST.EXIT_CAP) < 0.005 ? "validates" : sxAvgCompCap > STORAGE_CONST.EXIT_CAP ? "above" : "below") + " our " + (STORAGE_CONST.EXIT_CAP*100).toFixed(2) + "% exit cap assumption" : "below threshold for statistical validation"}. Sources: <b>REIT-10K</b> = PSA/EXR/CUBE/LSI/NSA FY2025 10-K disclosure &middot; <b>C&amp;W</b> = Cushman &amp; Wakefield Self-Storage Market Report &middot; <b>SSA</b> = SSA Global transaction feed &middot; <b>MMX</b> = Marcus &amp; Millichap Self-Storage Investment Report &middot; <b>EST</b> = estimate pending live comp.
-    </div>` : `<div style="padding:20px;background:#F8FAFC;border-radius:8px;text-align:center;color:#64748B;font-size:11px"><i>No stabilized self-storage comps on file for ${(site.state || "this state").toUpperCase()}. Regional peer comps used where available.</i></div>`}
-  </div>
-
-  <!-- ── 4g · FINANCING SCENARIO ── -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:14px">4g &mdash; FINANCING SCENARIO &mdash; BASE CASE CAPITAL STACK</div>
-    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-bottom:14px">
-      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
-        <div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#94A3B8;margin-bottom:10px">CAPITAL STACK</div>
-        <div style="font-family:'Space Mono',monospace;font-size:10px;line-height:1.8">
-          <div style="display:flex;justify-content:space-between"><span style="color:#64748B">Total Dev Cost</span><span style="font-weight:700">${fmtM(sxFin1.totalDev)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:#64748B">Construction Loan (${(sxFin1.ltc*100).toFixed(0)}% LTC)</span><span style="color:#3B82F6;font-weight:700">${fmtM(sxFin1.constructionLoan)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:#64748B">Cash Equity</span><span style="color:#16A34A;font-weight:700">${fmtM(sxFin1.cashEquity)}</span></div>
-          <div style="display:flex;justify-content:space-between;border-top:1px solid #E2E8F0;margin-top:6px;padding-top:6px"><span style="color:#64748B">Construction Interest (${(sxFin1.constructionRate*100).toFixed(2)}% x ${sxFin1.constructionTermYrs}yr)</span><span style="color:#EF4444">$${Math.round(sxFin1.constructionInterest/1000)}K</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:#64748B">Perm Debt Service (${(sxFin1.permRate*100).toFixed(2)}%, ${sxFin1.permAmortYrs}-yr amort)</span><span style="color:#EF4444">$${Math.round(sxFin1.annualDebtService/1000)}K/yr</span></div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div style="background:#F0FDF4;border:1px solid rgba(22,163,74,0.25);border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#16A34A;margin-bottom:4px">STAB DSCR</div><div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#16A34A">${toN(sxFin1.dscr).toFixed(2)}x</div></div>
-        <div style="background:#EFF6FF;border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#3B82F6;margin-bottom:4px">CASH-ON-CASH Y5</div><div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#3B82F6">${(sxFin1.cashOnCash*100).toFixed(1)}%</div></div>
-        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#94A3B8;margin-bottom:4px">UNLEV IRR</div><div style="font-family:'Space Mono',monospace;font-size:18px;font-weight:900;color:#1E2761">${isFinite(sxFin1.unleveredIRR) ? (sxFin1.unleveredIRR*100).toFixed(1) + "%" : "\u2014"}</div></div>
-        <div style="background:linear-gradient(135deg,#C9A84C20,#C9A84C08);border:2px solid #C9A84C;border-radius:10px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:800;letter-spacing:0.12em;color:#C9A84C;margin-bottom:4px">LEVERED IRR</div><div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:900;color:#1E2761">${isFinite(sxFin1.leveredIRR) ? (sxFin1.leveredIRR*100).toFixed(1) + "%" : "\u2014"}</div></div>
-      </div>
-    </div>
-    <div style="padding:10px 14px;background:#F8FAFC;border-radius:8px;font-size:10px;color:#64748B;line-height:1.6">
-      <b style="color:#1E2761">Assumptions:</b> 60% LTC construction loan at SOFR+300 (~${(sxFin1.constructionRate*100).toFixed(2)}% today), 3-yr IO during construction, conversion to 10-yr fixed perm at ${(sxFin1.permRate*100).toFixed(2)}% with ${sxFin1.permAmortYrs}-yr amortization. Refi cash-out at stabilization: ~${fmtM(sxFin1.refiLoan)} (NOI &divide; DSCR 1.25 &divide; perm rate). Source: Fed SOFR Q1 2026 forward curve + PSA/EXR capital strategy disclosures (FY2025 10-Ks).
-    </div>
-  </div>
-
-  <!-- ── 4h · RISK-ADJUSTED IRR ── -->
-  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761;margin-bottom:10px">4h &mdash; RISK-ADJUSTED IRR (10-yr hold, probability-weighted)</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:#F8FAFC">
-        <th style="text-align:left;padding:10px;border-bottom:2px solid #1E2761">Scenario</th>
-        <th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Probability</th>
-        <th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Unlevered IRR</th>
-        <th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Levered IRR</th>
-        <th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">MOIC</th>
-        <th style="text-align:right;padding:10px;border-bottom:2px solid #1E2761">Stab DSCR</th>
-      </tr></thead>
-      <tbody>
-        ${sxRisk.rows.map(r => {
-          const color = r.key === "downside" ? "#B91C1C" : r.key === "base" ? "#1E2761" : "#16A34A";
-          return `<tr>
-            <td style="padding:10px;font-weight:700;color:${color}">${r.label}</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${(r.prob*100).toFixed(0)}%</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${isFinite(r.unleveredIRR) ? (r.unleveredIRR*100).toFixed(1) + "%" : "\u2014"}</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace;font-weight:700;color:${color}">${isFinite(r.leveredIRR) ? (r.leveredIRR*100).toFixed(1) + "%" : "\u2014"}</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${toN(r.moic).toFixed(2)}x</td>
-            <td style="padding:10px;text-align:right;font-family:'Space Mono',monospace">${toN(r.dscr) > 0 ? toN(r.dscr).toFixed(2) + "x" : "\u2014"}</td>
-          </tr>`;
-        }).join("")}
-        <tr style="background:#1E2761;color:#fff">
-          <td style="padding:12px;font-weight:900">PROBABILITY-WEIGHTED</td>
-          <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">100%</td>
-          <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${isFinite(sxRisk.weightedUnlevered) ? (sxRisk.weightedUnlevered*100).toFixed(1) + "%" : "\u2014"}</td>
-          <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900;color:#C9A84C">${isFinite(sxRisk.weightedLevered) ? (sxRisk.weightedLevered*100).toFixed(1) + "%" : "\u2014"}</td>
-          <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace;font-weight:900">${toN(sxRisk.weightedMOIC).toFixed(2)}x</td>
-          <td style="padding:12px;text-align:right;font-family:'Space Mono',monospace">\u2014</td>
-        </tr>
-      </tbody>
-    </table>
-    <div style="margin-top:10px;padding:10px 14px;background:#F8FAFC;border-radius:8px;font-size:10px;color:#64748B;line-height:1.6">
-      <b style="color:#1E2761">Method:</b> Each scenario run through the full financing stack (${(sxFin1.ltc*100).toFixed(0)}% LTC at ${(sxFin1.constructionRate*100).toFixed(2)}% construction, perm at ${(sxFin1.permRate*100).toFixed(2)}%), exit Y10 at scenario-specific cap. MOIC = (Value Creation + Dev Cost) &divide; Dev Cost. Probability weights reflect institutional risk-adjusted convention.
-    </div>
-  </div>
-
-  <!-- ── 4i · SOURCE STACK ── -->
-  <div class="expand-trigger" onclick="toggleExpand('srcstack')" style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin-bottom:16px;cursor:pointer">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:0.14em;color:#1E2761">4i &mdash; SOURCE STACK &mdash; every assumption, every citation</div>
-      <span class="expand-hint" style="font-size:10px;color:#94A3B8">&#9660; Click to expand <span id="srcstack-arrow" class="expand-arrow">&#9660;</span></span>
-    </div>
-    <div id="srcstack" class="expand-panel">
-      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:6px">
-        <thead><tr style="background:#F8FAFC">
-          <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #1E2761;width:30%">Assumption</th>
-          <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #1E2761;width:22%">Value</th>
-          <th style="text-align:left;padding:8px 10px;border-bottom:2px solid #1E2761;width:48%">Primary Source</th>
-        </tr></thead>
-        <tbody>
-          ${[
-            { k: "Stabilized portfolio occupancy", v: (STORAGE_CONST.STABILIZED_OCCUPANCY*100).toFixed(1)+"%", s: "PSA FY2025 10-K Same-Store Operating Metrics + EXR FY2025 10-K portfolio disclosure" },
-            { k: "ECRI annualized rate", v: (STORAGE_CONST.ECRI_RATE*100).toFixed(1)+"%/yr on rolled tenants", s: "PSA FY2025 10-K — Existing Customer Rate Increase disclosure (2023-2025 actuals)" },
-            { k: "Street rate bump", v: (STORAGE_CONST.STREET_BUMP*100).toFixed(1)+"%/yr", s: "PSA + EXR revenue management disclosures (market rate trajectory)" },
-            { k: "Exit / acquisition cap rate", v: (STORAGE_CONST.EXIT_CAP*100).toFixed(2)+"%", s: "Green Street Q1 2026 Self-Storage Sector Report + PSA FY2025 10-K Acquisition Activity" },
-            { k: "CC market rent ($/SF/mo)", v: mktClimateRate ? "$"+mktClimateRate.toFixed(2) : "\u2014", s: "MSA rent compiled from PSA/EXR/CUBE 10-K Same-Store disclosures + SiteScore SPC-adjusted" },
-            { k: "Drive-up market rent", v: mktDriveRate ? "$"+mktDriveRate.toFixed(2)+"/SF/mo" : "\u2014", s: "PSA/EXR 10-K non-climate tier + regional submarket benchmarks" },
-            { k: "NOI margin (stabilized)", v: noiMarginBenchmark || "78.4%", s: "PSA self-managed portfolio benchmark (FY2025 10-K, Part II Item 7)" },
-            { k: "Construction cost (one-story)", v: "$"+STORAGE_CONST.CONSTRUCTION_PER_SF_ONESTORY+"/SF x state idx", s: "PSA/EXR development actuals + RSMeans Q1 2026 self-storage index (state-adjusted)" },
-            { k: "Construction cost (multi-story)", v: "$"+STORAGE_CONST.CONSTRUCTION_PER_SF_MULTISTORY+"/SF x state idx", s: "PSA multi-story disclosures + ENR Construction Cost Index Q1 2026" },
-            { k: "Construction financing rate", v: (sxFin1.constructionRate*100).toFixed(2)+"%", s: "Fed SOFR Q1 2026 forward curve + self-storage construction debt market spreads" },
-            { k: "Perm financing rate", v: (sxFin1.permRate*100).toFixed(2)+"%", s: "PSA/EXR senior note disclosures (FY2025 10-Ks) + 10-yr US Treasury Q1 2026" },
-            { k: "Development YOC hurdle", v: (STORAGE_CONST.YOC_HURDLE*100).toFixed(1)+"%", s: "PS Investment Committee target (per DW direction 4/15/2026)" },
-            { k: "Demographics (pop/HHI/HV/growth)", v: "1-3-5 mi radial rings", s: "ESRI ArcGIS GeoEnrichment 2025 (CY + FY projections)" },
-            { k: "Comp sales data", v: sxSaleCompsState.length+" "+(site.state || "US")+" self-storage transactions", s: "PSA/EXR/CUBE/LSI/NSA 10-K acquisition activity + Cushman &amp; Wakefield Self-Storage Market Report + SSA Global" },
-          ].map((r, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#FAFBFC"}">
-            <td style="padding:6px 10px;font-weight:700;color:#1E2761">${r.k}</td>
-            <td style="padding:6px 10px;font-family:'Space Mono',monospace;color:#C9A84C;font-weight:700">${r.v}</td>
-            <td style="padding:6px 10px;color:#64748B;font-size:10px;line-height:1.5">${r.s}</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── SOURCE FOOTER ── -->
-  <div style="font-size:9px;color:#94A3B8;text-align:center;padding:10px 0;letter-spacing:0.04em">
-    Sources: PSA FY2025 10-K &middot; EXR FY2025 10-K &middot; CUBE + LSI + NSA 10-Ks &middot; Green Street Q1 2026 Self-Storage Sector Report &middot; Cushman &amp; Wakefield Self-Storage Market Report &middot; RSMeans Q1 2026 &middot; ESRI ArcGIS GeoEnrichment 2025
-  </div>
-</div>
-`; } catch (e) { console.error("sec-CAP (Storvex) render error:", e); return `<div id="sec-CAP" class="section" style="scroll-margin-top:20px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;padding:24px;margin:10px 0"><h2 style="color:#92400E;margin:0 0 8px">&Sigma; Institutional Investment Analysis</h2><p style="color:#78350F;font-size:13px;margin:0 0 6px"><b>Capstone section temporarily unavailable.</b> The rest of this REC Package (exec summary, demographics, valuation, rent analysis, competition, utilities, etc.) continues to render below.</p><p style="color:#92400E;font-size:11px;font-family:'Space Mono',monospace;margin:0;background:#FDE68A;padding:8px 12px;border-radius:6px">Error: ${e.message}</p></div>`; } })()}
-
-<!-- ═══════════════ SECTION PF: PORTFOLIO FIT ANALYSIS (PS DNA) ═══════════════ -->
-${(() => {
-  if (!portfolioFit || portfolioFit.classification === 'NO DATA' || portfolioFit.classification === 'NO DNA') {
-    return `<div id="sec-PF" class="section" style="scroll-margin-top:20px;background:#FEF3C7;border-left:4px solid #F59E0B;padding:14px 18px;border-radius:8px;margin:12px 0">
-      <h2 style="color:#92400E;margin:0 0 6px;font-size:15px"><span class="sec-num">PF</span> Portfolio Fit Analysis (PS DNA)</h2>
-      <p style="color:#78350F;font-size:12px;margin:0;line-height:1.5">PortfolioFit unavailable for this site. The PS DNA profile (4,639 PS family locations) requires the site's 3-mi ESRI demographics to compute fit. Verify <code>pop3mi</code>, <code>income3mi</code>, and related fields are populated.</p>
-    </div>`;
-  }
-  const c = portfolioFit.classColor || '#3B82F6';
-  const labels = {
-    population: '3-mile population',
-    income:     'Median household income',
-    growth:     'Population growth (5-yr CAGR)',
-    households: 'Total households',
-    homeValue:  'Median home value',
-    renterPct:  'Renter percentage',
-    nearestPS:  'PS family clustering (nearest sibling)',
-  };
-  const rows = Object.entries(portfolioFit.percentiles || {})
-    .filter(([, p]) => p != null)
-    .map(([k, p]) => {
-      const score = portfolioFit.attributes[k] ?? 0;
-      const barColor = score >= 8 ? '#22C55E' : score >= 6 ? '#3B82F6' : score >= 4 ? '#F59E0B' : '#EF4444';
-      return `<tr>
-        <td style="padding:8px 10px;font-size:11px;font-weight:700;color:#1E2761">${labels[k] || k}</td>
-        <td style="padding:8px 10px;width:55%">
-          <div style="position:relative;height:14px;background:#E5E7EB;border-radius:4px;overflow:hidden">
-            <div style="position:absolute;top:0;bottom:0;left:25%;width:50%;background:rgba(34,197,94,0.15);border-left:1px solid rgba(34,197,94,0.4);border-right:1px solid rgba(34,197,94,0.4)"></div>
-            <div style="position:absolute;top:-2px;bottom:-2px;left:calc(${p}% - 3px);width:6px;background:${barColor};border-radius:2px;box-shadow:0 0 6px ${barColor}80"></div>
-          </div>
-        </td>
-        <td style="padding:8px 10px;font-size:11px;font-family:'Space Mono',monospace;font-weight:700;color:${barColor};text-align:right">P${p}</td>
-        <td style="padding:8px 10px;font-size:11px;font-family:'Space Mono',monospace;font-weight:700;color:${barColor};text-align:right">${score}/10</td>
-      </tr>`;
-    }).join('');
-  return `<div id="sec-PF" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.03),${c}10);border-left:4px solid ${c};border-radius:10px;padding:18px 22px;margin:12px 0">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:12px">
-      <div>
-        <h2 style="margin:0 0 4px;font-size:16px;color:#1E2761"><span class="sec-num">PF</span> Portfolio Fit Analysis &mdash; PS DNA Benchmark</h2>
-        <div style="font-size:11px;color:#64748B;line-height:1.5;max-width:560px">Second-lens scoring: how closely does this candidate match the actual demographic DNA of PS's 4,639 family locations (PS-owned + iStorage + NSA)?</div>
-      </div>
-      <div style="text-align:right;background:${c}12;border:1px solid ${c}40;border-radius:10px;padding:8px 14px;min-width:160px">
-        <div style="font-size:9px;font-weight:800;color:#64748B;letter-spacing:0.10em">PORTFOLIO FIT</div>
-        <div style="font-size:24px;font-weight:900;color:${c};font-family:'Space Mono',monospace;line-height:1">${portfolioFit.score.toFixed(2)}/10</div>
-        <div style="font-size:10px;font-weight:800;color:${c};letter-spacing:0.04em">${portfolioFit.classification}</div>
-      </div>
-    </div>
-    <div style="background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;padding:8px 12px;margin:8px 0 12px;font-size:11px;color:#475569;line-height:1.5">
-      Benchmarked against <b>${portfolioFit.dnaSubProfileSize}</b> PS family sites in the
-      <b style="color:${c}">${(portfolioFit.density || '').toUpperCase()}</b> DNA bucket.
-      ${portfolioFit.notes ? `<div style="margin-top:4px;color:#64748B;font-size:10px">${portfolioFit.notes}</div>` : ''}
-    </div>
-    <table style="width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;overflow:hidden">
-      <thead><tr style="background:#F1F5F9">
-        <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B;letter-spacing:0.06em">ATTRIBUTE</th>
-        <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B;letter-spacing:0.06em">PERCENTILE WITHIN ${portfolioFit.density.toUpperCase()} PS DNA</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#64748B;letter-spacing:0.06em;width:60px">RANK</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#64748B;letter-spacing:0.06em;width:60px">FIT</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div style="margin-top:8px;font-size:9px;color:#94A3B8;line-height:1.5">
-      Green band = P25-P75 sweet spot (most typical PS purchase). Marker shows where this site falls in the DNA distribution. Bell-curve scoring: P25-P75 = 10/10, edges fall off symmetrically.
-    </div>
-  </div>`;
-})()}
-
-<!-- ═══════════════ SECTION BR: BUYER-ROUTING ENGINE (DealFlow Oracle™) ═══════════════ -->
-${(() => {
-  if (!buyerFit || !buyerFit.topBuyer || buyerFit.classification === 'NO MATRIX') {
-    return `<div id="sec-BR" class="section" style="scroll-margin-top:20px;background:#FEF3C7;border-left:4px solid #F59E0B;padding:14px 18px;border-radius:8px;margin:12px 0">
-      <h2 style="color:#92400E;margin:0 0 6px;font-size:15px"><span class="sec-num">BR</span> Buyer-Routing Engine</h2>
-      <p style="color:#78350F;font-size:12px;margin:0;line-height:1.5">BuyerFit unavailable for this site. The DJR DealFlow Oracle\u2122 routing matrix (49+ operators) requires the site's <code>state</code>, <code>acreage</code>, and demographic fields to filter and rank candidate buyers.</p>
-    </div>`;
-  }
-  const c = buyerFit.classColor || '#3B82F6';
-  const top = buyerFit.ranked || [];
-  const tierLabelOf = (t) => ({
-    'TIER_1_HOT_CAPITAL': 'HOT CAPITAL',
-    'TIER_2_ACTIVE': 'ACTIVE',
-    'TIER_3_MEDIUM': 'MEDIUM',
-    'TIER_4_SELECTIVE': 'SELECTIVE',
-    'TIER_5_HYPER_LOCAL': 'HYPER-LOCAL',
-  })[t] || t;
-  const tierColorOf = (t) => ({
-    'TIER_1_HOT_CAPITAL': '#22C55E',
-    'TIER_2_ACTIVE': '#3B82F6',
-    'TIER_3_MEDIUM': '#F59E0B',
-    'TIER_4_SELECTIVE': '#8B5CF6',
-    'TIER_5_HYPER_LOCAL': '#94A3B8',
-  })[t] || '#94A3B8';
-  const rows = top.map((cand, i) => {
-    const tc = tierColorOf(cand.tier);
-    const lbl = tierLabelOf(cand.tier);
-    const hookHtml = cand.pitchHook
-      ? `<div style="font-size:10px;color:#475569;line-height:1.5;margin-top:6px;padding:6px 10px;background:rgba(201,168,76,0.06);border-left:2px solid #C9A84C;border-radius:0 4px 4px 0;font-style:italic">${h(String(cand.pitchHook).slice(0, 280))}</div>`
-      : '';
-    const flagHtml = cand.operationalFlag
-      ? `<div style="font-size:9px;color:#B91C1C;line-height:1.4;margin-top:4px"><b>\u26A0 OPERATIONAL FLAG:</b> ${h(String(cand.operationalFlag).slice(0, 200))}</div>`
-      : '';
-    const hcr = cand.hotCapitalRank && cand.hotCapitalRank <= 50 ? ` &middot; #${cand.hotCapitalRank} hot capital` : '';
-    const speed = cand.decisionSpeedDays ? ` &middot; ${cand.decisionSpeedDays}d decision` : '';
-    return `<tr style="background:${i === 0 ? 'rgba(34,197,94,0.05)' : (i % 2 ? '#FFFFFF' : '#F8FAFC')}">
-      <td style="padding:10px 12px;width:32px;text-align:center;background:${tc};color:#0A0A14;font-weight:900;font-family:'Space Mono',monospace;font-size:13px">${i + 1}</td>
-      <td style="padding:10px 12px">
-        <div style="font-size:13px;font-weight:800;color:#1E2761">${h(cand.operator)}</div>
-        <div style="font-size:9px;color:#64748B;letter-spacing:0.04em;margin-top:2px"><span style="color:${tc};font-weight:700">${lbl}</span>${hcr}${speed}</div>
-        ${hookHtml}
-        ${flagHtml}
-      </td>
-      <td style="padding:10px 12px;text-align:right;font-size:18px;font-weight:900;color:${tc};font-family:'Space Mono',monospace">${cand.score.toFixed(1)}</td>
-    </tr>`;
-  }).join('');
-
-  // Hard-gate fail summary (top reasons)
-  const failsByReason = {};
-  (buyerFit.hardGateFails || []).forEach(f => {
-    const key = (f.reason || 'unknown').split(':')[0].trim();
-    failsByReason[key] = (failsByReason[key] || 0) + 1;
-  });
-  const failChips = Object.entries(failsByReason).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([reason, n]) =>
-    `<span style="display:inline-block;font-size:9px;color:#64748B;padding:3px 9px;border-radius:10px;background:#F1F5F9;border:1px solid #E2E8F0;margin:2px 4px 2px 0">${h(reason)} <b style="color:#475569">&times;${n}</b></span>`
-  ).join('');
-
-  return `<div id="sec-BR" class="section" style="scroll-margin-top:20px;background:linear-gradient(135deg,rgba(30,39,97,0.03),${c}10);border-left:4px solid ${c};border-radius:10px;padding:18px 22px;margin:12px 0">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:12px">
-      <div>
-        <h2 style="margin:0 0 4px;font-size:16px;color:#1E2761"><span class="sec-num">BR</span> Buyer-Routing Engine &mdash; DJR DealFlow Oracle&trade;</h2>
-        <div style="font-size:11px;color:#64748B;line-height:1.5;max-width:620px">Third-lens scoring: if PS passes, who else? Site is filtered against the 49-operator buyer matrix (hard-gate intersection on geography, deal type, size, price, hard-no rules) then ranked by hot-capital tier, deployment pressure, product fit, and capital recency. Memory-driven adjustments: DW pass &rarr; SK boost; DFW ground-up &rarr; PS de-prioritize (Brock displacement).</div>
-      </div>
-      <div style="text-align:right;background:${c}12;border:1px solid ${c}40;border-radius:10px;padding:8px 14px;min-width:180px">
-        <div style="font-size:9px;font-weight:800;color:#64748B;letter-spacing:0.10em">TOP BUYER</div>
-        <div style="font-size:14px;font-weight:900;color:${c};line-height:1.1;margin:2px 0">${h(buyerFit.topBuyer || '')}</div>
-        <div style="font-size:24px;font-weight:900;color:${c};font-family:'Space Mono',monospace;line-height:1">${buyerFit.topBuyerScore.toFixed(2)}/10</div>
-        <div style="font-size:10px;font-weight:800;color:${c};letter-spacing:0.04em">${buyerFit.classification}</div>
-      </div>
-    </div>
-    <div style="background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;padding:8px 12px;margin:8px 0 12px;font-size:11px;color:#475569;line-height:1.5">
-      Site classified as <b style="color:#1E2761">${h(buyerFit.dealType || '?')}</b> (deal type).
-      <b>${buyerFit.survivors}</b> of <b>${buyerFit.matrixSize}</b> operators survived hard-gates.
-      ${(buyerFit.hardGateFails || []).length} filtered &mdash; top reasons: ${failChips || '<i>none</i>'}.
-    </div>
-    <table style="width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;overflow:hidden">
-      <thead><tr style="background:#F1F5F9">
-        <th style="padding:8px 10px;text-align:center;font-size:10px;color:#64748B;letter-spacing:0.06em;width:36px">#</th>
-        <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B;letter-spacing:0.06em">OPERATOR &middot; TIER &middot; PITCH HOOK</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#64748B;letter-spacing:0.06em;width:80px">SCORE</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div style="margin-top:10px;font-size:9px;color:#94A3B8;line-height:1.5">
-      Sourced from <code>operator-matrix.json</code> v6 (49 operators, hot-capital ranked) and DJR's primary-source institutional research waves 1-6. Memory-driven exclusions: 16 DO_NOT_ROUTE entities (Blackstone/BREIT, Brookfield, World Class, Investcorp, etc.) plus Brock Wollent (competitor, not a routing destination per <i>feedback_brock-is-competitor.md</i>). Pitch hooks pre-loaded for one-click outreach via Routing Engine panel.
-    </div>
-  </div>`;
-})()}
-
-<!-- ═══════════════ SECTION 4: SITESCORE BREAKDOWN ═══════════════ -->
-<div id="sec-R2" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">5</span> SiteScore™ Analysis — ${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10</h2>
-  <table>
-    <thead><tr><th>Dimension</th><th>Score (0–10)</th><th>Weight</th><th>Weighted</th></tr></thead>
-    <tbody>${breakdownRows}</tbody>
-    <tfoot><tr style="background:#F8FAFC">
-      <td style="padding:12px 14px;font-size:13px;font-weight:900;border-top:2px solid #1E2761" colspan="3">COMPOSITE SCORE</td>
-      <td style="padding:12px 14px;font-size:18px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono',monospace;text-align:right;border-top:2px solid #1E2761">${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}</td>
-    </tr></tfoot>
-  </table>
-</div>
-
-<!-- ═══════════════ SECTION 3: MARKET DEMOGRAPHICS ═══════════════ -->
-<div id="sec-R3" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">6</span> Market Demographics</h2>
-  <div class="grid4" style="margin-bottom:16px">
-    <div class="metric mi" onclick="toggleMI('dem-pop',event)"><div class="label">3-Mi Population</div><div class="value">${!isNaN(popN) ? fmtN2(popN) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-dem-pop" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">3-Mile Population</div><div class="mi-conf ${popN >= 25000 ? "mi-conf-high" : popN >= 10000 ? "mi-conf-med" : "mi-conf-low"}">${popN >= 40000 ? "Dense" : popN >= 25000 ? "Strong" : popN >= 10000 ? "Adequate" : "Low"}</div></div>
-        <div class="mi-body">
-          <strong>Total population within a 3-mile radius — the primary demand catchment for self-storage.</strong>
-          <div class="mi-formula">SiteScore Weight: 14% of composite<br>Score: ${popN >= 40000 ? "10/10 (40K+)" : popN >= 25000 ? "8/10 (25K+)" : popN >= 15000 ? "6/10 (15K+)" : popN >= 10000 ? "5/10 (10K+)" : popN >= 5000 ? "3/10 (5K+)" : "0/10 — FAIL (<5K)"}</div>
-          <div class="mi-row"><span class="mi-row-label">3-Mi Population</span><span class="mi-row-val">${!isNaN(popN) ? fmtN2(popN) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Industry Avg Demand</span><span class="mi-row-val">~10% of pop rents storage</span></div>
-          <div class="mi-row"><span class="mi-row-label">Est. Demand Pool</span><span class="mi-row-val">${!isNaN(popN) ? fmtN2(Math.round(popN * 0.10)) + " potential renters" : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Hard FAIL Threshold</span><span class="mi-row-val" style="color:#EF4444">Below 5,000</span></div>
-          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Licensed demographic ring study (1-3-5 mi) | CY2025 estimates + 2030 projections</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('dem-hhi',event)"><div class="label">Median HHI</div><div class="value">${!isNaN(incN) ? "$" + fmtN2(incN) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-dem-hhi" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Median Household Income</div><div class="mi-conf ${incN >= 75000 ? "mi-conf-high" : incN >= 55000 ? "mi-conf-med" : "mi-conf-low"}">${incN >= 90000 ? "Affluent" : incN >= 75000 ? "Upper-Middle" : incN >= 55000 ? "Middle" : "Below Threshold"}</div></div>
-        <div class="mi-body">
-          <strong>Median household income within 3 miles — indicates spending capacity for premium storage services.</strong>
-          <div class="mi-formula">SiteScore Weight: 10% of composite<br>Score: ${incN >= 90000 ? "10/10 ($90K+)" : incN >= 75000 ? "8/10 ($75K+)" : incN >= 65000 ? "6/10 ($65K+)" : incN >= 55000 ? "4/10 ($55K+)" : "0/10 — FAIL (<$55K)"}</div>
-          <div class="mi-row"><span class="mi-row-label">Median HHI</span><span class="mi-row-val">${!isNaN(incN) ? "$" + fmtN2(incN) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">U.S. Median (2024)</span><span class="mi-row-val">$80,610</span></div>
-          <div class="mi-row"><span class="mi-row-label">vs National</span><span class="mi-row-val" style="color:${incN >= 80610 ? '#16A34A' : '#D97706'}">${incN >= 80610 ? "+" : ""}${!isNaN(incN) ? Math.round((incN/80610-1)*100) : "—"}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Hard FAIL Threshold</span><span class="mi-row-val" style="color:#EF4444">Below $55,000</span></div>
-          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Median Household Income | Licensed ring study (3-mi)</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('dem-hh',event)"><div class="label">Households</div><div class="value">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-dem-hh" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">3-Mile Household Count</div><div class="mi-conf ${hhN >= 18000 ? "mi-conf-high" : hhN >= 6000 ? "mi-conf-med" : "mi-conf-low"}">${hhN >= 25000 ? "Dense" : hhN >= 12000 ? "Strong" : "Moderate"}</div></div>
-        <div class="mi-body">
-          <strong>Total households within 3 miles — more precise demand proxy than population (1 household = 1 potential storage unit).</strong>
-          <div class="mi-formula">SiteScore Weight: 4% of composite<br>Score: ${hhN >= 25000 ? "10/10 (25K+)" : hhN >= 18000 ? "8/10 (18K+)" : hhN >= 12000 ? "7/10 (12K+)" : hhN >= 6000 ? "5/10 (6K+)" : "3/10 (<6K)"}</div>
-          <div class="mi-row"><span class="mi-row-label">Households</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(hhN) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Avg HH Size</span><span class="mi-row-val">${!isNaN(popN) && !isNaN(hhN) && hhN > 0 ? (popN/hhN).toFixed(2) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Est. Addressable HH</span><span class="mi-row-val">${!isNaN(hhN) ? fmtN2(Math.round(hhN * 0.10)) + " (10% penetration)" : "—"}</span></div>
-          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Total Households | Licensed ring study (3-mi)</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('dem-hv',event)"><div class="label">Home Value</div><div class="value">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-dem-hv" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Median Home Value</div><div class="mi-conf ${hvN >= 350000 ? "mi-conf-high" : hvN >= 180000 ? "mi-conf-med" : "mi-conf-low"}">${hvN >= 500000 ? "Premium" : hvN >= 250000 ? "Strong" : "Moderate"}</div></div>
-        <div class="mi-body">
-          <strong>Median home value within 3 miles — affluence signal correlated with storage demand and willingness to pay premium rates.</strong>
-          <div class="mi-formula">SiteScore Weight: 4% of composite<br>Score: ${hvN >= 500000 ? "10/10 ($500K+)" : hvN >= 350000 ? "9/10 ($350K+)" : hvN >= 250000 ? "8/10 ($250K+)" : hvN >= 180000 ? "6/10 ($180K+)" : "4/10 or lower"}</div>
-          <div class="mi-row"><span class="mi-row-label">Median Home Value</span><span class="mi-row-val">${!isNaN(hvN) ? "$" + fmtN2(hvN) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">U.S. Median (2024)</span><span class="mi-row-val">$344,900</span></div>
-          <div class="mi-row"><span class="mi-row-label">Why It Matters</span><span class="mi-row-val">Higher home values → more possessions → more storage demand</span></div>
-          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Median Home Value | Licensed ring study (3-mi)</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-  <div class="grid3">
-    <div class="metric mi" onclick="toggleMI('dem-pop1',event)"><div class="label">1-Mi Population</div><div class="value">${!isNaN(pop1) ? fmtN2(pop1) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-dem-pop1" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">1-Mile Population</div><div class="mi-conf mi-conf-med">Supplemental</div></div>
-        <div class="mi-body">
-          <strong>Immediate-vicinity population — measures walk-up/drive-by demand within 1 mile of the site.</strong>
-          <div class="mi-row"><span class="mi-row-label">1-Mi Population</span><span class="mi-row-val">${!isNaN(pop1) ? fmtN2(pop1) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Pop Density</span><span class="mi-row-val">${!isNaN(pop1) ? fmtN2(Math.round(pop1 / 3.14)) + "/sq mi" : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">1-Mi vs 3-Mi Ratio</span><span class="mi-row-val">${!isNaN(pop1) && !isNaN(popN) && popN > 0 ? Math.round(pop1/popN*100) + "% concentration" : "—"}</span></div>
-          <div class="mi-source">Source: ESRI ArcGIS GeoEnrichment 2025 | Licensed ring study (1-mi)</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('dem-growth',event)"><div class="label">5-Yr Growth CAGR</div><div class="value" style="color:${growthPct >= 1.5 ? '#C9A84C' : growthPct >= 0 ? '#F59E0B' : '#EF4444'}">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-dem-growth" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">5-Year Population Growth CAGR</div><div class="mi-conf ${growthPct >= 1.5 ? "mi-conf-high" : growthPct >= 0 ? "mi-conf-med" : "mi-conf-low"}">${growthPct >= 2.0 ? "High Growth" : growthPct >= 1.0 ? "Growing" : growthPct >= 0 ? "Stable" : "Declining"}</div></div>
-        <div class="mi-body">
-          <strong>Projected compound annual population growth rate (2025→2030) — a high-weighted SiteScore dimension at 18%.</strong>
-          <div class="mi-formula">SiteScore Weight: 18% of composite<br>Score: ${growthPct >= 2.0 ? "10/10 (≥2.0%)" : growthPct >= 1.5 ? "9/10 (≥1.5%)" : growthPct >= 1.0 ? "8/10 (≥1.0%)" : growthPct >= 0.5 ? "6/10 (≥0.5%)" : growthPct >= 0 ? "4/10 (≥0%)" : "0-2/10 (negative)"}</div>
-          <div class="mi-row"><span class="mi-row-label">5-Yr CAGR</span><span class="mi-row-val">${growthPct ? growthPct.toFixed(1) + "%" : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">U.S. Average</span><span class="mi-row-val">0.4% CAGR</span></div>
-          <div class="mi-row"><span class="mi-row-label">Why Highest Weight</span><span class="mi-row-val">Growing markets = rising demand + rent growth + lower vacancy risk</span></div>
-          <div class="mi-source">Source: ESRI Demographics 2025→2030 projections | ArcGIS Business Analyst | Census base year 2020</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('dem-tier',event)"><div class="label">Income Tier</div><div class="value" style="font-size:14px">${incTier.toUpperCase()}</div><em class="mi-hint">i</em>
-      <div id="mi-dem-tier" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Income Tier Classification</div><div class="mi-conf mi-conf-med">Derived</div></div>
-        <div class="mi-body">
-          <strong>Income tier drives storage rental rate assumptions — higher-income markets command premium pricing.</strong>
-          <div class="mi-formula">Classification: ${incTier.toUpperCase()}<br>Based on 3-mi median HHI: $${!isNaN(incN) ? fmtN2(incN) : "—"}</div>
-          <div class="mi-row"><span class="mi-row-label">Premium ($100K+)</span><span class="mi-row-val">Highest climate rates — $1.40-1.80/SF/mo</span></div>
-          <div class="mi-row"><span class="mi-row-label">Upper ($80-100K)</span><span class="mi-row-val">Above-average rates — $1.15-1.40/SF/mo</span></div>
-          <div class="mi-row"><span class="mi-row-label">Middle ($60-80K)</span><span class="mi-row-val">Market rates — $0.95-1.15/SF/mo</span></div>
-          <div class="mi-row"><span class="mi-row-label">Value ($45-60K)</span><span class="mi-row-val">Below-market rates — $0.75-0.95/SF/mo</span></div>
-          <div class="mi-row"><span class="mi-row-label">This Site Rate</span><span class="mi-row-val">$${toN(mktClimateRate).toFixed(2)}/SF/mo climate</span></div>
-          <div class="mi-source">Source: SiteScore Income-Tier Rate Methodology | Calibrated to PSA/EXR submarket rate cards (Q4 2025)</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-
-  <!-- Growth Trajectory — 1/3/5 mile side-by-side — shows CAGR per ring -->
-  ${(site.popGrowth1mi || site.popGrowth3mi || site.popGrowth5mi) ? (() => {
-    const parsePct = (v) => { if (v == null || v === "") return null; const n = parseFloat(String(v).replace(/[^0-9.\-]/g, "")); return isNaN(n) ? null : n; };
-    const parseN = (v) => { if (v == null || v === "") return null; const n = parseInt(String(v).replace(/[^0-9]/g, ""), 10); return isNaN(n) ? null : n; };
-    const rings = [
-      { label: "1-MI GROWTH", cagr: parsePct(site.popGrowth1mi), startPop: parseN(site.pop1mi), endPop: parseN(site.pop1mi_fy) },
-      { label: "3-MI GROWTH", cagr: parsePct(site.popGrowth3mi) || parsePct(site.growthRate), startPop: parseN(site.pop3mi), endPop: parseN(site.pop3mi_fy), accent: true },
-      { label: "5-MI GROWTH", cagr: parsePct(site.popGrowth5mi), startPop: parseN(site.pop5mi), endPop: parseN(site.pop5mi_fy) },
-    ];
-    return `<div style="margin-top:16px;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,#0a1020,#111a36);border:1px solid rgba(201,168,76,0.15)">
-      <div style="padding:14px 20px">
-        <div style="font-size:10px;font-weight:800;color:#C9A84C;letter-spacing:0.12em;margin-bottom:4px">GROWTH TRAJECTORY — 1 / 3 / 5 MILE</div>
-        <div style="font-size:9px;color:#94A3B8;margin-bottom:14px">Population CAGR per ring — ESRI 2025→2030. Inner rings capture on-site trade-area demand; outer rings contextualize MSA-level growth.</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-          ${rings.map(r => {
-            const cagrColor = r.cagr == null ? "#94A3B8" : r.cagr >= 2 ? "#22C55E" : r.cagr >= 1 ? "#C9A84C" : r.cagr >= 0 ? "#94A3B8" : "#EF4444";
-            const totalPct = (r.startPop && r.endPop && r.startPop > 0) ? ((r.endPop / r.startPop - 1) * 100).toFixed(1) : null;
-            return `<div style="padding:14px;background:${r.accent ? 'rgba(201,168,76,0.10)' : 'rgba(255,255,255,0.035)'};border:1px solid ${r.accent ? 'rgba(201,168,76,0.28)' : 'rgba(255,255,255,0.06)'};border-radius:8px">
-              <div style="font-size:8px;font-weight:800;color:#6B7394;letter-spacing:0.12em;margin-bottom:6px">${r.label}</div>
-              <div style="font-size:24px;font-weight:900;color:${cagrColor};font-family:'Space Mono',monospace;line-height:1">${r.cagr != null ? r.cagr.toFixed(2) + "%" : "—"}</div>
-              <div style="font-size:9px;color:#94A3B8;margin-top:2px;font-weight:600">CAGR (2025→2030)</div>
-              <div style="font-size:10px;color:#CBD5E1;margin-top:10px;font-family:'Space Mono',monospace">${r.startPop ? r.startPop.toLocaleString() : "—"} → ${r.endPop ? r.endPop.toLocaleString() : "—"}</div>
-              ${totalPct != null ? `<div style="font-size:9px;color:${cagrColor};margin-top:4px;font-weight:700">${parseFloat(totalPct) >= 0 ? "+" : ""}${totalPct}% total (5-yr)</div>` : ""}
-            </div>`;
-          }).join("")}
-        </div>
-        <div style="margin-top:10px;font-size:9px;color:#6B7394;font-style:italic">Source: ESRI ArcGIS GeoEnrichment 2025 — geocoded radial rings, CY→FY CAGR</div>
-      </div>
-    </div>`;
-  })() : ""}
-
-  ${site.demandDrivers ? `<div style="margin-top:16px;padding:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#16A34A;letter-spacing:0.08em;margin-bottom:6px">DEMAND DRIVERS</div><div style="font-size:12px;color:#1E293B;line-height:1.6">${h(site.demandDrivers)}</div></div>` : ""}
-</div>
-
-<!-- ═══════════════ SECTION 4: COMPETITION LANDSCAPE ═══════════════ -->
-<div id="sec-R4" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">7</span> Competition Landscape</h2>
-  ${site.ccRentData ? `<div style="margin-bottom:16px;padding:14px;background:linear-gradient(135deg,rgba(30,39,97,0.06),rgba(201,168,76,0.04));border:1px solid rgba(201,168,76,0.3);border-radius:10px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="background:#C9A84C;color:#1E2761;padding:4px 10px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:0.12em">SPAREFOOT-VERIFIED</div>
-      <div style="background:#1E2761;color:#fff;padding:4px 10px;border-radius:4px;font-size:9px;font-weight:700">${site.ccRentData.auditConfidence || '—'} CONF</div>
-      <div style="font-size:9px;color:#64748B">Comp set verified via live SpareFoot + Places API enumeration, PS Family coord-match exclusion. Primary competition data. Full detail in <a href="#sec-MI" style="color:#C9A84C" onclick="document.getElementById('sec-MI').scrollIntoView({behavior:'smooth'});return false">Market Intel section →</a></div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:rgba(15,21,56,0.3)"><th style="text-align:left;padding:8px;color:#C9A84C">Metric</th><th style="text-align:center;padding:8px;color:#C9A84C">Legacy Estimate</th><th style="text-align:center;padding:8px;color:#C9A84C">Verified (v2.0)</th><th style="text-align:left;padding:8px;color:#C9A84C">Source / Method</th></tr></thead>
-      <tbody>
-        <tr><td style="padding:8px;font-weight:600">CC SPC (SF/capita)</td><td style="padding:8px;text-align:center;color:#64748B" class="mono">${site.siteiqData?.ccSPC?.toFixed(2) || '—'}</td><td style="padding:8px;text-align:center" class="mono"><span style="background:rgba(201,168,76,0.15);color:${(site.ccRentData.ccSPC_verified || 99) < 3 ? '#16A34A' : (site.ccRentData.ccSPC_verified || 99) < 5 ? '#C9A84C' : '#EF4444'};padding:3px 8px;border-radius:4px;font-weight:800">${site.ccRentData.ccSPC_verified?.toFixed(2) || '—'}</span></td><td style="padding:8px;color:#64748B;font-size:10px">CC-only facility count × calibrated SF (${site.ccRentData.ccSFMeasuredFromInventory?.toLocaleString() || 0} SF measured / ${site.ccRentData.ccSFFromFallback?.toLocaleString() || 0} SF fallback)</td></tr>
-        <tr style="background:rgba(15,21,56,0.2)"><td style="padding:8px;font-weight:600">CC Facility Count (3-mi)</td><td style="padding:8px;text-align:center;color:#64748B" class="mono">${site.siteiqData?.competitorCount || '—'} <span style="font-size:9px;color:#64748B">(all types)</span></td><td style="padding:8px;text-align:center" class="mono"><span style="color:#C9A84C;font-weight:800">${site.ccRentData.ccFacilityCount || 0}</span><span style="color:#64748B;font-size:9px"> CC / ${site.ccRentData.nonCCFacilityCount || 0} non-CC</span></td><td style="padding:8px;color:#64748B;font-size:10px">SpareFoot amenityFeature + Puppeteer fallback classification</td></tr>
-        <tr><td style="padding:8px;font-weight:600">PS Family Facilities</td><td style="padding:8px;text-align:center;color:#64748B">—</td><td style="padding:8px;text-align:center" class="mono"><span style="color:#C9A84C;font-weight:800">${site.ccRentData.psFamilyCount || 0}</span><span style="color:#64748B;font-size:9px"> excluded</span></td><td style="padding:8px;color:#64748B;font-size:10px">PS + iStorage + NSA coord-matched against 4,247-location registry (not counted as competitors)</td></tr>
-        <tr style="background:rgba(15,21,56,0.2)"><td style="padding:8px;font-weight:600">CC Rent Band (Median)</td><td style="padding:8px;text-align:center;color:#64748B" class="mono">—</td><td style="padding:8px;text-align:center" class="mono"><span style="color:#C9A84C;font-weight:800">$${site.ccRentData.marketRentBand?.ccBand?.median?.toFixed(2) || '—'}</span><span style="color:#64748B;font-size:9px"> /SF (n=${site.ccRentData.marketRentBand?.ccBand?.sampleSize || 0})</span></td><td style="padding:8px;color:#64748B;font-size:10px">Live SpareFoot unit rates, P25/P50/P75 from 50-200 SF CC sample (3mi core + 5mi wide)</td></tr>
-        ${site.ccRentData.absorption ? `<tr><td style="padding:8px;font-weight:600">Absorption Verdict</td><td style="padding:8px;text-align:center;color:#64748B">—</td><td style="padding:8px;text-align:center" class="mono"><span style="color:${(site.ccRentData.absorption.verdict || '').includes('flood') ? '#EF4444' : (site.ccRentData.absorption.verdict || '').includes('healthy') ? '#16A34A' : '#C9A84C'};font-weight:800;font-size:10px">${site.ccRentData.absorption.verdict?.split('—')[0] || '—'}</span><div style="font-size:9px;color:#64748B">${site.ccRentData.absorption.monthsToAbsorb ? site.ccRentData.absorption.monthsToAbsorb + ' mo to absorb' : 'no pipeline'}</div></td><td style="padding:8px;color:#64748B;font-size:10px">Churn-adjusted demand (${site.ccRentData.absorption.totalAnnualDemandSF?.toLocaleString() || 0} SF/yr) vs pipeline (${site.ccRentData.absorption.pipelineSF?.toLocaleString() || 0} SF)</td></tr>` : ''}
-      </tbody>
-    </table>
-  </div>` : ''}
-  <div class="grid3" style="margin-bottom:16px">
-    <div class="metric mi" onclick="toggleMI('comp-count',event)"><div class="label">Competitors (3-Mi)</div><div class="value" style="color:${compCount <= 2 ? '#16A34A' : compCount <= 5 ? '#F59E0B' : '#EF4444'}">${compCount}</div><em class="mi-hint">i</em>
-      <div id="mi-comp-count" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Competitive Density</div><div class="mi-conf ${compCount <= 2 ? "mi-conf-high" : compCount <= 5 ? "mi-conf-med" : "mi-conf-low"}">${compCount <= 1 ? "Low Competition" : compCount <= 3 ? "Moderate" : "High Competition"}</div></div>
-        <div class="mi-body">
-          <strong>Total self-storage facilities within a 3-mile radius. Fewer competitors = stronger pricing power and faster lease-up.</strong>
-          <div class="mi-formula">SiteScore Weight: 25% of composite (highest weight — CC SPC is king per v4.0)<br>Score: ${compCount === 0 ? "10/10 (0 competitors)" : compCount === 1 ? "9/10 (1 competitor)" : compCount === 2 ? "7/10 (2 competitors)" : compCount === 3 ? "6/10 (3 competitors)" : compCount <= 5 ? "4/10 (4-5 competitors)" : compCount <= 8 ? "3/10 (6-8 competitors)" : "2/10 (9+ competitors)"}</div>
-          <div class="mi-row"><span class="mi-row-label">Competitor Count</span><span class="mi-row-val">${compCount} facilities</span></div>
-          <div class="mi-row"><span class="mi-row-label">Est. Competing SF</span><span class="mi-row-val">${site.competingSF || "—"}</span></div>
-          ${sfPerCapita ? `<div class="mi-row"><span class="mi-row-label">SF/Capita (3-Mi)</span><span class="mi-row-val" style="color:${demandColor}">${sfPerCapita} (${demandSignal})</span></div>` : ""}
-          <div class="mi-row"><span class="mi-row-label">Industry Equilibrium</span><span class="mi-row-val">7-9 SF/capita</span></div>
-          <div class="mi-source">Source: Google Maps, SpareFoot, SelfStorage.com facility scan | Cross-referenced with REIT property databases</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('comp-nearest',event)"><div class="label">Nearest Competitor</div><div class="value" style="font-size:12px">${site.nearestCompetitor || "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-comp-nearest" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Nearest Competing Facility</div><div class="mi-conf mi-conf-med">Verified</div></div>
-        <div class="mi-body">
-          <strong>Closest competing self-storage facility to the subject site. Proximity validates market demand but also indicates direct overlap.</strong>
-          <div class="mi-row"><span class="mi-row-label">Nearest Facility</span><span class="mi-row-val">${h(site.nearestCompetitor || "—")}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Competitor Types</span><span class="mi-row-val">${h(site.competitorTypes || "—")}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Operators in Market</span><span class="mi-row-val">${h(site.competitorNames || "—")}</span></div>
-          <div class="mi-row"><span class="mi-row-label">≤0.5 mi</span><span class="mi-row-val">Direct overlap — validates demand but competitive</span></div>
-          <div class="mi-row"><span class="mi-row-label">0.5-2.0 mi</span><span class="mi-row-val">Ideal — market validation without cannibalization</span></div>
-          <div class="mi-row"><span class="mi-row-label">2.0+ mi</span><span class="mi-row-val">Low overlap — potential underserved catchment</span></div>
-          <div class="mi-source">Source: Google Maps radius scan, SpareFoot, operator websites | Verified ${new Date().toLocaleDateString()}</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('comp-supply',event)"><div class="label">Supply Signal</div><div class="value" style="font-size:11px;line-height:1.3">${site.demandSupplySignal || "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-comp-supply" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Demand / Supply Analysis</div><div class="mi-conf ${demandColor === '#16A34A' ? "mi-conf-high" : demandColor === '#F59E0B' ? "mi-conf-med" : "mi-conf-low"}">${demandSignal || "—"}</div></div>
-        <div class="mi-body">
-          <strong>Supply-per-capita ratio indicates whether the submarket is underserved, balanced, or oversaturated.</strong>
-          <div class="mi-formula">SF/Capita = Total Competing SF ÷ 3-Mi Population<br>${sfPerCapita ? `= ${site.competingSF || "N/A"} ÷ ${!isNaN(popN) ? fmtN2(popN) : "N/A"}<br>= <strong style="color:${demandColor}">${sfPerCapita} SF/capita</strong>` : "Data pending"}</div>
-          <div class="mi-row"><span class="mi-row-label">< 5 SF/capita</span><span class="mi-row-val" style="color:#16A34A">Underserved — strong demand signal</span></div>
-          <div class="mi-row"><span class="mi-row-label">7-9 SF/capita</span><span class="mi-row-val" style="color:#D97706">Equilibrium — healthy market</span></div>
-          <div class="mi-row"><span class="mi-row-label">> 12 SF/capita</span><span class="mi-row-val" style="color:#EF4444">Oversupplied — saturation risk</span></div>
-          <div class="mi-source">Source: SSA (Self Storage Association) industry benchmarks | National avg: 7.3 SF/capita (2024)</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-  ${site.competitorNames ? `<table>
-    <thead><tr><th>Competitor Names</th><th>Types</th><th>Est. Total SF</th></tr></thead>
-    <tbody><tr><td>${h(site.competitorNames || "—")}</td><td>${h(site.competitorTypes || "—")}</td><td>${h(site.competingSF || "—")}</td></tr></tbody>
-  </table>` : ""}
-  ${nearestPS !== null ? `<div class="mi" onclick="toggleMI('comp-nearps',event)" style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-    <div><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em">NEAREST EXISTING FACILITY</div><div style="font-size:13px;font-weight:700;margin-top:4px">${nearestPS} miles</div></div>
-    <div class="pill" style="background:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}18;color:${nearestPS <= 5 ? '#16A34A' : nearestPS <= 15 ? '#3B82F6' : '#F59E0B'}">${nearestPS <= 5 ? "VALIDATED SUBMARKET" : nearestPS <= 15 ? "EXPANSION ZONE" : "NEW MARKET"}</div><em class="mi-hint">i</em>
-    <div id="mi-comp-nearps" class="mi-panel"><div class="mi-panel-inner">
-      <div class="mi-header"><div class="mi-title">Nearest Facility Proximity</div><div class="mi-conf ${nearestPS <= 15 ? "mi-conf-high" : nearestPS <= 25 ? "mi-conf-med" : "mi-conf-low"}">${nearestPS <= 5 ? "Validated" : nearestPS <= 15 ? "Expansion" : "New Market"}</div></div>
-      <div class="mi-body">
-        <strong>Distance to the nearest existing corporate facility. Closer = market validation (not cannibalization). Sites >35mi from any facility are excluded as too remote.</strong>
-        <div class="mi-formula">SiteScore Weight: Binary gate only (0% weighted) — v4.0<br>Score: ${nearestPS <= 5 ? "10/10 (≤5mi — validated submarket)" : nearestPS <= 10 ? "9/10 (≤10mi)" : nearestPS <= 15 ? "7/10 (≤15mi)" : nearestPS <= 25 ? "5/10 (≤25mi)" : "3/10 (>25mi) or FAIL if >35mi"}<br>Display only; does not contribute to composite (>35mi = hard FAIL)</div>
-        <div class="mi-row"><span class="mi-row-label">Distance</span><span class="mi-row-val">${nearestPS} miles</span></div>
-        <div class="mi-row"><span class="mi-row-label">≤ 5 mi</span><span class="mi-row-val" style="color:#16A34A">Validated — existing ops confirm demand</span></div>
-        <div class="mi-row"><span class="mi-row-label">5-15 mi</span><span class="mi-row-val" style="color:#3B82F6">Expansion zone — adjacent market</span></div>
-        <div class="mi-row"><span class="mi-row-label">15-35 mi</span><span class="mi-row-val" style="color:#D97706">New market — requires stand-alone demand</span></div>
-        <div class="mi-row"><span class="mi-row-label">> 35 mi</span><span class="mi-row-val" style="color:#EF4444">HARD FAIL — too remote for footprint</span></div>
-        <div class="mi-source">Source: PS_Locations_ALL.csv (3,112 locations) | Haversine distance calculation from site coordinates</div>
-      </div>
-    </div></div>
   </div>` : ""}
-</div>
 
-<!-- ═══════════════ SECTION 5: ZONING & ENTITLEMENTS ═══════════════ -->
-<div id="sec-R5" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">8</span> Zoning & Entitlements</h2>
-  <div style="display:flex;gap:16px;margin-bottom:16px">
-    <div style="flex:1" class="metric mi" onclick="toggleMI('zon-district',event)">
-      <div class="label">Zoning District</div>
-      <div class="value" style="font-size:16px">${site.zoning || "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-zon-district" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Zoning District</div><div class="mi-conf mi-conf-med">Research</div></div>
-        <div class="mi-body">
-          <strong>The zoning district designation determines what uses are permitted on the parcel by right, by conditional use, or not at all.</strong>
-          <div class="mi-row"><span class="mi-row-label">District</span><span class="mi-row-val">${site.zoning || "—"}</span></div>
-          ${site.zoningOrdinanceSection ? `<div class="mi-row"><span class="mi-row-label">Ordinance Section</span><span class="mi-row-val">${site.zoningOrdinanceSection}</span></div>` : ""}
-          ${site.jurisdictionType ? `<div class="mi-row"><span class="mi-row-label">Jurisdiction</span><span class="mi-row-val">${site.jurisdictionType}</span></div>` : ""}
-          ${site.zoningUseTerm ? `<div class="mi-row"><span class="mi-row-label">Use Category</span><span class="mi-row-val">${site.zoningUseTerm}</span></div>` : ""}
-          <div class="mi-row"><span class="mi-row-label">SiteScore Weight</span><span class="mi-row-val">16% of composite</span></div>
-          <div class="mi-source">Source: ${site.zoningSource || "Municipal zoning ordinance"} | Verified: ${site.zoningVerifyDate || new Date().toLocaleDateString()}</div>
-        </div>
-      </div></div>
-    </div>
-    <div style="flex:1" class="metric mi" onclick="toggleMI('zon-class',event)">
-      <div class="label">Classification</div>
-      <div class="badge" style="background:${zoningColor}15;color:${zoningColor};border:1px solid ${zoningColor}30;font-size:12px;padding:6px 16px;margin-top:4px">${zoningLabel}</div><em class="mi-hint">i</em>
-      <div id="mi-zon-class" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Zoning Classification</div><div class="mi-conf ${zoningClass === "by-right" ? "mi-conf-high" : zoningClass === "conditional" ? "mi-conf-med" : "mi-conf-low"}">${zoningLabel}</div></div>
-        <div class="mi-body">
-          <strong>Zoning classification determines entitlement timeline, cost, and political risk for self-storage development.</strong>
-          <div class="mi-formula">SiteScore Weight: 16% of composite<br>Score: ${zoningClass === "by-right" ? "10/10 — permitted by right" : zoningClass === "conditional" ? "6/10 — conditional/SUP required" : zoningClass === "rezone-required" ? "2/10 — rezone required" : zoningClass === "prohibited" ? "0/10 — FAIL" : "5/10 — unknown"}</div>
-          <div class="mi-row"><span class="mi-row-label">By-Right (P)</span><span class="mi-row-val" style="color:#16A34A">10/10 — no public hearing needed</span></div>
-          <div class="mi-row"><span class="mi-row-label">Conditional (SUP/CUP)</span><span class="mi-row-val" style="color:#D97706">6/10 — 3-6 month hearing process</span></div>
-          <div class="mi-row"><span class="mi-row-label">Rezone Required</span><span class="mi-row-val" style="color:#EF4444">2/10 — 6-12 months, $25K-$75K+</span></div>
-          <div class="mi-row"><span class="mi-row-label">Prohibited</span><span class="mi-row-val" style="color:#991B1B">0/10 — HARD FAIL</span></div>
-          ${site.politicalRisk ? `<div class="mi-row"><span class="mi-row-label">Political Risk</span><span class="mi-row-val">${site.politicalRisk}</span></div>` : ""}
-          <div class="mi-source">Source: ${site.zoningSource || "Municipal permitted use table"} | Methodology: §6c ordinance lookup</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-  <table>
-    <tbody>
-      ${site.zoningUseTerm ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Use Category</td><td>${site.zoningUseTerm}</td></tr>` : ""}
-      ${site.zoningOrdinanceSection ? `<tr><td style="font-weight:700;color:#64748B">Ordinance Section</td><td>${site.zoningOrdinanceSection}</td></tr>` : ""}
-      ${site.zoningSource ? `<tr><td style="font-weight:700;color:#64748B">Source</td><td style="word-break:break-all">${site.zoningSource}</td></tr>` : ""}
-      ${site.jurisdictionType ? `<tr><td style="font-weight:700;color:#64748B">Jurisdiction</td><td>${site.jurisdictionType}</td></tr>` : ""}
-      ${site.overlayDistrict ? `<tr><td style="font-weight:700;color:#64748B">Overlay District</td><td>${site.overlayDistrict}</td></tr>` : ""}
-      ${site.heightLimit ? `<tr><td style="font-weight:700;color:#64748B">Height Limit</td><td>${site.heightLimit}</td></tr>` : ""}
-      ${site.facadeReqs ? `<tr><td style="font-weight:700;color:#64748B">Facade Requirements</td><td>${site.facadeReqs}</td></tr>` : ""}
-      ${site.setbackReqs ? `<tr><td style="font-weight:700;color:#64748B">Setbacks</td><td>${site.setbackReqs}</td></tr>` : ""}
-      ${site.parkingReqs ? `<tr><td style="font-weight:700;color:#64748B">Parking</td><td>${site.parkingReqs}</td></tr>` : ""}
-      ${site.planningContact ? `<tr><td style="font-weight:700;color:#64748B">Planning Contact</td><td>${site.planningContact}${site.planningPhone ? " — " + site.planningPhone : ""}${site.planningEmail ? " — " + site.planningEmail : ""}</td></tr>` : ""}
-    </tbody>
-  </table>
-  ${site.zoningNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#92400E;letter-spacing:0.08em;margin-bottom:6px">ZONING RESEARCH NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${h(site.zoningNotes)}</div></div>` : ""}
-</div>
-
-<!-- ═══════════════ SECTION 6: UTILITIES & INFRASTRUCTURE ═══════════════ -->
-<div id="sec-R6" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">9</span> Utilities & Infrastructure</h2>
-  <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center">
-    <div class="metric mi" style="flex:0 0 120px" onclick="toggleMI('util-grade',event)">
-      <div class="label">Utility Grade</div>
-      <div class="value" style="font-size:36px;color:${utilColor}">${utilGrade}</div>
-      <div class="sub">${utilScore}/100</div><em class="mi-hint">i</em>
-      <div id="mi-util-grade" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Utility Readiness Score</div><div class="mi-conf ${utilScore >= 80 ? "mi-conf-high" : utilScore >= 60 ? "mi-conf-med" : "mi-conf-low"}">${utilGrade} Grade</div></div>
-        <div class="mi-body">
-          <strong>Weighted assessment of 10 utility readiness criteria. Municipal water is a HARD REQUIREMENT for fire suppression — self-storage facilities require 1,500+ GPM at 20 PSI residual.</strong>
-          <div class="mi-formula">Utility Score = Σ (Criteria × Weight)<br>= ${utilScore}/100 → Grade ${utilGrade}</div>
-          ${utilChecks.map(c => `<div class="mi-row"><span class="mi-row-label">${c.done ? "✓" : "○"} ${c.label || c.l || "—"}</span><span class="mi-row-val">${c.weight || c.w || 0} pts ${c.done ? "(earned)" : "(missing)"}</span></div>`).join("")}
-          <div class="mi-row" style="border-top:1px solid #E2E8F0;padding-top:6px;margin-top:4px"><span class="mi-row-label">A ≥80</span><span class="mi-row-val">Development-ready — proceed</span></div>
-          <div class="mi-row"><span class="mi-row-label">B (60-79)</span><span class="mi-row-val">Viable — verify remaining items</span></div>
-          <div class="mi-row"><span class="mi-row-label">C (40-59)</span><span class="mi-row-val">Gaps exist — budget for extensions</span></div>
-          <div class="mi-row"><span class="mi-row-label">D/F (<40)</span><span class="mi-row-val">Significant utility concerns</span></div>
-          <div class="mi-source">Source: Municipal utility maps, TCEQ CCN (TX), city GIS portals, provider websites | Fire flow: NFPA 13/14</div>
-        </div>
-      </div></div>
-    </div>
-    <div style="flex:1">
-      <div style="height:12px;border-radius:6px;background:#F1F5F9;overflow:hidden;margin-bottom:8px">
-        <div style="width:${utilScore}%;height:100%;border-radius:6px;background:linear-gradient(90deg,${utilColor},${utilColor}CC);transition:width 0.5s"></div>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${utilChecks.map(c => `<span class="pill" style="background:${c.done ? '#16A34A' : '#94A3B8'}15;color:${c.done ? '#16A34A' : '#94A3B8'}">${c.done ? '✓' : '○'} ${c.label || c.l || "—"}</span>`).join("")}
-      </div>
-    </div>
-  </div>
-  <table>
-    <tbody>
-      ${site.waterProvider ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Water Provider</td><td>${site.waterProvider}${site.waterAvailable === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">AVAILABLE</span>' : site.waterAvailable === false ? ' <span class="pill" style="background:#EF444415;color:#EF4444">Need Further Research</span>' : ''}</td></tr>` : ""}
-      ${site.distToWaterMain ? `<tr><td style="font-weight:700;color:#64748B">Dist to Water Main</td><td>${site.distToWaterMain}</td></tr>` : ""}
-      ${site.waterMainSize ? `<tr><td style="font-weight:700;color:#64748B">Water Main Size</td><td>${site.waterMainSize}</td></tr>` : ""}
-      ${site.sewerProvider ? `<tr><td style="font-weight:700;color:#64748B">Sewer Provider</td><td>${site.sewerProvider}${site.sewerAvailable === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">AVAILABLE</span>' : ''}</td></tr>` : ""}
-      ${site.electricProvider ? `<tr><td style="font-weight:700;color:#64748B">Electric Provider</td><td>${site.electricProvider}${site.threePhase === true ? ' <span class="pill" style="background:#16A34A15;color:#16A34A">3-PHASE ✓</span>' : ''}</td></tr>` : ""}
-      ${site.gasProvider ? `<tr><td style="font-weight:700;color:#64748B">Gas Provider</td><td>${site.gasProvider}</td></tr>` : ""}
-      ${site.waterTapFee || site.sewerTapFee ? `<tr><td style="font-weight:700;color:#64748B">Tap Fees</td><td>Water: ${site.waterTapFee || "—"} | Sewer: ${site.sewerTapFee || "—"}</td></tr>` : ""}
-      ${site.impactFees ? `<tr><td style="font-weight:700;color:#64748B">Impact Fees</td><td>${site.impactFees}</td></tr>` : ""}
-      ${site.totalUtilityBudget ? `<tr><td style="font-weight:700;color:#64748B">Est. Utility Budget</td><td style="font-weight:700;color:#1E293B">${site.totalUtilityBudget}</td></tr>` : ""}
-    </tbody>
-  </table>
-  ${site.utilityNotes ? `<div style="margin-top:14px;padding:12px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px"><div style="font-size:9px;font-weight:700;color:#0284C7;letter-spacing:0.08em;margin-bottom:6px">UTILITY NOTES</div><div style="font-size:11px;color:#1E293B;line-height:1.6;white-space:pre-wrap">${h(site.utilityNotes)}</div></div>` : ""}
-</div>
-
-<!-- ═══════════════ SECTION 7: SITE CHARACTERISTICS ═══════════════ -->
-<div id="sec-R7" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">10</span> Site Characteristics & Access</h2>
-  <div class="grid3" style="margin-bottom:16px">
-    <div class="metric mi" onclick="toggleMI('site-acreage',event)"><div class="label">Acreage</div><div class="value">${!isNaN(acres) ? acres.toFixed(2) : "—"}</div><div class="sub">${isMultiStory ? "Multi-Story (3-4)" : "Single-Story"}</div><em class="mi-hint">i</em>
-      <div id="mi-site-acreage" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Site Acreage & Product Type</div><div class="mi-conf mi-conf-high">Listing Data</div></div>
-        <div class="mi-body">
-          <strong>Site acreage determines product type selection and total rentable SF.</strong>
-          <div class="mi-formula">Gross Site: ${!isNaN(acres) ? acres.toFixed(2) : "?"} ac = ${!isNaN(acres) ? Math.round(acres*43560).toLocaleString() : "?"} SF<br>Product: ${isMultiStory ? stories + "-story (< 3.5 ac → build up)" : "Single-story (≥ 3.5 ac → preferred)"}<br>Buildable @ 35% coverage: ${footprint.toLocaleString()} SF footprint</div>
-          <div class="mi-row"><span class="mi-row-label">≥ 3.5 ac (Primary)</span><span class="mi-row-val">One-story indoor — PS preference</span></div>
-          <div class="mi-row"><span class="mi-row-label">2.5 – 3.5 ac (Secondary)</span><span class="mi-row-val">3-4 story multi-story</span></div>
-          <div class="mi-row"><span class="mi-row-label">< 2.5 ac</span><span class="mi-row-val" style="color:#EF4444">Generally too small for development</span></div>
-          <div class="mi-row"><span class="mi-row-label">Coverage Ratio</span><span class="mi-row-val">35% (PS standard layout)</span></div>
-          <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet"} listing | PS development standards (Dec 2024)</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('site-sf',event)"><div class="label">Est. Building SF</div><div class="value">${totalSF.toLocaleString()}</div><div class="sub">${stories > 1 ? stories + " stories" : "Single-story"} · 35% coverage</div><em class="mi-hint">i</em>
-      <div id="mi-site-sf" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Total Rentable SF Derivation</div><div class="mi-conf mi-conf-med">Calculated</div></div>
-        <div class="mi-body">
-          <strong>Total rentable square footage is the primary revenue driver. Derived from site acreage, coverage ratio, and stories.</strong>
-          <div class="mi-formula">Step 1: Footprint = ${!isNaN(acres) ? acres.toFixed(2) : "?"} ac × 43,560 SF/ac × 35%<br>= ${footprint.toLocaleString()} SF<br>Step 2: Total SF = ${footprint.toLocaleString()} × ${stories} stories<br>= <strong style="color:#1E40AF">${totalSF.toLocaleString()} SF</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Climate-Controlled</span><span class="mi-row-val">${climateSF.toLocaleString()} SF (${Math.round(climatePct*100)}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Drive-Up</span><span class="mi-row-val">${driveSF.toLocaleString()} SF (${Math.round(drivePct*100)}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Revenue Density</span><span class="mi-row-val">$${totalSF > 0 ? (stabRev/totalSF).toFixed(2) : "N/A"}/SF/yr</span></div>
-          <div class="mi-source">Source: SiteScore Facility Sizing Engine | 35% lot coverage per industry standard 1-story CC layout</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('site-flood',event)"><div class="label">Flood Zone</div><div class="value" style="font-size:14px">${site.floodZone || (hasFlood ? "⚠️ FLOOD" : "—")}</div><em class="mi-hint">i</em>
-      <div id="mi-site-flood" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">FEMA Flood Zone Assessment</div><div class="mi-conf ${hasFlood ? "mi-conf-low" : "mi-conf-high"}">${hasFlood ? "Flood Risk" : "No Flood"}</div></div>
-        <div class="mi-body">
-          <strong>FEMA flood zone designation determines insurance costs, development feasibility, and SiteScore access penalty.</strong>
-          <div class="mi-row"><span class="mi-row-label">Designation</span><span class="mi-row-val">${site.floodZone || (hasFlood ? "Flood zone identified" : "Zone X (no flood)")}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Zone X (Minimal)</span><span class="mi-row-val" style="color:#16A34A">No special flood area — preferred</span></div>
-          <div class="mi-row"><span class="mi-row-label">Zone X (Shaded)</span><span class="mi-row-val" style="color:#D97706">500-yr flood — manageable</span></div>
-          <div class="mi-row"><span class="mi-row-label">Zone A/AE</span><span class="mi-row-val" style="color:#EF4444">100-yr flood — significant constraint</span></div>
-          <div class="mi-row"><span class="mi-row-label">SiteScore Impact</span><span class="mi-row-val">${hasFlood ? "-2 point penalty on access score" : "No penalty"}</span></div>
-          <div class="mi-source">Source: FEMA Flood Map Service Center (msc.fema.gov) | National Flood Insurance Program</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-  <table>
-    <tbody>
-      ${site.roadFrontage ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Road Frontage</td><td>${site.roadFrontage}</td></tr>` : ""}
-      ${site.frontageRoadName ? `<tr><td style="font-weight:700;color:#64748B">Frontage Road</td><td>${site.frontageRoadName}</td></tr>` : ""}
-      ${site.roadType ? `<tr><td style="font-weight:700;color:#64748B">Road Type</td><td>${site.roadType}</td></tr>` : ""}
-      ${site.trafficData ? `<tr><td style="font-weight:700;color:#64748B">Traffic (VPD)</td><td>${site.trafficData}</td></tr>` : ""}
-      ${site.medianType ? `<tr><td style="font-weight:700;color:#64748B">Median Type</td><td>${site.medianType}</td></tr>` : ""}
-      ${site.nearestSignal ? `<tr><td style="font-weight:700;color:#64748B">Nearest Signal</td><td>${site.nearestSignal}</td></tr>` : ""}
-      ${site.curbCuts ? `<tr><td style="font-weight:700;color:#64748B">Curb Cuts</td><td>${site.curbCuts}</td></tr>` : ""}
-      ${site.visibility ? `<tr><td style="font-weight:700;color:#64748B">Visibility</td><td>${site.visibility}</td></tr>` : ""}
-      ${site.terrain ? `<tr><td style="font-weight:700;color:#64748B">Terrain</td><td>${site.terrain}</td></tr>` : ""}
-      ${site.soilType ? `<tr><td style="font-weight:700;color:#64748B">Soil Type</td><td>${site.soilType}</td></tr>` : ""}
-      ${dom !== null ? `<tr><td style="font-weight:700;color:#64748B">Days on Market</td><td>${dom}${dom > 365 ? ' <span class="pill" style="background:#F59E0B15;color:#F59E0B">STALE</span>' : ''}</td></tr>` : ""}
-    </tbody>
-  </table>
-</div>
-
-<!-- ═══════════════ SECTION 8: FINANCIAL ANALYSIS ═══════════════ -->
-<div id="sec-R8" class="section" style="scroll-margin-top:20px;background:#FAFBFC">
-  <h2><span class="sec-num">11</span> Financial Analysis</h2>
-
-  <!-- Development Cost -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Development Cost Estimate</h3>
-  <div class="grid4" style="margin-bottom:20px">
-    <div class="metric mi" onclick="toggleMI('fin-land',event)"><div class="label">Land Cost</div><div class="value" style="font-size:16px">${landCost > 0 ? fmtM(landCost) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-fin-land" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Land Acquisition Cost</div><div class="mi-conf ${landCost > 0 ? "mi-conf-high" : "mi-conf-low"}">${landCost > 0 ? "Confirmed" : "Pending"}</div></div>
-        <div class="mi-body">
-          <strong>Land cost as listed or broker-confirmed. The single most variable input — drives YOC and land verdict.</strong>
-          <div class="mi-formula">Price/Acre = ${fmtD(landCost)} ÷ ${!isNaN(acres) ? acres.toFixed(2) : "?"} ac = <strong style="color:#1E40AF">${pricePerAcre ? fmtD(pricePerAcre) + "/ac" : "N/A"}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Land as % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Industry Benchmark</span><span class="mi-row-val">15-25% of total dev cost</span></div>
-          <div class="mi-row"><span class="mi-row-label">Assessment</span><span class="mi-row-val" style="color:${landCost/totalDevCost < 0.25 ? "#16A34A" : "#D97706"}">${landCost/totalDevCost < 0.15 ? "Favorable" : landCost/totalDevCost < 0.25 ? "Market Rate" : "Premium"}</span></div>
-          <div class="mi-source">Source: ${site.listingSource || "Crexi/LoopNet"} listing | Verified: ${new Date().toLocaleDateString()}</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('fin-hard',event)"><div class="label">Total Hard Cost</div><div class="value" style="font-size:16px">${fmtM(totalHardCost)}</div><div class="sub">$${totalHardPerSF}/SF all-in</div><em class="mi-hint">i</em>
-      <div id="mi-fin-hard" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Full Hard Cost Stack — Industry Benchmarked</div><div class="mi-conf mi-conf-high">Industry Benchmarked</div></div>
-        <div class="mi-body">
-          <strong>All-in hard costs: building shell, site development, fire suppression, interior buildout, technology, and utility infrastructure. Regionally adjusted. Calibrated against market benchmarks and recent comparable closings.</strong>
-          <div class="mi-formula">
-            Building Shell & HVAC: $${hardCostPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} = ${fmtD(hardCost)}<br>
-            Site Development: $${baseSiteWorkPerSF}/SF × ${siteAreaSF.toLocaleString()} site SF = ${fmtD(siteWorkCost)}<br>
-            Fire Suppression: $${baseFireSuppressionPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} = ${fmtD(fireSuppressionCost)}<br>
-            Interior Buildout: $${baseInteriorPerSF}/SF × ${totalSF.toLocaleString()} net SF = ${fmtD(interiorBuildoutCost)}<br>
-            Technology & Security: $${baseTechPerSF}/SF × ${grossSF ? grossSF.toLocaleString() : "?"} = ${fmtD(technologyCost)}<br>
-            Utility Infrastructure: $${utilityInfraBase.toLocaleString()} + $${baseUtilityPerSF}/SF = ${fmtD(utilityInfraCost)}<br>
-            ────────────<br>
-            <strong style="color:#1E40AF">${fmtD(totalHardCost)}</strong> ($${totalHardPerSF}/SF all-in)
-          </div>
-          <div class="mi-row"><span class="mi-row-label">State Cost Index (${site.state || "N/A"})</span><span class="mi-row-val">${costIdx.toFixed(2)}x — ${costIdx < 0.95 ? "below national avg" : costIdx > 1.05 ? "above national avg" : "near national avg"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Gross vs Net SF</span><span class="mi-row-val">${grossSF ? grossSF.toLocaleString() : "?"} gross → ${totalSF.toLocaleString()} net (${netToGross ? (netToGross*100).toFixed(0) : 90}% efficiency)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Hard % of Total Dev</span><span class="mi-row-val">${totalDevCost > 0 ? Math.round(totalHardCost/totalDevCost*100) : 0}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Market Benchmark</span><span class="mi-row-val">Industry benchmark: $119/SF all-in on 98K GSF 1-story CC. Model: $${totalHardPerSF}/SF. ${Math.abs(totalHardPerSF - 119) <= 15 ? "Within calibration range." : "Review assumptions."}</span></div>
-          <div class="mi-source">Source: RSMeans 2025 | ENR Q1 2026 | Comparable CC storage development closings</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('fin-soft',event)"><div class="label">Soft Cost (20%)</div><div class="value" style="font-size:16px">${fmtM(softCost)}</div><em class="mi-hint">i</em>
-      <div id="mi-fin-soft" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Soft Costs</div><div class="mi-conf mi-conf-med">Standard Ratio</div></div>
-        <div class="mi-body">
-          <strong>Soft costs include architecture, engineering, permitting, legal, insurance, and financing fees. Contingency tracked separately at ${(contingencyPct*100).toFixed(1)}% of total hard costs (${fmtD(contingency)}).</strong>
-          <div class="mi-formula">Soft Cost = Total Hard Cost × ${Math.round(softCostPct*100)}%<br>= ${fmtD(totalHardCost)} × ${softCostPct}<br>= <strong style="color:#1E40AF">${fmtD(softCost)}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Architecture & Engineering</span><span class="mi-row-val">~6-8% of hard costs</span></div>
-          <div class="mi-row"><span class="mi-row-label">Permitting & Impact Fees</span><span class="mi-row-val">~3-5% of hard costs</span></div>
-          <div class="mi-row"><span class="mi-row-label">Financing & Legal</span><span class="mi-row-val">~3-4% of hard costs</span></div>
-          <div class="mi-row"><span class="mi-row-label">Contingency</span><span class="mi-row-val">~3-5% of hard costs</span></div>
-          <div class="mi-source">Source: REIT development pro formas (PSA, EXR) | 20% soft cost ratio is industry-standard for storage</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('fin-total',event)"><div class="label">Total Dev Cost</div><div class="value" style="font-size:16px;color:#1E2761">${totalDevCost > 0 ? fmtM(totalDevCost) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-fin-total" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Total Development Cost</div><div class="mi-conf mi-conf-med">Modeled</div></div>
-        <div class="mi-body">
-          <strong>All-in development cost — PS "Total Development Yield" denominator. Includes contingency and construction carry costs.</strong>
-          <div class="mi-formula">Total Dev = Land + Hard + Soft + Contingency + Carry<br>= ${fmtD(landCost)} + ${fmtD(hardCost)} + ${fmtD(softCost)} + ${fmtD(contingency)} + ${fmtD(carryCosts)}<br>= <strong style="color:#1E2761">${fmtD(totalDevCost)}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Land</span><span class="mi-row-val">${fmtD(landCost)} (${totalDevCost > 0 ? Math.round(landCost/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Hard Costs</span><span class="mi-row-val">${fmtD(hardCost)} (${totalDevCost > 0 ? Math.round(hardCost/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Soft Costs</span><span class="mi-row-val">${fmtD(softCost)} (${totalDevCost > 0 ? Math.round(softCost/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Contingency (${(contingencyPct*100).toFixed(1)}%)</span><span class="mi-row-val">${fmtD(contingency)} (${totalDevCost > 0 ? Math.round(contingency/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Construction Carry (${constructionMonths}mo)</span><span class="mi-row-val">${fmtD(carryCosts)} (${totalDevCost > 0 ? Math.round(carryCosts/totalDevCost*100) : 0}%)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Cost/SF (All-In)</span><span class="mi-row-val">${totalSF > 0 ? fmtD(totalDevCost/totalSF) + "/SF" : "N/A"}</span></div>
-          <div class="mi-source">Source: SiteScore Financial Engine | Land: listing price | Hard: RSMeans/ENR 2025 regional index | Soft: 20% industry standard | Contingency: 7.5% of hard (REC standard)</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-
-  <!-- 5-Year Pro Forma Summary -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">5-Year Pro Forma Summary</h3>
-  <table>
-    <thead><tr><th>Year</th><th>Occupancy</th><th>Revenue</th><th>OpEx</th><th>NOI</th><th>YOC</th></tr></thead>
-    <tbody>
-      ${yearData.map((y, i) => {
-        const yoc = totalDevCost > 0 ? ((y.noi / totalDevCost) * 100).toFixed(1) : "—";
-        const yocC = parseFloat(yoc) >= 8.5 ? "#16A34A" : parseFloat(yoc) >= 7.0 ? "#F59E0B" : "#EF4444";
-        return `<tr${i === 4 ? ' style="background:#F0FDF4;font-weight:700"' : ""}>
-          <td style="font-weight:700">Y${y.yr}</td>
-          <td>${Math.round(y.occRate * 100)}%</td>
-          <td class="mono">${fmtD(y.totalRev)}</td>
-          <td class="mono">${fmtD(y.opex)}</td>
-          <td class="mono" style="font-weight:700">${fmtD(y.noi)}</td>
-          <td class="mono" style="color:${yocC};font-weight:700">${yoc}%</td>
-        </tr>`;
-      }).join("")}
-    </tbody>
-  </table>
-
-  <!-- Stabilized Valuation -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">Stabilized Valuation (Y5 NOI: ${fmtD(stabNOI)})</h3>
-  <div class="grid3">
-    ${valuations.map((v,vi) => `<div class="metric mi" onclick="toggleMI('val${vi}',event)"><div class="label">${v.label}</div><div class="value" style="font-size:18px;color:#1E2761">${fmtM(v.value)}</div><div class="sub">@ ${(v.rate*100).toFixed(2)}% cap</div><em class="mi-hint">i</em>
-      <div id="mi-val${vi}" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">${v.label} Valuation</div><div class="mi-conf mi-conf-med">Modeled</div></div>
-        <div class="mi-body">
-          <strong>Direct capitalization of stabilized NOI at a ${(v.rate*100).toFixed(2)}% cap rate.</strong>
-          <div class="mi-formula">Value = Stabilized NOI ÷ Cap Rate<br>= ${fmtD(stabNOI)} ÷ ${(v.rate*100).toFixed(2)}%<br>= <strong style="color:#1E2761">${fmtM(v.value)}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Value/SF</span><span class="mi-row-val">${totalSF > 0 ? fmtD(v.value/totalSF) : "N/A"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Value vs Dev Cost</span><span class="mi-row-val" style="color:${v.value > totalDevCost ? "#16A34A" : "#EF4444"}">${totalDevCost > 0 ? (v.value > totalDevCost ? "+" : "") + fmtM(v.value - totalDevCost) + " (" + Math.round((v.value/totalDevCost-1)*100) + "%)" : "N/A"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Cap Rate Context</span><span class="mi-row-val">${v.rate <= 0.05 ? "Aggressive — primary market" : v.rate <= 0.06 ? "Market — secondary market" : "Conservative — tertiary/discount"}</span></div>
-          <div class="mi-source">Source: REIT transaction comps (PSA, EXR, CUBE Q4 2025 10-K filings) | Direct capitalization method</div>
-        </div>
-      </div></div>
-    </div>`).join("")}
-  </div>
-
-  <!-- Land Price Guide -->
-  <h3 style="font-size:12px;font-weight:800;color:#C9A84C;letter-spacing:0.08em;text-transform:uppercase;margin:24px 0 12px">◆ Land Acquisition Price Guide</h3>
-  <div style="border:2px solid rgba(201,168,76,0.2);border-radius:12px;overflow:hidden">
-    <table>
-      <thead><tr><th>Tier</th><th>Target YOC</th><th>Max Land Price</th><th>Per Acre</th><th></th></tr></thead>
+  <!-- Land Acquisition Price Guide -->
+  <div style="background:#fff;border:2px solid rgba(201,168,76,0.3);border-radius:10px;overflow:hidden">
+    <div style="padding:10px 14px;background:#F8FAFC;border-bottom:1px solid #E2E8F0"><b style="color:#C9A84C;font-size:11px;letter-spacing:0.04em">◆ LAND ACQUISITION PRICE GUIDE</b> <span style="font-size:9px;color:#64748B;margin-left:8px">Strike = max land at target YOC, back-calculated from stabilized NOI</span></div>
+    <table style="font-size:11px">
+      <thead><tr><th>Tier</th><th>Target YOC</th><th>Max Land</th><th>$/Acre</th><th></th></tr></thead>
       <tbody>
-        ${landPrices.map(lp => `<tr>
-          <td style="font-weight:700">${lp.label}</td>
-          <td class="mono">${(lp.yoc * 100).toFixed(1)}%</td>
-          <td class="mono" style="font-weight:800;color:${lp.color}">${lp.maxLand > 0 ? fmtM(lp.maxLand) : "—"}</td>
-          <td class="mono">${lp.perAcre > 0 ? fmtD(lp.perAcre) : "—"}/ac</td>
-          <td><span class="pill" style="background:${lp.color}15;color:${lp.color}">${lp.tag}</span></td>
-        </tr>`).join("")}
+        ${landPrices.map(lp => `<tr><td style="font-weight:700">${lp.label}</td><td class="mono">${(lp.yoc * 100).toFixed(1)}%</td><td class="mono" style="font-weight:800;color:${lp.color}">${lp.maxLand > 0 ? fmtM(lp.maxLand) : "—"}</td><td class="mono">${lp.perAcre > 0 ? fmtD(lp.perAcre) : "—"}/ac</td><td><span class="pill" style="background:${lp.color}15;color:${lp.color}">${lp.tag}</span></td></tr>`).join("")}
       </tbody>
     </table>
-    ${askVsStrike !== null ? `<div style="padding:14px;background:#F8FAFC;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center">
-      <div><span style="font-size:11px;color:#64748B;font-weight:600">Ask (${landCost > 0 ? fmtM(landCost) : "—"}) vs Strike (${fmtM(landPrices[1].maxLand)})</span></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:16px;font-weight:900;color:${verdictColor};font-family:'Space Mono',monospace">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</span>
-        <span class="badge" style="background:${verdictColor}15;color:${verdictColor};border:1px solid ${verdictColor}30">${landVerdict}</span>
+    ${askVsStrike !== null ? `<div style="padding:12px 14px;background:#F8FAFC;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#64748B">Ask (${landCost > 0 ? fmtM(landCost) : "—"}) vs Strike (${fmtM(landPrices[1].maxLand)})</span><span><b class="mono" style="font-size:15px;color:${verdictColor}">${parseFloat(askVsStrike) > 0 ? '+' : ''}${askVsStrike}%</b> <span class="badge" style="background:${verdictColor}15;color:${verdictColor};border:1px solid ${verdictColor}30;margin-left:8px">${landVerdict}</span></span></div>` : ""}
+  </div>
+
+  ${padScenario ? `<div style="margin-top:12px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px"><div style="font-size:9px;font-weight:800;color:#92400E;letter-spacing:0.08em;margin-bottom:6px">LARGE-TRACT — PAD SUBDIVISION SCENARIO</div><div style="font-size:11px;color:#78350F;line-height:1.6">Site is <b>${acres} ac</b> but facility needs only <b>~${effectivePadAcres} ac</b>. Pad-only land cost: <b>${fmtM(padLandCost)}</b> at $${padScenario.pricePerAcre.toLocaleString()}/ac · pad YOC <b>${padScenario.padYOC}%</b> · verdict <b style="color:${padScenario.padVerdictColor}">${padScenario.padVerdict}</b>${padScenario.padAskVsStrike !== null ? ` (${parseFloat(padScenario.padAskVsStrike) > 0 ? "+" : ""}${padScenario.padAskVsStrike}% vs strike)` : ""}. Excess <b>${excessAcres} ac</b> can be marketed separately.</div></div>` : ""}
+</div>
+
+<!-- ═══════════════ §4 AUDIT TRAIL ═══════════════ -->
+<div id="sec-audit" class="section" style="scroll-margin-top:20px;background:#fff;border-left:4px solid #94A3B8">
+  <h2><span class="sec-num" style="background:#1E2761;color:#C9A84C">4</span> Audit Trail</h2>
+  <p style="font-size:11px;color:#64748B;margin:0 0 18px;line-height:1.55">Every input traceable to a primary source. Storvex applies a 9-dimension SiteScore composite plus a binary PS proximity gate (>35 mi = HARD FAIL), with vetting cost adjustments folded into the dev-cost stack. Below: the methodology, the gate verifications, and the source stack.</p>
+
+  <!-- SiteScore breakdown -->
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;margin-bottom:18px">
+    <div style="padding:10px 14px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center"><b style="color:#1E2761;font-size:11px;letter-spacing:0.04em">SITESCORE™ COMPOSITE</b><span style="font-size:13px;font-weight:900;color:${iqBadgeColor};font-family:'Space Mono',monospace">${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}/10 · ${iq.label || ""}</span></div>
+    <table style="font-size:10px">
+      <thead><tr><th>Dimension</th><th style="text-align:left">Score (0–10)</th><th style="text-align:right">Weight</th><th style="text-align:right">Weighted</th></tr></thead>
+      <tbody>${(iq.breakdown || []).map((b) => { const dimScore = b.score || 0; const dimWeighted = dimScore * (b.weight || 0); const barColor = dimScore >= 8 ? "#16A34A" : dimScore >= 6 ? "#3B82F6" : dimScore >= 4 ? "#F59E0B" : "#EF4444"; return `<tr><td><b>${b.icon || "◆"} ${b.label}</b>${b.reason ? `<div style="font-size:9px;color:#64748B;margin-top:2px;line-height:1.4">${b.reason}</div>` : ""}</td><td style="width:160px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:3px;background:#F1F5F9"><div style="width:${(dimScore/10)*100}%;height:100%;border-radius:3px;background:${barColor}"></div></div><span class="mono" style="font-weight:800;color:${barColor};min-width:24px;text-align:right">${dimScore.toFixed(1)}</span></div></td><td class="mono" style="text-align:right;color:#64748B">${Math.round((b.weight || 0) * 100)}%</td><td class="mono" style="text-align:right;font-weight:700">${dimWeighted.toFixed(2)}</td></tr>`; }).join("")}</tbody>
+      <tfoot><tr style="background:#1E2761;color:#fff"><td colspan="3" style="padding:10px 14px;font-weight:900">COMPOSITE</td><td class="mono" style="text-align:right;font-weight:900;font-size:13px;padding:10px 14px">${typeof iq.score === "number" ? iq.score.toFixed(2) : "—"}</td></tr></tfoot>
+    </table>
+  </div>
+
+  <!-- 4-up gate verification grid -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+
+    <!-- Zoning -->
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+        <div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em">ZONING VERIFICATION</div>
+        <div class="badge" style="background:${zoningColor}18;color:${zoningColor};border:1px solid ${zoningColor}30;font-size:10px;padding:3px 10px">${zoningLabel}</div>
       </div>
-    </div>` : ""}
-  </div>
-  ${padScenario ? `
-  <div style="margin-top:12px;padding:12px 14px;background:#FFFBEB;border:1px solid #F59E0B40;border-radius:8px">
-    <div style="font-size:10px;font-weight:800;color:#92400E;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">Large Tract — Pad Subdivision Scenario</div>
-    <div style="font-size:11px;color:#78350F;line-height:1.6">
-      Site is <strong>${acres} ac</strong> but facility only needs <strong>~${effectivePadAcres} ac</strong>.
-      Pad-only land cost: <strong>${fmtM(padLandCost)}</strong> at $${padScenario.pricePerAcre.toLocaleString()}/ac.
-      Pad YOC: <strong>${padScenario.padYOC}%</strong>.
-      Verdict (pad only): <strong style="color:${padScenario.padVerdictColor}">${padScenario.padVerdict}</strong>
-      ${padScenario.padAskVsStrike !== null ? ` (${parseFloat(padScenario.padAskVsStrike) > 0 ? "+" : ""}${padScenario.padAskVsStrike}% vs strike)` : ""}.
-      Excess <strong>${excessAcres} ac</strong> can be marketed separately.
+      <table style="font-size:10px;border:none">
+        ${site.zoning ? `<tr><td style="color:#64748B;padding:4px 0;border:none;width:120px">District</td><td style="padding:4px 0;border:none;font-weight:700">${h(site.zoning)}</td></tr>` : ""}
+        ${site.zoningUseTerm ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Use term</td><td style="padding:4px 0;border:none">${h(site.zoningUseTerm)}</td></tr>` : ""}
+        ${site.zoningOrdinanceSection ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Section</td><td style="padding:4px 0;border:none;font-family:'Space Mono',monospace;font-size:9px">${h(site.zoningOrdinanceSection)}</td></tr>` : ""}
+        ${site.jurisdictionType ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Jurisdiction</td><td style="padding:4px 0;border:none">${h(site.jurisdictionType)}</td></tr>` : ""}
+        ${site.zoningSource ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Source</td><td style="padding:4px 0;border:none;font-size:9px;word-break:break-all">${h(site.zoningSource)}</td></tr>` : ""}
+        ${site.politicalRisk ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Political risk</td><td style="padding:4px 0;border:none">${h(site.politicalRisk)}</td></tr>` : ""}
+        ${site.planningContact ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Planning</td><td style="padding:4px 0;border:none;font-size:10px">${h(site.planningContact)}${site.planningPhone ? " · " + h(site.planningPhone) : ""}</td></tr>` : ""}
+      </table>
     </div>
+
+    <!-- Water / Utilities -->
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+        <div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em">WATER / UTILITIES</div>
+        <div class="badge" style="background:${utilColor}18;color:${utilColor};border:1px solid ${utilColor}30;font-size:10px;padding:3px 10px">Grade ${utilGrade} · ${utilScore}/100</div>
+      </div>
+      <table style="font-size:10px;border:none">
+        ${site.waterProvider ? `<tr><td style="color:#64748B;padding:4px 0;border:none;width:120px">Water</td><td style="padding:4px 0;border:none">${h(site.waterProvider)}${waterHookupLabel ? ` <span class="pill" style="background:${waterHookupColor}18;color:${waterHookupColor};margin-left:4px">${waterHookupLabel}</span>` : ""}</td></tr>` : ""}
+        ${site.distToWaterMain ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Dist to main</td><td style="padding:4px 0;border:none">${h(site.distToWaterMain)}${site.waterMainSize ? " · " + h(site.waterMainSize) : ""}</td></tr>` : ""}
+        ${site.waterContact ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Hookup contact</td><td style="padding:4px 0;border:none;font-size:9px">${h(site.waterContact)}</td></tr>` : ""}
+        ${site.sewerProvider ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Sewer</td><td style="padding:4px 0;border:none">${h(site.sewerProvider)}</td></tr>` : ""}
+        ${site.electricProvider ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Electric</td><td style="padding:4px 0;border:none">${h(site.electricProvider)}${site.threePhase ? ' <span class="pill" style="background:#16A34A18;color:#16A34A">3-PHASE ✓</span>' : ""}</td></tr>` : ""}
+        ${site.totalUtilityBudget ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Total util budget</td><td style="padding:4px 0;border:none;font-weight:700">${h(site.totalUtilityBudget)}</td></tr>` : ""}
+      </table>
+    </div>
+
+    <!-- Survey -->
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+        <div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em">SURVEY SCRUB</div>
+        <div class="badge" style="background:${surveyVerdictColor}18;color:${surveyVerdictColor};border:1px solid ${surveyVerdictColor}30;font-size:10px;padding:3px 10px">${surveyVerdictIcon || "◆"} ${surveyVerdictLabel}</div>
+      </div>
+      <div style="font-size:10px;color:#64748B;margin-bottom:8px">CLAUDE.md §6h Step 2c — easements + access at intake (storage destination use; no 4-direction test required).</div>
+      <table style="font-size:10px;border:none">
+        ${site.surveyEasementSummary ? `<tr><td style="color:#64748B;padding:4px 0;border:none;vertical-align:top;width:90px">Easements</td><td style="padding:4px 0;border:none;font-size:10px;line-height:1.5">${h(site.surveyEasementSummary)}</td></tr>` : ""}
+        ${site.surveyAccessSummary ? `<tr><td style="color:#64748B;padding:4px 0;border:none;vertical-align:top">Access</td><td style="padding:4px 0;border:none;font-size:10px;line-height:1.5">${h(site.surveyAccessSummary)}</td></tr>` : ""}
+        ${site.surveyScrubDate ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Scrubbed</td><td style="padding:4px 0;border:none">${h(site.surveyScrubDate)}</td></tr>` : ""}
+      </table>
+    </div>
+
+    <!-- Competition -->
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+        <div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em">COMPETITION (3-MI)</div>
+        <div class="badge" style="background:${(site.siteiqData?.ccSPC || 99) < 3 ? "#16A34A" : (site.siteiqData?.ccSPC || 99) < 5 ? "#C9A84C" : "#EF4444"}18;color:${(site.siteiqData?.ccSPC || 99) < 3 ? "#16A34A" : (site.siteiqData?.ccSPC || 99) < 5 ? "#C9A84C" : "#EF4444"};border:1px solid;font-size:10px;padding:3px 10px">CC SPC ${site.siteiqData?.ccSPC?.toFixed(2) || "—"}</div>
+      </div>
+      <table style="font-size:10px;border:none">
+        <tr><td style="color:#64748B;padding:4px 0;border:none;width:120px">CC SPC current</td><td style="padding:4px 0;border:none;font-weight:700">${site.siteiqData?.ccSPC?.toFixed(2) || "—"} SF/capita</td></tr>
+        ${site.siteiqData?.projectedCCSPC ? `<tr><td style="color:#64748B;padding:4px 0;border:none">CC SPC 5-yr</td><td style="padding:4px 0;border:none">${site.siteiqData.projectedCCSPC.toFixed(2)} SF/capita</td></tr>` : ""}
+        <tr><td style="color:#64748B;padding:4px 0;border:none">CC facilities</td><td style="padding:4px 0;border:none">${site.siteiqData?.competitorCount ?? "—"} within 3 mi</td></tr>
+        ${site.competingCCSF ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Total CC SF</td><td style="padding:4px 0;border:none">${h(site.competingCCSF)}</td></tr>` : ""}
+        ${site.nearestCCCompetitor ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Nearest CC</td><td style="padding:4px 0;border:none">${h(site.nearestCCCompetitor)}</td></tr>` : ""}
+        ${nearestPS !== null ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Nearest PS family</td><td style="padding:4px 0;border:none"><b>${nearestPS} mi</b> ${nearestPS <= 5 ? '<span class="pill" style="background:#16A34A18;color:#16A34A">VALIDATED</span>' : nearestPS <= 15 ? '<span class="pill" style="background:#3B82F618;color:#3B82F6">EXPANSION</span>' : '<span class="pill" style="background:#F59E0B18;color:#F59E0B">NEW MARKET</span>'}</td></tr>` : ""}
+        ${site.pipelineSF ? `<tr><td style="color:#64748B;padding:4px 0;border:none;vertical-align:top">CC pipeline</td><td style="padding:4px 0;border:none;font-size:10px">${h(site.pipelineSF)}</td></tr>` : ""}
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Site access + flood -->
+  ${site.roadFrontage || site.frontageRoadName || site.trafficData || site.floodZone || site.femaFloodZone || hasFlood ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:18px">
+    <div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em;margin-bottom:10px">SITE ACCESS &amp; FLOOD</div>
+    <table style="font-size:10px;border:none">
+      ${site.roadFrontage ? `<tr><td style="color:#64748B;padding:4px 0;border:none;width:140px">Frontage</td><td style="padding:4px 0;border:none">${h(site.roadFrontage)}${site.frontageRoadName ? " · " + h(site.frontageRoadName) : ""}${site.roadType ? " · " + h(site.roadType) : ""}</td></tr>` : ""}
+      ${site.trafficData ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Traffic</td><td style="padding:4px 0;border:none">${h(site.trafficData)}</td></tr>` : ""}
+      ${site.nearestSignal ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Nearest signal</td><td style="padding:4px 0;border:none">${h(site.nearestSignal)}</td></tr>` : ""}
+      ${site.curbCuts ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Curb cuts</td><td style="padding:4px 0;border:none">${h(site.curbCuts)}</td></tr>` : ""}
+      ${site.visibility ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Visibility</td><td style="padding:4px 0;border:none">${h(site.visibility)}</td></tr>` : ""}
+      ${site.floodZone || site.femaFloodZone ? `<tr><td style="color:#64748B;padding:4px 0;border:none">FEMA flood</td><td style="padding:4px 0;border:none"><b style="color:${hasFlood ? '#EF4444' : '#16A34A'}">${h(site.floodZone || site.femaFloodZone)}</b>${site.femaPanel ? ` · panel ${h(site.femaPanel)}` : ""}</td></tr>` : ""}
+      ${site.terrain || site.terrainGrade ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Terrain</td><td style="padding:4px 0;border:none">${h(site.terrain || site.terrainGrade)}</td></tr>` : ""}
+    </table>
   </div>` : ""}
+
+  <!-- Source stack -->
+  <div style="background:#1E2761;color:#fff;border-radius:12px;padding:18px;margin-bottom:18px;position:relative;overflow:hidden">
+    <div style="font-size:9px;font-weight:800;letter-spacing:0.18em;color:#C9A84C;margin-bottom:12px">SOURCE STACK — HOW WE KNOW</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px">
+      ${[
+        { k: "Demographics (1/3/5-mi)", v: "ESRI ArcGIS GeoEnrichment 2025 (CY estimates + 2030 projections)" },
+        { k: "CC market rent", v: "PSA / EXR / CUBE FY2025 10-K Same-Store" + (site.marketRents?.auditStatus === "verified" ? " + SpareFoot live audit (verified)" : "") },
+        { k: "ECRI rate (8%/yr)", v: "PSA FY2025 10-K — Existing Customer Rate Increase (3-yr actuals)" },
+        { k: "Stabilized occupancy", v: "PSA + EXR FY2025 10-K Same-Store Operating Metrics" },
+        { k: "Construction $/SF", v: "PSA + EXR development actuals + RSMeans Q1'26 storage index, state-adjusted" },
+        { k: "Exit cap rate", v: "Green Street Q1'26 Self-Storage Sector Report + PSA 10-K Acquisitions" },
+        { k: "PS proximity", v: "PS_Locations_ALL.csv (3,112 PS) + iStorage + NSA = 4,247-loc family registry" },
+        { k: "Zoning verification", v: site.zoningSource ? h(site.zoningSource) : "Municipal ordinance + permitted use table" },
+        { k: "Water hookup", v: site.waterContact ? "Provider verified · contact on file" : "Provider research per CLAUDE.md §6c-2" },
+        { k: "Comp sales", v: (sxSaleCompsState && sxSaleCompsState.length > 0 ? `${sxSaleCompsState.length} ${site.state || "US"} self-storage transactions` : "PSA/EXR/CUBE/LSI/NSA 10-K acquisitions + C&amp;W Self-Storage Market Report") },
+      ].map((s) => `<div style="background:rgba(255,255,255,0.04);border-left:2px solid #C9A84C;border-radius:4px;padding:8px 10px"><div style="font-size:9px;color:#C9A84C;font-weight:700;letter-spacing:0.06em">${h(s.k)}</div><div style="color:rgba(255,255,255,0.85);margin-top:2px;line-height:1.4">${s.v}</div></div>`).join("")}
+    </div>
+  </div>
+
+  <!-- Risk register -->
+  ${risks.length > 0 ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:18px">
+    <div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em;margin-bottom:10px">RISK REGISTER</div>
+    ${risks.map(r => `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${r.color}08;border:1px solid ${r.color}20;border-radius:6px;margin-bottom:6px"><span class="pill" style="background:${r.color}18;color:${r.color};min-width:60px;text-align:center">${r.level}</span><span style="font-size:11px;font-weight:700;color:#64748B;min-width:90px">${r.cat}</span><span style="font-size:11px;color:#1E293B">${r.desc}</span></div>`).join("")}
+  </div>` : `<div style="padding:12px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;text-align:center;color:#16A34A;font-weight:700;font-size:12px;margin-bottom:18px">✓ No significant risks identified</div>`}
+
+  <!-- Broker intel -->
+  ${site.sellerBroker || site.brokerNotes || site.listingSource ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:${site.summary ? "18" : "0"}px">
+    <div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em;margin-bottom:10px">BROKER INTEL</div>
+    <table style="font-size:10px;border:none">
+      ${site.sellerBroker ? `<tr><td style="color:#64748B;padding:4px 0;border:none;width:140px">Broker</td><td style="padding:4px 0;border:none;font-weight:700">${h(site.sellerBroker)}${site.brokerFirm ? " · " + h(site.brokerFirm) : ""}</td></tr>` : ""}
+      ${site.brokerEmail ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Email</td><td style="padding:4px 0;border:none"><a href="mailto:${h(site.brokerEmail)}" style="color:#2563EB">${h(site.brokerEmail)}</a></td></tr>` : ""}
+      ${site.brokerPhone ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Phone</td><td style="padding:4px 0;border:none">${h(site.brokerPhone)}</td></tr>` : ""}
+      ${site.listingSource ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Source</td><td style="padding:4px 0;border:none">${h(site.listingSource)}</td></tr>` : ""}
+      ${site.listingUrl ? `<tr><td style="color:#64748B;padding:4px 0;border:none">Listing</td><td style="padding:4px 0;border:none"><a href="${h(site.listingUrl)}" style="color:#2563EB;word-break:break-all">${h(site.listingUrl)}</a></td></tr>` : ""}
+      ${site.brokerNotes ? `<tr><td style="color:#64748B;padding:4px 0;border:none;vertical-align:top">Notes</td><td style="padding:4px 0;border:none;font-size:10px;line-height:1.5;white-space:pre-wrap">${h(site.brokerNotes)}</td></tr>` : ""}
+    </table>
+  </div>` : ""}
+
+  <!-- Deal summary -->
+  ${site.summary ? `<div style="padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px"><div style="font-size:9px;font-weight:800;color:#1E2761;letter-spacing:0.1em;margin-bottom:8px">DEAL SUMMARY</div><div style="font-size:11px;color:#1E293B;line-height:1.7;white-space:pre-wrap">${h(site.summary)}</div></div>` : ""}
 </div>
-
-<!-- ═══════════════ SECTION 9: INSTITUTIONAL METRICS & REIT BENCHMARKING ═══════════════ -->
-<div id="sec-R9" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">12</span> Institutional Performance Metrics</h2>
-  <div class="grid4" style="margin-bottom:16px">
-    <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('inst-revpaf',event)"><div class="label">RevPAF</div><div class="value" style="font-size:18px;color:#1E2761">$${revPAF}</div><div class="sub">/available SF/yr</div><em class="mi-hint">i</em>
-      <div id="mi-inst-revpaf" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Revenue Per Available Foot</div><div class="mi-conf mi-conf-med">Institutional</div></div>
-        <div class="mi-body">
-          <strong>RevPAF is the REIT industry's primary operating metric — revenue per available square foot, regardless of occupancy.</strong>
-          <div class="mi-formula">RevPAF = Stabilized Revenue ÷ Total SF<br>= ${fmtD(stabRev)} ÷ ${totalSF.toLocaleString()}<br>= <strong style="color:#1E2761">$${revPAF}/SF/yr</strong></div>
-          <div class="mi-row"><span class="mi-row-label">PSA Q4 2025 Same-Store</span><span class="mi-row-val">$22.45/SF/yr</span></div>
-          <div class="mi-row"><span class="mi-row-label">EXR Q4 2025 Same-Store</span><span class="mi-row-val">$21.82/SF/yr</span></div>
-          <div class="mi-row"><span class="mi-row-label">CUBE Q4 2025 Same-Store</span><span class="mi-row-val">$20.19/SF/yr</span></div>
-          <div class="mi-row"><span class="mi-row-label">This Site vs PSA</span><span class="mi-row-val" style="color:${parseFloat(revPAF) >= 22 ? '#16A34A' : '#D97706'}">${parseFloat(revPAF) >= 22 ? "At or above PSA" : "Below PSA — growth market pricing"}</span></div>
-          <div class="mi-source">Source: PSA/EXR/CUBE 10-K Annual Reports (FY 2025) | Same-store revenue per available foot</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('inst-noim',event)"><div class="label">NOI Margin</div><div class="value" style="font-size:18px;color:${parseFloat(noiMarginPct) >= 60 ? '#16A34A' : '#F59E0B'}">${noiMarginPct}%</div><em class="mi-hint">i</em>
-      <div id="mi-inst-noim" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">NOI Margin Analysis</div><div class="mi-conf ${parseFloat(noiMarginPct) >= 60 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(noiMarginPct) >= 65 ? "Strong" : parseFloat(noiMarginPct) >= 55 ? "Adequate" : "Below Industry"}</div></div>
-        <div class="mi-body">
-          <strong>Net Operating Income as a percentage of total revenue — self-storage's hallmark is high NOI margins (60%+).</strong>
-          <div class="mi-formula">NOI Margin = Stabilized NOI ÷ Stabilized Revenue<br>= ${fmtD(stabNOI)} ÷ ${fmtD(stabRev)}<br>= <strong style="color:${parseFloat(noiMarginPct) >= 60 ? '#16A34A' : '#D97706'}">${noiMarginPct}%</strong></div>
-          <div class="mi-row"><span class="mi-row-label">PSA NOI Margin (2025)</span><span class="mi-row-val">62.8%</span></div>
-          <div class="mi-row"><span class="mi-row-label">EXR NOI Margin (2025)</span><span class="mi-row-val">64.1%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Industry Range</span><span class="mi-row-val">58-68% (top-tier operators)</span></div>
-          <div class="mi-row"><span class="mi-row-label">OpEx Ratio</span><span class="mi-row-val">${opexRatioDetail || "38"}%</span></div>
-          <div class="mi-source">Source: PSA/EXR/CUBE/LSI 10-K Annual Reports (FY 2025) | SiteScore 10-line OpEx model</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('inst-devspread',event)"><div class="label">Dev Spread</div><div class="value" style="font-size:18px">${devSpread} bps</div><div class="sub">YOC vs ${(mktAcqCap*100).toFixed(1)}% acq cap</div><em class="mi-hint">i</em>
-      <div id="mi-inst-devspread" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Development Spread</div><div class="mi-conf ${parseFloat(devSpread) >= 200 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(devSpread) >= 300 ? "Wide Spread" : parseFloat(devSpread) >= 200 ? "Adequate" : "Tight"}</div></div>
-        <div class="mi-body">
-          <strong>The development spread is the yield premium a developer earns by building vs. acquiring at market cap rate. This is the "developer's profit" that justifies the construction and lease-up risk.</strong>
-          <div class="mi-formula">Dev Spread = (YOC − Market Acquisition Cap Rate) × 100<br>= (${yocStab}% − ${(mktAcqCap*100).toFixed(1)}%) × 100<br>= <strong style="color:${parseFloat(devSpread) >= 200 ? '#16A34A' : '#D97706'}">${devSpread} bps</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Target Spread</span><span class="mi-row-val">≥ 200 bps (minimum risk premium)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Market Acq Cap</span><span class="mi-row-val">${(mktAcqCap*100).toFixed(1)}% (stabilized storage)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Risk Premium Covers</span><span class="mi-row-val">Construction, lease-up, entitlement risk</span></div>
-          <div class="mi-source">Source: REIT transaction comps, Green Street Advisors cap rate index (2025) | Industry: 200-400 bps target spread</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('inst-sfcap',event)"><div class="label">SF/Capita (3-Mi)</div><div class="value" style="font-size:18px;color:${demandColor}">${sfPerCapita || "—"}</div><div class="sub">${demandSignal || "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-inst-sfcap" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Supply Per Capita Analysis</div><div class="mi-conf ${demandColor === '#16A34A' ? "mi-conf-high" : demandColor === '#F59E0B' ? "mi-conf-med" : "mi-conf-low"}">${demandSignal || "—"}</div></div>
-        <div class="mi-body">
-          <strong>Square feet of self-storage per capita within the 3-mile catchment — the key supply/demand equilibrium metric.</strong>
-          <div class="mi-formula">SF/Capita = (Existing Storage SF + Proposed SF) ÷ 3-Mi Pop<br>${sfPerCapita ? `= <strong style="color:${demandColor}">${sfPerCapita} SF/capita</strong>` : "Data pending"}<br>SF/Capita (excl. this project) = ${sfPerCapitaExcl || "—"}</div>
-          <div class="mi-row"><span class="mi-row-label">< 5 SF/capita</span><span class="mi-row-val" style="color:#16A34A">Underserved — strong demand</span></div>
-          <div class="mi-row"><span class="mi-row-label">7-9 SF/capita</span><span class="mi-row-val">Equilibrium</span></div>
-          <div class="mi-row"><span class="mi-row-label">> 12 SF/capita</span><span class="mi-row-val" style="color:#EF4444">Oversupplied</span></div>
-          <div class="mi-row"><span class="mi-row-label">National Avg (2024)</span><span class="mi-row-val">7.3 SF/capita</span></div>
-          <div class="mi-source">Source: SSA Self Storage Almanac (2024) | Facility count via Google Maps/SpareFoot scan</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-
-  <!-- Capital Stack -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">Capital Stack & Leveraged Returns</h3>
-  <div class="grid4" style="margin-bottom:16px">
-    <div class="metric mi" onclick="toggleMI('cap-loan',event)"><div class="label">Loan (${Math.round(loanLTV*100)}% LTV)</div><div class="value" style="font-size:14px">${fmtM(loanAmount)}</div><div class="sub">${(loanRate*100).toFixed(2)}% / ${loanAmort}yr</div><em class="mi-hint">i</em>
-      <div id="mi-cap-loan" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Senior Debt Structure</div><div class="mi-conf mi-conf-med">Modeled</div></div>
-        <div class="mi-body">
-          <strong>Construction-to-permanent loan assumptions based on current CMBS/bank lending standards for self-storage development.</strong>
-          <div class="mi-formula">Loan Amount = Total Dev Cost × LTV<br>= ${fmtD(totalDevCost)} × ${Math.round(loanLTV*100)}%<br>= <strong style="color:#1E40AF">${fmtD(loanAmount)}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">LTV</span><span class="mi-row-val">${Math.round(loanLTV*100)}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Interest Rate</span><span class="mi-row-val">${(loanRate*100).toFixed(2)}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Amortization</span><span class="mi-row-val">${loanAmort} years</span></div>
-          <div class="mi-row"><span class="mi-row-label">Annual Debt Service</span><span class="mi-row-val">${fmtD(annualDS)}</span></div>
-          <div class="mi-source">Source: CMBS/bank construction-to-perm terms (Q1 2026) | 65% LTV, 25yr amort standard for SS development</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('cap-equity',event)"><div class="label">Equity Required</div><div class="value" style="font-size:14px">${fmtM(equityRequired)}</div><em class="mi-hint">i</em>
-      <div id="mi-cap-equity" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Equity Requirement</div><div class="mi-conf mi-conf-med">Derived</div></div>
-        <div class="mi-body">
-          <strong>Total equity needed to fund the project after debt proceeds.</strong>
-          <div class="mi-formula">Equity = Total Dev Cost × (1 - LTV)<br>= ${fmtD(totalDevCost)} × ${Math.round(equityPct*100)}%<br>= <strong style="color:#1E40AF">${fmtD(equityRequired)}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Equity % of Stack</span><span class="mi-row-val">${Math.round(equityPct*100)}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Cash After DS (Stab.)</span><span class="mi-row-val">${fmtD(cashAfterDS)}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Cash-on-Cash Return</span><span class="mi-row-val">${cashOnCash}%</span></div>
-          <div class="mi-source">Source: SiteScore Capital Stack Model | Standard self-storage development financing structure</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('cap-dscr',event)"><div class="label">DSCR (Stab.)</div><div class="value" style="font-size:18px;color:${parseFloat(dscrStab) >= 1.25 ? '#16A34A' : '#EF4444'}">${dscrStab}x</div><em class="mi-hint">i</em>
-      <div id="mi-cap-dscr" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Debt Service Coverage Ratio</div><div class="mi-conf ${parseFloat(dscrStab) >= 1.25 ? "mi-conf-high" : "mi-conf-low"}">${parseFloat(dscrStab) >= 1.25 ? "Meets Covenant" : "Below Covenant"}</div></div>
-        <div class="mi-body">
-          <strong>DSCR measures how many times NOI covers annual debt service. Lenders require 1.25x minimum for self-storage.</strong>
-          <div class="mi-formula">DSCR = Stabilized NOI ÷ Annual Debt Service<br>= ${fmtD(stabNOI)} ÷ ${fmtD(annualDS)}<br>= <strong style="color:${parseFloat(dscrStab) >= 1.25 ? '#16A34A' : '#EF4444'}">${dscrStab}x</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Minimum Covenant</span><span class="mi-row-val">1.25x (CMBS standard)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Comfortable Level</span><span class="mi-row-val">1.40x+</span></div>
-          <div class="mi-row"><span class="mi-row-label">Cushion</span><span class="mi-row-val">${parseFloat(dscrStab) >= 1.25 ? fmtD(stabNOI - annualDS * 1.25) + " above 1.25x" : "Below minimum — risk"}</span></div>
-          <div class="mi-source">Source: CMBS underwriting standards | Fannie/Freddie small-balance loan guidelines (2025)</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('cap-coc',event)"><div class="label">Cash-on-Cash</div><div class="value" style="font-size:18px;color:${parseFloat(cashOnCash) >= 10 ? '#16A34A' : '#F59E0B'}">${cashOnCash}%</div><em class="mi-hint">i</em>
-      <div id="mi-cap-coc" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Cash-on-Cash Return</div><div class="mi-conf ${parseFloat(cashOnCash) >= 10 ? "mi-conf-high" : "mi-conf-med"}">${parseFloat(cashOnCash) >= 12 ? "Strong" : parseFloat(cashOnCash) >= 8 ? "Adequate" : "Low"}</div></div>
-        <div class="mi-body">
-          <strong>Annual cash return on equity invested — measures the income yield on the sponsor's actual cash outlay.</strong>
-          <div class="mi-formula">Cash-on-Cash = Cash After DS ÷ Equity<br>= ${fmtD(cashAfterDS)} ÷ ${fmtD(equityRequired)}<br>= <strong style="color:${parseFloat(cashOnCash) >= 10 ? '#16A34A' : '#D97706'}">${cashOnCash}%</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Target Range</span><span class="mi-row-val">8-15% (development)</span></div>
-          <div class="mi-row"><span class="mi-row-label">vs 10-Yr Treasury</span><span class="mi-row-val">${parseFloat(cashOnCash) > 4.5 ? "+" : ""}${(parseFloat(cashOnCash) - 4.5).toFixed(1)}% spread</span></div>
-          <div class="mi-source">Source: SiteScore Capital Stack Model | Risk-adjusted return on equity after leverage</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-  <div class="grid3">
-    <div class="metric mi" style="border:2px solid #1E2761" onclick="toggleMI('inst-irr',event)"><div class="label">10-Yr Levered IRR</div><div class="value" style="font-size:22px;color:${parseFloat(irrPct) >= 15 ? '#16A34A' : parseFloat(irrPct) >= 10 ? '#F59E0B' : '#EF4444'}">${irrPct}%</div><em class="mi-hint">i</em>
-      <div id="mi-inst-irr" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">10-Year Levered IRR</div><div class="mi-conf ${parseFloat(irrPct) >= 15 ? "mi-conf-high" : parseFloat(irrPct) >= 10 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(irrPct) >= 18 ? "Exceptional" : parseFloat(irrPct) >= 15 ? "Strong" : parseFloat(irrPct) >= 10 ? "Adequate" : "Below Hurdle"}</div></div>
-        <div class="mi-body">
-          <strong>Internal Rate of Return on levered equity over a 10-year hold — the comprehensive return metric incorporating cash flow timing, exit value, and leverage effects.</strong>
-          <div class="mi-formula">IRR = Rate where NPV of all cash flows = 0<br>Equity invested: -${fmtD(equityRequired)} (Year 0)<br>Annual cash flow (stab.): +${fmtD(cashAfterDS)}<br>Exit proceeds (Y10): +${fmtD(exitEquityProceeds)}<br>= <strong style="color:${parseFloat(irrPct) >= 15 ? '#16A34A' : '#D97706'}">${irrPct}% IRR</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Institutional Target</span><span class="mi-row-val">15-20% levered (development)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Exit Cap Rate</span><span class="mi-row-val">${(exitCapRate*100).toFixed(2)}%</span></div>
-          <div class="mi-row"><span class="mi-row-label">Exit Value (Y10)</span><span class="mi-row-val">${fmtM(exitValue)}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Equity Proceeds (Y10)</span><span class="mi-row-val">${fmtM(exitEquityProceeds)}</span></div>
-          <div class="mi-source">Source: SiteScore 10-Year DCF Model | NPV-based IRR solver | Exit: 50bp cap expansion from entry</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('inst-eqmult',event)"><div class="label">Equity Multiple (10-Yr)</div><div class="value" style="font-size:22px">${equityMultiple}x</div><em class="mi-hint">i</em>
-      <div id="mi-inst-eqmult" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Equity Multiple</div><div class="mi-conf ${parseFloat(equityMultiple) >= 2.5 ? "mi-conf-high" : parseFloat(equityMultiple) >= 2.0 ? "mi-conf-med" : "mi-conf-low"}">${parseFloat(equityMultiple) >= 2.5 ? "Strong" : parseFloat(equityMultiple) >= 2.0 ? "Adequate" : "Below Target"}</div></div>
-        <div class="mi-body">
-          <strong>Total return on equity — how many times the initial equity investment is returned over the 10-year hold period.</strong>
-          <div class="mi-formula">Equity Multiple = Total Distributions ÷ Equity Invested<br>= (Cumulative Cash Flow + Exit Proceeds) ÷ ${fmtD(equityRequired)}<br>= <strong style="color:#1E2761">${equityMultiple}x</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Institutional Target</span><span class="mi-row-val">2.0x – 3.0x (10-yr development)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Total Profit</span><span class="mi-row-val">${fmtD((parseFloat(equityMultiple) - 1) * equityRequired)}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Profit / Year</span><span class="mi-row-val">${fmtD((parseFloat(equityMultiple) - 1) * equityRequired / 10)}/yr avg</span></div>
-          <div class="mi-source">Source: SiteScore 10-Year DCF Model | Total capital return including cash flow and exit</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('inst-rateconf',event)"><div class="label">Rate Confidence</div><div class="value" style="font-size:14px;color:${rateConfColor}">${rateConfidence}</div><div class="sub">3-method cross-validated</div><em class="mi-hint">i</em>
-      <div id="mi-inst-rateconf" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Rental Rate Confidence</div><div class="mi-conf ${rateConfidence === "HIGH" ? "mi-conf-high" : rateConfidence === "MEDIUM" ? "mi-conf-med" : "mi-conf-low"}">${rateConfidence}</div></div>
-        <div class="mi-body">
-          <strong>Three independent rate-estimation methods are cross-validated to determine confidence in the modeled rental rates.</strong>
-          <div class="mi-row"><span class="mi-row-label">Method 1: Income-Tier</span><span class="mi-row-val">$${toN(m1Rate).toFixed(2)}/SF/mo (HHI-based)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Method 2: Comp Scan</span><span class="mi-row-val">$${toN(m2ClimRate).toFixed(2)} clim / $${toN(m2DriveRate).toFixed(2)} drive</span></div>
-          <div class="mi-row"><span class="mi-row-label">Method 3: Pop Density</span><span class="mi-row-val">$${toN(m3ClimRate).toFixed(2)}/SF/mo</span></div>
-          <div class="mi-row"><span class="mi-row-label">Consensus Rate</span><span class="mi-row-val" style="color:#1E2761">$${toN(consensusClimRate).toFixed(2)}/SF/mo climate</span></div>
-          <div class="mi-row"><span class="mi-row-label">Methodology</span><span class="mi-row-val">Median of 3 methods (outlier-resistant)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Confidence Logic</span><span class="mi-row-val">${rateConfidence === "HIGH" ? "All 3 methods within 15% of consensus" : rateConfidence === "MEDIUM" ? "2 of 3 methods within 20% of consensus" : "Methods diverge >25% — verify with comps"}</span></div>
-          <div class="mi-source">Source: SiteScore 3-Method Rate Engine | Census ACS (M1), SpareFoot/operator websites (M2), ESRI pop density (M3)</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-
-  <!-- REIT Benchmarking (condensed) -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">REIT Portfolio Comparison</h3>
-  <table style="font-size:11px">
-    <thead><tr><th>Operator</th><th>RevPAF</th><th>NOI Margin</th><th>Avg Occ</th><th>Implied Cap</th></tr></thead>
-    <tbody>
-      <tr style="background:rgba(201,168,76,0.06);font-weight:700;border-left:3px solid #C9A84C">
-        <td style="color:#C9A84C">◆ THIS SITE</td><td class="mono">$${revPAF}</td><td class="mono">${noiMarginPct}%</td><td class="mono">${yearData && yearData[4] ? Math.round(((yearData[4].occupancy != null ? yearData[4].occupancy : yearData[4].occRate != null ? yearData[4].occRate : yearData[4].occ != null ? yearData[4].occ : 0)) * 100) + "%" : "—"}</td><td class="mono" style="font-size:10px;color:#64748B" title="Pre-stabilization — no market cap rate applicable until asset is stabilized and valued">— <span style="font-size:8px;color:#94A3B8">pre-stab</span></td>
-      </tr>
-      ${reitBench.slice(0, 4).map(r => `<tr>
-        <td style="font-weight:600">${r.ticker}</td><td class="mono">$${r.revPAF.toFixed(2)}</td><td class="mono">${r.noiMargin.toFixed(1)}%</td><td class="mono">${r.avgOcc.toFixed(1)}%</td><td class="mono">${r.impliedCap.toFixed(1)}%</td>
-      </tr>`).join("")}
-    </tbody>
-  </table>
-
-  <!-- Replacement Cost -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin:20px 0 12px">Replacement Cost — Build vs. Acquire</h3>
-  <div class="grid3">
-    <div class="metric mi" onclick="toggleMI('repl-cost',event)"><div class="label">Replacement Cost</div><div class="value" style="font-size:14px">${fmtM(replacementCost)}</div><div class="sub">$${replacementCostPerSF}/SF excl. land</div><em class="mi-hint">i</em>
-      <div id="mi-repl-cost" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Replacement Cost Analysis</div><div class="mi-conf mi-conf-med">Modeled</div></div>
-        <div class="mi-body">
-          <strong>What it would cost to build an identical facility at current construction costs — the "floor" for acquisition pricing.</strong>
-          <div class="mi-formula">Replacement Cost (excl. land) = Total SF × Cost/SF<br>= ${totalSF.toLocaleString()} × $${replacementCostPerSF}<br>= <strong style="color:#1E40AF">${fmtM(replacementCost)}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Construction $/SF</span><span class="mi-row-val">$${replacementCostPerSF}/SF</span></div>
-          <div class="mi-row"><span class="mi-row-label">Full w/ Land</span><span class="mi-row-val">${fullReplacementCost > 0 ? fmtM(fullReplacementCost) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">vs Market Value</span><span class="mi-row-val">${replacementVsMarket !== null && replacementVsMarket !== undefined ? replacementVsMarket + "%" : "—"}</span></div>
-          <div class="mi-source">Source: RSMeans Construction Cost Database (2025) | State-adjusted index | Self-storage specification</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" onclick="toggleMI('repl-full',event)"><div class="label">Full Dev Cost</div><div class="value" style="font-size:14px">${fullReplacementCost > 0 ? fmtM(fullReplacementCost) : "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-repl-full" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Full Replacement Cost (w/ Land)</div><div class="mi-conf mi-conf-med">Calculated</div></div>
-        <div class="mi-body">
-          <strong>Total cost to replicate this facility from scratch including land — used to evaluate build vs. acquire decisions.</strong>
-          <div class="mi-formula">Full Cost = Replacement (excl. land) + Land<br>= ${fmtD(replacementCost)} + ${fmtD(landCost)}<br>= <strong style="color:#1E40AF">${fullReplacementCost > 0 ? fmtD(fullReplacementCost) : "—"}</strong></div>
-          <div class="mi-row"><span class="mi-row-label">Cost/SF (all-in)</span><span class="mi-row-val">${totalSF > 0 && fullReplacementCost > 0 ? fmtD(fullReplacementCost/totalSF) + "/SF" : "—"}</span></div>
-          <div class="mi-source">Source: SiteScore Financial Engine | Land: listing, Construction: RSMeans (2025)</div>
-        </div>
-      </div></div>
-    </div>
-    <div class="metric mi" style="border:1px solid ${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#F59E0B'}40" onclick="toggleMI('repl-verdict',event)"><div class="label">Verdict</div><div style="font-size:11px;font-weight:700;color:${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#F59E0B'};margin-top:6px">${buildOrBuy || "—"}</div><em class="mi-hint">i</em>
-      <div id="mi-repl-verdict" class="mi-panel"><div class="mi-panel-inner">
-        <div class="mi-header"><div class="mi-title">Build vs. Acquire Verdict</div><div class="mi-conf ${buildOrBuy?.startsWith("BUILD") ? "mi-conf-high" : "mi-conf-med"}">${buildOrBuy?.startsWith("BUILD") ? "Build Favorable" : "Evaluate"}</div></div>
-        <div class="mi-body">
-          <strong>Compares the cost of ground-up development versus acquiring an existing stabilized facility at market cap rate.</strong>
-          <div class="mi-row"><span class="mi-row-label">Development Cost</span><span class="mi-row-val">${fmtD(totalDevCost)}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Market Acq Price</span><span class="mi-row-val">${valuations[1] ? fmtM(valuations[1].value) : "—"} (@ mkt cap)</span></div>
-          <div class="mi-row"><span class="mi-row-label">Value Creation</span><span class="mi-row-val" style="color:#16A34A">${valuations[1] ? fmtM(valuations[1].value - totalDevCost) : "—"}</span></div>
-          <div class="mi-row"><span class="mi-row-label">Verdict</span><span class="mi-row-val" style="color:${buildOrBuy?.startsWith("BUILD") ? '#16A34A' : '#D97706'}">${buildOrBuy || "—"}</span></div>
-          <div class="mi-source">Source: SiteScore Replacement Cost Engine | Market cap rates from REIT transaction comps (Q4 2025)</div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════ SECTION 9: SENSITIVITY ANALYSIS & SOURCES/USES ═══════════════ -->
-<div class="section">
-  <h2><span class="sec-num">13</span> Sensitivity Analysis & Capital Structure</h2>
-
-  <!-- Sensitivity Matrix -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Stabilized YOC & IRR Sensitivity — Rent ±10% × Occupancy ±5pts</h3>
-  <table style="width:100%;font-size:11px;border-collapse:collapse;margin-bottom:24px">
-    <thead>
-      <tr>
-        <th style="background:#F8FAFC;color:#64748B;padding:10px;border:1px solid #E2E8F0"></th>
-        ${sensitivityMatrix.occScenarios.map(o => `<th style="background:#F8FAFC;color:#1E2761;padding:10px;text-align:center;border:1px solid #E2E8F0;font-weight:700">${o.label}</th>`).join("")}
-      </tr>
-    </thead>
-    <tbody>
-      ${sensitivityMatrix.grid.map((row, ri) => `<tr>
-        <td style="background:#F8FAFC;color:#1E2761;padding:10px;font-weight:700;border:1px solid #E2E8F0">${sensitivityMatrix.rentScenarios[ri].label}</td>
-        ${row.map((cell, ci) => {
-          const isBase = ri === 1 && ci === 1;
-          const bg = isBase ? "#FFF7ED" : "#FFFFFF";
-          const yocColor = parseFloat(cell.yoc) >= 8 ? "#16A34A" : parseFloat(cell.yoc) >= 6 ? "#D97706" : "#EF4444";
-          const irrColor = parseFloat(cell.irr) >= 15 ? "#16A34A" : parseFloat(cell.irr) >= 10 ? "#D97706" : "#EF4444";
-          return `<td style="background:${bg};padding:10px;text-align:center;border:1px solid #E2E8F0;${isBase ? "border:2px solid #C9A84C;font-weight:700;" : ""}">
-            <div style="font-size:16px;font-weight:800;color:${yocColor}">${cell.yoc}%</div>
-            <div style="font-size:9px;color:#94A3B8;margin-top:2px">YOC</div>
-            <div style="font-size:13px;font-weight:700;color:${irrColor};margin-top:4px">${cell.irr}%</div>
-            <div style="font-size:9px;color:#94A3B8">IRR (10-Yr Levered)</div>
-          </td>`;
-        }).join("")}
-      </tr>`).join("")}
-    </tbody>
-  </table>
-  <div style="font-size:10px;color:#94A3B8;margin-bottom:24px">Base case highlighted (gold border). Fixed operating costs held constant across scenarios; variable costs adjust with revenue. ECRI at 20% Y5 cumulative blended lift. IRR computed via full 10-year DCF rerun per scenario.</div>
-
-  <!-- Sources & Uses -->
-  <h3 style="font-size:12px;font-weight:800;color:#64748B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Sources & Uses of Capital</h3>
-  <div style="display:flex;gap:24px;margin-bottom:16px">
-    <div style="flex:1">
-      <div style="font-size:11px;font-weight:700;color:#1E2761;letter-spacing:0.06em;margin-bottom:8px;text-transform:uppercase">Sources</div>
-      <table style="width:100%;font-size:11px;border-collapse:collapse">
-        ${sourcesAndUses.sources.map(s => `<tr>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E293B;font-weight:600">${s.item}</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">${fmtD(s.amount)}</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;color:#64748B;font-family:'Space Mono',monospace">${s.pct}%</td>
-        </tr>`).join("")}
-        <tr style="background:#F0FDF4;font-weight:800">
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E2761">Total Sources</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace;color:#16A34A">${fmtD(sourcesAndUses.totalSources)}</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">100%</td>
-        </tr>
-      </table>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:11px;font-weight:700;color:#1E2761;letter-spacing:0.06em;margin-bottom:8px;text-transform:uppercase">Uses</div>
-      <table style="width:100%;font-size:11px;border-collapse:collapse">
-        ${sourcesAndUses.uses.map(u => `<tr>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E293B;font-weight:600">${u.item}</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">${fmtD(u.amount)}</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;color:#64748B;font-family:'Space Mono',monospace">${u.pct}%</td>
-        </tr>`).join("")}
-        <tr style="background:#FFF7ED;font-weight:800">
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;color:#1E2761">Total Uses</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace;color:#E87A2E">${fmtD(sourcesAndUses.totalUses)}</td>
-          <td style="padding:8px 12px;border:1px solid #E2E8F0;text-align:right;font-family:'Space Mono',monospace">100%</td>
-        </tr>
-      </table>
-    </div>
-  </div>
-  <div style="font-size:10px;color:#94A3B8">Construction financing at 60% LTC, 7.5% rate, ${constructionMonths}-month build. Permanent financing: ${Math.round(loanLTV*100)}% LTV @ ${(loanRate*100).toFixed(2)}% / ${loanAmort}-yr amortization. Working capital reserve: 2% of build costs.</div>
-</div>
-
-<!-- ═══════════════ SECTION 10: RISK ASSESSMENT ═══════════════ -->
-<div id="sec-R10" class="section" style="scroll-margin-top:20px">
-  <h2><span class="sec-num">14</span> Risk Assessment</h2>
-  ${risks.length > 0 ? risks.map(r => `<div class="risk-row" style="background:${r.color}08;border:1px solid ${r.color}20">
-    <span class="pill" style="background:${r.color}18;color:${r.color};min-width:60px;text-align:center">${r.level}</span>
-    <span style="font-size:11px;font-weight:700;color:#64748B;min-width:90px">${r.cat}</span>
-    <span style="font-size:12px;color:#1E293B">${r.desc}</span>
-  </div>`).join("") : `<div style="padding:16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;text-align:center;color:#16A34A;font-weight:700;font-size:13px">✅ No significant risks identified</div>`}
-</div>
-
-<!-- ═══════════════ SECTION 11: BROKER INTEL ═══════════════ -->
-${site.sellerBroker || site.brokerNotes || site.listingSource ? `<div class="section">
-  <h2><span class="sec-num">15</span> Broker Intelligence</h2>
-  <table>
-    <tbody>
-      ${site.sellerBroker ? `<tr><td style="font-weight:700;color:#64748B;width:200px">Seller / Broker</td><td>${h(site.sellerBroker)}</td></tr>` : ""}
-      ${site.listingSource ? `<tr><td style="font-weight:700;color:#64748B">Listing Source</td><td>${h(site.listingSource)}</td></tr>` : ""}
-      ${site.listingUrl ? `<tr><td style="font-weight:700;color:#64748B">Listing URL</td><td><a href="${h(site.listingUrl)}" style="color:#2563EB;word-break:break-all">${h(site.listingUrl)}</a></td></tr>` : ""}
-      ${site.brokerNotes ? `<tr><td style="font-weight:700;color:#64748B">Broker Notes</td><td>${h(site.brokerNotes)}</td></tr>` : ""}
-    </tbody>
-  </table>
-</div>` : ""}
-
-<!-- ═══════════════ SECTION 12: DEAL SUMMARY ═══════════════ -->
-${site.summary ? `<div class="section">
-  <h2><span class="sec-num">16</span> Deal Summary & Notes</h2>
-  <div style="padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;color:#1E293B;line-height:1.7;white-space:pre-wrap">${h(site.summary)}</div>
-</div>` : ""}
 
 <!-- ═══════════════ FOOTER ═══════════════ -->
 <div class="divider"></div>
