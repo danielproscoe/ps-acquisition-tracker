@@ -1,7 +1,7 @@
 {
   "schema": "storvex.county-permits.v1",
   "phase": "PILOT-ARCHITECTURE",
-  "generatedAt": "2026-05-15T09:35:46.903Z",
+  "generatedAt": "2026-05-16T08:28:31.292Z",
   "methodology": "Per-county building-permit records for new self-storage construction. Sourced from the issuing jurisdiction's permit search portal (city, county, or state) and/or public records request. Each entry stamps `verifiedSource: \"permit-<county>-<permit-number>\"`, which `src/utils/pipelineConfidence.js` derivation rule #2 auto-classifies as VERIFIED. This is the SECOND primary-source lineage in the Storvex audit-layer registry alongside EDGAR — every entry here is independent of any aggregator (Radius+, TractIQ, StorTrack).",
   "citationRule": "Every entry MUST carry permitNumber, permitIssueDate, jurisdiction, and either permitUrl (preferred — direct link to the public permit record) or onFileSource (when pulled from a county records request that cannot be permalinked). Entries missing any of these four fields are rejected by the Verification Oracle.",
   "pilotCounties": [
